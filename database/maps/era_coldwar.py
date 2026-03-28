@@ -1,0 +1,312 @@
+"""
+ChronoConquest — Cold War Era Map (1947–1991)
+Canvas: 1200 x 700 px
+Blocs: NATO (USA/Western Europe), Warsaw Pact (USSR/Eastern Europe),
+       Non-Aligned Movement, China, proxy war theatres
+"""
+
+import json
+
+def quad(x1,y1, x2,y2, x3,y3, x4,y4):
+    return [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+
+def pent(x1,y1, x2,y2, x3,y3, x4,y4, x5,y5):
+    return [[x1,y1],[x2,y2],[x3,y3],[x4,y4],[x5,y5]]
+
+# ---------------------------------------------------------------------------
+# REGIONS
+# ---------------------------------------------------------------------------
+regions = [
+    {"region_id": "nato_europe",     "name": "NATO Europe",         "bonus": 5},
+    {"region_id": "warsaw_pact",     "name": "Warsaw Pact",         "bonus": 5},
+    {"region_id": "north_america_cw","name": "North America",       "bonus": 5},
+    {"region_id": "latin_america",   "name": "Latin America",       "bonus": 3},
+    {"region_id": "middle_east_cw",  "name": "Middle East",         "bonus": 4},
+    {"region_id": "africa_cw",       "name": "Africa",              "bonus": 3},
+    {"region_id": "south_asia_cw",   "name": "South & SE Asia",     "bonus": 3},
+    {"region_id": "east_asia_cw",    "name": "East Asia",           "bonus": 5},
+]
+
+# ---------------------------------------------------------------------------
+# TERRITORIES
+# ---------------------------------------------------------------------------
+territories = [
+    # ── NATO EUROPE ─────────────────────────────────────────────────────────
+    {"territory_id": "uk_ireland",   "name": "United Kingdom & Ireland",
+     "polygon": quad(115,30, 200,25, 205,110, 110,115),
+     "center_point": [158, 70], "region_id": "nato_europe"},
+
+    {"territory_id": "france_benelux","name": "France & Benelux",
+     "polygon": quad(160,110, 255,105, 260,195, 155,200),
+     "center_point": [208, 153], "region_id": "nato_europe"},
+
+    {"territory_id": "west_germany", "name": "West Germany",
+     "polygon": quad(225,80, 320,75, 325,165, 220,170),
+     "center_point": [273, 123], "region_id": "nato_europe"},
+
+    {"territory_id": "iberia_cw",    "name": "Iberia",
+     "polygon": quad(90,155, 185,150, 190,240, 85,245),
+     "center_point": [138, 198], "region_id": "nato_europe"},
+
+    {"territory_id": "italy_cw",     "name": "Italy & Greece",
+     "polygon": quad(230,180, 330,175, 335,270, 225,275),
+     "center_point": [280, 225], "region_id": "nato_europe"},
+
+    {"territory_id": "scandinavia_cw","name": "Scandinavia",
+     "polygon": quad(195,20, 325,15, 330,80, 190,85),
+     "center_point": [258, 50], "region_id": "nato_europe"},
+
+    {"territory_id": "turkey_cw",    "name": "Turkey (NATO)",
+     "polygon": quad(325,185, 460,180, 465,265, 320,270),
+     "center_point": [393, 225], "region_id": "nato_europe"},
+
+    # ── WARSAW PACT ─────────────────────────────────────────────────────────
+    {"territory_id": "east_germany", "name": "East Germany & Poland",
+     "polygon": quad(295,75, 415,70, 420,165, 290,170),
+     "center_point": [355, 118], "region_id": "warsaw_pact"},
+
+    {"territory_id": "czechoslovakia","name": "Czechoslovakia & Hungary",
+     "polygon": quad(295,165, 415,160, 420,245, 290,250),
+     "center_point": [355, 205], "region_id": "warsaw_pact"},
+
+    {"territory_id": "romania_bulgaria","name": "Romania & Bulgaria",
+     "polygon": quad(380,170, 490,165, 495,255, 375,260),
+     "center_point": [435, 213], "region_id": "warsaw_pact"},
+
+    {"territory_id": "ukraine_cw",   "name": "Ukraine & Belarus",
+     "polygon": quad(385,80, 545,75, 550,175, 380,180),
+     "center_point": [465, 128], "region_id": "warsaw_pact"},
+
+    {"territory_id": "russia_west_cw","name": "Western Russia",
+     "polygon": quad(415,20, 600,15, 605,80, 410,85),
+     "center_point": [510, 50], "region_id": "warsaw_pact"},
+
+    {"territory_id": "russia_central_cw","name": "Central Russia",
+     "polygon": quad(570,15, 760,10, 765,90, 565,95),
+     "center_point": [665, 53], "region_id": "warsaw_pact"},
+
+    {"territory_id": "russia_east_cw","name": "Eastern Russia (Siberia)",
+     "polygon": quad(730,10, 960,5, 965,100, 725,105),
+     "center_point": [845, 55], "region_id": "warsaw_pact"},
+
+    {"territory_id": "caucasus_cw",  "name": "Caucasus & Central Asia",
+     "polygon": quad(490,170, 680,165, 685,265, 485,270),
+     "center_point": [585, 218], "region_id": "warsaw_pact"},
+
+    # ── NORTH AMERICA ───────────────────────────────────────────────────────
+    {"territory_id": "usa_northeast","name": "Northeastern USA",
+     "polygon": quad(30,20, 175,15, 180,100, 25,105),
+     "center_point": [103, 60], "region_id": "north_america_cw"},
+
+    {"territory_id": "usa_south",    "name": "Southern USA",
+     "polygon": quad(30,100, 175,95, 180,185, 25,190),
+     "center_point": [103, 143], "region_id": "north_america_cw"},
+
+    {"territory_id": "usa_west_cw",  "name": "Western USA",
+     "polygon": quad(30,185, 175,180, 180,265, 25,270),
+     "center_point": [103, 225], "region_id": "north_america_cw"},
+
+    {"territory_id": "canada",       "name": "Canada",
+     "polygon": quad(30,20, 175,15, 180,20, 25,20),
+     "center_point": [103, 18], "region_id": "north_america_cw"},
+
+    # ── LATIN AMERICA ───────────────────────────────────────────────────────
+    {"territory_id": "mexico_ca",    "name": "Mexico & Central America",
+     "polygon": quad(30,265, 175,260, 180,345, 25,350),
+     "center_point": [103, 305], "region_id": "latin_america"},
+
+    {"territory_id": "caribbean_cw", "name": "Caribbean (Cuba)",
+     "polygon": quad(155,265, 260,260, 265,330, 150,335),
+     "center_point": [208, 298], "region_id": "latin_america"},
+
+    {"territory_id": "colombia_venezuela","name": "Colombia & Venezuela",
+     "polygon": quad(30,345, 175,340, 180,430, 25,435),
+     "center_point": [103, 388], "region_id": "latin_america"},
+
+    {"territory_id": "brazil_cw",    "name": "Brazil",
+     "polygon": quad(110,345, 250,340, 255,460, 105,465),
+     "center_point": [180, 403], "region_id": "latin_america"},
+
+    {"territory_id": "southern_cone","name": "Southern Cone",
+     "polygon": quad(30,430, 255,425, 260,555, 25,560),
+     "center_point": [143, 493], "region_id": "latin_america"},
+
+    # ── MIDDLE EAST ─────────────────────────────────────────────────────────
+    {"territory_id": "israel_jordan","name": "Israel & Jordan",
+     "polygon": quad(420,255, 500,250, 505,325, 415,330),
+     "center_point": [463, 290], "region_id": "middle_east_cw"},
+
+    {"territory_id": "egypt_cw",     "name": "Egypt",
+     "polygon": quad(345,265, 435,260, 440,345, 340,350),
+     "center_point": [390, 305], "region_id": "middle_east_cw"},
+
+    {"territory_id": "iraq_syria",   "name": "Iraq & Syria",
+     "polygon": quad(455,215, 575,210, 580,300, 450,305),
+     "center_point": [515, 258], "region_id": "middle_east_cw"},
+
+    {"territory_id": "iran_cw",      "name": "Iran",
+     "polygon": quad(560,175, 680,170, 685,265, 555,270),
+     "center_point": [620, 220], "region_id": "middle_east_cw"},
+
+    {"territory_id": "arabia_cw",    "name": "Arabia",
+     "polygon": quad(430,300, 570,295, 575,390, 425,395),
+     "center_point": [500, 345], "region_id": "middle_east_cw"},
+
+    {"territory_id": "afghanistan",  "name": "Afghanistan",
+     "polygon": quad(640,165, 760,160, 765,255, 635,260),
+     "center_point": [700, 210], "region_id": "middle_east_cw"},
+
+    # ── AFRICA ──────────────────────────────────────────────────────────────
+    {"territory_id": "north_africa_cw","name": "North Africa",
+     "polygon": quad(100,255, 360,250, 365,340, 95,345),
+     "center_point": [230, 295], "region_id": "africa_cw"},
+
+    {"territory_id": "west_africa_cw","name": "West Africa",
+     "polygon": quad(95,340, 280,335, 285,440, 90,445),
+     "center_point": [188, 390], "region_id": "africa_cw"},
+
+    {"territory_id": "horn_africa",  "name": "Horn of Africa",
+     "polygon": quad(390,335, 545,330, 550,430, 385,435),
+     "center_point": [468, 383], "region_id": "africa_cw"},
+
+    {"territory_id": "central_africa_cw","name": "Central Africa",
+     "polygon": quad(260,430, 440,425, 445,530, 255,535),
+     "center_point": [350, 480], "region_id": "africa_cw"},
+
+    {"territory_id": "southern_africa_cw","name": "Southern Africa",
+     "polygon": quad(255,530, 460,525, 465,630, 250,635),
+     "center_point": [358, 580], "region_id": "africa_cw"},
+
+    # ── SOUTH & SE ASIA ─────────────────────────────────────────────────────
+    {"territory_id": "india_cw",     "name": "India & Pakistan",
+     "polygon": quad(645,175, 790,170, 795,285, 640,290),
+     "center_point": [718, 230], "region_id": "south_asia_cw"},
+
+    {"territory_id": "vietnam_korea","name": "Vietnam & Indochina",
+     "polygon": quad(870,235, 1010,230, 1015,330, 865,335),
+     "center_point": [940, 283], "region_id": "south_asia_cw"},
+
+    {"territory_id": "indonesia_cw", "name": "Indonesia",
+     "polygon": quad(870,335, 1070,330, 1075,425, 865,430),
+     "center_point": [970, 378], "region_id": "south_asia_cw"},
+
+    {"territory_id": "australia_cw", "name": "Australia & NZ",
+     "polygon": quad(870,440, 1110,435, 1115,575, 865,580),
+     "center_point": [990, 508], "region_id": "south_asia_cw"},
+
+    # ── EAST ASIA ───────────────────────────────────────────────────────────
+    {"territory_id": "china_north_cw","name": "North China",
+     "polygon": quad(790,100, 970,95, 975,200, 785,205),
+     "center_point": [880, 153], "region_id": "east_asia_cw"},
+
+    {"territory_id": "china_south_cw","name": "South China",
+     "polygon": quad(800,200, 975,195, 980,300, 795,305),
+     "center_point": [888, 250], "region_id": "east_asia_cw"},
+
+    {"territory_id": "korea_cw",     "name": "Korea",
+     "polygon": quad(960,100, 1060,95, 1065,195, 955,200),
+     "center_point": [1010, 148], "region_id": "east_asia_cw"},
+
+    {"territory_id": "japan_cw",     "name": "Japan",
+     "polygon": quad(1040,80, 1150,75, 1155,185, 1035,190),
+     "center_point": [1095, 133], "region_id": "east_asia_cw"},
+
+    {"territory_id": "mongolia_cw",  "name": "Mongolia",
+     "polygon": quad(760,80, 960,75, 965,105, 755,110),
+     "center_point": [858, 93], "region_id": "east_asia_cw"},
+]
+
+# ---------------------------------------------------------------------------
+# CONNECTIONS
+# ---------------------------------------------------------------------------
+connections = [
+    # NATO Europe
+    {"from": "uk_ireland",        "to": "france_benelux",    "type": "sea"},
+    {"from": "uk_ireland",        "to": "scandinavia_cw",    "type": "sea"},
+    {"from": "france_benelux",    "to": "iberia_cw",         "type": "land"},
+    {"from": "france_benelux",    "to": "west_germany",      "type": "land"},
+    {"from": "france_benelux",    "to": "italy_cw",          "type": "land"},
+    {"from": "west_germany",      "to": "scandinavia_cw",    "type": "land"},
+    {"from": "west_germany",      "to": "east_germany",      "type": "land"},
+    {"from": "west_germany",      "to": "italy_cw",          "type": "land"},
+    {"from": "italy_cw",          "to": "romania_bulgaria",  "type": "sea"},
+    {"from": "turkey_cw",         "to": "romania_bulgaria",  "type": "land"},
+    {"from": "turkey_cw",         "to": "iraq_syria",        "type": "land"},
+    {"from": "turkey_cw",         "to": "caucasus_cw",       "type": "land"},
+    # Warsaw Pact
+    {"from": "east_germany",      "to": "czechoslovakia",    "type": "land"},
+    {"from": "east_germany",      "to": "ukraine_cw",        "type": "land"},
+    {"from": "czechoslovakia",    "to": "romania_bulgaria",  "type": "land"},
+    {"from": "czechoslovakia",    "to": "ukraine_cw",        "type": "land"},
+    {"from": "ukraine_cw",        "to": "russia_west_cw",    "type": "land"},
+    {"from": "ukraine_cw",        "to": "caucasus_cw",       "type": "land"},
+    {"from": "russia_west_cw",    "to": "russia_central_cw", "type": "land"},
+    {"from": "russia_central_cw", "to": "russia_east_cw",    "type": "land"},
+    {"from": "russia_east_cw",    "to": "china_north_cw",    "type": "land"},
+    {"from": "russia_east_cw",    "to": "mongolia_cw",       "type": "land"},
+    {"from": "caucasus_cw",       "to": "iran_cw",           "type": "land"},
+    {"from": "caucasus_cw",       "to": "afghanistan",       "type": "land"},
+    # North America
+    {"from": "canada",            "to": "usa_northeast",     "type": "land"},
+    {"from": "usa_northeast",     "to": "usa_south",         "type": "land"},
+    {"from": "usa_south",         "to": "usa_west_cw",       "type": "land"},
+    {"from": "usa_northeast",     "to": "uk_ireland",        "type": "sea"},
+    {"from": "usa_west_cw",       "to": "japan_cw",          "type": "sea"},
+    {"from": "usa_south",         "to": "mexico_ca",         "type": "land"},
+    # Latin America
+    {"from": "mexico_ca",         "to": "caribbean_cw",      "type": "sea"},
+    {"from": "mexico_ca",         "to": "colombia_venezuela","type": "land"},
+    {"from": "caribbean_cw",      "to": "colombia_venezuela","type": "sea"},
+    {"from": "colombia_venezuela","to": "brazil_cw",         "type": "land"},
+    {"from": "colombia_venezuela","to": "southern_cone",     "type": "land"},
+    {"from": "brazil_cw",         "to": "southern_cone",     "type": "land"},
+    # Middle East
+    {"from": "egypt_cw",          "to": "israel_jordan",     "type": "land"},
+    {"from": "egypt_cw",          "to": "north_africa_cw",   "type": "land"},
+    {"from": "israel_jordan",     "to": "iraq_syria",        "type": "land"},
+    {"from": "iraq_syria",        "to": "iran_cw",           "type": "land"},
+    {"from": "iraq_syria",        "to": "arabia_cw",         "type": "land"},
+    {"from": "iran_cw",           "to": "afghanistan",       "type": "land"},
+    {"from": "arabia_cw",         "to": "horn_africa",       "type": "sea"},
+    # Africa
+    {"from": "north_africa_cw",   "to": "west_africa_cw",   "type": "land"},
+    {"from": "north_africa_cw",   "to": "horn_africa",       "type": "land"},
+    {"from": "west_africa_cw",    "to": "central_africa_cw", "type": "land"},
+    {"from": "horn_africa",       "to": "central_africa_cw", "type": "land"},
+    {"from": "central_africa_cw", "to": "southern_africa_cw","type": "land"},
+    {"from": "iberia_cw",         "to": "north_africa_cw",   "type": "sea"},
+    # South & SE Asia
+    {"from": "afghanistan",       "to": "india_cw",          "type": "land"},
+    {"from": "india_cw",          "to": "china_south_cw",    "type": "land"},
+    {"from": "india_cw",          "to": "vietnam_korea",     "type": "land"},
+    {"from": "vietnam_korea",     "to": "china_south_cw",    "type": "land"},
+    {"from": "vietnam_korea",     "to": "indonesia_cw",      "type": "sea"},
+    {"from": "indonesia_cw",      "to": "australia_cw",      "type": "sea"},
+    # East Asia
+    {"from": "mongolia_cw",       "to": "china_north_cw",    "type": "land"},
+    {"from": "china_north_cw",    "to": "china_south_cw",    "type": "land"},
+    {"from": "china_north_cw",    "to": "korea_cw",          "type": "land"},
+    {"from": "korea_cw",          "to": "japan_cw",          "type": "sea"},
+    {"from": "japan_cw",          "to": "indonesia_cw",      "type": "sea"},
+    {"from": "southern_africa_cw","to": "australia_cw",      "type": "sea"},
+]
+
+MAP_DATA = {
+    "map_id": "era_coldwar",
+    "name": "Cold War (1947–1991)",
+    "description": "The world divided between two superpowers. Command NATO forces in Western Europe, lead the Soviet bloc, fight proxy wars in Korea, Vietnam, and Africa, or play the Non-Aligned Movement as a kingmaker.",
+    "era_theme": "coldwar",
+    "canvas_width": 1200,
+    "canvas_height": 700,
+    "territories": territories,
+    "connections": connections,
+    "regions": regions,
+    "is_public": True,
+    "is_moderated": True,
+    "moderation_status": "approved",
+    "creator_id": "system",
+}
+
+if __name__ == "__main__":
+    print(json.dumps(MAP_DATA, indent=2))
+    print(f"\n✓ Cold War: {len(territories)} territories, {len(connections)} connections, {len(regions)} regions")

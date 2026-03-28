@@ -1,0 +1,45 @@
+{
+  "name": "chronoconquest-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@pixi/react": "^7.1.2",
+    "@turf/bbox-polygon": "^7.3.4",
+    "@turf/helpers": "^7.3.4",
+    "@turf/intersect": "^7.3.4",
+    "@turf/rewind": "^7.3.4",
+    "axios": "^1.7.2",
+    "clsx": "^2.1.1",
+    "d3": "^7.9.0",
+    "lucide-react": "^0.379.0",
+    "pixi.js": "^7.4.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-globe.gl": "^2.37.0",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.23.1",
+    "react-tooltip": "^5.26.3",
+    "socket.io-client": "^4.7.5",
+    "three": "^0.183.2",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}

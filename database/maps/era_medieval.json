@@ -1,0 +1,1051 @@
+{
+  "map_id": "era_medieval",
+  "name": "Medieval World (1200 AD)",
+  "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms. Lead the Mongol hordes, defend the Holy Land, or build a trading empire across the Silk Road.",
+  "era_theme": "medieval",
+  "canvas_width": 1200,
+  "canvas_height": 700,
+  "territories": [
+    {
+      "territory_id": "england",
+      "name": "England",
+      "polygon": [
+        [
+          105,
+          30
+        ],
+        [
+          185,
+          25
+        ],
+        [
+          190,
+          105
+        ],
+        [
+          100,
+          110
+        ]
+      ],
+      "center_point": [
+        145,
+        68
+      ],
+      "region_id": "western_europe"
+    },
+    {
+      "territory_id": "france",
+      "name": "France",
+      "polygon": [
+        [
+          150,
+          110
+        ],
+        [
+          250,
+          105
+        ],
+        [
+          255,
+          195
+        ],
+        [
+          145,
+          200
+        ]
+      ],
+      "center_point": [
+        200,
+        153
+      ],
+      "region_id": "western_europe"
+    },
+    {
+      "territory_id": "iberia",
+      "name": "Iberia",
+      "polygon": [
+        [
+          90,
+          160
+        ],
+        [
+          185,
+          155
+        ],
+        [
+          190,
+          250
+        ],
+        [
+          85,
+          255
+        ]
+      ],
+      "center_point": [
+        138,
+        205
+      ],
+      "region_id": "western_europe"
+    },
+    {
+      "territory_id": "holy_roman",
+      "name": "Holy Roman Empire",
+      "polygon": [
+        [
+          215,
+          100
+        ],
+        [
+          330,
+          95
+        ],
+        [
+          335,
+          185
+        ],
+        [
+          210,
+          190
+        ]
+      ],
+      "center_point": [
+        273,
+        143
+      ],
+      "region_id": "western_europe"
+    },
+    {
+      "territory_id": "italy_states",
+      "name": "Italian States",
+      "polygon": [
+        [
+          230,
+          185
+        ],
+        [
+          310,
+          180
+        ],
+        [
+          315,
+          265
+        ],
+        [
+          225,
+          270
+        ]
+      ],
+      "center_point": [
+        270,
+        225
+      ],
+      "region_id": "western_europe"
+    },
+    {
+      "territory_id": "scandinavia",
+      "name": "Scandinavia",
+      "polygon": [
+        [
+          190,
+          20
+        ],
+        [
+          310,
+          15
+        ],
+        [
+          315,
+          90
+        ],
+        [
+          185,
+          95
+        ]
+      ],
+      "center_point": [
+        253,
+        55
+      ],
+      "region_id": "scandinavia"
+    },
+    {
+      "territory_id": "poland_bohemia",
+      "name": "Poland & Bohemia",
+      "polygon": [
+        [
+          310,
+          90
+        ],
+        [
+          420,
+          85
+        ],
+        [
+          425,
+          165
+        ],
+        [
+          305,
+          170
+        ]
+      ],
+      "center_point": [
+        368,
+        128
+      ],
+      "region_id": "eastern_europe"
+    },
+    {
+      "territory_id": "kievan_rus",
+      "name": "Kievan Rus",
+      "polygon": [
+        [
+          380,
+          55
+        ],
+        [
+          530,
+          50
+        ],
+        [
+          535,
+          145
+        ],
+        [
+          375,
+          150
+        ]
+      ],
+      "center_point": [
+        455,
+        100
+      ],
+      "region_id": "eastern_europe"
+    },
+    {
+      "territory_id": "byzantine",
+      "name": "Byzantine Empire",
+      "polygon": [
+        [
+          295,
+          185
+        ],
+        [
+          410,
+          180
+        ],
+        [
+          415,
+          265
+        ],
+        [
+          290,
+          270
+        ]
+      ],
+      "center_point": [
+        353,
+        225
+      ],
+      "region_id": "eastern_europe"
+    },
+    {
+      "territory_id": "hungary",
+      "name": "Hungary & Balkans",
+      "polygon": [
+        [
+          310,
+          165
+        ],
+        [
+          400,
+          160
+        ],
+        [
+          405,
+          240
+        ],
+        [
+          305,
+          245
+        ]
+      ],
+      "center_point": [
+        355,
+        203
+      ],
+      "region_id": "eastern_europe"
+    },
+    {
+      "territory_id": "anatolia_med",
+      "name": "Anatolia (Seljuk)",
+      "polygon": [
+        [
+          390,
+          175
+        ],
+        [
+          500,
+          170
+        ],
+        [
+          505,
+          250
+        ],
+        [
+          385,
+          255
+        ]
+      ],
+      "center_point": [
+        445,
+        213
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "levant_crusader",
+      "name": "Crusader States",
+      "polygon": [
+        [
+          395,
+          250
+        ],
+        [
+          470,
+          245
+        ],
+        [
+          475,
+          320
+        ],
+        [
+          390,
+          325
+        ]
+      ],
+      "center_point": [
+        433,
+        285
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "egypt_ayyubid",
+      "name": "Egypt (Ayyubid)",
+      "polygon": [
+        [
+          340,
+          275
+        ],
+        [
+          430,
+          270
+        ],
+        [
+          435,
+          355
+        ],
+        [
+          335,
+          360
+        ]
+      ],
+      "center_point": [
+        383,
+        315
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "mesopotamia_med",
+      "name": "Mesopotamia",
+      "polygon": [
+        [
+          465,
+          225
+        ],
+        [
+          560,
+          220
+        ],
+        [
+          565,
+          305
+        ],
+        [
+          460,
+          310
+        ]
+      ],
+      "center_point": [
+        513,
+        265
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "persia_med",
+      "name": "Persia",
+      "polygon": [
+        [
+          540,
+          195
+        ],
+        [
+          650,
+          190
+        ],
+        [
+          655,
+          275
+        ],
+        [
+          535,
+          280
+        ]
+      ],
+      "center_point": [
+        595,
+        235
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "arabia_med",
+      "name": "Arabia",
+      "polygon": [
+        [
+          430,
+          305
+        ],
+        [
+          545,
+          300
+        ],
+        [
+          550,
+          390
+        ],
+        [
+          425,
+          395
+        ]
+      ],
+      "center_point": [
+        488,
+        348
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "mongolia",
+      "name": "Mongolia",
+      "polygon": [
+        [
+          760,
+          60
+        ],
+        [
+          920,
+          55
+        ],
+        [
+          925,
+          145
+        ],
+        [
+          755,
+          150
+        ]
+      ],
+      "center_point": [
+        840,
+        103
+      ],
+      "region_id": "mongol_empire"
+    },
+    {
+      "territory_id": "central_asia",
+      "name": "Central Asia",
+      "polygon": [
+        [
+          610,
+          100
+        ],
+        [
+          780,
+          95
+        ],
+        [
+          785,
+          180
+        ],
+        [
+          605,
+          185
+        ]
+      ],
+      "center_point": [
+        695,
+        140
+      ],
+      "region_id": "mongol_empire"
+    },
+    {
+      "territory_id": "siberia",
+      "name": "Siberia",
+      "polygon": [
+        [
+          530,
+          20
+        ],
+        [
+          780,
+          15
+        ],
+        [
+          785,
+          85
+        ],
+        [
+          525,
+          90
+        ]
+      ],
+      "center_point": [
+        655,
+        53
+      ],
+      "region_id": "mongol_empire"
+    },
+    {
+      "territory_id": "northern_china_med",
+      "name": "Northern China (Jin)",
+      "polygon": [
+        [
+          850,
+          110
+        ],
+        [
+          1010,
+          105
+        ],
+        [
+          1015,
+          200
+        ],
+        [
+          845,
+          205
+        ]
+      ],
+      "center_point": [
+        930,
+        155
+      ],
+      "region_id": "china_korea"
+    },
+    {
+      "territory_id": "song_china",
+      "name": "Song China",
+      "polygon": [
+        [
+          860,
+          200
+        ],
+        [
+          1020,
+          195
+        ],
+        [
+          1025,
+          295
+        ],
+        [
+          855,
+          300
+        ]
+      ],
+      "center_point": [
+        940,
+        248
+      ],
+      "region_id": "china_korea"
+    },
+    {
+      "territory_id": "southern_china_med",
+      "name": "Southern China",
+      "polygon": [
+        [
+          870,
+          295
+        ],
+        [
+          1030,
+          290
+        ],
+        [
+          1035,
+          380
+        ],
+        [
+          865,
+          385
+        ]
+      ],
+      "center_point": [
+        950,
+        338
+      ],
+      "region_id": "china_korea"
+    },
+    {
+      "territory_id": "korea_japan",
+      "name": "Korea & Japan",
+      "polygon": [
+        [
+          1010,
+          80
+        ],
+        [
+          1150,
+          75
+        ],
+        [
+          1155,
+          175
+        ],
+        [
+          1005,
+          180
+        ]
+      ],
+      "center_point": [
+        1080,
+        128
+      ],
+      "region_id": "china_korea"
+    },
+    {
+      "territory_id": "delhi_sultanate",
+      "name": "Delhi Sultanate",
+      "polygon": [
+        [
+          650,
+          195
+        ],
+        [
+          790,
+          190
+        ],
+        [
+          795,
+          285
+        ],
+        [
+          645,
+          290
+        ]
+      ],
+      "center_point": [
+        720,
+        240
+      ],
+      "region_id": "india_sea"
+    },
+    {
+      "territory_id": "south_india_med",
+      "name": "South India",
+      "polygon": [
+        [
+          660,
+          285
+        ],
+        [
+          800,
+          280
+        ],
+        [
+          805,
+          375
+        ],
+        [
+          655,
+          380
+        ]
+      ],
+      "center_point": [
+        730,
+        330
+      ],
+      "region_id": "india_sea"
+    },
+    {
+      "territory_id": "southeast_asia",
+      "name": "Southeast Asia",
+      "polygon": [
+        [
+          900,
+          340
+        ],
+        [
+          1060,
+          335
+        ],
+        [
+          1065,
+          425
+        ],
+        [
+          895,
+          430
+        ]
+      ],
+      "center_point": [
+        980,
+        383
+      ],
+      "region_id": "india_sea"
+    },
+    {
+      "territory_id": "mali_empire",
+      "name": "Mali Empire",
+      "polygon": [
+        [
+          100,
+          340
+        ],
+        [
+          280,
+          335
+        ],
+        [
+          285,
+          430
+        ],
+        [
+          95,
+          435
+        ]
+      ],
+      "center_point": [
+        190,
+        385
+      ],
+      "region_id": "africa_med"
+    },
+    {
+      "territory_id": "east_africa_med",
+      "name": "East Africa",
+      "polygon": [
+        [
+          400,
+          360
+        ],
+        [
+          530,
+          355
+        ],
+        [
+          535,
+          460
+        ],
+        [
+          395,
+          465
+        ]
+      ],
+      "center_point": [
+        465,
+        410
+      ],
+      "region_id": "africa_med"
+    },
+    {
+      "territory_id": "central_africa_med",
+      "name": "Central Africa",
+      "polygon": [
+        [
+          255,
+          415
+        ],
+        [
+          430,
+          410
+        ],
+        [
+          435,
+          510
+        ],
+        [
+          250,
+          515
+        ]
+      ],
+      "center_point": [
+        343,
+        463
+      ],
+      "region_id": "africa_med"
+    }
+  ],
+  "connections": [
+    {
+      "from": "england",
+      "to": "france",
+      "type": "sea"
+    },
+    {
+      "from": "england",
+      "to": "scandinavia",
+      "type": "sea"
+    },
+    {
+      "from": "france",
+      "to": "iberia",
+      "type": "land"
+    },
+    {
+      "from": "france",
+      "to": "holy_roman",
+      "type": "land"
+    },
+    {
+      "from": "france",
+      "to": "italy_states",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "italy_states",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "poland_bohemia",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "hungary",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "scandinavia",
+      "type": "land"
+    },
+    {
+      "from": "scandinavia",
+      "to": "kievan_rus",
+      "type": "land"
+    },
+    {
+      "from": "poland_bohemia",
+      "to": "kievan_rus",
+      "type": "land"
+    },
+    {
+      "from": "poland_bohemia",
+      "to": "hungary",
+      "type": "land"
+    },
+    {
+      "from": "hungary",
+      "to": "byzantine",
+      "type": "land"
+    },
+    {
+      "from": "kievan_rus",
+      "to": "byzantine",
+      "type": "land"
+    },
+    {
+      "from": "kievan_rus",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "byzantine",
+      "to": "anatolia_med",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_med",
+      "to": "levant_crusader",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_med",
+      "to": "mesopotamia_med",
+      "type": "land"
+    },
+    {
+      "from": "levant_crusader",
+      "to": "egypt_ayyubid",
+      "type": "land"
+    },
+    {
+      "from": "levant_crusader",
+      "to": "mesopotamia_med",
+      "type": "land"
+    },
+    {
+      "from": "egypt_ayyubid",
+      "to": "arabia_med",
+      "type": "land"
+    },
+    {
+      "from": "mesopotamia_med",
+      "to": "persia_med",
+      "type": "land"
+    },
+    {
+      "from": "mesopotamia_med",
+      "to": "arabia_med",
+      "type": "land"
+    },
+    {
+      "from": "persia_med",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "persia_med",
+      "to": "delhi_sultanate",
+      "type": "land"
+    },
+    {
+      "from": "siberia",
+      "to": "mongolia",
+      "type": "land"
+    },
+    {
+      "from": "siberia",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "mongolia",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "mongolia",
+      "to": "northern_china_med",
+      "type": "land"
+    },
+    {
+      "from": "central_asia",
+      "to": "delhi_sultanate",
+      "type": "land"
+    },
+    {
+      "from": "northern_china_med",
+      "to": "song_china",
+      "type": "land"
+    },
+    {
+      "from": "northern_china_med",
+      "to": "korea_japan",
+      "type": "land"
+    },
+    {
+      "from": "song_china",
+      "to": "southern_china_med",
+      "type": "land"
+    },
+    {
+      "from": "southern_china_med",
+      "to": "southeast_asia",
+      "type": "land"
+    },
+    {
+      "from": "korea_japan",
+      "to": "song_china",
+      "type": "sea"
+    },
+    {
+      "from": "delhi_sultanate",
+      "to": "south_india_med",
+      "type": "land"
+    },
+    {
+      "from": "south_india_med",
+      "to": "southeast_asia",
+      "type": "sea"
+    },
+    {
+      "from": "egypt_ayyubid",
+      "to": "east_africa_med",
+      "type": "land"
+    },
+    {
+      "from": "mali_empire",
+      "to": "central_africa_med",
+      "type": "land"
+    },
+    {
+      "from": "east_africa_med",
+      "to": "central_africa_med",
+      "type": "land"
+    },
+    {
+      "from": "iberia",
+      "to": "mali_empire",
+      "type": "sea"
+    },
+    {
+      "from": "arabia_med",
+      "to": "east_africa_med",
+      "type": "sea"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "western_europe",
+      "name": "Western Europe",
+      "bonus": 5
+    },
+    {
+      "region_id": "eastern_europe",
+      "name": "Eastern Europe",
+      "bonus": 3
+    },
+    {
+      "region_id": "middle_east",
+      "name": "Middle East",
+      "bonus": 4
+    },
+    {
+      "region_id": "mongol_empire",
+      "name": "Mongol Heartland",
+      "bonus": 5
+    },
+    {
+      "region_id": "china_korea",
+      "name": "China & Korea",
+      "bonus": 5
+    },
+    {
+      "region_id": "india_sea",
+      "name": "India & Sea Routes",
+      "bonus": 3
+    },
+    {
+      "region_id": "africa_med",
+      "name": "Africa",
+      "bonus": 3
+    },
+    {
+      "region_id": "scandinavia",
+      "name": "Scandinavia",
+      "bonus": 2
+    }
+  ],
+  "is_public": true,
+  "is_moderated": true,
+  "moderation_status": "approved",
+  "creator_id": "system"
+}
