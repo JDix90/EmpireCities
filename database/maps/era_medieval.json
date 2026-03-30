@@ -1000,6 +1000,36 @@
       "from": "arabia_med",
       "to": "east_africa_med",
       "type": "sea"
+    },
+    {
+      "from": "kievan_rus",
+      "to": "hungary",
+      "type": "land"
+    },
+    {
+      "from": "kievan_rus",
+      "to": "siberia",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_med",
+      "to": "persia_med",
+      "type": "land"
+    },
+    {
+      "from": "siberia",
+      "to": "korea_japan",
+      "type": "land"
+    },
+    {
+      "from": "delhi_sultanate",
+      "to": "southeast_asia",
+      "type": "land"
+    },
+    {
+      "from": "italy_states",
+      "to": "byzantine",
+      "type": "sea"
     }
   ],
   "regions": [

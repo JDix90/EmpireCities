@@ -1170,6 +1170,31 @@
       "from": "indian_ocean",
       "to": "ceylon_spice",
       "type": "sea"
+    },
+    {
+      "from": "italy_disc",
+      "to": "ottoman_balkans",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_disc",
+      "to": "persia_disc",
+      "type": "land"
+    },
+    {
+      "from": "levant_disc",
+      "to": "arabia_disc",
+      "type": "land"
+    },
+    {
+      "from": "mughal_north",
+      "to": "southeast_asia_disc",
+      "type": "land"
+    },
+    {
+      "from": "brazil",
+      "to": "peru_chile",
+      "type": "land"
     }
   ],
   "regions": [

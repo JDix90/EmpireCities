@@ -35,21 +35,21 @@ export function computeAiTurn(
   const player = state.players[state.current_player_index];
   const reinforcements = calculateReinforcements(player.territory_count, continentBonus);
 
-  // Find the best territory to reinforce (highest threat border)
   const draftTarget = selectDraftTarget(state, map, playerId, cfg.randomFactor);
   if (draftTarget) {
     actions.push({ type: 'draft', to: draftTarget, units: reinforcements });
   }
+  actions.push({ type: 'end_phase' }); // draft → attack
 
   // ── Attack Phase ─────────────────────────────────────────────────────────
   const attackActions = selectAttacks(state, map, playerId, cfg.randomFactor, difficulty);
   actions.push(...attackActions);
-  actions.push({ type: 'end_phase' });
+  actions.push({ type: 'end_phase' }); // attack → fortify
 
   // ── Fortify Phase ────────────────────────────────────────────────────────
   const fortifyAction = selectFortify(state, map, playerId);
   if (fortifyAction) actions.push(fortifyAction);
-  actions.push({ type: 'end_phase' });
+  actions.push({ type: 'end_phase' }); // fortify → next player
 
   return actions;
 }

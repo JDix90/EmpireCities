@@ -173,8 +173,13 @@ export function checkVictory(state: GameState): string | null {
   const activePlayers = state.players.filter((p) => !p.is_eliminated);
   if (activePlayers.length === 1) return activePlayers[0].player_id;
 
+  // Domination: if one player owns every territory, they win
+  const totalTerritories = Object.keys(state.territories).length;
+  for (const player of activePlayers) {
+    if (player.territory_count >= totalTerritories) return player.player_id;
+  }
+
   if (state.settings.victory_type === 'threshold' && state.settings.victory_threshold) {
-    const totalTerritories = Object.keys(state.territories).length;
     const threshold = Math.ceil(totalTerritories * (state.settings.victory_threshold / 100));
     for (const player of activePlayers) {
       if (player.territory_count >= threshold) return player.player_id;

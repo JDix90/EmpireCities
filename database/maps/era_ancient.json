@@ -948,6 +948,51 @@
       "from": "southern_india",
       "to": "southern_china",
       "type": "sea"
+    },
+    {
+      "from": "north_africa",
+      "to": "central_africa",
+      "type": "land"
+    },
+    {
+      "from": "greece",
+      "to": "pontic_steppe",
+      "type": "land"
+    },
+    {
+      "from": "anatolia",
+      "to": "mesopotamia",
+      "type": "land"
+    },
+    {
+      "from": "anatolia",
+      "to": "persia",
+      "type": "land"
+    },
+    {
+      "from": "levant",
+      "to": "arabia",
+      "type": "land"
+    },
+    {
+      "from": "persia",
+      "to": "central_steppe",
+      "type": "land"
+    },
+    {
+      "from": "central_steppe",
+      "to": "kushan",
+      "type": "land"
+    },
+    {
+      "from": "greece",
+      "to": "egypt",
+      "type": "sea"
+    },
+    {
+      "from": "greece",
+      "to": "levant",
+      "type": "sea"
     }
   ],
   "regions": [

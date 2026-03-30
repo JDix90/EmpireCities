@@ -762,6 +762,81 @@ export default function GlobeMap({
     };
   }, []);
 
+  // ── Adjacency arcs (show attackable / fortifiable connections) ──────────
+
+  const territoryCentroids = useMemo(() => {
+    const map = new Map<string, { lat: number; lng: number }>();
+    for (const poly of polygonsData) {
+      if (!map.has(poly.territory_id)) {
+        const c = computeCentroid(poly.geometry);
+        map.set(poly.territory_id, c);
+      }
+    }
+    return map;
+  }, [polygonsData]);
+
+  const adjacencyArcs = useMemo(() => {
+    if (!gameState) return [];
+    const phase = gameState.phase;
+    const source = attackSource ?? selectedTerritory;
+    if (!source) return [];
+
+    const sourceOwner = gameState.territories[source]?.owner_id;
+    const myId = gameState.players.find(p =>
+      p.player_id === sourceOwner
+    )?.player_id;
+    if (!myId) return [];
+
+    const sourceCenter = territoryCentroids.get(source);
+    if (!sourceCenter) return [];
+
+    const result: ArcDatum[] = [];
+    for (const conn of mapData.connections) {
+      const neighborId = conn.from === source ? conn.to : conn.to === source ? conn.from : null;
+      if (!neighborId) continue;
+
+      const neighborOwner = gameState.territories[neighborId]?.owner_id;
+      const neighborCenter = territoryCentroids.get(neighborId);
+      if (!neighborCenter) continue;
+
+      if (phase === 'attack') {
+        if (neighborOwner === myId || !neighborOwner) continue;
+        const isSea = conn.type === 'sea';
+        result.push({
+          id: `adj-${source}-${neighborId}`,
+          startLat: sourceCenter.lat,
+          startLng: sourceCenter.lng,
+          endLat: neighborCenter.lat,
+          endLng: neighborCenter.lng,
+          color: isSea ? ['rgba(250, 204, 21, 0.6)', 'rgba(250, 204, 21, 0.15)'] : ['rgba(248, 113, 113, 0.6)', 'rgba(248, 113, 113, 0.15)'],
+          stroke: isSea ? 1.2 : 1.5,
+          dashLen: isSea ? 4 : 8,
+          dashGap: isSea ? 4 : 3,
+          animateTime: 2000,
+          altitude: isSea ? 0.15 : 0.05,
+        });
+      } else if (phase === 'fortify') {
+        if (neighborOwner !== myId) continue;
+        result.push({
+          id: `adj-${source}-${neighborId}`,
+          startLat: sourceCenter.lat,
+          startLng: sourceCenter.lng,
+          endLat: neighborCenter.lat,
+          endLng: neighborCenter.lng,
+          color: ['rgba(74, 222, 128, 0.5)', 'rgba(74, 222, 128, 0.1)'],
+          stroke: 1.0,
+          dashLen: 6,
+          dashGap: 4,
+          animateTime: 3000,
+          altitude: 0.04,
+        });
+      }
+    }
+    return result;
+  }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids]);
+
+  const combinedArcs = useMemo(() => [...arcs, ...adjacencyArcs], [arcs, adjacencyArcs]);
+
   // ── Polygon accessors ──────────────────────────────────────────────────
 
   const getPolygonColor = useCallback((polygon: object) => {
@@ -774,13 +849,25 @@ export default function GlobeMap({
     return PLAYER_COLORS[player.color] ?? 'rgba(136, 136, 136, 0.82)';
   }, [gameState]);
 
+  const adjacencyTargets = useMemo(() => {
+    const set = new Set<string>();
+    for (const arc of adjacencyArcs) {
+      const parts = arc.id.split('-');
+      set.add(parts[parts.length - 1]);
+    }
+    return set;
+  }, [adjacencyArcs]);
+
   const getPolygonStroke = useCallback((polygon: object) => {
     const p = polygon as PolygonData;
     if (p.territory_id === selectedTerritory || p.territory_id === attackSource) {
       return '#ffd700';
     }
+    if (adjacencyTargets.has(p.territory_id)) {
+      return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
+    }
     return '#ffffff';
-  }, [selectedTerritory, attackSource]);
+  }, [selectedTerritory, attackSource, adjacencyTargets, gameState?.phase]);
 
   // ── Globe layer accessors (stable) ─────────────────────────────────────
 
@@ -853,8 +940,8 @@ export default function GlobeMap({
         htmlElement={htmlElAccessors.element}
         htmlTransitionDuration={0}
 
-        /* Arcs (attack/fortify movement) */
-        arcsData={arcs}
+        /* Arcs (event animations + adjacency indicators) */
+        arcsData={combinedArcs}
         arcStartLat={arcAccessors.startLat}
         arcStartLng={arcAccessors.startLng}
         arcEndLat={arcAccessors.endLat}

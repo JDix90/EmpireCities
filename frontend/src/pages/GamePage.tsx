@@ -8,7 +8,7 @@ import GameMap from '../components/game/GameMap';
 import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
 import GameHUD from '../components/game/GameHUD';
 import TerritoryPanel from '../components/game/TerritoryPanel';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData } from '../components/game/ActionModal';
 import toast from 'react-hot-toast';
 
 interface MapData {
@@ -252,14 +252,38 @@ export default function GamePage() {
       setDraftUnitsRemaining(curr + bonus);
     });
 
-    socket.on('game:over', ({ winner_id }: { winner_id: string }) => {
-      const winner = gameState?.players.find((p) => p.player_id === winner_id);
-      if (winner_id === user?.user_id) {
-        toast.success('🏆 Victory! You have conquered the world!', { duration: 6000 });
-      } else {
-        toast.error(`Defeat. ${winner?.username ?? 'Unknown'} has won.`, { duration: 6000 });
-      }
-      setTimeout(() => navigate('/lobby'), 5000);
+    socket.on('game:over', (stats: {
+      winner_id: string;
+      winner_name: string;
+      turn_count: number;
+      players: Array<{ player_id: string; username: string; color: string; territory_count: number; is_eliminated: boolean; is_ai: boolean }>;
+    }) => {
+      const gameOverData: GameOverModalData = {
+        type: 'game_over',
+        isWinner: stats.winner_id === user?.user_id,
+        winnerName: stats.winner_name,
+        winnerColor: stats.players.find(p => p.player_id === stats.winner_id)?.color ?? '#fff',
+        turnCount: stats.turn_count,
+        players: stats.players,
+      };
+      setModalQueue(q => [...q, gameOverData]);
+    });
+
+    socket.on('game:player_eliminated', ({ playerId, eliminatorName, eliminatedName }: {
+      playerId: string; eliminatorId: string; eliminatorName: string; eliminatedName: string;
+    }) => {
+      const isSelf = playerId === user?.user_id;
+      const elData: EliminationModalData = {
+        type: 'elimination',
+        eliminatedName,
+        eliminatorName,
+        isSelf,
+      };
+      setModalQueue(q => [...q, elData]);
+    });
+
+    socket.on('game:player_resigned', ({ playerName }: { playerId: string; playerName: string }) => {
+      toast(`${playerName} has surrendered!`, { icon: '🏳️', duration: 4000 });
     });
 
     socket.on('error', ({ message }: { message: string }) => {
@@ -273,6 +297,8 @@ export default function GamePage() {
       socket.off('game:combat_result');
       socket.off('game:cards_redeemed');
       socket.off('game:over');
+      socket.off('game:player_eliminated');
+      socket.off('game:player_resigned');
       socket.off('error');
       clearGame();
     };
@@ -412,6 +438,19 @@ export default function GamePage() {
     getSocket().emit('game:redeem_cards', { gameId, cardIds });
   };
 
+  const handleResignRequest = () => {
+    pushModal({ type: 'resign_confirm' });
+  };
+
+  const handleResignConfirm = () => {
+    getSocket().emit('game:resign', { gameId });
+  };
+
+  const handleGameOverDismiss = () => {
+    dismissModal();
+    navigate('/lobby');
+  };
+
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
     return (
@@ -499,29 +538,24 @@ export default function GamePage() {
             />
           )}
 
-          {/* Game Over Overlay */}
-          {gameState.phase === 'game_over' && (
-            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-              <div className="card text-center">
-                <h2 className="font-display text-4xl text-cc-gold mb-4">
-                  {gameState.winner_id === user?.user_id ? '🏆 Victory!' : 'Defeat'}
-                </h2>
-                <p className="text-cc-muted mb-6">Returning to lobby...</p>
-              </div>
-            </div>
-          )}
+          {/* (Game over handled via modal) */}
         </div>
 
         {/* HUD Sidebar */}
         <GameHUD
           onAdvancePhase={handleAdvancePhase}
           onRedeemCards={handleRedeemCards}
+          onResign={handleResignRequest}
           lastCombatLog={combatLog}
         />
       </div>
 
-      {/* Action Modal (blocking — combat results & turn summaries) */}
-      <ActionModal data={modalQueue[0] ?? null} onDismiss={dismissModal} />
+      {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
+      <ActionModal
+        data={modalQueue[0] ?? null}
+        onDismiss={modalQueue[0]?.type === 'game_over' ? handleGameOverDismiss : dismissModal}
+        onResignConfirm={handleResignConfirm}
+      />
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
       <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />

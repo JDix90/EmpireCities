@@ -1500,6 +1500,71 @@
       "from": "southern_africa_cw",
       "to": "australia_cw",
       "type": "sea"
+    },
+    {
+      "from": "east_germany",
+      "to": "russia_west_cw",
+      "type": "land"
+    },
+    {
+      "from": "scandinavia_cw",
+      "to": "russia_west_cw",
+      "type": "land"
+    },
+    {
+      "from": "italy_cw",
+      "to": "turkey_cw",
+      "type": "land"
+    },
+    {
+      "from": "romania_bulgaria",
+      "to": "ukraine_cw",
+      "type": "land"
+    },
+    {
+      "from": "russia_west_cw",
+      "to": "caucasus_cw",
+      "type": "land"
+    },
+    {
+      "from": "russia_central_cw",
+      "to": "caucasus_cw",
+      "type": "land"
+    },
+    {
+      "from": "turkey_cw",
+      "to": "iran_cw",
+      "type": "land"
+    },
+    {
+      "from": "israel_jordan",
+      "to": "arabia_cw",
+      "type": "land"
+    },
+    {
+      "from": "iran_cw",
+      "to": "india_cw",
+      "type": "land"
+    },
+    {
+      "from": "north_africa_cw",
+      "to": "central_africa_cw",
+      "type": "land"
+    },
+    {
+      "from": "russia_east_cw",
+      "to": "korea_cw",
+      "type": "land"
+    },
+    {
+      "from": "russia_central_cw",
+      "to": "mongolia_cw",
+      "type": "land"
+    },
+    {
+      "from": "egypt_cw",
+      "to": "arabia_cw",
+      "type": "sea"
     }
   ],
   "regions": [

@@ -1292,7 +1292,7 @@
     {
       "from": "italy_mod",
       "to": "balkans_mod",
-      "type": "sea"
+      "type": "land"
     },
     {
       "from": "balkans_mod",
@@ -1573,6 +1573,41 @@
       "from": "indonesia_mod",
       "to": "japan_mod",
       "type": "sea"
+    },
+    {
+      "from": "russia_east_mod",
+      "to": "china_east_mod",
+      "type": "land"
+    },
+    {
+      "from": "central_asia_mod",
+      "to": "china_east_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_west_mod",
+      "to": "southeast_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "brazil_mod",
+      "to": "chile_mod",
+      "type": "land"
+    },
+    {
+      "from": "balkans_mod",
+      "to": "poland_baltics_mod",
+      "type": "land"
+    },
+    {
+      "from": "maghreb_mod",
+      "to": "central_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "west_africa_mod",
+      "to": "central_africa_mod",
+      "type": "land"
     }
   ],
   "regions": [

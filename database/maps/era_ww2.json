@@ -1192,6 +1192,41 @@
       "from": "south_africa_ww2",
       "to": "australia_ww2",
       "type": "sea"
+    },
+    {
+      "from": "eastern_europe_ww2",
+      "to": "russia_west",
+      "type": "land"
+    },
+    {
+      "from": "russia_west",
+      "to": "scandinavia_ww2",
+      "type": "land"
+    },
+    {
+      "from": "russia_west",
+      "to": "caucasus",
+      "type": "land"
+    },
+    {
+      "from": "turkey_ww2",
+      "to": "caucasus",
+      "type": "land"
+    },
+    {
+      "from": "libya_egypt",
+      "to": "west_africa_ww2",
+      "type": "land"
+    },
+    {
+      "from": "libya_egypt",
+      "to": "central_africa_ww2",
+      "type": "land"
+    },
+    {
+      "from": "south_china_ww2",
+      "to": "philippines",
+      "type": "sea"
     }
   ],
   "regions": [

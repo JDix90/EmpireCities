@@ -260,22 +260,26 @@ export function initGameSocket(httpServer: HttpServer): Server {
       toTerritory.unit_count -= result.defender_losses;
 
       let cardEarned = false;
+      const defenderId = toTerritory.owner_id;
       if (result.territory_captured) {
         toTerritory.owner_id = userId;
         toTerritory.unit_count = Math.min(fromTerritory.unit_count - 1, 3);
         fromTerritory.unit_count = Math.max(1, fromTerritory.unit_count - toTerritory.unit_count);
         cardEarned = true;
 
-        // Check if defender is eliminated
-        const defenderId = toTerritory.owner_id;
         const defenderPlayer = state.players.find((p) => p.player_id === defenderId);
         if (defenderPlayer) {
           syncTerritoryCounts(state);
           if (defenderPlayer.territory_count === 0) {
             defenderPlayer.is_eliminated = true;
-            // Transfer cards to attacker
             currentPlayer.cards.push(...defenderPlayer.cards);
             defenderPlayer.cards = [];
+            io.to(gameId).emit('game:player_eliminated', {
+              playerId: defenderId,
+              eliminatorId: userId,
+              eliminatorName: currentPlayer.username,
+              eliminatedName: defenderPlayer.username,
+            });
           }
         }
       }
@@ -373,6 +377,52 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
     });
 
+    // ── Resign ────────────────────────────────────────────────────────────
+    socket.on('game:resign', async ({ gameId }: { gameId: string }) => {
+      const room = activeGames.get(gameId);
+      if (!room) return socket.emit('error', { message: 'Game not found' });
+      const { state, map } = room;
+
+      const player = state.players.find((p) => p.player_id === userId);
+      if (!player || player.is_eliminated) return socket.emit('error', { message: 'Cannot resign' });
+
+      player.is_eliminated = true;
+
+      // Make all their territories neutral (unowned)
+      for (const t of Object.values(state.territories)) {
+        if (t.owner_id === userId) {
+          t.owner_id = null;
+          t.unit_count = Math.max(1, Math.floor(t.unit_count / 2));
+        }
+      }
+      syncTerritoryCounts(state);
+
+      io.to(gameId).emit('game:player_resigned', {
+        playerId: userId,
+        playerName: player.username,
+      });
+
+      // If it was this player's turn, advance
+      const currentPlayer = state.players[state.current_player_index];
+      if (currentPlayer.player_id === userId) {
+        advanceToNextPlayer(state, map);
+        if (state.players[state.current_player_index].is_ai) {
+          setTimeout(() => processAiTurn(io, gameId), 1500);
+        }
+      }
+
+      const winnerId = checkVictory(state);
+      if (winnerId) {
+        state.phase = 'game_over';
+        state.winner_id = winnerId;
+        await finalizeGame(io, gameId, state, winnerId);
+      } else {
+        await saveGameState(gameId, state);
+      }
+
+      broadcastState(io, gameId, state);
+    });
+
     // ── Disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${userId} (${socket.id})`);
@@ -446,8 +496,25 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       'completed', winnerId, gameId,
     ]);
     await saveGameState(gameId, state);
-    io.to(gameId).emit('game:over', { winner_id: winnerId });
-    activeGames.delete(gameId);
+
+    const winner = state.players.find((p) => p.player_id === winnerId);
+    const stats = {
+      winner_id: winnerId,
+      winner_name: winner?.username ?? 'Unknown',
+      turn_count: state.turn_number,
+      players: state.players.map((p) => ({
+        player_id: p.player_id,
+        username: p.username,
+        color: p.color,
+        territory_count: p.territory_count,
+        is_eliminated: p.is_eliminated,
+        is_ai: p.is_ai,
+      })),
+    };
+    io.to(gameId).emit('game:over', stats);
+
+    // Clean up after a delay so clients can see final state
+    setTimeout(() => activeGames.delete(gameId), 30000);
   } catch (err) {
     console.error('[Socket] Failed to finalize game:', err);
   }
@@ -464,63 +531,103 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   const actions = computeAiTurn(state, map, difficulty);
 
-  for (const action of actions) {
-    await new Promise((resolve) => setTimeout(resolve, 600)); // Simulate thinking delay
+  const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 
-    if (action.type === 'draft' && action.to && action.units) {
-      const t = state.territories[action.to];
-      const clamped = Math.min(action.units, state.draft_units_remaining);
-      if (t && t.owner_id === currentPlayer.player_id && clamped > 0) {
-        t.unit_count += clamped;
-        state.draft_units_remaining -= clamped;
-      }
-    } else if (action.type === 'attack' && action.from && action.to) {
-      const from = state.territories[action.from];
-      const to = state.territories[action.to];
-      if (from && to && from.unit_count >= 2) {
-        const result = resolveCombat(from.unit_count, to.unit_count);
-        from.unit_count -= result.attacker_losses;
-        to.unit_count -= result.defender_losses;
-        if (result.territory_captured) {
-          to.owner_id = currentPlayer.player_id;
-          to.unit_count = Math.min(from.unit_count - 1, 3);
-          from.unit_count = Math.max(1, from.unit_count - to.unit_count);
-          drawCard(state, currentPlayer.player_id);
-        }
-        syncTerritoryCounts(state);
-        io.to(gameId).emit('game:combat_result', { fromId: action.from, toId: action.to, result });
-      }
-    } else if (action.type === 'fortify' && action.from && action.to && action.units) {
-      const from = state.territories[action.from];
-      const to = state.territories[action.to];
-      if (from && to && from.unit_count > action.units) {
-        from.unit_count -= action.units;
-        to.unit_count += action.units;
-      }
-    } else if (action.type === 'end_phase') {
-      if (state.phase === 'draft') {
-        state.draft_units_remaining = 0;
-        state.phase = 'attack';
-      } else if (state.phase === 'attack') {
-        state.phase = 'fortify';
-      } else if (state.phase === 'fortify') {
-        advanceToNextPlayer(state, map);
-        await saveGameState(gameId, state);
-      }
-    }
-
-    broadcastState(io, gameId, state);
-
+  const doVictoryCheck = async (): Promise<boolean> => {
     const winnerId = checkVictory(state);
     if (winnerId) {
       state.phase = 'game_over';
       state.winner_id = winnerId;
       await finalizeGame(io, gameId, state, winnerId);
-      return;
+      return true;
     }
+    return false;
+  };
+
+  // ── Draft Phase ────────────────────────────────────────────────────────
+  state.phase = 'draft';
+  for (const action of actions) {
+    if (action.type !== 'draft' || !action.to || !action.units) continue;
+    await delay();
+    const t = state.territories[action.to];
+    const clamped = Math.min(action.units, state.draft_units_remaining);
+    if (t && t.owner_id === currentPlayer.player_id && clamped > 0) {
+      t.unit_count += clamped;
+      state.draft_units_remaining -= clamped;
+    }
+    broadcastState(io, gameId, state);
   }
 
-  // If next player is also AI, chain
+  // ── Attack Phase ───────────────────────────────────────────────────────
+  state.draft_units_remaining = 0;
+  state.phase = 'attack';
+  broadcastState(io, gameId, state);
+
+  for (const action of actions) {
+    if (action.type !== 'attack' || !action.from || !action.to) continue;
+    await delay();
+    const from = state.territories[action.from];
+    const to = state.territories[action.to];
+    if (!from || !to || from.unit_count < 2 || from.owner_id !== currentPlayer.player_id) continue;
+    if (to.owner_id === currentPlayer.player_id) continue;
+
+    const aiDefenderId = to.owner_id;
+    const result = resolveCombat(from.unit_count, to.unit_count);
+    from.unit_count -= result.attacker_losses;
+    to.unit_count -= result.defender_losses;
+    if (result.territory_captured) {
+      to.owner_id = currentPlayer.player_id;
+      to.unit_count = Math.min(from.unit_count - 1, 3);
+      from.unit_count = Math.max(1, from.unit_count - to.unit_count);
+      drawCard(state, currentPlayer.player_id);
+
+      const defenderPlayer = state.players.find((p) => p.player_id === aiDefenderId);
+      if (defenderPlayer) {
+        syncTerritoryCounts(state);
+        if (defenderPlayer.territory_count === 0) {
+          defenderPlayer.is_eliminated = true;
+          currentPlayer.cards.push(...defenderPlayer.cards);
+          defenderPlayer.cards = [];
+          io.to(gameId).emit('game:player_eliminated', {
+            playerId: aiDefenderId,
+            eliminatorId: currentPlayer.player_id,
+            eliminatorName: currentPlayer.username,
+            eliminatedName: defenderPlayer.username,
+          });
+        }
+      }
+    }
+    syncTerritoryCounts(state);
+    io.to(gameId).emit('game:combat_result', { fromId: action.from, toId: action.to, result });
+    broadcastState(io, gameId, state);
+
+    if (await doVictoryCheck()) return;
+  }
+
+  // ── Fortify Phase ──────────────────────────────────────────────────────
+  state.phase = 'fortify';
+  broadcastState(io, gameId, state);
+
+  for (const action of actions) {
+    if (action.type !== 'fortify' || !action.from || !action.to || !action.units) continue;
+    await delay();
+    const from = state.territories[action.from];
+    const to = state.territories[action.to];
+    if (from && to && from.owner_id === currentPlayer.player_id && to.owner_id === currentPlayer.player_id && from.unit_count > action.units) {
+      from.unit_count -= action.units;
+      to.unit_count += action.units;
+    }
+    broadcastState(io, gameId, state);
+  }
+
+  // ── End Turn ───────────────────────────────────────────────────────────
+  advanceToNextPlayer(state, map);
+  await saveGameState(gameId, state);
+  broadcastState(io, gameId, state);
+
+  if (await doVictoryCheck()) return;
+
+  // Chain if next player is also AI
   if (state.players[state.current_player_index].is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1000);
   }
