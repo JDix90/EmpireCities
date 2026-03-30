@@ -1,0 +1,1624 @@
+{
+  "map_id": "era_modern",
+  "name": "The Modern Day",
+  "description": "The world as it stands today. Command the United States, lead the European Union, direct the rising power of China, build alliances across Africa, or dominate the Pacific Rim in a struggle for 21st-century supremacy.",
+  "era_theme": "modern",
+  "canvas_width": 1200,
+  "canvas_height": 700,
+  "territories": [
+    {
+      "territory_id": "usa_east_mod",
+      "name": "Eastern United States",
+      "polygon": [
+        [
+          289.5,
+          178.0
+        ],
+        [
+          364.5,
+          178.0
+        ],
+        [
+          364.5,
+          258.0
+        ],
+        [
+          289.5,
+          258.0
+        ]
+      ],
+      "center_point": [
+        327,
+        218
+      ],
+      "region_id": "north_america"
+    },
+    {
+      "territory_id": "usa_west_mod",
+      "name": "Western United States",
+      "polygon": [
+        [
+          203.0,
+          168.0
+        ],
+        [
+          293.0,
+          168.0
+        ],
+        [
+          293.0,
+          258.0
+        ],
+        [
+          203.0,
+          258.0
+        ]
+      ],
+      "center_point": [
+        248,
+        213
+      ],
+      "region_id": "north_america"
+    },
+    {
+      "territory_id": "canada_mod",
+      "name": "Canada",
+      "polygon": [
+        [
+          173.0,
+          57.5
+        ],
+        [
+          383.0,
+          57.5
+        ],
+        [
+          383.0,
+          172.5
+        ],
+        [
+          173.0,
+          172.5
+        ]
+      ],
+      "center_point": [
+        278,
+        115
+      ],
+      "region_id": "north_america"
+    },
+    {
+      "territory_id": "mexico_mod",
+      "name": "Mexico",
+      "polygon": [
+        [
+          197.5,
+          263.0
+        ],
+        [
+          292.5,
+          263.0
+        ],
+        [
+          292.5,
+          333.0
+        ],
+        [
+          197.5,
+          333.0
+        ]
+      ],
+      "center_point": [
+        245,
+        298
+      ],
+      "region_id": "north_america"
+    },
+    {
+      "territory_id": "central_america_mod",
+      "name": "Central America & Caribbean",
+      "polygon": [
+        [
+          277.5,
+          308.0
+        ],
+        [
+          372.5,
+          308.0
+        ],
+        [
+          372.5,
+          368.0
+        ],
+        [
+          277.5,
+          368.0
+        ]
+      ],
+      "center_point": [
+        325,
+        338
+      ],
+      "region_id": "north_america"
+    },
+    {
+      "territory_id": "colombia_mod",
+      "name": "Colombia & Venezuela",
+      "polygon": [
+        [
+          313.0,
+          367.5
+        ],
+        [
+          403.0,
+          367.5
+        ],
+        [
+          403.0,
+          422.5
+        ],
+        [
+          313.0,
+          422.5
+        ]
+      ],
+      "center_point": [
+        358,
+        395
+      ],
+      "region_id": "south_america"
+    },
+    {
+      "territory_id": "brazil_mod",
+      "name": "Brazil",
+      "polygon": [
+        [
+          365.0,
+          403.0
+        ],
+        [
+          475.0,
+          403.0
+        ],
+        [
+          475.0,
+          513.0
+        ],
+        [
+          365.0,
+          513.0
+        ]
+      ],
+      "center_point": [
+        420,
+        458
+      ],
+      "region_id": "south_america"
+    },
+    {
+      "territory_id": "peru_mod",
+      "name": "Peru, Ecuador & Bolivia",
+      "polygon": [
+        [
+          292.5,
+          417.5
+        ],
+        [
+          367.5,
+          417.5
+        ],
+        [
+          367.5,
+          502.5
+        ],
+        [
+          292.5,
+          502.5
+        ]
+      ],
+      "center_point": [
+        330,
+        460
+      ],
+      "region_id": "south_america"
+    },
+    {
+      "territory_id": "argentina_mod",
+      "name": "Argentina & Uruguay",
+      "polygon": [
+        [
+          347.5,
+          507.5
+        ],
+        [
+          422.5,
+          507.5
+        ],
+        [
+          422.5,
+          622.5
+        ],
+        [
+          347.5,
+          622.5
+        ]
+      ],
+      "center_point": [
+        385,
+        565
+      ],
+      "region_id": "south_america"
+    },
+    {
+      "territory_id": "chile_mod",
+      "name": "Chile & Paraguay",
+      "polygon": [
+        [
+          298.0,
+          497.5
+        ],
+        [
+          348.0,
+          497.5
+        ],
+        [
+          348.0,
+          632.5
+        ],
+        [
+          298.0,
+          632.5
+        ]
+      ],
+      "center_point": [
+        323,
+        565
+      ],
+      "region_id": "south_america"
+    },
+    {
+      "territory_id": "uk_mod",
+      "name": "United Kingdom & Ireland",
+      "polygon": [
+        [
+          543.0,
+          82.5
+        ],
+        [
+          603.0,
+          82.5
+        ],
+        [
+          603.0,
+          147.5
+        ],
+        [
+          543.0,
+          147.5
+        ]
+      ],
+      "center_point": [
+        573,
+        115
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "france_mod",
+      "name": "France & Benelux",
+      "polygon": [
+        [
+          557.5,
+          143.0
+        ],
+        [
+          632.5,
+          143.0
+        ],
+        [
+          632.5,
+          213.0
+        ],
+        [
+          557.5,
+          213.0
+        ]
+      ],
+      "center_point": [
+        595,
+        178
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "germany_mod",
+      "name": "Germany & Austria",
+      "polygon": [
+        [
+          622.5,
+          102.5
+        ],
+        [
+          687.5,
+          102.5
+        ],
+        [
+          687.5,
+          177.5
+        ],
+        [
+          622.5,
+          177.5
+        ]
+      ],
+      "center_point": [
+        655,
+        140
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "scandinavia_mod",
+      "name": "Scandinavia",
+      "polygon": [
+        [
+          597.5,
+          17.5
+        ],
+        [
+          682.5,
+          17.5
+        ],
+        [
+          682.5,
+          102.5
+        ],
+        [
+          597.5,
+          102.5
+        ]
+      ],
+      "center_point": [
+        640,
+        60
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "iberia_mod",
+      "name": "Spain & Portugal",
+      "polygon": [
+        [
+          523.0,
+          192.5
+        ],
+        [
+          593.0,
+          192.5
+        ],
+        [
+          593.0,
+          257.5
+        ],
+        [
+          523.0,
+          257.5
+        ]
+      ],
+      "center_point": [
+        558,
+        225
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "italy_mod",
+      "name": "Italy & Switzerland",
+      "polygon": [
+        [
+          617.5,
+          173.0
+        ],
+        [
+          672.5,
+          173.0
+        ],
+        [
+          672.5,
+          243.0
+        ],
+        [
+          617.5,
+          243.0
+        ]
+      ],
+      "center_point": [
+        645,
+        208
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "balkans_mod",
+      "name": "Balkans & Greece",
+      "polygon": [
+        [
+          667.5,
+          167.5
+        ],
+        [
+          732.5,
+          167.5
+        ],
+        [
+          732.5,
+          242.5
+        ],
+        [
+          667.5,
+          242.5
+        ]
+      ],
+      "center_point": [
+        700,
+        205
+      ],
+      "region_id": "europe"
+    },
+    {
+      "territory_id": "poland_baltics_mod",
+      "name": "Poland & Baltic States",
+      "polygon": [
+        [
+          683.0,
+          82.5
+        ],
+        [
+          753.0,
+          82.5
+        ],
+        [
+          753.0,
+          157.5
+        ],
+        [
+          683.0,
+          157.5
+        ]
+      ],
+      "center_point": [
+        718,
+        120
+      ],
+      "region_id": "russia_cis"
+    },
+    {
+      "territory_id": "ukraine_mod",
+      "name": "Ukraine & Belarus",
+      "polygon": [
+        [
+          737.5,
+          103.0
+        ],
+        [
+          812.5,
+          103.0
+        ],
+        [
+          812.5,
+          173.0
+        ],
+        [
+          737.5,
+          173.0
+        ]
+      ],
+      "center_point": [
+        775,
+        138
+      ],
+      "region_id": "russia_cis"
+    },
+    {
+      "territory_id": "russia_west_mod",
+      "name": "Western Russia",
+      "polygon": [
+        [
+          763.0,
+          28.0
+        ],
+        [
+          873.0,
+          28.0
+        ],
+        [
+          873.0,
+          118.0
+        ],
+        [
+          763.0,
+          118.0
+        ]
+      ],
+      "center_point": [
+        818,
+        73
+      ],
+      "region_id": "russia_cis"
+    },
+    {
+      "territory_id": "russia_east_mod",
+      "name": "Eastern Russia",
+      "polygon": [
+        [
+          873.0,
+          13.0
+        ],
+        [
+          1083.0,
+          13.0
+        ],
+        [
+          1083.0,
+          113.0
+        ],
+        [
+          873.0,
+          113.0
+        ]
+      ],
+      "center_point": [
+        978,
+        63
+      ],
+      "region_id": "russia_cis"
+    },
+    {
+      "territory_id": "central_asia_mod",
+      "name": "Central Asia",
+      "polygon": [
+        [
+          813.0,
+          148.0
+        ],
+        [
+          903.0,
+          148.0
+        ],
+        [
+          903.0,
+          218.0
+        ],
+        [
+          813.0,
+          218.0
+        ]
+      ],
+      "center_point": [
+        858,
+        183
+      ],
+      "region_id": "russia_cis"
+    },
+    {
+      "territory_id": "turkey_mod",
+      "name": "Turkey",
+      "polygon": [
+        [
+          722.5,
+          192.5
+        ],
+        [
+          797.5,
+          192.5
+        ],
+        [
+          797.5,
+          237.5
+        ],
+        [
+          722.5,
+          237.5
+        ]
+      ],
+      "center_point": [
+        760,
+        215
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "levant_mod",
+      "name": "Iraq, Syria & Levant",
+      "polygon": [
+        [
+          752.5,
+          237.5
+        ],
+        [
+          817.5,
+          237.5
+        ],
+        [
+          817.5,
+          292.5
+        ],
+        [
+          752.5,
+          292.5
+        ]
+      ],
+      "center_point": [
+        785,
+        265
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "iran_mod",
+      "name": "Iran",
+      "polygon": [
+        [
+          817.5,
+          213.0
+        ],
+        [
+          892.5,
+          213.0
+        ],
+        [
+          892.5,
+          283.0
+        ],
+        [
+          817.5,
+          283.0
+        ]
+      ],
+      "center_point": [
+        855,
+        248
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "saudi_mod",
+      "name": "Saudi Arabia & Gulf States",
+      "polygon": [
+        [
+          762.5,
+          288.0
+        ],
+        [
+          847.5,
+          288.0
+        ],
+        [
+          847.5,
+          358.0
+        ],
+        [
+          762.5,
+          358.0
+        ]
+      ],
+      "center_point": [
+        805,
+        323
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "egypt_mod",
+      "name": "Egypt",
+      "polygon": [
+        [
+          682.5,
+          267.5
+        ],
+        [
+          747.5,
+          267.5
+        ],
+        [
+          747.5,
+          332.5
+        ],
+        [
+          682.5,
+          332.5
+        ]
+      ],
+      "center_point": [
+        715,
+        300
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "maghreb_mod",
+      "name": "North Africa",
+      "polygon": [
+        [
+          543.0,
+          247.5
+        ],
+        [
+          683.0,
+          247.5
+        ],
+        [
+          683.0,
+          312.5
+        ],
+        [
+          543.0,
+          312.5
+        ]
+      ],
+      "center_point": [
+        613,
+        280
+      ],
+      "region_id": "middle_east"
+    },
+    {
+      "territory_id": "west_africa_mod",
+      "name": "West Africa",
+      "polygon": [
+        [
+          523.0,
+          343.0
+        ],
+        [
+          603.0,
+          343.0
+        ],
+        [
+          603.0,
+          413.0
+        ],
+        [
+          523.0,
+          413.0
+        ]
+      ],
+      "center_point": [
+        563,
+        378
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "nigeria_mod",
+      "name": "Nigeria & Cameroon",
+      "polygon": [
+        [
+          602.5,
+          352.5
+        ],
+        [
+          667.5,
+          352.5
+        ],
+        [
+          667.5,
+          417.5
+        ],
+        [
+          602.5,
+          417.5
+        ]
+      ],
+      "center_point": [
+        635,
+        385
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "central_africa_mod",
+      "name": "Central Africa",
+      "polygon": [
+        [
+          653.0,
+          392.5
+        ],
+        [
+          733.0,
+          392.5
+        ],
+        [
+          733.0,
+          467.5
+        ],
+        [
+          653.0,
+          467.5
+        ]
+      ],
+      "center_point": [
+        693,
+        430
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "sudan_horn_mod",
+      "name": "Sudan & Horn of Africa",
+      "polygon": [
+        [
+          717.5,
+          317.5
+        ],
+        [
+          792.5,
+          317.5
+        ],
+        [
+          792.5,
+          402.5
+        ],
+        [
+          717.5,
+          402.5
+        ]
+      ],
+      "center_point": [
+        755,
+        360
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "east_africa_mod",
+      "name": "East Africa",
+      "polygon": [
+        [
+          722.5,
+          397.5
+        ],
+        [
+          787.5,
+          397.5
+        ],
+        [
+          787.5,
+          482.5
+        ],
+        [
+          722.5,
+          482.5
+        ]
+      ],
+      "center_point": [
+        755,
+        440
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "southern_africa_mod",
+      "name": "Southern Africa",
+      "polygon": [
+        [
+          663.0,
+          467.5
+        ],
+        [
+          753.0,
+          467.5
+        ],
+        [
+          753.0,
+          572.5
+        ],
+        [
+          663.0,
+          572.5
+        ]
+      ],
+      "center_point": [
+        708,
+        520
+      ],
+      "region_id": "sub_saharan_africa"
+    },
+    {
+      "territory_id": "india_mod",
+      "name": "India",
+      "polygon": [
+        [
+          893.0,
+          262.5
+        ],
+        [
+          963.0,
+          262.5
+        ],
+        [
+          963.0,
+          367.5
+        ],
+        [
+          893.0,
+          367.5
+        ]
+      ],
+      "center_point": [
+        928,
+        315
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "pakistan_afghan_mod",
+      "name": "Pakistan & Afghanistan",
+      "polygon": [
+        [
+          857.5,
+          217.5
+        ],
+        [
+          912.5,
+          217.5
+        ],
+        [
+          912.5,
+          292.5
+        ],
+        [
+          857.5,
+          292.5
+        ]
+      ],
+      "center_point": [
+        885,
+        255
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "china_west_mod",
+      "name": "Western China",
+      "polygon": [
+        [
+          912.5,
+          153.0
+        ],
+        [
+          987.5,
+          153.0
+        ],
+        [
+          987.5,
+          243.0
+        ],
+        [
+          912.5,
+          243.0
+        ]
+      ],
+      "center_point": [
+        950,
+        198
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "china_east_mod",
+      "name": "Eastern China",
+      "polygon": [
+        [
+          988.0,
+          157.5
+        ],
+        [
+          1058.0,
+          157.5
+        ],
+        [
+          1058.0,
+          262.5
+        ],
+        [
+          988.0,
+          262.5
+        ]
+      ],
+      "center_point": [
+        1023,
+        210
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "japan_mod",
+      "name": "Japan",
+      "polygon": [
+        [
+          1072.5,
+          173.0
+        ],
+        [
+          1117.5,
+          173.0
+        ],
+        [
+          1117.5,
+          253.0
+        ],
+        [
+          1072.5,
+          253.0
+        ]
+      ],
+      "center_point": [
+        1095,
+        213
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "korea_mod",
+      "name": "Korean Peninsula",
+      "polygon": [
+        [
+          1042.5,
+          153.0
+        ],
+        [
+          1077.5,
+          153.0
+        ],
+        [
+          1077.5,
+          213.0
+        ],
+        [
+          1042.5,
+          213.0
+        ]
+      ],
+      "center_point": [
+        1060,
+        183
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "southeast_asia_mod",
+      "name": "Southeast Asia",
+      "polygon": [
+        [
+          963.0,
+          327.5
+        ],
+        [
+          1043.0,
+          327.5
+        ],
+        [
+          1043.0,
+          402.5
+        ],
+        [
+          963.0,
+          402.5
+        ]
+      ],
+      "center_point": [
+        1003,
+        365
+      ],
+      "region_id": "asia"
+    },
+    {
+      "territory_id": "indonesia_mod",
+      "name": "Indonesia & Philippines",
+      "polygon": [
+        [
+          1003.0,
+          387.5
+        ],
+        [
+          1093.0,
+          387.5
+        ],
+        [
+          1093.0,
+          442.5
+        ],
+        [
+          1003.0,
+          442.5
+        ]
+      ],
+      "center_point": [
+        1048,
+        415
+      ],
+      "region_id": "oceania"
+    },
+    {
+      "territory_id": "australia_mod",
+      "name": "Australia & New Zealand",
+      "polygon": [
+        [
+          1023.0,
+          457.5
+        ],
+        [
+          1133.0,
+          457.5
+        ],
+        [
+          1133.0,
+          572.5
+        ],
+        [
+          1023.0,
+          572.5
+        ]
+      ],
+      "center_point": [
+        1078,
+        515
+      ],
+      "region_id": "oceania"
+    }
+  ],
+  "connections": [
+    {
+      "from": "usa_east_mod",
+      "to": "usa_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "usa_east_mod",
+      "to": "canada_mod",
+      "type": "land"
+    },
+    {
+      "from": "usa_west_mod",
+      "to": "canada_mod",
+      "type": "land"
+    },
+    {
+      "from": "usa_east_mod",
+      "to": "mexico_mod",
+      "type": "land"
+    },
+    {
+      "from": "usa_west_mod",
+      "to": "mexico_mod",
+      "type": "land"
+    },
+    {
+      "from": "mexico_mod",
+      "to": "central_america_mod",
+      "type": "land"
+    },
+    {
+      "from": "usa_east_mod",
+      "to": "central_america_mod",
+      "type": "sea"
+    },
+    {
+      "from": "central_america_mod",
+      "to": "colombia_mod",
+      "type": "land"
+    },
+    {
+      "from": "colombia_mod",
+      "to": "brazil_mod",
+      "type": "land"
+    },
+    {
+      "from": "colombia_mod",
+      "to": "peru_mod",
+      "type": "land"
+    },
+    {
+      "from": "brazil_mod",
+      "to": "peru_mod",
+      "type": "land"
+    },
+    {
+      "from": "brazil_mod",
+      "to": "argentina_mod",
+      "type": "land"
+    },
+    {
+      "from": "peru_mod",
+      "to": "chile_mod",
+      "type": "land"
+    },
+    {
+      "from": "argentina_mod",
+      "to": "chile_mod",
+      "type": "land"
+    },
+    {
+      "from": "peru_mod",
+      "to": "argentina_mod",
+      "type": "land"
+    },
+    {
+      "from": "uk_mod",
+      "to": "france_mod",
+      "type": "sea"
+    },
+    {
+      "from": "uk_mod",
+      "to": "scandinavia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "france_mod",
+      "to": "germany_mod",
+      "type": "land"
+    },
+    {
+      "from": "france_mod",
+      "to": "iberia_mod",
+      "type": "land"
+    },
+    {
+      "from": "france_mod",
+      "to": "italy_mod",
+      "type": "land"
+    },
+    {
+      "from": "germany_mod",
+      "to": "scandinavia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "germany_mod",
+      "to": "italy_mod",
+      "type": "land"
+    },
+    {
+      "from": "germany_mod",
+      "to": "poland_baltics_mod",
+      "type": "land"
+    },
+    {
+      "from": "germany_mod",
+      "to": "balkans_mod",
+      "type": "land"
+    },
+    {
+      "from": "italy_mod",
+      "to": "balkans_mod",
+      "type": "sea"
+    },
+    {
+      "from": "balkans_mod",
+      "to": "turkey_mod",
+      "type": "land"
+    },
+    {
+      "from": "balkans_mod",
+      "to": "ukraine_mod",
+      "type": "land"
+    },
+    {
+      "from": "poland_baltics_mod",
+      "to": "ukraine_mod",
+      "type": "land"
+    },
+    {
+      "from": "poland_baltics_mod",
+      "to": "russia_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "poland_baltics_mod",
+      "to": "scandinavia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "ukraine_mod",
+      "to": "russia_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "ukraine_mod",
+      "to": "turkey_mod",
+      "type": "sea"
+    },
+    {
+      "from": "russia_west_mod",
+      "to": "russia_east_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_west_mod",
+      "to": "central_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_west_mod",
+      "to": "scandinavia_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_east_mod",
+      "to": "central_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_east_mod",
+      "to": "china_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_east_mod",
+      "to": "korea_mod",
+      "type": "land"
+    },
+    {
+      "from": "russia_east_mod",
+      "to": "japan_mod",
+      "type": "sea"
+    },
+    {
+      "from": "turkey_mod",
+      "to": "levant_mod",
+      "type": "land"
+    },
+    {
+      "from": "turkey_mod",
+      "to": "iran_mod",
+      "type": "land"
+    },
+    {
+      "from": "levant_mod",
+      "to": "egypt_mod",
+      "type": "land"
+    },
+    {
+      "from": "levant_mod",
+      "to": "iran_mod",
+      "type": "land"
+    },
+    {
+      "from": "levant_mod",
+      "to": "saudi_mod",
+      "type": "land"
+    },
+    {
+      "from": "egypt_mod",
+      "to": "maghreb_mod",
+      "type": "land"
+    },
+    {
+      "from": "egypt_mod",
+      "to": "saudi_mod",
+      "type": "sea"
+    },
+    {
+      "from": "egypt_mod",
+      "to": "sudan_horn_mod",
+      "type": "land"
+    },
+    {
+      "from": "iran_mod",
+      "to": "saudi_mod",
+      "type": "sea"
+    },
+    {
+      "from": "iran_mod",
+      "to": "pakistan_afghan_mod",
+      "type": "land"
+    },
+    {
+      "from": "iran_mod",
+      "to": "central_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "saudi_mod",
+      "to": "sudan_horn_mod",
+      "type": "sea"
+    },
+    {
+      "from": "maghreb_mod",
+      "to": "west_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "maghreb_mod",
+      "to": "iberia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "maghreb_mod",
+      "to": "sudan_horn_mod",
+      "type": "land"
+    },
+    {
+      "from": "west_africa_mod",
+      "to": "nigeria_mod",
+      "type": "land"
+    },
+    {
+      "from": "nigeria_mod",
+      "to": "central_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "central_africa_mod",
+      "to": "east_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "central_africa_mod",
+      "to": "southern_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "central_africa_mod",
+      "to": "sudan_horn_mod",
+      "type": "land"
+    },
+    {
+      "from": "east_africa_mod",
+      "to": "sudan_horn_mod",
+      "type": "land"
+    },
+    {
+      "from": "east_africa_mod",
+      "to": "southern_africa_mod",
+      "type": "land"
+    },
+    {
+      "from": "pakistan_afghan_mod",
+      "to": "india_mod",
+      "type": "land"
+    },
+    {
+      "from": "pakistan_afghan_mod",
+      "to": "central_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "pakistan_afghan_mod",
+      "to": "china_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "india_mod",
+      "to": "china_west_mod",
+      "type": "land"
+    },
+    {
+      "from": "india_mod",
+      "to": "china_east_mod",
+      "type": "land"
+    },
+    {
+      "from": "india_mod",
+      "to": "southeast_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_west_mod",
+      "to": "china_east_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_west_mod",
+      "to": "central_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_east_mod",
+      "to": "korea_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_east_mod",
+      "to": "southeast_asia_mod",
+      "type": "land"
+    },
+    {
+      "from": "china_east_mod",
+      "to": "japan_mod",
+      "type": "sea"
+    },
+    {
+      "from": "japan_mod",
+      "to": "korea_mod",
+      "type": "sea"
+    },
+    {
+      "from": "southeast_asia_mod",
+      "to": "indonesia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "indonesia_mod",
+      "to": "australia_mod",
+      "type": "sea"
+    },
+    {
+      "from": "usa_east_mod",
+      "to": "uk_mod",
+      "type": "sea"
+    },
+    {
+      "from": "brazil_mod",
+      "to": "west_africa_mod",
+      "type": "sea"
+    },
+    {
+      "from": "canada_mod",
+      "to": "russia_east_mod",
+      "type": "sea"
+    },
+    {
+      "from": "india_mod",
+      "to": "east_africa_mod",
+      "type": "sea"
+    },
+    {
+      "from": "australia_mod",
+      "to": "chile_mod",
+      "type": "sea"
+    },
+    {
+      "from": "indonesia_mod",
+      "to": "japan_mod",
+      "type": "sea"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "north_america",
+      "name": "North America",
+      "bonus": 5
+    },
+    {
+      "region_id": "south_america",
+      "name": "South America",
+      "bonus": 3
+    },
+    {
+      "region_id": "europe",
+      "name": "Europe",
+      "bonus": 5
+    },
+    {
+      "region_id": "russia_cis",
+      "name": "Russia & CIS",
+      "bonus": 4
+    },
+    {
+      "region_id": "middle_east",
+      "name": "Middle East & North Africa",
+      "bonus": 4
+    },
+    {
+      "region_id": "sub_saharan_africa",
+      "name": "Sub-Saharan Africa",
+      "bonus": 3
+    },
+    {
+      "region_id": "asia",
+      "name": "Asia",
+      "bonus": 7
+    },
+    {
+      "region_id": "oceania",
+      "name": "Oceania & Pacific",
+      "bonus": 2
+    }
+  ],
+  "is_public": true,
+  "is_moderated": true,
+  "moderation_status": "approved",
+  "creator_id": "system"
+}

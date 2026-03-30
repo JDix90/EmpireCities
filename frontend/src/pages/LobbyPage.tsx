@@ -12,6 +12,7 @@ const ERAS = [
   { id: 'discovery', label: 'Age of Discovery'},
   { id: 'ww2',       label: 'World War II'    },
   { id: 'coldwar',   label: 'Cold War'        },
+  { id: 'modern',    label: 'The Modern Day'  },
 ];
 
 const ERA_MAP_IDS: Record<string, string> = {
@@ -20,6 +21,7 @@ const ERA_MAP_IDS: Record<string, string> = {
   discovery: 'era_discovery',
   ww2:       'era_ww2',
   coldwar:   'era_coldwar',
+  modern:    'era_modern',
 };
 
 interface PublicGame {
@@ -213,7 +215,7 @@ export default function LobbyPage() {
               {publicGames.map((game) => (
                 <div key={game.game_id} className="flex items-center justify-between p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors">
                   <div>
-                    <span className="font-medium text-cc-text capitalize">{game.era_id.replace('ww2', 'World War II').replace('coldwar', 'Cold War')}</span>
+                    <span className="font-medium text-cc-text capitalize">{game.era_id.replace('ww2', 'World War II').replace('coldwar', 'Cold War').replace('modern', 'Modern Day')}</span>
                     <span className="text-cc-muted text-sm ml-3">{game.player_count} / 8 players</span>
                   </div>
                   <button onClick={() => handleJoinGame(game.game_id)} className="btn-primary text-sm py-1.5 px-4">

@@ -31,7 +31,7 @@ export interface GameMap {
   map_id: string;
   name: string;
   description: string;
-  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'custom';
+  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'custom';
   canvas_width: number;
   canvas_height: number;
   territories: Territory[];
@@ -98,6 +98,13 @@ export const ERA_METADATA: Record<string, {
     color: '#1F618D',
     bgColor: '#0A0A1A',
     description: 'Command NATO or the Warsaw Pact, fight proxy wars, or play the Non-Aligned Movement.',
+  },
+  modern: {
+    label: 'The Modern Day',
+    year: '2025',
+    color: '#2ECC71',
+    bgColor: '#0B1A0F',
+    description: 'Command modern superpowers, build alliances, and dominate the 21st-century geopolitical landscape.',
   },
 };
 

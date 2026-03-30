@@ -34,6 +34,7 @@ export interface GameState {
     turn_timer_seconds: number;
     diplomacy_enabled: boolean;
   };
+  draft_units_remaining: number;
   turn_started_at: number;
   winner_id?: string;
 }

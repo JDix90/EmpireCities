@@ -8,6 +8,7 @@ const ERAS = [
   { id: 'discovery', label: 'Age of Discovery',   years: '1400 – 1800 AD',    color: '#2e7d9e' },
   { id: 'ww2',       label: 'World War II',        years: '1939 – 1945',       color: '#5a5a5a' },
   { id: 'coldwar',   label: 'Cold War',            years: '1945 – 1991',       color: '#1a3a5c' },
+  { id: 'modern',    label: 'The Modern Day',      years: '2025',               color: '#2ecc71' },
 ];
 
 const FEATURES = [

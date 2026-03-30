@@ -131,7 +131,7 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: game.player_color }} />
                       <div>
-                        <p className="text-sm text-cc-text capitalize">{game.era_id.replace('ww2', 'WWII').replace('coldwar', 'Cold War')}</p>
+                        <p className="text-sm text-cc-text capitalize">{game.era_id.replace('ww2', 'WWII').replace('coldwar', 'Cold War').replace('modern', 'Modern Day')}</p>
                         <p className="text-xs text-cc-muted">{new Date(game.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>

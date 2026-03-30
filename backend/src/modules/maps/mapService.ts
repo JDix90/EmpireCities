@@ -32,7 +32,7 @@ export interface GameMap {
   map_id: string;
   name: string;
   description: string;
-  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'custom';
+  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'custom';
   canvas_width: number;
   canvas_height: number;
   territories: Territory[];

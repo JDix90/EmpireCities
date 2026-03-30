@@ -60,7 +60,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/users/leaderboard/:era ─────────────────────────────────────
   fastify.get<{ Params: { era: string } }>('/leaderboard/:era', async (request, reply) => {
     const { era } = request.params;
-    const validEras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'global'];
+    const validEras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'global'];
     if (!validEras.includes(era)) {
       return reply.status(400).send({ error: 'Invalid era' });
     }

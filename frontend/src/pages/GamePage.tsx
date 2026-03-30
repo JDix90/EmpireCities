@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGameStore } from '../store/gameStore';
+import { useGameStore, CombatResult } from '../store/gameStore';
 import { useAuthStore } from '../store/authStore';
 import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
-import GlobeMap from '../components/game/GlobeMap';
+import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
 import GameHUD from '../components/game/GameHUD';
 import TerritoryPanel from '../components/game/TerritoryPanel';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry } from '../components/game/ActionModal';
 import toast from 'react-hot-toast';
 
 interface MapData {
@@ -44,6 +45,41 @@ export default function GamePage() {
   const fortifySourceRef = useRef<string | null>(null);
   const mapDataRef = useRef<MapData | null>(null);
 
+  // ── Globe animation events ───────────────────────────────────────────────
+  const [globeEvents, setGlobeEvents] = useState<GlobeEvent[]>([]);
+  const globeEventCounter = useRef(0);
+  const pushGlobeEvent = useCallback((event: Omit<GlobeEvent, 'id'>) => {
+    const id = `ge-${++globeEventCounter.current}-${Date.now()}`;
+    setGlobeEvents(prev => [...prev, { ...event, id }]);
+  }, []);
+  const handleGlobeEventDone = useCallback((eventId: string) => {
+    setGlobeEvents(prev => prev.filter(e => e.id !== eventId));
+  }, []);
+
+  // ── Action Modal state ──────────────────────────────────────────────────
+  const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
+  const [notifState, setNotifState] = useState<{ data: NotificationData; key: number } | null>(null);
+  const notifCounter = useRef(0);
+  const prevPlayerIndexRef = useRef<number | null>(null);
+  const prevPhaseRef = useRef<string | null>(null);
+  const otherTurnCombatsRef = useRef<CombatResult[]>([]);
+  const ownTurnCombatsRef = useRef<CombatResult[]>([]);
+  const ownTurnReinforcementsRef = useRef<ReinforcementEntry[]>([]);
+  const ownTurnFortificationsRef = useRef<FortifyEntry[]>([]);
+
+  const pushModal = useCallback((data: ModalData) => {
+    setModalQueue(prev => [...prev, data]);
+  }, []);
+
+  const dismissModal = useCallback(() => {
+    setModalQueue(prev => prev.slice(1));
+  }, []);
+
+  const showNotification = useCallback((data: NotificationData) => {
+    notifCounter.current++;
+    setNotifState({ data, key: notifCounter.current });
+  }, []);
+
   // ── Socket setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!gameId) return;
@@ -59,13 +95,84 @@ export default function GamePage() {
 
     socket.on('game:state', (state) => {
       setGameState(state);
-      const myPlayer = state.players.find((p: { player_id: string }) => p.player_id === user?.user_id);
-      if (myPlayer && state.phase === 'draft' && state.players[state.current_player_index]?.player_id === user?.user_id) {
-        // Calculate reinforcements to display
-        const continentBonus = 0; // Simplified — server handles actual calculation
-        const base = Math.max(3, Math.floor(myPlayer.territory_count / 3));
-        setDraftUnitsRemaining(base + continentBonus);
+      const myId = user?.user_id;
+
+      // Read authoritative draft count from server; fallback to local calc for older saves
+      let draftCount = state.draft_units_remaining;
+      if ((draftCount === undefined || draftCount === null) && state.phase === 'draft') {
+        const me = state.players.find((p: { player_id: string }) => p.player_id === myId);
+        if (me && state.players[state.current_player_index]?.player_id === myId) {
+          draftCount = Math.max(3, Math.floor(me.territory_count / 3));
+        }
       }
+      setDraftUnitsRemaining(draftCount ?? 0);
+
+      // ── Turn change detection ────────────────────────────────────────
+      const newIndex = state.current_player_index;
+      const prevIndex = prevPlayerIndexRef.current;
+      const playerChanged = prevIndex !== null && prevIndex !== newIndex;
+
+      if (playerChanged) {
+        const prevPlayer = state.players[prevIndex];
+        if (prevPlayer && prevPlayer.player_id === myId) {
+          const myPlayerData = state.players.find((p: { player_id: string }) => p.player_id === myId);
+          const combats = [...ownTurnCombatsRef.current];
+          const reinforcements = [...ownTurnReinforcementsRef.current];
+          const fortifications = [...ownTurnFortificationsRef.current];
+          if (combats.length > 0 || reinforcements.length > 0 || fortifications.length > 0) {
+            setModalQueue(q => [...q, {
+              type: 'turn_summary' as const,
+              playerName: myPlayerData?.username ?? prevPlayer.username,
+              playerColor: myPlayerData?.color ?? prevPlayer.color,
+              turnNumber: state.turn_number,
+              combats,
+              isOwnTurn: true,
+              reinforcements,
+              fortifications,
+            }]);
+          }
+          ownTurnCombatsRef.current = [];
+          ownTurnReinforcementsRef.current = [];
+          ownTurnFortificationsRef.current = [];
+        } else if (prevPlayer && !prevPlayer.is_eliminated) {
+          const combats = [...otherTurnCombatsRef.current];
+          setModalQueue(q => [...q, {
+            type: 'turn_summary' as const,
+            playerName: prevPlayer.username,
+            playerColor: prevPlayer.color,
+            turnNumber: state.turn_number,
+            combats,
+          }]);
+        }
+        otherTurnCombatsRef.current = [];
+      }
+
+      // ── Phase change notification (own turn only, mid-turn) ──────────
+      const isMyTurn = state.players[newIndex]?.player_id === myId;
+      const prevPhase = prevPhaseRef.current;
+      if (!playerChanged && prevPhase && prevPhase !== state.phase && isMyTurn) {
+        const labels: Record<string, string> = {
+          attack: 'ATTACK PHASE',
+          fortify: 'FORTIFY PHASE',
+        };
+        if (labels[state.phase]) {
+          notifCounter.current++;
+          setNotifState({
+            data: {
+              type: 'phase_change',
+              text: labels[state.phase],
+              icon: state.phase === 'attack' ? 'sword' : 'arrow',
+              accentBg: 'bg-amber-500/20',
+              accentBorder: 'border-amber-500/30',
+              accentText: 'text-amber-400',
+            },
+            key: notifCounter.current,
+          });
+        }
+      }
+
+      prevPlayerIndexRef.current = newIndex;
+      prevPhaseRef.current = state.phase;
     });
 
     socket.on('game:started', () => {
@@ -87,14 +194,30 @@ export default function GamePage() {
       const attackerName = state?.players.find(p => p.player_id === attackerOwner)?.username ?? 'Unknown';
       const defenderName = state?.players.find(p => p.player_id === defenderOwner)?.username ?? 'Unknown';
 
-      setLastCombatResult({
+      const enriched: CombatResult = {
         ...data.result,
         fromName,
         toName,
         attackerName,
         defenderName,
-      });
+      };
 
+      setLastCombatResult(enriched);
+
+      const isMyAttack = attackerOwner === user?.user_id;
+      const isMyDefense = defenderOwner === user?.user_id;
+
+      if (isMyAttack) {
+        setModalQueue(q => [...q, { type: 'combat' as const, result: enriched, perspective: 'attacker' as const }]);
+        ownTurnCombatsRef.current.push(enriched);
+      } else if (isMyDefense) {
+        setModalQueue(q => [...q, { type: 'combat' as const, result: enriched, perspective: 'defender' as const }]);
+        otherTurnCombatsRef.current.push(enriched);
+      } else {
+        otherTurnCombatsRef.current.push(enriched);
+      }
+
+      // Always append to combat log sidebar
       const { attacker_losses, defender_losses, territory_captured } = data.result;
       let logEntry = `${attackerName} attacked ${toName} from ${fromName}`;
       if (attacker_losses > 0 && defender_losses > 0) {
@@ -108,6 +231,19 @@ export default function GamePage() {
         logEntry += ` and captured ${toName}!`;
       }
       setCombatLog((prev) => [...prev, logEntry]);
+
+      const atkPlayerColor = state?.players.find(p => p.player_id === attackerOwner)?.color;
+      const defPlayerColor = state?.players.find(p => p.player_id === defenderOwner)?.color;
+      pushGlobeEvent({
+        type: 'combat',
+        territoryId: data.toId,
+        fromTerritoryId: data.fromId,
+        attackerLosses: attacker_losses,
+        defenderLosses: defender_losses,
+        captured: territory_captured,
+        attackerColor: atkPlayerColor,
+        defenderColor: defPlayerColor,
+      });
     });
 
     socket.on('game:cards_redeemed', ({ bonus }: { bonus: number }) => {
@@ -169,18 +305,39 @@ export default function GamePage() {
       return;
     }
 
-    // Fortify: if we have a source selected and click an owned territory
     if (gameState.phase === 'fortify' && attackSource && tState?.owner_id === user?.user_id && attackSource !== territoryId) {
       const fromState = gameState.territories[attackSource];
       const units = Math.max(1, Math.floor((fromState?.unit_count ?? 2) / 2));
       socket.emit('game:fortify', { gameId, fromId: attackSource, toId: territoryId, units });
+
+      const fromName = mapDataRef.current?.territories.find(t => t.territory_id === attackSource)?.name ?? attackSource;
+      const toName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
+      ownTurnFortificationsRef.current.push({ fromName, toName, units });
+      showNotification({
+        type: 'fortify',
+        text: `Moved ${units} troops: ${fromName} → ${toName}`,
+        icon: 'arrow',
+        accentBg: 'bg-sky-500/20',
+        accentBorder: 'border-sky-500/30',
+        accentText: 'text-sky-400',
+      });
+
+      const myColor = gameState.players.find(p => p.player_id === user?.user_id)?.color;
+      pushGlobeEvent({
+        type: 'fortify',
+        territoryId,
+        fromTerritoryId: attackSource,
+        units,
+        playerColor: myColor,
+      });
+
       setAttackSource(null);
       setSelectedTerritory(null);
       return;
     }
 
     setSelectedTerritory(territoryId);
-  }, [gameState, attackSource, user, gameId]);
+  }, [gameState, attackSource, user, gameId, showNotification]);
 
   const handleAdvancePhase = () => {
     getSocket().emit('game:advance_phase', { gameId });
@@ -197,14 +354,58 @@ export default function GamePage() {
   const handleDraft = (territoryId: string, units: number) => {
     getSocket().emit('game:draft', { gameId, territoryId, units });
     const curr = useGameStore.getState().draftUnitsRemaining;
-    setDraftUnitsRemaining(Math.max(0, curr - units));
+    const remaining = Math.max(0, curr - units);
+    setDraftUnitsRemaining(remaining);
     setSelectedTerritory(null);
+
+    const tName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
+    ownTurnReinforcementsRef.current.push({ territoryName: tName, units });
+    showNotification({
+      type: 'reinforce',
+      text: `+${units} troops deployed to ${tName}`,
+      subtext: remaining > 0 ? `${remaining} remaining` : 'All reinforcements placed',
+      icon: 'shield',
+      accentBg: 'bg-emerald-500/20',
+      accentBorder: 'border-emerald-500/30',
+      accentText: 'text-emerald-400',
+    });
+
+    const tState = gameState?.territories[territoryId];
+    const myColor = gameState?.players.find(p => p.player_id === user?.user_id)?.color;
+    pushGlobeEvent({
+      type: 'reinforce',
+      territoryId,
+      units,
+      totalAfter: (tState?.unit_count ?? 0) + units,
+      playerColor: myColor,
+    });
   };
 
   const handleFortify = (fromId: string, toId: string, units: number) => {
     getSocket().emit('game:fortify', { gameId, fromId, toId, units });
     setSelectedTerritory(null);
     setAttackSource(null);
+
+    const fromName = mapDataRef.current?.territories.find(t => t.territory_id === fromId)?.name ?? fromId;
+    const toName = mapDataRef.current?.territories.find(t => t.territory_id === toId)?.name ?? toId;
+    ownTurnFortificationsRef.current.push({ fromName, toName, units });
+    showNotification({
+      type: 'fortify',
+      text: `Moved ${units} troops: ${fromName} → ${toName}`,
+      icon: 'arrow',
+      accentBg: 'bg-sky-500/20',
+      accentBorder: 'border-sky-500/30',
+      accentText: 'text-sky-400',
+    });
+
+    const myColor = gameState?.players.find(p => p.player_id === user?.user_id)?.color;
+    pushGlobeEvent({
+      type: 'fortify',
+      territoryId: toId,
+      fromTerritoryId: fromId,
+      units,
+      playerColor: myColor,
+    });
   };
 
   const handleRedeemCards = (cardIds: string[]) => {
@@ -270,6 +471,8 @@ export default function GamePage() {
                 onTerritoryClick={handleTerritoryClick}
                 width={window.innerWidth - 288}
                 height={window.innerHeight - 40}
+                events={globeEvents}
+                onEventDone={handleGlobeEventDone}
               />
             ) : (
               <GameMap
@@ -316,6 +519,12 @@ export default function GamePage() {
           lastCombatLog={combatLog}
         />
       </div>
+
+      {/* Action Modal (blocking — combat results & turn summaries) */}
+      <ActionModal data={modalQueue[0] ?? null} onDismiss={dismissModal} />
+
+      {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
+      <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />
     </div>
   );
 }

@@ -58,6 +58,10 @@ export function initializeGameState(
     cards: [],
   }));
 
+  const firstPlayer = playerStates[0];
+  const continentBonus = calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
+  const initialDraft = calculateReinforcements(firstPlayer.territory_count, continentBonus);
+
   return {
     game_id: gameId,
     era,
@@ -71,8 +75,25 @@ export function initializeGameState(
     card_set_redemption_count: 0,
     diplomacy,
     settings,
+    draft_units_remaining: initialDraft,
     turn_started_at: Date.now(),
   };
+}
+
+function calculateContinentBonusesForPlayer(
+  territories: Record<string, TerritoryState>,
+  map: GameMap,
+  playerId: string
+): number {
+  let bonus = 0;
+  for (const region of map.regions) {
+    const regionTerritories = map.territories.filter((t) => t.region_id === region.region_id);
+    const ownsAll = regionTerritories.every(
+      (t) => territories[t.territory_id]?.owner_id === playerId
+    );
+    if (ownsAll) bonus += region.bonus;
+  }
+  return bonus;
 }
 
 /**
@@ -113,7 +134,7 @@ export function calculateContinentBonuses(
  * Advance to the next player's turn.
  * Skips eliminated players and wraps around.
  */
-export function advanceToNextPlayer(state: GameState): void {
+export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   const total = state.players.length;
   let next = (state.current_player_index + 1) % total;
   let attempts = 0;
@@ -127,6 +148,12 @@ export function advanceToNextPlayer(state: GameState): void {
   state.current_player_index = next;
   state.phase = 'draft';
   state.turn_started_at = Date.now();
+
+  if (map) {
+    const nextPlayer = state.players[next];
+    const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
+    state.draft_units_remaining = calculateReinforcements(nextPlayer.territory_count, bonus);
+  }
 
   // Decrement truce timers
   for (const entry of state.diplomacy) {

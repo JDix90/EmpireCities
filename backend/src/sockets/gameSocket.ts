@@ -211,12 +211,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
 
+      if (units < 1 || units > state.draft_units_remaining) {
+        return socket.emit('error', { message: `Cannot place ${units} units (${state.draft_units_remaining} remaining)` });
+      }
+
       const territory = state.territories[territoryId];
       if (!territory || territory.owner_id !== userId) {
         return socket.emit('error', { message: 'Invalid territory' });
       }
 
       territory.unit_count += units;
+      state.draft_units_remaining -= units;
       broadcastState(io, gameId, state);
     });
 
@@ -295,17 +300,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:advance_phase', ({ gameId }: { gameId: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
-      const { state } = room;
+      const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
       if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
 
       if (state.phase === 'draft') {
+        state.draft_units_remaining = 0;
         state.phase = 'attack';
       } else if (state.phase === 'attack') {
         state.phase = 'fortify';
       } else if (state.phase === 'fortify') {
-        advanceToNextPlayer(state);
+        advanceToNextPlayer(state, map);
         saveGameState(gameId, state);
 
         // Trigger AI if next player is AI
@@ -359,6 +365,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       try {
         const bonus = redeemCardSet(state, userId, cardIds);
+        state.draft_units_remaining += bonus;
         socket.emit('game:cards_redeemed', { bonus });
         broadcastState(io, gameId, state);
       } catch (err: unknown) {
@@ -462,8 +469,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
     if (action.type === 'draft' && action.to && action.units) {
       const t = state.territories[action.to];
-      if (t && t.owner_id === currentPlayer.player_id) {
-        t.unit_count += action.units;
+      const clamped = Math.min(action.units, state.draft_units_remaining);
+      if (t && t.owner_id === currentPlayer.player_id && clamped > 0) {
+        t.unit_count += clamped;
+        state.draft_units_remaining -= clamped;
       }
     } else if (action.type === 'attack' && action.from && action.to) {
       const from = state.territories[action.from];
@@ -489,10 +498,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         to.unit_count += action.units;
       }
     } else if (action.type === 'end_phase') {
-      if (state.phase === 'draft') state.phase = 'attack';
-      else if (state.phase === 'attack') state.phase = 'fortify';
-      else if (state.phase === 'fortify') {
-        advanceToNextPlayer(state);
+      if (state.phase === 'draft') {
+        state.draft_units_remaining = 0;
+        state.phase = 'attack';
+      } else if (state.phase === 'attack') {
+        state.phase = 'fortify';
+      } else if (state.phase === 'fortify') {
+        advanceToNextPlayer(state, map);
         await saveGameState(gameId, state);
       }
     }

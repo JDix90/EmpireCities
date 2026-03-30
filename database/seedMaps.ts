@@ -72,6 +72,7 @@ const MAP_FILES = [
   'era_discovery.json',
   'era_ww2.json',
   'era_coldwar.json',
+  'era_modern.json',
 ];
 
 const MAPS_DIR = path.resolve(__dirname, 'maps');

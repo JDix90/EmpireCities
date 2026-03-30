@@ -1,6 +1,6 @@
 """
 ChronoConquest — Map Validation & JSON Export
-Validates all 5 era maps and exports them to JSON files.
+Validates all 6 era maps and exports them to JSON files.
 """
 
 import json
@@ -13,8 +13,9 @@ from era_medieval  import MAP_DATA as MEDIEVAL
 from era_discovery import MAP_DATA as DISCOVERY
 from era_ww2       import MAP_DATA as WW2
 from era_coldwar   import MAP_DATA as COLDWAR
+from era_modern    import MAP_DATA as MODERN
 
-ALL_MAPS = [ANCIENT, MEDIEVAL, DISCOVERY, WW2, COLDWAR]
+ALL_MAPS = [ANCIENT, MEDIEVAL, DISCOVERY, WW2, COLDWAR, MODERN]
 
 ERRORS   = []
 WARNINGS = []
@@ -130,5 +131,5 @@ print()
 print("Summary:")
 total_t = sum(len(m["territories"]) for m in ALL_MAPS)
 total_c = sum(len(m["connections"])  for m in ALL_MAPS)
-print(f"  5 maps · {total_t} total territories · {total_c} total connections")
+print(f"  {len(ALL_MAPS)} maps · {total_t} total territories · {total_c} total connections")
 print("Done.")

@@ -2,7 +2,7 @@
 // Shared backend types for ChronoConquest
 // ============================================================
 
-export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar';
+export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type GamePhase = 'draft' | 'attack' | 'fortify' | 'game_over';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
@@ -102,6 +102,7 @@ export interface GameState {
   card_set_redemption_count: number;
   diplomacy: DiplomacyEntry[];
   settings: GameSettings;
+  draft_units_remaining: number;
   turn_started_at: number;       // Unix timestamp ms
   winner_id?: string;
 }
