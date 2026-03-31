@@ -455,8 +455,20 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
     return () => window.removeEventListener('keydown', handleKey);
   }, [goNext, goPrev]);
 
-  const isLastSlide = currentSlide === slides.length - 1;
-  const slide = slides[currentSlide];
+  const safeSlideIndex = slides.length === 0 ? 0 : Math.min(Math.max(0, currentSlide), slides.length - 1);
+  const slide = slides[safeSlideIndex];
+  const isLastSlide = safeSlideIndex === slides.length - 1;
+
+  if (!slide) {
+    return (
+      <div className="w-full max-w-sm text-center py-6">
+        <p className="text-white/50 text-sm">Turn summary unavailable.</p>
+        <button type="button" onClick={onDismiss} className="mt-4 w-full py-3 rounded-xl bg-white/10 border border-white/10 text-white font-medium">
+          Continue
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-lg" onClick={() => setAutoPaused(true)}>
@@ -505,7 +517,7 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
         <div className="flex items-center justify-center gap-4 mt-5 mb-4">
           <button
             onClick={goPrev}
-            disabled={currentSlide === 0}
+            disabled={safeSlideIndex === 0}
             className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-20 transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-white/60" />
@@ -517,7 +529,7 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
                 onClick={() => { setAutoPaused(true); goTo(i); }}
                 className={clsx(
                   'w-2 h-2 rounded-full transition-all duration-300',
-                  i === currentSlide ? 'bg-white w-6' : 'bg-white/25 hover:bg-white/40'
+                  i === safeSlideIndex ? 'bg-white w-6' : 'bg-white/25 hover:bg-white/40'
                 )}
               />
             ))}
@@ -756,7 +768,13 @@ export default function ActionModal({ data, onDismiss, onResignConfirm }: Action
         onClick={(e) => e.stopPropagation()}
       >
         {data.type === 'combat' && <CombatResultView result={data.result} perspective={data.perspective} onDismiss={onDismiss} />}
-        {data.type === 'turn_summary' && <TurnSummaryView data={data} onDismiss={onDismiss} />}
+        {data.type === 'turn_summary' && (
+          <TurnSummaryView
+            key={`turn-summary-${data.turnNumber}-${data.playerName}-${data.isOwnTurn ? 'me' : 'opp'}-${data.combats.length}-${data.reinforcements?.length ?? 0}-${data.fortifications?.length ?? 0}-${(data.combats ?? []).map((c) => `${c.fromName ?? ''}->${c.toName ?? ''}`).join(';')}`}
+            data={data}
+            onDismiss={onDismiss}
+          />
+        )}
         {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} />}
         {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}

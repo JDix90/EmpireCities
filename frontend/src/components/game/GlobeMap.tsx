@@ -6,6 +6,7 @@
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
+import { FastForward } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import {
   TERRITORY_ISO_MAP,
@@ -253,8 +254,18 @@ export default function GlobeMap({
   const eventQueueRef = useRef<GlobeEvent[]>([]);
   const seenEventIdsRef = useRef(new Set<string>());
   const isAnimatingRef = useRef(false);
+  const currentEventIdRef = useRef<string | null>(null);
   const autoRotateTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const cleanupTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  /** Drives visibility of the "Skip animations" control (refs → React state). */
+  const [animationUi, setAnimationUi] = useState({ playing: false, backlog: 0 });
+  const flushAnimationUi = useCallback(() => {
+    setAnimationUi({
+      playing: isAnimatingRef.current,
+      backlog: eventQueueRef.current.length,
+    });
+  }, []);
 
   const canvasW = mapData.canvas_width ?? 1200;
   const canvasH = mapData.canvas_height ?? 700;
@@ -726,10 +737,14 @@ export default function GlobeMap({
     const next = eventQueueRef.current.shift();
     if (!next) {
       isAnimatingRef.current = false;
+      currentEventIdRef.current = null;
       scheduleAutoRotateResume();
+      flushAnimationUi();
       return;
     }
     isAnimatingRef.current = true;
+    currentEventIdRef.current = next.id;
+    flushAnimationUi();
 
     switch (next.type) {
       case 'reinforce': animateReinforce(next); break;
@@ -738,6 +753,28 @@ export default function GlobeMap({
       default: playNextRef.current(); break;
     }
   };
+
+  const skipRemainingAnimations = useCallback(() => {
+    for (const t of cleanupTimersRef.current) clearTimeout(t);
+    cleanupTimersRef.current = [];
+    setOverlays([]);
+    setArcs([]);
+    setRings([]);
+
+    const ids: string[] = [];
+    if (currentEventIdRef.current) ids.push(currentEventIdRef.current);
+    for (const ev of eventQueueRef.current) ids.push(ev.id);
+    eventQueueRef.current = [];
+    currentEventIdRef.current = null;
+    isAnimatingRef.current = false;
+
+    for (const id of ids) onEventDone?.(id);
+    scheduleAutoRotateResume();
+    flushAnimationUi();
+  }, [onEventDone, scheduleAutoRotateResume, flushAnimationUi]);
+
+  const showSkipAnimations =
+    animationUi.playing && animationUi.backlog > 0;
 
   useEffect(() => {
     let hasNew = false;
@@ -749,10 +786,11 @@ export default function GlobeMap({
         hasNew = true;
       }
     }
+    flushAnimationUi();
     if (hasNew && !isAnimatingRef.current) {
       playNextRef.current();
     }
-  }, [events, onEventDone]);
+  }, [events, onEventDone, flushAnimationUi]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -911,6 +949,20 @@ export default function GlobeMap({
   return (
     <div className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative">
       <style dangerouslySetInnerHTML={{ __html: ANIMATION_STYLES }} />
+      {showSkipAnimations && (
+        <button
+          type="button"
+          onClick={skipRemainingAnimations}
+          title="Skip queued globe animations (current one ends immediately)"
+          className="absolute top-4 right-4 z-30 pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg
+            bg-[rgba(18,22,35,0.92)] border border-cc-gold/45 text-cc-gold text-sm font-medium shadow-lg
+            hover:bg-cc-gold/10 hover:border-cc-gold/70 transition-colors backdrop-blur-sm"
+        >
+          <FastForward className="w-4 h-4 shrink-0" aria-hidden />
+          <span>Skip animations</span>
+          <span className="text-xs tabular-nums opacity-85">({animationUi.backlog} queued)</span>
+        </button>
+      )}
       <Globe
         ref={globeRef}
         width={width}
