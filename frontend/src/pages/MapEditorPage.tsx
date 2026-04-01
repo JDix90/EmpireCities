@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Save, Plus, ArrowLeft, MousePointer, Pencil, Globe2, Link, Trash2, Check } from 'lucide-react';
+import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check } from 'lucide-react';
 import axios from 'axios';
 import GlobeMapEditor, {
   type EditorTerritory,
@@ -258,10 +258,11 @@ export default function MapEditorPage() {
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
       {/* Top Bar */}
-      <div className="h-12 bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0">
-        <button onClick={() => navigate('/lobby')} className="text-cc-muted hover:text-cc-text transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+      <div className="min-h-12 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
+        <RouterLink to="/lobby" className="font-display text-cc-gold text-sm tracking-widest hover:text-white transition-colors">
+          CHRONOCONQUEST
+        </RouterLink>
+        <span className="text-cc-border">|</span>
         <input
           className="bg-transparent border-none text-cc-gold font-display text-lg focus:outline-none w-64"
           value={mapName}

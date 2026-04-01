@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { ArrowLeft, Star, Globe, Plus, Map, Users, Zap } from 'lucide-react';
+import { Star, Globe, Plus, Map, Users, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
@@ -62,12 +62,13 @@ export default function MapHubPage() {
 
   return (
     <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between">
+      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
         <div className="flex items-center gap-4">
-          <Link to="/lobby" className="text-cc-muted hover:text-cc-text transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+          <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors">
+            CHRONOCONQUEST
           </Link>
-          <h1 className="font-display text-xl text-cc-gold flex items-center gap-2">
+          <span className="text-cc-border">|</span>
+          <h1 className="font-display text-lg text-cc-muted flex items-center gap-2">
             <Globe className="w-5 h-5" /> Map Hub
           </h1>
         </div>

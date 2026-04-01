@@ -89,6 +89,13 @@ export interface GameSettings {
   diplomacy_enabled: boolean;
 }
 
+/** Snapshots for end-of-game win-probability chart (territory + army blend, renormalized). */
+export interface WinProbabilitySnapshot {
+  step: number;
+  turn: number;
+  probabilities: Record<string, number>; // player_id → 0–1
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -105,6 +112,7 @@ export interface GameState {
   draft_units_remaining: number;
   turn_started_at: number;       // Unix timestamp ms
   winner_id?: string;
+  win_probability_history?: WinProbabilitySnapshot[];
 }
 
 // ── Combat ────────────────────────────────────────────────────────────────────

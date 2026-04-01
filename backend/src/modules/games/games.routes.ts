@@ -34,10 +34,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const gameId = uuidv4();
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
 
+    const totalPlayers = 1 + ai_count;
+    const gameType = ai_count === 0 ? 'multiplayer' : ai_count >= totalPlayers - 1 ? 'solo' : 'hybrid';
+
     await query(
-      `INSERT INTO games (game_id, map_id, era_id, status, settings_json)
-       VALUES ($1, $2, $3, 'waiting', $4)`,
-      [gameId, map_id, era_id, JSON.stringify(settings)]
+      `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
+       VALUES ($1, $2, $3, 'waiting', $4, $5)`,
+      [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType]
     );
 
     // Add the host as player 0
@@ -56,7 +59,23 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings });
+    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType });
+  });
+
+  // ── GET /api/games/public ────────────────────────────────────────────────
+  // Static routes MUST be registered before parametric /:gameId
+  fastify.get('/public', async (_request, reply) => {
+    const games = await query(
+      `SELECT g.game_id, g.era_id, g.map_id, g.status, g.created_at,
+              COUNT(gp.id) AS player_count
+       FROM games g
+       LEFT JOIN game_players gp ON gp.game_id = g.game_id
+       WHERE g.status = 'waiting'
+       GROUP BY g.game_id
+       ORDER BY g.created_at DESC
+       LIMIT 20`
+    );
+    return reply.send(games);
   });
 
   // ── GET /api/games/:gameId ───────────────────────────────────────────────
@@ -86,8 +105,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── POST /api/games/:gameId/join ─────────────────────────────────────────
   fastify.post<{ Params: { gameId: string } }>('/:gameId/join', { preHandler: authenticate }, async (request, reply) => {
-    const game = await queryOne<{ status: string; game_id: string }>(
-      'SELECT game_id, status FROM games WHERE game_id = $1',
+    const game = await queryOne<{ status: string; game_id: string; settings_json: Record<string, unknown> }>(
+      'SELECT game_id, status, settings_json FROM games WHERE game_id = $1',
       [request.params.gameId]
     );
     if (!game) return reply.status(404).send({ error: 'Game not found' });
@@ -101,7 +120,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const alreadyJoined = players.some((p) => p.user_id === request.userId);
     if (alreadyJoined) return reply.status(409).send({ error: 'Already in this game' });
 
-    const maxPlayers = 8;
+    const settingsMaxPlayers = typeof game.settings_json?.max_players === 'number' ? game.settings_json.max_players : 8;
+    const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
     if (players.length >= maxPlayers) return reply.status(409).send({ error: 'Game is full' });
 
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
@@ -116,18 +136,31 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({ message: 'Joined game', player_index: nextIndex });
   });
 
-  // ── GET /api/games/public ────────────────────────────────────────────────
-  fastify.get('/public', async (_request, reply) => {
-    const games = await query(
-      `SELECT g.game_id, g.era_id, g.map_id, g.status, g.created_at,
-              COUNT(gp.id) AS player_count
-       FROM games g
-       LEFT JOIN game_players gp ON gp.game_id = g.game_id
-       WHERE g.status = 'waiting'
-       GROUP BY g.game_id
-       ORDER BY g.created_at DESC
-       LIMIT 20`
+  // ── DELETE /api/games/:gameId/abandon ──────────────────────────────────
+  fastify.delete<{ Params: { gameId: string } }>('/:gameId/abandon', { preHandler: authenticate }, async (request, reply) => {
+    const game = await queryOne<{ game_id: string; status: string; game_type: string }>(
+      'SELECT game_id, status, game_type FROM games WHERE game_id = $1',
+      [request.params.gameId]
     );
-    return reply.send(games);
+    if (!game) return reply.status(404).send({ error: 'Game not found' });
+
+    // Verify the user is a participant
+    const participant = await queryOne<{ user_id: string }>(
+      'SELECT user_id FROM game_players WHERE game_id = $1 AND user_id = $2',
+      [request.params.gameId, request.userId]
+    );
+    if (!participant) return reply.status(403).send({ error: 'Not a participant in this game' });
+
+    // Only allow abandoning waiting or in-progress games
+    if (game.status !== 'waiting' && game.status !== 'in_progress') {
+      return reply.status(409).send({ error: 'Game already finished' });
+    }
+
+    await query(
+      'UPDATE games SET status = $1, ended_at = NOW() WHERE game_id = $2',
+      ['abandoned', request.params.gameId]
+    );
+
+    return reply.send({ message: 'Game abandoned' });
   });
 }

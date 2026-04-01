@@ -32,7 +32,11 @@ async function bootstrap(): Promise<void> {
   });
 
   await app.register(fastifyCors, {
-    origin: config.frontendUrl,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (config.corsOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
@@ -66,7 +70,7 @@ async function bootstrap(): Promise<void> {
   httpServer.listen(config.port, '0.0.0.0', () => {
     console.log(`\n🚀 ChronoConquest backend running on http://localhost:${config.port}`);
     console.log(`   Environment: ${config.nodeEnv}`);
-    console.log(`   Frontend URL: ${config.frontendUrl}\n`);
+    console.log(`   CORS origins: ${config.corsOrigins.join(', ')}\n`);
   });
 }
 

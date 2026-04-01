@@ -37,6 +37,11 @@ export interface GameState {
   draft_units_remaining: number;
   turn_started_at: number;
   winner_id?: string;
+  win_probability_history?: Array<{
+    step: number;
+    turn: number;
+    probabilities: Record<string, number>;
+  }>;
 }
 
 export interface CombatResult {

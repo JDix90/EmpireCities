@@ -11,9 +11,11 @@ import {
   redeemCardSet,
   syncTerritoryCounts,
   calculateContinentBonuses,
+  appendWinProbabilitySnapshot,
 } from '../game-engine/state/gameStateManager';
 import { resolveCombat, calculateReinforcements } from '../game-engine/combat/combatResolver';
 import { computeAiTurn } from '../game-engine/ai/aiBot';
+import { recordGameResults } from '../game-engine/state/statsManager';
 import type { GameState, GameMap, AiDifficulty } from '../types';
 import { config } from '../config';
 
@@ -24,10 +26,16 @@ const activeGames = new Map<string, {
   connectedSockets: Map<string, string>; // socketId → playerId
 }>();
 
+// Turn timer enforcement: gameId → timeout handle
+const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// Prevent overlapping AI turns: gameId → true while processAiTurn is running
+const aiInFlight = new Set<string>();
+
 export function initGameSocket(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: config.frontendUrl,
+      origin: config.corsOrigins.length === 1 ? config.corsOrigins[0] : config.corsOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -112,6 +120,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (room) {
           room.connectedSockets.set(socket.id, userId);
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
+
+          // Resume AI turn if it's an AI's turn and no AI processing is already in-flight
+          const currentAiPlayer = room.state.players[room.state.current_player_index];
+          if (currentAiPlayer?.is_ai && room.state.phase !== 'game_over' && !aiInFlight.has(gameId)) {
+            setTimeout(() => processAiTurn(io, gameId), 1500);
+          }
         }
 
         socket.emit('game:joined', { gameId, playerIndex: players.find((p) => p.user_id === userId)?.player_index });
@@ -130,7 +144,45 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'SELECT game_id, era_id, map_id, status, settings_json FROM games WHERE game_id = $1',
           [gameId]
         );
-        if (!game || game.status !== 'waiting') {
+        if (!game) {
+          return socket.emit('error', { message: 'Game not found' });
+        }
+
+        // Already in progress: host (or client) clicked Start after reconnect; DB says started but UI may not have received game:started
+        if (game.status === 'in_progress') {
+          let room = activeGames.get(gameId);
+          if (!room) {
+            const savedState = await queryOne<{ state_json: GameState }>(
+              `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
+              [gameId]
+            );
+            if (!savedState) {
+              return socket.emit('error', { message: 'Game state not found' });
+            }
+            const mapDoc = await CustomMap.findOne({ map_id: game.map_id }).lean();
+            if (!mapDoc) return socket.emit('error', { message: 'Map not found' });
+            const gameMap: GameMap = {
+              map_id: mapDoc.map_id,
+              name: mapDoc.name,
+              territories: mapDoc.territories,
+              connections: mapDoc.connections,
+              regions: mapDoc.regions,
+            };
+            activeGames.set(gameId, {
+              state: savedState.state_json,
+              map: gameMap,
+              connectedSockets: new Map(),
+            });
+            room = activeGames.get(gameId);
+          }
+          if (!room) return socket.emit('error', { message: 'Failed to resume game' });
+          room.connectedSockets.set(socket.id, userId);
+          socket.emit('game:started', { gameId });
+          socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
+          return;
+        }
+
+        if (game.status !== 'waiting') {
           return socket.emit('error', { message: 'Game cannot be started' });
         }
 
@@ -184,16 +236,23 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         activeGames.set(gameId, { state, map: gameMap, connectedSockets });
 
+        // Compute game_type based on actual player composition at start
+        const humanCount = players.filter((p) => !p.is_ai).length;
+        const aiPlayerCount = players.filter((p) => p.is_ai).length;
+        const gameType = aiPlayerCount === 0 ? 'multiplayer' : humanCount <= 1 ? 'solo' : 'hybrid';
+
         // Update DB
-        await query('UPDATE games SET status = $1, started_at = NOW() WHERE game_id = $2', ['in_progress', gameId]);
+        await query('UPDATE games SET status = $1, started_at = NOW(), game_type = $2 WHERE game_id = $3', ['in_progress', gameType, gameId]);
         await saveGameState(gameId, state);
 
         io.to(gameId).emit('game:started', { gameId });
         broadcastState(io, gameId, state);
 
-        // If first player is AI, trigger AI turn
+        // If first player is AI, trigger AI turn; otherwise start turn timer
         if (state.players[state.current_player_index].is_ai) {
           setTimeout(() => processAiTurn(io, gameId), 1500);
+        } else {
+          startTurnTimer(io, gameId, state, gameMap);
         }
       } catch (err) {
         console.error('[Socket] game:start error:', err);
@@ -260,6 +319,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       toTerritory.unit_count -= result.defender_losses;
 
       let cardEarned = false;
+      let defenderEliminated = false;
       const defenderId = toTerritory.owner_id;
       if (result.territory_captured) {
         toTerritory.owner_id = userId;
@@ -272,6 +332,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           syncTerritoryCounts(state);
           if (defenderPlayer.territory_count === 0) {
             defenderPlayer.is_eliminated = true;
+            defenderEliminated = true;
             currentPlayer.cards.push(...defenderPlayer.cards);
             defenderPlayer.cards = [];
             io.to(gameId).emit('game:player_eliminated', {
@@ -294,6 +355,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.phase = 'game_over';
         state.winner_id = winnerId;
         finalizeGame(io, gameId, state, winnerId);
+      } else if (defenderEliminated) {
+        appendWinProbabilitySnapshot(state);
       }
 
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
@@ -318,9 +381,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         advanceToNextPlayer(state, map);
         saveGameState(gameId, state);
 
-        // Trigger AI if next player is AI
+        // Trigger AI if next player is AI; otherwise restart turn timer
         if (state.players[state.current_player_index].is_ai) {
+          clearTurnTimer(gameId);
           setTimeout(() => processAiTurn(io, gameId), 1500);
+        } else {
+          startTurnTimer(io, gameId, state, map);
         }
       }
 
@@ -377,6 +443,37 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
     });
 
+    // ── Leave (Save & Leave) ────────────────────────────────────────────
+    socket.on('game:leave', async ({ gameId }: { gameId: string }) => {
+      const room = activeGames.get(gameId);
+      if (!room) return socket.emit('error', { message: 'Game not found' });
+      const { state } = room;
+
+      if (state.phase === 'game_over') return;
+
+      await saveGameState(gameId, state);
+      room.connectedSockets.delete(socket.id);
+      socket.leave(gameId);
+      socket.emit('game:left', { gameId });
+
+      // If no human sockets remain, keep game in memory for 5 min then evict
+      const hasHumanConnections = [...room.connectedSockets.values()].some((pid) =>
+        state.players.some((p) => p.player_id === pid && !p.is_ai)
+      );
+      if (!hasHumanConnections) {
+        const evictionTimer = setTimeout(() => {
+          const current = activeGames.get(gameId);
+          if (current && current.connectedSockets.size === 0) {
+            clearTurnTimer(gameId);
+            activeGames.delete(gameId);
+            aiInFlight.delete(gameId);
+            console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
+          }
+        }, 5 * 60 * 1000);
+        evictionTimer.unref();
+      }
+    });
+
     // ── Resign ────────────────────────────────────────────────────────────
     socket.on('game:resign', async ({ gameId }: { gameId: string }) => {
       const room = activeGames.get(gameId);
@@ -427,7 +524,28 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${userId} (${socket.id})`);
       for (const [gameId, room] of activeGames.entries()) {
+        if (!room.connectedSockets.has(socket.id)) continue;
         room.connectedSockets.delete(socket.id);
+
+        // Schedule eviction if no human sockets remain
+        if (room.state.phase !== 'game_over') {
+          const hasHumanConnections = [...room.connectedSockets.values()].some((pid) =>
+            room.state.players.some((p) => p.player_id === pid && !p.is_ai)
+          );
+          if (!hasHumanConnections) {
+            saveGameState(gameId, room.state);
+            const evictionTimer = setTimeout(() => {
+              const current = activeGames.get(gameId);
+              if (current && current.connectedSockets.size === 0) {
+                clearTurnTimer(gameId);
+                activeGames.delete(gameId);
+                aiInFlight.delete(gameId);
+                console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
+              }
+            }, 5 * 60 * 1000);
+            evictionTimer.unref();
+          }
+        }
       }
     });
   });
@@ -491,11 +609,17 @@ async function saveGameState(gameId: string, state: GameState): Promise<void> {
 }
 
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
+  clearTurnTimer(gameId);
   try {
+    appendWinProbabilitySnapshot(state);
+
     await query('UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2 WHERE game_id = $3', [
       'completed', winnerId, gameId,
     ]);
     await saveGameState(gameId, state);
+
+    // Record post-game stats (XP, MMR, ranks) for all human players
+    await recordGameResults(gameId, state, winnerId);
 
     const winner = state.players.find((p) => p.player_id === winnerId);
     const stats = {
@@ -510,6 +634,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         is_eliminated: p.is_eliminated,
         is_ai: p.is_ai,
       })),
+      win_probability_history: state.win_probability_history ?? [],
     };
     io.to(gameId).emit('game:over', stats);
 
@@ -521,12 +646,15 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 }
 
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
+  if (aiInFlight.has(gameId)) return;
   const room = activeGames.get(gameId);
   if (!room) return;
   const { state, map } = room;
 
   const currentPlayer = state.players[state.current_player_index];
   if (!currentPlayer.is_ai) return;
+
+  aiInFlight.add(gameId);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   const actions = computeAiTurn(state, map, difficulty);
@@ -538,6 +666,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (winnerId) {
       state.phase = 'game_over';
       state.winner_id = winnerId;
+      aiInFlight.delete(gameId);
       await finalizeGame(io, gameId, state, winnerId);
       return true;
     }
@@ -602,6 +731,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     broadcastState(io, gameId, state);
 
     if (await doVictoryCheck()) return;
+    if (result.territory_captured) {
+      const defP = state.players.find((p) => p.player_id === aiDefenderId);
+      if (defP?.is_eliminated) appendWinProbabilitySnapshot(state);
+    }
   }
 
   // ── Fortify Phase ──────────────────────────────────────────────────────
@@ -625,11 +758,47 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   await saveGameState(gameId, state);
   broadcastState(io, gameId, state);
 
+  aiInFlight.delete(gameId);
+
   if (await doVictoryCheck()) return;
 
-  // Chain if next player is also AI
+  // Chain if next player is also AI; otherwise restart turn timer for human
   if (state.players[state.current_player_index].is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1000);
+  } else {
+    startTurnTimer(io, gameId, state, map);
+  }
+}
+
+function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
+  clearTurnTimer(gameId);
+  const seconds = state.settings.turn_timer_seconds;
+  if (!seconds || seconds <= 0) return;
+  const currentPlayer = state.players[state.current_player_index];
+  if (currentPlayer.is_ai) return;
+
+  const timer = setTimeout(async () => {
+    const room = activeGames.get(gameId);
+    if (!room || room.state.phase === 'game_over') return;
+    // Auto-advance: skip remaining phases → end turn
+    advanceToNextPlayer(room.state, room.map);
+    await saveGameState(gameId, room.state);
+    broadcastState(io, gameId, room.state);
+    startTurnTimer(io, gameId, room.state, room.map);
+
+    if (room.state.players[room.state.current_player_index].is_ai) {
+      setTimeout(() => processAiTurn(io, gameId), 1500);
+    }
+  }, seconds * 1000);
+  timer.unref();
+  turnTimers.set(gameId, timer);
+}
+
+function clearTurnTimer(gameId: string): void {
+  const existing = turnTimers.get(gameId);
+  if (existing) {
+    clearTimeout(existing);
+    turnTimers.delete(gameId);
   }
 }
 

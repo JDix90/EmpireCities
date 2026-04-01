@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag } from 'lucide-react';
+import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save } from 'lucide-react';
 import clsx from 'clsx';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
   onRedeemCards: (cardIds: string[]) => void;
   onResign?: () => void;
+  onSaveAndLeave?: () => void;
   lastCombatLog: string[];
 }
 
@@ -24,7 +25,7 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   fortify: <ArrowRight className="w-4 h-4" />,
 };
 
-export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, lastCombatLog }: GameHUDProps) {
+export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, onSaveAndLeave, lastCombatLog }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
   const [showCards, setShowCards] = useState(false);
@@ -239,16 +240,27 @@ export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, lastC
         </div>
       )}
 
-      {/* Resign Button */}
-      {gameState.phase !== 'game_over' && myPlayer && !myPlayer.is_eliminated && onResign && (
-        <div className="px-4 pb-3">
-          <button
-            onClick={onResign}
-            className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
-                       flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
-          >
-            <Flag className="w-3 h-3" /> Resign
-          </button>
+      {/* Save & Leave / Resign */}
+      {gameState.phase !== 'game_over' && myPlayer && !myPlayer.is_eliminated && (
+        <div className="px-4 pb-3 flex flex-col gap-1.5">
+          {onSaveAndLeave && (
+            <button
+              onClick={onSaveAndLeave}
+              className="w-full py-1.5 text-xs text-cc-muted hover:text-cc-gold transition-colors
+                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-cc-gold/20"
+            >
+              <Save className="w-3 h-3" /> Save & Leave
+            </button>
+          )}
+          {onResign && (
+            <button
+              onClick={onResign}
+              className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
+                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
+            >
+              <Flag className="w-3 h-3" /> Resign
+            </button>
+          )}
         </div>
       )}
     </div>

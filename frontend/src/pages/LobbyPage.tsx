@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Plus, LogOut, User, Map, Trophy, Globe } from 'lucide-react';
+import { Plus, LogOut, User, Map, Globe, Play, Clock, Trash2 } from 'lucide-react';
 import axios from 'axios';
 
 const ERAS = [
@@ -33,22 +33,74 @@ interface PublicGame {
   created_at: string;
 }
 
+interface ActiveGame {
+  game_id: string;
+  era_id: string;
+  game_type: string;
+  created_at: string;
+  started_at: string | null;
+  turn_number: number | null;
+  saved_at: string | null;
+}
+
+const GAME_TYPE_LABELS: Record<string, string> = {
+  solo: 'Solo',
+  multiplayer: 'Multiplayer',
+  hybrid: 'Hybrid',
+};
+
+const ERA_LABELS: Record<string, string> = {
+  ancient: 'Ancient World',
+  medieval: 'Medieval Era',
+  discovery: 'Age of Discovery',
+  ww2: 'World War II',
+  coldwar: 'Cold War',
+  modern: 'Modern Day',
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function LobbyPage() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
-  const [showCreate, setShowCreate] = useState(false);
+  const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
   const [creating, setCreating] = useState(false);
+  const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
+
+  const presetEra = searchParams.get('era');
+  const presetMap = searchParams.get('map');
+  const eraFromMap = presetMap ? Object.entries(ERA_MAP_IDS).find(([, v]) => v === presetMap)?.[0] : undefined;
+  const resolvedEra = presetEra ?? eraFromMap ?? null;
+  const validEra = ERAS.some((e) => e.id === resolvedEra) ? resolvedEra! : null;
+  const [showCreate, setShowCreate] = useState(!!validEra || !!presetMap);
 
   // Create game form state
-  const [selectedEra, setSelectedEra] = useState('ww2');
+  const [selectedEra, setSelectedEra] = useState(validEra ?? 'ww2');
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
   const [turnTimer, setTurnTimer] = useState(300);
 
   useEffect(() => {
+    if (searchParams.has('era') || searchParams.has('map')) {
+      setSearchParams({}, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     fetchPublicGames();
+    fetchActiveGames();
     const interval = setInterval(fetchPublicGames, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -59,6 +111,29 @@ export default function LobbyPage() {
       setPublicGames(res.data);
     } catch {
       // Silently fail
+    }
+  };
+
+  const fetchActiveGames = async () => {
+    try {
+      const res = await api.get('/users/me/active-games');
+      setActiveGames(res.data);
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const handleAbandonGame = async (gameId: string) => {
+    try {
+      await api.delete(`/games/${gameId}/abandon`);
+      setActiveGames((prev) => prev.filter((g) => g.game_id !== gameId));
+      setConfirmAbandon(null);
+      toast.success('Game removed');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Failed to abandon game');
+      }
+      setConfirmAbandon(null);
     }
   };
 
@@ -111,8 +186,8 @@ export default function LobbyPage() {
   return (
     <div className="min-h-screen bg-cc-dark">
       {/* Top Bar */}
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between">
-        <h1 className="font-display text-xl text-cc-gold tracking-widest">CHRONOCONQUEST</h1>
+      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
+        <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors">CHRONOCONQUEST</Link>
         <div className="flex items-center gap-4">
           <Link to="/maps" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
             <Map className="w-4 h-4" /> Map Hub
@@ -200,6 +275,73 @@ export default function LobbyPage() {
                 <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Active Games */}
+        {activeGames.length > 0 && (
+          <div className="card mb-8 animate-fade-in">
+            <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
+              <Play className="w-5 h-5" /> Your Active Games
+            </h3>
+            <div className="space-y-3">
+              {activeGames.map((game) => (
+                <div
+                  key={game.game_id}
+                  className="flex items-center justify-between p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <span className="font-medium text-cc-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
+                      <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                        {GAME_TYPE_LABELS[game.game_type] ?? game.game_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-cc-muted text-sm">
+                      {game.turn_number != null && <span>Turn {game.turn_number}</span>}
+                      {game.saved_at && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> {timeAgo(game.saved_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {confirmAbandon === game.game_id ? (
+                      <>
+                        <span className="text-xs text-cc-muted mr-1">Delete?</span>
+                        <button
+                          onClick={() => handleAbandonGame(game.game_id)}
+                          className="text-xs py-1.5 px-3 rounded border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setConfirmAbandon(null)}
+                          className="text-xs py-1.5 px-3 rounded border border-cc-border text-cc-muted hover:text-cc-text transition-colors"
+                        >
+                          No
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmAbandon(game.game_id)}
+                        className="p-1.5 rounded text-cc-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Delete game"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => navigate(`/game/${game.game_id}`)}
+                      className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5"
+                    >
+                      <Play className="w-3.5 h-3.5" /> Continue
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

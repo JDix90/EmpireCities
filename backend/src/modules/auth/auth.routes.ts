@@ -17,6 +17,18 @@ const LoginSchema = z.object({
   password: z.string(),
 });
 
+function refreshCookieOpts(maxAgeSeconds: number) {
+  const sameSite = config.refreshCookieSameSite;
+  const secure = sameSite === 'none' ? true : config.nodeEnv === 'production';
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/api/auth',
+    maxAge: maxAgeSeconds,
+  } as const;
+}
+
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/register ──────────────────────────────────────────────
   fastify.post('/register', async (request, reply) => {
@@ -55,13 +67,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.status(201).send({ accessToken, user });
   });
@@ -101,13 +107,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     return reply.send({ accessToken, user: safeUser });
@@ -154,13 +154,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [newTokenId, payload.sub, newRefreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: config.nodeEnv === 'production',
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.send({ accessToken: newAccessToken });
   });

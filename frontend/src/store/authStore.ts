@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import axios from 'axios';
 import { api } from '../services/api';
+import { getApiBaseUrl } from '../config/env';
+
+const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
 
 export interface AuthUser {
   user_id: string;
@@ -67,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
 
       refreshToken: async () => {
         try {
-          const res = await api.post('/auth/refresh');
+          const res = await rawHttp.post('/auth/refresh');
           const { accessToken } = res.data;
           set({ accessToken, isAuthenticated: true });
           return true;

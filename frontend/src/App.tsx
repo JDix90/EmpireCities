@@ -12,6 +12,7 @@ import MapEditorPage from './pages/MapEditorPage';
 import ProfilePage from './pages/ProfilePage';
 import MapHubPage from './pages/MapHubPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 // Route guard
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
       <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 

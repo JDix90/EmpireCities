@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
-  GameMap, GameSettings, EraId, DiplomacyEntry,
+  GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
 } from '../../types';
 import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolver';
 
@@ -62,7 +62,7 @@ export function initializeGameState(
   const continentBonus = calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
   const initialDraft = calculateReinforcements(firstPlayer.territory_count, continentBonus);
 
-  return {
+  const state: GameState = {
     game_id: gameId,
     era,
     map_id: map.map_id,
@@ -77,7 +77,76 @@ export function initializeGameState(
     settings,
     draft_units_remaining: initialDraft,
     turn_started_at: Date.now(),
+    win_probability_history: [],
   };
+  appendWinProbabilitySnapshot(state);
+  return state;
+}
+
+/**
+ * Heuristic win probability from territory share + total army share (55% / 45%), renormalized over active players.
+ */
+export function computeWinProbabilities(state: GameState): Record<string, number> {
+  const active = state.players.filter((p) => !p.is_eliminated);
+  const result: Record<string, number> = {};
+  for (const p of state.players) {
+    result[p.player_id] = 0;
+  }
+  if (active.length === 0) return result;
+  if (active.length === 1) {
+    result[active[0].player_id] = 1;
+    return result;
+  }
+
+  let totalTerr = 0;
+  let totalArmy = 0;
+  const terrByPlayer: Record<string, number> = {};
+  const armyByPlayer: Record<string, number> = {};
+
+  for (const p of active) {
+    terrByPlayer[p.player_id] = p.territory_count;
+    totalTerr += p.territory_count;
+    let units = 0;
+    for (const t of Object.values(state.territories)) {
+      if (t.owner_id === p.player_id) units += t.unit_count;
+    }
+    armyByPlayer[p.player_id] = units;
+    totalArmy += units;
+  }
+
+  let rawSum = 0;
+  const raw: Record<string, number> = {};
+  for (const p of active) {
+    const tShare = totalTerr > 0 ? terrByPlayer[p.player_id] / totalTerr : 1 / active.length;
+    const aShare = totalArmy > 0 ? armyByPlayer[p.player_id] / totalArmy : 1 / active.length;
+    const blend = 0.55 * tShare + 0.45 * aShare;
+    raw[p.player_id] = blend;
+    rawSum += blend;
+  }
+
+  if (rawSum <= 0) {
+    const eq = 1 / active.length;
+    for (const p of active) result[p.player_id] = eq;
+    return result;
+  }
+  for (const p of active) {
+    result[p.player_id] = raw[p.player_id] / rawSum;
+  }
+  return result;
+}
+
+export function appendWinProbabilitySnapshot(state: GameState): void {
+  if (!state.win_probability_history) {
+    state.win_probability_history = [];
+  }
+  const probs = computeWinProbabilities(state);
+  const step = state.win_probability_history.length;
+  const snapshot: WinProbabilitySnapshot = {
+    step,
+    turn: state.turn_number,
+    probabilities: probs,
+  };
+  state.win_probability_history.push(snapshot);
 }
 
 function calculateContinentBonusesForPlayer(
@@ -154,6 +223,8 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
     state.draft_units_remaining = calculateReinforcements(nextPlayer.territory_count, bonus);
   }
+
+  appendWinProbabilitySnapshot(state);
 
   // Decrement truce timers
   for (const entry of state.diplomacy) {

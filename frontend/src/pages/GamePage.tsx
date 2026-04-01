@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useGameStore, CombatResult } from '../store/gameStore';
 import { useAuthStore } from '../store/authStore';
-import { connectSocket, getSocket, disconnectSocket } from '../services/socket';
+import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
@@ -10,6 +10,12 @@ import GameHUD from '../components/game/GameHUD';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData } from '../components/game/ActionModal';
 import toast from 'react-hot-toast';
+import {
+  getInitialMapView,
+  persistMapView,
+  prefersReducedMotion,
+  isMobileViewport,
+} from '../utils/device';
 
 interface MapData {
   map_id: string;
@@ -41,9 +47,12 @@ export default function GamePage() {
   const [combatLog, setCombatLog] = useState<string[]>([]);
   const [gameStarted, setGameStarted] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [mapView, setMapView] = useState<'2d' | 'globe'>('globe');
-  const fortifySourceRef = useRef<string | null>(null);
+  const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
   const mapDataRef = useRef<MapData | null>(null);
+
+  // Keep a ref to the current user so socket handlers never close over a stale value
+  const userRef = useRef(user);
+  userRef.current = user;
 
   // ── Globe animation events ───────────────────────────────────────────────
   const [globeEvents, setGlobeEvents] = useState<GlobeEvent[]>([]);
@@ -94,8 +103,10 @@ export default function GamePage() {
     });
 
     socket.on('game:state', (state) => {
+      // Reconnecting players only receive game:state, not game:started — keep UI in sync
+      setGameStarted(true);
       setGameState(state);
-      const myId = user?.user_id;
+      const myId = userRef.current?.user_id;
 
       // Read authoritative draft count from server; fallback to local calc for older saves
       let draftCount = state.draft_units_remaining;
@@ -204,8 +215,8 @@ export default function GamePage() {
 
       setLastCombatResult(enriched);
 
-      const isMyAttack = attackerOwner === user?.user_id;
-      const isMyDefense = defenderOwner === user?.user_id;
+      const isMyAttack = attackerOwner === userRef.current?.user_id;
+      const isMyDefense = defenderOwner === userRef.current?.user_id;
 
       if (isMyAttack) {
         setModalQueue(q => [...q, { type: 'combat' as const, result: enriched, perspective: 'attacker' as const }]);
@@ -257,14 +268,16 @@ export default function GamePage() {
       winner_name: string;
       turn_count: number;
       players: Array<{ player_id: string; username: string; color: string; territory_count: number; is_eliminated: boolean; is_ai: boolean }>;
+      win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
     }) => {
       const gameOverData: GameOverModalData = {
         type: 'game_over',
-        isWinner: stats.winner_id === user?.user_id,
+        isWinner: stats.winner_id === userRef.current?.user_id,
         winnerName: stats.winner_name,
         winnerColor: stats.players.find(p => p.player_id === stats.winner_id)?.color ?? '#fff',
         turnCount: stats.turn_count,
         players: stats.players,
+        win_probability_history: stats.win_probability_history,
       };
       setModalQueue(q => [...q, gameOverData]);
     });
@@ -272,7 +285,7 @@ export default function GamePage() {
     socket.on('game:player_eliminated', ({ playerId, eliminatorName, eliminatedName }: {
       playerId: string; eliminatorId: string; eliminatorName: string; eliminatedName: string;
     }) => {
-      const isSelf = playerId === user?.user_id;
+      const isSelf = playerId === userRef.current?.user_id;
       const elData: EliminationModalData = {
         type: 'elimination',
         eliminatedName,
@@ -300,6 +313,8 @@ export default function GamePage() {
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
       socket.off('error');
+      // Notify server we left so it can schedule eviction / save state
+      socket.emit('game:leave', { gameId });
       clearGame();
     };
   }, [gameId]);
@@ -446,6 +461,12 @@ export default function GamePage() {
     getSocket().emit('game:resign', { gameId });
   };
 
+  const handleSaveAndLeave = () => {
+    getSocket().emit('game:leave', { gameId });
+    toast.success('Game saved! You can resume later from the lobby.');
+    navigate('/lobby');
+  };
+
   const handleGameOverDismiss = () => {
     dismissModal();
     navigate('/lobby');
@@ -471,11 +492,19 @@ export default function GamePage() {
     );
   }
 
+  const hudWidth = typeof window !== 'undefined' && window.innerWidth < 768
+    ? Math.min(260, Math.floor(window.innerWidth * 0.36))
+    : 288;
+  const mapCanvasW = typeof window !== 'undefined' ? Math.max(120, window.innerWidth - hudWidth) : 900;
+  const mapCanvasH = typeof window !== 'undefined' ? Math.max(200, window.innerHeight - 40) : 600;
+  const reducedGlobe =
+    prefersReducedMotion() || (isMobileViewport() && mapView === 'globe');
+
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
       {/* Top Bar */}
-      <div className="h-10 bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0">
-        <span className="font-display text-cc-gold text-sm tracking-widest">CHRONOCONQUEST</span>
+      <div className="min-h-10 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
+        <Link to="/lobby" className="font-display text-cc-gold text-sm tracking-widest hover:text-white transition-colors">CHRONOCONQUEST</Link>
         <span className="text-cc-muted text-xs">·</span>
         <span className="text-cc-muted text-xs capitalize">{gameState.era} Era</span>
         <span className="text-cc-muted text-xs">·</span>
@@ -484,15 +513,21 @@ export default function GamePage() {
         <div className="flex gap-1">
           <button
             type="button"
-            onClick={() => setMapView('globe')}
-            className={`px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            onClick={() => {
+              setMapView('globe');
+              persistMapView('globe');
+            }}
+            className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
           >
             Globe
           </button>
           <button
             type="button"
-            onClick={() => setMapView('2d')}
-            className={`px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            onClick={() => {
+              setMapView('2d');
+              persistMapView('2d');
+            }}
+            className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
           >
             2D Map
           </button>
@@ -508,17 +543,18 @@ export default function GamePage() {
               <GlobeMap
                 mapData={mapData}
                 onTerritoryClick={handleTerritoryClick}
-                width={window.innerWidth - 288}
-                height={window.innerHeight - 40}
+                width={mapCanvasW}
+                height={mapCanvasH}
                 events={globeEvents}
                 onEventDone={handleGlobeEventDone}
+                reducedEffects={reducedGlobe}
               />
             ) : (
               <GameMap
                 mapData={mapData}
                 onTerritoryClick={handleTerritoryClick}
-                width={window.innerWidth - 288}
-                height={window.innerHeight - 40}
+                width={mapCanvasW}
+                height={mapCanvasH}
               />
             )
           ) : (
@@ -546,6 +582,7 @@ export default function GamePage() {
           onAdvancePhase={handleAdvancePhase}
           onRedeemCards={handleRedeemCards}
           onResign={handleResignRequest}
+          onSaveAndLeave={handleSaveAndLeave}
           lastCombatLog={combatLog}
         />
       </div>

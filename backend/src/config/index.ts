@@ -1,10 +1,38 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+function parseCorsOrigins(): string[] {
+  const extra = process.env.CORS_ORIGINS;
+  const primary = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const list = [primary];
+  if (extra) {
+    for (const o of extra.split(',')) {
+      const t = o.trim();
+      if (t && !list.includes(t)) list.push(t);
+    }
+  }
+  // Capacitor / Ionic WebView defaults (add your production app URL via CORS_ORIGINS)
+  const devExtras = ['capacitor://localhost', 'ionic://localhost', 'http://localhost'];
+  if ((process.env.NODE_ENV || 'development') === 'development') {
+    for (const o of devExtras) {
+      if (!list.includes(o)) list.push(o);
+    }
+  }
+  return list;
+}
+
+function parseRefreshCookieSameSite(): 'strict' | 'lax' | 'none' {
+  const v = (process.env.REFRESH_COOKIE_SAME_SITE || '').toLowerCase();
+  if (v === 'strict' || v === 'lax' || v === 'none') return v;
+  return process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
+}
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3001', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  corsOrigins: parseCorsOrigins(),
+  refreshCookieSameSite: parseRefreshCookieSameSite(),
 
   postgres: {
     host: process.env.POSTGRES_HOST || 'localhost',

@@ -25,6 +25,12 @@ export interface TurnSummaryModalData {
   fortifications?: FortifyEntry[];
 }
 
+export interface WinProbabilitySnapshot {
+  step: number;
+  turn: number;
+  probabilities: Record<string, number>;
+}
+
 export interface GameOverModalData {
   type: 'game_over';
   isWinner: boolean;
@@ -39,6 +45,7 @@ export interface GameOverModalData {
     is_eliminated: boolean;
     is_ai: boolean;
   }>;
+  win_probability_history?: WinProbabilitySnapshot[];
 }
 
 export interface EliminationModalData {
@@ -560,6 +567,87 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
   );
 }
 
+// ─── Win probability chart (endgame) ───────────────────────────────────────
+
+function WinProbabilityChart({
+  history,
+  players,
+}: {
+  history: WinProbabilitySnapshot[];
+  players: GameOverModalData['players'];
+}) {
+  const W = 420;
+  const H = 168;
+  const pad = { l: 40, r: 12, t: 10, b: 28 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const n = history.length;
+  if (n < 2) return null;
+
+  const xAt = (i: number) => pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const yAt = (p: number) => pad.t + innerH - p * innerH;
+
+  const lines = players.map((pl) => {
+    const pts = history.map((snap, i) => {
+      const prob = snap.probabilities[pl.player_id] ?? 0;
+      return `${xAt(i)},${yAt(prob)}`;
+    });
+    return { pl, d: pts.join(' ') };
+  });
+
+  return (
+    <div className="w-full text-left">
+      <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 text-center">Win probability over time</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto max-h-[200px]" role="img" aria-label="Win probability by turn">
+        <defs>
+          <linearGradient id="chart-grid" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.06)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+          </linearGradient>
+        </defs>
+        <rect x={pad.l} y={pad.t} width={innerW} height={innerH} fill="url(#chart-grid)" rx={4} />
+        {[0, 0.5, 1].map((t) => (
+          <line
+            key={t}
+            x1={pad.l}
+            x2={pad.l + innerW}
+            y1={yAt(t)}
+            y2={yAt(t)}
+            stroke="rgba(255,255,255,0.08)"
+            strokeDasharray={t === 0.5 ? '4 4' : '0'}
+          />
+        ))}
+        <text x={pad.l - 4} y={yAt(1) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>100%</text>
+        <text x={pad.l - 4} y={yAt(0) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>0%</text>
+        {lines.map(({ pl, d }) => (
+          <polyline
+            key={pl.player_id}
+            fill="none"
+            stroke={pl.color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.92}
+            points={d}
+          />
+        ))}
+        <text x={W / 2} y={H - 6} textAnchor="middle" fill="rgba(255,255,255,0.28)" fontSize={9}>Match progression →</text>
+      </svg>
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
+        {players.map((pl) => (
+          <span key={pl.player_id} className="inline-flex items-center gap-1.5 text-[10px] text-white/50">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pl.color }} />
+            <span className="truncate max-w-[7rem]">{pl.username}{pl.is_ai ? ' (AI)' : ''}</span>
+          </span>
+        ))}
+      </div>
+      <p className="text-white/25 text-[10px] text-center mt-2 leading-snug">
+        Estimated each turn from territory control and total armies on the map (not actual RNG).
+      </p>
+    </div>
+  );
+}
+
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
 function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss: () => void }) {
@@ -567,9 +655,10 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
 
   const sortedPlayers = [...data.players].sort((a, b) => b.territory_count - a.territory_count);
+  const probHistory = data.win_probability_history;
 
   return (
-    <div className="w-full max-w-md text-center">
+    <div className="w-full max-w-lg text-center">
       {/* Trophy / Skull Animation */}
       <div className={clsx('mb-6 transition-all duration-700', showContent ? 'opacity-100 scale-100' : 'opacity-0 scale-50')}>
         {data.isWinner ? (
@@ -615,6 +704,15 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           <p className="text-white/35 text-xs">Players</p>
         </div>
       </div>
+
+      {probHistory && probHistory.length >= 2 && (
+        <div className={clsx(
+          'mb-6 transition-all duration-500 delay-500',
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        )}>
+          <WinProbabilityChart history={probHistory} players={data.players} />
+        </div>
+      )}
 
       {/* Leaderboard */}
       <div className={clsx(
@@ -756,12 +854,12 @@ export default function ActionModal({ data, onDismiss, onResignConfirm }: Action
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop p-4 pt-safe pb-safe px-safe"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)' }}
       onClick={allowBackdropDismiss ? onDismiss : undefined}
     >
       <div
-        className="relative px-8 py-8 rounded-2xl border border-white/[0.08] shadow-2xl animate-modal-in max-h-[90vh] overflow-y-auto"
+        className="relative px-6 sm:px-8 py-8 rounded-2xl border border-white/[0.08] shadow-2xl animate-modal-in max-h-[min(90vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] overflow-y-auto w-full max-w-[min(100%,42rem)]"
         style={{
           background: 'linear-gradient(180deg, rgba(30,35,50,0.97) 0%, rgba(15,17,23,0.98) 100%)',
         }}

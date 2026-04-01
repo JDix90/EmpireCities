@@ -8,11 +8,11 @@ const ERAS = [
   { id: 'discovery', label: 'Age of Discovery',   years: '1400 – 1800 AD',    color: '#2e7d9e' },
   { id: 'ww2',       label: 'World War II',        years: '1939 – 1945',       color: '#5a5a5a' },
   { id: 'coldwar',   label: 'Cold War',            years: '1945 – 1991',       color: '#1a3a5c' },
-  { id: 'modern',    label: 'The Modern Day',      years: '2025',               color: '#2ecc71' },
+  { id: 'modern',    label: 'The Modern Day',      years: '2026',               color: '#2ecc71' },
 ];
 
 const FEATURES = [
-  { icon: Globe,  title: 'Dynamic Historical Maps',  desc: 'Play across 5 meticulously crafted historical eras, each with accurate borders and era-specific mechanics.' },
+  { icon: Globe,  title: 'Dynamic Historical Maps',  desc: 'Play across 6 meticulously crafted historical eras, each with accurate borders and era-specific mechanics.' },
   { icon: Sword,  title: 'Deep Strategy',            desc: 'Master the classic Draft-Attack-Fortify loop with diplomacy, card sets, and continent bonuses.' },
   { icon: Map,    title: 'Custom Map Editor',        desc: 'Build and publish your own maps. Share them with the community and watch your creations come to life.' },
   { icon: Users,  title: 'Multiplayer & AI',         desc: 'Challenge friends in real-time or asynchronous games, or hone your skills against AI bots of varying difficulty.' },
@@ -22,8 +22,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-cc-dark">
       {/* Navigation */}
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between">
-        <h1 className="font-display text-2xl text-cc-gold tracking-widest">CHRONOCONQUEST</h1>
+      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
+        <Link to="/" className="font-display text-2xl text-cc-gold tracking-widest hover:text-white transition-colors">CHRONOCONQUEST</Link>
         <div className="flex gap-3">
           <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
           <Link to="/register" className="btn-primary text-sm">Play Free</Link>
@@ -36,7 +36,7 @@ export default function LandingPage() {
           Conquer History
         </h2>
         <p className="text-cc-muted text-xl max-w-2xl mx-auto mb-10">
-          A browser-based grand strategy game spanning the ancient world to the Cold War.
+          A browser-based grand strategy game spanning the ancient world to the modern day.
           Command armies, forge alliances, and rewrite history — one territory at a time.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
@@ -48,7 +48,7 @@ export default function LandingPage() {
       {/* Era Showcase */}
       <section className="py-16 px-6 max-w-6xl mx-auto">
         <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Choose Your Era</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {ERAS.map((era) => (
             <div
               key={era.id}
@@ -93,8 +93,9 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-cc-border py-8 text-center text-cc-muted text-sm">
+      <footer className="border-t border-cc-border py-8 pb-safe text-center text-cc-muted text-sm space-y-2">
         <p>© 2026 ChronoConquest. All rights reserved.</p>
+        <Link to="/privacy" className="text-cc-gold/80 hover:text-cc-gold block">Privacy Policy</Link>
       </footer>
     </div>
   );

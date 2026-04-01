@@ -75,6 +75,8 @@ interface GlobeMapProps {
   height?: number;
   events?: GlobeEvent[];
   onEventDone?: (eventId: string) => void;
+  /** Lighter motion (mobile / accessibility): no idle globe spin resume after animations */
+  reducedEffects?: boolean;
 }
 
 interface PolygonData {
@@ -240,6 +242,7 @@ export default function GlobeMap({
   height = 600,
   events = [],
   onEventDone,
+  reducedEffects = false,
 }: GlobeMapProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState, selectedTerritory, attackSource } = useGameStore();
@@ -430,6 +433,7 @@ export default function GlobeMap({
   }, []);
 
   const scheduleAutoRotateResume = useCallback(() => {
+    if (reducedEffects) return;
     clearTimeout(autoRotateTimerRef.current);
     autoRotateTimerRef.current = setTimeout(() => {
       const ctrl = globeRef.current?.controls?.();
@@ -438,7 +442,7 @@ export default function GlobeMap({
         ctrl.autoRotateSpeed = 0.4;
       }
     }, 2500);
-  }, []);
+  }, [reducedEffects]);
 
   // ── Animation sequences ────────────────────────────────────────────────
 
@@ -786,6 +790,11 @@ export default function GlobeMap({
         hasNew = true;
       }
     }
+    // Prevent unbounded growth of seen IDs in long sessions
+    if (seenEventIdsRef.current.size > 500) {
+      const entries = [...seenEventIdsRef.current];
+      seenEventIdsRef.current = new Set(entries.slice(-200));
+    }
     flushAnimationUi();
     if (hasNew && !isAnimatingRef.current) {
       playNextRef.current();
@@ -1016,7 +1025,7 @@ export default function GlobeMap({
 
         onGlobeReady={() => {
           const ctrl = globeRef.current?.controls?.();
-          if (ctrl) {
+          if (ctrl && !reducedEffects) {
             ctrl.autoRotate = true;
             ctrl.autoRotateSpeed = 0.4;
           }
