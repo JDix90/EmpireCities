@@ -61,6 +61,8 @@ export function computeLevel(totalXp: number): number {
 export interface GameResultContext {
   isRanked: boolean;
   ratingDeltas: Map<string, number>;
+  /** XP awarded per human player_id (for UI). */
+  xpEarnedByPlayer: Record<string, number>;
 }
 
 export async function recordGameResults(
@@ -68,7 +70,7 @@ export async function recordGameResults(
   state: GameState,
   winnerId: string,
 ): Promise<GameResultContext> {
-  const ctx: GameResultContext = { isRanked: false, ratingDeltas: new Map() };
+  const ctx: GameResultContext = { isRanked: false, ratingDeltas: new Map(), xpEarnedByPlayer: {} };
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
@@ -149,6 +151,7 @@ export async function recordGameResults(
          WHERE game_id = $4 AND user_id = $5`,
         [rank, xp, muDelta, gameId, p.player_id],
       );
+      ctx.xpEarnedByPlayer[p.player_id] = xp;
 
       const userRow = await client.query<{ xp: number; mmr: number }>(
         'SELECT xp, mmr FROM users WHERE user_id = $1',

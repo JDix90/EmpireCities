@@ -58,7 +58,11 @@ export default function GamePage() {
     draftUnitsRemaining, setDraftUnitsRemaining, clearGame,
   } = useGameStore();
   const {
-    selectedTerritory, attackSource, setSelectedTerritory, setAttackSource,
+    selectedTerritory,
+    attackSource,
+    setSelectedTerritory,
+    setAttackSource,
+    setFortifyUnits,
   } = useUiStore();
 
   const [mapData, setMapData] = useState<MapData | null>(null);
@@ -67,6 +71,10 @@ export default function GamePage() {
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
   const mapDataRef = useRef<MapData | null>(null);
+  /** Once per game session: open tutorial island on 2D (readable Risk-style board); globe stays available. */
+  const tutorialSessionDefault2dRef = useRef(false);
+  /** Once per game session: non-tutorial-island games open in globe (overrides stale localStorage from tutorial). */
+  const nonTutorialIslandGlobeAppliedRef = useRef(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const isTutorial = gameState?.settings?.tutorial === true;
 
@@ -146,6 +154,32 @@ export default function GamePage() {
       window.visualViewport?.removeEventListener('resize', measure);
     };
   }, [gameStarted, gameState]);
+
+  useEffect(() => {
+    tutorialSessionDefault2dRef.current = false;
+    nonTutorialIslandGlobeAppliedRef.current = false;
+  }, [gameId]);
+
+  /** Learn the Basics (tutorial island only): default 2D. Uses gameState.map_id so we do not wait for map HTTP. */
+  const tutorialIsland =
+    isTutorial && gameState?.map_id === 'tutorial';
+
+  useEffect(() => {
+    if (!tutorialIsland || !gameStarted) return;
+    if (tutorialSessionDefault2dRef.current) return;
+    tutorialSessionDefault2dRef.current = true;
+    setMapView('2d');
+  }, [tutorialIsland, gameStarted]);
+
+  /** All other games: default globe so era maps show as intended (not a stale 2D preference from tutorial). */
+  useEffect(() => {
+    if (!gameStarted || !gameState) return;
+    if (tutorialIsland) return;
+    if (nonTutorialIslandGlobeAppliedRef.current) return;
+    nonTutorialIslandGlobeAppliedRef.current = true;
+    setMapView('globe');
+    persistMapView('globe');
+  }, [gameStarted, gameState, tutorialIsland]);
 
   const pushModal = useCallback((data: ModalData) => {
     setModalQueue(prev => [...prev, data]);
@@ -413,8 +447,11 @@ export default function GamePage() {
       rating_deltas?: Record<string, number>;
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
+      xp_earned_by_player?: Record<string, number>;
     }) => {
       const myId = userRef.current?.user_id;
+      const xpEarned =
+        myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
       const gameOverData: GameOverModalData = {
         type: 'game_over',
         isWinner: stats.winner_id === myId,
@@ -426,6 +463,7 @@ export default function GamePage() {
         rating_change: myId && stats.rating_deltas ? stats.rating_deltas[myId] : undefined,
         is_ranked: stats.is_ranked,
         achievements_unlocked: myId && stats.achievements_unlocked ? stats.achievements_unlocked[myId] : undefined,
+        xpEarned,
       };
       setModalQueue(q => [...q, gameOverData]);
     });
@@ -461,6 +499,7 @@ export default function GamePage() {
       socket.off('game:combat_result');
       socket.off('game:cards_redeemed');
       socket.off('game:over');
+      socket.off('game:chat_message');
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
       socket.off('error');
@@ -603,7 +642,9 @@ export default function GamePage() {
 
     if (gameState.phase === 'fortify' && attackSource && tState?.owner_id === user?.user_id && attackSource !== territoryId) {
       const fromState = gameState.territories[attackSource];
-      const units = Math.max(1, Math.floor((fromState?.unit_count ?? 2) / 2));
+      const maxMove = Math.max(0, (fromState?.unit_count ?? 1) - 1);
+      const requested = useUiStore.getState().fortifyUnits;
+      const units = Math.max(1, Math.min(requested, maxMove));
       socket.emit('game:fortify', { gameId, fromId: attackSource, toId: territoryId, units });
 
       const fromName = mapDataRef.current?.territories.find(t => t.territory_id === attackSource)?.name ?? attackSource;
@@ -628,22 +669,25 @@ export default function GamePage() {
       });
 
       setAttackSource(null);
+      setFortifyUnits(1);
       setSelectedTerritory(null);
       return;
     }
 
     setSelectedTerritory(territoryId);
-  }, [gameState, attackSource, user, gameId, showNotification]);
+  }, [gameState, attackSource, user, gameId, showNotification, setFortifyUnits]);
 
   const handleAdvancePhase = () => {
     getSocket().emit('game:advance_phase', { gameId });
     setSelectedTerritory(null);
     setAttackSource(null);
+    setFortifyUnits(1);
   };
 
   const handleAttack = (fromId: string, toId: string) => {
     getSocket().emit('game:attack', { gameId, fromId, toId });
     setAttackSource(null);
+    setFortifyUnits(1);
     setSelectedTerritory(null);
   };
 
@@ -859,7 +903,11 @@ export default function GamePage() {
               onAttack={handleAttack}
               onDraft={handleDraft}
               onFortify={handleFortify}
-              onClose={() => { setSelectedTerritory(null); setAttackSource(null); }}
+              onClose={() => {
+                setSelectedTerritory(null);
+                setAttackSource(null);
+                setFortifyUnits(1);
+              }}
             />
           )}
 
@@ -873,6 +921,7 @@ export default function GamePage() {
           onResign={handleResignRequest}
           onSaveAndLeave={handleSaveAndLeave}
           lastCombatLog={combatLog}
+          gameId={gameStarted && gameId ? gameId : undefined}
         />
       </div>
 
@@ -896,6 +945,7 @@ export default function GamePage() {
           onReturnToLobby={handleTutorialReturnToLobby}
         />
       )}
+
     </div>
   );
 }

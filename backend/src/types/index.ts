@@ -36,6 +36,7 @@ export interface UserPublic {
 export interface JwtAccessPayload {
   sub: string;       // user_id
   username: string;
+  guest?: boolean;
   iat?: number;
   exp?: number;
 }
@@ -91,6 +92,17 @@ export interface GameSettings {
   diplomacy_enabled: boolean;
   tutorial?: boolean;
   tutorial_step?: number;
+  /** When true, turn notifications use email (requires SMTP). */
+  async_mode?: boolean;
+}
+
+/** Optional per-era combat / economy tweaks (see implementation plan Step 08). */
+export interface EraModifiers {
+  legion_reroll?: boolean;
+  castle_fortification?: boolean;
+  sea_lanes?: boolean;
+  wartime_logistics?: boolean;
+  influence_spread?: boolean;
 }
 
 /** Snapshots for end-of-game win-probability chart (territory + army blend, renormalized). */
@@ -117,6 +129,7 @@ export interface GameState {
   turn_started_at: number;       // Unix timestamp ms
   winner_id?: string;
   win_probability_history?: WinProbabilitySnapshot[];
+  era_modifiers?: EraModifiers;
 }
 
 // ── Combat ────────────────────────────────────────────────────────────────────

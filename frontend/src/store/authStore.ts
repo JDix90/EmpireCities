@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { api } from '../services/api';
+import { resyncSocketAuth } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
 
 const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
@@ -23,6 +24,8 @@ export interface AuthUser {
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
   equipped_marker?: string | null;
+  /** Set for JWTs from POST /api/auth/guest */
+  is_guest?: boolean;
 }
 
 interface AuthState {
@@ -33,6 +36,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
+  loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
   setUser: (user: AuthUser) => void;
@@ -71,19 +75,38 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: async () => {
+      loginAsGuest: async () => {
+        set({ isLoading: true });
         try {
-          await api.post('/auth/logout');
+          const res = await rawHttp.post('/auth/guest');
+          const { accessToken, user } = res.data;
+          set({ user, accessToken, isAuthenticated: true, isLoading: false });
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
+      },
+
+      logout: async () => {
+        const isGuest = get().user?.is_guest;
+        try {
+          if (!isGuest) {
+            await api.post('/auth/logout');
+          }
         } finally {
           set({ user: null, accessToken: null, isAuthenticated: false });
         }
       },
 
       refreshToken: async () => {
+        if (get().user?.is_guest) {
+          return false;
+        }
         try {
           const res = await rawHttp.post('/auth/refresh');
           const { accessToken } = res.data;
           set({ accessToken, isAuthenticated: true });
+          resyncSocketAuth();
           return true;
         } catch {
           set({ user: null, accessToken: null, isAuthenticated: false });

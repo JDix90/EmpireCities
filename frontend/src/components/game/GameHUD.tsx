@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
+import GameChat from './GameChat';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
@@ -11,6 +12,8 @@ interface GameHUDProps {
   onResign?: () => void;
   onSaveAndLeave?: () => void;
   lastCombatLog: string[];
+  /** When set (in-progress game), chat renders at the bottom of this sidebar — never over the map. */
+  gameId?: string;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -26,7 +29,14 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   fortify: <ArrowRight className="w-4 h-4" />,
 };
 
-export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, onSaveAndLeave, lastCombatLog }: GameHUDProps) {
+export default function GameHUD({
+  onAdvancePhase,
+  onRedeemCards,
+  onResign,
+  onSaveAndLeave,
+  lastCombatLog,
+  gameId,
+}: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
   const [showCards, setShowCards] = useState(false);
@@ -71,7 +81,7 @@ export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, onSav
   if (!gameState) return null;
 
   return (
-    <div className="flex flex-col h-full bg-cc-surface border-l border-cc-border w-72 shrink-0">
+    <div className="flex flex-col h-full min-h-0 bg-cc-surface border-l border-cc-border w-72 shrink-0">
       {/* Phase Indicator */}
       <div className={clsx(
         'p-4 border-b border-cc-border',
@@ -182,6 +192,9 @@ export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, onSav
       {/* Combat Log */}
       <div className="p-4 flex-1 overflow-y-auto">
         <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-3">Combat Log</h3>
+        {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
+          <p className="text-xs text-cc-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
+        )}
         {lastCombatResult && (
           <div className="mb-3 p-3 bg-cc-dark rounded-lg border border-cc-border text-xs space-y-2">
             {lastCombatResult.fromName && lastCombatResult.toName && (
@@ -265,6 +278,8 @@ export default function GameHUD({ onAdvancePhase, onRedeemCards, onResign, onSav
           )}
         </div>
       )}
+
+      {gameId && <GameChat gameId={gameId} embedded />}
     </div>
   );
 }

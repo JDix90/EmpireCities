@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import type { CombatResult } from '../../types';
+import type { CombatResult, EraModifiers } from '../../types';
 
 /**
  * Roll N six-sided dice using `dieRoll` (defaults to crypto.randomInt).
@@ -14,20 +14,27 @@ function rollDice(count: number, dieRoll: () => number): number[] {
 }
 
 /**
- * Resolve a single combat exchange between an attacker and defender.
+ * Resolve a **single** combat exchange (one dice roll) between an attacker and defender.
+ *
+ * Each call to `game:attack` triggers exactly one exchange — the attacker commits up to 3 dice,
+ * the defender up to 2, highest pairs are compared, and losses are applied. Capturing a territory
+ * with a large garrison therefore requires the player to issue **multiple attacks**.
+ * This matches classic Risk single-roll semantics for a responsive online experience.
  *
  * @param attackingUnits  Total units in the attacking territory (must be >= 2)
  * @param defendingUnits  Total units in the defending territory (must be >= 1)
  * @param attackerDiceOverride  Optional: override attacker dice count (for special units)
  * @param defenderDiceOverride  Optional: override defender dice count (for special units)
  * @param dieRoll  Optional: inject dice rolls (1–6 per call), in order: all attacker dice then all defender dice. Used by tests; production uses crypto.randomInt.
+ * @param eraModifiers Optional era rules (e.g. Ancient legion re-roll).
  */
 export function resolveCombat(
   attackingUnits: number,
   defendingUnits: number,
   attackerDiceOverride?: number,
   defenderDiceOverride?: number,
-  dieRoll?: () => number
+  dieRoll?: () => number,
+  eraModifiers?: EraModifiers
 ): CombatResult {
   if (attackingUnits < 2) {
     throw new Error('Attacker must have at least 2 units to attack');
@@ -43,6 +50,14 @@ export function resolveCombat(
   const rng = dieRoll ?? (() => randomInt(1, 7));
   const attackerRolls = rollDice(attackerDice, rng);
   const defenderRolls = rollDice(defenderDice, rng);
+
+  // Ancient era: re-roll attacker's lowest die once, keep the better result
+  if (eraModifiers?.legion_reroll && attackerRolls.length > 0) {
+    const minIdx = attackerRolls.indexOf(Math.min(...attackerRolls));
+    const reroll = rng();
+    attackerRolls[minIdx] = Math.max(attackerRolls[minIdx], reroll);
+    attackerRolls.sort((a, b) => b - a);
+  }
 
   let attackerLosses = 0;
   let defenderLosses = 0;

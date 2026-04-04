@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { getLeaderboard } from '../../db/redis';
 
@@ -74,7 +75,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── DELETE /api/users/me (account deletion — run migration 003 first) ───
-  fastify.delete('/me', { preHandler: authenticate }, async (request, reply) => {
+  fastify.delete('/me', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = DeleteAccountSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
@@ -203,7 +204,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/achievements ──────────────────────────────────────
-  fastify.get('/me/achievements', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/me/achievements', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const achievements = await query(
       `SELECT a.achievement_id, a.name, a.description, a.xp_reward, a.icon_url, ua.unlocked_at
        FROM user_achievements ua
@@ -255,7 +256,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/cosmetics ──────────────────────────────────────────
-  fastify.get('/me/cosmetics', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/me/cosmetics', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     try {
       const owned = await query(
         `SELECT c.cosmetic_id, c.type, c.name, c.description, c.asset_url,
@@ -282,7 +283,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
-  fastify.put('/me/cosmetics/equip', { preHandler: authenticate }, async (request, reply) => {
+  fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const body = request.body as { frame_id?: string; marker_id?: string } | undefined;
     if (!body) return reply.status(400).send({ error: 'Missing body' });
 
@@ -348,7 +349,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/friends ────────────────────────────────────────────
-  fastify.get('/me/friends', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/me/friends', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const friends = await query(
       `SELECT u.user_id, u.username, u.level, u.mmr, u.avatar_url, f.status, f.created_at
        FROM friendships f

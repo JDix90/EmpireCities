@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
@@ -87,7 +87,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function LobbyPage() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, accessToken } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -120,7 +120,10 @@ export default function LobbyPage() {
   const [fogOfWar, setFogOfWar] = useState(false);
   const [turnTimer, setTurnTimer] = useState(300);
 
+  const searchParamBootstrapDone = useRef(false);
   useEffect(() => {
+    if (searchParamBootstrapDone.current) return;
+    searchParamBootstrapDone.current = true;
     const era = searchParams.get('era');
     const map = searchParams.get('map');
     if (map) {
@@ -142,7 +145,20 @@ export default function LobbyPage() {
     if (searchParams.has('era') || searchParams.has('map')) {
       setSearchParams({}, { replace: true });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (searchParams.get('quickstart') !== 'true') return;
+    setShowCreate(true);
+    setAiCount(3);
+    setSelectedEra('ancient');
+    setSelectedCommunityMapId(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('quickstart');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     fetchPublicGames();
@@ -154,7 +170,7 @@ export default function LobbyPage() {
   // Ranked matchmaking socket + queue timer
   useEffect(() => {
     if (lobbyTab !== 'ranked') return;
-    const token = useAuthStore.getState().accessToken;
+    const token = accessToken ?? useAuthStore.getState().accessToken;
     if (!token) return;
 
     const socketUrl = getSocketUrl();
@@ -169,7 +185,7 @@ export default function LobbyPage() {
     });
 
     return () => { sock.disconnect(); };
-  }, [lobbyTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lobbyTab, accessToken, navigate]);
 
   useEffect(() => {
     if (!rankedQueued) { setQueueElapsed(0); return; }
@@ -287,9 +303,11 @@ export default function LobbyPage() {
           <Link to="/maps" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
             <Map className="w-4 h-4 shrink-0" /> Map Hub
           </Link>
-          <Link to="/editor" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <PenSquare className="w-4 h-4 shrink-0" /> Map Editor
-          </Link>
+          {!user?.is_guest && (
+            <Link to="/editor" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+              <PenSquare className="w-4 h-4 shrink-0" /> Map Editor
+            </Link>
+          )}
           <Link to="/profile" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
             <User className="w-4 h-4 shrink-0" /> {user?.username ?? 'Profile'}
           </Link>
@@ -316,9 +334,11 @@ export default function LobbyPage() {
             <button onClick={() => setShowCreate(!showCreate)} className="btn-primary flex items-center gap-2">
               <Plus className="w-4 h-4" /> New Game
             </button>
-            <Link to="/editor" className="btn-secondary flex items-center gap-2">
-              <Map className="w-4 h-4" /> Map Editor
-            </Link>
+            {!user?.is_guest && (
+              <Link to="/editor" className="btn-secondary flex items-center gap-2">
+                <Map className="w-4 h-4" /> Map Editor
+              </Link>
+            )}
           </div>
         </div>
 
@@ -608,7 +628,9 @@ export default function LobbyPage() {
           <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-cc-muted justify-center sm:justify-end" aria-label="Site">
             <Link to="/lobby" className="hover:text-cc-gold transition-colors">Lobby</Link>
             <Link to="/maps" className="hover:text-cc-gold transition-colors">Map Hub</Link>
-            <Link to="/editor" className="hover:text-cc-gold transition-colors">Map Editor</Link>
+            {!user?.is_guest && (
+              <Link to="/editor" className="hover:text-cc-gold transition-colors">Map Editor</Link>
+            )}
             <Link to="/profile" className="hover:text-cc-gold transition-colors">Profile</Link>
             <Link to="/privacy" className="hover:text-cc-gold transition-colors">Privacy Policy</Link>
             <Link to="/" className="hover:text-cc-gold transition-colors">Marketing Home</Link>

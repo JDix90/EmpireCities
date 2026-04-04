@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -30,6 +31,36 @@ function refreshCookieOpts(maxAgeSeconds: number) {
 }
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
+  // ── POST /api/auth/guest ─────────────────────────────────────────────────
+  /** Short-lived session without refresh token; creates a minimal `users` row for FK integrity. */
+  fastify.post('/guest', async (_request, reply) => {
+    const userId = uuidv4();
+    const username = `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
+    const email = `${userId}@guest.local`;
+    const password_hash = await bcrypt.hash(randomUUID(), 8);
+
+    await query(
+      `INSERT INTO users (user_id, username, email, password_hash, is_guest)
+       VALUES ($1, $2, $3, $4, true)`,
+      [userId, username, email, password_hash]
+    );
+
+    const accessToken = signAccessToken({ sub: userId, username, guest: true }, '4h');
+
+    return reply.send({
+      accessToken,
+      guestId: userId,
+      user: {
+        user_id: userId,
+        username,
+        level: 1,
+        xp: 0,
+        mmr: 1000,
+        is_guest: true,
+      },
+    });
+  });
+
   // ── POST /api/auth/register ──────────────────────────────────────────────
   fastify.post('/register', async (request, reply) => {
     const body = RegisterSchema.safeParse(request.body);

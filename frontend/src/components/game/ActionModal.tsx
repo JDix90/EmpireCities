@@ -51,6 +51,8 @@ export interface GameOverModalData {
   rating_change?: number;
   is_ranked?: boolean;
   achievements_unlocked?: string[];
+  /** XP earned by the local player (from server `xp_earned_by_player`). */
+  xpEarned?: number;
 }
 
 export interface EliminationModalData {
@@ -721,6 +723,10 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           ? 'You have conquered the world!'
           : `${data.winnerName} has won the game`}
       </p>
+
+      {data.xpEarned != null && data.xpEarned > 0 && (
+        <p className="text-cc-gold/90 text-sm font-medium mb-4">+{data.xpEarned} XP</p>
+      )}
 
       {/* Stats */}
       <div className={clsx(

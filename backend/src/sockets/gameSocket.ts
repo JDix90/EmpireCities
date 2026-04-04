@@ -9,13 +9,15 @@ import {
   checkVictory,
   drawCard,
   redeemCardSet,
+  findRedeemableCardIds,
   syncTerritoryCounts,
   calculateContinentBonuses,
   appendWinProbabilitySnapshot,
   repairDraftUnitsIfMissing,
+  autoPlaceDraftUnits,
 } from '../game-engine/state/gameStateManager';
 import { resolveCombat, calculateReinforcements } from '../game-engine/combat/combatResolver';
-import { computeAiTurn } from '../game-engine/ai/aiBot';
+import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { recordGameResults, computeRanks } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -122,16 +124,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
           );
 
           if (savedState) {
-            // Load map
             const gameMap = await resolveMap(game.map_id);
-            if (gameMap) {
-              repairDraftUnitsIfMissing(savedState.state_json, gameMap);
-              activeGames.set(gameId, {
-                state: savedState.state_json,
-                map: gameMap,
-                connectedSockets: new Map(),
-              });
+            if (!gameMap) {
+              console.error(`[Socket] MAP_LOAD_FAILED: game=${gameId} map_id=${game.map_id}`);
+              return socket.emit('error', { message: 'Map unavailable; the game cannot be resumed right now', code: 'MAP_LOAD_FAILED' });
             }
+            repairDraftUnitsIfMissing(savedState.state_json, gameMap);
+            activeGames.set(gameId, {
+              state: savedState.state_json,
+              map: gameMap,
+              connectedSockets: new Map(),
+            });
           }
         }
 
@@ -179,7 +182,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
               return socket.emit('error', { message: 'Game state not found' });
             }
             const gameMap = await resolveMap(game.map_id);
-            if (!gameMap) return socket.emit('error', { message: 'Map not found' });
+            if (!gameMap) {
+              console.error(`[Socket] MAP_LOAD_FAILED: game=${gameId} map_id=${game.map_id}`);
+              return socket.emit('error', { message: 'Map unavailable; the game cannot be resumed right now', code: 'MAP_LOAD_FAILED' });
+            }
             activeGames.set(gameId, {
               state: savedState.state_json,
               map: gameMap,
@@ -286,6 +292,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       territory.unit_count += units;
       state.draft_units_remaining -= units;
       broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
     });
 
     // ── Attack Action ───────────────────────────────────────────────────────
@@ -317,7 +324,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       );
       if (!isAdjacent) return socket.emit('error', { message: 'Territories not adjacent' });
 
-      const result = resolveCombat(fromTerritory.unit_count, toTerritory.unit_count);
+      const result = resolveCombat(
+      fromTerritory.unit_count,
+      toTerritory.unit_count,
+      undefined,
+      undefined,
+      undefined,
+      state.era_modifiers,
+    );
 
       fromTerritory.unit_count -= result.attacker_losses;
       toTerritory.unit_count -= result.defender_losses;
@@ -365,6 +379,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
       broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
     });
 
     // ── Advance Phase ───────────────────────────────────────────────────────
@@ -426,6 +441,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       from.unit_count -= units;
       to.unit_count += units;
       broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
     });
 
     // ── Redeem Cards ────────────────────────────────────────────────────────
@@ -436,15 +452,41 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const currentPlayer = state.players[state.current_player_index];
       if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (state.phase !== 'draft') return socket.emit('error', { message: 'Cards can only be redeemed during the draft phase' });
 
       try {
         const bonus = redeemCardSet(state, userId, cardIds);
         state.draft_units_remaining += bonus;
         socket.emit('game:cards_redeemed', { bonus });
         broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
       } catch (err: unknown) {
         socket.emit('error', { message: err instanceof Error ? err.message : 'Card redemption failed' });
       }
+    });
+
+    // ── In-game chat ────────────────────────────────────────────────────────
+    socket.on('game:chat', ({ gameId, message }: { gameId: string; message: string }) => {
+      const room = activeGames.get(gameId);
+      if (!room) return;
+      if (room.connectedSockets.get(socket.id) !== userId) return;
+
+      const clean = String(message)
+        .trim()
+        .slice(0, 200)
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      if (!clean) return;
+
+      const player = room.state.players.find((p) => p.player_id === userId);
+      io.to(gameId).emit('game:chat_message', {
+        gameId,
+        playerId: userId,
+        username: player?.username ?? 'Unknown',
+        color: player?.color ?? '#888',
+        message: clean,
+        timestamp: Date.now(),
+      });
     });
 
     // ── Leave (Save & Leave) ────────────────────────────────────────────
@@ -575,10 +617,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
   return io;
 }
 
-/** Clear turn timers and close Socket.IO during graceful shutdown. */
-export function shutdownGameSocket(io: Server): Promise<void> {
+/** Clear turn timers, flush debounced saves, and close Socket.IO during graceful shutdown. */
+export async function shutdownGameSocket(io: Server): Promise<void> {
   for (const t of turnTimers.values()) clearTimeout(t);
   turnTimers.clear();
+  await flushAllPendingSaves();
   return new Promise((resolve, reject) => {
     io.close((err) => (err ? reject(err) : resolve()));
   });
@@ -639,94 +682,133 @@ async function saveGameState(gameId: string, state: GameState): Promise<void> {
   }
 }
 
+// ── Debounced save ────────────────────────────────────────────────────────
+const DEBOUNCE_MS = 800;
+const pendingSaves = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleDebouncedSave(gameId: string): void {
+  const existing = pendingSaves.get(gameId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    pendingSaves.delete(gameId);
+    const room = activeGames.get(gameId);
+    if (room) saveGameState(gameId, room.state);
+  }, DEBOUNCE_MS);
+  timer.unref();
+  pendingSaves.set(gameId, timer);
+}
+
+async function flushAllPendingSaves(): Promise<void> {
+  const saves: Promise<void>[] = [];
+  for (const [gameId, timer] of pendingSaves.entries()) {
+    clearTimeout(timer);
+    const room = activeGames.get(gameId);
+    if (room) saves.push(saveGameState(gameId, room.state));
+  }
+  pendingSaves.clear();
+  await Promise.allSettled(saves);
+}
+
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
   clearTurnTimer(gameId);
-  try {
-    appendWinProbabilitySnapshot(state);
+  appendWinProbabilitySnapshot(state);
 
+  // Persist to DB first — only emit game:over to clients on success
+  try {
     await query('UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2 WHERE game_id = $3', [
       'completed', winnerId, gameId,
     ]);
     await saveGameState(gameId, state);
-
-    // Record post-game stats (XP, ratings, ranks) for all human players
-    const resultCtx = await recordGameResults(gameId, state, winnerId);
-
-    // Check and unlock achievements
-    const unlockedByPlayer: Record<string, string[]> = {};
-    const humanPlayers = state.players.filter((p) => !p.is_ai);
-    const ranks = computeRanks(state.players, winnerId);
-
-    if (humanPlayers.length > 0) {
-      const client = await pgPool.connect();
-      try {
-        await client.query('BEGIN');
-        const ratingRows = (await client.query<{ user_id: string; mu: number; phi: number }>(
-          `SELECT user_id, mu, phi FROM user_ratings
-           WHERE user_id = ANY($1) AND rating_type = $2`,
-          [humanPlayers.map((p) => p.player_id), resultCtx.isRanked ? 'ranked' : 'solo'],
-        )).rows;
-        const ratingMap = new Map(ratingRows.map((r) => [r.user_id, { mu: r.mu, phi: r.phi }]));
-        const avgMu = ratingRows.length > 0
-          ? ratingRows.reduce((s, r) => s + r.mu, 0) / ratingRows.length
-          : INITIAL_MU;
-
-        const gameRow = await client.query<{ game_type: string; is_ranked: boolean }>(
-          'SELECT game_type, COALESCE(is_ranked, false) AS is_ranked FROM games WHERE game_id = $1',
-          [gameId],
-        );
-        const gameType = (gameRow.rows[0]?.game_type ?? 'solo') as 'solo' | 'multiplayer' | 'hybrid';
-
-        for (const p of humanPlayers) {
-          const myRating = ratingMap.get(p.player_id) ?? { mu: INITIAL_MU, phi: INITIAL_PHI };
-          const unlocked = await checkAndUnlockAchievements(client, {
-            userId: p.player_id,
-            gameId,
-            gameState: state,
-            winnerId,
-            rank: ranks.get(p.player_id) ?? state.players.length,
-            totalPlayers: state.players.length,
-            gameType,
-            isRanked: resultCtx.isRanked,
-            playerMu: myRating.mu,
-            opponentAvgMu: avgMu,
-          });
-          if (unlocked.length > 0) unlockedByPlayer[p.player_id] = unlocked;
-        }
-        await client.query('COMMIT');
-      } catch (achErr) {
-        await client.query('ROLLBACK').catch(() => {});
-        console.error('[Socket] Achievement check failed:', achErr);
-      } finally {
-        client.release();
-      }
-    }
-
-    const winner = state.players.find((p) => p.player_id === winnerId);
-    const stats = {
-      winner_id: winnerId,
-      winner_name: winner?.username ?? 'Unknown',
-      turn_count: state.turn_number,
-      players: state.players.map((p) => ({
-        player_id: p.player_id,
-        username: p.username,
-        color: p.color,
-        territory_count: p.territory_count,
-        is_eliminated: p.is_eliminated,
-        is_ai: p.is_ai,
-      })),
-      win_probability_history: state.win_probability_history ?? [],
-      rating_deltas: Object.fromEntries(resultCtx.ratingDeltas),
-      is_ranked: resultCtx.isRanked,
-      achievements_unlocked: unlockedByPlayer,
-    };
-    io.to(gameId).emit('game:over', stats);
-
-    // Clean up after a delay so clients can see final state
-    setTimeout(() => activeGames.delete(gameId), 30000);
   } catch (err) {
-    console.error('[Socket] Failed to finalize game:', err);
+    console.error('[Socket] Failed to persist game completion:', err);
+    // Roll back in-memory so next attempt can retry
+    state.phase = 'fortify';
+    state.winner_id = undefined;
+    io.to(gameId).emit('error', { message: 'Failed to save game result; please reload to retry' });
+    return;
   }
+
+  // Post-game stats (non-critical — failures logged but game:over still sent)
+  let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
+  try {
+    resultCtx = await recordGameResults(gameId, state, winnerId);
+  } catch (err) {
+    console.error('[Socket] Failed to record game results:', err);
+    resultCtx = { ratingDeltas: new Map(), isRanked: false, xpEarnedByPlayer: {} };
+  }
+
+  const unlockedByPlayer: Record<string, string[]> = {};
+  const humanPlayers = state.players.filter((p) => !p.is_ai);
+  const ranks = computeRanks(state.players, winnerId);
+
+  if (humanPlayers.length > 0) {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      const ratingRows = (await client.query<{ user_id: string; mu: number; phi: number }>(
+        `SELECT user_id, mu, phi FROM user_ratings
+         WHERE user_id = ANY($1) AND rating_type = $2`,
+        [humanPlayers.map((p) => p.player_id), resultCtx.isRanked ? 'ranked' : 'solo'],
+      )).rows;
+      const ratingMap = new Map(ratingRows.map((r) => [r.user_id, { mu: r.mu, phi: r.phi }]));
+      const avgMu = ratingRows.length > 0
+        ? ratingRows.reduce((s, r) => s + r.mu, 0) / ratingRows.length
+        : INITIAL_MU;
+
+      const gameRow = await client.query<{ game_type: string; is_ranked: boolean }>(
+        'SELECT game_type, COALESCE(is_ranked, false) AS is_ranked FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      const gameType = (gameRow.rows[0]?.game_type ?? 'solo') as 'solo' | 'multiplayer' | 'hybrid';
+
+      for (const p of humanPlayers) {
+        const myRating = ratingMap.get(p.player_id) ?? { mu: INITIAL_MU, phi: INITIAL_PHI };
+        const unlocked = await checkAndUnlockAchievements(client, {
+          userId: p.player_id,
+          gameId,
+          gameState: state,
+          winnerId,
+          rank: ranks.get(p.player_id) ?? state.players.length,
+          totalPlayers: state.players.length,
+          gameType,
+          isRanked: resultCtx.isRanked,
+          playerMu: myRating.mu,
+          opponentAvgMu: avgMu,
+        });
+        if (unlocked.length > 0) unlockedByPlayer[p.player_id] = unlocked;
+      }
+      await client.query('COMMIT');
+    } catch (achErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('[Socket] Achievement check failed:', achErr);
+    } finally {
+      client.release();
+    }
+  }
+
+  const winner = state.players.find((p) => p.player_id === winnerId);
+  const stats = {
+    winner_id: winnerId,
+    winner_name: winner?.username ?? 'Unknown',
+    turn_count: state.turn_number,
+    players: state.players.map((p) => ({
+      player_id: p.player_id,
+      username: p.username,
+      color: p.color,
+      territory_count: p.territory_count,
+      is_eliminated: p.is_eliminated,
+      is_ai: p.is_ai,
+    })),
+    win_probability_history: state.win_probability_history ?? [],
+    rating_deltas: Object.fromEntries(resultCtx.ratingDeltas),
+    is_ranked: resultCtx.isRanked,
+    achievements_unlocked: unlockedByPlayer,
+    xp_earned_by_player: resultCtx.xpEarnedByPlayer,
+  };
+  io.to(gameId).emit('game:over', stats);
+
+  // Clean up after a delay so clients can see final state
+  setTimeout(() => activeGames.delete(gameId), 30000);
 }
 
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
@@ -741,7 +823,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   aiInFlight.add(gameId);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
-  const actions = computeAiTurn(state, map, difficulty);
+  const actions = await runAiWithTimeout(state, map, difficulty);
 
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 
@@ -759,6 +841,41 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // ── Draft Phase ────────────────────────────────────────────────────────
   state.phase = 'draft';
+
+  if (difficulty !== 'tutorial') {
+    for (;;) {
+      const ids = findRedeemableCardIds(currentPlayer.cards);
+      if (!ids) break;
+      try {
+        const bonus = redeemCardSet(state, currentPlayer.player_id, ids);
+        state.draft_units_remaining += bonus;
+        io.to(gameId).emit('game:cards_redeemed', { bonus });
+        await delay();
+        broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
+      } catch {
+        break;
+      }
+    }
+  }
+
+  const firstDraftIdx = actions.findIndex(
+    (a) => a.type === 'draft' && a.to && a.units != null,
+  );
+  if (firstDraftIdx >= 0) {
+    actions[firstDraftIdx].units = state.draft_units_remaining;
+  } else if (state.draft_units_remaining > 0) {
+    const owned = Object.keys(state.territories).find(
+      (tid) => state.territories[tid].owner_id === currentPlayer.player_id,
+    );
+    if (owned) {
+      const endIdx = actions.findIndex((a) => a.type === 'end_phase');
+      const draftAction = { type: 'draft' as const, to: owned, units: state.draft_units_remaining };
+      if (endIdx >= 0) actions.splice(endIdx, 0, draftAction);
+      else actions.unshift(draftAction);
+    }
+  }
+
   for (const action of actions) {
     if (action.type !== 'draft' || !action.to || !action.units) continue;
     await delay();
@@ -785,7 +902,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (to.owner_id === currentPlayer.player_id) continue;
 
     const aiDefenderId = to.owner_id;
-    const result = resolveCombat(from.unit_count, to.unit_count);
+    const result = resolveCombat(
+      from.unit_count,
+      to.unit_count,
+      undefined,
+      undefined,
+      undefined,
+      state.era_modifiers,
+    );
     from.unit_count -= result.attacker_losses;
     to.unit_count -= result.defender_losses;
     if (result.territory_captured) {
@@ -864,7 +988,14 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   const timer = setTimeout(async () => {
     const room = activeGames.get(gameId);
     if (!room || room.state.phase === 'game_over') return;
-    // Auto-advance: skip remaining phases → end turn
+
+    // Auto-place any remaining draft units so reinforcements are never silently lost
+    const placed = autoPlaceDraftUnits(room.state);
+    if (placed > 0) {
+      broadcastState(io, gameId, room.state);
+      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: placed });
+    }
+
     advanceToNextPlayer(room.state, room.map);
     await saveGameState(gameId, room.state);
     broadcastState(io, gameId, room.state);

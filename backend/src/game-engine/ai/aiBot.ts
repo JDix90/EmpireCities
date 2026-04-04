@@ -2,7 +2,7 @@ import type { GameState, GameMap, AiDifficulty } from '../../types';
 import { resolveCombat, calculateReinforcements } from '../combat/combatResolver';
 import { calculateContinentBonuses, syncTerritoryCounts } from '../state/gameStateManager';
 
-interface AiAction {
+export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
   from?: string;
   to?: string;

@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage';
 import MapHubPage from './pages/MapHubPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PrivacyPage from './pages/PrivacyPage';
+import TutorialPage from './pages/TutorialPage';
 
 // Route guard
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ export default function App() {
       <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 
       {/* Protected routes */}
+      <Route path="/tutorial" element={<PrivateRoute><TutorialPage /></PrivateRoute>} />
       <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />
       <Route path="/game/:gameId" element={<PrivateRoute><GamePage /></PrivateRoute>} />
       <Route path="/editor" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />

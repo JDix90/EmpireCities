@@ -5,6 +5,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     userId: string;
     username: string;
+    /** True when JWT was issued by POST /api/auth/guest */
+    isGuest: boolean;
   }
 }
 
@@ -30,4 +32,5 @@ export async function authenticate(
 
   request.userId = payload.sub;
   request.username = payload.username;
+  request.isGuest = payload.guest === true;
 }

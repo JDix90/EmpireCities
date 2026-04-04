@@ -473,8 +473,11 @@ export default function GlobeMap({
     (polygon: object) => {
       const id = (polygon as PolygonData).territory_id;
       const authoredRegional = mapData.projection_bounds != null;
+      const tutorialIsland = mapData.map_id === 'tutorial';
       const base = authoredRegional
-        ? 0.0075
+        ? tutorialIsland
+          ? 0.014
+          : 0.0075
         : regionalGlobe.lockRotation
           ? 0.0045
           : 0.008;
@@ -482,7 +485,7 @@ export default function GlobeMap({
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
       return base + jitter;
     },
-    [regionalGlobe.lockRotation, mapData.projection_bounds],
+    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds],
   );
 
   // ── Animation sequences ────────────────────────────────────────────────
@@ -1048,7 +1051,9 @@ export default function GlobeMap({
         polygonAltitude={getPolygonAltitude}
         polygonCapCurvatureResolution={polygonCapCurvatureResolution}
         polygonsTransitionDuration={0}
-        polygonLabel={(p) => (p as PolygonData).name}
+        polygonLabel={(p) =>
+          mapData.map_id === 'tutorial' ? '' : (p as PolygonData).name
+        }
         onPolygonClick={(polygon) => polygon && onTerritoryClick((polygon as PolygonData).territory_id)}
 
         /* HTML overlays (floating text) */

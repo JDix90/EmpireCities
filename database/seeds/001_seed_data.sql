@@ -19,7 +19,8 @@ INSERT INTO achievements (achievement_id, name, description, xp_reward) VALUES
   ('popular_creator',   'Popular Creator',       'Have your custom map played 100 times.',                      500),
   ('veteran',           'Veteran',               'Complete 50 games.',                                          600),
   ('strategist',        'Grand Strategist',      'Reach MMR 1500 in any era.',                                  750),
-  ('fog_master',        'Ghost in the Fog',      'Win a game with Fog of War enabled.',                         350)
+  ('fog_master',        'Ghost in the Fog',      'Win a game with Fog of War enabled.',                         350),
+  ('tutorial_complete', 'First Steps',           'Complete the interactive tutorial.',                            100)
 ON CONFLICT (achievement_id) DO NOTHING;
 
 -- ============================================================

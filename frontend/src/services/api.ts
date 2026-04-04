@@ -36,6 +36,10 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (useAuthStore.getState().user?.is_guest) {
+        useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false });
+        return Promise.reject(error);
+      }
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           refreshQueue.push({

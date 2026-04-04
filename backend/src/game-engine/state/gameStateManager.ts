@@ -2,8 +2,17 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
   GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
+  EraModifiers,
 } from '../../types';
 import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolver';
+
+const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
+  ancient: { legion_reroll: true },
+  medieval: { castle_fortification: true },
+  discovery: { sea_lanes: true },
+  ww2: { wartime_logistics: true },
+  coldwar: { influence_spread: true },
+};
 
 /**
  * Initialize a brand-new GameState from a map and player list.
@@ -82,6 +91,7 @@ export function initializeGameState(
     draft_units_remaining: initialDraft,
     turn_started_at: Date.now(),
     win_probability_history: [],
+    era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
   };
   appendWinProbabilitySnapshot(state);
   return state;
@@ -252,6 +262,33 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
 }
 
 /**
+ * Auto-place remaining draft units when the turn timer expires.
+ * Distributes units round-robin across the player's territories in sorted `territory_id` order.
+ * Returns the number of units placed (0 if nothing to do).
+ */
+export function autoPlaceDraftUnits(state: GameState): number {
+  if (state.phase !== 'draft' || state.draft_units_remaining <= 0) return 0;
+
+  const playerId = state.players[state.current_player_index]?.player_id;
+  if (!playerId) return 0;
+
+  const ownedIds = Object.keys(state.territories)
+    .filter((tid) => state.territories[tid].owner_id === playerId)
+    .sort();
+  if (ownedIds.length === 0) return 0;
+
+  let placed = 0;
+  let idx = 0;
+  while (state.draft_units_remaining > 0) {
+    state.territories[ownedIds[idx % ownedIds.length]].unit_count += 1;
+    state.draft_units_remaining -= 1;
+    placed++;
+    idx++;
+  }
+  return placed;
+}
+
+/**
  * Older saved games may omit draft_units_remaining. Restore it when resuming in draft phase.
  */
 export function repairDraftUnitsIfMissing(state: GameState, map: GameMap): void {
@@ -339,7 +376,7 @@ export function redeemCardSet(
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function isValidCardSet(symbols: string[]): boolean {
+export function isValidCardSet(symbols: string[]): boolean {
   const nonWild = symbols.filter((s) => s !== 'wild');
   const uniqueNonWild = new Set(nonWild);
   // Three of a kind
@@ -349,6 +386,24 @@ function isValidCardSet(symbols: string[]): boolean {
   // Two of a kind + wild
   if (symbols.includes('wild') && uniqueNonWild.size <= 2) return true;
   return false;
+}
+
+/** First valid 3-card set: cards sorted by `card_id`, combinations tried in stable index order. */
+export function findRedeemableCardIds(cards: TerritoryCard[]): string[] | null {
+  if (cards.length < 3) return null;
+  const sorted = [...cards].sort((a, b) => a.card_id.localeCompare(b.card_id));
+  const n = sorted.length;
+  for (let i = 0; i < n - 2; i++) {
+    for (let j = i + 1; j < n - 1; j++) {
+      for (let k = j + 1; k < n; k++) {
+        const syms = [sorted[i].symbol, sorted[j].symbol, sorted[k].symbol];
+        if (isValidCardSet(syms)) {
+          return [sorted[i].card_id, sorted[j].card_id, sorted[k].card_id];
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function buildCardDeck(territoryIds: string[]): TerritoryCard[] {

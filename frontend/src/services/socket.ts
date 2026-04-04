@@ -48,3 +48,18 @@ export function disconnectSocket(): void {
     boundSocketUrl = undefined;
   }
 }
+
+/**
+ * Update the Socket.IO auth token and force a reconnect so the server sees the fresh JWT.
+ * Called after a successful HTTP token refresh to prevent stale-token disconnects.
+ */
+export function resyncSocketAuth(): void {
+  if (!socket) return;
+  const token = useAuthStore.getState().accessToken;
+  if (!token) return;
+  socket.auth = { token };
+  if (socket.connected) {
+    socket.disconnect();
+    socket.connect();
+  }
+}

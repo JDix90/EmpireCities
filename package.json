@@ -2,7 +2,7 @@
   "name": "eras-of-empire",
   "version": "1.0.0",
   "private": true,
-  "description": "Eras of Empire - Historical World Map Strategy Game",
+  "description": "Eras of Empire — browser-based historical strategy game",
   "workspaces": [
     "frontend",
     "backend",

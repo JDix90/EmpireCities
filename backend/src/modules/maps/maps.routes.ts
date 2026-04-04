@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
 import { CustomMap } from '../../db/mongo/MapModel';
 import { getMapById, getEraMapSummaries, getCommunityMaps, incrementPlayCount, rateMap } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
@@ -81,7 +82,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/maps ───────────────────────────────────────────────────────
-  fastify.post('/', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post('/', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const body = CreateMapSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid map data', details: body.error.flatten() });
@@ -177,7 +178,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/maps/:mapId/publish ────────────────────────────────────────
-  fastify.post<{ Params: { mapId: string } }>('/:mapId/publish', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post<{ Params: { mapId: string } }>('/:mapId/publish', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const map = await CustomMap.findOne({ map_id: request.params.mapId, creator_id: request.userId });
     if (!map) return reply.status(404).send({ error: 'Map not found or not owned by you' });
     if (map.moderation_status === 'rejected') {
@@ -192,7 +193,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/maps/:mapId/rate ───────────────────────────────────────────
   fastify.post<{ Params: { mapId: string }; Body: { rating: number } }>(
     '/:mapId/rate',
-    { preHandler: authenticate },
+    { preHandler: [authenticate, rejectGuest] },
     async (request, reply) => {
       const { rating } = request.body;
       if (!rating || rating < 1 || rating > 5) {

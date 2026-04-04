@@ -5,9 +5,12 @@ import type { JwtAccessPayload, JwtRefreshPayload } from '../types';
 /**
  * Generate a short-lived access token (15 minutes by default).
  */
-export function signAccessToken(payload: Omit<JwtAccessPayload, 'iat' | 'exp'>): string {
+export function signAccessToken(
+  payload: Omit<JwtAccessPayload, 'iat' | 'exp'>,
+  expiresIn?: string
+): string {
   return jwt.sign(payload, config.jwt.accessSecret, {
-    expiresIn: config.jwt.accessExpiresIn,
+    expiresIn: expiresIn ?? config.jwt.accessExpiresIn,
   } as jwt.SignOptions);
 }
 

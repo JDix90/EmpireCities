@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import toast from 'react-hot-toast';
 import { Globe, Sword, Map, Users, X } from 'lucide-react';
 
 type EraScope = 'global' | 'regional';
@@ -243,6 +245,8 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
 
 export default function LandingPage() {
   const [modalEra, setModalEra] = useState<EraDefinition | null>(null);
+  const navigate = useNavigate();
+  const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
 
   useEffect(() => {
     if (modalEra) {
@@ -259,7 +263,24 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
         <Link to="/" className="font-display text-2xl text-cc-gold tracking-widest hover:text-white transition-colors">ERAS OF EMPIRE</Link>
-        <div className="flex gap-3">
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
+            Learn to play
+          </Link>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            onClick={async () => {
+              try {
+                await loginAsGuest();
+                navigate('/lobby?quickstart=true');
+              } catch {
+                toast.error('Could not start guest session');
+              }
+            }}
+          >
+            Play as Guest
+          </button>
           <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
           <Link to="/register" className="btn-primary text-sm">Play Free</Link>
         </div>
@@ -276,6 +297,9 @@ export default function LandingPage() {
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link to="/register" className="btn-primary text-lg px-10 py-3">Play Free Now</Link>
+          <Link to="/tutorial" className="btn-secondary text-lg px-10 py-3">
+            Learn to play
+          </Link>
           <Link to="/login" className="btn-secondary text-lg px-10 py-3">Sign In</Link>
         </div>
       </section>

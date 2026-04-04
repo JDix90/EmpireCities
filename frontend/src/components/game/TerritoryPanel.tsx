@@ -26,7 +26,7 @@ export default function TerritoryPanel({
   onClose,
 }: TerritoryPanelProps) {
   const { gameState, draftUnitsRemaining } = useGameStore();
-  const { selectedTerritory, attackSource, setAttackSource } = useUiStore();
+  const { selectedTerritory, attackSource, setAttackSource, setFortifyUnits } = useUiStore();
   const { user } = useAuthStore();
   const [draftAmount, setDraftAmount] = React.useState(1);
   const [fortifyAmount, setFortifyAmount] = React.useState(1);
@@ -151,8 +151,7 @@ export default function TerritoryPanel({
                 <button
                   className="btn-secondary text-sm py-1.5 px-3"
                   onClick={() => {
-                    // Fortify requires selecting a destination — handled by clicking another territory
-                    // This sets the source; next click on owned territory triggers fortify
+                    setFortifyUnits(fortifyAmount);
                     setAttackSource(selectedTerritory);
                   }}
                 >
