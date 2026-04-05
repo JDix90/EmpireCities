@@ -26,6 +26,7 @@ const STATES_GEOJSON_URL =
 
 const MAPS_DIR = join(__dirname, '../../database/maps');
 const RISORGIMENTO_PATH = join(__dirname, '../public/geo/risorgimento_admin1.json');
+const STRAIT_HORMUZ_PATH = join(__dirname, '../public/geo/strait_hormuz_admin1.json');
 
 function sortedPairKey(a: string, b: string): string {
   return [a, b].sort().join('|');
@@ -63,6 +64,7 @@ async function loadGeo(): Promise<{
   countriesGeo: GeoJSON.FeatureCollection;
   statesGeo: GeoJSON.FeatureCollection;
   risorgimentoGeo: GeoJSON.FeatureCollection;
+  straitHormuzGeo: GeoJSON.FeatureCollection;
 }> {
   const [countriesRes, statesRes] = await Promise.all([
     fetch(COUNTRIES_GEOJSON_URL),
@@ -75,7 +77,10 @@ async function loadGeo(): Promise<{
   const risorgimentoGeo = JSON.parse(
     readFileSync(RISORGIMENTO_PATH, 'utf8'),
   ) as GeoJSON.FeatureCollection;
-  return { countriesGeo, statesGeo, risorgimentoGeo };
+  const straitHormuzGeo = JSON.parse(
+    readFileSync(STRAIT_HORMUZ_PATH, 'utf8'),
+  ) as GeoJSON.FeatureCollection;
+  return { countriesGeo, statesGeo, risorgimentoGeo, straitHormuzGeo };
 }
 
 function computeLandConnections(
@@ -84,17 +89,23 @@ function computeLandConnections(
     countriesGeo: GeoJSON.FeatureCollection;
     statesGeo: GeoJSON.FeatureCollection;
     risorgimentoGeo: GeoJSON.FeatureCollection;
+    straitHormuzGeo: GeoJSON.FeatureCollection;
   },
 ): Set<string> {
   const needsRis =
     map.map_id === 'era_risorgimento' ||
     map.territories.some((t) => t.territory_id.startsWith('ris_'));
 
+  const needsStraitHormuz =
+    map.map_id === 'community_strait_hormuz' ||
+    map.territories.some((t) => t.territory_id.startsWith('hz_'));
+
   const polygons = buildTerritoryGlobeGeometries(map, {
     countriesGeo: inputs.countriesGeo,
     statesGeo: inputs.statesGeo,
     risorgimentoGeo: needsRis ? inputs.risorgimentoGeo : { type: 'FeatureCollection', features: [] },
     admin50Geo: null,
+    straitHormuzGeo: needsStraitHormuz ? inputs.straitHormuzGeo : null,
   });
 
   const land = new Set<string>();

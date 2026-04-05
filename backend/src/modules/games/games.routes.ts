@@ -1,9 +1,11 @@
 import type { FastifyInstance } from 'fastify';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import type { GameSettings, EraId, VictoryType } from '../../types';
+import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
+import { getGameIo } from '../../sockets/gameSocket';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -42,11 +44,26 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const totalPlayers = 1 + ai_count;
     const gameType = ai_count === 0 ? 'multiplayer' : ai_count >= totalPlayers - 1 ? 'solo' : 'hybrid';
 
-    await query(
-      `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
-       VALUES ($1, $2, $3, 'waiting', $4, $5)`,
-      [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType]
-    );
+    let gameInsertOk = false;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      const joinCode = generateJoinCode();
+      try {
+        await query(
+          `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code)
+           VALUES ($1, $2, $3, 'waiting', $4, $5, $6)`,
+          [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType, joinCode],
+        );
+        gameInsertOk = true;
+        break;
+      } catch (e: unknown) {
+        const pgCode = typeof e === 'object' && e !== null && 'code' in e ? (e as { code: string }).code : '';
+        if (pgCode === '23505') continue;
+        throw e;
+      }
+    }
+    if (!gameInsertOk) {
+      return reply.status(503).send({ error: 'Could not allocate a join code; try again.' });
+    }
 
     // Add the host as player 0
     await query(
@@ -127,6 +144,30 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send(games);
   });
 
+  // ── GET /api/games/lookup?code= ──────────────────────────────────────────
+  fastify.get('/lookup', { preHandler: authenticate }, async (request, reply) => {
+    const raw = (request.query as { code?: string }).code;
+    if (!raw || typeof raw !== 'string' || !raw.trim()) {
+      return reply.status(400).send({ error: 'Missing code' });
+    }
+    const { kind, value } = normalizeJoinInput(raw);
+    type Row = { game_id: string; status: string; era_id: string; join_code: string | null };
+    let row: Row | null = null;
+    if (kind === 'uuid' && uuidValidate(value)) {
+      row = await queryOne<Row>(
+        `SELECT game_id, status, era_id, join_code FROM games WHERE game_id = $1`,
+        [value],
+      );
+    } else {
+      row = await queryOne<Row>(
+        `SELECT game_id, status, era_id, join_code FROM games WHERE UPPER(join_code) = $1`,
+        [value],
+      );
+    }
+    if (!row) return reply.status(404).send({ error: 'Game not found' });
+    return reply.send(row);
+  });
+
   // ── GET /api/games/:gameId ───────────────────────────────────────────────
   fastify.get<{ Params: { gameId: string } }>('/:gameId', { preHandler: authenticate }, async (request, reply) => {
     const game = await queryOne(
@@ -182,8 +223,98 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       [request.params.gameId, request.userId, nextIndex, colors[nextIndex]]
     );
 
+    await query(
+      `UPDATE game_invites SET consumed_at = NOW()
+       WHERE game_id = $1 AND invitee_id = $2 AND consumed_at IS NULL`,
+      [request.params.gameId, request.userId],
+    );
+
     return reply.send({ message: 'Joined game', player_index: nextIndex });
   });
+
+  const InviteFriendSchema = z.object({ friend_user_id: z.string().uuid() });
+
+  // ── POST /api/games/:gameId/invite ───────────────────────────────────────
+  fastify.post<{ Params: { gameId: string } }>(
+    '/:gameId/invite',
+    { preHandler: [authenticate, rejectGuest] },
+    async (request, reply) => {
+      const parsed = InviteFriendSchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      }
+      const { friend_user_id: friendId } = parsed.data;
+      const gameId = request.params.gameId;
+      if (friendId === request.userId) {
+        return reply.status(400).send({ error: 'Cannot invite yourself' });
+      }
+
+      const game = await queryOne<{
+        status: string;
+        settings_json: Record<string, unknown>;
+        era_id: string;
+        join_code: string | null;
+      }>(
+        `SELECT status, settings_json, era_id, join_code FROM games WHERE game_id = $1`,
+        [gameId],
+      );
+      if (!game) return reply.status(404).send({ error: 'Game not found' });
+      if (game.status !== 'waiting') {
+        return reply.status(409).send({ error: 'Game is not accepting invites' });
+      }
+
+      const hostRow = await queryOne<{ c: number }>(
+        `SELECT 1 AS c FROM game_players WHERE game_id = $1 AND user_id = $2 AND player_index = 0`,
+        [gameId, request.userId],
+      );
+      if (!hostRow) return reply.status(403).send({ error: 'Only the host can invite friends' });
+
+      const [ua, ub] =
+        request.userId < friendId ? [request.userId, friendId] : [friendId, request.userId];
+      const friends = await queryOne<{ c: number }>(
+        `SELECT 1 AS c FROM friendships
+         WHERE user_id_a = $1 AND user_id_b = $2 AND status = 'accepted'`,
+        [ua, ub],
+      );
+      if (!friends) return reply.status(403).send({ error: 'You can only invite accepted friends' });
+
+      const players = await query<{ player_index: number; user_id: string | null }>(
+        'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
+        [gameId],
+      );
+      const settingsMaxPlayers =
+        typeof game.settings_json?.max_players === 'number' ? game.settings_json.max_players : 8;
+      const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
+      if (players.length >= maxPlayers) return reply.status(409).send({ error: 'Game is full' });
+
+      const already = players.some((p) => p.user_id === friendId);
+      if (already) return reply.status(409).send({ error: 'Player is already in this game' });
+
+      const inviter = await queryOne<{ username: string }>(
+        'SELECT username FROM users WHERE user_id = $1',
+        [request.userId],
+      );
+
+      await query(
+        `INSERT INTO game_invites (game_id, inviter_id, invitee_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (game_id, invitee_id) DO NOTHING`,
+        [gameId, request.userId, friendId],
+      );
+
+      const io = getGameIo();
+      if (io) {
+        io.to(`user:${friendId}`).emit('lobby:game_invite', {
+          game_id: gameId,
+          era_id: game.era_id,
+          join_code: game.join_code,
+          inviter_username: inviter?.username ?? 'Friend',
+        });
+      }
+
+      return reply.send({ ok: true });
+    },
+  );
 
   // ── DELETE /api/games/:gameId/abandon ──────────────────────────────────
   fastify.delete<{ Params: { gameId: string } }>('/:gameId/abandon', { preHandler: authenticate }, async (request, reply) => {

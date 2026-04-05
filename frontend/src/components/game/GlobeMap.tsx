@@ -32,6 +32,9 @@ const ADMIN50_STATES_GEOJSON_URL =
 /** Pre-extracted NE 10m Italy + San Marino + Vatican provinces (built from Natural Earth) */
 const RISORGIMENTO_GEOJSON_URL = '/geo/risorgimento_admin1.json';
 
+/** ne_10m admin-1 subset — IR/AE/OM/QA/BH provinces for community_strait_hormuz globe coastlines */
+const STRAIT_HORMUZ_GEOJSON_URL = '/geo/strait_hormuz_admin1.json';
+
 /** Nearly opaque fills so adjacent territories do not read as “bleeding” through each other. */
 const PLAYER_COLORS: Record<string, string> = {
   '#e74c3c': 'rgba(231, 76, 60, 0.96)',
@@ -257,6 +260,8 @@ export default function GlobeMap({
   const [risorgimentoGeo, setRisorgimentoGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** ne_50m admin-1 — Canadian provinces for community_14_nations */
   const [admin50Geo, setAdmin50Geo] = useState<GeoJSON.FeatureCollection | null>(null);
+  /** Gulf admin-1 — community_strait_hormuz */
+  const [straitHormuzGeo, setStraitHormuzGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Bumps when react-globe.gl calls onGlobeReady so we can apply camera after the ref exists */
   const [globeReadyTick, setGlobeReadyTick] = useState(0);
 
@@ -335,6 +340,24 @@ export default function GlobeMap({
       });
   }, [needsAdmin50Geo]);
 
+  const needsStraitHormuzGeo =
+    mapData.map_id === 'community_strait_hormuz' ||
+    mapData.territories.some((t) => t.territory_id.startsWith('hz_'));
+
+  useEffect(() => {
+    if (!needsStraitHormuzGeo) {
+      setStraitHormuzGeo(null);
+      return;
+    }
+    fetch(STRAIT_HORMUZ_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setStraitHormuzGeo)
+      .catch((err) => {
+        console.warn('Failed to load Strait of Hormuz admin-1 GeoJSON:', err);
+        setStraitHormuzGeo({ type: 'FeatureCollection', features: [] });
+      });
+  }, [needsStraitHormuzGeo]);
+
   // ── Polygon data (territories) ─────────────────────────────────────────
 
   const polygonsData = useMemo(
@@ -344,8 +367,9 @@ export default function GlobeMap({
         statesGeo,
         risorgimentoGeo,
         admin50Geo,
+        straitHormuzGeo,
       }),
-    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo],
+    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo],
   );
 
   // ── Territory center lookup ────────────────────────────────────────────

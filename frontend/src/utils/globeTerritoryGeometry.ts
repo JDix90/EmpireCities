@@ -20,6 +20,7 @@ import { RISORGIMENTO_TERRITORY_PARTS } from '../data/risorgimentoRegionMap';
 import { clipToBbox, type ClipBbox } from './geoClip';
 import { unionGeoJsonGeometries } from './geoUnion';
 import { COMMUNITY_14N_TERRITORY_GEO } from '../data/community14nAdmin1Map';
+import { COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO } from '../data/communityStraitHormuzGeo';
 
 /** Minimal territory shape for geometry building (matches GameMap + GlobeMap props). */
 export interface GlobeTerritoryInput {
@@ -207,6 +208,8 @@ export interface GlobeGeometryInputs {
   risorgimentoGeo: GeoJSON.FeatureCollection | null;
   /** ne_50m admin-1 — Canadian provinces for community_14_nations */
   admin50Geo?: GeoJSON.FeatureCollection | null;
+  /** ne_10m admin-1 subset — Gulf states for community_strait_hormuz */
+  straitHormuzGeo?: GeoJSON.FeatureCollection | null;
 }
 
 export interface GlobeMapDataForGeometry {
@@ -223,7 +226,13 @@ export interface GlobeMapDataForGeometry {
  */
 export function buildTerritoryGlobeGeometries(
   mapData: GlobeMapDataForGeometry,
-  { countriesGeo, statesGeo, risorgimentoGeo, admin50Geo = null }: GlobeGeometryInputs,
+  {
+    countriesGeo,
+    statesGeo,
+    risorgimentoGeo,
+    admin50Geo = null,
+    straitHormuzGeo = null,
+  }: GlobeGeometryInputs,
 ): PolygonData[] {
   const canvasW = mapData.canvas_width ?? 1200;
   const canvasH = mapData.canvas_height ?? 700;
@@ -296,8 +305,57 @@ export function buildTerritoryGlobeGeometries(
     }
   }
 
+  const straitHormuzIso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (straitHormuzGeo?.features) {
+    for (const f of straitHormuzGeo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        straitHormuzIso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
   return mapData.territories.map((raw) => {
     const territory = raw as TerritoryRow;
+
+    /** Strait of Hormuz: Natural Earth ne_10m admin-1 (bundled) + clip to grid cells — real coastlines on globe. */
+    const shDef = COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO[territory.territory_id];
+    if (
+      mapData.map_id === 'community_strait_hormuz' &&
+      shDef &&
+      straitHormuzIso3166ToGeom.size > 0 &&
+      countriesGeo &&
+      isoToFeatures.size > 0
+    ) {
+      const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      for (const code of shDef.admin1) {
+        const g = straitHormuzIso3166ToGeom.get(code);
+        if (!g) continue;
+        const clipped = clipToBbox(g, shDef.clip_bbox);
+        if (clipped) geoms.push(clipped);
+      }
+      if (shDef.fill_country_iso) {
+        const fill = getCountryClippedToBbox(shDef.fill_country_iso, shDef.clip_bbox, isoToFeatures);
+        if (fill) geoms.push(fill);
+      }
+      if (geoms.length > 0) {
+        try {
+          const merged =
+            geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
+          if (merged) {
+            return {
+              territory_id: territory.territory_id,
+              name: territory.name,
+              geometry: merged,
+            };
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+    }
 
     /** Community "14 Nations": Natural Earth admin-1 union + clip (same idea as Risorgimento / era maps). */
     const c14 = COMMUNITY_14N_TERRITORY_GEO[territory.territory_id];
@@ -332,7 +390,7 @@ export function buildTerritoryGlobeGeometries(
       }
     }
 
-    // Explicit map-authored rings (editor drawings). Skipped for community_14_nations when NE path above wins.
+    // Explicit map-authored rings (editor drawings). Skipped when Natural Earth paths above win (14 Nations, Hormuz).
     if (territory.geo_polygon && territory.geo_polygon.length >= 3) {
       const ring: [number, number][] = [...territory.geo_polygon];
       if (

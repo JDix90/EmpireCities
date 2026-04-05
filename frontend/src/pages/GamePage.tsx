@@ -11,7 +11,10 @@ import GameHUD from '../components/game/GameHUD';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
+import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import { computeDraftPool } from '../utils/draftPool';
+import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
+import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import toast from 'react-hot-toast';
 import {
   getInitialMapView,
@@ -47,6 +50,53 @@ interface MapData {
   }>;
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' }>;
   regions: Array<{ region_id: string; name: string; bonus: number }>;
+}
+
+const VICTORY_LABELS: Record<string, string> = {
+  domination: 'Domination',
+  secret_mission: 'Secret mission',
+  capital: 'Capital',
+  threshold: 'Threshold',
+};
+
+function formatTurnTimer(seconds: unknown): string {
+  const n = typeof seconds === 'number' ? seconds : Number(seconds);
+  if (!Number.isFinite(n) || n <= 0) return 'Off';
+  const m = Math.floor(n / 60);
+  const s = n % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
+  if (!data || typeof data !== 'object') return null;
+  const d = data as Record<string, unknown>;
+  if (!d.game_id || !Array.isArray(d.players)) return null;
+  let settings: GameLobbySettingsJson = {};
+  const raw = d.settings_json;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    settings = raw as GameLobbySettingsJson;
+  } else if (typeof raw === 'string') {
+    try {
+      settings = JSON.parse(raw) as GameLobbySettingsJson;
+    } catch {
+      settings = {};
+    }
+  }
+  return {
+    game_id: String(d.game_id),
+    era_id: String(d.era_id ?? ''),
+    map_id: String(d.map_id ?? ''),
+    status: String(d.status ?? ''),
+    join_code: (d.join_code as string | null | undefined) ?? null,
+    settings_json: settings,
+    players: d.players as GameLobbyPlayerRow[],
+  };
+}
+
+function playerLobbyDisplayName(p: GameLobbyPlayerRow): string {
+  if (p.username) return p.username;
+  if (p.is_ai) return `AI Bot ${p.player_index}`;
+  return 'Player';
 }
 
 export default function GamePage() {
@@ -116,6 +166,8 @@ export default function GamePage() {
   /** Increments when player completes an attack during attack_do — triggers auto phase advance */
   const [tutorialAttackAutoTick, setTutorialAttackAutoTick] = useState(0);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
+  const [lobbySnapshot, setLobbySnapshot] = useState<GameLobbySnapshot | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   /** Map area is flex-sized; measure it so Globe/PIXI get real pixels when the viewport changes (devtools, rotate, resize). */
   const mapAreaRef = useRef<HTMLDivElement>(null);
@@ -223,6 +275,11 @@ export default function GamePage() {
 
     socket.on('game:joined', ({ playerIndex }: { playerIndex: number }) => {
       setIsHost(playerIndex === 0);
+    });
+
+    socket.on('game:lobby_updated', (payload: unknown) => {
+      const next = normalizeLobbySnapshot(payload);
+      if (next) setLobbySnapshot(next);
     });
 
     socket.on('game:state', (state) => {
@@ -494,6 +551,7 @@ export default function GamePage() {
       socket.off('disconnect', onDisconnect);
       socket.io.off('reconnect_attempt', onReconnectAttempt);
       socket.off('game:joined');
+      socket.off('game:lobby_updated');
       socket.off('game:state');
       socket.off('game:started');
       socket.off('game:combat_result');
@@ -612,6 +670,21 @@ export default function GamePage() {
     }, 2200);
     return () => window.clearTimeout(t);
   }, [isTutorial, gameId, tutorialStep, gameState?.phase, user?.user_id]);
+
+  const loadLobby = useCallback(() => {
+    if (!gameId) return;
+    api
+      .get(`/games/${gameId}`)
+      .then((res) => {
+        const next = normalizeLobbySnapshot(res.data);
+        if (next) setLobbySnapshot(next);
+      })
+      .catch(() => setLobbySnapshot(null));
+  }, [gameId]);
+
+  useEffect(() => {
+    loadLobby();
+  }, [loadLobby]);
 
   // ── Load map data ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -790,22 +863,202 @@ export default function GamePage() {
     navigate('/lobby');
   }, [gameId, navigate, clearGame]);
 
+  const copyGameUrl = () => {
+    if (!gameId) return;
+    const url = `${window.location.origin}/game/${gameId}`;
+    void navigator.clipboard.writeText(url);
+    toast.success('Game link copied');
+  };
+
+  const copyGameId = () => {
+    if (!gameId) return;
+    void navigator.clipboard.writeText(gameId);
+    toast.success('Game ID copied');
+  };
+
+  const copyJoinCode = () => {
+    const c = lobbySnapshot?.join_code;
+    if (!c) return;
+    void navigator.clipboard.writeText(c);
+    toast.success('Join code copied');
+  };
+
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
+    const shareUrl = gameId ? `${window.location.origin}/game/${gameId}` : '';
+    const lobby = lobbySnapshot;
+    const settings = lobby?.settings_json ?? {};
+    const maxPlayers =
+      typeof settings.max_players === 'number' ? settings.max_players : 8;
+    const roster = lobby ? [...lobby.players].sort((a, b) => a.player_index - b.player_index) : [];
+    const aiCount = roster.filter((p) => p.is_ai).length;
+    const firstAi = roster.find((p) => p.is_ai);
+    const eraLabel = ERA_LABELS[lobby?.era_id ?? ''] ?? lobby?.era_id ?? '—';
+    const mapLabel =
+      lobby?.map_id && lobby?.era_id
+        ? formatLobbyMapLabel(lobby.map_id, lobby.era_id)
+        : '—';
+    const victoryType =
+      typeof settings.victory_type === 'string'
+        ? VICTORY_LABELS[settings.victory_type] ?? settings.victory_type
+        : '—';
+
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <div className="card text-center max-w-md w-full">
-          <h2 className="font-display text-2xl text-cc-gold mb-4">Game Lobby</h2>
-          <p className="text-cc-muted mb-6">Waiting for players to join...</p>
+      <div className="min-h-screen bg-cc-dark flex items-center justify-center p-4">
+        <div className="card text-center max-w-xl w-full">
+          <h2 className="font-display text-2xl text-cc-gold mb-2">Game Lobby</h2>
+          <p className="text-cc-muted text-sm mb-6">
+            {!lobby
+              ? 'Loading lobby…'
+              : lobby.status === 'waiting'
+                ? 'Waiting for the host to start, or for more players to join.'
+                : 'Preparing game…'}
+          </p>
+
+          {lobby && (
+            <div className="text-left space-y-4 mb-6">
+              <div className="p-4 bg-cc-dark rounded-lg border border-cc-border">
+                <p className="text-xs text-cc-muted uppercase tracking-wide mb-3">Game settings</p>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div>
+                    <dt className="text-cc-muted text-xs">Era</dt>
+                    <dd className="text-cc-text">{eraLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Map</dt>
+                    <dd className="text-cc-text">{mapLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Players</dt>
+                    <dd className="text-cc-text">
+                      {roster.length} / {maxPlayers}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Fog of war</dt>
+                    <dd className="text-cc-text">{settings.fog_of_war ? 'On' : 'Off'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Turn timer</dt>
+                    <dd className="text-cc-text">{formatTurnTimer(settings.turn_timer_seconds)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Victory</dt>
+                    <dd className="text-cc-text">{victoryType}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Starting units</dt>
+                    <dd className="text-cc-text">
+                      {typeof settings.initial_unit_count === 'number' ? settings.initial_unit_count : '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-cc-muted text-xs">Diplomacy</dt>
+                    <dd className="text-cc-text">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
+                  </div>
+                  {aiCount > 0 && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-cc-muted text-xs">AI opponents</dt>
+                      <dd className="text-cc-text">
+                        {aiCount} · {firstAi?.ai_difficulty ? `${firstAi.ai_difficulty.charAt(0).toUpperCase()}${firstAi.ai_difficulty.slice(1)}` : 'Medium'}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+
+              <div className="p-4 bg-cc-dark rounded-lg border border-cc-border">
+                <p className="text-xs text-cc-muted uppercase tracking-wide mb-3">Players</p>
+                <ul className="space-y-2 max-h-56 overflow-y-auto text-left">
+                  {roster.map((p) => {
+                    const isYou = p.user_id && user?.user_id && p.user_id === user.user_id;
+                    return (
+                      <li
+                        key={p.player_index}
+                        className="flex items-center gap-3 py-1.5 border-b border-cc-border/60 last:border-0"
+                      >
+                        <span
+                          className="w-3 h-3 rounded-full shrink-0 border border-white/20"
+                          style={{ backgroundColor: p.player_color }}
+                          title="Color"
+                        />
+                        <span className="flex-1 text-cc-text text-sm truncate">
+                          {playerLobbyDisplayName(p)}
+                          {isYou && (
+                            <span className="text-cc-muted text-xs ml-1">(you)</span>
+                          )}
+                        </span>
+                        {p.player_index === 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                            Host
+                          </span>
+                        )}
+                        {p.is_ai && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-cc-surface text-cc-muted border border-cc-border">
+                            AI
+                            {p.ai_difficulty
+                              ? ` · ${p.ai_difficulty.charAt(0).toUpperCase()}${p.ai_difficulty.slice(1)}`
+                              : ''}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {gameId && (
+            <div className="text-left space-y-3 mb-6 p-4 bg-cc-dark rounded-lg border border-cc-border">
+              <p className="text-xs text-cc-muted uppercase tracking-wide">Share this game</p>
+              {lobbySnapshot?.join_code && (
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-cc-gold font-mono text-lg tracking-wider">{lobbySnapshot.join_code}</span>
+                  <button type="button" onClick={copyJoinCode} className="btn-secondary text-sm py-1 px-3">
+                    Copy code
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-cc-muted break-all">{shareUrl}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={copyGameUrl} className="btn-secondary text-sm py-1.5 px-3">
+                  Copy link
+                </button>
+                <button type="button" onClick={copyGameId} className="btn-secondary text-sm py-1.5 px-3">
+                  Copy game ID
+                </button>
+              </div>
+            </div>
+          )}
+
           {isHost && (
-            <button onClick={handleStartGame} className="btn-primary w-full text-lg py-3">
-              Start Game
-            </button>
+            <div className="space-y-3">
+              <button onClick={handleStartGame} className="btn-primary w-full text-lg py-3">
+                Start Game
+              </button>
+              {!user?.is_guest && gameId && (
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(true)}
+                  className="btn-secondary w-full text-lg py-3"
+                >
+                  Invite friends
+                </button>
+              )}
+            </div>
           )}
           {!isHost && (
             <p className="text-cc-muted text-sm">Waiting for the host to start the game.</p>
           )}
         </div>
+        {showInviteModal && gameId && (
+          <InviteFriendsModal
+            gameId={gameId}
+            joinCode={lobbySnapshot?.join_code ?? null}
+            onClose={() => setShowInviteModal(false)}
+          />
+        )}
       </div>
     );
   }

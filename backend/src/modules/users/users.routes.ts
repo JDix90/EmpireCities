@@ -12,6 +12,11 @@ const DeleteAccountSchema = z.object({
 
 type RatingRow = { rating_type: string; mu: number; phi: number };
 
+/** Canonical ordering for `friendships.user_id_a` / `user_id_b` (UUID string compare). */
+function orderedPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
 function buildRatingsMap(rows: RatingRow[]): Record<string, { mu: number; phi: number; display: number; provisional: boolean }> {
   const ratings: Record<string, { mu: number; phi: number; display: number; provisional: boolean }> = {};
   for (const r of rows) {
@@ -347,6 +352,148 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send(enriched);
   });
+
+  const FriendUsernameSchema = z.object({
+    username: z.string().min(1).max(32),
+  });
+  const FriendOtherSchema = z.object({
+    other_user_id: z.string().uuid(),
+  });
+
+  // ── GET /api/users/me/game-invites (pending, waiting games only) ─────────
+  fastify.get('/me/game-invites', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const rows = await query<{
+      id: string;
+      game_id: string;
+      created_at: Date;
+      era_id: string;
+      join_code: string | null;
+      status: string;
+      inviter_id: string;
+      inviter_username: string;
+    }>(
+      `SELECT gi.id, gi.game_id, gi.created_at, g.era_id, g.join_code, g.status,
+              u.user_id AS inviter_id, u.username AS inviter_username
+       FROM game_invites gi
+       JOIN games g ON g.game_id = gi.game_id
+       JOIN users u ON u.user_id = gi.inviter_id
+       WHERE gi.invitee_id = $1 AND gi.consumed_at IS NULL AND g.status = 'waiting'
+       ORDER BY gi.created_at DESC`,
+      [request.userId],
+    );
+    return reply.send(rows);
+  });
+
+  // ── GET /api/users/me/friends/pending ─────────────────────────────────────
+  fastify.get('/me/friends/pending', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const rows = await query<{
+      id: string;
+      initiated_by: string | null;
+      created_at: Date;
+      other_user_id: string;
+      other_username: string;
+    }>(
+      `SELECT f.id, f.initiated_by, f.created_at,
+              CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END AS other_user_id,
+              ou.username AS other_username
+       FROM friendships f
+       JOIN users ou ON ou.user_id = (CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END)
+       WHERE (f.user_id_a = $1 OR f.user_id_b = $1) AND f.status = 'pending'`,
+      [request.userId],
+    );
+    return reply.send(
+      rows.map((r) => ({
+        ...r,
+        direction: r.initiated_by === request.userId ? 'outgoing' : 'incoming',
+      })),
+    );
+  });
+
+  // ── POST /api/users/me/friends/request ──────────────────────────────────
+  fastify.post('/me/friends/request', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const parsed = FriendUsernameSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const uname = parsed.data.username.trim();
+    const target = await queryOne<{ user_id: string }>(
+      'SELECT user_id FROM users WHERE LOWER(username) = LOWER($1)',
+      [uname],
+    );
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    if (target.user_id === request.userId) {
+      return reply.status(400).send({ error: 'Cannot send a friend request to yourself' });
+    }
+
+    const [a, b] = orderedPair(request.userId, target.user_id);
+    const existing = await queryOne<{ status: string }>(
+      'SELECT status FROM friendships WHERE user_id_a = $1 AND user_id_b = $2',
+      [a, b],
+    );
+    if (existing) {
+      if (existing.status === 'accepted') return reply.status(409).send({ error: 'Already friends' });
+      if (existing.status === 'pending') return reply.status(409).send({ error: 'Friend request already pending' });
+      return reply.status(403).send({ error: 'Cannot send friend request' });
+    }
+
+    await query(
+      `INSERT INTO friendships (user_id_a, user_id_b, status, initiated_by)
+       VALUES ($1, $2, 'pending', $3)`,
+      [a, b, request.userId],
+    );
+    return reply.status(201).send({ ok: true });
+  });
+
+  // ── POST /api/users/me/friends/accept ───────────────────────────────────
+  fastify.post('/me/friends/accept', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const parsed = FriendOtherSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const [a, b] = orderedPair(request.userId, parsed.data.other_user_id);
+    const row = await queryOne<{ id: string; initiated_by: string | null }>(
+      `SELECT id, initiated_by FROM friendships
+       WHERE user_id_a = $1 AND user_id_b = $2 AND status = 'pending'`,
+      [a, b],
+    );
+    if (!row) return reply.status(404).send({ error: 'No pending friend request' });
+    if (row.initiated_by === request.userId) {
+      return reply.status(400).send({ error: 'You cannot accept your own outgoing request' });
+    }
+    await query(`UPDATE friendships SET status = 'accepted' WHERE id = $1`, [row.id]);
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/users/me/friends/decline ──────────────────────────────────
+  fastify.post('/me/friends/decline', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const parsed = FriendOtherSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const [a, b] = orderedPair(request.userId, parsed.data.other_user_id);
+    const row = await queryOne<{ id: string }>(
+      `SELECT id FROM friendships WHERE user_id_a = $1 AND user_id_b = $2 AND status = 'pending'`,
+      [a, b],
+    );
+    if (!row) return reply.status(404).send({ error: 'No pending friend request' });
+    await query('DELETE FROM friendships WHERE id = $1', [row.id]);
+    return reply.send({ ok: true });
+  });
+
+  // ── DELETE /api/users/me/friends/:otherUserId ───────────────────────────
+  fastify.delete<{ Params: { otherUserId: string } }>(
+    '/me/friends/:otherUserId',
+    { preHandler: [authenticate, rejectGuest] },
+    async (request, reply) => {
+      const [a, b] = orderedPair(request.userId, request.params.otherUserId);
+      const r = await query(
+        'DELETE FROM friendships WHERE user_id_a = $1 AND user_id_b = $2 RETURNING id',
+        [a, b],
+      );
+      if (r.length === 0) return reply.status(404).send({ error: 'Friendship not found' });
+      return reply.send({ ok: true });
+    },
+  );
 
   // ── GET /api/users/me/friends ────────────────────────────────────────────
   fastify.get('/me/friends', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {

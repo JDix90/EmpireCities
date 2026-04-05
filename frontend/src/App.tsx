@@ -11,6 +11,7 @@ import GamePage from './pages/GamePage';
 import MapEditorPage from './pages/MapEditorPage';
 import ProfilePage from './pages/ProfilePage';
 import MapHubPage from './pages/MapHubPage';
+import FriendsPage from './pages/FriendsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TutorialPage from './pages/TutorialPage';
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
+      <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />

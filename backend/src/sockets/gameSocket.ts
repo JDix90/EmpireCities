@@ -59,6 +59,13 @@ const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 // Prevent overlapping AI turns: gameId → true while processAiTurn is running
 const aiInFlight = new Set<string>();
 
+let gameIoSingleton: Server | null = null;
+
+/** For HTTP handlers (invites, etc.) that need to emit to user rooms. */
+export function getGameIo(): Server | null {
+  return gameIoSingleton;
+}
+
 export function initGameSocket(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
@@ -84,14 +91,20 @@ export function initGameSocket(httpServer: HttpServer): Server {
   io.on('connection', (socket) => {
     const userId = (socket as Socket & { userId: string }).userId;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
+    socket.join(`user:${userId}`);
 
     // ── Join Game Room ──────────────────────────────────────────────────────
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
       try {
         const game = await queryOne<{
-          game_id: string; era_id: string; map_id: string; status: string; settings_json: string;
+          game_id: string;
+          era_id: string;
+          map_id: string;
+          status: string;
+          settings_json: string | Record<string, unknown>;
+          join_code: string | null;
         }>(
-          'SELECT game_id, era_id, map_id, status, settings_json FROM games WHERE game_id = $1',
+          'SELECT game_id, era_id, map_id, status, settings_json, join_code FROM games WHERE game_id = $1',
           [gameId]
         );
         if (!game) return socket.emit('error', { message: 'Game not found' });
@@ -114,6 +127,35 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!isParticipant) return socket.emit('error', { message: 'Not a participant in this game' });
 
         socket.join(gameId);
+
+        if (game.status === 'waiting') {
+          let settingsParsed: Record<string, unknown> = {};
+          try {
+            const sj = game.settings_json;
+            settingsParsed =
+              typeof sj === 'string' ? (JSON.parse(sj) as Record<string, unknown>) : (sj as Record<string, unknown>) ?? {};
+          } catch {
+            settingsParsed = {};
+          }
+          io.to(gameId).emit('game:lobby_updated', {
+            game_id: game.game_id,
+            era_id: game.era_id,
+            map_id: game.map_id,
+            status: game.status,
+            join_code: game.join_code ?? null,
+            settings_json: settingsParsed,
+            players: players.map((p) => ({
+              player_index: p.player_index,
+              user_id: p.user_id,
+              username: p.username,
+              player_color: p.player_color,
+              is_ai: p.is_ai,
+              ai_difficulty: p.ai_difficulty,
+              is_eliminated: p.is_eliminated,
+              final_rank: null as number | null,
+            })),
+          });
+        }
 
         // Initialize game state if not already active
         if (!activeGames.has(gameId) && game.status === 'in_progress') {
@@ -614,6 +656,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
   });
 
+  gameIoSingleton = io;
   return io;
 }
 

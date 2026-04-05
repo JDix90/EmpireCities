@@ -104,6 +104,7 @@ const MAP_FILES = [
 /** Community maps: same schema as era JSON, but published under a user id for Map Hub. */
 const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
   { file: 'community_14_nations.json', creator_id: 'jmd' },
+  { file: 'community_strait_hormuz.json', creator_id: 'jmd' },
 ];
 
 const MAPS_DIR = path.resolve(__dirname, 'maps');

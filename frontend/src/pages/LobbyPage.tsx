@@ -1,15 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
-  Home, FileText, PenSquare,
+  Home, FileText, PenSquare, Users, Link2,
 } from 'lucide-react';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
+import { COMMUNITY_MAP_TITLES, ERA_LABELS } from '../constants/gameLobbyLabels';
 
 const ERAS = [
   { id: 'ancient',   label: 'Ancient World'   },
@@ -31,11 +32,6 @@ const ERA_MAP_IDS: Record<string, string> = {
   modern:    'era_modern',
   acw:       'era_acw',
   risorgimento: 'era_risorgimento',
-};
-
-/** Community maps launched from Map Hub (map_id → display title). */
-const COMMUNITY_MAP_TITLES: Record<string, string> = {
-  community_14_nations: 'The 14 Nations',
 };
 
 interface PublicGame {
@@ -61,18 +57,6 @@ const GAME_TYPE_LABELS: Record<string, string> = {
   solo: 'Solo',
   multiplayer: 'Multiplayer',
   hybrid: 'Hybrid',
-};
-
-const ERA_LABELS: Record<string, string> = {
-  ancient: 'Ancient World',
-  medieval: 'Medieval Era',
-  discovery: 'Age of Discovery',
-  ww2: 'World War II',
-  coldwar: 'Cold War',
-  modern: 'Modern Day',
-  acw: 'American Civil War',
-  risorgimento: 'Italian Unification',
-  custom: 'Community map',
 };
 
 function timeAgo(dateStr: string): string {
@@ -119,6 +103,9 @@ export default function LobbyPage() {
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
   const [turnTimer, setTurnTimer] = useState(300);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joiningByCode, setJoiningByCode] = useState(false);
+  const joinFromUrlHandled = useRef(false);
 
   const searchParamBootstrapDone = useRef(false);
   useEffect(() => {
@@ -292,6 +279,160 @@ export default function LobbyPage() {
     }
   };
 
+  const handleJoinByCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = joinCodeInput.trim();
+    if (!raw) return;
+    setJoiningByCode(true);
+    try {
+      const { data } = await api.get<{ game_id: string; status: string }>('/games/lookup', {
+        params: { code: raw },
+      });
+      if (data.status !== 'waiting') {
+        toast.error('That game is not open for joining');
+        return;
+      }
+      await api.post(`/games/${data.game_id}/join`);
+      toast.success('Joined!');
+      navigate(`/game/${data.game_id}`);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Could not join — check the code or link');
+      }
+    } finally {
+      setJoiningByCode(false);
+    }
+  };
+
+  const joinGameFromInvite = useCallback(async (gid: string, toastId?: string) => {
+    try {
+      await api.post(`/games/${gid}/join`);
+      if (toastId) toast.dismiss(toastId);
+      toast.success('Joined!');
+      navigate(`/game/${gid}`);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Failed to join');
+      }
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const j = searchParams.get('join');
+    if (!j || joinFromUrlHandled.current) return;
+    joinFromUrlHandled.current = true;
+    setJoinCodeInput(j);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('join');
+        return next;
+      },
+      { replace: true },
+    );
+    void (async () => {
+      try {
+        const { data } = await api.get<{ game_id: string; status: string }>('/games/lookup', {
+          params: { code: j },
+        });
+        if (data.status !== 'waiting') {
+          toast.error('That game is not open for joining');
+          return;
+        }
+        await api.post(`/games/${data.game_id}/join`);
+        toast.success('Joined!');
+        navigate(`/game/${data.game_id}`);
+      } catch {
+        toast.error('Could not join from link. Try pasting the code in Join with code.');
+      }
+    })();
+  }, [searchParams, navigate, setSearchParams]);
+
+  useEffect(() => {
+    if (lobbyTab !== 'casual') return;
+    const token = accessToken ?? useAuthStore.getState().accessToken;
+    if (!token || user?.is_guest) return;
+
+    const socketUrl = getSocketUrl();
+    const sock: IOSocket = socketUrl
+      ? ioClient(socketUrl, { auth: { token }, transports: ['websocket'] })
+      : ioClient({ auth: { token }, transports: ['websocket'] });
+
+    sock.on(
+      'lobby:game_invite',
+      (data: { game_id: string; inviter_username: string; join_code?: string | null }) => {
+        toast(
+          (t) => (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>
+                <span className="font-medium text-cc-text">{data.inviter_username}</span> invited you to a game
+                {data.join_code ? (
+                  <span className="text-cc-muted"> (code {data.join_code})</span>
+                ) : null}
+                .
+              </p>
+              <button
+                type="button"
+                className="btn-primary text-sm py-1.5"
+                onClick={() => void joinGameFromInvite(data.game_id, t.id)}
+              >
+                Join game
+              </button>
+            </div>
+          ),
+          { duration: 25_000 },
+        );
+      },
+    );
+
+    return () => {
+      sock.disconnect();
+    };
+  }, [lobbyTab, accessToken, user?.is_guest, joinGameFromInvite]);
+
+  const shownInvitePollIds = useRef(new Set<string>());
+  useEffect(() => {
+    if (user?.is_guest) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const { data } = await api.get<
+          Array<{ id: string; game_id: string; inviter_username: string }>
+        >('/users/me/game-invites');
+        if (cancelled) return;
+        for (const inv of data) {
+          if (shownInvitePollIds.current.has(inv.id)) continue;
+          shownInvitePollIds.current.add(inv.id);
+          toast(
+            (t) => (
+              <div className="flex flex-col gap-2 text-sm">
+                <p>
+                  <span className="font-medium text-cc-text">{inv.inviter_username}</span> invited you to a game.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary text-sm py-1.5"
+                  onClick={() => void joinGameFromInvite(inv.game_id, t.id)}
+                >
+                  Join game
+                </button>
+              </div>
+            ),
+            { duration: 20_000 },
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    void poll();
+    const id = setInterval(poll, 25_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [user?.is_guest, joinGameFromInvite]);
+
   return (
     <div className="min-h-screen bg-cc-dark">
       {/* Top Bar */}
@@ -306,6 +447,11 @@ export default function LobbyPage() {
           {!user?.is_guest && (
             <Link to="/editor" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
               <PenSquare className="w-4 h-4 shrink-0" /> Map Editor
+            </Link>
+          )}
+          {!user?.is_guest && (
+            <Link to="/friends" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+              <Users className="w-4 h-4 shrink-0" /> Friends
             </Link>
           )}
           <Link to="/profile" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
@@ -530,6 +676,30 @@ export default function LobbyPage() {
           </div>
         )}
 
+        {/* Join with code / link */}
+        {lobbyTab === 'casual' && (
+          <div className="card mb-8 animate-fade-in">
+            <h3 className="font-display text-xl text-cc-gold mb-2 flex items-center gap-2">
+              <Link2 className="w-5 h-5" /> Join with code
+            </h3>
+            <p className="text-cc-muted text-sm mb-4">
+              Paste the short join code, or the full game ID from your host. You can also use a lobby link with <code className="text-cc-gold/90">?join=</code>.
+            </p>
+            <form onSubmit={handleJoinByCode} className="flex flex-col sm:flex-row gap-2 max-w-xl">
+              <input
+                className="input flex-1 font-mono text-sm"
+                placeholder="e.g. ABC123 or paste game UUID"
+                value={joinCodeInput}
+                onChange={(e) => setJoinCodeInput(e.target.value)}
+                autoComplete="off"
+              />
+              <button type="submit" className="btn-primary shrink-0" disabled={joiningByCode || !joinCodeInput.trim()}>
+                {joiningByCode ? 'Joining…' : 'Join game'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Active Games */}
         {lobbyTab === 'casual' && activeGames.length > 0 && (
           <div className="card mb-8 animate-fade-in">
@@ -631,6 +801,7 @@ export default function LobbyPage() {
             {!user?.is_guest && (
               <Link to="/editor" className="hover:text-cc-gold transition-colors">Map Editor</Link>
             )}
+            <Link to="/friends" className="hover:text-cc-gold transition-colors">Friends</Link>
             <Link to="/profile" className="hover:text-cc-gold transition-colors">Profile</Link>
             <Link to="/privacy" className="hover:text-cc-gold transition-colors">Privacy Policy</Link>
             <Link to="/" className="hover:text-cc-gold transition-colors">Marketing Home</Link>
