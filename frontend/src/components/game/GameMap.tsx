@@ -53,6 +53,9 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
   const labelContainerRef = useRef<PIXI.Container | null>(null);
+  /** Pixi pointer handlers are registered once; keep latest parent callback without re-initing the canvas. */
+  const onTerritoryClickRef = useRef(onTerritoryClick);
+  onTerritoryClickRef.current = onTerritoryClick;
 
   const { gameState } = useGameStore();
   const { selectedTerritory, attackSource } = useUiStore();
@@ -136,7 +139,7 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
 
       drawTerritory(g, scaledPolygon, 0x2d3448, 0x4a5568);
 
-      g.on('pointerdown', () => onTerritoryClick(territory.territory_id));
+      g.on('pointerdown', () => onTerritoryClickRef.current(territory.territory_id));
       g.on('pointerover', () => {
         if (!territoryGraphicsRef.current.get(territory.territory_id)) return;
         g.alpha = 0.85;
