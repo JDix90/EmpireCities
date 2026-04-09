@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check } from 'lucide-react';
 import clsx from 'clsx';
+import { generateShareCard, buildShareText } from '../../utils/shareCard';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +56,11 @@ export interface GameOverModalData {
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory';
+  /** Human-readable era name for the share card (e.g., "World War II"). */
+  eraName?: string;
+  /** All winner player_ids — two entries for alliance_victory. */
+  winnerIds?: string[];
 }
 
 export interface EliminationModalData {
@@ -690,19 +696,94 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
 
+  const { user } = useAuthStore();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareBlob, setShareBlob] = useState<Blob | null>(null);
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+
+  useEffect(() => {
+    return () => { if (shareImageUrl) URL.revokeObjectURL(shareImageUrl); };
+  }, [shareImageUrl]);
+
+  const myPlayer = user ? data.players.find((p) => p.player_id === user.user_id) : null;
+
+  const handleOpenShare = async () => {
+    if (shareBusy) return;
+    setShareBusy(true);
+    try {
+      const blob = await generateShareCard({
+        eraName: data.eraName ?? 'Eras of Empire',
+        factionColor: myPlayer?.color ?? data.winnerColor,
+        victoryCondition: data.victory_condition ?? 'domination',
+        territoryCount: myPlayer?.territory_count ?? 0,
+        turnCount: data.turnCount,
+        username: user?.username ?? data.winnerName,
+        shareUrl: window.location.origin,
+        isWinner: data.isWinner,
+      });
+      const url = URL.createObjectURL(blob);
+      if (shareImageUrl) URL.revokeObjectURL(shareImageUrl);
+      setShareBlob(blob);
+      setShareImageUrl(url);
+      setShareOpen(true);
+    } catch {
+      console.error('Share card generation failed');
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareBlob) return;
+    const file = new File([shareBlob], 'eras-result.png', { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch { /* user cancelled */ }
+    } else {
+      await handleCopyImage();
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!shareBlob) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]);
+    } catch {
+      const text = buildShareText({
+        username: user?.username ?? data.winnerName,
+        isWinner: data.isWinner,
+        eraName: data.eraName ?? 'Eras of Empire',
+        victoryCondition: data.victory_condition ?? 'domination',
+        turnCount: data.turnCount,
+        shareUrl: window.location.origin,
+      });
+      try { await navigator.clipboard.writeText(text); } catch { /* silent */ }
+    }
+    setCopyStatus('copied');
+    setTimeout(() => setCopyStatus('idle'), 2000);
+  };
+
   const sortedPlayers = [...data.players].sort((a, b) => b.territory_count - a.territory_count);
   const probHistory = data.win_probability_history;
 
   const victoryReasonLabel = (condition: GameOverModalData['victory_condition']): string | null => {
     switch (condition) {
-      case 'domination':    return 'Total Domination — all territories conquered';
-      case 'last_standing': return 'Last Commander Standing — all opponents eliminated';
-      case 'threshold':     return 'Territorial Threshold — controlling majority of the map';
-      case 'capital':       return 'Capital Conquest — all rival capitals seized';
-      case 'secret_mission':return 'Secret Mission completed';
-      default:              return null;
+      case 'domination':      return 'Total Domination — all territories conquered';
+      case 'last_standing':   return 'Last Commander Standing — all opponents eliminated';
+      case 'threshold':       return 'Territorial Threshold — controlling majority of the map';
+      case 'capital':         return 'Capital Conquest — all rival capitals seized';
+      case 'secret_mission':  return 'Secret Mission completed';
+      case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
+      default:                return null;
     }
   };
+
+  const isAlliance = data.victory_condition === 'alliance_victory';
+  const winnerIds = data.winnerIds ?? [];
+  const allyName = isAlliance
+    ? data.players.find((p) => winnerIds.includes(p.player_id) && p.player_id !== data.players.find((pl) => pl.username === data.winnerName)?.player_id)?.username
+    : undefined;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition);
 
@@ -728,16 +809,43 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         data.isWinner ? 'text-yellow-400' : 'text-red-400'
       )}>
-        {data.isWinner ? 'Victory!' : 'Defeat'}
+        {isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
       </h2>
       <p className={clsx(
         'text-white/50 text-sm mb-3 transition-all duration-500 delay-300',
         showContent ? 'opacity-100' : 'opacity-0'
       )}>
         {data.isWinner
-          ? 'You have conquered the world!'
-          : `${data.winnerName} has won the game`}
+          ? isAlliance && allyName
+            ? `You and ${allyName} have triumphed together!`
+            : 'You have conquered the world!'
+          : isAlliance
+            ? 'Defeated by an Alliance.'
+            : `${data.winnerName} has won the game`}
       </p>
+
+      {/* Alliance co-winners display */}
+      {isAlliance && winnerIds.length >= 2 && (
+        <div className={clsx(
+          'mb-4 flex items-center justify-center gap-3 transition-all duration-500 delay-300',
+          showContent ? 'opacity-100' : 'opacity-0'
+        )}>
+          {winnerIds.map((wid) => {
+            const wp = data.players.find((p) => p.player_id === wid);
+            if (!wp) return null;
+            return (
+              <span
+                key={wid}
+                className="px-3 py-1 rounded-full text-sm font-semibold border"
+                style={{ borderColor: wp.color, color: wp.color, background: `${wp.color}15` }}
+              >
+                {wp.username}
+              </span>
+            );
+          })}
+          <span className="text-yellow-400 text-lg">🤝</span>
+        </div>
+      )}
 
       {/* Victory condition reason */}
       {reasonLabel && (
@@ -837,6 +945,16 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       )}>
         <button
+          onClick={handleOpenShare}
+          disabled={shareBusy}
+          className="py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                     text-white/70 font-medium transition-all flex items-center justify-center gap-2
+                     disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <Share2 className="w-4 h-4" />
+          {shareBusy ? '…' : 'Share'}
+        </button>
+        <button
           onClick={onDismiss}
           className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10
                      text-white font-medium transition-all flex items-center justify-center gap-2"
@@ -845,6 +963,43 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Share preview overlay */}
+      {shareOpen && shareImageUrl && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/85 p-6 gap-4"
+             onClick={() => setShareOpen(false)}>
+          <div className="flex flex-col items-center gap-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Share Your Result</p>
+            <img src={shareImageUrl} alt="Share card preview" className="w-full rounded-xl shadow-2xl" />
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={handleCopyImage}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium
+                           flex items-center justify-center gap-2 transition-all border border-white/10"
+              >
+                {copyStatus === 'copied'
+                  ? <><Check className="w-4 h-4 text-green-400" /> Copied!</>
+                  : <><Share2 className="w-4 h-4" /> Copy Image</>}
+              </button>
+              {typeof navigator.canShare === 'function' && (
+                <button
+                  onClick={handleNativeShare}
+                  className="flex-1 py-2.5 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30 text-cc-gold text-sm font-medium
+                             flex items-center justify-center gap-2 transition-all border border-cc-gold/30"
+                >
+                  <Share2 className="w-4 h-4" /> Share
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShareOpen(false)}
+              className="text-white/30 hover:text-white/60 text-sm transition-colors mt-1"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

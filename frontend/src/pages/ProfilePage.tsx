@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Trophy, Sword, Map, Flame, Target, Users, Bot, Zap, Shield, Award, GraduationCap } from 'lucide-react';
+import { Trophy, Sword, Map, Flame, Target, Users, Bot, Zap, Shield, Award, GraduationCap, Coins, Play } from 'lucide-react';
 
 interface RatingInfo { mu: number; phi: number; display: number; provisional: boolean }
 
@@ -18,6 +18,7 @@ interface UserProfile {
   created_at: string;
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
+  gold?: number;
 }
 
 interface Achievement {
@@ -174,7 +175,7 @@ export default function ProfilePage() {
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         {/* Profile Card */}
-        <div className="card flex items-center gap-6">
+        <div className="card flex flex-col sm:flex-row items-center gap-6">
           <div className={`p-1 rounded-full shrink-0 ${
             profile.equipped_frame && FRAME_GRADIENTS[profile.equipped_frame]
               ? `bg-gradient-to-r ${FRAME_GRADIENTS[profile.equipped_frame]}`
@@ -188,12 +189,12 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 text-center sm:text-left">
             <h2 className="font-display text-2xl text-cc-gold">{profile.username}</h2>
             <p className="text-cc-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
-            <div className="flex items-center gap-4 mt-1">
+            <div className="flex flex-col sm:flex-row items-center gap-4 mt-1">
               <span className="text-cc-muted text-xs flex items-center gap-1">
                 <Bot className="w-3 h-3" /> Solo {profile.ratings?.solo?.display ?? '—'}
                 {profile.ratings?.solo?.provisional && <span className="text-cc-gold/60">(P)</span>}
@@ -214,6 +215,12 @@ export default function ProfilePage() {
                   style={{ width: `${xpProgress}%` }}
                 />
               </div>
+              {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
+                <p className="flex items-center gap-1 text-cc-gold text-xs mt-2">
+                  <Coins className="w-3.5 h-3.5" />
+                  {profile.gold.toLocaleString()} Gold
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -384,6 +391,26 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Campaign Card */}
+        {isOwnProfile && (
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-display text-lg text-cc-gold flex items-center gap-2 mb-1">
+                  <Trophy className="w-5 h-5" /> Era Campaign
+                </h3>
+                <p className="text-cc-muted text-sm">Journey through history — conquer all 6 eras.</p>
+              </div>
+              <Link
+                to="/campaign"
+                className="px-4 py-2 bg-cc-gold/15 border border-cc-gold/30 text-cc-gold rounded-lg text-sm font-medium hover:bg-cc-gold/25 transition-colors"
+              >
+                View Campaign →
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Game History */}
         {isOwnProfile && (
           <div className="card border-red-500/20">
@@ -466,6 +493,15 @@ export default function ProfilePage() {
                         <p className={`text-xs font-medium ${game.mmr_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {game.mmr_change >= 0 ? '+' : ''}{game.mmr_change} MMR
                         </p>
+                        {game.status === 'completed' && (
+                          <Link
+                            to={`/replay/${game.game_id}`}
+                            className="flex items-center gap-1 text-xs text-cc-muted hover:text-cc-gold transition-colors"
+                            title="Watch replay"
+                          >
+                            <Play className="w-3 h-3" /> Replay
+                          </Link>
+                        )}
                       </div>
                     </div>
                   );

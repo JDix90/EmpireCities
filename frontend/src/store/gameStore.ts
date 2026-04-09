@@ -37,6 +37,7 @@ export interface PlayerState {
   unlocked_techs?: string[];
   special_resource?: number;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
+  used_game_abilities?: string[];
 }
 
 export interface GameState {
@@ -49,6 +50,12 @@ export interface GameState {
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
   card_set_redemption_count: number;
+  diplomacy?: Array<{
+    player_index_a: number;
+    player_index_b: number;
+    status: 'neutral' | 'truce' | 'nap' | 'war';
+    truce_turns_remaining: number;
+  }>;
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
@@ -106,10 +113,17 @@ interface GameStoreState {
   hasMovedThisTurn: boolean;
   hasEarnedCardThisTurn: boolean;
 
+  /** Replay Theater */
+  replayMode: boolean;
+  replaySnapshots: GameState[];
+  replayFrame: number;
+
   setGameState: (state: GameState) => void;
   setLastCombatResult: (result: CombatResult | null) => void;
   setDraftUnitsRemaining: (n: number) => void;
   setHasMovedThisTurn: (v: boolean) => void;
+  loadReplay: (snapshots: GameState[]) => void;
+  setReplayFrame: (n: number) => void;
   clearGame: () => void;
 }
 
@@ -120,10 +134,19 @@ export const useGameStore = create<GameStoreState>((set) => ({
   hasMovedThisTurn: false,
   hasEarnedCardThisTurn: false,
 
+  replayMode: false,
+  replaySnapshots: [],
+  replayFrame: 0,
+
   setGameState: (state) => set({ gameState: state }),
   setLastCombatResult: (result) => set({ lastCombatResult: result }),
   setDraftUnitsRemaining: (n) => set({ draftUnitsRemaining: n }),
   setHasMovedThisTurn: (v) => set({ hasMovedThisTurn: v }),
+  loadReplay: (snapshots) => set({ replayMode: true, replaySnapshots: snapshots, replayFrame: 0, gameState: snapshots[0] ?? null }),
+  setReplayFrame: (n) => set((s) => ({
+    replayFrame: n,
+    gameState: s.replaySnapshots[n] ?? null,
+  })),
   clearGame: () => {
     useUiStore.getState().reset();
     set({
@@ -132,6 +155,9 @@ export const useGameStore = create<GameStoreState>((set) => ({
       draftUnitsRemaining: 0,
       hasMovedThisTurn: false,
       hasEarnedCardThisTurn: false,
+      replayMode: false,
+      replaySnapshots: [],
+      replayFrame: 0,
     });
   },
 }));

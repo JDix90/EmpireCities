@@ -104,6 +104,32 @@ export async function checkAndUnlockAchievements(
     unlocked.push('tutorial_complete');
   }
 
+  // card_shark: redeem 5+ card sets in a single game
+  const playerForCards = gameState.players.find((p) => p.player_id === userId);
+  if ((playerForCards?.cards_redeemed_count ?? 0) >= 5) {
+    unlocked.push('card_shark');
+  }
+
+  // blitzkrieg: capture 10+ territories in a single turn
+  const playerForBlitz = gameState.players.find((p) => p.player_id === userId);
+  if ((playerForBlitz?.territories_captured_turn_max ?? 0) >= 10) {
+    unlocked.push('blitzkrieg');
+  }
+
+  // diplomat: establish a truce with every other human player in a single game
+  if (gameState.settings.diplomacy_enabled) {
+    const playerForDiplomacy = gameState.players.find((p) => p.player_id === userId);
+    const otherHumanIds = gameState.players
+      .filter((p) => p.player_id !== userId && !p.is_ai)
+      .map((p) => p.player_id);
+    if (
+      otherHumanIds.length > 0 &&
+      otherHumanIds.every((id) => (playerForDiplomacy?.truces_established ?? []).includes(id))
+    ) {
+      unlocked.push('diplomat');
+    }
+  }
+
   // fog_master: win with fog of war
   if (isWinner && gameState.settings.fog_of_war) {
     unlocked.push('fog_master');

@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const DISCOVERY_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'spain',
     name: 'Spanish Empire',
     description: 'Conquistadors press the advantage — +1 attack die when attacking territories in the Americas or Africa.',
-    home_region_ids: ['iberia', 'mediterranean'],
+    home_region_ids: ['europe_disc'],
     passive_attack_bonus: 1,
     ability_id: 'conquistador',
     ability_description: 'Conquistador: once per turn, capture a territory with 1 or 2 defenders without rolling dice (auto-capture, costs 2 of your units).',
@@ -16,7 +16,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'portugal',
     name: 'Portuguese Empire',
     description: 'Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.',
-    home_region_ids: ['iberia'],
+    home_region_ids: ['europe_disc'],
     passive_attack_bonus: 1,
     ability_id: 'naval_charts',
     ability_description: 'Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.',
@@ -26,7 +26,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'ottoman',
     name: 'Ottoman Empire',
     description: 'Straddling east and west — +2 reinforcements per turn from controlling the mediterranean sea_routes region.',
-    home_region_ids: ['anatolia', 'middle_east'],
+    home_region_ids: ['ottoman'],
     reinforce_bonus: 2,
     ability_id: 'janissaries',
     ability_description: 'Janissaries: once per turn, defend with 3 dice regardless of garrison size.',
@@ -36,7 +36,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'england_discovery',
     name: 'English Crown',
     description: 'Privateers and merchant adventurers — +1 tech point per sea territory owned.',
-    home_region_ids: ['british_isles'],
+    home_region_ids: ['europe_disc'],
     ability_id: 'privateer',
     ability_description: 'Privateer: once per turn, steal 1 production unit from an adjacent enemy coastal territory.',
     color: '#c0392b',
@@ -45,7 +45,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'ming_china',
     name: 'Ming Dynasty',
     description: 'Vast population and the Great Wall — +1 defense die in Asian territories.',
-    home_region_ids: ['east_asia'],
+    home_region_ids: ['ming_china'],
     passive_defense_bonus: 1,
     reinforce_bonus: 1,
     ability_id: 'great_wall',
@@ -56,7 +56,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'mughal',
     name: 'Mughal Empire',
     description: 'Rich subcontinent — generates +3 extra tech points per turn.',
-    home_region_ids: ['south_asia'],
+    home_region_ids: ['mughal_india'],
     ability_id: 'spice_trade',
     ability_description: 'Spice Trade: once per turn, exchange 5 tech points for 2 extra reinforcements.',
     color: '#9b59b6',
@@ -179,3 +179,13 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
     unlocks_ability: 'colonial_dominion',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const DISCOVERY_WONDER: EraWonder = {
+  wonder_id: 'wonder_lighthouse',
+  name: 'Lighthouse of Alexandria',
+  description: 'Guiding beacon of navigation: sea-lane attacks use 3 dice instead of 2.',
+  cost: 18,
+  passive_effect_type: 'sea_attack_dice',
+  passive_effect_value: 3,
+};

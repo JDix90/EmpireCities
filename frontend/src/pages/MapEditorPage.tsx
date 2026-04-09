@@ -2,8 +2,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check } from 'lucide-react';
+import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
+import { isMobileViewport } from '../utils/device';
 import GlobeMapEditor, {
   type EditorTerritory,
   type EditorConnection,
@@ -257,6 +258,23 @@ export default function MapEditorPage() {
 
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
+      {/* Mobile warning — map editing requires a pointer device */}
+      {isMobileViewport() && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-cc-dark px-6 text-center">
+          <div className="text-5xl mb-4">🗺️</div>
+          <h2 className="font-display text-xl text-cc-gold mb-2">Desktop Required</h2>
+          <p className="text-cc-muted text-sm max-w-xs">
+            Map editing requires a mouse or trackpad. Please open the editor on a laptop or desktop.
+          </p>
+          <RouterLink
+            to="/lobby"
+            className="btn-secondary mt-6 flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Lobby
+          </RouterLink>
+        </div>
+      )}
+
       {/* Top Bar */}
       <div className="min-h-12 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
         <RouterLink to="/lobby" className="font-display text-cc-gold text-sm tracking-widest hover:text-white transition-colors">

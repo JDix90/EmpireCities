@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const MEDIEVAL_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'hre',
     name: 'Holy Roman Empire',
     description: 'Central European power — +1 defense die in mountainous territories and castle fortification era bonus.',
-    home_region_ids: ['central_europe'],
+    home_region_ids: ['western_europe'],
     passive_defense_bonus: 1,
     reinforce_bonus: 1,
     ability_id: 'imperial_diet',
@@ -17,7 +17,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'mongol_empire',
     name: 'Mongol Khanate',
     description: 'Devastating cavalry charges — +1 attack die on territories with fewer than 3 defenders.',
-    home_region_ids: ['steppe_asia'],
+    home_region_ids: ['mongol_empire'],
     passive_attack_bonus: 1,
     ability_id: 'great_raid',
     ability_description: 'Great Raid: once per turn, attack a territory and move all (not just 3) units into captured territory.',
@@ -27,7 +27,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'byzantine',
     name: 'Byzantine Empire',
     description: 'Sophisticated bureaucracy and Greek fire — +1 defense die in your capital region.',
-    home_region_ids: ['byzantium'],
+    home_region_ids: ['eastern_europe'],
     passive_defense_bonus: 1,
     ability_id: 'greek_fire',
     ability_description: 'Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled.',
@@ -57,7 +57,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'england',
     name: 'Kingdom of England',
     description: 'Longbowmen add +1 attack die when attacking across a sea connection.',
-    home_region_ids: ['british_isles'],
+    home_region_ids: ['western_europe'],
     passive_attack_bonus: 1,
     ability_id: 'longbowmen',
     ability_description: 'Longbowmen: once per turn, one ranged attack deals 1 unit loss to an adjacent enemy territory without a full attack exchange.',
@@ -182,3 +182,13 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
     unlocks_ability: 'royal_decree',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const MEDIEVAL_WONDER: EraWonder = {
+  wonder_id: 'wonder_cathedral',
+  name: 'Notre-Dame',
+  description: 'Divine authority rallies the faithful: +2 reinforcements per turn globally.',
+  cost: 20,
+  passive_effect_type: 'reinforce_bonus',
+  passive_effect_value: 2,
+};

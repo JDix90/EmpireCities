@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
-  Home, FileText, PenSquare, Users, Link2, Info,
+  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword,
 } from 'lucide-react';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
@@ -143,6 +143,7 @@ export default function LobbyPage() {
   const [eventsEnabled, setEventsEnabled] = useState(false);
   const [navalEnabled, setNavalEnabled] = useState(false);
   const [stabilityEnabled, setStabilityEnabled] = useState(false);
+  const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   const joinFromUrlHandled = useRef(false);
 
   const searchParamBootstrapDone = useRef(false);
@@ -189,6 +190,10 @@ export default function LobbyPage() {
     fetchPublicGames();
     fetchActiveGames();
     const interval = setInterval(fetchPublicGames, 10000);
+    // Fetch active seasonal events (best-effort, no auth needed)
+    api.get('/lobby/seasonal').then((res: { data: Array<{ era_id: string; name: string }> }) => {
+      if (Array.isArray(res.data)) setActiveSeasonal(res.data);
+    }).catch(() => {/* ignore */});
     return () => clearInterval(interval);
   }, []);
 
@@ -504,6 +509,16 @@ export default function LobbyPage() {
             <Map className="w-4 h-4 shrink-0" /> Map Hub
           </Link>
           {!user?.is_guest && (
+            <Link to="/daily" className="flex items-center gap-1.5 text-cc-gold/80 hover:text-cc-gold text-sm transition-colors font-medium">
+              <Calendar className="w-4 h-4 shrink-0" /> Daily
+            </Link>
+          )}
+          {!user?.is_guest && (
+            <Link to="/store" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+              <ShoppingBag className="w-4 h-4 shrink-0" /> Store
+            </Link>
+          )}
+          {!user?.is_guest && (
             <Link to="/editor" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
               <PenSquare className="w-4 h-4 shrink-0" /> Map Editor
             </Link>
@@ -528,19 +543,19 @@ export default function LobbyPage() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Welcome Banner */}
-        <div className="card mb-8 flex items-center justify-between">
+        <div className="card mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="font-display text-2xl text-cc-gold">Welcome, {user?.username}</h2>
+            <h2 className="font-display text-xl sm:text-2xl text-cc-gold">Welcome, {user?.username}</h2>
             <p className="text-cc-muted text-sm mt-1">Level {user?.level} · Ranked {(user as any)?.ratings?.ranked?.display ?? user?.mmr ?? '—'} · {user?.xp} XP</p>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setShowCreate(!showCreate)} className="btn-primary flex items-center gap-2">
+            <button onClick={() => setShowCreate(!showCreate)} className="btn-primary flex items-center gap-2 flex-1 sm:flex-none justify-center">
               <Plus className="w-4 h-4" /> New Game
             </button>
             {!user?.is_guest && (
-              <Link to="/editor" className="btn-secondary flex items-center gap-2">
+              <Link to="/editor" className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center">
                 <Map className="w-4 h-4" /> Map Editor
               </Link>
             )}
@@ -569,6 +584,15 @@ export default function LobbyPage() {
                 <p className="text-cc-muted text-xs mt-1">Interactive tutorial match against a scripted AI.</p>
               </button>
               <button
+                onClick={() => navigate('/daily')}
+                className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
+                           transition-colors text-left group"
+              >
+                <Calendar className="w-6 h-6 text-cc-gold mb-2" />
+                <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
+                <p className="text-cc-muted text-xs mt-1">One game per day, same map for everyone. Climb the leaderboard!</p>
+              </button>
+              <button
                 onClick={() => { setShowCreate(true); setAiCount(3); setSelectedEra('ancient'); }}
                 className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                            transition-colors text-left group"
@@ -576,6 +600,33 @@ export default function LobbyPage() {
                 <Bot className="w-6 h-6 text-cc-gold mb-2" />
                 <p className="font-display text-cc-gold group-hover:text-white transition-colors">Quick Solo Match</p>
                 <p className="text-cc-muted text-xs mt-1">1v3 AI in the Ancient World — a 20-min game.</p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Casual / Ranked Tab Strip */}
+
+        {/* WW2 Advanced Tutorial — shown after completing the basic tutorial */}
+        {user && user.has_completed_tutorial && !user.is_guest && lobbyTab === 'casual' && (
+          <div className="card mb-6 animate-fade-in border-amber-700/30">
+            <h3 className="font-display text-lg text-amber-400 mb-4 flex items-center gap-2">
+              <Sword className="w-5 h-5" /> Next Steps
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.post('/games/tutorial/start', { era: 'ww2' });
+                    navigate(`/game/${res.data.game_id}`);
+                  } catch { toast.error('Failed to start tutorial'); }
+                }}
+                className="p-4 rounded-lg bg-cc-dark border border-amber-700/30 hover:border-amber-500
+                           transition-colors text-left group"
+              >
+                <Sword className="w-6 h-6 text-amber-400 mb-2" />
+                <p className="font-display text-amber-400 group-hover:text-white transition-colors">WW2 Theatre</p>
+                <p className="text-cc-muted text-xs mt-1">Apply your skills in the World War II era with tanks, bombers, and atom bombs.</p>
               </button>
             </div>
           </div>
@@ -667,7 +718,14 @@ export default function LobbyPage() {
                 </div>
               ) : (
                 <div>
-                  <label className="label">Historical Era</label>
+                  <label className="label">
+                    Historical Era
+                    {activeSeasonal.some((s) => s.era_id === selectedEra) && (
+                      <span className="ml-2 text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold">
+                        🎯 Seasonal
+                      </span>
+                    )}
+                  </label>
                   <select
                     className="input"
                     value={selectedEra}
@@ -677,7 +735,9 @@ export default function LobbyPage() {
                     }}
                   >
                     {ERAS.map((era) => (
-                      <option key={era.id} value={era.id}>{era.label}</option>
+                      <option key={era.id} value={era.id}>
+                        {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -833,9 +893,9 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* Active Games */}
-        {lobbyTab === 'casual' && activeGames.length > 0 && (
-          <div className="card mb-8 animate-fade-in">
+        {/* Active / Saved Games — shown above tabs so players never lose their save */}
+        {activeGames.length > 0 && (
+          <div className="card mb-6 animate-fade-in">
             <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
               <Play className="w-5 h-5" /> Your Active Games
             </h3>
@@ -843,14 +903,19 @@ export default function LobbyPage() {
               {activeGames.map((game) => (
                 <div
                   key={game.game_id}
-                  className="flex items-center justify-between p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-cc-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
-                      <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
                         {GAME_TYPE_LABELS[game.game_type] ?? game.game_type}
                       </span>
+                      {game.saved_at && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-700/40">
+                          Saved
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-cc-muted text-sm">
                       {game.turn_number != null && <span>Turn {game.turn_number}</span>}
@@ -891,7 +956,7 @@ export default function LobbyPage() {
                       onClick={() => navigate(`/game/${game.game_id}`)}
                       className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5"
                     >
-                      <Play className="w-3.5 h-3.5" /> Continue
+                      <Play className="w-3.5 h-3.5" /> {game.saved_at ? 'Resume' : 'Continue'}
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const MODERN_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'western_power',
     name: 'Western Bloc',
     description: 'Precision warfare — precision_strike is always active; +1 defense die from advanced body armor.',
-    home_region_ids: ['north_america', 'western_europe'],
+    home_region_ids: ['north_america', 'europe'],
     passive_defense_bonus: 1,
     passive_attack_bonus: 1,
     ability_id: 'precision_airstrike',
@@ -17,7 +17,7 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'eastern_bloc',
     name: 'Eastern Coalition',
     description: 'Armored mass — +2 reinforcements per turn; tanks let you move 2 extra units in fortify.',
-    home_region_ids: ['eastern_europe', 'central_asia'],
+    home_region_ids: ['russia_cis'],
     reinforce_bonus: 2,
     ability_id: 'armored_push',
     ability_description: 'Armored Push: once per turn, execute two fortify moves instead of one.',
@@ -37,7 +37,7 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'emerging_power',
     name: 'Emerging Economy',
     description: 'Rapid industrialization — earn 2 extra production units per turn from every territory with a production building.',
-    home_region_ids: ['east_asia', 'south_asia'],
+    home_region_ids: ['asia'],
     reinforce_bonus: 1,
     ability_id: 'economic_boom',
     ability_description: 'Economic Boom: once per turn, pay 4 tech points to immediately place 2 units anywhere.',
@@ -47,7 +47,7 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'petro_state',
     name: 'Petrostate',
     description: 'Oil wealth — +3 tech points per turn; can buy an extra reinforcement for every 3 owned resource territories.',
-    home_region_ids: ['middle_east', 'africa'],
+    home_region_ids: ['middle_east', 'sub_saharan_africa'],
     ability_id: 'oil_wealth',
     ability_description: 'Oil Wealth: once per turn, spend 6 tech points to place 3 extra units on any owned territory.',
     color: '#e67e22',
@@ -56,7 +56,7 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'cyber_power',
     name: 'Cyber State',
     description: 'Digital warfare — once per turn, sabotage an adjacent enemy territory (remove 1 unit before combat).',
-    home_region_ids: ['east_asia', 'north_america'],
+    home_region_ids: ['asia', 'north_america'],
     ability_id: 'cyber_attack',
     ability_description: 'Cyber Attack: once per turn, remove 1 unit from an adjacent enemy territory without combat.',
     color: '#9b59b6',
@@ -182,3 +182,13 @@ export const MODERN_TECH_TREE: TechNode[] = [
     reinforce_bonus: 4,
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const MODERN_WONDER: EraWonder = {
+  wonder_id: 'wonder_cern',
+  name: 'CERN',
+  description: 'Particle accelerator breakthroughs: research all T1/T2 tech nodes at half cost.',
+  cost: 22,
+  passive_effect_type: 'tech_cost_half',
+  passive_effect_value: 1,
+};

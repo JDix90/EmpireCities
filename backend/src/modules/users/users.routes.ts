@@ -56,19 +56,21 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       created_at: Date;
       equipped_frame?: string | null;
       equipped_marker?: string | null;
+      gold: number;
     };
 
     let user: UserRow | null = null;
     try {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
-                equipped_frame, equipped_marker
+                equipped_frame, equipped_marker, COALESCE(gold, 0) AS gold
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
     } catch {
       user = await queryOne<UserRow>(
-        `SELECT user_id, username, level, xp, mmr, avatar_url, created_at
+        `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
+                COALESCE(gold, 0) AS gold
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
@@ -76,7 +78,13 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     if (!user) return reply.status(404).send({ error: 'User not found' });
 
     const ratings = await fetchUserRatingsSafe(request.userId);
-    return reply.send({ ...user, ratings });
+    const tutorialRow = await queryOne<{ cnt: string }>(
+      `SELECT COUNT(*) AS cnt FROM user_achievements
+       WHERE user_id = $1 AND achievement_id = 'tutorial_complete'`,
+      [request.userId],
+    );
+    const has_completed_tutorial = parseInt(tutorialRow?.cnt ?? '0', 10) > 0;
+    return reply.send({ ...user, ratings, has_completed_tutorial });
   });
 
   // ── DELETE /api/users/me (account deletion — run migration 003 first) ───

@@ -13,9 +13,13 @@ interface GameHUDProps {
   onResign?: () => void;
   onSaveAndLeave?: () => void;
   onOpenTechTree?: () => void;
+  onOpenBonuses?: () => void;
   lastCombatLog: string[];
   /** When set (in-progress game), chat renders at the bottom of this sidebar — never over the map. */
   gameId?: string;
+  activeInteractionLabel?: string | null;
+  /** When true, renders as a full-height flex column for the mobile drawer (skips hidden/md breakpoint). */
+  mobile?: boolean;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -51,8 +55,11 @@ export default function GameHUD({
   onResign,
   onSaveAndLeave,
   onOpenTechTree,
+  onOpenBonuses,
   lastCombatLog,
   gameId,
+  activeInteractionLabel,
+  mobile = false,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
@@ -98,7 +105,12 @@ export default function GameHUD({
   if (!gameState) return null;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-cc-surface border-l border-cc-border w-72 shrink-0">
+    <div className={clsx(
+      'flex flex-col min-h-0 bg-cc-surface',
+      mobile
+        ? 'flex-1 overflow-y-auto'
+        : 'hidden md:flex h-full border-l border-cc-border w-72 shrink-0',
+    )}>
       {/* Phase Indicator */}
       <div className={clsx(
         'p-4 border-b border-cc-border',
@@ -129,7 +141,15 @@ export default function GameHUD({
         )}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
+        {activeInteractionLabel && (
+          <div className="mt-2 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-900/40 border border-yellow-700/50 text-yellow-200 inline-flex items-center gap-1.5">
+            {activeInteractionLabel}
+          </div>
+        )}
       </div>
+
+      {/* ── Scrollable body — all info between the phase header and action footer ── */}
+      <div className="flex-1 overflow-y-auto min-h-0">
 
       {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission) && (
         <div className="px-4 py-3 border-b border-cc-border bg-cc-dark/40">
@@ -260,7 +280,7 @@ export default function GameHUD({
       )}
 
       {/* Combat Log */}
-      <div className="p-4 flex-1 overflow-y-auto">
+      <div className="p-4">
         <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-3">Combat Log</h3>
         {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
           <p className="text-xs text-cc-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
@@ -314,6 +334,8 @@ export default function GameHUD({
         </div>
       </div>
 
+      </div>{/* end scrollable body */}
+
       {/* Phase Advance Button */}
       {isMyTurn && gameState.phase !== 'game_over' && (
         <div className="p-4 border-t border-cc-border">
@@ -344,6 +366,28 @@ export default function GameHUD({
               )}
             </button>
           )}
+          {/* Bonuses guide */}
+          {onOpenBonuses && (() => {
+            const bonusCount =
+              (myPlayer.temporary_modifiers?.length ?? 0) +
+              (myPlayer.unlocked_techs?.length ?? 0) +
+              (myPlayer.faction_id ? 1 : 0);
+            return (
+              <button
+                onClick={onOpenBonuses}
+                className="w-full py-1.5 text-xs text-amber-300 hover:text-amber-200 transition-colors
+                           flex items-center justify-center gap-1.5 rounded border border-amber-800/40 hover:border-amber-600/60 bg-amber-900/20"
+              >
+                <Shield className="w-3 h-3" />
+                Bonuses
+                {bonusCount > 0 && (
+                  <span className="ml-1 px-1.5 rounded-full bg-amber-800/60 text-amber-200 font-mono">
+                    {bonusCount}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
           {onSaveAndLeave && (
             <button
               onClick={onSaveAndLeave}

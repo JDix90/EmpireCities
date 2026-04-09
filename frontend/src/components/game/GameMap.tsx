@@ -31,6 +31,8 @@ interface GameMapProps {
   onTerritoryClick: (territoryId: string) => void;
   width?: number;
   height?: number;
+  /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
+  highlightTerritoryId?: string;
 }
 
 const PLAYER_COLORS: Record<string, number> = {
@@ -48,7 +50,7 @@ function hexToPixi(hex: string): number {
   return PLAYER_COLORS[hex] ?? 0x888888;
 }
 
-export default function GameMap({ mapData, onTerritoryClick, width = 900, height = 600 }: GameMapProps) {
+export default function GameMap({ mapData, onTerritoryClick, width = 900, height = 600, highlightTerritoryId }: GameMapProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
@@ -57,6 +59,9 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
   const capitalLayerRef = useRef<PIXI.Container | null>(null);
   const buildingLayerRef = useRef<PIXI.Container | null>(null);
   const buildingTextMapRef = useRef<Map<string, PIXI.Text>>(new Map());
+  const highlightRingRef = useRef<PIXI.Graphics | null>(null);
+  const highlightLayerRef = useRef<PIXI.Container | null>(null);
+  const pulseTickerRef = useRef<PIXI.Ticker | null>(null);
   /** Pixi pointer handlers are registered once; keep latest parent callback without re-initing the canvas. */
   const onTerritoryClickRef = useRef(onTerritoryClick);
   onTerritoryClickRef.current = onTerritoryClick;
@@ -177,36 +182,100 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
 
     mapContainer.addChild(capitalLayer);
 
-    // Pan handling
-    (app.view as HTMLCanvasElement).addEventListener('mousedown', (e) => {
-      isDragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      stageStart = { x: mapContainer.x, y: mapContainer.y };
-    });
+    // ── Pan & Zoom — Pointer Events (supports mouse, touch, and stylus) ──────
+    const canvas = app.view as HTMLCanvasElement;
+    // Prevent the browser from intercepting touch gestures on the canvas
+    canvas.style.touchAction = 'none';
 
-    (app.view as HTMLCanvasElement).addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      mapContainer.x = stageStart.x + (e.clientX - dragStart.x);
-      mapContainer.y = stageStart.y + (e.clientY - dragStart.y);
-      labelContainer.x = mapContainer.x;
-      labelContainer.y = mapContainer.y;
-      buildingLayer.x = mapContainer.x;
-      buildingLayer.y = mapContainer.y;
-    });
+    const activePointers = new Map<number, { x: number; y: number }>();
+    let pinchStartDist = 0;
+    let pinchStartScale = 1;
+    let lastTapTime = 0;
+    const initialScale = mapContainer.scale.x;
 
-    (app.view as HTMLCanvasElement).addEventListener('mouseup', () => { isDragging = false; });
+    const syncLayers = (x: number, y: number) => {
+      mapContainer.x = x;   mapContainer.y = y;
+      labelContainer.x = x; labelContainer.y = y;
+      buildingLayer.x = x;  buildingLayer.y = y;
+    };
 
-    // Zoom handling
-    (app.view as HTMLCanvasElement).addEventListener('wheel', (e) => {
+    const scaleAllLayers = (s: number) => {
+      mapContainer.scale.set(s);
+      labelContainer.scale.set(s);
+      buildingLayer.scale.set(s);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      canvas.setPointerCapture(e.pointerId);
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 1) {
+        // Double-tap to reset view
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          syncLayers(0, 0);
+          scaleAllLayers(initialScale);
+        }
+        lastTapTime = now;
+        isDragging = true;
+        dragStart = { x: e.clientX, y: e.clientY };
+        stageStart = { x: mapContainer.x, y: mapContainer.y };
+      }
+      if (activePointers.size === 2) {
+        isDragging = false;
+        const pts = [...activePointers.values()];
+        pinchStartDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        pinchStartScale = mapContainer.scale.x;
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 2) {
+        // Pinch-to-zoom
+        const pts = [...activePointers.values()];
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        scaleAllLayers(Math.max(0.3, Math.min(4, pinchStartScale * (dist / pinchStartDist))));
+        return;
+      }
+      if (isDragging && activePointers.size === 1) {
+        syncLayers(
+          stageStart.x + (e.clientX - dragStart.x),
+          stageStart.y + (e.clientY - dragStart.y),
+        );
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      activePointers.delete(e.pointerId);
+      isDragging = false;
+      if (activePointers.size === 1) {
+        // Resume single-finger pan from current positions
+        const [remaining] = activePointers.values();
+        dragStart = { x: remaining.x, y: remaining.y };
+        stageStart = { x: mapContainer.x, y: mapContainer.y };
+        isDragging = true;
+      }
+    };
+
+    // Mouse-wheel zoom (desktop)
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.max(0.3, Math.min(4, mapContainer.scale.x * zoomFactor));
-      mapContainer.scale.set(newScale);
-      labelContainer.scale.set(newScale);
-      buildingLayer.scale.set(newScale);
-    });
+      scaleAllLayers(Math.max(0.3, Math.min(4, mapContainer.scale.x * zoomFactor)));
+    };
+
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
 
     return () => {
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerUp);
+      canvas.removeEventListener('wheel', onWheel);
       app.destroy(true);
       appRef.current = null;
       mapContainerRef.current = null;
@@ -270,7 +339,22 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
         borderColor = 0xffd700;
       }
 
+      // Wonder glow: thick golden border for territories with a wonder building
+      const hasWonder = (tState.buildings ?? []).some((b: string) => b.startsWith('wonder_'));
       const scaledPolygon = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
+      if (hasWonder) {
+        // Draw an extra golden ring behind the territory
+        g.clear();
+        if (scaledPolygon.length >= 3) {
+          g.lineStyle(4, 0xffd700, 0.75);
+          g.beginFill(0, 0);
+          g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
+          for (let i = 1; i < scaledPolygon.length; i++) g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
+          g.closePath();
+          g.endFill();
+        }
+        borderColor = 0xffd700;
+      }
       drawTerritory(g, scaledPolygon, fillColor, borderColor);
     }
 
@@ -313,6 +397,59 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
       }
     }
   }, [gameState, selectedTerritory, attackSource, mapData, canvasW, canvasH, width, height]);
+
+  // ── Tutorial highlight ring ────────────────────────────────────────────────
+  useEffect(() => {
+    const app = appRef.current;
+    const mapContainer = mapContainerRef.current;
+    if (!app || !mapContainer) return;
+
+    // Ensure highlight layer exists on top of the map container
+    if (!highlightLayerRef.current) {
+      const layer = new PIXI.Container();
+      mapContainer.addChild(layer);
+      highlightLayerRef.current = layer;
+    }
+    const layer = highlightLayerRef.current;
+    layer.removeChildren();
+    highlightRingRef.current = null;
+
+    if (!highlightTerritoryId) {
+      if (pulseTickerRef.current) {
+        pulseTickerRef.current.destroy();
+        pulseTickerRef.current = null;
+      }
+      return;
+    }
+
+    const territory = mapData.territories.find((t) => t.territory_id === highlightTerritoryId);
+    if (!territory) return;
+
+    const [cx, cy] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+    const ring = new PIXI.Graphics();
+    layer.addChild(ring);
+    highlightRingRef.current = ring;
+
+    let t = 0;
+    if (pulseTickerRef.current) pulseTickerRef.current.destroy();
+    const ticker = new PIXI.Ticker();
+    pulseTickerRef.current = ticker;
+    ticker.add((delta) => {
+      t = (t + delta * 0.03) % (Math.PI * 2);
+      const scale = 1 + 0.18 * Math.sin(t);
+      const alpha = 0.55 + 0.45 * Math.abs(Math.sin(t));
+      const r = 20 * scale;
+      ring.clear();
+      ring.lineStyle(3, 0xffd700, alpha);
+      ring.drawCircle(cx, cy, r);
+    });
+    ticker.start();
+
+    return () => {
+      ticker.destroy();
+      pulseTickerRef.current = null;
+    };
+  }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height]);
 
   return (
     <div

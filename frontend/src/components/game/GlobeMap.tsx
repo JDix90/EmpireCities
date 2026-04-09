@@ -123,6 +123,8 @@ interface GlobeMapProps {
   onEventDone?: (eventId: string) => void;
   /** Lighter motion (mobile / accessibility): no idle globe spin resume after animations */
   reducedEffects?: boolean;
+  /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
+  highlightTerritoryId?: string;
 }
 
 interface HtmlDatum {
@@ -259,6 +261,7 @@ export default function GlobeMap({
   events = [],
   onEventDone,
   reducedEffects = false,
+  highlightTerritoryId,
 }: GlobeMapProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState } = useGameStore();
@@ -1152,6 +1155,27 @@ export default function GlobeMap({
     altitude: (d: object) => (d as ArcDatum).altitude,
   }), []);
 
+  // ── Tutorial highlight ring ──────────────────────────────────────────────
+  const tutorialRing = useMemo((): RingDatum | null => {
+    if (!highlightTerritoryId) return null;
+    const center = territoryCenters.get(highlightTerritoryId);
+    if (!center) return null;
+    return {
+      id: `tutorial-highlight-${highlightTerritoryId}`,
+      lat: center.lat,
+      lng: center.lng,
+      maxRadius: 1.2,
+      speed: 1.5,
+      repeatPeriod: 800,
+      colorFn: (t: number) => `rgba(255, 215, 0, ${Math.max(0, 1 - t)})`,
+    };
+  }, [highlightTerritoryId, territoryCenters]);
+
+  const combinedRings = useMemo(
+    () => (tutorialRing ? [...rings, tutorialRing] : rings),
+    [rings, tutorialRing],
+  );
+
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,
     lng: (d: object) => (d as RingDatum).lng,
@@ -1226,8 +1250,8 @@ export default function GlobeMap({
         arcDashAnimateTime={arcAccessors.animateTime}
         arcAltitude={arcAccessors.altitude}
 
-        /* Rings (explosion effects) */
-        ringsData={rings}
+        /* Rings (explosion effects + tutorial highlight) */
+        ringsData={combinedRings}
         ringLat={ringAccessors.lat}
         ringLng={ringAccessors.lng}
         ringColor={ringAccessors.color}

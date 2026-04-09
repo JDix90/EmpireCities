@@ -64,11 +64,13 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   },
 ];
 
+
 interface TutorialOverlayProps {
   stepIndex: number;
   onAdvance: () => void;
   onContinuePlaying: () => void;
   onReturnToLobby: () => void;
+  centered?: boolean;
 }
 
 export default function TutorialOverlay({
@@ -76,6 +78,7 @@ export default function TutorialOverlay({
   onAdvance,
   onContinuePlaying,
   onReturnToLobby,
+  centered = false,
 }: TutorialOverlayProps) {
   const step = TUTORIAL_STEPS[stepIndex];
   if (!step) return null;
@@ -83,31 +86,43 @@ export default function TutorialOverlay({
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
       <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-full mx-4">
-        <div className="rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/95 backdrop-blur-sm p-5 shadow-2xl">
-          <div className="flex items-center gap-2 mb-3">
-            <GraduationCap className="w-5 h-5 text-cc-gold" />
-            <h3 className="font-display text-lg text-cc-gold">{step.title}</h3>
+      <div
+        className={
+          centered
+            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto w-full max-w-lg px-4'
+            : 'absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto max-w-sm w-full mx-4'
+        }
+      >
+        <div
+          className={
+            centered
+              ? 'rounded-2xl border-2 border-cc-gold/40 bg-[#1a1a2e]/95 backdrop-blur-lg p-8 shadow-2xl text-center'
+              : 'rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/95 backdrop-blur-sm p-5 shadow-2xl'
+          }
+        >
+          <div className={centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3'}>
+            <GraduationCap className={centered ? 'w-8 h-8 text-cc-gold' : 'w-5 h-5 text-cc-gold'} />
+            <h3 className={centered ? 'font-display text-2xl text-cc-gold' : 'font-display text-lg text-cc-gold'}>{step.title}</h3>
           </div>
-          <p className="text-cc-muted text-sm leading-relaxed mb-3">{step.message}</p>
+          <p className={centered ? 'text-cc-muted text-lg leading-relaxed mb-4' : 'text-cc-muted text-sm leading-relaxed mb-3'}>{step.message}</p>
           {step.hint && (
-            <p className="text-cc-muted/60 text-xs italic mb-3">{step.hint}</p>
+            <p className={centered ? 'text-cc-muted/70 text-base italic mb-4' : 'text-cc-muted/60 text-xs italic mb-3'}>{step.hint}</p>
           )}
           {step.variant === 'wrapup' ? (
             <div className="flex flex-col gap-2 mt-2">
-              <button type="button" onClick={onContinuePlaying} className="btn-primary text-sm w-full">
+              <button type="button" onClick={onContinuePlaying} className="btn-primary text-base w-full">
                 Continue playing
               </button>
-              <button type="button" onClick={onReturnToLobby} className="btn-secondary text-sm w-full">
+              <button type="button" onClick={onReturnToLobby} className="btn-secondary text-base w-full">
                 Return to lobby
               </button>
             </div>
           ) : !step.requireAction ? (
-            <button type="button" onClick={onAdvance} className="btn-primary text-sm w-full">
+            <button type="button" onClick={onAdvance} className="btn-primary text-base w-full">
               Next
             </button>
           ) : (
-            <p className="text-cc-gold/70 text-xs text-center animate-pulse">
+            <p className="text-cc-gold/80 text-base text-center animate-pulse">
               Perform the action above to continue...
             </p>
           )}

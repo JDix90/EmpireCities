@@ -1,8 +1,9 @@
-import type { GameState, GameMap, AiDifficulty } from '../../types';
+import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types';
 import { calculateReinforcements } from '../combat/combatResolver';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
-import { getFactionById } from '../eras';
+import { getFactionById, getEraTechTree } from '../eras';
+import { validateBuild } from '../state/economyManager';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -443,4 +444,166 @@ function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
   }
   adjacencyCache.set(map.map_id, adj);
   return adj;
+}
+
+// Eras that favour offensive tech paths.
+const AGGRESSIVE_ERAS = new Set(['ww2', 'ancient', 'acw', 'modern']);
+
+/**
+ * Choose a building to construct this AI turn, or null to skip.
+ * Easy/tutorial difficulty never builds.
+ * Hard/expert prioritises defense on the most-threatened border territory;
+ * medium uses a simple greedy production-first order.
+ */
+export function selectAiBuildingPlacement(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  difficulty: AiDifficulty,
+): { territoryId: string; buildingType: BuildingType } | null {
+  if (difficulty === 'easy' || difficulty === 'tutorial') return null;
+  if (!state.settings.economy_enabled) return null;
+
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return null;
+
+  const owned = Object.entries(state.territories)
+    .filter(([, t]) => t.owner_id === playerId)
+    .map(([id]) => id);
+  if (owned.length === 0) return null;
+
+  const checkTechUnlocked = (bType: BuildingType): boolean => {
+    if (!state.settings.tech_trees_enabled) return true;
+    const tree = getEraTechTree(state.era);
+    const requiring = tree.find((n) => n.unlocks_building === bType);
+    if (!requiring) return true;
+    return (player.unlocked_techs ?? []).includes(requiring.tech_id);
+  };
+
+  const tryBuild = (
+    bType: BuildingType,
+    candidates: string[],
+  ): { territoryId: string; buildingType: BuildingType } | null => {
+    const techUnlocked = checkTechUnlocked(bType);
+    if (!techUnlocked) return null;
+    for (const tid of candidates) {
+      const result = validateBuild(state, playerId, tid, bType, techUnlocked);
+      if (result.valid) return { territoryId: tid, buildingType: bType };
+    }
+    return null;
+  };
+
+  if (difficulty === 'hard' || difficulty === 'expert') {
+    const adjacency = buildAdjacencyMap(map);
+
+    // Find most-threatened border territories (ordered by total enemy units adjacent).
+    const borderTerritories = owned
+      .map((tid) => {
+        const neighbors = adjacency[tid] ?? [];
+        const enemyUnits = neighbors
+          .filter(
+            (nid) =>
+              state.territories[nid]?.owner_id !== playerId &&
+              state.territories[nid]?.owner_id !== null,
+          )
+          .reduce((s, nid) => s + (state.territories[nid]?.unit_count ?? 0), 0);
+        return { tid, enemyUnits };
+      })
+      .filter((x) => x.enemyUnits > 0)
+      .sort((a, b) => b.enemyUnits - a.enemyUnits);
+
+    // Defense on the most-threatened undefended border territory first.
+    for (const { tid } of borderTerritories) {
+      const existing = state.territories[tid].buildings ?? [];
+      if (!existing.some((b) => b.startsWith('defense'))) {
+        const result = tryBuild('defense_1', [tid]);
+        if (result) return result;
+      }
+    }
+
+    // Then production / tech on highest-unit territories.
+    const byUnits = [...owned].sort(
+      (a, b) => state.territories[b].unit_count - state.territories[a].unit_count,
+    );
+    for (const bType of [
+      'production_1', 'production_2', 'production_3',
+      'tech_gen_1', 'tech_gen_2',
+      'defense_2', 'defense_3',
+    ] as BuildingType[]) {
+      const result = tryBuild(bType, byUnits);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  // medium: greedy production-first on the least-developed territory.
+  const byFewBuildings = [...owned].sort(
+    (a, b) =>
+      (state.territories[a].buildings?.length ?? 0) -
+      (state.territories[b].buildings?.length ?? 0),
+  );
+  for (const bType of [
+    'production_1', 'tech_gen_1', 'defense_1',
+    'production_2', 'tech_gen_2', 'defense_2',
+    'production_3', 'defense_3',
+  ] as BuildingType[]) {
+    const result = tryBuild(bType, byFewBuildings);
+    if (result) return result;
+  }
+  return null;
+}
+
+/**
+ * Choose a tech node to research this AI turn, or null to skip.
+ * Easy/tutorial never researches.
+ * Hard/expert selects strategically based on era aggression profile;
+ * medium picks the cheapest affordable node.
+ */
+export function selectAiTechResearch(
+  state: GameState,
+  playerId: string,
+  difficulty: AiDifficulty,
+): string | null {
+  if (difficulty === 'easy' || difficulty === 'tutorial') return null;
+  if (!state.settings.tech_trees_enabled) return null;
+
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return null;
+
+  const tree = getEraTechTree(state.era);
+  const unlocked = player.unlocked_techs ?? [];
+  const techPoints = player.tech_points ?? 0;
+
+  const available = tree.filter(
+    (node) =>
+      !unlocked.includes(node.tech_id) &&
+      node.cost <= techPoints &&
+      (!node.prerequisite || unlocked.includes(node.prerequisite)),
+  );
+  if (available.length === 0) return null;
+
+  if (difficulty === 'hard' || difficulty === 'expert') {
+    const isAggressive = AGGRESSIVE_ERAS.has(state.era);
+    const scored = available.map((node) => {
+      let score = 0;
+      if (isAggressive) {
+        score += (node.attack_bonus ?? 0) * 3;
+        score += (node.defense_bonus ?? 0) * 1;
+      } else {
+        score += (node.attack_bonus ?? 0) * 1;
+        score += (node.defense_bonus ?? 0) * 3;
+      }
+      score += (node.tech_point_income ?? 0) * 2;
+      score += (node.reinforce_bonus ?? 0) * 2;
+      // Slightly prefer lower tiers (more accessible).
+      score -= (node.tier - 1) * 0.5;
+      return { node, score };
+    });
+    scored.sort((a, b) => b.score - a.score || a.node.cost - b.node.cost);
+    return scored[0]?.node.tech_id ?? null;
+  }
+
+  // medium: cheapest affordable node.
+  available.sort((a, b) => a.cost - b.cost);
+  return available[0]?.tech_id ?? null;
 }

@@ -5,6 +5,7 @@
 import type { GameState, BuildingType, PlayerState } from '../../types';
 import { getStabilityMultiplier } from './stabilityManager';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
+import { isWonderId, isWonderBuilt } from './wonderManager';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
@@ -22,6 +23,15 @@ export const BUILDING_COSTS: Record<BuildingType, number> = {
   special_b: 8,
   port: 5,
   naval_base: 10,
+  // Era wonders
+  wonder_colosseum:   18,
+  wonder_cathedral:   20,
+  wonder_lighthouse:  18,
+  wonder_manhattan:   25,
+  wonder_sputnik:     20,
+  wonder_cern:        22,
+  wonder_arsenal:     18,
+  wonder_unification: 20,
 };
 
 /** The building a tier must upgrade from (null = no prerequisite). */
@@ -63,6 +73,7 @@ function buildingCategory(b: BuildingType): string {
   if (b.startsWith('defense')) return 'defense';
   if (b.startsWith('tech_gen')) return 'tech_gen';
   if (b === 'port' || b === 'naval_base') return 'naval';
+  if (isWonderId(b)) return 'wonder';
   return b; // special_a, special_b — unique each
 }
 
@@ -117,22 +128,68 @@ export function validateBuild(
   const existingBuildings = territory.buildings ?? [];
   const category = buildingCategory(buildingType);
 
-  // Check no duplicate category
-  const hasCategory = existingBuildings.some((b) => buildingCategory(b) === category);
-  if (hasCategory) {
-    return { valid: false, error: `Territory already has a ${category} building` };
+  // Wonders are globally unique per era per game
+  if (category === 'wonder') {
+    if (isWonderBuilt(state)) {
+      return { valid: false, error: 'The Wonder for this era has already been built' };
+    }
+    // Only 1 wonder slot per territory (no two wonders can share a territory)
+    if (existingBuildings.some((b) => isWonderId(b))) {
+      return { valid: false, error: 'This territory already has a Wonder' };
+    }
   }
 
-  // Check prerequisite tier
-  const prereq = BUILDING_PREREQUISITES[buildingType];
-  if (prereq && !existingBuildings.includes(prereq)) {
-    return { valid: false, error: `Must build ${prereq} before ${buildingType}` };
+  if (category !== 'wonder') {
+    // Allow upgrades: if this is an upgrade (has a prerequisite), allow if the prerequisite exists and the upgrade is not already present
+    const prereq = BUILDING_PREREQUISITES[buildingType];
+    if (prereq) {
+      // If the upgrade is already present, block
+      if (existingBuildings.includes(buildingType)) {
+        return { valid: false, error: `Territory already has a ${BUILDING_LABEL(buildingType)}` };
+      }
+      // If the prerequisite is present, allow (upgrade path)
+      if (existingBuildings.includes(prereq)) {
+        // OK to upgrade
+      } else {
+        return { valid: false, error: `Must build ${prereq} before ${buildingType}` };
+      }
+    } else {
+      // Not an upgrade: block if any building of this category exists
+      const hasCategory = existingBuildings.some((b) => buildingCategory(b) === category);
+      if (hasCategory) {
+        return { valid: false, error: `Territory already has a ${category} building` };
+      }
+    }
   }
+
+
+  // Prerequisite check is now handled above for upgrades
+
+  // Wonders have no tier prerequisites
+  if (category === 'wonder') return { valid: true };
 
   // Naval buildings require a coastal territory (naval_units is set on coastal territories)
   if ((buildingType === 'port' || buildingType === 'naval_base') && territory.naval_units == null) {
     return { valid: false, error: 'Can only build naval structures on coastal territories' };
   }
+
+  return { valid: true };
+// Helper to get a readable label for a building type
+function BUILDING_LABEL(buildingType: string): string {
+  switch (buildingType) {
+    case 'production_1': return 'Camp';
+    case 'production_2': return 'Barracks';
+    case 'production_3': return 'Arsenal';
+    case 'defense_1': return 'Palisade';
+    case 'defense_2': return 'Fortress';
+    case 'defense_3': return 'Citadel';
+    case 'tech_gen_1': return 'Laboratory';
+    case 'tech_gen_2': return 'Research Center';
+    case 'port': return 'Port';
+    case 'naval_base': return 'Naval Base';
+    default: return buildingType;
+  }
+}
 
   // Upgrade check: if upgrading, the previous tier must exist and be removed
   // (handled in applyBuild — here we just validate)
@@ -259,14 +316,14 @@ export function getBuildingDefenseBonus(state: GameState, territoryId: string): 
 }
 
 /**
- * When a territory is captured, destroy all its buildings (or optionally keep them).
- * Current rule: all buildings are razed on capture.
+ * When a territory is captured, destroy all buildings EXCEPT wonders (which survive capture).
  */
 export function onTerritoryCapture(state: GameState, territoryId: string): void {
   const territory = state.territories[territoryId];
   if (!territory) return;
   if (state.settings.economy_enabled) {
-    territory.buildings = [];
+    // Preserve wonders — raze everything else
+    territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));
     territory.production_bonus = 0;
   }
   // Raze fleet on capture regardless of economy toggle — port is destroyed

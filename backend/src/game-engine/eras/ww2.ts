@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const WW2_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'germany',
     name: 'Third Reich',
     description: 'Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.',
-    home_region_ids: ['western_europe', 'central_europe'],
+    home_region_ids: ['western_front'],
     passive_attack_bonus: 1,
     ability_id: 'blitzkrieg',
     ability_description: 'Blitzkrieg: once per turn, after capturing a territory immediately execute a free additional attack from that territory.',
@@ -16,7 +16,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'soviet_union',
     name: 'Soviet Union',
     description: 'Vast reserves — +2 reinforcements per turn; wartime_logistics allows 3 fortify moves.',
-    home_region_ids: ['eastern_europe', 'central_asia'],
+    home_region_ids: ['eastern_front'],
     reinforce_bonus: 2,
     ability_id: 'mass_mobilization',
     ability_description: 'Mass Mobilization: once per game, place 5 extra units on any owned territory.',
@@ -26,7 +26,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'usa',
     name: 'United States',
     description: 'Industrial supremacy — +1 production unit from every owned territory per turn.',
-    home_region_ids: ['north_america'],
+    home_region_ids: ['atlantic_th'],
     reinforce_bonus: 1,
     ability_id: 'arsenal_of_democracy',
     ability_description: 'Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.',
@@ -36,7 +36,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'uk',
     name: 'United Kingdom',
     description: 'Island fortress and global empire — +1 defense die; sea-lane fortify is free.',
-    home_region_ids: ['british_isles', 'africa'],
+    home_region_ids: ['western_front', 'north_africa_th'],
     passive_defense_bonus: 1,
     ability_id: 'commonwealth',
     ability_description: 'Commonwealth: once per turn, reinforce any owned territory from another owned territory via sea at no movement cost.',
@@ -46,7 +46,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'japan',
     name: 'Imperial Japan',
     description: 'Pacific supremacy — sea-lane attacks use 3 dice; +1 attack die in Pacific or Asia regions.',
-    home_region_ids: ['east_asia', 'southeast_asia'],
+    home_region_ids: ['pacific_theatre'],
     passive_attack_bonus: 1,
     ability_id: 'banzai_charge',
     ability_description: 'Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).',
@@ -56,7 +56,7 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'china_ww2',
     name: 'Chinese Nationalists',
     description: 'Guerrilla resistance — +1 defense die; can spend production to place hidden reserve units.',
-    home_region_ids: ['east_asia'],
+    home_region_ids: ['china_theatre'],
     passive_defense_bonus: 1,
     ability_id: 'guerrilla_warfare',
     ability_description: 'Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.',
@@ -179,3 +179,13 @@ export const WW2_TECH_TREE: TechNode[] = [
     unlocks_ability: 'atom_bomb',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const WW2_WONDER: EraWonder = {
+  wonder_id: 'wonder_manhattan',
+  name: 'Manhattan Project',
+  description: 'Industrial supremacy: +2 flat reinforcement units per turn for the owner.',
+  cost: 25,
+  passive_effect_type: 'flat_reinforce',
+  passive_effect_value: 2,
+};

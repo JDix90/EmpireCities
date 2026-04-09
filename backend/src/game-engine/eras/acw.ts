@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const ACW_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const ACW_FACTIONS: Faction[] = [
     faction_id: 'union',
     name: 'Union Army',
     description: 'Industrial north — +1 production unit per owned territory; rifle_doctrine applies universally.',
-    home_region_ids: ['northeast', 'midwest', 'west'],
+    home_region_ids: ['union_northeast', 'union_midwest'],
     reinforce_bonus: 1,
     ability_id: 'total_war',
     ability_description: 'Total War: once per game, in one turn place double your normal reinforcements.',
@@ -16,7 +16,7 @@ export const ACW_FACTIONS: Faction[] = [
     faction_id: 'confederacy',
     name: 'Confederate Army',
     description: 'Defensive masters — +2 defense dice in home (Southern) territory; rifle_doctrine grants extra re-roll.',
-    home_region_ids: ['south'],
+    home_region_ids: ['confederate_east', 'confederate_central', 'confederate_west'],
     passive_defense_bonus: 2,
     ability_id: 'southern_defense',
     ability_description: 'Southern Defense: once per turn, fortify any number of units within the South region regardless of adjacency.',
@@ -142,3 +142,13 @@ export const ACW_TECH_TREE: TechNode[] = [
     unlocks_ability: 'march_to_sea',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const ACW_WONDER: EraWonder = {
+  wonder_id: 'wonder_arsenal',
+  name: 'The Great Arsenal',
+  description: 'Industrial might of the North: +3 units per turn flat bonus.',
+  cost: 18,
+  passive_effect_type: 'flat_reinforce',
+  passive_effect_value: 3,
+};

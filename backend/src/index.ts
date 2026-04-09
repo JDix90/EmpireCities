@@ -20,7 +20,11 @@ import { gamesRoutes } from './modules/games/games.routes';
 import { mapsRoutes } from './modules/maps/maps.routes';
 import { initGameSocket, shutdownGameSocket } from './sockets/gameSocket';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
-import { getEraTechTree } from './game-engine/eras';
+import { dailyRoutes } from './modules/daily/daily.routes';
+import { storeRoutes } from './modules/store/store.routes';
+import { campaignRoutes } from './modules/campaign/campaign.routes';
+import { getEraTechTree, getEraFactions } from './game-engine/eras';
+import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
@@ -81,6 +85,13 @@ async function bootstrap(): Promise<void> {
   await app.register(gamesRoutes, { prefix: '/api/games' });
   await app.register(mapsRoutes, { prefix: '/api/maps' });
   await app.register(matchmakingRoutes, { prefix: '/api/matchmaking' });
+  await app.register(dailyRoutes, { prefix: '/api/daily' });
+  await app.register(storeRoutes, { prefix: '/api/store' });
+  await app.register(campaignRoutes, { prefix: '/api/campaign' });
+
+  app.get('/api/lobby/seasonal', async (_req, reply) => {
+    return reply.send(getActiveSeasonal(new Date()));
+  });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
@@ -89,6 +100,16 @@ async function bootstrap(): Promise<void> {
     try {
       const techTree = getEraTechTree(req.params.era as Parameters<typeof getEraTechTree>[0]);
       return reply.send({ techTree });
+    } catch {
+      return reply.code(404).send({ error: 'Unknown era' });
+    }
+  });
+
+  // Static era factions — public, no auth needed
+  app.get<{ Params: { era: string } }>('/api/eras/:era/factions', async (req, reply) => {
+    try {
+      const factions = getEraFactions(req.params.era as Parameters<typeof getEraFactions>[0]);
+      return reply.send({ factions });
     } catch {
       return reply.code(404).send({ error: 'Unknown era' });
     }

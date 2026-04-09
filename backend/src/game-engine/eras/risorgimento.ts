@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const RISORGIMENTO_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
     faction_id: 'sardinia_piedmont',
     name: 'Kingdom of Sardinia',
     description: 'The catalyst of Italian unification — carbonari_network influence costs 1 fewer unit; +1 reinforce in Piedmont.',
-    home_region_ids: ['piedmont', 'sardinia'],
+    home_region_ids: ['italy_northwest', 'italy_islands'],
     reinforce_bonus: 1,
     ability_id: 'unification_drive',
     ability_description: 'Unification Drive: once per turn, convert a neutral Italian territory within range at zero cost.',
@@ -16,7 +16,7 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
     faction_id: 'austria',
     name: 'Austrian Empire',
     description: 'Conservative power defending the old order — +2 defense dice in Austrian core territories.',
-    home_region_ids: ['lombardy_venetia', 'austrian_core'],
+    home_region_ids: ['italy_northwest', 'italy_adriatic'],
     passive_defense_bonus: 2,
     reinforce_bonus: 1,
     ability_id: 'habsberg_garrison',
@@ -27,7 +27,7 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
     faction_id: 'papal_states',
     name: 'Papal States',
     description: 'Spiritual influence — carbonari_network range is halved against Papal territories; +1 defense die.',
-    home_region_ids: ['papal_states'],
+    home_region_ids: ['italy_central'],
     passive_defense_bonus: 1,
     ability_id: 'papal_dispensation',
     ability_description: 'Papal Dispensation: once per turn, prevent one influence attempt against any Papal territory.',
@@ -37,7 +37,7 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
     faction_id: 'kingdom_naples',
     name: 'Kingdom of the Two Sicilies',
     description: 'Southern stronghold — +1 defense die; Garibaldi attack bonus is negated in Neapolitan territory.',
-    home_region_ids: ['naples', 'sicily'],
+    home_region_ids: ['italy_south', 'italy_deep_south'],
     passive_defense_bonus: 1,
     ability_id: 'bourbon_resistance',
     ability_description: 'Bourbon Resistance: once per game, prevent an enemy from capturing Sicily for one full turn.',
@@ -161,3 +161,13 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
     unlocks_ability: 'risorgimento_complete',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const RISORGIMENTO_WONDER: EraWonder = {
+  wonder_id: 'wonder_unification',
+  name: 'Unification Monument',
+  description: 'Symbol of a united Italy: +2 influence range for Cold War mechanics.',
+  cost: 20,
+  passive_effect_type: 'influence_range',
+  passive_effect_value: 2,
+};

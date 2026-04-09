@@ -11,6 +11,7 @@
     height: 100%;
     margin: 0;
     padding: 0;
+    overscroll-behavior: none;
   }
 
   body {
@@ -43,17 +44,20 @@
     @apply bg-cc-gold text-cc-dark font-semibold px-6 py-2.5 rounded-lg min-h-[44px] inline-flex items-center justify-center
            hover:brightness-110 active:brightness-90 transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed;
+    touch-action: manipulation;
   }
 
   .btn-secondary {
     @apply bg-cc-surface border border-cc-border text-cc-text font-medium px-6 py-2.5 rounded-lg min-h-[44px] inline-flex items-center justify-center
            hover:bg-cc-border transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed;
+    touch-action: manipulation;
   }
 
   .btn-danger {
     @apply bg-red-700 text-white font-semibold px-6 py-2.5 rounded-lg
            hover:bg-red-600 active:bg-red-800 transition-all duration-150;
+    touch-action: manipulation;
   }
 
   .card {
@@ -90,4 +94,13 @@
   .min-h-screen-safe {
     min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
+
+  .animate-slide-up {
+    animation: slide-up 0.25s ease-out;
+  }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
 }

@@ -5,6 +5,7 @@
 import type { GameState, GameMap } from '../../types';
 import type { TechNode } from '../eras/types';
 import { getEraTechTree, getFactionById, getTechNodeById } from '../eras';
+import { getWonderTechCostMultiplier } from './wonderManager';
 
 // ── Research ──────────────────────────────────────────────────────────────────
 
@@ -51,8 +52,12 @@ export function validateResearch(
   }
 
   const techPoints = player.tech_points ?? 0;
-  if (techPoints < node.cost) {
-    return { valid: false, error: `Not enough tech points (need ${node.cost}, have ${techPoints})` };
+  const costMultiplier = state.settings.economy_enabled
+    ? getWonderTechCostMultiplier(state, playerId)
+    : 1;
+  const effectiveCost = Math.ceil(node.cost * costMultiplier);
+  if (techPoints < effectiveCost) {
+    return { valid: false, error: `Not enough tech points (need ${effectiveCost}, have ${techPoints})` };
   }
 
   return { valid: true, node };
@@ -69,7 +74,11 @@ export function applyResearch(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return;
 
-  player.tech_points = (player.tech_points ?? 0) - node.cost;
+  const costMultiplier = state.settings.economy_enabled
+    ? getWonderTechCostMultiplier(state, playerId)
+    : 1;
+  const effectiveCost = Math.ceil(node.cost * costMultiplier);
+  player.tech_points = (player.tech_points ?? 0) - effectiveCost;
   if (!player.unlocked_techs) player.unlocked_techs = [];
   player.unlocked_techs.push(node.tech_id);
 

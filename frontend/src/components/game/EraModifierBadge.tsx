@@ -77,7 +77,7 @@ export default function EraModifierBadge({ gameState, className }: Props) {
       {active.map((m) => (
         <div
           key={m.key}
-          className="group relative"
+          className="group relative flex flex-col items-start"
           title={m.description}
         >
           <span
@@ -90,7 +90,10 @@ export default function EraModifierBadge({ gameState, className }: Props) {
             <span aria-hidden="true">{m.icon}</span>
             {m.label}
           </span>
-          {/* Tooltip */}
+          <span className="block text-xs text-amber-300/80 mt-0.5 ml-1 pr-2">
+            {m.description}
+          </span>
+          {/* Tooltip remains for accessibility */}
           <div
             className={clsx(
               'absolute bottom-full left-0 mb-1 w-48 p-2 rounded-md text-xs z-50',

@@ -4,6 +4,24 @@
 
 import type { BuildingType } from '../../types';
 
+/** Era-unique wonder building definition. One per era, globally unique per game. */
+export interface EraWonder {
+  wonder_id: BuildingType;
+  name: string;
+  description: string;
+  cost: number;
+  /** What the passive does — used for display and applyWonderBonus dispatch. */
+  passive_effect_type:
+    | 'defense_die_global'
+    | 'reinforce_bonus'
+    | 'sea_attack_dice'
+    | 'tech_point_per_territory'
+    | 'tech_cost_half'
+    | 'flat_reinforce'
+    | 'influence_range';
+  passive_effect_value: number;
+}
+
 /** A playable faction for a given era with geographic home territories and passive ability. */
 export interface Faction {
   faction_id: string;

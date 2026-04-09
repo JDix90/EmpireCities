@@ -6,6 +6,8 @@ import { Shield, Sword, X, Anchor } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import BuildingPanel from './BuildingPanel';
+import { ERA_WONDERS } from '../../constants/eraWonders';
+import { isMobileViewport } from '../../utils/device';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -20,6 +22,8 @@ interface TerritoryPanelProps {
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
   onNavalAttack?: (fromId: string, toId: string) => void;
   onInfluence?: (targetId: string) => void;
+  onProposeTruce?: (targetPlayerId: string) => void;
+  onAtomBomb?: (targetId: string) => void;
   onClose: () => void;
 }
 
@@ -32,6 +36,8 @@ export default function TerritoryPanel({
   onNavalMove,
   onNavalAttack,
   onInfluence,
+  onProposeTruce,
+  onAtomBomb,
   onClose,
 }: TerritoryPanelProps) {
   const { gameState, draftUnitsRemaining } = useGameStore();
@@ -58,9 +64,23 @@ export default function TerritoryPanel({
   const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === user?.user_id;
   const isMine = tState.owner_id === user?.user_id;
   const isEnemy = tState.owner_id && tState.owner_id !== user?.user_id;
+  const isMobile = isMobileViewport();
 
   return (
-    <div className="absolute bottom-4 left-4 w-72 bg-cc-surface border border-cc-border rounded-xl shadow-2xl p-4 animate-fade-in">
+    <div className={clsx(
+      'bg-cc-surface animate-fade-in',
+      isMobile
+        ? 'fixed bottom-16 inset-x-0 max-h-[60vh] overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
+        : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
+    )}>
+      {/* Drag handle — mobile only */}
+      {isMobile && (
+        <div className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10">
+          <div className="w-8 h-1 rounded-full bg-cc-border" />
+        </div>
+      )}
+      {/* Content */}
+      <div className={isMobile ? 'px-4 pb-4' : 'p-4'}>
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
@@ -96,7 +116,7 @@ export default function TerritoryPanel({
       )}
 
       {/* Stability Bar */}
-      {tState.stability != null && (
+      {gameState.settings.stability_enabled && tState.stability != null && (
         <div className="mb-4 p-3 bg-cc-dark rounded-lg">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-cc-muted">Stability</span>
@@ -118,22 +138,25 @@ export default function TerritoryPanel({
 
       {/* Actions */}
       {isMyTurn && (
-        <div className="space-y-3">
-          {/* Draft */}
+        <div className="space-y-4">
+          {/* Draft (always at top if available) */}
           {isMine && gameState.phase === 'draft' && draftPool > 0 && (
             <div>
               <label className="label text-xs">Place Reinforcements ({draftPool} remaining)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  className="input text-sm py-1.5 flex-1"
-                  min={1}
-                  max={draftPool}
-                  value={draftAmount}
-                  onChange={(e) => setDraftAmount(Math.min(draftPool, Math.max(1, Number(e.target.value))))}
-                />
+              <div className="flex items-center gap-2">
                 <button
-                  className="btn-primary text-sm py-1.5 px-4"
+                  type="button"
+                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
+                >−</button>
+                <span className="w-8 text-center font-mono text-cc-text">{draftAmount}</span>
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
+                >+</button>
+                <button
+                  className="btn-primary text-sm py-1.5 px-4 flex-1"
                   onClick={() => onDraft(selectedTerritory, draftAmount)}
                 >
                   Place
@@ -142,9 +165,10 @@ export default function TerritoryPanel({
             </div>
           )}
 
-          {/* Attack */}
+          {/* Combat Section */}
           {gameState.phase === 'attack' && (
-            <>
+            <div>
+              <div className="text-xs font-bold text-cc-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
               {isMine && tState.unit_count >= 2 && !attackSource && (
                 <button
                   className="btn-primary w-full text-sm flex items-center justify-center gap-2"
@@ -172,37 +196,100 @@ export default function TerritoryPanel({
                   </button>
                 </div>
               )}
-              {/* Influence Spread / Carbonari Network */}
-              {isEnemy && !attackSource && onInfluence &&
-               (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) &&
-               !(gameState as any).influence_used_this_turn && (
-                <button
-                  className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
-                             border border-purple-600/50 bg-purple-900/30 text-purple-200
-                             hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
-                  onClick={() => { onInfluence(selectedTerritory); onClose(); }}
-                >
-                  📡 Seize via Influence <span className="text-purple-400 text-xs">(costs 3 units)</span>
-                </button>
-              )}
-            </>
+              {/* Atom Bomb (WW2 era — once per game) */}
+              {isEnemy && !attackSource && onAtomBomb && gameState.phase === 'attack' && isMyTurn && (() => {
+                const myPlayer = gameState.players.find((p) => p.player_id === user?.user_id);
+                const alreadyUsed = myPlayer?.used_game_abilities?.includes('atom_bomb');
+                return (
+                  <button
+                    disabled={!!alreadyUsed}
+                    className={clsx(
+                      'w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg mt-2 transition-colors',
+                      alreadyUsed
+                        ? 'border border-gray-700 bg-gray-900/30 text-gray-600 cursor-not-allowed'
+                        : 'border border-red-600/70 bg-red-950/50 text-red-300 hover:bg-red-900/50 hover:border-red-500',
+                    )}
+                    onClick={() => {
+                      if (!alreadyUsed) { onAtomBomb(selectedTerritory); onClose(); }
+                    }}
+                  >
+                    ☢️ Atom Bomb
+                    <span className={clsx('text-xs', alreadyUsed ? 'text-gray-600' : 'text-red-400/70')}>
+                      {alreadyUsed ? '(used)' : '(once per game)'}
+                    </span>
+                  </button>
+                );
+              })()}
+            </div>
           )}
 
-          {/* Fortify */}
+          {/* Diplomacy Section */}
+          {gameState.phase === 'attack' && (
+            (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network || gameState.settings.diplomacy_enabled) && (
+              <div className="mt-2 bg-cc-dark/30 border border-cc-border/50 rounded-lg p-2.5">
+                <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
+                {/* Influence Spread / Carbonari Network */}
+                {isEnemy && !attackSource && onInfluence &&
+                 (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) &&
+                 !(gameState as any).influence_used_this_turn && (
+                  <button
+                    className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                               border border-purple-600/50 bg-purple-900/30 text-purple-200
+                               hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
+                    onClick={() => { onInfluence(selectedTerritory); onClose(); }}
+                  >
+                    📡 Seize via Influence <span className="text-purple-400 text-xs">(costs 3 units)</span>
+                  </button>
+                )}
+                {/* Propose Truce */}
+                {isEnemy && !attackSource && onProposeTruce && gameState.settings.diplomacy_enabled && tState.owner_id && (() => {
+                  const myPlayer = gameState.players.find((p) => p.player_id === user?.user_id);
+                  const truceEntry = myPlayer && owner ? gameState.diplomacy?.find(
+                    (e) =>
+                      (e.player_index_a === myPlayer.player_index && e.player_index_b === owner.player_index) ||
+                      (e.player_index_a === owner.player_index && e.player_index_b === myPlayer.player_index),
+                  ) : undefined;
+                  if (truceEntry?.status === 'truce') {
+                    return (
+                      <p className="text-xs text-green-400/70 text-center py-1">
+                        🤝 Truce with {owner?.username} ({truceEntry.truce_turns_remaining} turns left)
+                      </p>
+                    );
+                  }
+                  return (
+                    <button
+                      className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                 border border-green-600/40 bg-green-900/20 text-green-300
+                                 hover:bg-green-800/30 hover:border-green-500/60 transition-colors"
+                      onClick={() => { onProposeTruce(tState.owner_id!); onClose(); }}
+                    >
+                      🤝 Propose Truce <span className="text-green-400/60 text-xs">(3 turns)</span>
+                    </button>
+                  );
+                })()}
+              </div>
+            )
+          )}
+
+          {/* Fortify Section */}
           {isMine && gameState.phase === 'fortify' && tState.unit_count > 1 && (
             <div>
+              <div className="text-xs font-bold text-cc-muted uppercase mb-2 tracking-wide">→ Fortify</div>
               <label className="label text-xs">Move Units to Adjacent Territory</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  className="input text-sm py-1.5 flex-1"
-                  min={1}
-                  max={tState.unit_count - 1}
-                  value={fortifyAmount}
-                  onChange={(e) => setFortifyAmount(Math.min(tState.unit_count - 1, Math.max(1, Number(e.target.value))))}
-                />
+              <div className="flex items-center gap-2">
                 <button
-                  className="btn-secondary text-sm py-1.5 px-3"
+                  type="button"
+                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  onClick={() => setFortifyAmount((a) => Math.max(1, a - 1))}
+                >−</button>
+                <span className="w-8 text-center font-mono text-cc-text">{fortifyAmount}</span>
+                <button
+                  type="button"
+                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  onClick={() => setFortifyAmount((a) => Math.min(tState.unit_count - 1, a + 1))}
+                >+</button>
+                <button
+                  className="btn-secondary text-sm py-1.5 px-3 flex-1"
                   onClick={() => {
                     setFortifyUnits(fortifyAmount);
                     setAttackSource(selectedTerritory);
@@ -215,103 +302,131 @@ export default function TerritoryPanel({
             </div>
           )}
 
-          {/* Naval Warfare — Fleet Controls */}
+          {/* Naval Section (collapsible) */}
           {gameState.settings.naval_enabled && tState.naval_units != null && (
-            <>
-              {/* Select this territory as fleet source */}
-              {isMine && tState.naval_units > 0 && !navalSource &&
-               (gameState.phase === 'attack' || gameState.phase === 'fortify') && (
-                <button
-                  className="btn-secondary w-full text-sm flex items-center justify-center gap-2"
-                  onClick={() => setNavalSource(selectedTerritory)}
-                >
-                  <Anchor className="w-4 h-4" />
-                  Select as Fleet Source ({tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''})
-                </button>
-              )}
-              {/* This territory IS the active fleet source */}
-              {navalSource === selectedTerritory && (
-                <div>
-                  <p className="text-blue-300 text-xs mb-2">
-                    Fleet source selected. Now click a destination territory.
-                  </p>
+            <details className="mt-2" open={!!navalSource}>
+              <summary className="text-xs font-bold text-blue-300 uppercase mb-2 tracking-wide cursor-pointer select-none">
+                ⚓ Naval ({tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''})
+              </summary>
+              <div className="space-y-2 mt-2">
+                {/* Select this territory as fleet source */}
+                {isMine && tState.naval_units > 0 && !navalSource &&
+                 (gameState.phase === 'attack' || gameState.phase === 'fortify') && (
                   <button
-                    className="btn-secondary w-full text-sm"
-                    onClick={() => setNavalSource(null)}
+                    className="btn-secondary w-full text-sm flex items-center justify-center gap-2"
+                    onClick={() => setNavalSource(selectedTerritory)}
                   >
-                    Cancel
+                    <Anchor className="w-4 h-4" />
+                    Select as Fleet Source ({tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''})
                   </button>
-                </div>
-              )}
-              {/* Move fleets to a friendly coastal territory */}
-              {navalSource && navalSource !== selectedTerritory && isMine && onNavalMove &&
-               (gameState.phase === 'attack' || gameState.phase === 'fortify') && (
-                <div>
-                  <label className="label text-xs">
-                    Move fleets here (source: {gameState.territories[navalSource]?.naval_units ?? 0} available)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      className="input text-sm py-1.5 flex-1"
-                      min={1}
-                      max={gameState.territories[navalSource]?.naval_units ?? 1}
-                      value={navalMoveCount}
-                      onChange={(e) =>
-                        setNavalMoveCount(
-                          Math.max(
-                            1,
-                            Math.min(
-                              gameState.territories[navalSource]?.naval_units ?? 1,
-                              Number(e.target.value),
-                            ),
-                          )
-                        )
-                      }
-                    />
+                )}
+                {/* This territory IS the active fleet source */}
+                {navalSource === selectedTerritory && (
+                  <div>
+                    <p className="text-blue-300 text-xs mb-2">
+                      Fleet source selected. Now click a destination territory.
+                    </p>
                     <button
-                      className="btn-secondary text-sm py-1.5 px-3"
-                      onClick={() => {
-                        onNavalMove(navalSource, selectedTerritory, navalMoveCount);
-                        setNavalSource(null);
-                      }}
+                      className="btn-secondary w-full text-sm"
+                      onClick={() => setNavalSource(null)}
                     >
-                      Move
+                      Cancel
                     </button>
                   </div>
-                </div>
-              )}
-              {/* Naval attack: standalone fleet strike on enemy coastal territory */}
-              {navalSource && navalSource !== selectedTerritory && isEnemy &&
-               gameState.phase === 'attack' && onNavalAttack && (
-                <button
-                  className="btn-danger w-full text-sm flex items-center justify-center gap-2"
-                  onClick={() => {
-                    onNavalAttack(navalSource, selectedTerritory);
-                    setNavalSource(null);
-                  }}
-                >
-                  <Anchor className="w-4 h-4" /> Fleet Attack
-                </button>
-              )}
-            </>
+                )}
+                {/* Move fleets to a friendly coastal territory */}
+                {navalSource && navalSource !== selectedTerritory && isMine && onNavalMove &&
+                 (gameState.phase === 'attack' || gameState.phase === 'fortify') && (
+                  <div>
+                    <label className="label text-xs">
+                      Move fleets here (source: {gameState.territories[navalSource]?.naval_units ?? 0} available)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        onClick={() => setNavalMoveCount((a) => Math.max(1, a - 1))}
+                      >−</button>
+                      <span className="w-8 text-center font-mono text-cc-text">{navalMoveCount}</span>
+                      <button
+                        type="button"
+                        className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        onClick={() => setNavalMoveCount((a) => Math.min(gameState.territories[navalSource]?.naval_units ?? 1, a + 1))}
+                      >+</button>
+                      <button
+                        className="btn-secondary text-sm py-1.5 px-3 flex-1"
+                        onClick={() => {
+                          onNavalMove(navalSource, selectedTerritory, navalMoveCount);
+                          setNavalSource(null);
+                        }}
+                      >
+                        Move
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* Naval attack: standalone fleet strike on enemy coastal territory */}
+                {navalSource && navalSource !== selectedTerritory && isEnemy &&
+                 gameState.phase === 'attack' && onNavalAttack && (
+                  <button
+                    className="btn-danger w-full text-sm flex items-center justify-center gap-2"
+                    onClick={() => {
+                      onNavalAttack(navalSource, selectedTerritory);
+                      setNavalSource(null);
+                    }}
+                  >
+                    <Anchor className="w-4 h-4" /> Fleet Attack
+                  </button>
+                )}
+              </div>
+            </details>
           )}
         </div>
       )}
 
       {/* Economy buildings */}
-      {gameState.settings.economy_enabled && onBuild && (
-        <BuildingPanel
-          territoryId={selectedTerritory}
-          buildings={tState.buildings ?? []}
-          playerResources={gameState.players.find((p) => p.player_id === user?.user_id)?.special_resource ?? 0}
-          isMine={isMine}
-          isMyTurn={isMyTurn}
-          phase={gameState.phase}
-          onBuild={onBuild}
-          isCoastal={tState.naval_units != null}
-        />
-      )}
+      {gameState.settings.economy_enabled && onBuild && (() => {
+        // Compute era wonder state for this game
+        const wonderMeta = gameState.era ? ERA_WONDERS[gameState.era] : undefined;
+        let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
+        if (wonderMeta) {
+          let alreadyBuilt = false;
+          let builderName: string | undefined;
+          for (const [tid, tState2] of Object.entries(gameState.territories)) {
+            if (tState2.buildings?.includes(wonderMeta.wonder_id)) {
+              alreadyBuilt = true;
+              if (tid !== selectedTerritory) {
+                builderName = gameState.players.find(
+                  (p) => p.player_id === tState2.owner_id
+                )?.username;
+              }
+              break;
+            }
+          }
+          eraWonderProp = {
+            id: wonderMeta.wonder_id,
+            name: wonderMeta.name,
+            description: wonderMeta.description,
+            cost: wonderMeta.cost,
+            alreadyBuilt,
+            builderName,
+          };
+        }
+        return (
+          <BuildingPanel
+            territoryId={selectedTerritory}
+            buildings={tState.buildings ?? []}
+            playerResources={gameState.players.find((p) => p.player_id === user?.user_id)?.special_resource ?? 0}
+            isMine={isMine}
+            isMyTurn={isMyTurn}
+            phase={gameState.phase}
+            onBuild={onBuild}
+            isCoastal={tState.naval_units != null}
+            eraWonder={eraWonderProp}
+          />
+        );
+      })()}
+      </div>
     </div>
   );
 }

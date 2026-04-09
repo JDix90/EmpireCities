@@ -10,13 +10,14 @@ export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | '
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
-export type VictoryConditionKey = VictoryType | 'last_standing';
+export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_player'; target_player_id: string }
-  | { kind: 'control_regions'; region_ids: string[] };
+  | { kind: 'control_regions'; region_ids: string[] }
+  | { kind: 'alliance'; ally_player_id: string; territory_threshold: number };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -97,8 +98,18 @@ export interface PlayerState {
   unlocked_techs?: string[];
   /** Per-ability use count this turn (keyed by ability_id). */
   ability_uses?: Record<string, number>;
+  /** Ability IDs consumed permanently (once-per-game abilities, e.g. atom_bomb). */
+  used_game_abilities?: string[];
   /** Active temporary modifiers from event cards (diminishes each turn). */
   temporary_modifiers?: TemporaryModifier[];
+  /** Cumulative card sets redeemed this game (card_shark achievement). */
+  cards_redeemed_count?: number;
+  /** Territories captured in the current turn; reset at turn start (blitzkrieg achievement). */
+  territories_captured_this_turn?: number;
+  /** Max territories captured in any single turn this game (blitzkrieg achievement). */
+  territories_captured_turn_max?: number;
+  /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
+  truces_established?: string[];
 }
 
 export interface DiplomacyEntry {
@@ -141,6 +152,10 @@ export interface GameSettings {
   naval_enabled?: boolean;
   /** Enable population stability mechanics. */
   stability_enabled?: boolean;
+  /** True when this game is part of a campaign sequence. */
+  is_campaign?: boolean;
+  /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
+  campaign_prestige_bonus?: number;
 }
 
 /** Optional per-era combat / economy tweaks. */
@@ -164,13 +179,21 @@ export interface EraModifiers {
   carbonari_network?: boolean;
 }
 
-/** Building tiers: production (income), defense (dice/fortify), tech generation, and era specials. */
+/** Building tiers: production (income), defense (dice/fortify), tech generation, era specials, and era wonders. */
 export type BuildingType =
   | 'production_1' | 'production_2' | 'production_3'
   | 'defense_1' | 'defense_2' | 'defense_3'
   | 'tech_gen_1' | 'tech_gen_2'
   | 'special_a' | 'special_b'
-  | 'port' | 'naval_base';
+  | 'port' | 'naval_base'
+  | 'wonder_colosseum'   // ancient
+  | 'wonder_cathedral'   // medieval
+  | 'wonder_lighthouse'  // discovery
+  | 'wonder_manhattan'   // ww2
+  | 'wonder_sputnik'     // coldwar
+  | 'wonder_cern'        // modern
+  | 'wonder_arsenal'     // acw
+  | 'wonder_unification' // risorgimento;
 
 /** Snapshots for end-of-game win-probability chart (territory + army blend, renormalized). */
 export interface WinProbabilitySnapshot {
@@ -191,10 +214,14 @@ export interface GameState {
   card_deck: TerritoryCard[];
   card_set_redemption_count: number;
   diplomacy: DiplomacyEntry[];
+  /** Pending truce proposals awaiting target player response. */
+  pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   settings: GameSettings;
   draft_units_remaining: number;
   turn_started_at: number;       // Unix timestamp ms
   winner_id?: string;
+  /** All winner IDs — more than one when alliance_victory occurs. */
+  winner_ids?: string[];
   /** Which victory condition triggered the win. */
   victory_condition?: VictoryConditionKey;
   win_probability_history?: WinProbabilitySnapshot[];
@@ -209,6 +236,8 @@ export interface GameState {
   active_event?: EventCard;
   /** Transient: result of last instant event effect application (cleared after broadcast). */
   active_event_result?: EventEffectResult;
+  /** Seasonal event cards injected at game start — merged into era deck when drawing. */
+  seasonal_event_cards?: EventCard[];
 }
 
 // ── Event Cards ───────────────────────────────────────────────────────────────

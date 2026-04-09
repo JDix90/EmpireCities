@@ -74,7 +74,7 @@ const BUILDING_META: Record<
     category: 'special',
   },
   special_b: {
-    label: 'Wonder',
+    label: 'Special Project',
     description: 'Era wonder project',
     cost: 8,
     icon: <Star className="w-3 h-3" />,
@@ -105,6 +105,15 @@ const UPGRADES: Record<string, string> = {
   port: 'naval_base',
 };
 
+interface EraWonderInfo {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  alreadyBuilt: boolean;
+  builderName?: string;
+}
+
 interface Props {
   territoryId: string;
   buildings: string[];
@@ -115,6 +124,7 @@ interface Props {
   phase: string;
   onBuild: (buildingType: string) => void;
   isCoastal?: boolean;
+  eraWonder?: EraWonderInfo;
 }
 
 export default function BuildingPanel({
@@ -125,6 +135,7 @@ export default function BuildingPanel({
   phase,
   onBuild,
   isCoastal,
+  eraWonder,
 }: Props) {
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
 
@@ -159,7 +170,14 @@ export default function BuildingPanel({
     ? buildOptions
     : buildOptions.filter((b) => b !== 'port' && b !== 'naval_base');
 
-  if (buildings.length === 0 && filteredOptions.length === 0 && !canBuild) return null;
+  if (buildings.length === 0 && filteredOptions.length === 0 && !canBuild && !eraWonder) return null;
+
+  // Wonder already built on THIS territory
+  const wonderOnThisTerritory = eraWonder && buildings.includes(eraWonder.id);
+  // Wonder can be built here: no wonder on this territory, not already built globally, canBuild
+  const showWonderOption = canBuild && eraWonder && !eraWonder.alreadyBuilt && !wonderOnThisTerritory;
+  // Wonder built elsewhere — show disabled info
+  const showWonderBuiltElsewhere = canBuild && eraWonder && eraWonder.alreadyBuilt && !wonderOnThisTerritory;
 
   return (
     <div className="mt-3 border-t border-gray-700 pt-3">
@@ -170,7 +188,22 @@ export default function BuildingPanel({
         <div className="flex flex-wrap gap-1.5 mb-2">
           {buildings.map((b) => {
             const meta = BUILDING_META[b];
-            if (!meta) return null;
+            // wonder buildings may not be in BUILDING_META — use eraWonder info
+            if (!meta) {
+              if (eraWonder && b === eraWonder.id) {
+                return (
+                  <span
+                    key={b}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-800/60 text-amber-200 border border-amber-500/50"
+                    title={eraWonder.description}
+                  >
+                    <Star className="w-3 h-3 text-amber-400" />
+                    {eraWonder.name}
+                  </span>
+                );
+              }
+              return null;
+            }
             return (
               <span
                 key={b}
@@ -215,6 +248,48 @@ export default function BuildingPanel({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Wonder build option */}
+      {showWonderOption && eraWonder && (
+        <div className="mt-1">
+          <button
+            onClick={() => playerResources >= eraWonder.cost && onBuild(eraWonder.id)}
+            disabled={playerResources < eraWonder.cost}
+            title={
+              playerResources >= eraWonder.cost
+                ? eraWonder.description
+                : `Need ${eraWonder.cost - playerResources} more resources`
+            }
+            className={clsx(
+              'w-full flex items-center justify-between px-2 py-1.5 rounded text-xs border transition-colors',
+              playerResources >= eraWonder.cost
+                ? 'border-yellow-500/70 bg-yellow-900/30 text-yellow-200 hover:bg-yellow-800/40'
+                : 'border-yellow-800/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60'
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <Star className="w-3 h-3 text-yellow-400" />
+              <span className="font-semibold">{eraWonder.name}</span>
+              <span
+                className="px-1 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-black leading-none"
+              >
+                UNIQUE · Race!
+              </span>
+              <span className="text-gray-400">— {eraWonder.description}</span>
+            </span>
+            <span className="ml-2 font-mono">{eraWonder.cost}💰</span>
+          </button>
+        </div>
+      )}
+
+      {/* Wonder built by another player */}
+      {showWonderBuiltElsewhere && eraWonder && (
+        <div className="mt-1 px-2 py-1.5 rounded text-xs border border-red-800/50 bg-red-900/20 text-red-300 flex items-center gap-1.5">
+          <Star className="w-3 h-3 text-red-400" />
+          <span className="font-semibold">{eraWonder.name}</span>
+          <span>— already built{eraWonder.builderName ? ` by ${eraWonder.builderName}` : ''}</span>
         </div>
       )}
 

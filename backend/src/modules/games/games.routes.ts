@@ -356,6 +356,49 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     },
   );
 
+  // ── GET /api/games/:gameId/replay ────────────────────────────────────────
+  fastify.get<{ Params: { gameId: string } }>('/:gameId/replay', { preHandler: authenticate }, async (request, reply) => {
+    const { gameId } = request.params;
+
+    // Game must exist and be completed
+    const game = await queryOne<{ status: string }>(
+      'SELECT status FROM games WHERE game_id = $1',
+      [gameId],
+    );
+    if (!game) return reply.status(404).send({ error: 'Game not found' });
+    if (game.status !== 'completed') return reply.status(409).send({ error: 'Replay only available for completed games' });
+
+    // Caller must be a participant in the game
+    const participant = await queryOne<{ c: number }>(
+      'SELECT 1 AS c FROM game_players WHERE game_id = $1 AND user_id = $2',
+      [gameId, request.userId],
+    );
+    if (!participant) return reply.status(403).send({ error: 'Not a participant in this game' });
+
+    const rows = await query<{ turn_number: number; state_json: unknown }>(
+      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number ASC LIMIT 200',
+      [gameId],
+    );
+
+    const snapshots = rows.map((row) => {
+      const state = typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json;
+      // Strip large card deck and secret missions for replay — game is over
+      if (state && typeof state === 'object') {
+        delete (state as Record<string, unknown>).card_deck;
+        if (Array.isArray((state as Record<string, unknown>).players)) {
+          (state as { players: Array<Record<string, unknown>> }).players =
+            (state as { players: Array<Record<string, unknown>> }).players.map((p) => ({
+              ...p,
+              secret_mission: null,
+            }));
+        }
+      }
+      return { turn_number: row.turn_number, state };
+    });
+
+    return reply.send({ snapshots });
+  });
+
   // ── DELETE /api/games/:gameId/abandon ──────────────────────────────────
   fastify.delete<{ Params: { gameId: string } }>('/:gameId/abandon', { preHandler: authenticate }, async (request, reply) => {
     const game = await queryOne<{ game_id: string; status: string; game_type: string }>(

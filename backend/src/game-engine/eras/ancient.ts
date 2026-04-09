@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const ANCIENT_FACTIONS: Faction[] = [
@@ -183,3 +183,13 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
     unlocks_ability: 'pax_romana',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const ANCIENT_WONDER: EraWonder = {
+  wonder_id: 'wonder_colosseum',
+  name: 'The Colosseum',
+  description: 'Spectacles of power: +1 defense die in all territories you own.',
+  cost: 18,
+  passive_effect_type: 'defense_die_global',
+  passive_effect_value: 1,
+};

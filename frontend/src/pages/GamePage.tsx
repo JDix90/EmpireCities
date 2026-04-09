@@ -1,5 +1,6 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 import { useGameStore, CombatResult } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -10,6 +11,8 @@ import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
 import GameHUD from '../components/game/GameHUD';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
+import BonusesModal from '../components/game/BonusesModal';
+import AtomBombAnimation from '../components/game/AtomBombAnimation';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
@@ -129,6 +132,7 @@ export default function GamePage() {
   const {
     selectedTerritory,
     attackSource,
+    navalSource,
     setSelectedTerritory,
     setAttackSource,
     setFortifyUnits,
@@ -140,7 +144,23 @@ export default function GamePage() {
   const [gameStarted, setGameStarted] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
+  const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const mapDataRef = useRef<MapData | null>(null);
+
+  // Active interaction HUD pill
+  const activeInteractionLabel = useMemo(() => {
+    if (navalSource) {
+      const name = mapDataRef.current?.territories.find(t => t.territory_id === navalSource)?.name ?? navalSource;
+      return `🚢 Fleet source: ${name}`;
+    }
+    if (attackSource && gameState) {
+      const name = mapDataRef.current?.territories.find(t => t.territory_id === attackSource)?.name ?? attackSource;
+      if (gameState.phase === 'fortify') return `→ Fortifying from: ${name}`;
+      return `⚔ Attacking from: ${name}`;
+    }
+    return null;
+  }, [navalSource, attackSource, gameState]);
+
   /** Once per game session: open tutorial island on 2D (readable Risk-style board); globe stays available. */
   const tutorialSessionDefault2dRef = useRef(false);
   /** Once per game session: non-tutorial-island games open in globe (overrides stale localStorage from tutorial). */
@@ -190,7 +210,23 @@ export default function GamePage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
+  const [showBonuses, setShowBonuses] = useState(false);
+  const [atomBombAnim, setAtomBombAnim] = useState<{ targetName: string; key: number } | null>(null);
   const [activeEventCard, setActiveEventCard] = useState<EventCard | null>(null);
+  const [truceProposal, setTruceProposal] = useState<{
+    gameId: string;
+    proposerId: string;
+    proposerName: string;
+    proposerColor: string;
+  } | null>(null);
+
+  const [wonderNotif, setWonderNotif] = useState<{
+    wonderId: string;
+    builderName: string;
+    builderColor: string;
+    territoryId: string;
+  } | null>(null);
+  const wonderNotifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Map area is flex-sized; measure it so Globe/PIXI get real pixels when the viewport changes (devtools, rotate, resize). */
   const mapAreaRef = useRef<HTMLDivElement>(null);
@@ -520,6 +556,7 @@ export default function GamePage() {
 
     socket.on('game:over', (stats: {
       winner_id: string;
+      winner_ids?: string[];
       winner_name: string;
       turn_count: number;
       players: Array<{ player_id: string; username: string; color: string; territory_count: number; is_eliminated: boolean; is_ai: boolean }>;
@@ -528,14 +565,16 @@ export default function GamePage() {
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission';
+      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory';
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
         myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
+      const currentEra = useGameStore.getState().gameState?.era;
+      const winnerIds = stats.winner_ids ?? [stats.winner_id];
       const gameOverData: GameOverModalData = {
         type: 'game_over',
-        isWinner: stats.winner_id === myId,
+        isWinner: !!myId && winnerIds.includes(myId),
         winnerName: stats.winner_name,
         winnerColor: stats.players.find(p => p.player_id === stats.winner_id)?.color ?? '#fff',
         turnCount: stats.turn_count,
@@ -546,6 +585,8 @@ export default function GamePage() {
         achievements_unlocked: myId && stats.achievements_unlocked ? stats.achievements_unlocked[myId] : undefined,
         xpEarned,
         victory_condition: stats.victory_condition,
+        eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
+        winnerIds,
       };
       setModalQueue(q => [...q, gameOverData]);
     });
@@ -613,8 +654,74 @@ export default function GamePage() {
       setActiveEventCard(null);
     });
 
+    socket.on('game:truce_proposal', (proposal: {
+      gameId: string;
+      proposerId: string;
+      proposerName: string;
+      proposerColor: string;
+    }) => {
+      setTruceProposal(proposal);
+    });
+
+    socket.on('game:truce_result', (result: {
+      accepted?: boolean;
+      pending?: boolean;
+      targetName?: string;
+      proposerName?: string;
+      proposerId?: string;
+      targetId?: string;
+    }) => {
+      if (result.pending) {
+        toast(`Truce proposal sent to ${result.targetName ?? 'player'}`, { icon: '🤝', duration: 3000 });
+      } else if (result.accepted) {
+        toast.success(`Truce accepted with ${result.targetName ?? result.proposerName ?? 'player'}!`, { duration: 4000 });
+      } else {
+        toast(`Truce declined by ${result.targetName ?? result.proposerName ?? 'player'}`, { icon: '❌', duration: 3000 });
+      }
+    });
+
     socket.on('error', ({ message }: { message: string }) => {
       toast.error(message);
+    });
+
+    socket.on('game:wonder_built', (payload: {
+      wonderId: string;
+      builderName: string;
+      builderColor: string;
+      territoryId: string;
+    }) => {
+      if (wonderNotifTimerRef.current) clearTimeout(wonderNotifTimerRef.current);
+      setWonderNotif(payload);
+      wonderNotifTimerRef.current = setTimeout(() => setWonderNotif(null), 4000);
+    });
+
+    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId }: {
+      attackerId: string;
+      attackerName: string;
+      attackerColor: string;
+      territoryId: string;
+    }) => {
+      const tName = mapDataRef.current?.territories.find((t) => t.territory_id === territoryId)?.name ?? territoryId;
+      setAtomBombAnim((prev) => ({ targetName: tName, key: (prev?.key ?? 0) + 1 }));
+      const isMe = attackerName === user?.username;
+      toast(
+        isMe
+          ? `☢️ You dropped the Atom Bomb on ${tName}!`
+          : `☢️ ${attackerName} dropped the Atom Bomb on ${tName}!`,
+        {
+          duration: 6000,
+          style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
+        },
+      );
+      setCombatLog((prev) => [...prev, `☢️ ${attackerName} atom-bombed ${tName} — all units eliminated`]);
+      pushGlobeEvent({
+        type: 'combat',
+        territoryId,
+        attackerLosses: 0,
+        defenderLosses: 99,
+        captured: false,
+        attackerColor,
+      });
     });
 
     return () => {
@@ -637,7 +744,11 @@ export default function GamePage() {
       socket.off('game:influence_result');
       socket.off('game:event_card');
       socket.off('game:event_card_resolved');
+      socket.off('game:truce_proposal');
+      socket.off('game:truce_result');
       socket.off('error');
+      socket.off('game:wonder_built');
+      socket.off('game:atom_bomb');
       // Notify server we left so it can schedule eviction / save state
       socket.emit('game:leave', { gameId });
       clearGame();
@@ -758,6 +869,32 @@ export default function GamePage() {
       })
       .catch(() => setLobbySnapshot(null));
   }, [gameId]);
+
+  // ── Tutorial territory highlight ─────────────────────────────────────────
+  const tutorialHighlightId = useMemo<string | undefined>(() => {
+    if (!isTutorial || !gameState || !user?.user_id) return undefined;
+    const sid = TUTORIAL_STEPS[tutorialStep]?.id;
+    if (!sid) return undefined;
+    const myId = user.user_id;
+    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myId;
+    if (!isMyTurn) return undefined;
+
+    if (sid === 'draft_do' && gameState.phase === 'draft') {
+      // Highlight the owned territory with the most units (best draft target).
+      const owned = Object.entries(gameState.territories)
+        .filter(([, t]) => t.owner_id === myId)
+        .sort(([, a], [, b]) => b.unit_count - a.unit_count);
+      return owned[0]?.[0];
+    }
+    if (sid === 'attack_do' && gameState.phase === 'attack') {
+      // Highlight the owned territory with the most units (best attack source).
+      const owned = Object.entries(gameState.territories)
+        .filter(([, t]) => t.owner_id === myId && t.unit_count >= 2)
+        .sort(([, a], [, b]) => b.unit_count - a.unit_count);
+      return owned[0]?.[0];
+    }
+    return undefined;
+  }, [isTutorial, gameState, user?.user_id, tutorialStep]);
 
   useEffect(() => {
     loadLobby();
@@ -931,6 +1068,16 @@ export default function GamePage() {
     setShowTechTree(true);
   }, [gameState?.era, techTree.length]);
 
+  const handleOpenBonuses = useCallback(() => {
+    // Pre-load tech tree so BonusesModal can show full tech descriptions
+    if (gameState?.era && gameState.settings.tech_trees_enabled && techTree.length === 0) {
+      api.get(`/eras/${gameState.era}/tech-tree`)
+        .then((res) => setTechTree(res.data.techTree ?? []))
+        .catch(() => {});
+    }
+    setShowBonuses(true);
+  }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
+
   const handleNavalMove = useCallback((fromId: string, toId: string, count: number) => {
     getSocket().emit('game:naval_move', { gameId, fromId, toId, count });
   }, [gameId]);
@@ -941,6 +1088,14 @@ export default function GamePage() {
 
   const handleInfluence = useCallback((targetId: string) => {
     getSocket().emit('game:influence', { gameId, targetId });
+  }, [gameId]);
+
+  const handleAtomBomb = useCallback((targetId: string) => {
+    getSocket().emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: targetId } });
+  }, [gameId]);
+
+  const handleProposeTruce = useCallback((targetPlayerId: string) => {
+    getSocket().emit('game:propose_truce', { gameId, targetPlayerId });
   }, [gameId]);
 
   const handleResignRequest = () => {
@@ -998,6 +1153,20 @@ export default function GamePage() {
     void navigator.clipboard.writeText(c);
     toast.success('Join code copied');
   };
+
+  // ── Auto-start tutorial if host and not started ──
+  // Note: isTutorial requires gameState which isn't set yet in the lobby phase;
+  // use lobbySnapshot.settings_json.tutorial which is available from game:lobby_updated.
+  useEffect(() => {
+    if (
+      lobbySnapshot?.settings_json?.tutorial === true &&
+      isHost &&
+      lobbySnapshot?.status === 'waiting' &&
+      !gameStarted
+    ) {
+      handleStartGame();
+    }
+  }, [isHost, lobbySnapshot, gameStarted]);
 
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
@@ -1247,6 +1416,7 @@ export default function GamePage() {
                 events={globeEvents}
                 onEventDone={handleGlobeEventDone}
                 reducedEffects={reducedGlobe}
+                highlightTerritoryId={tutorialHighlightId}
               />
             ) : (
               <GameMap
@@ -1254,6 +1424,7 @@ export default function GamePage() {
                 onTerritoryClick={handleTerritoryClick}
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
+                highlightTerritoryId={tutorialHighlightId}
               />
             )
           ) : (
@@ -1277,6 +1448,8 @@ export default function GamePage() {
                   ? handleInfluence
                   : undefined
               }
+              onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
+              onAtomBomb={gameState?.players.find(p => p.player_id === user?.user_id)?.unlocked_techs?.includes('ww2_atom_bomb') ? handleAtomBomb : undefined}
               onClose={() => {
                 setSelectedTerritory(null);
                 setAttackSource(null);
@@ -1296,10 +1469,95 @@ export default function GamePage() {
           onResign={handleResignRequest}
           onSaveAndLeave={handleSaveAndLeave}
           onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
+          onOpenBonuses={handleOpenBonuses}
           lastCombatLog={combatLog}
           gameId={gameStarted && gameId ? gameId : undefined}
+          activeInteractionLabel={activeInteractionLabel}
         />
       </div>
+
+      {/* ── Mobile Bottom Bar ──────────────────────────────────────────────── */}
+      {gameState && (() => {
+        const cp = gameState.players[gameState.current_player_index];
+        const myTurn = cp?.player_id === user?.user_id;
+        const phaseLabel: Record<string, string> = {
+          draft: 'Reinforcement', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
+        };
+        return (
+          <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-cc-surface border-t border-cc-border pb-safe min-h-[56px]">
+            {/* Player + phase info */}
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {cp && (
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cp.color }} />
+              )}
+              <div className="min-w-0">
+                <div className="text-xs font-display text-cc-gold truncate">
+                  {phaseLabel[gameState.phase] ?? gameState.phase}
+                </div>
+                <div className="text-xs text-cc-muted truncate">
+                  {myTurn ? 'Your turn' : cp?.username ?? '—'}
+                </div>
+              </div>
+            </div>
+            {/* End-phase button */}
+            {myTurn && gameState.phase !== 'game_over' && (
+              <button
+                onClick={handleAdvancePhase}
+                className="btn-primary text-xs px-3 py-2 min-h-[40px]"
+              >
+                {gameState.phase === 'draft' ? 'End Draft' : gameState.phase === 'attack' ? 'End Attack' : 'End Turn'}
+              </button>
+            )}
+            {/* HUD drawer toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileHudOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
+              aria-label="Open game menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* ── Mobile HUD Drawer ─────────────────────────────────────────────── */}
+      {mobileHudOpen && (
+        <div className="md:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 z-40"
+            onClick={() => setMobileHudOpen(false)}
+          />
+          {/* Drawer panel */}
+          <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-50 flex flex-col bg-cc-surface">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-cc-border pt-safe shrink-0">
+              <span className="font-display text-sm text-cc-gold">Game Info</span>
+              <button
+                type="button"
+                onClick={() => setMobileHudOpen(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-cc-dark text-cc-muted hover:text-cc-text"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <GameHUD
+              mobile
+              onAdvancePhase={handleAdvancePhase}
+              onRedeemCards={handleRedeemCards}
+              onResign={handleResignRequest}
+              onSaveAndLeave={handleSaveAndLeave}
+              onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
+              onOpenBonuses={handleOpenBonuses}
+              lastCombatLog={combatLog}
+              gameId={gameStarted && gameId ? gameId : undefined}
+              activeInteractionLabel={activeInteractionLabel}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
       {showTechTree && user && gameState && (
@@ -1312,6 +1570,21 @@ export default function GamePage() {
         />
       )}
 
+      {showBonuses && (
+        <BonusesModal
+          techTree={techTree}
+          onClose={() => setShowBonuses(false)}
+        />
+      )}
+
+      {atomBombAnim && (
+        <AtomBombAnimation
+          key={atomBombAnim.key}
+          targetName={atomBombAnim.targetName}
+          onDone={() => setAtomBombAnim(null)}
+        />
+      )}
+
       {activeEventCard && gameState && user && (
         <EventCardModal
           card={activeEventCard}
@@ -1321,6 +1594,53 @@ export default function GamePage() {
           }}
           onDismiss={() => setActiveEventCard(null)}
         />
+      )}
+
+      {/* Truce Proposal Modal */}
+      {truceProposal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+             style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="bg-[#1e2332] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+            <div className="text-4xl mb-3">🤝</div>
+            <h3 className="font-display text-lg text-white mb-1">Truce Proposal</h3>
+            <p className="text-white/50 text-sm mb-5">
+              <span className="font-medium" style={{ color: truceProposal.proposerColor }}>
+                {truceProposal.proposerName}
+              </span>{' '}
+              wants to call a truce with you for 3 turns.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  getSocket().emit('game:truce_response', {
+                    gameId: truceProposal.gameId,
+                    proposerId: truceProposal.proposerId,
+                    accepted: false,
+                  });
+                  setTruceProposal(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                           text-white/60 font-medium text-sm transition-all"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => {
+                  getSocket().emit('game:truce_response', {
+                    gameId: truceProposal.gameId,
+                    proposerId: truceProposal.proposerId,
+                    accepted: true,
+                  });
+                  setTruceProposal(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/30
+                           text-green-300 font-medium text-sm transition-all"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
@@ -1341,7 +1661,31 @@ export default function GamePage() {
           onAdvance={() => setTutorialStep((s) => Math.min(s + 1, TUTORIAL_STEPS.length))}
           onContinuePlaying={handleTutorialContinuePlaying}
           onReturnToLobby={handleTutorialReturnToLobby}
+          centered={
+            TUTORIAL_STEPS[tutorialStep]?.id === 'welcome' ||
+            TUTORIAL_STEPS[tutorialStep]?.id === 'draft_explain' ||
+            TUTORIAL_STEPS[tutorialStep]?.variant === 'wrapup'
+          }
         />
+      )}
+
+      {/* Wonder built notification */}
+      {wonderNotif && (
+        <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
+          <div
+            className="bg-yellow-900/90 border-2 border-yellow-500 rounded-xl px-8 py-5 text-center shadow-2xl animate-fade-in"
+            style={{ borderColor: wonderNotif.builderColor }}
+          >
+            <div className="text-3xl mb-1">🏛</div>
+            <p className="text-yellow-300 font-bold text-lg">Wonder Built!</p>
+            <p className="text-white text-sm mt-1">
+              <span style={{ color: wonderNotif.builderColor }} className="font-semibold">
+                {wonderNotif.builderName}
+              </span>{' '}
+              constructed a wonder in their territory.
+            </p>
+          </div>
+        </div>
       )}
 
     </div>

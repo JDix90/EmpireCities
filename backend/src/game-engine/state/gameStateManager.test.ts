@@ -257,7 +257,7 @@ describe('checkVictory', () => {
         makePlayer('p2', 1, { is_eliminated: true, territory_count: 0 }),
       ],
     });
-    expect(checkVictory(state, victoryMap)).toEqual({ winnerId: 'p1', condition: 'last_standing' });
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'last_standing' });
   });
 
   it('returns null when multiple players remain', () => {
@@ -277,7 +277,7 @@ describe('checkVictory', () => {
         makePlayer('p2', 1, { territory_count: 0 }),
       ],
     });
-    expect(checkVictory(state, victoryMap)).toEqual({ winnerId: 'p1', condition: 'domination' });
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'domination' });
   });
 
   it('does not award domination when domination is disabled', () => {
@@ -304,6 +304,6 @@ describe('checkVictory', () => {
         makePlayer('p2', 1, { territory_count: 1 }),
       ],
     });
-    expect(checkVictory(state, victoryMap)).toEqual({ winnerId: 'p1', condition: 'threshold' });
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'threshold' });
   });
 });

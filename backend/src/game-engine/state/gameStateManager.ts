@@ -10,8 +10,10 @@ import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettin
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
+import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick } from './stabilityManager';
+import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
   assignSecretMissions,
@@ -160,6 +162,29 @@ export function initializeGameState(
   // Initialize stability values when stability feature is enabled
   if (settingsNorm.stability_enabled) {
     initializeStability(state);
+  }
+
+  // Inject seasonal event cards into the game-start deck
+  if (settingsNorm.events_enabled) {
+    const seasonal = getActiveSeasonalDeck(era, new Date());
+    if (seasonal.length > 0) {
+      // Seasonal cards are stored on the game state and merged into the era deck when drawing each round.
+      state.seasonal_event_cards = seasonal;
+    }
+  }
+
+  // Apply campaign prestige bonus: +1 attack for first 3 turns
+  if (settingsNorm.is_campaign && (settingsNorm.campaign_prestige_bonus ?? 0) > 0) {
+    const prestige = settingsNorm.campaign_prestige_bonus!;
+    const firstHuman = state.players.find((p) => !p.is_ai);
+    if (firstHuman) {
+      firstHuman.temporary_modifiers = firstHuman.temporary_modifiers ?? [];
+      firstHuman.temporary_modifiers.push({
+        type: 'attack_modifier',
+        value: Math.min(prestige, 3), // cap at +3
+        turns_remaining: 3,
+      });
+    }
   }
 
   appendWinProbabilitySnapshot(state);
@@ -334,7 +359,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
 
     // Draw an event card at the start of each new round
     if (state.settings.events_enabled) {
-      const deck = getEraDeck(state.era);
+      const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])];
       const card = drawRandomCard(deck);
       if (card) {
         if (card.choices && card.choices.length > 0) {
@@ -355,11 +380,14 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (map) {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
     const passiveReinforceBonus = getPlayerReinforceBonus(state, nextPlayer.player_id);
+    const wonderReinforceBonus = state.settings.economy_enabled
+      ? getWonderReinforceBonus(state, nextPlayer.player_id)
+      : 0;
     state.draft_units_remaining = calculateReinforcements(
       nextPlayer.territory_count,
       bonus,
       state.players.length,
-    ) + passiveReinforceBonus;
+    ) + passiveReinforceBonus + wonderReinforceBonus;
   } else {
     state.draft_units_remaining = calculateReinforcements(
       nextPlayer.territory_count,
@@ -373,6 +401,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // Collect production income and tech point income for the next player
   if (state.settings.economy_enabled) {
     collectProduction(state, nextPlayer.player_id);
+    applyWonderProductionIncome(state, nextPlayer.player_id);
   }
   if (state.settings.tech_trees_enabled) {
     applyTechPointIncome(state, nextPlayer.player_id);
@@ -406,6 +435,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // Reset per-player per-turn ability use counts
   for (const player of state.players) {
     player.ability_uses = {};
+    player.territories_captured_this_turn = 0;
   }
 
   // Decrement truce timers
@@ -504,14 +534,34 @@ function playerSatisfiesCapitalVictory(state: GameState, playerId: string): bool
 /**
  * Check if the game has a winner based on configured victory conditions (OR semantics).
  */
-export function checkVictory(state: GameState, map: GameMap): { winnerId: string; condition: VictoryConditionKey } | null {
+export function checkVictory(state: GameState, map: GameMap): { winnerIds: string[]; condition: VictoryConditionKey } | null {
   const activePlayers = state.players.filter((p) => !p.is_eliminated);
-  if (activePlayers.length === 1) return { winnerId: activePlayers[0].player_id, condition: 'last_standing' };
+  if (activePlayers.length === 1) return { winnerIds: [activePlayers[0].player_id], condition: 'last_standing' };
 
   const settings = normalizeGameSettings(state.settings);
   const allowed = getAllowedVictoryConditions(settings);
   const totalTerritories = Object.keys(state.territories).length;
-  const winners: Array<{ winnerId: string; condition: VictoryConditionKey }> = [];
+  const winners: Array<{ winnerIds: string[]; condition: VictoryConditionKey }> = [];
+
+  // Alliance victory check (secret_mission mode)
+  if (allowed.includes('secret_mission')) {
+    for (let i = 0; i < activePlayers.length; i++) {
+      const p1 = activePlayers[i];
+      if (p1.secret_mission?.kind !== 'alliance') continue;
+      const threshold = p1.secret_mission.territory_threshold;
+      if (p1.territory_count < threshold) continue;
+      const p2 = activePlayers.find(
+        (p) =>
+          p.player_id === (p1.secret_mission as { kind: 'alliance'; ally_player_id: string; territory_threshold: number }).ally_player_id &&
+          p.secret_mission?.kind === 'alliance' &&
+          (p.secret_mission as { kind: 'alliance'; ally_player_id: string; territory_threshold: number }).ally_player_id === p1.player_id &&
+          p.territory_count >= threshold,
+      );
+      if (p2) {
+        return { winnerIds: [p1.player_id, p2.player_id], condition: 'alliance_victory' };
+      }
+    }
+  }
 
   for (const player of activePlayers) {
     let condition: VictoryConditionKey | null = null;
@@ -534,19 +584,19 @@ export function checkVictory(state: GameState, map: GameMap): { winnerId: string
     }
 
     if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {
-      if (isMissionComplete(state, map, player)) condition = 'secret_mission';
+      if (player.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, player)) condition = 'secret_mission';
     }
 
-    if (condition != null) winners.push({ winnerId: player.player_id, condition });
+    if (condition != null) winners.push({ winnerIds: [player.player_id], condition });
   }
 
   if (winners.length === 0) return null;
   if (winners.length === 1) return winners[0];
 
   // Tiebreak: most territories wins
-  const result = pickWinnerAmong(winners.map((w) => w.winnerId), state);
+  const result = pickWinnerAmong(winners.flatMap((w) => w.winnerIds), state);
   if (!result) return null;
-  const winner = winners.find((w) => w.winnerId === result);
+  const winner = winners.find((w) => w.winnerIds.includes(result));
   return winner ?? null;
 }
 
@@ -682,31 +732,59 @@ function distributeTerritoriesGeographic(
       .map((t) => t.territory_id);
   });
 
-  // Assign home territories first
-  const assigned = new Map<string, string>(); // territory_id → player_id
+  // Assign home territories with round-robin draft when multiple factions share a region.
+  // Group all home claims by region, then interleave assignments so each player gets an
+  // equal slice before anyone takes a second territory from the same contested region.
+  const regionClaimers = new Map<string, number[]>(); // region_id → [player indices]
   for (let pi = 0; pi < players.length; pi++) {
-    for (const tid of playerHomeIds[pi]) {
+    const faction = factions.find((f) => f.faction_id === players[pi].faction_id);
+    if (!faction) continue;
+    for (const regionId of faction.home_region_ids) {
+      if (!regionClaimers.has(regionId)) regionClaimers.set(regionId, []);
+      regionClaimers.get(regionId)!.push(pi);
+    }
+  }
+  const assigned = new Map<string, string>(); // territory_id → player_id
+  for (const [regionId, piList] of regionClaimers.entries()) {
+    const regionTerritories = map.territories
+      .filter((t) => t.region_id === regionId)
+      .map((t) => t.territory_id);
+    regionTerritories.forEach((tid, i) => {
+      const pi = piList[i % piList.length];
       if (!assigned.has(tid)) {
         assigned.set(tid, players[pi].player_id);
       }
-    }
+    });
   }
 
-  // BFS expansion: each player expands from their owned territories simultaneously
+  // True simultaneous multi-source BFS: maintain per-player frontier queues and expand
+  // one wave at a time. All players' claims for a wave are collected before any are applied,
+  // so no player has a positional advantage from iteration order.
   const unassigned = new Set(Object.keys(territories).filter((tid) => !assigned.has(tid)));
   if (unassigned.size > 0) {
-    // Multi-source BFS — each player expands one step at a time
-    let changed = true;
-    while (changed && unassigned.size > 0) {
-      changed = false;
-      for (const [tid, playerId] of [...assigned.entries()]) {
-        for (const nid of (adjacency[tid] ?? [])) {
-          if (unassigned.has(nid)) {
-            assigned.set(nid, playerId);
-            unassigned.delete(nid);
-            changed = true;
+    const frontiers: Set<string>[] = players.map((_p, pi) => new Set(playerHomeIds[pi]));
+    while (unassigned.size > 0) {
+      // Collect all claims for this wave without assigning yet
+      const waveClaims = new Map<string, number>(); // territory_id → first claiming player index
+      for (let pi = 0; pi < players.length; pi++) {
+        for (const tid of frontiers[pi]) {
+          for (const nid of (adjacency[tid] ?? [])) {
+            if (unassigned.has(nid) && !waveClaims.has(nid)) {
+              waveClaims.set(nid, pi);
+            }
           }
         }
+      }
+      if (waveClaims.size === 0) break;
+      // Apply all wave claims and advance frontiers
+      const nextFrontiers: string[][] = players.map(() => []);
+      for (const [nid, pi] of waveClaims.entries()) {
+        assigned.set(nid, players[pi].player_id);
+        unassigned.delete(nid);
+        nextFrontiers[pi].push(nid);
+      }
+      for (let pi = 0; pi < players.length; pi++) {
+        frontiers[pi] = new Set(nextFrontiers[pi]);
       }
     }
   }

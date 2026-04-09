@@ -1,4 +1,4 @@
-import type { Faction, TechNode } from './types';
+import type { Faction, TechNode, EraWonder } from './types';
 
 // ── Factions ──────────────────────────────────────────────────────────────────
 export const COLDWAR_FACTIONS: Faction[] = [
@@ -6,7 +6,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'usa_cw',
     name: 'United States',
     description: 'Global superpower — +1 tech point per ally-adjacent territory; influence ability range extended to 2 hops.',
-    home_region_ids: ['north_america'],
+    home_region_ids: ['north_america_cw'],
     reinforce_bonus: 1,
     ability_id: 'marshall_plan',
     ability_description: 'Marshall Plan: once per turn during draft, place 1 free unit on any allied or newly captured territory.',
@@ -16,7 +16,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'ussr',
     name: 'Soviet Union',
     description: 'Iron Curtain — influence ability can target territories within 2 hops; +1 defense die in Eastern Bloc territories.',
-    home_region_ids: ['eastern_europe', 'central_asia'],
+    home_region_ids: ['warsaw_pact'],
     passive_defense_bonus: 1,
     reinforce_bonus: 1,
     ability_id: 'iron_curtain',
@@ -27,7 +27,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'china_cw',
     name: "People's Republic of China",
     description: 'Vast army — +2 reinforcements per turn; guerrilla tactics grant +1 defense die in Asia.',
-    home_region_ids: ['east_asia'],
+    home_region_ids: ['east_asia_cw'],
     passive_defense_bonus: 1,
     reinforce_bonus: 2,
     ability_id: 'peoples_war',
@@ -38,7 +38,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'uk_cw',
     name: 'United Kingdom',
     description: 'Nuclear deterrent — if attacked in your capital territory, attacker loses 1 extra unit.',
-    home_region_ids: ['western_europe'],
+    home_region_ids: ['nato_europe'],
     passive_defense_bonus: 1,
     ability_id: 'nuclear_deterrence',
     ability_description: 'Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely.',
@@ -48,7 +48,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'decolonization_movement',
     name: 'Non-Aligned Movement',
     description: 'Guerrilla movements challenge both superpowers — territories you own cannot be influenced (immune to influence_spread).',
-    home_region_ids: ['africa', 'south_asia'],
+    home_region_ids: ['africa_cw', 'south_asia_cw'],
     reinforce_bonus: 1,
     ability_id: 'guerrilla_resistance',
     ability_description: 'Guerrilla Resistance: once per turn, place 2 free units on any border territory that was attacked last turn.',
@@ -58,7 +58,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'nato_proxy',
     name: 'NATO Alliance',
     description: 'Collective defense pact — if any NATO territory is attacked, adjacent NATO territories each add +1 defense die.',
-    home_region_ids: ['western_europe', 'mediterranean'],
+    home_region_ids: ['nato_europe'],
     passive_defense_bonus: 1,
     ability_id: 'collective_defense',
     ability_description: 'Article 5: once per turn, an attack on any of your territories triggers +1 automatic defender loss on the attacker.',
@@ -182,3 +182,13 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
     unlocks_ability: 'detente_protocol',
   },
 ];
+
+// ── Wonder ────────────────────────────────────────────────────────────────────
+export const COLDWAR_WONDER: EraWonder = {
+  wonder_id: 'wonder_sputnik',
+  name: 'Sputnik',
+  description: 'Eyes in the sky: +1 tech point per owned territory per turn.',
+  cost: 20,
+  passive_effect_type: 'tech_point_per_territory',
+  passive_effect_value: 1,
+};

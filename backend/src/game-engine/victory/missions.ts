@@ -75,6 +75,21 @@ export function assignSecretMissions(
 
     player.secret_mission = mission;
   }
+
+  // Alliance missions: ~20% chance in 4+ player games; assign as pairs
+  if (state.players.length >= 4 && rng() < 0.20) {
+    const humanPlayers = state.players.filter((p) => !p.is_ai);
+    if (humanPlayers.length >= 2) {
+      const totalTerritories = map.territories.length;
+      const threshold = Math.floor(totalTerritories * 0.20);
+      const picked = pickManyUnique(humanPlayers, 2, rng);
+      if (picked.length === 2) {
+        const [ally1, ally2] = picked as [typeof humanPlayers[0], typeof humanPlayers[0]];
+        ally1.secret_mission = { kind: 'alliance', ally_player_id: ally2.player_id, territory_threshold: threshold };
+        ally2.secret_mission = { kind: 'alliance', ally_player_id: ally1.player_id, territory_threshold: threshold };
+      }
+    }
+  }
 }
 
 /** Each player's capital = lexicographically first owned territory id (deterministic). */
@@ -120,6 +135,9 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
     }
     case 'control_regions':
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);
+    case 'alliance':
+      // Alliance victory is handled in checkVictory directly (requires both players)
+      return false;
     default:
       return false;
   }

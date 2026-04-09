@@ -24,8 +24,11 @@ export interface AuthUser {
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
   equipped_marker?: string | null;
+  gold?: number;
   /** Set for JWTs from POST /api/auth/guest */
   is_guest?: boolean;
+  /** True once the basic tutorial has been completed. */
+  has_completed_tutorial?: boolean;
 }
 
 interface AuthState {
