@@ -202,7 +202,7 @@ function BUILDING_LABEL(buildingType: string): string {
     naval_base: 'port',
   };
   const prevTier = prevTierMap[buildingType];
-  if (prevTier && !existingBuildings.includes(prevTier)) {
+  if (prevTier !== undefined && !existingBuildings.includes(prevTier as BuildingType)) {
     return { valid: false, error: `Must first build ${prevTier}` };
   }
 
