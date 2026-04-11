@@ -292,8 +292,17 @@ async function seedMaps(): Promise<void> {
 
   // Drop stale Redis map payloads (e.g. missing geo_polygon / projection_bounds after schema fixes).
   try {
-    const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-    const redis = new Redis(redisUrl);
+    const redisUrl = process.env.REDIS_URL
+      || (process.env.REDIS_HOST
+          ? `redis://:${process.env.REDIS_PASSWORD ?? ''}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT ?? 6379}`
+          : 'redis://127.0.0.1:6379');
+    const redis = new Redis(redisUrl, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 0,
+      enableOfflineQueue: false,
+    });
+    redis.on('error', () => { /* suppress unhandled-error noise before connect */ });
+    await redis.connect();
     const allMaps = await SeederMap.find({}, 'map_id').lean();
     for (const m of allMaps as { map_id: string }[]) {
       await redis.del(`map:${m.map_id}`);
