@@ -1,4 +1,6 @@
 import type { Server as HttpServer } from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
@@ -40,6 +42,12 @@ import { INITIAL_MU, INITIAL_PHI } from '../game-engine/rating/ratingService';
 import { getTutorialMap } from '../game-engine/tutorial/tutorialScript';
 import type { GameState, GameMap, AiDifficulty } from '../types';
 import { config } from '../config';
+import {
+  scheduleAsyncDeadline,
+  cancelAsyncDeadline,
+  setDeadlineProcessor,
+} from '../workers/asyncDeadlineWorker';
+import { notifyTurnChange } from '../services/notificationService';
 
 function loadMapFromDoc(mapDoc: any): GameMap {
   return {
@@ -58,7 +66,15 @@ function loadMapFromDoc(mapDoc: any): GameMap {
 async function resolveMap(mapId: string): Promise<GameMap | null> {
   if (mapId === 'tutorial') return getTutorialMap();
   const mapDoc = await CustomMap.findOne({ map_id: mapId }).lean();
-  return mapDoc ? loadMapFromDoc(mapDoc) : null;
+  if (mapDoc) return loadMapFromDoc(mapDoc);
+
+  // Fallback: load from static JSON files in database/maps/
+  const jsonPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
+  if (fs.existsSync(jsonPath)) {
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    return loadMapFromDoc(data);
+  }
+  return null;
 }
 
 // In-memory store: gameId → { state, map, connectedSockets }
@@ -67,6 +83,10 @@ const activeGames = new Map<string, {
   map: GameMap;
   connectedSockets: Map<string, string>; // socketId → playerId
 }>();
+
+function isUnclaimedOwner(ownerId: string | null | undefined): boolean {
+  return ownerId == null || ownerId === '' || ownerId === 'neutral';
+}
 
 // Turn timer enforcement: gameId → timeout handle
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -90,6 +110,58 @@ export function initGameSocket(httpServer: HttpServer): Server {
     },
     pingTimeout: 60000,
     pingInterval: 25000,
+  });
+
+  // ── Register async deadline processor ───────────────────────────────────
+  setDeadlineProcessor(async (job) => {
+    const { gameId, turnNumber, playerIndex } = job.data;
+    let room = activeGames.get(gameId);
+
+    // Re-hydrate game from DB if evicted
+    if (!room) {
+      const game = await queryOne<{ map_id: string; status: string }>(
+        'SELECT map_id, status FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      if (!game || game.status !== 'in_progress') return;
+      const saved = await queryOne<{ state_json: GameState }>(
+        'SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1',
+        [gameId],
+      );
+      if (!saved) return;
+      const gameMap = await resolveMap(game.map_id);
+      if (!gameMap) return;
+      repairDraftUnitsIfMissing(saved.state_json, gameMap);
+      repairLegacyGameState(saved.state_json, gameMap);
+      activeGames.set(gameId, { state: saved.state_json, map: gameMap, connectedSockets: new Map() });
+      room = activeGames.get(gameId)!;
+    }
+
+    const { state, map } = room;
+
+    // Stale-job guard: only process if turn/player still match
+    if (state.phase === 'game_over') return;
+    if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
+
+    // Auto-place draft units
+    const placed = autoPlaceDraftUnits(state);
+    if (placed > 0) {
+      broadcastState(io, gameId, state);
+      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: placed });
+    }
+
+    advanceToNextPlayer(state, map);
+    await saveGameState(gameId, state);
+    broadcastEventCard(io, gameId, state, map);
+    broadcastState(io, gameId, state);
+
+    // Schedule next deadline or trigger AI
+    if (!state.active_event?.choices?.length) {
+      startTurnTimer(io, gameId, state, map);
+    }
+    if (state.players[state.current_player_index].is_ai) {
+      setTimeout(() => processAiTurn(io, gameId), 1500);
+    }
   });
 
   // ── Authentication middleware ─────────────────────────────────────────────
@@ -209,7 +281,33 @@ export function initGameSocket(httpServer: HttpServer): Server {
           // Resume AI turn if it's an AI's turn and no AI processing is already in-flight
           const currentAiPlayer = room.state.players[room.state.current_player_index];
           if (currentAiPlayer?.is_ai && room.state.phase !== 'game_over' && !aiInFlight.has(gameId)) {
-            setTimeout(() => processAiTurn(io, gameId), 1500);
+            if (room.state.phase === 'territory_select') {
+              setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+            } else {
+              setTimeout(() => processAiTurn(io, gameId), 1500);
+            }
+          }
+
+          // For async games, ensure the deadline job is still scheduled (may be lost on server restart)
+          if (room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
+            import('../workers/asyncDeadlineWorker').then(({ asyncDeadlineQueue }) => {
+              const jobId = `deadline:${gameId}:${room!.state.turn_number}`;
+              asyncDeadlineQueue.getJob(jobId).then((job) => {
+                if (!job) {
+                  // Re-schedule from DB deadline
+                  queryOne<{ async_turn_deadline: Date | null }>(
+                    'SELECT async_turn_deadline FROM games WHERE game_id = $1',
+                    [gameId],
+                  ).then((g) => {
+                    if (g?.async_turn_deadline) {
+                      const remainingSec = Math.max(10, Math.floor((new Date(g.async_turn_deadline).getTime() - Date.now()) / 1000));
+                      scheduleAsyncDeadline(gameId, room!.state.turn_number, room!.state.current_player_index, remainingSec)
+                        .catch(() => {});
+                    }
+                  }).catch(() => {});
+                }
+              }).catch(() => {});
+            }).catch(() => {});
           }
         }
 
@@ -323,9 +421,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         io.to(gameId).emit('game:started', { gameId });
         broadcastState(io, gameId, state);
 
-        // If first player is AI, trigger AI turn; otherwise start turn timer
+        // If first player is AI, trigger AI turn (or AI territory select); otherwise start turn timer
         if (state.players[state.current_player_index].is_ai) {
-          setTimeout(() => processAiTurn(io, gameId), 1500);
+          if (state.phase === 'territory_select') {
+            setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+          } else {
+            setTimeout(() => processAiTurn(io, gameId), 1500);
+          }
         } else {
           startTurnTimer(io, gameId, state, gameMap);
         }
@@ -360,6 +462,67 @@ export function initGameSocket(httpServer: HttpServer): Server {
       scheduleDebouncedSave(gameId);
     });
 
+    // ── Territory Selection (territory draft mode) ────────────────────────
+    socket.on('game:select_territory', ({ gameId, territoryId }: { gameId: string; territoryId: string }) => {
+      const room = activeGames.get(gameId);
+      if (!room) return socket.emit('error', { message: 'Game not found' });
+      const { state, map } = room;
+
+      if (state.phase !== 'territory_select') return socket.emit('error', { message: 'Not in territory selection phase' });
+      const currentPlayer = state.players[state.current_player_index];
+      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+
+      const territory = state.territories[territoryId];
+      if (!territory) return socket.emit('error', { message: 'Territory not found' });
+      if (!isUnclaimedOwner(territory.owner_id)) return socket.emit('error', { message: 'Territory already claimed' });
+
+      // Claim the territory
+      territory.owner_id = userId;
+      territory.unit_count = state.settings.initial_unit_count;
+      currentPlayer.territory_count = Object.values(state.territories).filter((t) => t.owner_id === userId).length;
+
+      // Advance to next player (round-robin, skip eliminated)
+      const total = state.players.length;
+      let next = (state.current_player_index + 1) % total;
+      let attempts = 0;
+      while (state.players[next].is_eliminated && attempts < total) {
+        next = (next + 1) % total;
+        attempts++;
+      }
+      state.current_player_index = next;
+      state.turn_started_at = Date.now();
+
+      // Check if all territories are claimed
+      const unclaimed = Object.values(state.territories).filter((t) => isUnclaimedOwner(t.owner_id)).length;
+      if (unclaimed === 0) {
+        // Transition to draft phase
+        state.phase = 'draft';
+        state.current_player_index = 0;
+        state.turn_number = 1;
+        state.turn_started_at = Date.now();
+        const firstPlayer = state.players[0];
+        const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
+        state.draft_units_remaining = calculateReinforcements(
+          firstPlayer.territory_count,
+          bonus,
+          state.players.length,
+        );
+      }
+
+      broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
+
+      // If next player is AI and still in territory_select, trigger AI pick
+      const nextPlayer = state.players[state.current_player_index];
+      if (nextPlayer.is_ai && state.phase === 'territory_select') {
+        setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+      } else if (nextPlayer.is_ai && state.phase === 'draft') {
+        setTimeout(() => processAiTurn(io, gameId), 1500);
+      } else if (!nextPlayer.is_ai && state.phase === 'draft') {
+        startTurnTimer(io, gameId, state, map);
+      }
+    });
+
     // ── Attack Action ───────────────────────────────────────────────────────
     socket.on('game:attack', ({ gameId, fromId, toId }: { gameId: string; fromId: string; toId: string }) => {
       const room = activeGames.get(gameId);
@@ -388,6 +551,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!isAdjacent) return socket.emit('error', { message: 'Territories not adjacent' });
+
+      // Enforce active truce — block attacking a player the current player has a truce with
+      const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
+      if (defenderPlayer) {
+        const truceEntry = state.diplomacy.find(
+          (d) =>
+            (d.player_index_a === currentPlayer.player_index && d.player_index_b === defenderPlayer.player_index) ||
+            (d.player_index_a === defenderPlayer.player_index && d.player_index_b === currentPlayer.player_index),
+        );
+        if (truceEntry?.status === 'truce' && truceEntry.truce_turns_remaining > 0) {
+          return socket.emit('error', { message: 'You have an active truce with this player' });
+        }
+      }
+
+      // Track most-recently-attacked opponent for event card truce targeting
+      if (toTerritory.owner_id) {
+        currentPlayer.last_attacked_player_id = toTerritory.owner_id;
+      }
 
       // Determine attack dice count
       // Modern era precision strike: 3 dice when attacker has ≥3 units committed
@@ -572,7 +753,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         // Trigger AI if next player is AI; otherwise restart turn timer
         if (state.players[state.current_player_index].is_ai) {
-          clearTurnTimer(gameId);
+          clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
         } else if (!state.active_event?.choices?.length) {
           // Don't start timer while a choice-based event awaits resolution
@@ -969,8 +1150,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const canInfluence = modifiers?.influence_spread || modifiers?.carbonari_network;
       if (!canInfluence) return socket.emit('error', { message: 'Influence ability not available this era' });
 
-      if (state.influence_used_this_turn) {
-        return socket.emit('error', { message: 'Influence ability already used this turn' });
+      const INFLUENCE_COOLDOWN_TURNS = 3;
+      const INFLUENCE_MAX_TARGET_UNITS = 3;
+
+      const cooldownRemaining = state.influence_cooldown_remaining ?? 0;
+      if (cooldownRemaining > 0) {
+        return socket.emit('error', { message: `Influence ability on cooldown (${cooldownRemaining} turn${cooldownRemaining > 1 ? 's' : ''} remaining)` });
       }
 
       const target = state.territories[targetId];
@@ -1020,41 +1205,62 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'Target territory not within influence range' });
       }
 
-      // Cost: player must have at least 3 total units to spare (1 in reserve)
-      const totalUnits = Object.values(state.territories)
-        .filter((t) => t.owner_id === userId)
-        .reduce((sum, t) => sum + t.unit_count, 0);
-      if (totalUnits < 4) {
-        return socket.emit('error', { message: 'Not enough units to pay influence cost (need 3 spare)' });
-      }
+      // Garibaldi's Redshirts: free influence on neutral territories within 1 hop (exempt from cooldown & cost)
+      const isGaribaldiUse =
+        !!modifiers?.carbonari_network &&
+        currentPlayer.unlocked_techs?.includes('riso_garibaldi') &&
+        target.owner_id === null;
 
-      // Deduct 3 units from the largest owned adjacent territory
-      const adjacentOwned = (adjacency[targetId] ?? [])
-        .filter((nid) => state.territories[nid]?.owner_id === userId)
-        .sort((a, b) => (state.territories[b]?.unit_count ?? 0) - (state.territories[a]?.unit_count ?? 0));
+      if (isGaribaldiUse) {
+        if ((currentPlayer.ability_uses?.['riso_garibaldi'] ?? 0) >= 1) {
+          return socket.emit('error', { message: "Garibaldi's Redshirts already used this turn" });
+        }
+      } else {
+        // Unit cap: cannot influence a well-defended territory
+        if (target.unit_count > INFLUENCE_MAX_TARGET_UNITS) {
+          return socket.emit('error', { message: `Influence can only seize territories with ≤${INFLUENCE_MAX_TARGET_UNITS} defending units` });
+        }
 
-      if (adjacentOwned.length === 0) {
-        return socket.emit('error', { message: 'No adjacent owned territory to project influence from' });
-      }
+        // Cost: player must have at least 3 total units to spare (1 in reserve)
+        const totalUnits = Object.values(state.territories)
+          .filter((t) => t.owner_id === userId)
+          .reduce((sum, t) => sum + t.unit_count, 0);
+        if (totalUnits < 4) {
+          return socket.emit('error', { message: 'Not enough units to pay influence cost (need 3 spare)' });
+        }
 
-      let remaining = 3;
-      for (const tid of adjacentOwned) {
-        const t = state.territories[tid];
-        if (!t) continue;
-        const canSpend = Math.min(remaining, t.unit_count - 1);
-        t.unit_count -= canSpend;
-        remaining -= canSpend;
-        if (remaining <= 0) break;
-      }
+        // Deduct 3 units from the largest owned adjacent territory
+        const adjacentOwned = (adjacency[targetId] ?? [])
+          .filter((nid) => state.territories[nid]?.owner_id === userId)
+          .sort((a, b) => (state.territories[b]?.unit_count ?? 0) - (state.territories[a]?.unit_count ?? 0));
 
-      if (remaining > 0) {
-        return socket.emit('error', { message: 'Not enough units in adjacent territories to pay influence cost' });
+        if (adjacentOwned.length === 0) {
+          return socket.emit('error', { message: 'No adjacent owned territory to project influence from' });
+        }
+
+        let remaining = 3;
+        for (const tid of adjacentOwned) {
+          const t = state.territories[tid];
+          if (!t) continue;
+          const canSpend = Math.min(remaining, t.unit_count - 1);
+          t.unit_count -= canSpend;
+          remaining -= canSpend;
+          if (remaining <= 0) break;
+        }
+
+        if (remaining > 0) {
+          return socket.emit('error', { message: 'Not enough units in adjacent territories to pay influence cost' });
+        }
       }
 
       const previousOwner = target.owner_id;
       target.owner_id = userId;
       target.unit_count = 1;
-      state.influence_used_this_turn = true;
+      if (isGaribaldiUse) {
+        currentPlayer.ability_uses = { ...currentPlayer.ability_uses, riso_garibaldi: 1 };
+      } else {
+        state.influence_cooldown_remaining = INFLUENCE_COOLDOWN_TURNS;
+      }
 
       // Stability penalty on influenced territory
       if (state.settings.stability_enabled) {
@@ -1126,11 +1332,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!room) return;
       if (room.connectedSockets.get(socket.id) !== userId) return;
 
-      const clean = String(message)
-        .trim()
-        .slice(0, 200)
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      const raw = String(message).trim().slice(0, 500);
+      if (!raw) return;
+
+      // Allow GIF messages from trusted domains; sanitise everything else
+      const gifMatch = raw.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
+      const clean = gifMatch
+        ? raw // pass through validated GIF URL
+        : raw.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
       if (!clean) return;
 
       const player = room.state.players.find((p) => p.player_id === userId);
@@ -1165,7 +1374,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const evictionTimer = setTimeout(() => {
           const current = activeGames.get(gameId);
           if (current && current.connectedSockets.size === 0) {
-            clearTurnTimer(gameId);
+            // For async games, don't cancel the deadline — BullMQ handles it independently
+            if (!current.state.settings.async_mode) {
+              clearTurnTimer(gameId, current.state);
+            }
             activeGames.delete(gameId);
             aiInFlight.delete(gameId);
             console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
@@ -1372,7 +1584,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
             const evictionTimer = setTimeout(() => {
               const current = activeGames.get(gameId);
               if (current && current.connectedSockets.size === 0) {
-                clearTurnTimer(gameId);
+                if (!current.state.settings.async_mode) {
+                  clearTurnTimer(gameId, current.state);
+                }
                 activeGames.delete(gameId);
                 aiInFlight.delete(gameId);
                 console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
@@ -1394,6 +1608,9 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
   for (const t of turnTimers.values()) clearTimeout(t);
   turnTimers.clear();
   await flushAllPendingSaves();
+  // Stop async deadline worker (BullMQ jobs persist in Redis for next startup)
+  const { stopAsyncDeadlineWorker } = await import('../workers/asyncDeadlineWorker');
+  await stopAsyncDeadlineWorker();
   return new Promise((resolve, reject) => {
     io.close((err) => (err ? reject(err) : resolve()));
   });
@@ -1562,7 +1779,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
 
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerIds: string[]): Promise<void> {
   const winnerId = winnerIds[0]!;
-  clearTurnTimer(gameId);
+  clearTurnTimer(gameId, state);
   appendWinProbabilitySnapshot(state);
 
   // Persist to DB first — only emit game:over to clients on success
@@ -1701,6 +1918,129 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   setTimeout(() => activeGames.delete(gameId), 30000);
 }
 
+async function processAiTerritorySelect(io: Server, gameId: string): Promise<void> {
+  const room = activeGames.get(gameId);
+  if (!room) return;
+  const { state, map } = room;
+
+  if (state.phase !== 'territory_select') return;
+
+  const currentPlayer = state.players[state.current_player_index];
+  if (!currentPlayer.is_ai) return;
+
+  const difficulty = currentPlayer.ai_difficulty ?? 'medium';
+  const unclaimed = Object.entries(state.territories)
+    .filter(([, t]) => isUnclaimedOwner(t.owner_id))
+    .map(([id]) => id);
+
+  if (unclaimed.length === 0) return;
+
+  // Build adjacency map for smart territory selection
+  const adj: Record<string, string[]> = {};
+  for (const conn of map.connections) {
+    if (!adj[conn.from]) adj[conn.from] = [];
+    if (!adj[conn.to]) adj[conn.to] = [];
+    adj[conn.from].push(conn.to);
+    adj[conn.to].push(conn.from);
+  }
+
+  let chosenId: string;
+
+  if (difficulty === 'hard' || difficulty === 'expert') {
+    // Prefer unclaimed territories adjacent to already-owned territories (clustering)
+    const owned = new Set(
+      Object.entries(state.territories)
+        .filter(([, t]) => t.owner_id === currentPlayer.player_id)
+        .map(([id]) => id)
+    );
+
+    const adjacentUnclaimed = unclaimed.filter((id) =>
+      (adj[id] ?? []).some((n) => owned.has(n))
+    );
+
+    if (adjacentUnclaimed.length > 0) {
+      // Expert: score by region bonus potential
+      if (difficulty === 'expert') {
+        const regionBonus: Record<string, number> = {};
+        for (const r of map.regions) regionBonus[r.region_id] = r.bonus;
+        const scored = adjacentUnclaimed.map((id) => {
+          const mt = map.territories.find((t) => t.territory_id === id);
+          return { id, score: mt ? (regionBonus[mt.region_id] ?? 0) : 0 };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        chosenId = scored[0].id;
+      } else {
+        chosenId = adjacentUnclaimed[Math.floor(Math.random() * adjacentUnclaimed.length)];
+      }
+    } else if (owned.size === 0) {
+      // First pick: choose a territory in a high-bonus region
+      const regionBonus: Record<string, number> = {};
+      for (const r of map.regions) regionBonus[r.region_id] = r.bonus;
+      const scored = unclaimed.map((id) => {
+        const mt = map.territories.find((t) => t.territory_id === id);
+        return { id, score: mt ? (regionBonus[mt.region_id] ?? 0) : 0 };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      // Pick from top 3 to add some variety
+      const topN = scored.slice(0, Math.min(3, scored.length));
+      chosenId = topN[Math.floor(Math.random() * topN.length)].id;
+    } else {
+      chosenId = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+    }
+  } else {
+    // Easy / Medium: random pick
+    chosenId = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+  }
+
+  // Claim the territory
+  const territory = state.territories[chosenId];
+  territory.owner_id = currentPlayer.player_id;
+  territory.unit_count = state.settings.initial_unit_count;
+  currentPlayer.territory_count = Object.values(state.territories).filter(
+    (t) => t.owner_id === currentPlayer.player_id
+  ).length;
+
+  // Advance to next player
+  const total = state.players.length;
+  let next = (state.current_player_index + 1) % total;
+  let attempts = 0;
+  while (state.players[next].is_eliminated && attempts < total) {
+    next = (next + 1) % total;
+    attempts++;
+  }
+  state.current_player_index = next;
+  state.turn_started_at = Date.now();
+
+  // Check if all territories are claimed
+  const remaining = Object.values(state.territories).filter((t) => isUnclaimedOwner(t.owner_id)).length;
+  if (remaining === 0) {
+    state.phase = 'draft';
+    state.current_player_index = 0;
+    state.turn_number = 1;
+    state.turn_started_at = Date.now();
+    const firstPlayer = state.players[0];
+    const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
+    state.draft_units_remaining = calculateReinforcements(
+      firstPlayer.territory_count,
+      bonus,
+      state.players.length,
+    );
+  }
+
+  broadcastState(io, gameId, state);
+  scheduleDebouncedSave(gameId);
+
+  // Chain: next AI pick or transition to human/draft
+  const nextPlayer = state.players[state.current_player_index];
+  if (nextPlayer.is_ai && state.phase === 'territory_select') {
+    setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+  } else if (nextPlayer.is_ai && state.phase === 'draft') {
+    setTimeout(() => processAiTurn(io, gameId), 1500);
+  } else if (!nextPlayer.is_ai && state.phase === 'draft') {
+    startTurnTimer(io, gameId, state, map);
+  }
+}
+
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
   if (aiInFlight.has(gameId)) return;
   const room = activeGames.get(gameId);
@@ -1812,13 +2152,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
     // ── AI influence action (sentinel from === '__influence__') ──
     if (action.from === '__influence__') {
-      if (state.influence_used_this_turn) continue;
+      if ((state.influence_cooldown_remaining ?? 0) > 0) continue;
       const modifiers = state.era_modifiers;
       const canInfluence = modifiers?.influence_spread || modifiers?.carbonari_network;
       if (!canInfluence) continue;
 
       const target = state.territories[action.to];
       if (!target || target.owner_id === currentPlayer.player_id) continue;
+      if (target.unit_count > 3) continue;
 
       // Cost: need 3 spare units; deduct from adjacent owned territories
       const adjacency: Record<string, string[]> = {};
@@ -1853,7 +2194,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       const previousOwner = target.owner_id;
       target.owner_id = currentPlayer.player_id;
       target.unit_count = 1;
-      state.influence_used_this_turn = true;
+      state.influence_cooldown_remaining = 3;
 
       // Stability penalty on AI influence capture
       if (state.settings.stability_enabled) {
@@ -2039,12 +2380,33 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 }
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
-  clearTurnTimer(gameId);
+  clearTurnTimer(gameId, state);
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
   const currentPlayer = state.players[state.current_player_index];
   if (currentPlayer.is_ai) return;
 
+  // ── Async mode: use persistent BullMQ job instead of in-memory timer ──
+  if (state.settings.async_mode) {
+    const deadlineSec = state.settings.async_turn_deadline_seconds ?? seconds;
+    // Write deadline to DB for querying
+    query(
+      'UPDATE games SET async_turn_deadline = NOW() + INTERVAL \'1 second\' * $1 WHERE game_id = $2',
+      [deadlineSec, gameId],
+    ).catch((err) => console.error('[Socket] Failed to write async deadline:', err));
+
+    // Schedule BullMQ job
+    scheduleAsyncDeadline(gameId, state.turn_number, state.current_player_index, deadlineSec)
+      .catch((err) => console.error('[Socket] Failed to schedule async deadline:', err));
+
+    // Notify the player it's their turn
+    notifyTurnChange(gameId, currentPlayer.player_id, state)
+      .catch((err) => console.error('[Socket] Failed to notify turn change:', err));
+
+    return;
+  }
+
+  // ── Real-time mode: in-memory setTimeout (short timers ≤ 10 min) ──
   const timer = setTimeout(async () => {
     const room = activeGames.get(gameId);
     if (!room || room.state.phase === 'game_over') return;
@@ -2073,11 +2435,15 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   turnTimers.set(gameId, timer);
 }
 
-function clearTurnTimer(gameId: string): void {
+function clearTurnTimer(gameId: string, state?: GameState): void {
   const existing = turnTimers.get(gameId);
   if (existing) {
     clearTimeout(existing);
     turnTimers.delete(gameId);
+  }
+  // Also cancel any pending async deadline job
+  if (state) {
+    cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
   }
 }
 

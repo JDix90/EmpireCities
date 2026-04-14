@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import * as fs from 'fs';
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
@@ -173,8 +175,16 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Custom maps via Mongoose
     const map = await CustomMap.findOne({ map_id: mapId }).lean();
-    if (!map) return reply.status(404).send({ error: 'Map not found' });
-    return reply.send({ map });
+    if (map) return reply.send({ map });
+
+    // Fallback: load from static JSON files in database/maps/
+    const jsonPath = path.resolve(__dirname, '../../../../database/maps', `${mapId}.json`);
+    if (fs.existsSync(jsonPath)) {
+      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      return reply.send({ map: data });
+    }
+
+    return reply.status(404).send({ error: 'Map not found' });
   });
 
   // ── POST /api/maps/:mapId/publish ────────────────────────────────────────

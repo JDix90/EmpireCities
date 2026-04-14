@@ -110,6 +110,8 @@ export interface PlayerState {
   territories_captured_turn_max?: number;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
   truces_established?: string[];
+  /** ID of the last opponent this player attacked (used for event card truce targeting). */
+  last_attacked_player_id?: string;
 }
 
 export interface DiplomacyEntry {
@@ -138,8 +140,10 @@ export interface GameSettings {
   diplomacy_enabled: boolean;
   tutorial?: boolean;
   tutorial_step?: number;
-  /** When true, turn notifications use email (requires SMTP). */
+  /** When true, the game runs asynchronously with long turn deadlines and notifications. */
   async_mode?: boolean;
+  /** Async turn deadline in seconds: 43200 (12h), 86400 (24h), or 259200 (72h). */
+  async_turn_deadline_seconds?: number;
   /** Enable asymmetric faction starting positions (Phase B). */
   factions_enabled?: boolean;
   /** Enable territory economy layer: buildings, production, resource income (Phase C). */
@@ -152,10 +156,25 @@ export interface GameSettings {
   naval_enabled?: boolean;
   /** Enable population stability mechanics. */
   stability_enabled?: boolean;
+  /** Players take turns selecting starting territories instead of auto-assignment. */
+  territory_selection?: boolean;
   /** True when this game is part of a campaign sequence. */
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
   campaign_prestige_bonus?: number;
+}
+
+// ── User Preferences / Push Tokens ────────────────────────────────────────────
+export interface UserPreferences {
+  push_enabled: boolean;
+  email_notifications: boolean;
+}
+
+export interface PushToken {
+  token_id: string;
+  user_id: string;
+  token: string;
+  platform: 'web' | 'ios' | 'android';
 }
 
 /** Optional per-era combat / economy tweaks. */
@@ -228,8 +247,8 @@ export interface GameState {
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;
-  /** Whether the Cold War influence ability has been used this turn. */
-  influence_used_this_turn?: boolean;
+  /** Turns remaining before the influence ability can be used again (0 = ready). */
+  influence_cooldown_remaining?: number;
   /** Whether a Blitzkrieg (WW2) bonus attack has been used this turn. */
   blitzkrieg_attacked?: boolean;
   /** Currently active event card awaiting resolution (events feature). */

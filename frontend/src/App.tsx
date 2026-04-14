@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { initPushNotifications } from './services/pushNotifications';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -39,12 +40,21 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isAuthenticated, refreshToken } = useAuthStore();
 
+  const user = useAuthStore((s) => s.user);
+
   // Attempt silent token refresh on app load
   useEffect(() => {
     if (isAuthenticated) {
       refreshToken();
     }
   }, []);
+
+  // Initialize push notifications for authenticated non-guest users
+  useEffect(() => {
+    if (isAuthenticated && user && !user.is_guest) {
+      initPushNotifications();
+    }
+  }, [isAuthenticated, user]);
 
   return (
     <Routes>

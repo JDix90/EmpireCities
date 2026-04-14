@@ -118,16 +118,32 @@ export function applyEventEffect(state: GameState, effect: EventEffect): EventEf
       break;
     }
     case 'truce': {
-      // Force a one-turn truce between the current player and a random opponent
+      // Force a truce between the current player and their most recently fought opponent.
+      // Priority: last attacked player → any opponent currently at war → random.
       const opponents = state.players.filter(
         (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id,
       );
       if (opponents.length > 0) {
-        const opponent = opponents[Math.floor(Math.random() * opponents.length)];
+        let opponent = opponents.find(
+          (p) => p.player_id === currentPlayer.last_attacked_player_id,
+        );
+        if (!opponent) {
+          opponent = opponents.find((p) => {
+            const d = state.diplomacy.find(
+              (e) =>
+                (e.player_index_a === currentPlayer.player_index && e.player_index_b === p.player_index) ||
+                (e.player_index_a === p.player_index && e.player_index_b === currentPlayer.player_index),
+            );
+            return d?.status === 'war';
+          });
+        }
+        if (!opponent) {
+          opponent = opponents[Math.floor(Math.random() * opponents.length)];
+        }
         const entry = state.diplomacy.find(
           (d) =>
-            (d.player_index_a === currentPlayer.player_index && d.player_index_b === opponent.player_index) ||
-            (d.player_index_a === opponent.player_index && d.player_index_b === currentPlayer.player_index),
+            (d.player_index_a === currentPlayer.player_index && d.player_index_b === opponent!.player_index) ||
+            (d.player_index_a === opponent!.player_index && d.player_index_b === currentPlayer.player_index),
         );
         if (entry) {
           entry.status = 'truce';

@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
-import { useGameStore, CombatResult } from '../store/gameStore';
+import { Menu, X, CreditCard, RotateCcw } from 'lucide-react';
+import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { connectSocket, getSocket } from '../services/socket';
@@ -9,12 +9,14 @@ import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
 import GameHUD from '../components/game/GameHUD';
+import MobileCardsTray from '../components/game/MobileCardsTray';
+import MobileCombatBanner from '../components/game/MobileCombatBanner';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
 import BonusesModal from '../components/game/BonusesModal';
 import AtomBombAnimation from '../components/game/AtomBombAnimation';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import { computeDraftPool } from '../utils/draftPool';
@@ -26,6 +28,8 @@ import {
   persistMapView,
   prefersReducedMotion,
   isMobileViewport,
+  getGlobeSpinPreference,
+  persistGlobeSpinPreference,
 } from '../utils/device';
 
 interface MapData {
@@ -121,12 +125,144 @@ function playerLobbyDisplayName(p: GameLobbyPlayerRow): string {
   return 'Player';
 }
 
+function gradeFromDraftScore(score: number): string {
+  if (score >= 92) return 'A+';
+  if (score >= 85) return 'A';
+  if (score >= 78) return 'A-';
+  if (score >= 71) return 'B+';
+  if (score >= 64) return 'B';
+  if (score >= 57) return 'C+';
+  if (score >= 50) return 'C';
+  if (score >= 43) return 'D';
+  return 'F';
+}
+
+function buildDraftSummaryModal(state: ClientGameState, map: MapData): DraftSummaryModalData {
+  const regionById = new Map(map.regions.map((r) => [r.region_id, r]));
+  const territoryById = new Map(map.territories.map((t) => [t.territory_id, t]));
+
+  const adjacency = new Map<string, string[]>();
+  for (const c of map.connections) {
+    adjacency.set(c.from, [...(adjacency.get(c.from) ?? []), c.to]);
+    adjacency.set(c.to, [...(adjacency.get(c.to) ?? []), c.from]);
+  }
+
+  const ownedByPlayer = new Map<string, string[]>();
+  for (const p of state.players) ownedByPlayer.set(p.player_id, []);
+  for (const [tid, t] of Object.entries(state.territories)) {
+    if (!t.owner_id) continue;
+    ownedByPlayer.set(t.owner_id, [...(ownedByPlayer.get(t.owner_id) ?? []), tid]);
+  }
+
+  const regionSizes = new Map<string, number>();
+  for (const t of map.territories) {
+    regionSizes.set(t.region_id, (regionSizes.get(t.region_id) ?? 0) + 1);
+  }
+
+  const rawRows = state.players.map((p) => {
+    const owned = ownedByPlayer.get(p.player_id) ?? [];
+    const ownedSet = new Set(owned);
+
+    const territories = owned.length;
+
+    let regionLeverage = 0;
+    const regionOwnedCounts = new Map<string, number>();
+    for (const tid of owned) {
+      const rid = territoryById.get(tid)?.region_id;
+      if (!rid) continue;
+      regionOwnedCounts.set(rid, (regionOwnedCounts.get(rid) ?? 0) + 1);
+    }
+    for (const [rid, ownedCount] of regionOwnedCounts.entries()) {
+      const regionSize = regionSizes.get(rid) ?? 1;
+      const bonus = regionById.get(rid)?.bonus ?? 0;
+      const controlPct = ownedCount / regionSize;
+      regionLeverage += controlPct * controlPct * bonus;
+    }
+
+    let largestComponent = 0;
+    const visited = new Set<string>();
+    for (const start of owned) {
+      if (visited.has(start)) continue;
+      let size = 0;
+      const stack = [start];
+      visited.add(start);
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        size++;
+        for (const n of adjacency.get(cur) ?? []) {
+          if (!ownedSet.has(n) || visited.has(n)) continue;
+          visited.add(n);
+          stack.push(n);
+        }
+      }
+      largestComponent = Math.max(largestComponent, size);
+    }
+    const cohesionPct = territories > 0 ? (largestComponent / territories) * 100 : 0;
+
+    let externalBorders = 0;
+    let totalAdj = 0;
+    for (const tid of owned) {
+      const neighbors = adjacency.get(tid) ?? [];
+      totalAdj += neighbors.length;
+      for (const n of neighbors) {
+        if (!ownedSet.has(n)) externalBorders++;
+      }
+    }
+    const borderExposure = totalAdj > 0 ? externalBorders / totalAdj : 1;
+
+    // Objective blend: region value + cohesion + footprint - vulnerability
+    const raw =
+      regionLeverage * 14 +
+      cohesionPct * 0.4 +
+      territories * 1.8 -
+      borderExposure * 18;
+
+    return {
+      playerId: p.player_id,
+      playerName: p.username,
+      color: p.color,
+      territories,
+      cohesionPct,
+      regionLeverage,
+      raw,
+    };
+  });
+
+  const rawScores = rawRows.map((r) => r.raw);
+  const minRaw = Math.min(...rawScores);
+  const maxRaw = Math.max(...rawScores);
+  const range = Math.max(1e-6, maxRaw - minRaw);
+
+  const ratings = rawRows
+    .map((r) => {
+      const normalized = maxRaw === minRaw ? 75 : 40 + ((r.raw - minRaw) / range) * 58;
+      const score = Math.max(0, Math.min(100, normalized));
+      return {
+        playerId: r.playerId,
+        playerName: r.playerName,
+        color: r.color,
+        score,
+        grade: gradeFromDraftScore(score),
+        territories: r.territories,
+        cohesionPct: r.cohesionPct,
+        regionLeverage: r.regionLeverage,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    type: 'draft_summary',
+    turnNumber: state.turn_number,
+    ratings,
+  };
+}
+
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    gameState, setGameState, setLastCombatResult,
+    gameState, setGameState, lastCombatResult, setLastCombatResult,
     draftUnitsRemaining, setDraftUnitsRemaining, clearGame,
   } = useGameStore();
   const {
@@ -144,7 +280,9 @@ export default function GamePage() {
   const [gameStarted, setGameStarted] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
+  const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const mapDataRef = useRef<MapData | null>(null);
 
   // Active interaction HUD pill
@@ -189,6 +327,8 @@ export default function GamePage() {
   const notifCounter = useRef(0);
   const prevPlayerIndexRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
+  const draftSummaryShownRef = useRef(false);
+  const pendingDraftSummaryRef = useRef<ClientGameState | null>(null);
   const otherTurnCombatsRef = useRef<CombatResult[]>([]);
   const ownTurnCombatsRef = useRef<CombatResult[]>([]);
   const ownTurnReinforcementsRef = useRef<ReinforcementEntry[]>([]);
@@ -269,7 +409,18 @@ export default function GamePage() {
   useEffect(() => {
     tutorialSessionDefault2dRef.current = false;
     nonTutorialIslandGlobeAppliedRef.current = false;
+    draftSummaryShownRef.current = false;
+    pendingDraftSummaryRef.current = null;
   }, [gameId]);
+
+  useEffect(() => {
+    if (draftSummaryShownRef.current) return;
+    if (!mapData) return;
+    if (!pendingDraftSummaryRef.current) return;
+    setModalQueue((prev) => [...prev, buildDraftSummaryModal(pendingDraftSummaryRef.current!, mapData)]);
+    pendingDraftSummaryRef.current = null;
+    draftSummaryShownRef.current = true;
+  }, [mapData]);
 
   /** Learn the Basics (tutorial island only): default 2D. Uses gameState.map_id so we do not wait for map HTTP. */
   const tutorialIsland =
@@ -341,13 +492,14 @@ export default function GamePage() {
       if (next) setLobbySnapshot(next);
     });
 
-    socket.on('game:state', (state) => {
+    socket.on('game:state', (state: ClientGameState) => {
       // Reconnecting players only receive game:state, not game:started — keep UI in sync
       setGameStarted(true);
       setGameState(state);
       const myId = userRef.current?.user_id;
+      const myName = userRef.current?.username;
       const prevDraft = useGameStore.getState().draftUnitsRemaining;
-      setDraftUnitsRemaining(computeDraftPool(state, myId, prevDraft));
+      setDraftUnitsRemaining(computeDraftPool(state, myId, myName, prevDraft));
 
       // ── Turn change detection ────────────────────────────────────────
       const newIndex = state.current_player_index;
@@ -392,6 +544,21 @@ export default function GamePage() {
       // ── Phase change notification (own turn only, mid-turn) ──────────
       const isMyTurn = state.players[newIndex]?.player_id === myId;
       const prevPhase = prevPhaseRef.current;
+
+      if (
+        !draftSummaryShownRef.current &&
+        prevPhase === 'territory_select' &&
+        state.phase === 'draft' &&
+        state.turn_number === 1
+      ) {
+        if (mapDataRef.current) {
+          pushModal(buildDraftSummaryModal(state, mapDataRef.current));
+          draftSummaryShownRef.current = true;
+        } else {
+          pendingDraftSummaryRef.current = state;
+        }
+      }
+
       if (!playerChanged && prevPhase && prevPhase !== state.phase && isMyTurn) {
         const labels: Record<string, string> = {
           attack: 'ATTACK PHASE',
@@ -419,12 +586,16 @@ export default function GamePage() {
       // Auto-advance tutorial steps on phase changes and draft completion
       if (state.settings?.tutorial) {
         const myId = userRef.current?.user_id;
+        const myName = userRef.current?.username;
+        const me = state.players.find(
+          (p) => p.player_id === myId || (!!myName && p.username === myName),
+        );
         const isMyDraftTurn =
           state.phase === 'draft' &&
-          !!myId &&
-          state.players[state.current_player_index]?.player_id === myId;
+          !!me &&
+          state.players[state.current_player_index]?.player_id === me.player_id;
         const draftLeft = isMyDraftTurn
-          ? computeDraftPool(state, myId, state.draft_units_remaining ?? 0)
+          ? computeDraftPool(state, myId, myName, state.draft_units_remaining ?? 0)
           : -1;
 
         setTutorialStep((cur) => {
@@ -435,11 +606,11 @@ export default function GamePage() {
             step.requireAction === 'my_turn' &&
             playerChanged &&
             prevIndex !== null &&
-            myId
+            me
           ) {
             const prevPid = state.players[prevIndex]?.player_id;
             const nowPid = state.players[newIndex]?.player_id;
-            if (prevPid !== myId && nowPid === myId) {
+            if (prevPid !== me.player_id && nowPid === me.player_id) {
               return cur + 1;
             }
           }
@@ -759,9 +930,10 @@ export default function GamePage() {
   useEffect(() => {
     const gs = useGameStore.getState().gameState;
     const uid = user?.user_id;
-    if (!gs || !uid) return;
+    const uname = user?.username;
+    if (!gs || (!uid && !uname)) return;
     const prev = useGameStore.getState().draftUnitsRemaining;
-    setDraftUnitsRemaining(computeDraftPool(gs, uid, prev));
+    setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, prev));
   }, [user?.user_id, gameState?.draft_units_remaining, gameState?.phase, gameState?.current_player_index, gameState?.turn_number]);
 
   // Tutorial: keep server phase aligned with the current card (draft→attack, attack→fortify)
@@ -777,7 +949,7 @@ export default function GamePage() {
     const sid = TUTORIAL_STEPS[tutorialStep]?.id;
     if (!sid) return;
 
-    const draftLeft = computeDraftPool(gameState, myId, draftUnitsRemaining);
+    const draftLeft = computeDraftPool(gameState, myId, user?.username, draftUnitsRemaining);
     const socket = getSocket();
 
     if ((sid === 'attack_explain' || sid === 'attack_do') && gameState.phase === 'draft' && draftLeft === 0) {
@@ -919,8 +1091,22 @@ export default function GamePage() {
   const handleTerritoryClick = useCallback((territoryId: string) => {
     if (!gameState) return;
     const socket = getSocket();
-    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === user?.user_id;
+    const currentTurnPlayer = gameState.players[gameState.current_player_index];
+    const isMyTurn =
+      currentTurnPlayer?.player_id === user?.user_id ||
+      (!!user?.username && currentTurnPlayer?.username === user.username);
     const tState = gameState.territories[territoryId];
+
+    // Territory draft: attempt claim directly on click. Server remains authoritative
+    // and will reject if it's not actually this player's turn.
+    if (gameState.phase === 'territory_select') {
+      const isUnowned = tState && (tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral');
+      if (isUnowned) {
+        socket.emit('game:select_territory', { gameId, territoryId });
+        setSelectedTerritory(null);
+        return;
+      }
+    }
 
     if (!isMyTurn) {
       setSelectedTerritory(territoryId);
@@ -965,6 +1151,11 @@ export default function GamePage() {
     setSelectedTerritory(territoryId);
   }, [gameState, attackSource, user, gameId, showNotification, setFortifyUnits, setNavalSource]);
 
+  const handleClaimTerritory = (territoryId: string) => {
+    getSocket().emit('game:select_territory', { gameId, territoryId });
+    setSelectedTerritory(null);
+  };
+
   const handleAdvancePhase = () => {
     getSocket().emit('game:advance_phase', { gameId });
     setSelectedTerritory(null);
@@ -985,7 +1176,8 @@ export default function GamePage() {
     getSocket().emit('game:draft', { gameId, territoryId, units });
     const gs = useGameStore.getState().gameState;
     const uid = useAuthStore.getState().user?.user_id;
-    const curr = computeDraftPool(gs, uid, useGameStore.getState().draftUnitsRemaining);
+    const uname = useAuthStore.getState().user?.username;
+    const curr = computeDraftPool(gs, uid, uname, useGameStore.getState().draftUnitsRemaining);
     const remaining = Math.max(0, curr - units);
     setDraftUnitsRemaining(remaining);
     setSelectedTerritory(null);
@@ -1167,6 +1359,31 @@ export default function GamePage() {
       handleStartGame();
     }
   }, [isHost, lobbySnapshot, gameStarted]);
+
+  // Hoisted for use in mobile bottom bar, cards tray, and combat banner
+  const mobileMyPlayer = gameState?.players.find((p) => p.player_id === user?.user_id);
+  const mobileIsMyTurn = gameState?.players[gameState.current_player_index]?.player_id === user?.user_id;
+
+  // Auto-open cards tray when forced redemption (5+ cards)
+  useEffect(() => {
+    if (
+      isMobileViewport() &&
+      mobileMyPlayer &&
+      mobileMyPlayer.cards.length >= 5 &&
+      mobileIsMyTurn &&
+      gameState?.phase === 'draft'
+    ) {
+      setMobileCardsTrayOpen(true);
+    }
+  }, [mobileMyPlayer?.cards.length, mobileIsMyTurn, gameState?.phase]);
+
+  // Auto-close mobile overlays when territory is selected (TerritoryPanel opens)
+  useEffect(() => {
+    if (selectedTerritory) {
+      setMobileCardsTrayOpen(false);
+      setMobileHudOpen(false);
+    }
+  }, [selectedTerritory]);
 
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
@@ -1381,6 +1598,21 @@ export default function GamePage() {
           >
             2D Map
           </button>
+          {mapView === 'globe' && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !globeSpinEnabled;
+                setGlobeSpinEnabled(next);
+                persistGlobeSpinPreference(next);
+              }}
+              className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded flex items-center gap-1 ${globeSpinEnabled ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+              aria-label="Toggle globe spin"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Spin</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1416,6 +1648,7 @@ export default function GamePage() {
                 events={globeEvents}
                 onEventDone={handleGlobeEventDone}
                 reducedEffects={reducedGlobe}
+                autoSpin={globeSpinEnabled}
                 highlightTerritoryId={tutorialHighlightId}
               />
             ) : (
@@ -1450,6 +1683,7 @@ export default function GamePage() {
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
               onAtomBomb={gameState?.players.find(p => p.player_id === user?.user_id)?.unlocked_techs?.includes('ww2_atom_bomb') ? handleAtomBomb : undefined}
+              onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
               onClose={() => {
                 setSelectedTerritory(null);
                 setAttackSource(null);
@@ -1479,10 +1713,16 @@ export default function GamePage() {
       {/* ── Mobile Bottom Bar ──────────────────────────────────────────────── */}
       {gameState && (() => {
         const cp = gameState.players[gameState.current_player_index];
-        const myTurn = cp?.player_id === user?.user_id;
+        const me = gameState.players.find(
+          (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+        );
+        const myTurn = !!cp && !!me && cp.player_id === me.player_id;
         const phaseLabel: Record<string, string> = {
-          draft: 'Reinforcement', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
+          territory_select: 'Territory Draft', draft: 'Reinforcement', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
         };
+        const mobileDraftPool = myTurn && gameState.phase === 'draft'
+          ? computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining)
+          : 0;
         return (
           <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-cc-surface border-t border-cc-border pb-safe min-h-[56px]">
             {/* Player + phase info */}
@@ -1493,14 +1733,31 @@ export default function GamePage() {
               <div className="min-w-0">
                 <div className="text-xs font-display text-cc-gold truncate">
                   {phaseLabel[gameState.phase] ?? gameState.phase}
+                  {mobileDraftPool > 0 && (
+                    <span className="ml-1.5 text-cc-text font-mono font-normal">
+                      · {mobileDraftPool} units
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-cc-muted truncate">
                   {myTurn ? 'Your turn' : cp?.username ?? '—'}
+                  {gameState.settings.async_mode && (() => {
+                    const dSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
+                    const elapsed = (Date.now() - gameState.turn_started_at) / 1000;
+                    const rem = Math.max(0, dSec - elapsed);
+                    const h = Math.floor(rem / 3600);
+                    const m = Math.floor((rem % 3600) / 60);
+                    return (
+                      <span className="ml-1 text-cc-muted">
+                        · {h > 0 ? `${h}h ${m}m` : `${m}m`}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
             {/* End-phase button */}
-            {myTurn && gameState.phase !== 'game_over' && (
+            {myTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
               <button
                 onClick={handleAdvancePhase}
                 className="btn-primary text-xs px-3 py-2 min-h-[40px]"
@@ -1508,11 +1765,25 @@ export default function GamePage() {
                 {gameState.phase === 'draft' ? 'End Draft' : gameState.phase === 'attack' ? 'End Attack' : 'End Turn'}
               </button>
             )}
+            {/* Cards badge */}
+            {mobileMyPlayer && mobileMyPlayer.cards.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMobileCardsTrayOpen((o) => !o)}
+                className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
+                aria-label="Show cards"
+              >
+                <CreditCard className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-cc-gold text-cc-dark text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {mobileMyPlayer.cards.length}
+                </span>
+              </button>
+            )}
             {/* HUD drawer toggle */}
             <button
               type="button"
               onClick={() => setMobileHudOpen(true)}
-              className="w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
+              className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
               aria-label="Open game menu"
             >
               <Menu className="w-5 h-5" />
@@ -1520,6 +1791,25 @@ export default function GamePage() {
           </div>
         );
       })()}
+
+      {/* ── Mobile Cards Tray ─────────────────────────────────────────────── */}
+      {mobileCardsTrayOpen && mobileMyPlayer && mobileMyPlayer.cards.length > 0 && (
+        <div className="md:hidden">
+          <MobileCardsTray
+            cards={mobileMyPlayer.cards}
+            isMyTurn={!!mobileIsMyTurn}
+            isDraftPhase={gameState?.phase === 'draft'}
+            onRedeemCards={handleRedeemCards}
+            onClose={() => setMobileCardsTrayOpen(false)}
+          />
+        </div>
+      )}
+
+      {/* ── Mobile Combat Banner ──────────────────────────────────────────── */}
+      <MobileCombatBanner
+        lastCombatResult={lastCombatResult}
+        onOpenFullLog={() => setMobileHudOpen(true)}
+      />
 
       {/* ── Mobile HUD Drawer ─────────────────────────────────────────────── */}
       {mobileHudOpen && (
@@ -1545,12 +1835,12 @@ export default function GamePage() {
             </div>
             <GameHUD
               mobile
-              onAdvancePhase={handleAdvancePhase}
-              onRedeemCards={handleRedeemCards}
+              onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
+              onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
               onResign={handleResignRequest}
               onSaveAndLeave={handleSaveAndLeave}
-              onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
-              onOpenBonuses={handleOpenBonuses}
+              onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
+              onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
               lastCombatLog={combatLog}
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}

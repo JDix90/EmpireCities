@@ -66,9 +66,11 @@ export function initializeGameState(
     });
   }
 
-  // Distribute territories — geographic clustering when factions_enabled, otherwise random
+  // Distribute territories — skip when territory_selection enabled (players pick manually)
   const territoryIds = Object.keys(territories);
-  if (settingsNorm.factions_enabled) {
+  if (settingsNorm.territory_selection) {
+    // All territories stay neutral; players will pick during 'territory_select' phase
+  } else if (settingsNorm.factions_enabled) {
     distributeTerritoriesGeographic(territories, map, players, era, settingsNorm.initial_unit_count);
   } else {
     const shuffled = shuffleArray([...territoryIds]);
@@ -116,8 +118,9 @@ export function initializeGameState(
   }
 
   const firstPlayer = playerStates[0];
-  const continentBonus = calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
-  const initialDraft = calculateReinforcements(
+  const isTerritorySelect = !!settingsNorm.territory_selection;
+  const continentBonus = isTerritorySelect ? 0 : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
+  const initialDraft = isTerritorySelect ? 0 : calculateReinforcements(
     firstPlayer.territory_count,
     continentBonus,
     playerStates.length,
@@ -127,7 +130,7 @@ export function initializeGameState(
     game_id: gameId,
     era,
     map_id: map.map_id,
-    phase: 'draft',
+    phase: isTerritorySelect ? 'territory_select' : 'draft',
     current_player_index: 0,
     turn_number: 1,
     players: playerStates,
@@ -141,7 +144,7 @@ export function initializeGameState(
     win_probability_history: [],
     era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
     fortify_moves_used: 0,
-    influence_used_this_turn: false,
+    influence_cooldown_remaining: 0,
     blitzkrieg_attacked: false,
   };
 
@@ -207,7 +210,7 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
   }
   // Patch missing per-turn fields on GameState
   if (state.fortify_moves_used === undefined) state.fortify_moves_used = 0;
-  if (state.influence_used_this_turn === undefined) state.influence_used_this_turn = false;
+  if (state.influence_cooldown_remaining === undefined) state.influence_cooldown_remaining = 0;
   if (state.blitzkrieg_attacked === undefined) state.blitzkrieg_attacked = false;
   // Patch era_modifiers to ensure new eras have defaults applied
   if (!state.era_modifiers && state.era) {
@@ -430,7 +433,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
 
   // Reset per-turn ability flags
   state.fortify_moves_used = 0;
-  state.influence_used_this_turn = false;
+  if ((state.influence_cooldown_remaining ?? 0) > 0) state.influence_cooldown_remaining!--;
   state.blitzkrieg_attacked = false;
   // Reset per-player per-turn ability use counts
   for (const player of state.players) {

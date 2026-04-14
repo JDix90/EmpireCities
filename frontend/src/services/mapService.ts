@@ -160,10 +160,18 @@ export async function fetchEraMaps(): Promise<MapSummary[]> {
 
 /**
  * Fetch full map data including territories, connections, and regions.
+ * Falls back to static regional map files (in /public/maps/regional/) when the API 404s.
  */
 export async function fetchMapById(mapId: string): Promise<GameMap> {
-  const response = await api.get<{ map: GameMap }>(`/maps/${mapId}`);
-  return response.data.map;
+  try {
+    const response = await api.get<{ map: GameMap }>(`/maps/${mapId}`);
+    return response.data.map;
+  } catch {
+    // Fallback: try loading as a static regional map
+    const resp = await fetch(`/maps/regional/${mapId}.json`);
+    if (resp.ok) return resp.json();
+    throw new Error(`Map not found: ${mapId}`);
+  }
 }
 
 /**

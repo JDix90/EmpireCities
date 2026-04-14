@@ -2,7 +2,7 @@
  * Shared types/constants for frontend + backend. Extend incrementally to reduce drift.
  */
 
-export type GamePhase = 'draft' | 'attack' | 'fortify' | 'game_over';
+export type GamePhase = 'territory_select' | 'draft' | 'attack' | 'fortify' | 'game_over';
 
 export type ConnectionType = 'land' | 'sea';
 

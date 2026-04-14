@@ -74,7 +74,30 @@ export interface ResignModalData {
   type: 'resign_confirm';
 }
 
-export type ModalData = CombatModalData | TurnSummaryModalData | GameOverModalData | EliminationModalData | ResignModalData;
+export interface DraftRatingRow {
+  playerId: string;
+  playerName: string;
+  color: string;
+  score: number;
+  grade: string;
+  territories: number;
+  cohesionPct: number;
+  regionLeverage: number;
+}
+
+export interface DraftSummaryModalData {
+  type: 'draft_summary';
+  turnNumber: number;
+  ratings: DraftRatingRow[];
+}
+
+export type ModalData =
+  | CombatModalData
+  | TurnSummaryModalData
+  | GameOverModalData
+  | EliminationModalData
+  | ResignModalData
+  | DraftSummaryModalData;
 
 export interface NotificationData {
   type: 'reinforce' | 'fortify' | 'phase_change';
@@ -1070,6 +1093,59 @@ function ResignConfirmView({ onConfirm, onCancel }: { onConfirm: () => void; onC
   );
 }
 
+// ─── Territory Draft Summary View ─────────────────────────────────────────
+
+function DraftSummaryView({ data, onDismiss }: { data: DraftSummaryModalData; onDismiss: () => void }) {
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="text-center mb-5">
+        <Trophy className="w-12 h-12 mx-auto mb-3 text-amber-300" />
+        <h2 className="text-2xl font-bold font-display text-amber-200">Territory Draft Complete</h2>
+        <p className="text-white/65 text-sm mt-1">
+          The war begins on Turn {data.turnNumber}. Here is an objective draft grade snapshot.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-white/10 overflow-hidden mb-5">
+        <div className="grid grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-3 px-4 py-2.5 bg-white/5 text-[11px] uppercase tracking-wider text-white/55">
+          <span>Player</span>
+          <span className="text-right">Grade</span>
+          <span className="text-right">Score</span>
+          <span className="text-right">Cohesion</span>
+          <span className="text-right">Leverage</span>
+        </div>
+        <div className="divide-y divide-white/10">
+          {data.ratings.map((r, idx) => (
+            <div key={r.playerId} className="grid grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-3 px-4 py-3 text-sm items-center">
+              <div className="min-w-0 flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                <span className="truncate text-white font-medium">{idx + 1}. {r.playerName}</span>
+                <span className="text-white/45 text-xs">{r.territories}T</span>
+              </div>
+              <div className="text-right font-display text-amber-200">{r.grade}</div>
+              <div className="text-right font-mono text-white/85">{Math.round(r.score)}</div>
+              <div className="text-right font-mono text-white/75">{Math.round(r.cohesionPct)}%</div>
+              <div className="text-right font-mono text-white/75">{r.regionLeverage.toFixed(1)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-xs text-white/45 mb-5 text-center">
+        Score weighs region leverage, territorial cohesion, and board position quality.
+      </p>
+
+      <button
+        onClick={onDismiss}
+        className="w-full py-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30
+                   text-amber-200 font-medium transition-all"
+      >
+        Begin War
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Modal Overlay ────────────────────────────────────────────────────
 
 interface ActionModalProps {
@@ -1141,6 +1217,7 @@ export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeat
         {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} />}
         {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
+        {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}
       </div>
     </div>
   );

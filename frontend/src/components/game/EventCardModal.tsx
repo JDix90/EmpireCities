@@ -79,9 +79,9 @@ export default function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: 
   const hasChoices = card.choices && card.choices.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4 pt-safe pb-safe">
       <div className={clsx(
-        'border rounded-xl shadow-2xl w-full max-w-md flex flex-col',
+        'border rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] overflow-y-auto',
         style.bg, style.border,
       )}>
         {/* Header */}

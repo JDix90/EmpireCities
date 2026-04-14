@@ -26,6 +26,22 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const eventsEnabled = typeof raw.events_enabled === 'boolean' ? raw.events_enabled : false;
   const navalEnabled = typeof raw.naval_enabled === 'boolean' ? raw.naval_enabled : false;
   const stabilityEnabled = typeof raw.stability_enabled === 'boolean' ? raw.stability_enabled : false;
+  const territorySelection = typeof raw.territory_selection === 'boolean' ? raw.territory_selection : false;
+
+  // Async mode: auto-detect from long turn timers (≥12 hours)
+  const VALID_ASYNC_DEADLINES = [43200, 86400, 259200]; // 12h, 24h, 72h
+  const explicitAsync = typeof raw.async_mode === 'boolean' ? raw.async_mode : false;
+  const asyncMode = explicitAsync || turnTimer >= 43200;
+  let asyncDeadlineSeconds: number | undefined;
+  if (asyncMode) {
+    if (typeof raw.async_turn_deadline_seconds === 'number' && VALID_ASYNC_DEADLINES.includes(raw.async_turn_deadline_seconds)) {
+      asyncDeadlineSeconds = raw.async_turn_deadline_seconds;
+    } else if (VALID_ASYNC_DEADLINES.includes(turnTimer)) {
+      asyncDeadlineSeconds = turnTimer;
+    } else {
+      asyncDeadlineSeconds = 86400; // default 24h
+    }
+  }
 
   let allowed: VictoryType[];
   const fromArr = raw.allowed_victory_conditions;
@@ -55,13 +71,15 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     diplomacy_enabled: dip,
     tutorial: typeof raw.tutorial === 'boolean' ? raw.tutorial : undefined,
     tutorial_step: typeof raw.tutorial_step === 'number' ? raw.tutorial_step : undefined,
-    async_mode: typeof raw.async_mode === 'boolean' ? raw.async_mode : undefined,
+    async_mode: asyncMode || undefined,
+    async_turn_deadline_seconds: asyncDeadlineSeconds,
     factions_enabled: factionsEnabled || undefined,
     economy_enabled: economyEnabled || undefined,
     tech_trees_enabled: techTreesEnabled || undefined,
     events_enabled: eventsEnabled || undefined,
     naval_enabled: navalEnabled || undefined,
     stability_enabled: stabilityEnabled || undefined,
+    territory_selection: territorySelection || undefined,
   };
 }
 

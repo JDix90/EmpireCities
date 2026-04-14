@@ -105,6 +105,9 @@ const MAP_FILES = [
 const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
   { file: 'community_14_nations.json', creator_id: 'jmd' },
   { file: 'community_strait_hormuz.json', creator_id: 'jmd' },
+  { file: 'community_britain_925.json', creator_id: 'system' },
+  { file: 'community_horn_africa.json', creator_id: 'system' },
+  { file: 'community_australia_1337.json', creator_id: 'system' },
 ];
 
 const MAPS_DIR = path.resolve(__dirname, 'maps');

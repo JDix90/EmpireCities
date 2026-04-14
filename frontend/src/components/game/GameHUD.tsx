@@ -23,6 +23,7 @@ interface GameHUDProps {
 }
 
 const PHASE_LABELS: Record<string, string> = {
+  territory_select: 'Territory Draft',
   draft:     'Reinforcement',
   attack:    'Attack',
   fortify:   'Fortify',
@@ -30,6 +31,7 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
+  territory_select: <Flag className="w-4 h-4" />,
   draft:   <Shield className="w-4 h-4" />,
   attack:  <Sword className="w-4 h-4" />,
   fortify: <ArrowRight className="w-4 h-4" />,
@@ -67,10 +69,12 @@ export default function GameHUD({
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  const isMyTurn = gameState?.players[gameState.current_player_index]?.player_id === user?.user_id;
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
-  const myPlayer = gameState?.players.find((p) => p.player_id === user?.user_id);
-  const draftPool = computeDraftPool(gameState, user?.user_id, draftUnitsRemaining);
+  const myPlayer = gameState?.players.find(
+    (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+  );
+  const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
+  const draftPool = computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining);
 
   // Turn timer countdown
   useEffect(() => {
@@ -125,7 +129,7 @@ export default function GameHUD({
         <p className="text-xs text-cc-muted">
           Turn {gameState.turn_number} · {isMyTurn ? 'Your turn' : `${currentPlayer?.username}'s turn`}
         </p>
-        {timeLeft !== null && (
+        {timeLeft !== null && !gameState.settings.async_mode && (
           <div className={clsx(
             'flex items-center gap-1 mt-2 text-sm font-mono',
             timeLeft < 30 ? 'text-red-400' : 'text-cc-muted'
@@ -134,11 +138,35 @@ export default function GameHUD({
             {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
           </div>
         )}
+        {gameState.settings.async_mode && (() => {
+          const deadlineSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
+          const elapsed = (Date.now() - gameState.turn_started_at) / 1000;
+          const remaining = Math.max(0, deadlineSec - elapsed);
+          const hours = Math.floor(remaining / 3600);
+          const mins = Math.floor((remaining % 3600) / 60);
+          const ratio = remaining / deadlineSec;
+          const color = ratio > 0.5 ? 'text-green-400' : ratio > 0.25 ? 'text-yellow-400' : 'text-red-400';
+          return (
+            <div className={clsx('flex items-center gap-1 mt-2 text-sm font-mono', color)}>
+              <Clock className="w-3.5 h-3.5" />
+              {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} remaining
+              {!isMyTurn && <span className="text-cc-muted ml-1">· Waiting for {currentPlayer?.username}</span>}
+            </div>
+          );
+        })()}
         {gameState.phase === 'draft' && isMyTurn && (
           <p className="text-cc-gold text-sm mt-2 font-medium">
             {draftPool} units to place
           </p>
         )}
+        {gameState.phase === 'territory_select' && (() => {
+          const unclaimed = Object.values(gameState.territories).filter((t) => t.owner_id === null).length;
+          return (
+            <p className="text-cc-gold text-sm mt-2 font-medium">
+              {unclaimed} territories remaining · {isMyTurn ? 'Pick a territory' : 'Waiting...'}
+            </p>
+          );
+        })()}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
         {activeInteractionLabel && (
@@ -337,7 +365,7 @@ export default function GameHUD({
       </div>{/* end scrollable body */}
 
       {/* Phase Advance Button */}
-      {isMyTurn && gameState.phase !== 'game_over' && (
+      {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
         <div className="p-4 border-t border-cc-border">
           <button onClick={onAdvancePhase} className="btn-primary w-full">
             {gameState.phase === 'draft' && 'Begin Attack Phase →'}

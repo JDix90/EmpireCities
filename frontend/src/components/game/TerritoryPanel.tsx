@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, X, Anchor } from 'lucide-react';
+import { Shield, Sword, X, Anchor, Flag } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import BuildingPanel from './BuildingPanel';
@@ -39,7 +39,8 @@ export default function TerritoryPanel({
   onProposeTruce,
   onAtomBomb,
   onClose,
-}: TerritoryPanelProps) {
+  onClaimTerritory,
+}: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
   const { gameState, draftUnitsRemaining } = useGameStore();
   const { selectedTerritory, attackSource, setAttackSource, setFortifyUnits, navalSource, setNavalSource } = useUiStore();
   const { user } = useAuthStore();
@@ -48,7 +49,7 @@ export default function TerritoryPanel({
   const [navalMoveCount, setNavalMoveCount] = React.useState(1);
 
   const draftPool = gameState
-    ? computeDraftPool(gameState, user?.user_id, draftUnitsRemaining)
+    ? computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining)
     : 0;
   React.useEffect(() => {
     setDraftAmount((a) => (draftPool <= 0 ? 1 : Math.min(draftPool, Math.max(1, a))));
@@ -61,16 +62,21 @@ export default function TerritoryPanel({
   if (!tState || !mapTerritory) return null;
 
   const owner = gameState.players.find((p) => p.player_id === tState.owner_id);
-  const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === user?.user_id;
-  const isMine = tState.owner_id === user?.user_id;
-  const isEnemy = tState.owner_id && tState.owner_id !== user?.user_id;
+  const myPlayer = gameState.players.find(
+    (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+  );
+  const myPlayerId = myPlayer?.player_id;
+  const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myPlayerId;
+  const isUnowned = tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral';
+  const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
+  const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
   const isMobile = isMobileViewport();
 
   return (
     <div className={clsx(
       'bg-cc-surface animate-fade-in',
       isMobile
-        ? 'fixed bottom-16 inset-x-0 max-h-[60vh] overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
+        ? 'fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
         : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only */}
@@ -137,6 +143,18 @@ export default function TerritoryPanel({
       )}
 
       {/* Actions */}
+      {/* Territory Selection Claim */}
+      {gameState.phase === 'territory_select' && isUnowned && onClaimTerritory && (
+        <div className="p-3 border-t border-cc-border">
+          <button
+            className="btn-primary w-full text-sm flex items-center justify-center gap-2"
+            onClick={() => onClaimTerritory(selectedTerritory)}
+          >
+            <Flag className="w-4 h-4" /> Claim Territory
+          </button>
+        </div>
+      )}
+
       {isMyTurn && (
         <div className="space-y-4">
           {/* Draft (always at top if available) */}
@@ -198,7 +216,7 @@ export default function TerritoryPanel({
               )}
               {/* Atom Bomb (WW2 era — once per game) */}
               {isEnemy && !attackSource && onAtomBomb && gameState.phase === 'attack' && isMyTurn && (() => {
-                const myPlayer = gameState.players.find((p) => p.player_id === user?.user_id);
+                const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
                 const alreadyUsed = myPlayer?.used_game_abilities?.includes('atom_bomb');
                 return (
                   <button
@@ -229,21 +247,47 @@ export default function TerritoryPanel({
               <div className="mt-2 bg-cc-dark/30 border border-cc-border/50 rounded-lg p-2.5">
                 <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
                 {/* Influence Spread / Carbonari Network */}
-                {isEnemy && !attackSource && onInfluence &&
-                 (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) &&
-                 !(gameState as any).influence_used_this_turn && (
-                  <button
-                    className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
-                               border border-purple-600/50 bg-purple-900/30 text-purple-200
-                               hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
-                    onClick={() => { onInfluence(selectedTerritory); onClose(); }}
-                  >
-                    📡 Seize via Influence <span className="text-purple-400 text-xs">(costs 3 units)</span>
-                  </button>
-                )}
+                {(isEnemy || isUnowned) && !attackSource && onInfluence &&
+                 (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) && (() => {
+                  const cooldown = (gameState as any).influence_cooldown_remaining ?? 0;
+                  const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
+                  const garibaldiUsed = (myPlayer?.ability_uses?.['riso_garibaldi'] ?? 0) >= 1;
+                  const isGaribaldiTarget =
+                    !!gameState.era_modifiers?.carbonari_network &&
+                    myPlayer?.unlocked_techs?.includes('riso_garibaldi') &&
+                    isUnowned &&
+                    !garibaldiUsed;
+                  if (cooldown > 0 && !isGaribaldiTarget) {
+                    return (
+                      <p className="text-xs text-purple-400/50 text-center py-1">
+                        📡 Influence on cooldown ({cooldown} turn{cooldown > 1 ? 's' : ''})
+                      </p>
+                    );
+                  }
+                  if (!isGaribaldiTarget && tState.unit_count > 3) {
+                    return (
+                      <p className="text-xs text-purple-400/50 text-center py-1">
+                        📡 Territory too well-defended (max 3 units)
+                      </p>
+                    );
+                  }
+                  return (
+                    <button
+                      className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                 border border-purple-600/50 bg-purple-900/30 text-purple-200
+                                 hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
+                      onClick={() => { onInfluence(selectedTerritory); onClose(); }}
+                    >
+                      📡 Seize via Influence{' '}
+                      <span className="text-purple-400 text-xs">
+                        {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
+                      </span>
+                    </button>
+                  );
+                })()}
                 {/* Propose Truce */}
                 {isEnemy && !attackSource && onProposeTruce && gameState.settings.diplomacy_enabled && tState.owner_id && (() => {
-                  const myPlayer = gameState.players.find((p) => p.player_id === user?.user_id);
+                  const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
                   const truceEntry = myPlayer && owner ? gameState.diplomacy?.find(
                     (e) =>
                       (e.player_index_a === myPlayer.player_index && e.player_index_b === owner.player_index) ||
@@ -416,7 +460,7 @@ export default function TerritoryPanel({
           <BuildingPanel
             territoryId={selectedTerritory}
             buildings={tState.buildings ?? []}
-            playerResources={gameState.players.find((p) => p.player_id === user?.user_id)?.special_resource ?? 0}
+            playerResources={gameState.players.find((p) => p.player_id === myPlayerId)?.special_resource ?? 0}
             isMine={isMine}
             isMyTurn={isMyTurn}
             phase={gameState.phase}

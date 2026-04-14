@@ -112,10 +112,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const games = await query<{
       game_id: string; era_id: string; game_type: string; created_at: Date;
       started_at: Date | null; turn_number: number | null; saved_at: Date | null;
+      async_mode: boolean; async_turn_deadline: Date | null;
+      current_player_id: string | null;
     }>(
       `SELECT g.game_id, g.era_id, g.game_type, g.created_at, g.started_at,
               (gs.state_json::jsonb->>'turn_number')::int AS turn_number,
-              gs.saved_at
+              gs.saved_at,
+              g.async_mode,
+              g.async_turn_deadline,
+              (gs.state_json::jsonb->'players'->((gs.state_json::jsonb->>'current_player_index')::int)->>'player_id') AS current_player_id
        FROM games g
        JOIN game_players gp ON gp.game_id = g.game_id
        LEFT JOIN LATERAL (
@@ -529,4 +534,90 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     if (!user) return reply.status(404).send({ error: 'User not found' });
     return reply.send(user);
   });
+
+  // ── GET /api/users/me/preferences ──────────────────────────────────────
+  fastify.get('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    // UPSERT default row if missing
+    const prefs = await queryOne<{ push_enabled: boolean; email_notifications: boolean }>(
+      `INSERT INTO user_preferences (user_id) VALUES ($1)
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING push_enabled, email_notifications`,
+      [request.userId],
+    );
+    if (prefs) return reply.send(prefs);
+
+    // Row already existed — fetch it
+    const existing = await queryOne<{ push_enabled: boolean; email_notifications: boolean }>(
+      'SELECT push_enabled, email_notifications FROM user_preferences WHERE user_id = $1',
+      [request.userId],
+    );
+    return reply.send(existing ?? { push_enabled: true, email_notifications: false });
+  });
+
+  // ── PUT /api/users/me/preferences ──────────────────────────────────────
+  const UpdatePreferencesSchema = z.object({
+    push_enabled: z.boolean().optional(),
+    email_notifications: z.boolean().optional(),
+  });
+
+  fastify.put('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const body = UpdatePreferencesSchema.parse(request.body);
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let idx = 2; // $1 = user_id
+
+    if (body.push_enabled !== undefined) {
+      updates.push(`push_enabled = $${idx++}`);
+      values.push(body.push_enabled);
+    }
+    if (body.email_notifications !== undefined) {
+      updates.push(`email_notifications = $${idx++}`);
+      values.push(body.email_notifications);
+    }
+
+    if (updates.length === 0) {
+      return reply.send({ ok: true });
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    await query(
+      `INSERT INTO user_preferences (user_id, ${body.push_enabled !== undefined ? 'push_enabled,' : ''} ${body.email_notifications !== undefined ? 'email_notifications,' : ''} updated_at)
+       VALUES ($1, ${values.map((_, i) => `$${i + 2}`).join(', ')}, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET ${updates.join(', ')}`,
+      [request.userId, ...values],
+    );
+
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/users/me/push-tokens ─────────────────────────────────────
+  const RegisterPushTokenSchema = z.object({
+    token: z.string().min(1).max(512),
+    platform: z.enum(['web', 'ios', 'android']).default('web'),
+  });
+
+  fastify.post('/me/push-tokens', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const body = RegisterPushTokenSchema.parse(request.body);
+    await query(
+      `INSERT INTO push_tokens (user_id, token, platform)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, token) DO UPDATE SET platform = $3, created_at = NOW()`,
+      [request.userId, body.token, body.platform],
+    );
+    return reply.send({ ok: true });
+  });
+
+  // ── DELETE /api/users/me/push-tokens/:tokenId ──────────────────────────
+  fastify.delete<{ Params: { tokenId: string } }>(
+    '/me/push-tokens/:tokenId',
+    { preHandler: [authenticate, rejectGuest] },
+    async (request, reply) => {
+      await query(
+        'DELETE FROM push_tokens WHERE token_id = $1 AND user_id = $2',
+        [request.params.tokenId, request.userId],
+      );
+      return reply.send({ ok: true });
+    },
+  );
 }

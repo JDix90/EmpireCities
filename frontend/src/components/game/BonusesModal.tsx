@@ -169,7 +169,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-auto pt-6 px-4 pb-8"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-auto pt-6 px-4 pb-8 pt-safe pb-safe"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-cc-surface border border-cc-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col">

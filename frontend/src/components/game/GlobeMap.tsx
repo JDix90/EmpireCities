@@ -123,6 +123,8 @@ interface GlobeMapProps {
   onEventDone?: (eventId: string) => void;
   /** Lighter motion (mobile / accessibility): no idle globe spin resume after animations */
   reducedEffects?: boolean;
+  /** User-controlled globe spin toggle. When false, globe does not auto-rotate. */
+  autoSpin?: boolean;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
 }
@@ -133,6 +135,7 @@ interface HtmlDatum {
   lng: number;
   alt: number;
   html: string;
+  onClickTerritoryId?: string;
 }
 
 interface ArcDatum {
@@ -261,6 +264,7 @@ export default function GlobeMap({
   events = [],
   onEventDone,
   reducedEffects = false,
+  autoSpin = true,
   highlightTerritoryId,
 }: GlobeMapProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -384,6 +388,14 @@ export default function GlobeMap({
     [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo],
   );
 
+  const renderedPolygonsData = useMemo(
+    () => polygonsData.filter((p) => {
+      const territory = mapData.territories.find((t) => t.territory_id === p.territory_id);
+      return territory?.region_id !== 'sea_routes';
+    }),
+    [polygonsData, mapData.territories],
+  );
+
   // ── Territory center lookup ────────────────────────────────────────────
 
   const territoryCenters = useMemo(() => {
@@ -454,16 +466,16 @@ export default function GlobeMap({
   }, []);
 
   const scheduleAutoRotateResume = useCallback(() => {
-    if (reducedEffects || regionalGlobeRef.current.lockRotation) return;
+    if (reducedEffects || regionalGlobeRef.current.lockRotation || !autoSpin) return;
     clearTimeout(autoRotateTimerRef.current);
     autoRotateTimerRef.current = setTimeout(() => {
       const ctrl = globeRef.current?.controls?.();
-      if (ctrl && !regionalGlobeRef.current.lockRotation) {
+      if (ctrl && !regionalGlobeRef.current.lockRotation && autoSpin) {
         ctrl.autoRotate = true;
         ctrl.autoRotateSpeed = 0.4;
       }
     }, 2500);
-  }, [reducedEffects]);
+  }, [reducedEffects, autoSpin]);
 
   // Regional maps: fixed camera, no idle spin; world maps: rotate when not in combat anim
   useEffect(() => {
@@ -472,7 +484,7 @@ export default function GlobeMap({
     const ctrl = globe.controls?.();
     if (!ctrl) return;
 
-    const lock = regionalGlobe.lockRotation || reducedEffects;
+    const lock = regionalGlobe.lockRotation || reducedEffects || !autoSpin;
     ctrl.autoRotate = !lock;
     ctrl.autoRotateSpeed = lock ? 0 : 0.4;
 
@@ -484,7 +496,7 @@ export default function GlobeMap({
       },
       0,
     );
-  }, [regionalGlobe, reducedEffects, globeReadyTick]);
+  }, [regionalGlobe, reducedEffects, autoSpin, globeReadyTick]);
 
   /**
    * three-conic-polygon-geometry uses this as max segment length (degrees) before interpolating ring
@@ -961,11 +973,6 @@ export default function GlobeMap({
     return out;
   }, [gameState, territoryCentroids]);
 
-  const combinedHtmlOverlays = useMemo(
-    () => [...capitalHtmlOverlays, ...buildingHtmlOverlays, ...overlays],
-    [capitalHtmlOverlays, buildingHtmlOverlays, overlays],
-  );
-
   const adjacencyArcs = useMemo(() => {
     if (!gameState) return [];
     const phase = gameState.phase;
@@ -1038,21 +1045,22 @@ export default function GlobeMap({
 
   const seaLaneArcs = useMemo((): ArcDatum[] => {
     if (seaRouteTerritoryIds.size === 0) return [];
+
     const result: ArcDatum[] = [];
 
     for (const seaId of seaRouteTerritoryIds) {
       const seaCenter = territoryCentroids.get(seaId);
       if (!seaCenter) continue;
 
-      // Color by current owner, else default ocean teal
-      let c0 = 'rgba(46, 125, 158, 0.55)';
-      let c1 = 'rgba(46, 125, 158, 0.18)';
+      // Color by current owner, else default ocean teal.
+      let c0 = 'rgba(94, 234, 212, 0.42)';
+      let c1 = 'rgba(94, 234, 212, 0.1)';
       if (gameState) {
         const ownerId = gameState.territories[seaId]?.owner_id;
         const owner = ownerId ? gameState.players.find((p) => p.player_id === ownerId) : null;
         if (owner?.color) {
-          c0 = hexToRgba(owner.color, 0.55);
-          c1 = hexToRgba(owner.color, 0.18);
+          c0 = hexToRgba(owner.color, 0.4);
+          c1 = hexToRgba(owner.color, 0.1);
         }
       }
 
@@ -1070,16 +1078,57 @@ export default function GlobeMap({
           endLat: neighborCenter.lat,
           endLng: neighborCenter.lng,
           color: [c0, c1],
-          stroke: 1.0,
-          dashLen: 0.35,
-          dashGap: 0.25,
-          animateTime: 6000,
-          altitude: 0.1,
+          stroke: 0.8,
+          dashLen: 0.22,
+          dashGap: 0.14,
+          animateTime: 7000,
+          altitude: 0.06,
         });
       }
     }
     return result;
   }, [seaRouteTerritoryIds, territoryCentroids, mapData.connections, gameState]);
+
+  const seaRouteHtmlOverlays = useMemo((): HtmlDatum[] => {
+    if (seaRouteTerritoryIds.size === 0) return [];
+
+    const out: HtmlDatum[] = [];
+    for (const territory of mapData.territories) {
+      if (territory.region_id !== 'sea_routes') continue;
+      const center = territoryCentroids.get(territory.territory_id);
+      if (!center) continue;
+
+      const ownerId = gameState?.territories[territory.territory_id]?.owner_id;
+      const owner = ownerId ? gameState?.players.find((p) => p.player_id === ownerId) : null;
+      const selected = territory.territory_id === selectedTerritory || territory.territory_id === attackSource;
+      const color = owner?.color ?? '#5eead4';
+      const size = selected ? 16 : 12;
+      const glow = selected ? 18 : 10;
+
+      out.push({
+        id: `sea-route-marker-${territory.territory_id}`,
+        lat: center.lat,
+        lng: center.lng,
+        alt: 0.028,
+        onClickTerritoryId: territory.territory_id,
+        html: `<div title="${territory.name}" style="
+          width:${size}px;
+          height:${size}px;
+          border-radius:999px;
+          border:2px solid rgba(255,255,255,0.92);
+          background:${hexToRgba(color, 0.95)};
+          box-shadow:0 0 ${glow}px ${hexToRgba(color, 0.7)}, 0 0 3px rgba(255,255,255,0.95);
+          cursor:pointer;
+        "></div>`,
+      });
+    }
+    return out;
+  }, [seaRouteTerritoryIds, mapData.territories, territoryCentroids, gameState, selectedTerritory, attackSource]);
+
+  const combinedHtmlOverlays = useMemo(
+    () => [...seaRouteHtmlOverlays, ...capitalHtmlOverlays, ...buildingHtmlOverlays, ...overlays],
+    [seaRouteHtmlOverlays, capitalHtmlOverlays, buildingHtmlOverlays, overlays],
+  );
 
   const combinedArcs = useMemo(
     () => [...seaLaneArcs, ...arcs, ...adjacencyArcs],
@@ -1137,10 +1186,19 @@ export default function GlobeMap({
       const datum = d as HtmlDatum;
       const el = document.createElement('div');
       el.innerHTML = datum.html;
-      el.style.pointerEvents = 'none';
+      if (datum.onClickTerritoryId) {
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'pointer';
+        el.onclick = (event) => {
+          event.stopPropagation();
+          onTerritoryClick(datum.onClickTerritoryId!);
+        };
+      } else {
+        el.style.pointerEvents = 'none';
+      }
       return el;
     },
-  }), []);
+  }), [onTerritoryClick]);
 
   const arcAccessors = useMemo(() => ({
     startLat: (d: object) => (d as ArcDatum).startLat,
@@ -1216,7 +1274,7 @@ export default function GlobeMap({
         atmosphereAltitude={0.15}
 
         /* Territories */
-        polygonsData={polygonsData}
+        polygonsData={renderedPolygonsData}
         polygonGeoJsonGeometry="geometry"
         polygonCapColor={getPolygonColor}
         polygonSideColor={getPolygonSideColor}

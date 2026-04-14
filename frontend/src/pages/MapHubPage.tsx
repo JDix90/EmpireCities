@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Star, Globe, Plus, Map, Users, Zap } from 'lucide-react';
+import { Star, Globe, Plus, Map, Users, Zap, Compass } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { fetchEraMaps, MapSummary, ERA_METADATA } from '../services/mapService';
+import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
+import { REGIONAL_MAPS, fetchRegionalMap, RegionalMapMeta } from '../data/regionalMaps';
 
 interface PublicMap {
   map_id: string;
@@ -31,6 +32,10 @@ export default function MapHubPage() {
   const [eraMaps, setEraMaps]       = useState<MapSummary[]>([]);
   const [eraLoading, setEraLoading] = useState(true);
   const [previewMap, setPreviewMap] = useState<string | null>(null);
+
+  // Regional maps (static, shipped with client)
+  const [regionalPreview, setRegionalPreview] = useState<string | null>(null);
+  const [regionalMapData, setRegionalMapData] = useState<Record<string, GameMap>>({});
 
   // Community maps
   const [maps, setMaps]       = useState<PublicMap[]>([]);
@@ -165,6 +170,91 @@ export default function MapHubPage() {
               })}
             </div>
           )}
+        </section>
+
+        {/* ── Regional Maps ─────────────────────────────────────────────── */}
+        <section className="mb-12">
+          <div className="flex items-center gap-2 mb-1">
+            <Compass className="w-5 h-5 text-cc-gold" />
+            <h2 className="font-display text-lg text-cc-gold">Regional Maps</h2>
+            <span className="text-cc-muted text-sm ml-1">— Curated theater &amp; alternate-history maps</span>
+          </div>
+          <p className="text-cc-muted text-xs mb-4 ml-7">
+            Hand-crafted regional maps focusing on specific theaters, time periods, and alternate histories.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {REGIONAL_MAPS.map((rm) => (
+              <div
+                key={rm.map_id}
+                className="card hover:border-cc-gold transition-all group cursor-pointer"
+                onClick={async () => {
+                  const opening = regionalPreview === rm.map_id ? null : rm.map_id;
+                  setRegionalPreview(opening);
+                  if (opening && !regionalMapData[opening]) {
+                    try {
+                      const data = await fetchRegionalMap(opening);
+                      setRegionalMapData((prev) => ({ ...prev, [opening]: data }));
+                    } catch { /* preview will show "unavailable" */ }
+                  }
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{rm.icon}</span>
+                    <div>
+                      <h3 className="font-display text-base text-cc-gold group-hover:text-white transition-colors">
+                        {rm.name}
+                      </h3>
+                      <span className="text-xs font-mono" style={{ color: rm.color }}>
+                        {rm.year}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge bg-cc-dark text-cc-muted border border-cc-border text-xs">
+                    Regional
+                  </span>
+                </div>
+
+                <p className="text-cc-muted text-xs mb-3 line-clamp-2">{rm.description}</p>
+
+                {/* Stats */}
+                <div className="flex items-center gap-3 text-xs text-cc-muted mb-3">
+                  <span className="flex items-center gap-1">
+                    <Map className="w-3 h-3" />
+                    {rm.territory_count} territories
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Globe className="w-3 h-3" />
+                    {rm.region_count} regions
+                  </span>
+                </div>
+
+                {/* Map Preview (expandable) */}
+                {regionalPreview === rm.map_id && (
+                  <div className="mb-3 rounded-lg overflow-hidden">
+                    <MapPreview
+                      mapId={rm.map_id}
+                      mapData={regionalMapData[rm.map_id] ?? null}
+                      width={320}
+                      height={180}
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/lobby?map=${rm.map_id}`);
+                  }}
+                  className="btn-primary w-full text-sm py-1.5"
+                >
+                  Play This Map
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* ── Community Maps ────────────────────────────────────────────── */}

@@ -78,6 +78,9 @@ interface ActiveGame {
   started_at: string | null;
   turn_number: number | null;
   saved_at: string | null;
+  async_mode?: boolean;
+  async_turn_deadline?: string | null;
+  current_player_id?: string | null;
 }
 
 const GAME_TYPE_LABELS: Record<string, string> = {
@@ -143,6 +146,7 @@ export default function LobbyPage() {
   const [eventsEnabled, setEventsEnabled] = useState(false);
   const [navalEnabled, setNavalEnabled] = useState(false);
   const [stabilityEnabled, setStabilityEnabled] = useState(false);
+  const [territorySelection, setTerritorySelection] = useState(false);
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   const joinFromUrlHandled = useRef(false);
 
@@ -309,6 +313,9 @@ export default function LobbyPage() {
         events_enabled: eventsEnabled || undefined,
         naval_enabled: navalEnabled || undefined,
         stability_enabled: stabilityEnabled || undefined,
+        territory_selection: territorySelection || undefined,
+        async_mode: turnTimer >= 43200 || undefined,
+        async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
       };
       if (allowed.includes('threshold')) {
         settings.victory_threshold = victoryThresholdPct;
@@ -676,28 +683,57 @@ export default function LobbyPage() {
                 </div>
                 <div className="flex-1">
                   <p className="text-cc-text text-sm font-medium">Searching for opponent...</p>
-                  <p className="text-cc-muted text-xs">{rankedBucket.replace('_', ' ')} &middot; {queueElapsed}s elapsed</p>
+                  <p className="text-cc-muted text-xs">
+                    {{ blitz_120: 'Blitz 2m', standard_300: 'Standard 5m', long_1200: 'Long 20m',
+                       async_43200: 'Async 12h', async_86400: 'Async 24h', async_259200: 'Async 3d',
+                    }[rankedBucket] ?? rankedBucket.replace('_', ' ')} &middot; {queueElapsed}s elapsed
+                  </p>
                 </div>
                 <button onClick={leaveRankedQueue} className="btn-secondary text-sm py-1.5 px-4">Cancel</button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {([
-                  { bucket: 'blitz_120',    label: 'Blitz',    desc: '2 min per turn', icon: Zap },
-                  { bucket: 'standard_300', label: 'Standard', desc: '5 min per turn', icon: Clock },
-                  { bucket: 'long_1200',    label: 'Long',     desc: '20 min per turn', icon: Timer },
-                ] as const).map(({ bucket, label, desc, icon: Icon }) => (
-                  <button
-                    key={bucket}
-                    onClick={() => joinRankedQueue(bucket)}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
-                               transition-colors text-left group"
-                  >
-                    <Icon className="w-5 h-5 text-cc-gold mb-2" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
-                    <p className="text-cc-muted text-xs mt-1">{desc}</p>
-                  </button>
-                ))}
+              <div>
+                <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Real-Time</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  {([
+                    { bucket: 'blitz_120',    label: 'Blitz',    desc: '2 min per turn', icon: Zap },
+                    { bucket: 'standard_300', label: 'Standard', desc: '5 min per turn', icon: Clock },
+                    { bucket: 'long_1200',    label: 'Long',     desc: '20 min per turn', icon: Timer },
+                  ] as const).map(({ bucket, label, desc, icon: Icon }) => (
+                    <button
+                      key={bucket}
+                      onClick={() => joinRankedQueue(bucket)}
+                      className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
+                                 transition-colors text-left group"
+                    >
+                      <Icon className="w-5 h-5 text-cc-gold mb-2" />
+                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
+                      <p className="text-cc-muted text-xs mt-1">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Async</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {([
+                    { bucket: 'async_43200',  label: '12 Hours', desc: '12h per turn', icon: Clock },
+                    { bucket: 'async_86400',  label: '24 Hours', desc: '1 day per turn', icon: Calendar },
+                    { bucket: 'async_259200', label: '3 Days',   desc: '3 days per turn', icon: Calendar },
+                  ] as const).map(({ bucket, label, desc, icon: Icon }) => (
+                    <button
+                      key={bucket}
+                      onClick={() => joinRankedQueue(bucket)}
+                      className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
+                                 transition-colors text-left group"
+                    >
+                      <Icon className="w-5 h-5 text-cc-gold mb-2" />
+                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
+                      <p className="text-cc-muted text-xs mt-1">{desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-cc-muted text-xs mt-3 italic">
+                  Async matches notify you when it&apos;s your turn — play on your own schedule.
+                </p>
               </div>
             )}
           </div>
@@ -766,18 +802,37 @@ export default function LobbyPage() {
                   <option value={180}>3 Minutes</option>
                   <option value={300}>5 Minutes</option>
                   <option value={600}>10 Minutes</option>
+                  <option value={43200}>12 Hours (Async)</option>
                   <option value={86400}>24 Hours (Async)</option>
+                  <option value={259200}>3 Days (Async)</option>
                 </select>
+                {turnTimer >= 43200 && (
+                  <p className="text-xs text-cc-gold mt-1">Players will be notified when it's their turn.</p>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="fog"
-                  checked={fogOfWar}
-                  onChange={(e) => setFogOfWar(e.target.checked)}
-                  className="w-4 h-4 accent-cc-gold"
-                />
-                <label htmlFor="fog" className="text-cc-text text-sm cursor-pointer">Enable Fog of War</label>
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="territory-draft-top"
+                    checked={territorySelection}
+                    onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
+                    disabled={factionsEnabled}
+                    className="w-4 h-4 accent-cc-gold"
+                  />
+                  <label htmlFor="territory-draft-top" className="text-cc-text text-sm cursor-pointer">Territory Draft</label>
+                  <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="fog"
+                    checked={fogOfWar}
+                    onChange={(e) => setFogOfWar(e.target.checked)}
+                    className="w-4 h-4 accent-cc-gold"
+                  />
+                  <label htmlFor="fog" className="text-cc-text text-sm cursor-pointer">Enable Fog of War</label>
+                </div>
               </div>
               <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
                 <label className="label mb-2">Advanced Features</label>
@@ -916,10 +971,38 @@ export default function LobbyPage() {
                           Saved
                         </span>
                       )}
+                      {game.async_mode && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-400 border border-indigo-700/40">
+                          Async
+                        </span>
+                      )}
+                      {game.async_mode && game.current_player_id === user?.user_id && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 border border-green-700/40 animate-pulse">
+                          Your turn!
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-cc-muted text-sm">
                       {game.turn_number != null && <span>Turn {game.turn_number}</span>}
-                      {game.saved_at && (
+                      {game.async_mode && game.async_turn_deadline && (() => {
+                        const deadline = new Date(game.async_turn_deadline);
+                        const now = Date.now();
+                        const remainMs = deadline.getTime() - now;
+                        if (remainMs <= 0) return <span className="text-red-400">Deadline passed</span>;
+                        const hours = Math.floor(remainMs / 3600000);
+                        const mins = Math.floor((remainMs % 3600000) / 60000);
+                        const totalSec = remainMs / 1000;
+                        // Estimate total deadline from settings (default 24h)
+                        const ratio = totalSec / 86400; // approximate
+                        const urgencyColor = ratio > 0.5 ? 'text-green-400' : ratio > 0.25 ? 'text-yellow-400' : 'text-red-400';
+                        return (
+                          <span className={`flex items-center gap-1 ${urgencyColor}`}>
+                            <Clock className="w-3.5 h-3.5" />
+                            {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} left
+                          </span>
+                        );
+                      })()}
+                      {game.saved_at && !game.async_mode && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" /> {timeAgo(game.saved_at)}
                         </span>

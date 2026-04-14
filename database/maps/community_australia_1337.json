@@ -1,0 +1,2160 @@
+{
+  "map_id": "community_australia_1337",
+  "name": "Karkiyapani, Aotearoa & SW Manakiwana 1337",
+  "description": "An alternate history depicting the political landscape of Australia (Karkiyapani) in 1337 A.D. Indigenous Australian nations organized into structured territorial states, plus Aotearoa (New Zealand) and Pacific Island polities.",
+  "era_theme": "custom",
+  "canvas_width": 1200,
+  "canvas_height": 700,
+  "projection_bounds": {
+    "minLng": 110,
+    "maxLng": 185,
+    "minLat": -48,
+    "maxLat": -8
+  },
+  "globe_view": {
+    "lock_rotation": true,
+    "center_lat": -25,
+    "center_lng": 140,
+    "altitude": 0.85
+  },
+  "territories": [
+    {
+      "territory_id": "miwatj_mala",
+      "name": "Miwatj-Mala",
+      "geo_polygon": [
+        [
+          130.8,
+          -12.4
+        ],
+        [
+          132.0,
+          -11.2
+        ],
+        [
+          134.5,
+          -11.5
+        ],
+        [
+          136.7,
+          -12.2
+        ],
+        [
+          136.0,
+          -13.5
+        ],
+        [
+          133.0,
+          -14.0
+        ],
+        [
+          131.0,
+          -14.5
+        ],
+        [
+          130.8,
+          -12.4
+        ]
+      ],
+      "polygon": [
+        [
+          332.8,
+          77.0
+        ],
+        [
+          352.0,
+          56.0
+        ],
+        [
+          392.0,
+          61.3
+        ],
+        [
+          427.2,
+          73.5
+        ],
+        [
+          416.0,
+          96.2
+        ],
+        [
+          368.0,
+          105.0
+        ],
+        [
+          336.0,
+          113.7
+        ],
+        [
+          332.8,
+          77.0
+        ]
+      ],
+      "center_point": [
+        374.9,
+        83.2
+      ],
+      "region_id": "northern"
+    },
+    {
+      "territory_id": "kulaburtan",
+      "name": "Kulaburtan",
+      "geo_polygon": [
+        [
+          130.8,
+          -12.4
+        ],
+        [
+          131.0,
+          -14.5
+        ],
+        [
+          132.0,
+          -18.0
+        ],
+        [
+          122.2,
+          -17.9
+        ],
+        [
+          126.0,
+          -14.0
+        ],
+        [
+          129.0,
+          -12.0
+        ],
+        [
+          130.8,
+          -12.4
+        ]
+      ],
+      "polygon": [
+        [
+          332.8,
+          77.0
+        ],
+        [
+          336.0,
+          113.7
+        ],
+        [
+          352.0,
+          175.0
+        ],
+        [
+          195.2,
+          173.2
+        ],
+        [
+          256.0,
+          105.0
+        ],
+        [
+          304.0,
+          70.0
+        ],
+        [
+          332.8,
+          77.0
+        ]
+      ],
+      "center_point": [
+        296.0,
+        119.0
+      ],
+      "region_id": "northern"
+    },
+    {
+      "territory_id": "yurpnanawirrudjan",
+      "name": "Yurpnanawirrudjan",
+      "geo_polygon": [
+        [
+          131.0,
+          -14.5
+        ],
+        [
+          133.0,
+          -14.0
+        ],
+        [
+          136.0,
+          -13.5
+        ],
+        [
+          136.0,
+          -16.0
+        ],
+        [
+          140.0,
+          -17.0
+        ],
+        [
+          137.0,
+          -20.0
+        ],
+        [
+          132.0,
+          -18.0
+        ],
+        [
+          131.0,
+          -14.5
+        ]
+      ],
+      "polygon": [
+        [
+          336.0,
+          113.7
+        ],
+        [
+          368.0,
+          105.0
+        ],
+        [
+          416.0,
+          96.2
+        ],
+        [
+          416.0,
+          140.0
+        ],
+        [
+          480.0,
+          157.5
+        ],
+        [
+          432.0,
+          210.0
+        ],
+        [
+          352.0,
+          175.0
+        ],
+        [
+          336.0,
+          113.7
+        ]
+      ],
+      "center_point": [
+        400.0,
+        142.5
+      ],
+      "region_id": "northern"
+    },
+    {
+      "territory_id": "challbi",
+      "name": "Challbi",
+      "geo_polygon": [
+        [
+          140.0,
+          -17.0
+        ],
+        [
+          140.0,
+          -12.5
+        ],
+        [
+          142.5,
+          -10.7
+        ],
+        [
+          146.5,
+          -18.5
+        ],
+        [
+          145.0,
+          -20.0
+        ],
+        [
+          140.0,
+          -17.0
+        ]
+      ],
+      "polygon": [
+        [
+          480.0,
+          157.5
+        ],
+        [
+          480.0,
+          78.8
+        ],
+        [
+          520.0,
+          47.3
+        ],
+        [
+          584.0,
+          183.7
+        ],
+        [
+          560.0,
+          210.0
+        ],
+        [
+          480.0,
+          157.5
+        ]
+      ],
+      "center_point": [
+        524.8,
+        135.5
+      ],
+      "region_id": "northern"
+    },
+    {
+      "territory_id": "gulf_nations",
+      "name": "Gulf Nations",
+      "geo_polygon": [
+        [
+          140.0,
+          -17.0
+        ],
+        [
+          145.0,
+          -20.0
+        ],
+        [
+          148.0,
+          -24.0
+        ],
+        [
+          143.0,
+          -26.0
+        ],
+        [
+          140.0,
+          -23.0
+        ],
+        [
+          137.0,
+          -20.0
+        ],
+        [
+          140.0,
+          -17.0
+        ]
+      ],
+      "polygon": [
+        [
+          480.0,
+          157.5
+        ],
+        [
+          560.0,
+          210.0
+        ],
+        [
+          608.0,
+          280.0
+        ],
+        [
+          528.0,
+          315.0
+        ],
+        [
+          480.0,
+          262.5
+        ],
+        [
+          432.0,
+          210.0
+        ],
+        [
+          480.0,
+          157.5
+        ]
+      ],
+      "center_point": [
+        514.7,
+        239.2
+      ],
+      "region_id": "eastern"
+    },
+    {
+      "territory_id": "mulyabaj_ura",
+      "name": "Mulyabaj Ura",
+      "geo_polygon": [
+        [
+          122.2,
+          -17.9
+        ],
+        [
+          132.0,
+          -18.0
+        ],
+        [
+          129.0,
+          -24.0
+        ],
+        [
+          126.0,
+          -28.0
+        ],
+        [
+          123.0,
+          -27.0
+        ],
+        [
+          122.2,
+          -17.9
+        ]
+      ],
+      "polygon": [
+        [
+          195.2,
+          173.2
+        ],
+        [
+          352.0,
+          175.0
+        ],
+        [
+          304.0,
+          280.0
+        ],
+        [
+          256.0,
+          350.0
+        ],
+        [
+          208.0,
+          332.5
+        ],
+        [
+          195.2,
+          173.2
+        ]
+      ],
+      "center_point": [
+        263.0,
+        262.1
+      ],
+      "region_id": "western"
+    },
+    {
+      "territory_id": "mulleraladi",
+      "name": "Mulleraladi Drover",
+      "geo_polygon": [
+        [
+          122.2,
+          -17.9
+        ],
+        [
+          123.0,
+          -27.0
+        ],
+        [
+          120.0,
+          -32.0
+        ],
+        [
+          115.9,
+          -31.9
+        ],
+        [
+          114.5,
+          -28.5
+        ],
+        [
+          114.0,
+          -22.0
+        ],
+        [
+          118.0,
+          -17.0
+        ],
+        [
+          122.2,
+          -17.9
+        ]
+      ],
+      "polygon": [
+        [
+          195.2,
+          173.2
+        ],
+        [
+          208.0,
+          332.5
+        ],
+        [
+          160.0,
+          420.0
+        ],
+        [
+          94.4,
+          418.2
+        ],
+        [
+          72.0,
+          358.7
+        ],
+        [
+          64.0,
+          245.0
+        ],
+        [
+          128.0,
+          157.5
+        ],
+        [
+          195.2,
+          173.2
+        ]
+      ],
+      "center_point": [
+        131.7,
+        300.7
+      ],
+      "region_id": "western"
+    },
+    {
+      "territory_id": "noongar",
+      "name": "Noongar",
+      "geo_polygon": [
+        [
+          115.9,
+          -31.9
+        ],
+        [
+          120.0,
+          -32.0
+        ],
+        [
+          119.0,
+          -34.5
+        ],
+        [
+          117.0,
+          -35.0
+        ],
+        [
+          115.0,
+          -34.0
+        ],
+        [
+          115.9,
+          -31.9
+        ]
+      ],
+      "polygon": [
+        [
+          94.4,
+          418.2
+        ],
+        [
+          160.0,
+          420.0
+        ],
+        [
+          144.0,
+          463.8
+        ],
+        [
+          112.0,
+          472.5
+        ],
+        [
+          80.0,
+          455.0
+        ],
+        [
+          94.4,
+          418.2
+        ]
+      ],
+      "center_point": [
+        118.1,
+        445.9
+      ],
+      "region_id": "western"
+    },
+    {
+      "territory_id": "arrernte",
+      "name": "Arrernte",
+      "geo_polygon": [
+        [
+          132.0,
+          -18.0
+        ],
+        [
+          137.0,
+          -20.0
+        ],
+        [
+          140.0,
+          -23.0
+        ],
+        [
+          135.0,
+          -26.0
+        ],
+        [
+          129.0,
+          -24.0
+        ],
+        [
+          132.0,
+          -18.0
+        ]
+      ],
+      "polygon": [
+        [
+          352.0,
+          175.0
+        ],
+        [
+          432.0,
+          210.0
+        ],
+        [
+          480.0,
+          262.5
+        ],
+        [
+          400.0,
+          315.0
+        ],
+        [
+          304.0,
+          280.0
+        ],
+        [
+          352.0,
+          175.0
+        ]
+      ],
+      "center_point": [
+        393.6,
+        248.5
+      ],
+      "region_id": "central"
+    },
+    {
+      "territory_id": "pitjantjatjara",
+      "name": "Pitjantjatjara Lands",
+      "geo_polygon": [
+        [
+          129.0,
+          -24.0
+        ],
+        [
+          135.0,
+          -26.0
+        ],
+        [
+          136.0,
+          -29.0
+        ],
+        [
+          131.0,
+          -31.0
+        ],
+        [
+          126.0,
+          -28.0
+        ],
+        [
+          129.0,
+          -24.0
+        ]
+      ],
+      "polygon": [
+        [
+          304.0,
+          280.0
+        ],
+        [
+          400.0,
+          315.0
+        ],
+        [
+          416.0,
+          367.5
+        ],
+        [
+          336.0,
+          402.5
+        ],
+        [
+          256.0,
+          350.0
+        ],
+        [
+          304.0,
+          280.0
+        ]
+      ],
+      "center_point": [
+        342.4,
+        343.0
+      ],
+      "region_id": "central"
+    },
+    {
+      "territory_id": "kulkanth",
+      "name": "Kulkanth Droveroom",
+      "geo_polygon": [
+        [
+          140.0,
+          -23.0
+        ],
+        [
+          143.0,
+          -26.0
+        ],
+        [
+          146.0,
+          -33.0
+        ],
+        [
+          140.0,
+          -30.0
+        ],
+        [
+          136.0,
+          -29.0
+        ],
+        [
+          135.0,
+          -26.0
+        ],
+        [
+          140.0,
+          -23.0
+        ]
+      ],
+      "polygon": [
+        [
+          480.0,
+          262.5
+        ],
+        [
+          528.0,
+          315.0
+        ],
+        [
+          576.0,
+          437.5
+        ],
+        [
+          480.0,
+          385.0
+        ],
+        [
+          416.0,
+          367.5
+        ],
+        [
+          400.0,
+          315.0
+        ],
+        [
+          480.0,
+          262.5
+        ]
+      ],
+      "center_point": [
+        480.0,
+        347.1
+      ],
+      "region_id": "central"
+    },
+    {
+      "territory_id": "dharumbal",
+      "name": "Dharumbal",
+      "geo_polygon": [
+        [
+          145.0,
+          -20.0
+        ],
+        [
+          146.5,
+          -18.5
+        ],
+        [
+          146.8,
+          -19.3
+        ],
+        [
+          149.0,
+          -22.0
+        ],
+        [
+          150.5,
+          -23.4
+        ],
+        [
+          148.0,
+          -24.0
+        ],
+        [
+          145.0,
+          -20.0
+        ]
+      ],
+      "polygon": [
+        [
+          560.0,
+          210.0
+        ],
+        [
+          584.0,
+          183.7
+        ],
+        [
+          588.8,
+          197.7
+        ],
+        [
+          624.0,
+          245.0
+        ],
+        [
+          648.0,
+          269.5
+        ],
+        [
+          608.0,
+          280.0
+        ],
+        [
+          560.0,
+          210.0
+        ]
+      ],
+      "center_point": [
+        602.1,
+        231.0
+      ],
+      "region_id": "eastern"
+    },
+    {
+      "territory_id": "waka_waka",
+      "name": "Waka-Waka",
+      "geo_polygon": [
+        [
+          148.0,
+          -24.0
+        ],
+        [
+          150.5,
+          -23.4
+        ],
+        [
+          153.0,
+          -25.0
+        ],
+        [
+          153.0,
+          -27.5
+        ],
+        [
+          151.0,
+          -27.0
+        ],
+        [
+          149.0,
+          -25.0
+        ],
+        [
+          148.0,
+          -24.0
+        ]
+      ],
+      "polygon": [
+        [
+          608.0,
+          280.0
+        ],
+        [
+          648.0,
+          269.5
+        ],
+        [
+          688.0,
+          297.5
+        ],
+        [
+          688.0,
+          341.3
+        ],
+        [
+          656.0,
+          332.5
+        ],
+        [
+          624.0,
+          297.5
+        ],
+        [
+          608.0,
+          280.0
+        ]
+      ],
+      "center_point": [
+        652.0,
+        303.1
+      ],
+      "region_id": "eastern"
+    },
+    {
+      "territory_id": "yuggera",
+      "name": "Yuggera",
+      "geo_polygon": [
+        [
+          151.0,
+          -27.0
+        ],
+        [
+          153.0,
+          -27.5
+        ],
+        [
+          153.5,
+          -28.0
+        ],
+        [
+          152.0,
+          -28.5
+        ],
+        [
+          151.0,
+          -27.0
+        ]
+      ],
+      "polygon": [
+        [
+          656.0,
+          332.5
+        ],
+        [
+          688.0,
+          341.3
+        ],
+        [
+          696.0,
+          350.0
+        ],
+        [
+          672.0,
+          358.7
+        ],
+        [
+          656.0,
+          332.5
+        ]
+      ],
+      "center_point": [
+        678.0,
+        345.6
+      ],
+      "region_id": "eastern"
+    },
+    {
+      "territory_id": "kamilaroi",
+      "name": "Kamilaroi",
+      "geo_polygon": [
+        [
+          149.0,
+          -25.0
+        ],
+        [
+          151.0,
+          -27.0
+        ],
+        [
+          152.0,
+          -28.5
+        ],
+        [
+          152.5,
+          -30.0
+        ],
+        [
+          151.2,
+          -33.9
+        ],
+        [
+          150.0,
+          -33.0
+        ],
+        [
+          149.0,
+          -31.0
+        ],
+        [
+          149.0,
+          -25.0
+        ]
+      ],
+      "polygon": [
+        [
+          624.0,
+          297.5
+        ],
+        [
+          656.0,
+          332.5
+        ],
+        [
+          672.0,
+          358.7
+        ],
+        [
+          680.0,
+          385.0
+        ],
+        [
+          659.2,
+          453.2
+        ],
+        [
+          640.0,
+          437.5
+        ],
+        [
+          624.0,
+          402.5
+        ],
+        [
+          624.0,
+          297.5
+        ]
+      ],
+      "center_point": [
+        650.7,
+        381.0
+      ],
+      "region_id": "eastern"
+    },
+    {
+      "territory_id": "gamilaraay",
+      "name": "Gamilaraay",
+      "geo_polygon": [
+        [
+          143.0,
+          -26.0
+        ],
+        [
+          149.0,
+          -25.0
+        ],
+        [
+          149.0,
+          -31.0
+        ],
+        [
+          146.0,
+          -33.0
+        ],
+        [
+          143.0,
+          -26.0
+        ]
+      ],
+      "polygon": [
+        [
+          528.0,
+          315.0
+        ],
+        [
+          624.0,
+          297.5
+        ],
+        [
+          624.0,
+          402.5
+        ],
+        [
+          576.0,
+          437.5
+        ],
+        [
+          528.0,
+          315.0
+        ]
+      ],
+      "center_point": [
+        588.0,
+        363.1
+      ],
+      "region_id": "southeast"
+    },
+    {
+      "territory_id": "wiradjuri",
+      "name": "Wiradjuri",
+      "geo_polygon": [
+        [
+          146.0,
+          -33.0
+        ],
+        [
+          149.0,
+          -31.0
+        ],
+        [
+          150.0,
+          -33.0
+        ],
+        [
+          150.0,
+          -35.5
+        ],
+        [
+          148.5,
+          -37.0
+        ],
+        [
+          145.0,
+          -36.0
+        ],
+        [
+          146.0,
+          -33.0
+        ]
+      ],
+      "polygon": [
+        [
+          576.0,
+          437.5
+        ],
+        [
+          624.0,
+          402.5
+        ],
+        [
+          640.0,
+          437.5
+        ],
+        [
+          640.0,
+          481.2
+        ],
+        [
+          616.0,
+          507.5
+        ],
+        [
+          560.0,
+          490.0
+        ],
+        [
+          576.0,
+          437.5
+        ]
+      ],
+      "center_point": [
+        609.3,
+        459.4
+      ],
+      "region_id": "southeast"
+    },
+    {
+      "territory_id": "dharawal",
+      "name": "Dharawal",
+      "geo_polygon": [
+        [
+          150.0,
+          -33.0
+        ],
+        [
+          151.2,
+          -33.9
+        ],
+        [
+          152.0,
+          -34.5
+        ],
+        [
+          150.0,
+          -35.5
+        ],
+        [
+          150.0,
+          -33.0
+        ]
+      ],
+      "polygon": [
+        [
+          640.0,
+          437.5
+        ],
+        [
+          659.2,
+          453.2
+        ],
+        [
+          672.0,
+          463.8
+        ],
+        [
+          640.0,
+          481.2
+        ],
+        [
+          640.0,
+          437.5
+        ]
+      ],
+      "center_point": [
+        652.8,
+        458.9
+      ],
+      "region_id": "southeast"
+    },
+    {
+      "territory_id": "birabak",
+      "name": "Birabak",
+      "geo_polygon": [
+        [
+          145.0,
+          -36.0
+        ],
+        [
+          148.5,
+          -37.0
+        ],
+        [
+          147.0,
+          -38.0
+        ],
+        [
+          146.0,
+          -39.0
+        ],
+        [
+          144.0,
+          -39.0
+        ],
+        [
+          143.0,
+          -38.5
+        ],
+        [
+          140.0,
+          -37.5
+        ],
+        [
+          145.0,
+          -36.0
+        ]
+      ],
+      "polygon": [
+        [
+          560.0,
+          490.0
+        ],
+        [
+          616.0,
+          507.5
+        ],
+        [
+          592.0,
+          525.0
+        ],
+        [
+          576.0,
+          542.5
+        ],
+        [
+          544.0,
+          542.5
+        ],
+        [
+          528.0,
+          533.8
+        ],
+        [
+          480.0,
+          516.2
+        ],
+        [
+          560.0,
+          490.0
+        ]
+      ],
+      "center_point": [
+        556.6,
+        522.5
+      ],
+      "region_id": "southeast"
+    },
+    {
+      "territory_id": "kaurna",
+      "name": "Kaurna",
+      "geo_polygon": [
+        [
+          140.0,
+          -30.0
+        ],
+        [
+          146.0,
+          -33.0
+        ],
+        [
+          145.0,
+          -36.0
+        ],
+        [
+          140.0,
+          -37.5
+        ],
+        [
+          138.6,
+          -34.9
+        ],
+        [
+          140.0,
+          -30.0
+        ]
+      ],
+      "polygon": [
+        [
+          480.0,
+          385.0
+        ],
+        [
+          576.0,
+          437.5
+        ],
+        [
+          560.0,
+          490.0
+        ],
+        [
+          480.0,
+          516.2
+        ],
+        [
+          457.6,
+          470.8
+        ],
+        [
+          480.0,
+          385.0
+        ]
+      ],
+      "center_point": [
+        510.7,
+        459.9
+      ],
+      "region_id": "southern"
+    },
+    {
+      "territory_id": "ngargumad",
+      "name": "Ngargumad Bighr",
+      "geo_polygon": [
+        [
+          136.0,
+          -29.0
+        ],
+        [
+          140.0,
+          -30.0
+        ],
+        [
+          138.6,
+          -34.9
+        ],
+        [
+          133.0,
+          -35.0
+        ],
+        [
+          130.0,
+          -33.5
+        ],
+        [
+          131.0,
+          -31.0
+        ],
+        [
+          136.0,
+          -29.0
+        ]
+      ],
+      "polygon": [
+        [
+          416.0,
+          367.5
+        ],
+        [
+          480.0,
+          385.0
+        ],
+        [
+          457.6,
+          470.8
+        ],
+        [
+          368.0,
+          472.5
+        ],
+        [
+          320.0,
+          446.2
+        ],
+        [
+          336.0,
+          402.5
+        ],
+        [
+          416.0,
+          367.5
+        ]
+      ],
+      "center_point": [
+        396.3,
+        424.1
+      ],
+      "region_id": "southern"
+    },
+    {
+      "territory_id": "dirillo",
+      "name": "Dirillo",
+      "geo_polygon": [
+        [
+          126.0,
+          -28.0
+        ],
+        [
+          131.0,
+          -31.0
+        ],
+        [
+          130.0,
+          -33.5
+        ],
+        [
+          125.0,
+          -34.0
+        ],
+        [
+          119.0,
+          -34.5
+        ],
+        [
+          120.0,
+          -32.0
+        ],
+        [
+          123.0,
+          -27.0
+        ],
+        [
+          126.0,
+          -28.0
+        ]
+      ],
+      "polygon": [
+        [
+          256.0,
+          350.0
+        ],
+        [
+          336.0,
+          402.5
+        ],
+        [
+          320.0,
+          446.2
+        ],
+        [
+          240.0,
+          455.0
+        ],
+        [
+          144.0,
+          463.8
+        ],
+        [
+          160.0,
+          420.0
+        ],
+        [
+          208.0,
+          332.5
+        ],
+        [
+          256.0,
+          350.0
+        ]
+      ],
+      "center_point": [
+        237.7,
+        410.0
+      ],
+      "region_id": "southern"
+    },
+    {
+      "territory_id": "te_ika_a_maui",
+      "name": "Te Ika-a-Maui",
+      "geo_polygon": [
+        [
+          174.0,
+          -35.0
+        ],
+        [
+          175.5,
+          -36.0
+        ],
+        [
+          177.0,
+          -37.0
+        ],
+        [
+          178.0,
+          -38.0
+        ],
+        [
+          178.0,
+          -39.5
+        ],
+        [
+          177.0,
+          -40.0
+        ],
+        [
+          176.0,
+          -40.5
+        ],
+        [
+          175.0,
+          -41.0
+        ],
+        [
+          174.0,
+          -40.0
+        ],
+        [
+          174.0,
+          -37.0
+        ],
+        [
+          174.0,
+          -35.0
+        ]
+      ],
+      "polygon": [
+        [
+          1024.0,
+          472.5
+        ],
+        [
+          1048.0,
+          490.0
+        ],
+        [
+          1072.0,
+          507.5
+        ],
+        [
+          1088.0,
+          525.0
+        ],
+        [
+          1088.0,
+          551.2
+        ],
+        [
+          1072.0,
+          560.0
+        ],
+        [
+          1056.0,
+          568.8
+        ],
+        [
+          1040.0,
+          577.5
+        ],
+        [
+          1024.0,
+          560.0
+        ],
+        [
+          1024.0,
+          507.5
+        ],
+        [
+          1024.0,
+          472.5
+        ]
+      ],
+      "center_point": [
+        1053.6,
+        532.0
+      ],
+      "region_id": "oceania"
+    },
+    {
+      "territory_id": "te_waipounamu",
+      "name": "Te Waipounamu",
+      "geo_polygon": [
+        [
+          166.5,
+          -42.0
+        ],
+        [
+          169.0,
+          -42.0
+        ],
+        [
+          171.0,
+          -42.5
+        ],
+        [
+          173.0,
+          -42.0
+        ],
+        [
+          174.0,
+          -43.0
+        ],
+        [
+          174.0,
+          -44.5
+        ],
+        [
+          172.0,
+          -46.0
+        ],
+        [
+          170.0,
+          -47.0
+        ],
+        [
+          168.0,
+          -46.5
+        ],
+        [
+          166.5,
+          -45.0
+        ],
+        [
+          166.5,
+          -42.0
+        ]
+      ],
+      "polygon": [
+        [
+          904.0,
+          595.0
+        ],
+        [
+          944.0,
+          595.0
+        ],
+        [
+          976.0,
+          603.8
+        ],
+        [
+          1008.0,
+          595.0
+        ],
+        [
+          1024.0,
+          612.5
+        ],
+        [
+          1024.0,
+          638.8
+        ],
+        [
+          992.0,
+          665.0
+        ],
+        [
+          960.0,
+          682.5
+        ],
+        [
+          928.0,
+          673.8
+        ],
+        [
+          904.0,
+          647.5
+        ],
+        [
+          904.0,
+          595.0
+        ]
+      ],
+      "center_point": [
+        966.4,
+        630.9
+      ],
+      "region_id": "oceania"
+    },
+    {
+      "territory_id": "tui_manua",
+      "name": "Tui Manu'a",
+      "geo_polygon": [
+        [
+          182.0,
+          -13.0
+        ],
+        [
+          183.0,
+          -13.0
+        ],
+        [
+          184.0,
+          -13.5
+        ],
+        [
+          184.0,
+          -14.5
+        ],
+        [
+          183.5,
+          -15.0
+        ],
+        [
+          182.5,
+          -15.0
+        ],
+        [
+          182.0,
+          -14.5
+        ],
+        [
+          182.0,
+          -13.0
+        ]
+      ],
+      "polygon": [
+        [
+          1152.0,
+          87.5
+        ],
+        [
+          1168.0,
+          87.5
+        ],
+        [
+          1184.0,
+          96.2
+        ],
+        [
+          1184.0,
+          113.7
+        ],
+        [
+          1176.0,
+          122.5
+        ],
+        [
+          1160.0,
+          122.5
+        ],
+        [
+          1152.0,
+          113.7
+        ],
+        [
+          1152.0,
+          87.5
+        ]
+      ],
+      "center_point": [
+        1168.0,
+        106.2
+      ],
+      "region_id": "oceania"
+    },
+    {
+      "territory_id": "tonga",
+      "name": "Tonga",
+      "geo_polygon": [
+        [
+          184.0,
+          -18.0
+        ],
+        [
+          185.0,
+          -18.0
+        ],
+        [
+          185.0,
+          -19.0
+        ],
+        [
+          185.0,
+          -20.0
+        ],
+        [
+          184.5,
+          -21.0
+        ],
+        [
+          184.0,
+          -21.0
+        ],
+        [
+          184.0,
+          -20.0
+        ],
+        [
+          184.0,
+          -18.0
+        ]
+      ],
+      "polygon": [
+        [
+          1184.0,
+          175.0
+        ],
+        [
+          1200.0,
+          175.0
+        ],
+        [
+          1200.0,
+          192.5
+        ],
+        [
+          1200.0,
+          210.0
+        ],
+        [
+          1192.0,
+          227.5
+        ],
+        [
+          1184.0,
+          227.5
+        ],
+        [
+          1184.0,
+          210.0
+        ],
+        [
+          1184.0,
+          175.0
+        ]
+      ],
+      "center_point": [
+        1192.0,
+        202.5
+      ],
+      "region_id": "oceania"
+    }
+  ],
+  "connections": [
+    {
+      "from": "miwatj_mala",
+      "to": "kulaburtan",
+      "type": "land"
+    },
+    {
+      "from": "miwatj_mala",
+      "to": "yurpnanawirrudjan",
+      "type": "land"
+    },
+    {
+      "from": "kulaburtan",
+      "to": "mulyabaj_ura",
+      "type": "land"
+    },
+    {
+      "from": "kulaburtan",
+      "to": "yurpnanawirrudjan",
+      "type": "land"
+    },
+    {
+      "from": "yurpnanawirrudjan",
+      "to": "challbi",
+      "type": "land"
+    },
+    {
+      "from": "yurpnanawirrudjan",
+      "to": "gulf_nations",
+      "type": "land"
+    },
+    {
+      "from": "yurpnanawirrudjan",
+      "to": "arrernte",
+      "type": "land"
+    },
+    {
+      "from": "challbi",
+      "to": "gulf_nations",
+      "type": "land"
+    },
+    {
+      "from": "challbi",
+      "to": "dharumbal",
+      "type": "land"
+    },
+    {
+      "from": "mulyabaj_ura",
+      "to": "arrernte",
+      "type": "land"
+    },
+    {
+      "from": "mulyabaj_ura",
+      "to": "pitjantjatjara",
+      "type": "land"
+    },
+    {
+      "from": "mulyabaj_ura",
+      "to": "dirillo",
+      "type": "land"
+    },
+    {
+      "from": "arrernte",
+      "to": "pitjantjatjara",
+      "type": "land"
+    },
+    {
+      "from": "arrernte",
+      "to": "gulf_nations",
+      "type": "land"
+    },
+    {
+      "from": "arrernte",
+      "to": "kulkanth",
+      "type": "land"
+    },
+    {
+      "from": "pitjantjatjara",
+      "to": "kulkanth",
+      "type": "land"
+    },
+    {
+      "from": "pitjantjatjara",
+      "to": "ngargumad",
+      "type": "land"
+    },
+    {
+      "from": "pitjantjatjara",
+      "to": "dirillo",
+      "type": "land"
+    },
+    {
+      "from": "gulf_nations",
+      "to": "dharumbal",
+      "type": "land"
+    },
+    {
+      "from": "dharumbal",
+      "to": "waka_waka",
+      "type": "land"
+    },
+    {
+      "from": "waka_waka",
+      "to": "yuggera",
+      "type": "land"
+    },
+    {
+      "from": "waka_waka",
+      "to": "kamilaroi",
+      "type": "land"
+    },
+    {
+      "from": "yuggera",
+      "to": "kamilaroi",
+      "type": "land"
+    },
+    {
+      "from": "kamilaroi",
+      "to": "gamilaraay",
+      "type": "land"
+    },
+    {
+      "from": "kamilaroi",
+      "to": "dharawal",
+      "type": "land"
+    },
+    {
+      "from": "kamilaroi",
+      "to": "wiradjuri",
+      "type": "land"
+    },
+    {
+      "from": "gamilaraay",
+      "to": "kulkanth",
+      "type": "land"
+    },
+    {
+      "from": "gamilaraay",
+      "to": "wiradjuri",
+      "type": "land"
+    },
+    {
+      "from": "wiradjuri",
+      "to": "dharawal",
+      "type": "land"
+    },
+    {
+      "from": "wiradjuri",
+      "to": "birabak",
+      "type": "land"
+    },
+    {
+      "from": "wiradjuri",
+      "to": "kaurna",
+      "type": "land"
+    },
+    {
+      "from": "kulkanth",
+      "to": "kaurna",
+      "type": "land"
+    },
+    {
+      "from": "kulkanth",
+      "to": "ngargumad",
+      "type": "land"
+    },
+    {
+      "from": "kaurna",
+      "to": "ngargumad",
+      "type": "land"
+    },
+    {
+      "from": "kaurna",
+      "to": "birabak",
+      "type": "land"
+    },
+    {
+      "from": "ngargumad",
+      "to": "dirillo",
+      "type": "land"
+    },
+    {
+      "from": "noongar",
+      "to": "mulleraladi",
+      "type": "land"
+    },
+    {
+      "from": "noongar",
+      "to": "dirillo",
+      "type": "land"
+    },
+    {
+      "from": "mulleraladi",
+      "to": "mulyabaj_ura",
+      "type": "land"
+    },
+    {
+      "from": "mulleraladi",
+      "to": "dirillo",
+      "type": "land"
+    },
+    {
+      "from": "te_ika_a_maui",
+      "to": "te_waipounamu",
+      "type": "sea"
+    },
+    {
+      "from": "te_ika_a_maui",
+      "to": "tui_manua",
+      "type": "sea"
+    },
+    {
+      "from": "te_ika_a_maui",
+      "to": "tonga",
+      "type": "sea"
+    },
+    {
+      "from": "tui_manua",
+      "to": "tonga",
+      "type": "sea"
+    },
+    {
+      "from": "birabak",
+      "to": "te_waipounamu",
+      "type": "sea"
+    },
+    {
+      "from": "dharawal",
+      "to": "te_ika_a_maui",
+      "type": "sea"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "northern",
+      "name": "Northern Confederacies",
+      "bonus": 2,
+      "territory_ids": [
+        "miwatj_mala",
+        "yurpnanawirrudjan",
+        "challbi",
+        "kulaburtan"
+      ]
+    },
+    {
+      "region_id": "western",
+      "name": "Western Nations",
+      "bonus": 2,
+      "territory_ids": [
+        "mulyabaj_ura",
+        "mulleraladi",
+        "noongar"
+      ]
+    },
+    {
+      "region_id": "central",
+      "name": "Central Desert Peoples",
+      "bonus": 2,
+      "territory_ids": [
+        "pitjantjatjara",
+        "arrernte",
+        "kulkanth"
+      ]
+    },
+    {
+      "region_id": "eastern",
+      "name": "Eastern Kingdoms",
+      "bonus": 3,
+      "territory_ids": [
+        "dharumbal",
+        "waka_waka",
+        "kamilaroi",
+        "yuggera",
+        "gulf_nations"
+      ]
+    },
+    {
+      "region_id": "southeast",
+      "name": "Southeast Federation",
+      "bonus": 3,
+      "territory_ids": [
+        "gamilaraay",
+        "wiradjuri",
+        "dharawal",
+        "birabak"
+      ]
+    },
+    {
+      "region_id": "southern",
+      "name": "Southern Coast",
+      "bonus": 2,
+      "territory_ids": [
+        "kaurna",
+        "ngargumad",
+        "dirillo"
+      ]
+    },
+    {
+      "region_id": "oceania",
+      "name": "Oceania & Aotearoa",
+      "bonus": 2,
+      "territory_ids": [
+        "te_ika_a_maui",
+        "te_waipounamu",
+        "tui_manua",
+        "tonga"
+      ]
+    }
+  ],
+  "is_public": true,
+  "play_count": 0,
+  "creator_id": "system"
+}

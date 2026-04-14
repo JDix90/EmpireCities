@@ -60,4 +60,16 @@ export const config = {
   },
 
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
+
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'noreply@erasofempire.com',
+  },
+
+  push: {
+    fcmServiceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH || '',
+  },
 };

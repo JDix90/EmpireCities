@@ -104,3 +104,10 @@
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+
+/* Landscape mobile: reduce bottom bar and bottom-sheet heights */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-bottom-sheet {
+    max-height: 40vh;
+  }
+}

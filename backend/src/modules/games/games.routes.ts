@@ -37,6 +37,9 @@ const CreateGameSchema = z.object({
       events_enabled: z.boolean().optional(),
       naval_enabled: z.boolean().optional(),
       stability_enabled: z.boolean().optional(),
+      territory_selection: z.boolean().optional(),
+      async_mode: z.boolean().optional(),
+      async_turn_deadline_seconds: z.number().int().optional(),
     })
     .superRefine((data, ctx) => {
       const list =
@@ -88,9 +91,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       const joinCode = generateJoinCode();
       try {
         await query(
-          `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code)
-           VALUES ($1, $2, $3, 'waiting', $4, $5, $6)`,
-          [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType, joinCode],
+          `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code, async_mode)
+           VALUES ($1, $2, $3, 'waiting', $4, $5, $6, $7)`,
+          [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType, joinCode, !!settings.async_mode],
         );
         gameInsertOk = true;
         break;

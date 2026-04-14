@@ -79,7 +79,7 @@ export function computeAiTurn(
   if (
     difficulty !== 'easy' &&
     (state.era_modifiers?.influence_spread || state.era_modifiers?.carbonari_network) &&
-    !state.influence_used_this_turn
+    !(state.influence_cooldown_remaining ?? 0)
   ) {
     const influenceTarget = selectInfluenceTarget(state, map, playerId);
     if (influenceTarget) {

@@ -60,10 +60,26 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     };
 
     await query(
-      `INSERT INTO games (game_id, status, game_type, settings_json, created_by)
-       VALUES ($1, 'waiting', 'solo', $2::jsonb, $3)`,
-      [gameId, JSON.stringify(settings), userId],
+      `INSERT INTO games (game_id, status, game_type, era_id, map_id, settings_json, created_by)
+       VALUES ($1, 'waiting', 'solo', $2, $3, $4::jsonb, $5)`,
+      [gameId, eraId, mapId, JSON.stringify(settings), userId],
     );
+
+    // Add the human player as player 0
+    await query(
+      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
+       VALUES ($1, $2, 0, $3, false)`,
+      [gameId, userId, PLAYER_COLORS[0]],
+    );
+
+    // Add 3 AI opponents
+    for (let i = 1; i < 4; i++) {
+      await query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
+         VALUES ($1, NULL, $2, $3, true, $4)`,
+        [gameId, i, PLAYER_COLORS[i], 'medium'],
+      );
+    }
 
     await query(
       `INSERT INTO campaign_entries (id, campaign_id, era_id, game_id, won, completed_at)

@@ -25,6 +25,7 @@ import { storeRoutes } from './modules/store/store.routes';
 import { campaignRoutes } from './modules/campaign/campaign.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
+import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
 
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
@@ -119,6 +120,7 @@ async function bootstrap(): Promise<void> {
   const io = initGameSocket(app.server);
   setMatchmakingIo(io);
   startMatchmakingSweep();
+  startAsyncDeadlineWorker();
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
 

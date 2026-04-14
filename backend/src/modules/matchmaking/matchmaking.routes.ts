@@ -4,13 +4,16 @@ import { authenticate } from '../../middleware/authenticate';
 import { query, queryOne } from '../../db/postgres';
 import type { Server } from 'socket.io';
 
-const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200'] as const;
+const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
 
-const BUCKET_SETTINGS: Record<Bucket, { turn_timer_seconds: number; label: string }> = {
-  blitz_120:    { turn_timer_seconds: 120,  label: 'Blitz 2m' },
-  standard_300: { turn_timer_seconds: 300,  label: 'Standard 5m' },
-  long_1200:    { turn_timer_seconds: 1200, label: 'Long 20m' },
+const BUCKET_SETTINGS: Record<Bucket, { turn_timer_seconds: number; label: string; async_mode?: boolean }> = {
+  blitz_120:    { turn_timer_seconds: 120,    label: 'Blitz 2m' },
+  standard_300: { turn_timer_seconds: 300,    label: 'Standard 5m' },
+  long_1200:    { turn_timer_seconds: 1200,   label: 'Long 20m' },
+  async_43200:  { turn_timer_seconds: 43200,  label: 'Async 12h',  async_mode: true },
+  async_86400:  { turn_timer_seconds: 86400,  label: 'Async 24h',  async_mode: true },
+  async_259200: { turn_timer_seconds: 259200, label: 'Async 3d',   async_mode: true },
 };
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
@@ -61,16 +64,21 @@ async function createRankedGame(
   bucket: Bucket,
 ): Promise<void> {
   const gameId = uuidv4();
-  const settings = {
+  const bucketCfg = BUCKET_SETTINGS[bucket];
+  const settings: Record<string, unknown> = {
     fog_of_war: false,
-    allowed_victory_conditions: ['domination'] as const,
-    victory_type: 'domination' as const,
-    turn_timer_seconds: BUCKET_SETTINGS[bucket].turn_timer_seconds,
+    allowed_victory_conditions: ['domination'],
+    victory_type: 'domination',
+    turn_timer_seconds: bucketCfg.turn_timer_seconds,
     initial_unit_count: 3,
     card_set_escalating: true,
     diplomacy_enabled: false,
     max_players: 2,
   };
+  if (bucketCfg.async_mode) {
+    settings.async_mode = true;
+    settings.async_turn_deadline_seconds = bucketCfg.turn_timer_seconds;
+  }
 
   const eraMapIds: Record<string, string> = {
     ancient: 'era_ancient', medieval: 'era_medieval', discovery: 'era_discovery',
@@ -79,9 +87,9 @@ async function createRankedGame(
   };
 
   await query(
-    `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, is_ranked, queue_bucket)
-     VALUES ($1, $2, $3, 'waiting', $4, 'multiplayer', true, $5)`,
-    [gameId, eraMapIds[eraId] ?? 'era_ancient', eraId, JSON.stringify(settings), bucket],
+    `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, is_ranked, queue_bucket, async_mode)
+     VALUES ($1, $2, $3, 'waiting', $4, 'multiplayer', true, $5, $6)`,
+    [gameId, eraMapIds[eraId] ?? 'era_ancient', eraId, JSON.stringify(settings), bucket, !!bucketCfg.async_mode],
   );
 
   await query(

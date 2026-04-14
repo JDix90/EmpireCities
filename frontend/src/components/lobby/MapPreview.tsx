@@ -17,25 +17,28 @@ const REGION_COLORS = [
 
 interface MapPreviewProps {
   mapId: string;
+  /** Optional pre-loaded map data — skips the API fetch when provided. */
+  mapData?: GameMap | null;
   width?: number;
   height?: number;
   className?: string;
 }
 
-export default function MapPreview({ mapId, width = 480, height = 280, className = '' }: MapPreviewProps) {
-  const [map, setMap]             = useState<GameMap | null>(null);
-  const [loading, setLoading]     = useState(true);
+export default function MapPreview({ mapId, mapData, width = 480, height = 280, className = '' }: MapPreviewProps) {
+  const [map, setMap]             = useState<GameMap | null>(mapData ?? null);
+  const [loading, setLoading]     = useState(!mapData);
   const [hovered, setHovered]     = useState<string | null>(null);
   const [tooltip, setTooltip]     = useState<{ x: number; y: number; name: string } | null>(null);
   const svgRef                    = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
+    if (mapData) { setMap(mapData); setLoading(false); return; }
     setLoading(true);
     setMap(null);
     fetchMapById(mapId)
       .then(m => { setMap(m); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [mapId]);
+  }, [mapId, mapData]);
 
   if (loading) {
     return (
