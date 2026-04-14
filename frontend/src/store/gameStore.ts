@@ -36,6 +36,7 @@ export interface PlayerState {
   tech_points?: number;
   unlocked_techs?: string[];
   special_resource?: number;
+  ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
 }
@@ -60,6 +61,8 @@ export interface GameState {
     fog_of_war: boolean;
     turn_timer_seconds: number;
     diplomacy_enabled: boolean;
+    async_mode?: boolean;
+    async_turn_deadline_seconds?: number;
     tutorial?: boolean;
     tutorial_step?: number;
     victory_type?: string;
