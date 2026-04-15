@@ -88,6 +88,22 @@ function isUnclaimedOwner(ownerId: string | null | undefined): boolean {
   return ownerId == null || ownerId === '' || ownerId === 'neutral';
 }
 
+function isSocketUsersTurn(state: GameState, socketUserId: string, socketUsername?: string): boolean {
+  const currentPlayer = state.players[state.current_player_index];
+  if (!currentPlayer) return false;
+  if (currentPlayer.player_id === socketUserId) return true;
+
+  // Fallback for edge-cases where token subject and persisted player_id drift.
+  const byId = state.players.find((p) => p.player_id === socketUserId);
+  if (byId && byId.player_index === currentPlayer.player_index) return true;
+
+  if (socketUsername) {
+    const byName = state.players.find((p) => p.username === socketUsername);
+    if (byName && byName.player_index === currentPlayer.player_index) return true;
+  }
+  return false;
+}
+
 // Turn timer enforcement: gameId → timeout handle
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -177,6 +193,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
   io.on('connection', (socket) => {
     const userId = (socket as Socket & { userId: string }).userId;
+    const username = (socket as Socket & { username: string }).username;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
     socket.join(`user:${userId}`);
 
@@ -444,7 +461,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
 
       if (units < 1 || units > state.draft_units_remaining) {
@@ -470,7 +487,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (state.phase !== 'territory_select') return socket.emit('error', { message: 'Not in territory selection phase' });
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       const territory = state.territories[territoryId];
       if (!territory) return socket.emit('error', { message: 'Territory not found' });
@@ -530,7 +547,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Not in attack phase' });
 
       const fromTerritory = state.territories[fromId];
@@ -740,7 +757,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       if (state.phase === 'draft') {
         state.draft_units_remaining = 0;
@@ -773,7 +790,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'fortify') return socket.emit('error', { message: 'Not in fortify phase' });
 
       const from = state.territories[fromId];
@@ -811,7 +828,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'draft') return socket.emit('error', { message: 'Cards can only be redeemed during the draft phase' });
 
       try {
@@ -835,7 +852,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       // Allow building in draft OR fortify phase so players have flexibility
       if (state.phase !== 'draft' && state.phase !== 'fortify') {
         return socket.emit('error', { message: 'Buildings can only be constructed during draft or fortify phase' });
@@ -882,7 +899,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (!state.settings.naval_enabled) return socket.emit('error', { message: 'Naval warfare not enabled' });
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack' && state.phase !== 'fortify') {
         return socket.emit('error', { message: 'Fleets can only move during attack or fortify phase' });
       }
@@ -904,7 +921,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (!state.settings.naval_enabled) return socket.emit('error', { message: 'Naval warfare not enabled' });
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Not in attack phase' });
 
       const fromTerritory = state.territories[fromId];
@@ -944,7 +961,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'draft' && state.phase !== 'fortify') {
         return socket.emit('error', { message: 'Technology can only be researched during draft or fortify phase' });
       }
@@ -973,7 +990,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       // Check ability cooldown (once per turn) — skip for once-per-game abilities
       const GAME_SCOPED_ABILITIES = ['atom_bomb'];
@@ -1143,7 +1160,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Influence can only be used in the attack phase' });
 
       const modifiers = state.era_modifiers;
@@ -1308,7 +1325,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id !== userId) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       if (!state.active_event) return socket.emit('error', { message: 'No active event card' });
       if (!state.active_event.choices?.length) return socket.emit('error', { message: 'This event has no choices' });
