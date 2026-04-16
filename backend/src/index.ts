@@ -23,9 +23,15 @@ import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchma
 import { dailyRoutes } from './modules/daily/daily.routes';
 import { storeRoutes } from './modules/store/store.routes';
 import { campaignRoutes } from './modules/campaign/campaign.routes';
+import { progressionRoutes } from './modules/progression/progression.routes';
+import { shareRoutes } from './modules/share/share.routes';
+import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
+import { feedRoutes } from './modules/feed/feed.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
+import { startSeasonSweep, stopSeasonSweep } from './game-engine/progression/seasonService';
+import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
@@ -89,6 +95,10 @@ async function bootstrap(): Promise<void> {
   await app.register(dailyRoutes, { prefix: '/api/daily' });
   await app.register(storeRoutes, { prefix: '/api/store' });
   await app.register(campaignRoutes, { prefix: '/api/campaign' });
+  await app.register(progressionRoutes, { prefix: '/api/progression' });
+  await app.register(shareRoutes, { prefix: '/api/share' });
+  await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
+  await app.register(feedRoutes, { prefix: '/api/feed' });
 
   app.get('/api/lobby/seasonal', async (_req, reply) => {
     return reply.send(getActiveSeasonal(new Date()));
@@ -121,6 +131,8 @@ async function bootstrap(): Promise<void> {
   setMatchmakingIo(io);
   startMatchmakingSweep();
   startAsyncDeadlineWorker();
+  startSeasonSweep();
+  startOrphanedGameSweep();
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
 
@@ -140,6 +152,8 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     console.log(`\n[shutdown] Received ${signal}, draining...`);
     try {
       stopMatchmakingSweep();
+      stopSeasonSweep();
+      stopOrphanedGameSweep();
       await shutdownGameSocket(io);
       await app.close();
       await mongoose.connection.close();

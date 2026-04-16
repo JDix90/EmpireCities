@@ -1,4 +1,5 @@
 import type { Server as HttpServer } from 'http';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Server, Socket } from 'socket.io';
@@ -39,8 +40,20 @@ import { recordGameResults, computeRanks } from '../game-engine/state/statsManag
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
 import { INITIAL_MU, INITIAL_PHI } from '../game-engine/rating/ratingService';
+import {
+  updateWinStreak,
+  updateDailyStreak,
+  updateSeasonTier,
+  checkLevelCosmetic,
+  checkOnboardingQuests,
+} from '../game-engine/progression/progressionService';
+import { updateFriendStreaks } from '../game-engine/progression/friendStreakService';
+import { updateChallengeProgress, type GameChallengeEvent } from '../game-engine/progression/challengeService';
+import { checkReferralCompletion } from '../game-engine/progression/referralService';
+import { recordActivity } from '../services/activityService';
 import { getTutorialMap } from '../game-engine/tutorial/tutorialScript';
 import type { GameState, GameMap, AiDifficulty } from '../types';
+import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import {
   scheduleAsyncDeadline,
@@ -84,6 +97,198 @@ const activeGames = new Map<string, {
   connectedSockets: Map<string, string>; // socketId → playerId
 }>();
 
+type WaitingLobbyPlayerRow = {
+  player_index: number;
+  user_id: string | null;
+  username: string | null;
+  player_color: string;
+  is_ai: boolean;
+  ai_difficulty: string | null;
+  is_eliminated: boolean;
+};
+
+type WaitingLobbyGameRow = {
+  game_id: string;
+  era_id: string;
+  map_id: string;
+  status: string;
+  settings_json: string | Record<string, unknown>;
+  join_code: string | null;
+};
+
+type WaitingLobbyDetails = {
+  game: WaitingLobbyGameRow;
+  players: WaitingLobbyPlayerRow[];
+  settings: Record<string, unknown>;
+  humanPlayers: WaitingLobbyPlayerRow[];
+};
+
+type LobbyProposalSettingKey =
+  | 'fog_of_war'
+  | 'turn_timer_seconds'
+  | 'diplomacy_enabled'
+  | 'initial_unit_count'
+  | 'factions_enabled'
+  | 'naval_enabled';
+
+type WaitingLobbyProposal = {
+  id: string;
+  proposerId: string;
+  proposerName: string;
+  setting: LobbyProposalSettingKey;
+  label: string;
+  displayValue: string;
+  proposedValue: boolean | number;
+  yesVotes: string[];
+  noVotes: string[];
+  createdAt: number;
+};
+
+const lobbyProposalsByGame = new Map<string, WaitingLobbyProposal[]>();
+
+const LOBBY_PROPOSABLE_SETTINGS: Record<LobbyProposalSettingKey, {
+  label: string;
+  parseValue: (value: unknown) => boolean | number | null;
+  displayValue: (value: boolean | number) => string;
+}> = {
+  fog_of_war: {
+    label: 'Fog of War',
+    parseValue: (value) => (typeof value === 'boolean' ? value : null),
+    displayValue: (value) => (value ? 'On' : 'Off'),
+  },
+  turn_timer_seconds: {
+    label: 'Turn Timer',
+    parseValue: (value) => {
+      if (typeof value !== 'number') return null;
+      return [0, 60, 120, 180, 300, 600].includes(value) ? value : null;
+    },
+    displayValue: (value) => {
+      const secondsValue = Number(value);
+      if (secondsValue === 0) return 'No limit';
+      const minutes = Math.floor(secondsValue / 60);
+      const seconds = secondsValue % 60;
+      return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    },
+  },
+  diplomacy_enabled: {
+    label: 'Diplomacy',
+    parseValue: (value) => (typeof value === 'boolean' ? value : null),
+    displayValue: (value) => (value ? 'On' : 'Off'),
+  },
+  initial_unit_count: {
+    label: 'Starting Units',
+    parseValue: (value) => {
+      if (typeof value !== 'number') return null;
+      return [1, 3, 5].includes(value) ? value : null;
+    },
+    displayValue: (value) => String(value),
+  },
+  factions_enabled: {
+    label: 'Factions',
+    parseValue: (value) => (typeof value === 'boolean' ? value : null),
+    displayValue: (value) => (value ? 'On' : 'Off'),
+  },
+  naval_enabled: {
+    label: 'Naval',
+    parseValue: (value) => (typeof value === 'boolean' ? value : null),
+    displayValue: (value) => (value ? 'On' : 'Off'),
+  },
+};
+
+function parseLobbySettings(raw: string | Record<string, unknown>): Record<string, unknown> {
+  try {
+    return typeof raw === 'string'
+      ? (JSON.parse(raw) as Record<string, unknown>)
+      : (raw as Record<string, unknown>) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function loadWaitingLobbyDetails(gameId: string): Promise<WaitingLobbyDetails | null> {
+  const game = await queryOne<WaitingLobbyGameRow>(
+    'SELECT game_id, era_id, map_id, status, settings_json, join_code FROM games WHERE game_id = $1',
+    [gameId],
+  );
+  if (!game) return null;
+
+  const players = await query<WaitingLobbyPlayerRow>(
+    `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
+            gp.is_ai, gp.ai_difficulty, gp.is_eliminated
+     FROM game_players gp
+     LEFT JOIN users u ON u.user_id = gp.user_id
+     WHERE gp.game_id = $1
+     ORDER BY gp.player_index`,
+    [gameId],
+  );
+
+  const settings = parseLobbySettings(game.settings_json);
+  const humanPlayers = players.filter((player) => !player.is_ai && !!player.user_id);
+  return { game, players, settings, humanPlayers };
+}
+
+function getLobbyProposalThreshold(humanCount: number): number {
+  return Math.max(1, Math.floor(humanCount / 2) + 1);
+}
+
+function serializeLobbyProposals(gameId: string, humanPlayers: WaitingLobbyPlayerRow[], viewerId?: string) {
+  const playerCount = Math.max(1, humanPlayers.length);
+  const threshold = getLobbyProposalThreshold(playerCount);
+  return (lobbyProposalsByGame.get(gameId) ?? []).map((proposal) => ({
+    id: proposal.id,
+    proposer: proposal.proposerId,
+    proposerName: proposal.proposerName,
+    setting: proposal.setting,
+    label: proposal.label,
+    displayValue: proposal.displayValue,
+    yesVotes: proposal.yesVotes.length,
+    noVotes: proposal.noVotes.length,
+    playerCount,
+    threshold,
+    myVote: viewerId
+      ? proposal.yesVotes.includes(viewerId)
+        ? true
+        : proposal.noVotes.includes(viewerId)
+          ? false
+          : null
+      : null,
+    createdAt: proposal.createdAt,
+  }));
+}
+
+async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: WaitingLobbyDetails): Promise<void> {
+  const lobby = details ?? await loadWaitingLobbyDetails(gameId);
+  if (!lobby) return;
+  io.to(gameId).emit('game:lobby_updated', {
+    game_id: lobby.game.game_id,
+    era_id: lobby.game.era_id,
+    map_id: lobby.game.map_id,
+    status: lobby.game.status,
+    join_code: lobby.game.join_code ?? null,
+    settings_json: lobby.settings,
+    players: lobby.players.map((player) => ({
+      player_index: player.player_index,
+      user_id: player.user_id,
+      username: player.username,
+      player_color: player.player_color,
+      is_ai: player.is_ai,
+      ai_difficulty: player.ai_difficulty,
+      is_eliminated: player.is_eliminated,
+      final_rank: null as number | null,
+    })),
+  });
+}
+
+async function emitLobbyProposalUpdates(io: Server, gameId: string, details?: WaitingLobbyDetails): Promise<void> {
+  const lobby = details ?? await loadWaitingLobbyDetails(gameId);
+  if (!lobby) return;
+  const socketsInRoom = await io.in(gameId).fetchSockets();
+  for (const roomSocket of socketsInRoom) {
+    const roomUserId = roomSocket.data?.userId as string | undefined;
+    roomSocket.emit('game:lobby_proposal_update', serializeLobbyProposals(gameId, lobby.humanPlayers, roomUserId));
+  }
+}
+
 function isUnclaimedOwner(ownerId: string | null | undefined): boolean {
   return ownerId == null || ownerId === '' || ownerId === 'neutral';
 }
@@ -109,6 +314,15 @@ const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 // Prevent overlapping AI turns: gameId → true while processAiTurn is running
 const aiInFlight = new Set<string>();
+
+const SPECTATOR_DELAY_MS = 30_000;
+const SPECTATOR_BROADCAST_MS = 3_000;
+const SPECTATOR_BUFFER_LIMIT = 24;
+const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
+
+const spectatorSocketsByGame = new Map<string, Set<string>>();
+const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState }>>();
+const spectatorBroadcastLoops = new Map<string, ReturnType<typeof setInterval>>();
 
 let gameIoSingleton: Server | null = null;
 
@@ -188,6 +402,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
     if (!payload) return next(new Error('Invalid or expired token'));
     (socket as Socket & { userId: string; username: string }).userId = payload.sub;
     (socket as Socket & { userId: string; username: string }).username = payload.username;
+    socket.data.userId = payload.sub;
+    socket.data.username = payload.username;
     next();
   });
 
@@ -200,23 +416,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Join Game Room ──────────────────────────────────────────────────────
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
       try {
-        const game = await queryOne<{
-          game_id: string;
-          era_id: string;
-          map_id: string;
-          status: string;
-          settings_json: string | Record<string, unknown>;
-          join_code: string | null;
-        }>(
+        const game = await queryOne<WaitingLobbyGameRow>(
           'SELECT game_id, era_id, map_id, status, settings_json, join_code FROM games WHERE game_id = $1',
           [gameId]
         );
         if (!game) return socket.emit('error', { message: 'Game not found' });
 
-        const players = await query<{
-          player_index: number; user_id: string | null; username: string | null;
-          player_color: string; is_ai: boolean; ai_difficulty: string | null; is_eliminated: boolean;
-        }>(
+        const players = await query<WaitingLobbyPlayerRow>(
           `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
                   gp.is_ai, gp.ai_difficulty, gp.is_eliminated
            FROM game_players gp
@@ -231,34 +437,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!isParticipant) return socket.emit('error', { message: 'Not a participant in this game' });
 
         socket.join(gameId);
+        // Cache player info for lobby chat
+        const thisPlayer = players.find((p) => p.user_id === userId);
+        socket.data = { ...socket.data, username: thisPlayer?.username ?? username, color: thisPlayer?.player_color ?? '#888' };
 
         if (game.status === 'waiting') {
-          let settingsParsed: Record<string, unknown> = {};
-          try {
-            const sj = game.settings_json;
-            settingsParsed =
-              typeof sj === 'string' ? (JSON.parse(sj) as Record<string, unknown>) : (sj as Record<string, unknown>) ?? {};
-          } catch {
-            settingsParsed = {};
-          }
-          io.to(gameId).emit('game:lobby_updated', {
-            game_id: game.game_id,
-            era_id: game.era_id,
-            map_id: game.map_id,
-            status: game.status,
-            join_code: game.join_code ?? null,
-            settings_json: settingsParsed,
-            players: players.map((p) => ({
-              player_index: p.player_index,
-              user_id: p.user_id,
-              username: p.username,
-              player_color: p.player_color,
-              is_ai: p.is_ai,
-              ai_difficulty: p.ai_difficulty,
-              is_eliminated: p.is_eliminated,
-              final_rank: null as number | null,
-            })),
-          });
+          const waitingDetails: WaitingLobbyDetails = {
+            game,
+            players,
+            settings: parseLobbySettings(game.settings_json),
+            humanPlayers: players.filter((player) => !player.is_ai && !!player.user_id),
+          };
+          await emitWaitingLobbySnapshot(io, gameId, waitingDetails);
+          await emitLobbyProposalUpdates(io, gameId, waitingDetails);
         }
 
         // Initialize game state if not already active
@@ -333,6 +524,96 @@ export function initGameSocket(httpServer: HttpServer): Server {
         console.error('[Socket] game:join error:', err);
         socket.emit('error', { message: 'Failed to join game' });
       }
+    });
+
+    // ── Spectate Game ───────────────────────────────────────────────────────
+    socket.on('game:spectate_join', async ({ gameId }: { gameId: string }) => {
+      try {
+        const game = await queryOne<{ game_id: string; status: string; map_id: string }>(
+          'SELECT game_id, status, map_id FROM games WHERE game_id = $1',
+          [gameId],
+        );
+        if (!game) return socket.emit('error', { message: 'Game not found' });
+        if (game.status !== 'in_progress') return socket.emit('error', { message: 'Game is not in progress' });
+
+        const spectatorRoom = `${gameId}:spectators`;
+        socket.join(spectatorRoom);
+        socket.data = { ...socket.data, spectating: gameId };
+
+        if (!activeGames.has(gameId)) {
+          const savedState = await queryOne<{ state_json: GameState }>(
+            `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
+            [gameId],
+          );
+          if (savedState) {
+            const gameMap = await resolveMap(game.map_id);
+            if (gameMap) {
+              repairDraftUnitsIfMissing(savedState.state_json, gameMap);
+              repairLegacyGameState(savedState.state_json, gameMap);
+              activeGames.set(gameId, {
+                state: savedState.state_json,
+                map: gameMap,
+                connectedSockets: new Map(),
+              });
+            }
+          }
+        }
+
+        // Increment spectator count
+        await query('UPDATE games SET spectator_count = spectator_count + 1 WHERE game_id = $1', [gameId]).catch(() => {});
+
+        let spectators = spectatorSocketsByGame.get(gameId);
+        if (!spectators) {
+          spectators = new Set();
+          spectatorSocketsByGame.set(gameId, spectators);
+        }
+        spectators.add(socket.id);
+
+        const room = activeGames.get(gameId);
+        if (room) {
+          recordSpectatorState(gameId, room.state);
+          socket.emit('game:state', getDelayedSpectatorState(gameId) ?? buildClientState(room.state, null, false));
+          ensureSpectatorBroadcastLoop(io, gameId);
+
+          // Broadcast updated spectator count
+          const countRow = await queryOne<{ spectator_count: number }>(
+            'SELECT spectator_count FROM games WHERE game_id = $1',
+            [gameId],
+          );
+          io.to(gameId).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
+          io.to(spectatorRoom).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
+        }
+
+        socket.emit('game:spectate_joined', { gameId });
+      } catch (err) {
+        console.error('[Socket] game:spectate_join error:', err);
+        socket.emit('error', { message: 'Failed to spectate game' });
+      }
+    });
+
+    socket.on('game:spectate_leave', async ({ gameId }: { gameId: string }) => {
+      const spectatorRoom = `${gameId}:spectators`;
+      socket.leave(spectatorRoom);
+      socket.data = { ...socket.data, spectating: undefined };
+
+      const spectators = spectatorSocketsByGame.get(gameId);
+      spectators?.delete(socket.id);
+      if (spectators && spectators.size === 0) {
+        spectatorSocketsByGame.delete(gameId);
+        stopSpectatorBroadcastLoop(gameId);
+      }
+
+      await query(
+        'UPDATE games SET spectator_count = GREATEST(spectator_count - 1, 0) WHERE game_id = $1',
+        [gameId],
+      ).catch(() => {});
+
+      const countRow = await queryOne<{ spectator_count: number }>(
+        'SELECT spectator_count FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      io.to(gameId).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
+      io.to(spectatorRoom).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
     });
 
     // ── Start Game ──────────────────────────────────────────────────────────
@@ -418,9 +699,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const connectedSockets = new Map<string, string>();
         const socketsInRoom = await io.in(gameId).fetchSockets();
         for (const s of socketsInRoom) {
-          const ext = s as unknown as { id: string; userId?: string };
-          if (ext.userId) {
-            connectedSockets.set(ext.id, ext.userId);
+          const remoteUserId = s.data?.userId as string | undefined;
+          if (remoteUserId) {
+            connectedSockets.set(s.id, remoteUserId);
           }
         }
 
@@ -434,6 +715,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // Update DB
         await query('UPDATE games SET status = $1, started_at = NOW(), game_type = $2 WHERE game_id = $3', ['in_progress', gameType, gameId]);
         await saveGameState(gameId, state);
+        lobbyProposalsByGame.delete(gameId);
 
         io.to(gameId).emit('game:started', { gameId });
         broadcastState(io, gameId, state);
@@ -724,6 +1006,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
               eliminatorId: userId,
               eliminatorName: currentPlayer.username,
               eliminatedName: defenderPlayer.username,
+              secretMission: defenderPlayer.secret_mission ?? null,
             });
           }
         }
@@ -876,6 +1159,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       applyBuild(state, userId, territoryId, buildingType);
       socket.emit('game:build_result', { territoryId, buildingType, success: true });
+      // Quest check: first building
+      checkOnboardingQuests(userId, 'build').catch(() => {});
       // Announce wonder construction to the whole room
       if (buildingType.startsWith('wonder_')) {
         io.to(gameId).emit('game:wonder_built', {
@@ -973,6 +1258,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       applyResearch(state, userId, validation.node!);
       socket.emit('game:research_result', { techId, success: true, node: validation.node });
+      checkOnboardingQuests(userId, 'research').catch(() => {});
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1110,6 +1396,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
               eliminatorId: userId,
               eliminatorName: currentPlayer.username,
               eliminatedName: prevPlayer.username,
+              secretMission: prevPlayer.secret_mission ?? null,
             });
           }
         }
@@ -1297,6 +1584,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             eliminatorId: userId,
             eliminatorName: currentPlayer.username,
             eliminatedName: prevPlayer.username,
+            secretMission: prevPlayer.secret_mission ?? null,
           });
         }
       }
@@ -1368,6 +1656,152 @@ export function initGameSocket(httpServer: HttpServer): Server {
         message: clean,
         timestamp: Date.now(),
       });
+    });
+
+    socket.on('game:spectator_chat', ({ gameId, message }: { gameId: string; message: string }) => {
+      const spectatingGameId = socket.data?.spectating as string | undefined;
+      if (spectatingGameId !== gameId) return;
+
+      const now = Date.now();
+      const lastMessageAt = (socket.data?.spectatorChatLastAt as number | undefined) ?? 0;
+      if (now - lastMessageAt < SPECTATOR_CHAT_COOLDOWN_MS) return;
+      socket.data.spectatorChatLastAt = now;
+
+      const raw = String(message).trim().slice(0, 300);
+      if (!raw) return;
+
+      io.to(`${gameId}:spectators`).emit('game:spectator_chat_message', {
+        gameId,
+        playerId: userId,
+        username: socket.data?.username ?? username,
+        color: '#7dd3fc',
+        message: raw.replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+        timestamp: now,
+      });
+    });
+
+    socket.on('game:spectator_emote', ({ gameId, emote }: { gameId: string; emote: string }) => {
+      const spectatingGameId = socket.data?.spectating as string | undefined;
+      if (spectatingGameId !== gameId) return;
+      const safeEmote = String(emote).slice(0, 4);
+      if (!safeEmote) return;
+      io.to(`${gameId}:spectators`).emit('game:spectator_emote', {
+        gameId,
+        emote: safeEmote,
+        username: socket.data?.username ?? username,
+        timestamp: Date.now(),
+      });
+    });
+
+    // ── Lobby (pre-game) chat ─────────────────────────────────────────────
+    socket.on('game:lobby_chat', ({ gameId, message }: { gameId: string; message: string }) => {
+      const raw = String(message).trim().slice(0, 500);
+      if (!raw) return;
+
+      const gifMatch = raw.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
+      const clean = gifMatch
+        ? raw
+        : raw.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      if (!clean) return;
+
+      io.to(gameId).emit('game:lobby_chat_message', {
+        gameId,
+        playerId: userId,
+        username: socket.data?.username ?? username,
+        color: socket.data?.color ?? '#888',
+        message: clean,
+        timestamp: Date.now(),
+      });
+    });
+
+    socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
+      const lobby = await loadWaitingLobbyDetails(gameId);
+      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
+
+      const player = lobby.players.find((entry) => entry.user_id === userId);
+      if (!player || player.is_ai) return socket.emit('error', { message: 'Only players in the lobby can propose changes' });
+
+      if (!(setting in LOBBY_PROPOSABLE_SETTINGS)) {
+        return socket.emit('error', { message: 'That setting cannot be changed by lobby vote' });
+      }
+
+      const settingKey = setting as LobbyProposalSettingKey;
+      const definition = LOBBY_PROPOSABLE_SETTINGS[settingKey];
+      const parsedValue = definition.parseValue(value);
+      if (parsedValue == null) return socket.emit('error', { message: 'Invalid proposed value' });
+
+      if (String(lobby.settings[settingKey]) === String(parsedValue)) {
+        return socket.emit('error', { message: 'That setting is already active' });
+      }
+
+      const current = lobbyProposalsByGame.get(gameId) ?? [];
+      if (current.some((proposal) => proposal.setting === settingKey)) {
+        return socket.emit('error', { message: 'There is already an active proposal for that setting' });
+      }
+
+      current.push({
+        id: randomUUID(),
+        proposerId: userId,
+        proposerName: player.username ?? socket.data?.username ?? username,
+        setting: settingKey,
+        label: definition.label,
+        displayValue: definition.displayValue(parsedValue),
+        proposedValue: parsedValue,
+        yesVotes: [userId],
+        noVotes: [],
+        createdAt: Date.now(),
+      });
+      lobbyProposalsByGame.set(gameId, current);
+      await emitLobbyProposalUpdates(io, gameId, lobby);
+    });
+
+    socket.on('game:lobby_vote', async ({ gameId, proposalId, approve }: { gameId: string; proposalId: string; approve: boolean }) => {
+      const lobby = await loadWaitingLobbyDetails(gameId);
+      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
+
+      const player = lobby.players.find((entry) => entry.user_id === userId);
+      if (!player || player.is_ai) return socket.emit('error', { message: 'Only players in the lobby can vote' });
+
+      const proposals = lobbyProposalsByGame.get(gameId) ?? [];
+      const proposal = proposals.find((entry) => entry.id === proposalId);
+      if (!proposal) return socket.emit('error', { message: 'Proposal not found' });
+
+      proposal.yesVotes = proposal.yesVotes.filter((voteUserId) => voteUserId !== userId);
+      proposal.noVotes = proposal.noVotes.filter((voteUserId) => voteUserId !== userId);
+      if (approve) proposal.yesVotes.push(userId);
+      else proposal.noVotes.push(userId);
+
+      const threshold = getLobbyProposalThreshold(lobby.humanPlayers.length);
+      if (proposal.yesVotes.length >= threshold) {
+        const normalized = normalizeGameSettings({
+          ...lobby.settings,
+          [proposal.setting]: proposal.proposedValue,
+        });
+        const nextSettings = {
+          ...normalized,
+          max_players:
+            typeof lobby.settings.max_players === 'number'
+              ? lobby.settings.max_players
+              : lobby.players.length,
+        };
+
+        await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
+        const remaining = proposals.filter((entry) => entry.id !== proposal.id);
+        if (remaining.length > 0) lobbyProposalsByGame.set(gameId, remaining);
+        else lobbyProposalsByGame.delete(gameId);
+
+        const refreshedLobby = await loadWaitingLobbyDetails(gameId);
+        if (refreshedLobby) {
+          await emitWaitingLobbySnapshot(io, gameId, refreshedLobby);
+          await emitLobbyProposalUpdates(io, gameId, refreshedLobby);
+        }
+        return;
+      }
+
+      lobbyProposalsByGame.set(gameId, proposals);
+      await emitLobbyProposalUpdates(io, gameId, lobby);
     });
 
     // ── Leave (Save & Leave) ────────────────────────────────────────────
@@ -1585,6 +2019,30 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${userId} (${socket.id})`);
+
+      // Clean up spectator count
+      const spectatingGameId = socket.data?.spectating as string | undefined;
+      if (spectatingGameId) {
+        const spectatorRoom = `${spectatingGameId}:spectators`;
+        const spectators = spectatorSocketsByGame.get(spectatingGameId);
+        spectators?.delete(socket.id);
+        if (spectators && spectators.size === 0) {
+          spectatorSocketsByGame.delete(spectatingGameId);
+          stopSpectatorBroadcastLoop(spectatingGameId);
+        }
+        query(
+          'UPDATE games SET spectator_count = GREATEST(spectator_count - 1, 0) WHERE game_id = $1',
+          [spectatingGameId],
+        ).catch(() => {});
+        queryOne<{ spectator_count: number }>(
+          'SELECT spectator_count FROM games WHERE game_id = $1',
+          [spectatingGameId],
+        ).then((row) => {
+          io.to(spectatingGameId).emit('game:spectator_count', { count: row?.spectator_count ?? 0 });
+          io.to(spectatorRoom).emit('game:spectator_count', { count: row?.spectator_count ?? 0 });
+        }).catch(() => {});
+      }
+
       // Clean up matchmaking queue on disconnect
       query('DELETE FROM ranked_queue WHERE socket_id = $1', [socket.id]).catch(() => {});
       for (const [gameId, room] of activeGames.entries()) {
@@ -1666,8 +2124,17 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
+    // Runtime check: ensure no claimed territory has 0 units
+    for (const territory of Object.values(state.territories)) {
+      if (territory.owner_id && territory.unit_count === 0) {
+        console.warn?.(`Auto-correct: Claimed territory ${territory.territory_id} had 0 units. Setting to 1.`);
+        territory.unit_count = 1;
+      }
+    }
   const room = activeGames.get(gameId);
   if (!room) return;
+
+  recordSpectatorState(gameId, state);
 
   // Send filtered state to each connected socket
   if (room.connectedSockets.size > 0) {
@@ -1682,11 +2149,66 @@ function broadcastState(io: Server, gameId: string, state: GameState): void {
   io.to(gameId).emit('game:state_public', buildClientState(state, null, false));
 }
 
+function recordSpectatorState(gameId: string, state: GameState): void {
+  const snapshot = buildClientState(state, null, false);
+  const buffer = spectatorStateBuffers.get(gameId) ?? [];
+  buffer.push({
+    timestamp: Date.now(),
+    state: JSON.parse(JSON.stringify(snapshot)) as GameState,
+  });
+  while (buffer.length > SPECTATOR_BUFFER_LIMIT) {
+    buffer.shift();
+  }
+  spectatorStateBuffers.set(gameId, buffer);
+}
+
+function getDelayedSpectatorState(gameId: string): GameState | null {
+  const buffer = spectatorStateBuffers.get(gameId);
+  if (!buffer || buffer.length === 0) return null;
+
+  const cutoff = Date.now() - SPECTATOR_DELAY_MS;
+  for (let index = buffer.length - 1; index >= 0; index -= 1) {
+    if (buffer[index].timestamp <= cutoff) return buffer[index].state;
+  }
+
+  return buffer[0].state;
+}
+
+function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
+  if (spectatorBroadcastLoops.has(gameId)) return;
+
+  const timer = setInterval(() => {
+    const spectators = spectatorSocketsByGame.get(gameId);
+    if (!spectators || spectators.size === 0) {
+      stopSpectatorBroadcastLoop(gameId);
+      return;
+    }
+
+    const delayedState = getDelayedSpectatorState(gameId);
+    if (delayedState) {
+      io.to(`${gameId}:spectators`).emit('game:state', delayedState);
+    }
+  }, SPECTATOR_BROADCAST_MS);
+  timer.unref();
+  spectatorBroadcastLoops.set(gameId, timer);
+}
+
+function stopSpectatorBroadcastLoop(gameId: string): void {
+  const timer = spectatorBroadcastLoops.get(gameId);
+  if (timer) {
+    clearInterval(timer);
+    spectatorBroadcastLoops.delete(gameId);
+  }
+}
+
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
     players: s.players.map((p) =>
-      playerId !== null && p.player_id === playerId ? p : { ...p, secret_mission: null },
+      // Reveal mission for: the viewing player, eliminated players, and everyone at game_over
+      (playerId !== null && p.player_id === playerId) || p.is_eliminated || state.phase === 'game_over'
+        ? p
+        : { ...p, secret_mission: null },
     ),
   });
 
@@ -1908,6 +2430,163 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     }
   }
 
+  // ── Progression hooks (non-critical) ──────────────────────────────────
+  const progressionByPlayer: Record<string, {
+    win_streak: number;
+    daily_streak: number;
+    daily_streak_milestone: number | null;
+    gold_awarded: number;
+    gold_multiplier: number;
+    level_cosmetic: string | null;
+    friend_streak_bonus?: {
+      multiplier: number;
+      streak: number;
+      friends: string[];
+    };
+  }> = {};
+  const friendStreaksByPlayer = await updateFriendStreaks(
+    humanPlayers.map((player) => player.player_id),
+    state.turn_number,
+  ).catch((err) => {
+    console.error('[Socket] Friend streak update failed:', err);
+    return {} as Awaited<ReturnType<typeof updateFriendStreaks>>;
+  });
+
+  for (const p of humanPlayers) {
+    try {
+      const isWinner = p.player_id === winnerId;
+      const client = await pgPool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // Win streak
+        const winStreak = await updateWinStreak(client, p.player_id, isWinner);
+
+        // Daily streak
+        const dailyResult = await updateDailyStreak(client, p.player_id);
+
+        // Gold for winning (with streak multiplier)
+        let goldAwarded = 0;
+        if (isWinner) {
+          const baseGold = 20;
+          const streakMultiplier = winStreak >= 10 ? 2.0 : winStreak >= 7 ? 1.75 : winStreak >= 5 ? 1.5 : winStreak >= 3 ? 1.25 : 1.0;
+          const friendBonusMultiplier = friendStreaksByPlayer[p.player_id]?.multiplier ?? 1;
+          goldAwarded = Math.round(baseGold * streakMultiplier * friendBonusMultiplier);
+          await client.query('UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2', [goldAwarded, p.player_id]);
+          await client.query(
+            'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
+            [
+              p.player_id,
+              goldAwarded,
+              friendBonusMultiplier > 1
+                ? `Game win (${streakMultiplier}× win streak, ${friendBonusMultiplier}× friend streak)`
+                : goldAwarded > baseGold
+                  ? `Game win (${streakMultiplier}× streak bonus)`
+                  : 'Game win',
+            ],
+          );
+        }
+
+        // Season tier tracking (only ranked)
+        if (resultCtx.isRanked) {
+          const ratingRow = await client.query<{ mu: number }>(
+            "SELECT mu FROM user_ratings WHERE user_id = $1 AND rating_type = 'ranked'",
+            [p.player_id],
+          );
+          if (ratingRow.rows[0]) {
+            await updateSeasonTier(client, p.player_id, ratingRow.rows[0].mu);
+          }
+        }
+
+        // Level-up cosmetic
+        const userXp = await client.query<{ xp: number; level: number }>(
+          'SELECT xp, level FROM users WHERE user_id = $1',
+          [p.player_id],
+        );
+        const currentXp = userXp.rows[0]?.xp ?? 0;
+        const oldLevel = userXp.rows[0]?.level ?? 1;
+        const xpEarned = resultCtx.xpEarnedByPlayer[p.player_id] ?? 0;
+        const newLevel = Math.floor(Math.sqrt((currentXp) / 250)) + 1;
+        const prevLevel = Math.floor(Math.sqrt(Math.max(0, currentXp - xpEarned) / 250)) + 1;
+        const levelCosmetic = await checkLevelCosmetic(client, p.player_id, prevLevel, newLevel);
+
+        await client.query('COMMIT');
+
+        progressionByPlayer[p.player_id] = {
+          win_streak: winStreak,
+          daily_streak: dailyResult.streak,
+          daily_streak_milestone: dailyResult.milestone,
+          gold_awarded: goldAwarded,
+          gold_multiplier: isWinner ? (winStreak >= 10 ? 2.0 : winStreak >= 7 ? 1.75 : winStreak >= 5 ? 1.5 : winStreak >= 3 ? 1.25 : 1.0) : 1.0,
+          level_cosmetic: levelCosmetic,
+          friend_streak_bonus: friendStreaksByPlayer[p.player_id]
+            ? {
+                multiplier: friendStreaksByPlayer[p.player_id].multiplier,
+                streak: friendStreaksByPlayer[p.player_id].streak,
+                friends: friendStreaksByPlayer[p.player_id].friends.map((entry) => entry.friendName),
+              }
+            : undefined,
+        };
+      } catch (progressErr) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[Socket] Progression hook failed for', p.player_id, progressErr);
+      } finally {
+        client.release();
+      }
+
+      // Quest check (non-transactional, fire-and-forget)
+      checkOnboardingQuests(p.player_id, 'game_complete').catch(() => {});
+
+      // Challenge progress (non-critical)
+      const challengeEvent: GameChallengeEvent = {
+        userId: p.player_id,
+        won: p.player_id === winnerId,
+        isRanked: resultCtx.isRanked,
+        eraId: state.era ?? '',
+        buildingsBuilt: Object.values(state.territories).reduce((sum, t) =>
+          t.owner_id === p.player_id ? sum + (t.buildings?.length ?? 0) : sum, 0),
+        techsResearched: state.players.find((pl) => pl.player_id === p.player_id)?.unlocked_techs
+          ? (state.players.find((pl) => pl.player_id === p.player_id)!.unlocked_techs?.length ?? 0)
+          : 0,
+        territoriesConquered: resultCtx.xpEarnedByPlayer[p.player_id] ? Object.values(state.territories).filter((t) => t.owner_id === p.player_id).length : 0,
+        winStreak: progressionByPlayer[p.player_id]?.win_streak ?? 0,
+        dailyStreak: progressionByPlayer[p.player_id]?.daily_streak ?? 0,
+      };
+      updateChallengeProgress(challengeEvent).catch((err) =>
+        console.error('[Socket] Challenge progress failed:', err),
+      );
+
+      // Referral completion check
+      checkReferralCompletion(p.player_id).catch(() => {});
+
+      // Activity feed events (fire-and-forget)
+      if (p.player_id === winnerId) {
+        recordActivity(p.player_id, 'game_won', {
+          game_id: gameId,
+          era_id: state.era ?? '',
+          username: p.username,
+          turn_count: state.turn_number,
+        }).catch(() => {});
+      }
+      if (progressionByPlayer[p.player_id]?.level_cosmetic) {
+        const newLevel = Math.floor(Math.sqrt((resultCtx.xpEarnedByPlayer[p.player_id] ?? 0) / 250)) + 1;
+        recordActivity(p.player_id, 'level_up', {
+          username: p.username,
+          level: newLevel,
+          cosmetic: progressionByPlayer[p.player_id].level_cosmetic,
+        }).catch(() => {});
+      }
+      if (unlockedByPlayer[p.player_id]?.length) {
+        recordActivity(p.player_id, 'achievement_unlocked', {
+          username: p.username,
+          achievements: unlockedByPlayer[p.player_id],
+        }).catch(() => {});
+      }
+    } catch (outerErr) {
+      console.error('[Socket] Outer progression hook failed:', outerErr);
+    }
+  }
+
   const winner = state.players.find((p) => p.player_id === winnerId);
   const stats = {
     winner_id: winnerId,
@@ -1928,6 +2607,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     achievements_unlocked: unlockedByPlayer,
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,
     victory_condition: state.victory_condition,
+    progression: progressionByPlayer,
   };
   io.to(gameId).emit('game:over', stats);
 
@@ -2231,6 +2911,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
             eliminatorId: currentPlayer.player_id,
             eliminatorName: currentPlayer.username,
             eliminatedName: prevPlayer.username,
+            secretMission: prevPlayer.secret_mission ?? null,
           });
         }
       }
@@ -2313,6 +2994,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       undefined,
       state.era_modifiers,
     );
+    // If resolveCombat returns an error, skip this attack
+    if (result.error) {
+      // Optionally emit a warning or log for debugging
+      console.warn?.('AI attempted invalid combat:', result.error, { from: from.unit_count, to: to.unit_count });
+      continue;
+    }
     from.unit_count -= result.attacker_losses;
     to.unit_count -= result.defender_losses;
     if (result.territory_captured) {
@@ -2338,6 +3025,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
             eliminatorId: currentPlayer.player_id,
             eliminatorName: currentPlayer.username,
             eliminatedName: defenderPlayer.username,
+            secretMission: defenderPlayer.secret_mission ?? null,
           });
         }
       }

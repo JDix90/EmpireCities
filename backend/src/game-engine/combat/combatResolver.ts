@@ -37,10 +37,28 @@ export function resolveCombat(
   eraModifiers?: EraModifiers
 ): CombatResult {
   if (attackingUnits < 2) {
-    throw new Error('Attacker must have at least 2 units to attack');
+    return {
+      attacker_rolls: [],
+      defender_rolls: [],
+      attacker_losses: 0,
+      defender_losses: 0,
+      territory_captured: false,
+      error: 'Attacker must have at least 2 units to attack',
+    };
   }
   if (defendingUnits < 1) {
-    throw new Error('Defender must have at least 1 unit');
+    // Instead of throwing, return a result indicating no combat and log a warning
+    if (typeof console !== 'undefined') {
+      console.warn?.('resolveCombat: Defender must have at least 1 unit');
+    }
+    return {
+      attacker_rolls: [],
+      defender_rolls: [],
+      attacker_losses: 0,
+      defender_losses: 0,
+      territory_captured: false,
+      error: 'Defender must have at least 1 unit',
+    };
   }
 
   // Determine dice counts
@@ -57,15 +75,6 @@ export function resolveCombat(
     const reroll = rng();
     attackerRolls[minIdx] = Math.max(attackerRolls[minIdx], reroll);
     attackerRolls.sort((a, b) => b - a);
-  }
-
-  // Medieval era: fortified garrison (≥4 units) rolls 3 defending dice
-  if (eraModifiers?.castle_fortification && !defenderDiceOverride && defendingUnits >= 4) {
-    const extraRoll = rng();
-    defenderRolls.push(extraRoll);
-    defenderRolls.sort((a, b) => b - a);
-    // Only keep top 2 for comparison (added die only helps by replacing the lowest kept die)
-    // Actually keep all 3 — comparisons will be capped to min(attacker, defender) pairs
   }
 
   let attackerLosses = 0;

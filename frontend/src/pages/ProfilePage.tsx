@@ -5,6 +5,9 @@ import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { Trophy, Sword, Map, Flame, Target, Users, Bot, Zap, Shield, Award, GraduationCap, Coins, Play, Bell, Mail } from 'lucide-react';
+import XpBar from '../components/ui/XpBar';
+import TierBadge from '../components/ui/TierBadge';
+import ReferralPanel from '../components/ui/ReferralPanel';
 
 interface RatingInfo { mu: number; phi: number; display: number; provisional: boolean }
 
@@ -272,19 +275,11 @@ export default function ProfilePage() {
               <span className="text-cc-muted text-xs flex items-center gap-1">
                 <Shield className="w-3 h-3" /> Ranked {profile.ratings?.ranked?.display ?? '—'}
                 {profile.ratings?.ranked?.provisional && <span className="text-cc-gold/60">(P)</span>}
+                {profile.ratings?.ranked && <TierBadge mu={profile.ratings.ranked.mu} className="ml-1" />}
               </span>
             </div>
             <div className="mt-3">
-              <div className="flex justify-between text-xs text-cc-muted mb-1">
-                <span>XP Progress</span>
-                <span>{profile.xp} / {xpForNextLevel}</span>
-              </div>
-              <div className="h-2 bg-cc-dark rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-cc-gold rounded-full transition-all duration-500"
-                  style={{ width: `${xpProgress}%` }}
-                />
-              </div>
+              <XpBar xp={profile.xp} />
               {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
                 <p className="flex items-center gap-1 text-cc-gold text-xs mt-2">
                   <Coins className="w-3.5 h-3.5" />
@@ -585,6 +580,9 @@ export default function ProfilePage() {
             )}
           </div>
         )}
+
+        {/* Referral Panel (own profile only) */}
+        {isOwnProfile && !currentUser?.is_guest && <ReferralPanel className="mt-6" />}
       </div>
     </div>
   );

@@ -13,6 +13,16 @@ interface Friend {
   mmr: number;
   avatar_url?: string | null;
   created_at?: string;
+  friend_streak?: number;
+  last_game_together?: string | null;
+}
+
+function getStreakRiskLabel(lastPlayedAt?: string | null): string | null {
+  if (!lastPlayedAt) return null;
+  const diffHours = (Date.now() - new Date(lastPlayedAt).getTime()) / (1000 * 60 * 60);
+  if (diffHours >= 72) return 'Expired';
+  if (diffHours >= 48) return 'At risk';
+  return null;
 }
 
 interface PendingRow {
@@ -194,9 +204,17 @@ export default function FriendsPage() {
                       key={f.user_id}
                       className="flex items-center justify-between gap-2 p-3 bg-cc-dark rounded-lg border border-cc-border"
                     >
-                      <Link to={`/profile/${f.user_id}`} className="text-cc-text hover:text-cc-gold">
-                        {f.username}
-                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/profile/${f.user_id}`} className="text-cc-text hover:text-cc-gold block truncate font-medium">
+                          {f.username}
+                        </Link>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-cc-muted">
+                          {(f.friend_streak ?? 0) > 0 && <span className="text-orange-400">🔥 {f.friend_streak}</span>}
+                          {getStreakRiskLabel(f.last_game_together) && (
+                            <span className="text-amber-300">{getStreakRiskLabel(f.last_game_together)}</span>
+                          )}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         className="text-cc-muted hover:text-red-400 p-1"

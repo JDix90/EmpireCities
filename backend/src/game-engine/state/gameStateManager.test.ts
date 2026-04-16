@@ -5,6 +5,7 @@ import {
   checkVictory,
   redeemCardSet,
   findRedeemableCardIds,
+  initializeGameState,
 } from './gameStateManager';
 import type { GameState, PlayerState, TerritoryState, GameSettings, TerritoryCard, GameMap } from '../../types';
 
@@ -232,6 +233,97 @@ describe('advanceToNextPlayer', () => {
     advanceToNextPlayer(state, map);
     expect(state.current_player_index).toBe(0);
     expect(state.turn_number).toBe(2);
+  });
+});
+
+describe('initializeGameState faction distribution', () => {
+  it('keeps multi-home factions geographically flavored without granting runaway territory counts', () => {
+    const map: GameMap = {
+      map_id: 'fair_faction_map',
+      name: 'Fair Faction Map',
+      territories: [
+        { territory_id: 'wf1', name: 'WF1', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 'wf2', name: 'WF2', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 'wf3', name: 'WF3', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 'wf4', name: 'WF4', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 'na1', name: 'NA1', polygon: [], center_point: [0, 0], region_id: 'north_africa_th' },
+        { territory_id: 'na2', name: 'NA2', polygon: [], center_point: [0, 0], region_id: 'north_africa_th' },
+        { territory_id: 'na3', name: 'NA3', polygon: [], center_point: [0, 0], region_id: 'north_africa_th' },
+        { territory_id: 'na4', name: 'NA4', polygon: [], center_point: [0, 0], region_id: 'north_africa_th' },
+        { territory_id: 'ef1', name: 'EF1', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+        { territory_id: 'ef2', name: 'EF2', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+        { territory_id: 'ef3', name: 'EF3', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+        { territory_id: 'ef4', name: 'EF4', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+      ],
+      connections: [
+        { from: 'wf1', to: 'wf2', type: 'land' },
+        { from: 'wf2', to: 'wf3', type: 'land' },
+        { from: 'wf3', to: 'wf4', type: 'land' },
+        { from: 'wf4', to: 'na1', type: 'land' },
+        { from: 'na1', to: 'na2', type: 'land' },
+        { from: 'na2', to: 'na3', type: 'land' },
+        { from: 'na3', to: 'na4', type: 'land' },
+        { from: 'na4', to: 'ef1', type: 'land' },
+        { from: 'ef1', to: 'ef2', type: 'land' },
+        { from: 'ef2', to: 'ef3', type: 'land' },
+        { from: 'ef3', to: 'ef4', type: 'land' },
+      ],
+      regions: [
+        { region_id: 'western_front', name: 'Western Front', bonus: 2 },
+        { region_id: 'north_africa_th', name: 'North Africa', bonus: 2 },
+        { region_id: 'eastern_front', name: 'Eastern Front', bonus: 2 },
+      ],
+    };
+
+    const state = initializeGameState(
+      'faction-balance-test',
+      'ww2',
+      map,
+      [
+        {
+          player_id: 'p1',
+          player_index: 0,
+          username: 'UK Player',
+          color: '#f00',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'uk',
+        },
+        {
+          player_id: 'p2',
+          player_index: 1,
+          username: 'USSR Player',
+          color: '#00f',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'soviet_union',
+        },
+      ],
+      makeSettings({ factions_enabled: true }),
+    );
+
+    const counts = state.players.map((player) => player.territory_count);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+
+    const territoriesByOwner = Object.values(state.territories).reduce<Record<string, string[]>>((acc, territory) => {
+      const ownerId = territory.owner_id;
+      if (!ownerId) return acc;
+      acc[ownerId] = acc[ownerId] ?? [];
+      acc[ownerId].push(territory.territory_id);
+      return acc;
+    }, {});
+
+    const playerOneRegions = new Set((territoriesByOwner.p1 ?? []).map((territoryId) => map.territories.find((territory) => territory.territory_id === territoryId)?.region_id));
+    const playerTwoRegions = new Set((territoriesByOwner.p2 ?? []).map((territoryId) => map.territories.find((territory) => territory.territory_id === territoryId)?.region_id));
+
+    const playerOneOwnsWesternFront = ['wf1', 'wf2', 'wf3', 'wf4'].every((territoryId) => state.territories[territoryId].owner_id === 'p1');
+    const playerOneOwnsNorthAfrica = ['na1', 'na2', 'na3', 'na4'].every((territoryId) => state.territories[territoryId].owner_id === 'p1');
+
+    expect(playerOneRegions.has('western_front') || playerOneRegions.has('north_africa_th')).toBe(true);
+    expect(playerTwoRegions.has('eastern_front')).toBe(true);
+    expect(playerOneOwnsWesternFront && playerOneOwnsNorthAfrica).toBe(false);
   });
 });
 

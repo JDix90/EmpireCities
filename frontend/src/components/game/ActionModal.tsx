@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check } from 'lucide-react';
+import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy } from 'lucide-react';
 import clsx from 'clsx';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
+import { api } from '../../services/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export interface WinProbabilitySnapshot {
 
 export interface GameOverModalData {
   type: 'game_over';
+  gameId?: string;
   isWinner: boolean;
   winnerName: string;
   winnerColor: string;
@@ -61,6 +63,16 @@ export interface GameOverModalData {
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
   winnerIds?: string[];
+  /** Progression data from server (Phase 2). */
+  progression?: {
+    win_streak: number;
+    daily_streak: number;
+    daily_streak_milestone: number | null;
+    gold_awarded: number;
+    gold_multiplier: number;
+    level_cosmetic: string | null;
+    friend_streak_bonus?: number;
+  };
 }
 
 export interface EliminationModalData {
@@ -68,6 +80,7 @@ export interface EliminationModalData {
   eliminatedName: string;
   eliminatorName: string;
   isSelf: boolean;
+  secretMission?: { kind: string; territory_ids?: string[]; target_player_id?: string; region_ids?: string[]; ally_player_id?: string; territory_threshold?: number } | null;
 }
 
 export interface ResignModalData {
@@ -743,8 +756,10 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
         territoryCount: myPlayer?.territory_count ?? 0,
         turnCount: data.turnCount,
         username: user?.username ?? data.winnerName,
-        shareUrl: window.location.origin,
+        shareUrl: data.gameId ? `${window.location.origin}/replay/${data.gameId}` : window.location.origin,
         isWinner: data.isWinner,
+        achievements: data.achievements_unlocked,
+        friendStreakBonus: data.progression?.friend_streak_bonus,
       });
       const url = URL.createObjectURL(blob);
       if (shareImageUrl) URL.revokeObjectURL(shareImageUrl);
@@ -884,7 +899,34 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
       )}
 
       {data.xpEarned != null && data.xpEarned > 0 && (
-        <p className="text-cc-gold/90 text-sm font-medium mb-4">+{data.xpEarned} XP</p>
+        <p className="text-cc-gold/90 text-sm font-medium mb-2">+{data.xpEarned} XP</p>
+      )}
+
+      {/* Progression rewards summary */}
+      {data.progression && data.progression.gold_awarded > 0 && (
+        <div className={clsx(
+          'flex flex-wrap items-center justify-center gap-3 mb-4 transition-all duration-500 delay-350',
+          showContent ? 'opacity-100' : 'opacity-0',
+        )}>
+          <span className="inline-flex items-center gap-1 text-sm text-cc-gold font-medium">
+            <Coins size={14} /> +{data.progression.gold_awarded} Gold
+          </span>
+          {data.progression.gold_multiplier > 1 && (
+            <span className="inline-flex items-center gap-1 text-xs text-orange-400 font-bold bg-orange-400/10 border border-orange-400/30 rounded-md px-2 py-0.5">
+              <Flame size={12} /> {data.progression.gold_multiplier}× streak bonus
+            </span>
+          )}
+          {data.progression.win_streak >= 3 && (
+            <span className="inline-flex items-center gap-1 text-xs text-orange-300">
+              🔥 {data.progression.win_streak} win streak
+            </span>
+          )}
+          {(data.progression.friend_streak_bonus ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs text-sky-300 font-medium bg-sky-400/10 border border-sky-400/20 rounded-md px-2 py-0.5">
+              <Flame size={12} /> +{data.progression.friend_streak_bonus}% friend streak bonus
+            </span>
+          )}
+        </div>
       )}
 
       {/* Stats */}
@@ -994,26 +1036,85 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           <div className="flex flex-col items-center gap-4 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Share Your Result</p>
             <img src={shareImageUrl} alt="Share card preview" className="w-full rounded-xl shadow-2xl" />
-            <div className="flex gap-3 w-full">
+
+            {/* Replay link */}
+            {data.gameId && (
+              <div className="w-full flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                <Link2 className="w-4 h-4 text-white/40 shrink-0" />
+                <span className="text-white/60 text-xs truncate flex-1">
+                  {window.location.origin}/replay/{data.gameId}
+                </span>
+                <button
+                  onClick={async () => {
+                    const url = `${window.location.origin}/replay/${data.gameId}`;
+                    await navigator.clipboard.writeText(url).catch(() => {});
+                    setCopyStatus('copied');
+                    setTimeout(() => setCopyStatus('idle'), 2000);
+                    // Track share
+                    if (data.gameId) {
+                      api.post(`/share/${data.gameId}`, { platform: 'link' }).catch(() => {});
+                    }
+                  }}
+                  className="text-cc-gold text-xs font-medium hover:text-white transition-colors shrink-0 flex items-center gap-1"
+                >
+                  {copyStatus === 'copied' ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+                </button>
+              </div>
+            )}
+
+            {/* Platform share buttons */}
+            <div className="grid grid-cols-2 gap-2 w-full">
               <button
                 onClick={handleCopyImage}
-                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium
+                className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium
                            flex items-center justify-center gap-2 transition-all border border-white/10"
               >
                 {copyStatus === 'copied'
                   ? <><Check className="w-4 h-4 text-green-400" /> Copied!</>
-                  : <><Share2 className="w-4 h-4" /> Copy Image</>}
+                  : <><Copy className="w-4 h-4" /> Copy Image</>}
               </button>
-              {typeof navigator.canShare === 'function' && (
-                <button
-                  onClick={handleNativeShare}
-                  className="flex-1 py-2.5 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30 text-cc-gold text-sm font-medium
-                             flex items-center justify-center gap-2 transition-all border border-cc-gold/30"
-                >
-                  <Share2 className="w-4 h-4" /> Share
-                </button>
-              )}
+
+              <button
+                onClick={() => {
+                  const text = buildShareText({
+                    username: user?.username ?? data.winnerName,
+                    isWinner: data.isWinner,
+                    eraName: data.eraName ?? 'Eras of Empire',
+                    victoryCondition: data.victory_condition ?? 'domination',
+                    turnCount: data.turnCount,
+                    shareUrl: data.gameId ? `${window.location.origin}/replay/${data.gameId}` : window.location.origin,
+                  });
+                  window.open(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
+                    '_blank',
+                    'noopener,noreferrer',
+                  );
+                  if (data.gameId) {
+                    api.post(`/share/${data.gameId}`, { platform: 'twitter' }).catch(() => {});
+                  }
+                }}
+                className="py-2.5 rounded-xl bg-[#1da1f2]/10 hover:bg-[#1da1f2]/20 text-[#1da1f2] text-sm font-medium
+                           flex items-center justify-center gap-2 transition-all border border-[#1da1f2]/20"
+              >
+                <ExternalLink className="w-4 h-4" /> Twitter / X
+              </button>
             </div>
+
+            {typeof navigator.canShare === 'function' && (
+              <button
+                onClick={() => {
+                  handleNativeShare();
+                  if (data.gameId) {
+                    api.post(`/share/${data.gameId}`, { platform: 'native' }).catch(() => {});
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30 text-cc-gold text-sm font-medium
+                           flex items-center justify-center gap-2 transition-all border border-cc-gold/30"
+              >
+                <Share2 className="w-4 h-4" /> Share via Device
+              </button>
+            )}
+
             <button
               onClick={() => setShareOpen(false)}
               className="text-white/30 hover:text-white/60 text-sm transition-colors mt-1"
@@ -1029,6 +1130,21 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
 
 // ─── Elimination View ───────────────────────────────────────────────────────
 
+function formatMission(m: NonNullable<EliminationModalData['secretMission']>): string {
+  switch (m.kind) {
+    case 'capture_territories':
+      return `Capture territories: ${(m.territory_ids ?? []).join(' and ')}`;
+    case 'eliminate_player':
+      return `Eliminate player: ${m.target_player_id ?? 'unknown'}`;
+    case 'control_regions':
+      return `Control regions: ${(m.region_ids ?? []).join(', ')}`;
+    case 'alliance':
+      return `Form alliance with ${m.ally_player_id ?? 'unknown'}`;
+    default:
+      return 'Unknown mission';
+  }
+}
+
 function EliminationView({ data, onDismiss }: { data: EliminationModalData; onDismiss: () => void }) {
   return (
     <div className="w-full max-w-md mx-auto text-center">
@@ -1036,11 +1152,17 @@ function EliminationView({ data, onDismiss }: { data: EliminationModalData; onDi
       <h2 className={clsx('text-2xl font-bold font-display mb-2', data.isSelf ? 'text-red-400' : 'text-white')}>
         {data.isSelf ? 'You Have Been Eliminated' : 'Player Eliminated'}
       </h2>
-      <p className="text-white/50 text-sm mb-6">
+      <p className="text-white/50 text-sm mb-4">
         {data.isSelf
           ? `${data.eliminatorName} has conquered your last territory.`
           : `${data.eliminatedName} was eliminated by ${data.eliminatorName}.`}
       </p>
+      {data.secretMission && (
+        <div className="mb-6 p-3 bg-amber-950/30 rounded-lg border border-amber-600/30">
+          <p className="text-xs text-amber-400 uppercase tracking-wide mb-1 font-bold">Secret Mission Revealed</p>
+          <p className="text-sm text-white/70">{formatMission(data.secretMission)}</p>
+        </div>
+      )}
       <div className="flex gap-3">
         {data.isSelf && (
           <button

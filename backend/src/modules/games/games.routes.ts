@@ -55,6 +55,13 @@ const CreateGameSchema = z.object({
           path: ['victory_threshold'],
         });
       }
+      if (data.territory_selection && data.factions_enabled) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Territory Draft cannot be combined with Asymmetric Factions',
+          path: ['territory_selection'],
+        });
+      }
     }),
   ai_count: z.number().int().min(0).max(7).default(0),
   ai_difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
@@ -173,16 +180,89 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/games/public ────────────────────────────────────────────────
   // Static routes MUST be registered before parametric /:gameId
-  fastify.get('/public', async (_request, reply) => {
+  fastify.get('/public', { preHandler: authenticate }, async (request, reply) => {
     const games = await query(
       `SELECT g.game_id, g.era_id, g.map_id, g.status, g.created_at,
               COUNT(gp.id) AS player_count
        FROM games g
        LEFT JOIN game_players gp ON gp.game_id = g.game_id
        WHERE g.status = 'waiting'
+         AND EXISTS (
+           SELECT 1
+           FROM game_players human_gp
+           WHERE human_gp.game_id = g.game_id
+             AND human_gp.is_ai = false
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM game_players my_gp
+           WHERE my_gp.game_id = g.game_id
+             AND my_gp.user_id = $1
+         )
        GROUP BY g.game_id
        ORDER BY g.created_at DESC
-       LIMIT 20`
+       LIMIT 20`,
+      [request.userId],
+    );
+    return reply.send(games);
+  });
+
+  // ── GET /api/games/live ──────────────────────────────────────────────────
+  // List in-progress games available for spectating
+  fastify.get('/live', { preHandler: authenticate }, async (request, reply) => {
+    const qs = request.query as { era_id?: string; limit?: string };
+    const limit = Math.min(parseInt(qs.limit ?? '20', 10) || 20, 50);
+    const params: unknown[] = [limit];
+    let eraFilter = '';
+    if (qs.era_id) {
+      eraFilter = 'AND g.era_id = $2';
+      params.push(qs.era_id);
+    }
+
+    const games = await query<{
+      game_id: string; era_id: string; map_id: string; turn_count: number;
+      spectator_count: number; created_at: string; player_count: string;
+      human_count: string; max_ranked_mu: number | null; featured: boolean;
+      players: Array<{ username: string; player_color: string; is_ai: boolean }>;
+    }>(
+      `SELECT g.game_id, g.era_id, g.map_id, g.spectator_count, g.created_at,
+              (SELECT COUNT(*) FROM game_players gp2 WHERE gp2.game_id = g.game_id)::text AS player_count,
+              (SELECT COUNT(*) FROM game_players gp3 WHERE gp3.game_id = g.game_id AND gp3.is_ai = false)::text AS human_count,
+              (SELECT MAX(ur.mu)
+               FROM game_players gp4
+               JOIN user_ratings ur ON ur.user_id = gp4.user_id AND ur.rating_type = 'ranked'
+               WHERE gp4.game_id = g.game_id AND gp4.is_ai = false) AS max_ranked_mu,
+              (
+                (SELECT COUNT(*) FROM game_players gp5 WHERE gp5.game_id = g.game_id AND gp5.is_ai = false) >= 3
+                OR COALESCE((SELECT MAX(ur2.mu)
+                             FROM game_players gp6
+                             JOIN user_ratings ur2 ON ur2.user_id = gp6.user_id AND ur2.rating_type = 'ranked'
+                             WHERE gp6.game_id = g.game_id AND gp6.is_ai = false), 0) >= 1700
+                OR g.spectator_count >= 3
+              ) AS featured,
+              COALESCE(
+                (SELECT MAX(gs.turn_number) FROM game_states gs WHERE gs.game_id = g.game_id), 0
+              ) AS turn_count,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                  'username', COALESCE(u.username, 'AI Bot'),
+                  'player_color', gp.player_color,
+                  'is_ai', gp.is_ai
+                ) ORDER BY gp.player_index)
+                FROM game_players gp LEFT JOIN users u ON u.user_id = gp.user_id
+                WHERE gp.game_id = g.game_id), '[]'
+              ) AS players
+       FROM games g
+       WHERE g.status = 'in_progress'
+         AND EXISTS (
+           SELECT 1
+           FROM game_players human_gp
+           WHERE human_gp.game_id = g.game_id
+             AND human_gp.is_ai = false
+         ) ${eraFilter}
+       ORDER BY featured DESC, g.spectator_count DESC, g.created_at DESC
+       LIMIT $1`,
+      params,
     );
     return reply.send(games);
   });
@@ -428,5 +508,28 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     return reply.send({ message: 'Game abandoned' });
+  });
+
+  // Add DELETE endpoint for canceling a game
+  fastify.delete<{ Params: { gameId: string } }>('/:gameId/cancel', { preHandler: authenticate }, async (request, reply) => {
+    const { gameId } = request.params;
+
+    const game = await queryOne<{ status: string }>(
+      'SELECT status FROM games WHERE game_id = $1',
+      [gameId],
+    );
+    if (!game) return reply.status(404).send({ error: 'Game not found' });
+
+    // Only allow canceling games in the waiting state
+    if (game.status !== 'waiting') {
+      return reply.status(409).send({ error: 'Game cannot be canceled after it has started' });
+    }
+
+    await query(
+      'UPDATE games SET status = $1, ended_at = NOW() WHERE game_id = $2',
+      ['canceled', gameId],
+    );
+
+    return reply.send({ message: 'Game canceled successfully' });
   });
 }

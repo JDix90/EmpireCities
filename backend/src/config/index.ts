@@ -27,12 +27,34 @@ function parseRefreshCookieSameSite(): 'strict' | 'lax' | 'none' {
   return process.env.NODE_ENV === 'production' ? 'lax' : 'strict';
 }
 
+function parseBooleanEnv(v: string | undefined): boolean | null {
+  if (v == null || v.trim() === '') return null;
+  const n = v.trim().toLowerCase();
+  if (n === '1' || n === 'true' || n === 'yes' || n === 'on') return true;
+  if (n === '0' || n === 'false' || n === 'no' || n === 'off') return false;
+  return null;
+}
+
+function parseRefreshCookieSecure(): boolean {
+  const explicit = parseBooleanEnv(process.env.REFRESH_COOKIE_SECURE);
+  if (explicit != null) return explicit;
+
+  // Auto-detect from public app URL scheme.
+  try {
+    const protocol = new URL(process.env.FRONTEND_URL || 'http://localhost:5173').protocol;
+    return protocol === 'https:';
+  } catch {
+    return process.env.NODE_ENV === 'production';
+  }
+}
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3001', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   corsOrigins: parseCorsOrigins(),
   refreshCookieSameSite: parseRefreshCookieSameSite(),
+  refreshCookieSecure: parseRefreshCookieSecure(),
 
   postgres: {
     host: process.env.POSTGRES_HOST || 'localhost',
@@ -55,7 +77,7 @@ export const config = {
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_in_production',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_in_production',
-    accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '1h',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
 

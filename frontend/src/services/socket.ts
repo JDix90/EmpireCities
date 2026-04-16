@@ -26,6 +26,14 @@ export function getSocket(): Socket {
       transports: ['websocket'],
       autoConnect: false,
     });
+
+    // Before each reconnect attempt, refresh the token so the server sees a valid JWT
+    socket.io.on('reconnect_attempt', () => {
+      const freshToken = useAuthStore.getState().accessToken;
+      if (socket) {
+        socket.auth = { token: freshToken };
+      }
+    });
   }
   return socket;
 }

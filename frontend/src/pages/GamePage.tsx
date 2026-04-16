@@ -1,14 +1,15 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
-import GlobeMap, { type GlobeEvent } from '../components/game/GlobeMap';
+import type { GlobeEvent } from '../components/game/GlobeMap';
 import GameHUD from '../components/game/GameHUD';
+import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import MobileCombatBanner from '../components/game/MobileCombatBanner';
 import TerritoryPanel from '../components/game/TerritoryPanel';
@@ -19,9 +20,11 @@ import EventCardModal, { type EventCard } from '../components/game/EventCardModa
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
+import LobbyProposals from '../components/game/LobbyProposals';
 import { computeDraftPool } from '../utils/draftPool';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
+import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
 import {
   getInitialMapView,
@@ -31,6 +34,8 @@ import {
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
 } from '../utils/device';
+
+const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
 
 interface MapData {
   map_id: string;
@@ -347,6 +352,10 @@ export default function GamePage() {
   const [tutorialAttackAutoTick, setTutorialAttackAutoTick] = useState(0);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   const [lobbySnapshot, setLobbySnapshot] = useState<GameLobbySnapshot | null>(null);
+  // Track the user's requested faction from lobby selection
+  const requestedFactionRef = useReactRef<string | null>(null);
+  // Track if notification has been shown for faction assignment
+  const factionNotifShownRef = useReactRef(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
@@ -737,14 +746,17 @@ export default function GamePage() {
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
       victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory';
+      progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
         myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
       const currentEra = useGameStore.getState().gameState?.era;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
+      const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
       const gameOverData: GameOverModalData = {
         type: 'game_over',
+        gameId: gameId as string,
         isWinner: !!myId && winnerIds.includes(myId),
         winnerName: stats.winner_name,
         winnerColor: stats.players.find(p => p.player_id === stats.winner_id)?.color ?? '#fff',
@@ -758,12 +770,14 @@ export default function GamePage() {
         victory_condition: stats.victory_condition,
         eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
         winnerIds,
+        progression: myProgression,
       };
       setModalQueue(q => [...q, gameOverData]);
     });
 
-    socket.on('game:player_eliminated', ({ playerId, eliminatorName, eliminatedName }: {
+    socket.on('game:player_eliminated', ({ playerId, eliminatorName, eliminatedName, secretMission }: {
       playerId: string; eliminatorId: string; eliminatorName: string; eliminatedName: string;
+      secretMission?: any;
     }) => {
       const isSelf = playerId === userRef.current?.user_id;
       const elData: EliminationModalData = {
@@ -771,6 +785,7 @@ export default function GamePage() {
         eliminatedName,
         eliminatorName,
         isSelf,
+        secretMission: secretMission ?? null,
       };
       setModalQueue(q => [...q, elData]);
     });
@@ -1071,6 +1086,33 @@ export default function GamePage() {
   useEffect(() => {
     loadLobby();
   }, [loadLobby]);
+
+  // Store the requested faction from lobby selection (if available)
+  useEffect(() => {
+    if (!lobbySnapshot || !user?.user_id) return;
+    const me = lobbySnapshot.players.find(p => p.user_id === user.user_id);
+    if (me && 'faction_id' in me) {
+      requestedFactionRef.current = (me as any).faction_id || null;
+    }
+  }, [lobbySnapshot, user?.user_id]);
+
+  // Notify if assigned faction differs from requested (dice roll resolution)
+  useEffect(() => {
+    if (!gameStarted || !gameState || !user?.user_id) return;
+    if (factionNotifShownRef.current) return;
+    if (!gameState.settings?.factions_enabled) return;
+    const me = gameState.players.find(p => p.player_id === user.user_id);
+    if (!me) return;
+    const assignedFaction = (me as any).faction_id || null;
+    const requestedFaction = requestedFactionRef.current;
+    if (requestedFaction && assignedFaction && requestedFaction !== assignedFaction) {
+      toast(
+        `Multiple players requested the same faction. A dice roll assigned you: ${assignedFaction}`,
+        { icon: '🎲', duration: 7000 }
+      );
+      factionNotifShownRef.current = true;
+    }
+  }, [gameStarted, gameState, user?.user_id]);
 
   // ── Load map data ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1395,160 +1437,266 @@ export default function GamePage() {
     const roster = lobby ? [...lobby.players].sort((a, b) => a.player_index - b.player_index) : [];
     const aiCount = roster.filter((p) => p.is_ai).length;
     const firstAi = roster.find((p) => p.is_ai);
+    const hostPlayer = roster.find((p) => p.player_index === 0) ?? null;
     const eraLabel = ERA_LABELS[lobby?.era_id ?? ''] ?? lobby?.era_id ?? '—';
     const mapLabel =
       lobby?.map_id && lobby?.era_id
         ? formatLobbyMapLabel(lobby.map_id, lobby.era_id)
         : '—';
     const victorySummary = formatVictorySummary(settings);
+    const seatsRemaining = Math.max(0, maxPlayers - roster.length);
 
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center p-4">
-        <div className="card text-center max-w-xl w-full">
-          <h2 className="font-display text-2xl text-cc-gold mb-2">Game Lobby</h2>
-          <p className="text-cc-muted text-sm mb-6">
-            {!lobby
-              ? 'Loading lobby…'
-              : lobby.status === 'waiting'
-                ? 'Waiting for the host to start, or for more players to join.'
-                : 'Preparing game…'}
-          </p>
-
-          {lobby && (
-            <div className="text-left space-y-4 mb-6">
-              <div className="p-4 bg-cc-dark rounded-lg border border-cc-border">
-                <p className="text-xs text-cc-muted uppercase tracking-wide mb-3">Game settings</p>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div>
-                    <dt className="text-cc-muted text-xs">Era</dt>
-                    <dd className="text-cc-text">{eraLabel}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Map</dt>
-                    <dd className="text-cc-text">{mapLabel}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Players</dt>
-                    <dd className="text-cc-text">
-                      {roster.length} / {maxPlayers}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Fog of war</dt>
-                    <dd className="text-cc-text">{settings.fog_of_war ? 'On' : 'Off'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Turn timer</dt>
-                    <dd className="text-cc-text">{formatTurnTimer(settings.turn_timer_seconds)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Victory</dt>
-                    <dd className="text-cc-text">{victorySummary}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Starting units</dt>
-                    <dd className="text-cc-text">
-                      {typeof settings.initial_unit_count === 'number' ? settings.initial_unit_count : '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-cc-muted text-xs">Diplomacy</dt>
-                    <dd className="text-cc-text">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
-                  </div>
-                  {aiCount > 0 && (
-                    <div className="sm:col-span-2">
-                      <dt className="text-cc-muted text-xs">AI opponents</dt>
-                      <dd className="text-cc-text">
-                        {aiCount} · {firstAi?.ai_difficulty ? `${firstAi.ai_difficulty.charAt(0).toUpperCase()}${firstAi.ai_difficulty.slice(1)}` : 'Medium'}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
+      <div className="min-h-screen bg-cc-dark px-4 py-6 sm:px-6 lg:py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="card mb-6 overflow-hidden border-cc-gold/10 bg-gradient-to-br from-cc-surface to-cc-dark/90">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-cc-gold/70 mb-2">Pre-Game Room</p>
+                <h2 className="font-display text-3xl text-cc-gold mb-2">Game Lobby</h2>
+                <p className="text-cc-muted text-sm max-w-2xl">
+                  {!lobby
+                    ? 'Loading lobby…'
+                    : lobby.status === 'waiting'
+                      ? 'Waiting for the host to start, or for more players to join. Chat, vote on rule changes, and share the room from here.'
+                      : 'Preparing game…'}
+                </p>
               </div>
 
-              <div className="p-4 bg-cc-dark rounded-lg border border-cc-border">
-                <p className="text-xs text-cc-muted uppercase tracking-wide mb-3">Players</p>
-                <ul className="space-y-2 max-h-56 overflow-y-auto text-left">
-                  {roster.map((p) => {
-                    const isYou = p.user_id && user?.user_id && p.user_id === user.user_id;
-                    return (
-                      <li
-                        key={p.player_index}
-                        className="flex items-center gap-3 py-1.5 border-b border-cc-border/60 last:border-0"
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0 border border-white/20"
-                          style={{ backgroundColor: p.player_color }}
-                          title="Color"
-                        />
-                        <span className="flex-1 text-cc-text text-sm truncate">
-                          {playerLobbyDisplayName(p)}
-                          {isYou && (
-                            <span className="text-cc-muted text-xs ml-1">(you)</span>
-                          )}
-                        </span>
-                        {p.player_index === 0 && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
-                            Host
-                          </span>
-                        )}
-                        {p.is_ai && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-cc-surface text-cc-muted border border-cc-border">
-                            AI
-                            {p.ai_difficulty
-                              ? ` · ${p.ai_difficulty.charAt(0).toUpperCase()}${p.ai_difficulty.slice(1)}`
-                              : ''}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {gameId && (
-            <div className="text-left space-y-3 mb-6 p-4 bg-cc-dark rounded-lg border border-cc-border">
-              <p className="text-xs text-cc-muted uppercase tracking-wide">Share this game</p>
-              {lobbySnapshot?.join_code && (
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-cc-gold font-mono text-lg tracking-wider">{lobbySnapshot.join_code}</span>
-                  <button type="button" onClick={copyJoinCode} className="btn-secondary text-sm py-1 px-3">
-                    Copy code
-                  </button>
+              {lobby && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0 lg:min-w-[420px]">
+                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Era</p>
+                    <p className="text-sm text-cc-text font-medium truncate">{eraLabel}</p>
+                  </div>
+                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Seats</p>
+                    <p className="text-sm text-cc-text font-medium">{roster.length} / {maxPlayers}</p>
+                  </div>
+                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Host</p>
+                    <p className="text-sm text-cc-text font-medium truncate">{hostPlayer ? playerLobbyDisplayName(hostPlayer) : '—'}</p>
+                  </div>
+                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Status</p>
+                    <p className="text-sm font-medium text-cc-gold">{lobby.status === 'waiting' ? `${seatsRemaining} open` : 'Starting'}</p>
+                  </div>
                 </div>
               )}
-              <p className="text-xs text-cc-muted break-all">{shareUrl}</p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={copyGameUrl} className="btn-secondary text-sm py-1.5 px-3">
-                  Copy link
-                </button>
-                <button type="button" onClick={copyGameId} className="btn-secondary text-sm py-1.5 px-3">
-                  Copy game ID
-                </button>
-              </div>
             </div>
-          )}
+          </div>
 
-          {isHost && (
-            <div className="space-y-3">
-              <button onClick={handleStartGame} className="btn-primary w-full text-lg py-3">
-                Start Game
-              </button>
-              {!user?.is_guest && gameId && (
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(true)}
-                  className="btn-secondary w-full text-lg py-3"
-                >
-                  Invite friends
-                </button>
-              )}
+          {lobby && (
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+              <div className="space-y-6 min-w-0">
+                <div className="card">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Configuration</p>
+                      <h3 className="font-display text-xl text-cc-gold">Game Settings</h3>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-full border border-cc-gold/20 bg-cc-gold/10 text-cc-gold">
+                      {mapLabel}
+                    </span>
+                  </div>
+
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Era</dt>
+                      <dd className="text-cc-text font-medium">{eraLabel}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Map</dt>
+                      <dd className="text-cc-text font-medium">{mapLabel}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Players</dt>
+                      <dd className="text-cc-text font-medium">{roster.length} / {maxPlayers}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Turn Timer</dt>
+                      <dd className="text-cc-text font-medium">{formatTurnTimer(settings.turn_timer_seconds)}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Fog of War</dt>
+                      <dd className="text-cc-text font-medium">{settings.fog_of_war ? 'On' : 'Off'}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Diplomacy</dt>
+                      <dd className="text-cc-text font-medium">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3 sm:col-span-2 xl:col-span-1">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Victory</dt>
+                      <dd className="text-cc-text font-medium">{victorySummary}</dd>
+                    </div>
+                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Starting Units</dt>
+                      <dd className="text-cc-text font-medium">
+                        {typeof settings.initial_unit_count === 'number' ? settings.initial_unit_count : '—'}
+                      </dd>
+                    </div>
+                    {aiCount > 0 && (
+                      <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                        <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">AI Opponents</dt>
+                        <dd className="text-cc-text font-medium">
+                          {aiCount} · {firstAi?.ai_difficulty ? `${firstAi.ai_difficulty.charAt(0).toUpperCase()}${firstAi.ai_difficulty.slice(1)}` : 'Medium'}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+
+                {gameId && (
+                  <div className="card">
+                    <div className="flex items-center gap-2 mb-4">
+                      <MessageSquare className="w-4 h-4 text-cc-gold" />
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Coordination</p>
+                        <h3 className="font-display text-lg text-cc-gold">Lobby Chat</h3>
+                      </div>
+                    </div>
+                    <GameChat gameId={gameId} embedded defaultOpen lobbyMode />
+                  </div>
+                )}
+
+                {gameId && (
+                  <div className="card">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Consensus</p>
+                        <h3 className="font-display text-lg text-cc-gold">Vote on Settings</h3>
+                      </div>
+                      <span className="text-xs text-cc-muted">Majority approval required</span>
+                    </div>
+                    <LobbyProposals gameId={gameId} isHost={isHost} currentSettings={lobby.settings_json ?? null} />
+                  </div>
+                )}
+
+                <div className="card">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Roster</p>
+                      <h3 className="font-display text-xl text-cc-gold">Players</h3>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-sm text-cc-muted">
+                      <Users className="w-4 h-4" /> {roster.length} connected seats
+                    </span>
+                  </div>
+
+                  <ul className="space-y-2 text-left">
+                    {roster.map((p) => {
+                      const isYou = p.user_id && user?.user_id && p.user_id === user.user_id;
+                      // Show assigned faction if present
+                      const assignedFaction = (p as any).faction_id || null;
+                      return (
+                        <li
+                          key={p.player_index}
+                          className="flex items-center gap-3 rounded-lg border border-cc-border bg-cc-dark/55 px-3 py-3"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0 border border-white/20"
+                            style={{ backgroundColor: p.player_color }}
+                            title="Color"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-cc-text text-sm font-medium truncate">
+                              {playerLobbyDisplayName(p)}
+                              {isYou && <span className="text-cc-muted text-xs ml-1">(you)</span>}
+                              {assignedFaction && (
+                                <span className="ml-2 text-xs px-2 py-0.5 rounded bg-cc-gold/10 text-cc-gold border border-cc-gold/20">
+                                  Faction: {assignedFaction}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-cc-muted mt-0.5">
+                              {p.is_ai
+                                ? `AI seat${p.ai_difficulty ? ` · ${p.ai_difficulty.charAt(0).toUpperCase()}${p.ai_difficulty.slice(1)}` : ''}`
+                                : p.player_index === 0
+                                  ? 'Lobby host'
+                                  : 'Player slot'}
+                            </p>
+                          </div>
+                          {p.player_index === 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                              Host
+                            </span>
+                          )}
+                          {p.is_ai && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-cc-surface text-cc-muted border border-cc-border">
+                              AI
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+
+              <aside className="space-y-6 xl:sticky xl:top-6">
+                <div className="card">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Play className="w-4 h-4 text-cc-gold" />
+                    <h3 className="font-display text-lg text-cc-gold">Ready Room</h3>
+                  </div>
+
+                  {isHost ? (
+                    <div className="space-y-3">
+                      <button onClick={handleStartGame} className="btn-primary w-full text-base py-3">
+                        Start Game
+                      </button>
+                      {!user?.is_guest && gameId && (
+                        <button
+                          type="button"
+                          onClick={() => setShowInviteModal(true)}
+                          className="btn-secondary w-full text-base py-3 flex items-center justify-center gap-2"
+                        >
+                          <UserPlus className="w-4 h-4" /> Invite Friends
+                        </button>
+                      )}
+                      <p className="text-xs leading-relaxed text-cc-muted">
+                        Start immediately, or wait for more players to join and vote on any rule changes first.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-cc-muted leading-relaxed">
+                      Waiting for {hostPlayer ? playerLobbyDisplayName(hostPlayer) : 'the host'} to start the game.
+                    </p>
+                  )}
+                </div>
+
+                {gameId && (
+                  <div className="card">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Link2 className="w-4 h-4 text-cc-gold" />
+                      <h3 className="font-display text-lg text-cc-gold">Share This Game</h3>
+                    </div>
+
+                    {lobbySnapshot?.join_code && (
+                      <div className="rounded-lg border border-cc-gold/20 bg-cc-gold/5 px-3 py-3 mb-3">
+                        <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Join Code</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-cc-gold font-mono text-2xl tracking-[0.18em]">{lobbySnapshot.join_code}</span>
+                          <button type="button" onClick={copyJoinCode} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1.5">
+                            <Copy className="w-3.5 h-3.5" /> Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-cc-muted break-all mb-3">{shareUrl}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
+                      <button type="button" onClick={copyGameUrl} className="btn-secondary text-sm py-2 px-3 flex items-center justify-center gap-1.5">
+                        <Copy className="w-3.5 h-3.5" /> Copy link
+                      </button>
+                      <button type="button" onClick={copyGameId} className="btn-secondary text-sm py-2 px-3 flex items-center justify-center gap-1.5">
+                        <Copy className="w-3.5 h-3.5" /> Copy game ID
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </aside>
             </div>
-          )}
-          {!isHost && (
-            <p className="text-cc-muted text-sm">Waiting for the host to start the game.</p>
           )}
         </div>
         {showInviteModal && gameId && (
@@ -1640,17 +1788,19 @@ export default function GamePage() {
         >
           {mapData ? (
             mapView === 'globe' ? (
-              <GlobeMap
-                mapData={mapData}
-                onTerritoryClick={handleTerritoryClick}
-                width={mapCanvasSize.w}
-                height={mapCanvasSize.h}
-                events={globeEvents}
-                onEventDone={handleGlobeEventDone}
-                reducedEffects={reducedGlobe}
-                autoSpin={globeSpinEnabled}
-                highlightTerritoryId={tutorialHighlightId}
-              />
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-cc-muted animate-pulse">Loading globe…</p></div>}>
+                <GlobeMap
+                  mapData={mapData}
+                  onTerritoryClick={handleTerritoryClick}
+                  width={mapCanvasSize.w}
+                  height={mapCanvasSize.h}
+                  events={globeEvents}
+                  onEventDone={handleGlobeEventDone}
+                  reducedEffects={reducedGlobe}
+                  autoSpin={globeSpinEnabled}
+                  highlightTerritoryId={tutorialHighlightId}
+                />
+              </Suspense>
             ) : (
               <GameMap
                 mapData={mapData}

@@ -12,6 +12,7 @@ interface CosmeticRow {
   asset_url: string | null;
   price_gems: number;
   is_premium: boolean;
+  rarity: string;
   owned: boolean;
 }
 
@@ -26,6 +27,7 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
       `SELECT c.cosmetic_id, c.type, c.name, c.description, c.asset_url,
               COALESCE(c.price_gems, 0) AS price_gems,
               COALESCE(c.is_premium, false) AS is_premium,
+              COALESCE(c.rarity, 'common') AS rarity,
               (uc.cosmetic_id IS NOT NULL) AS owned
        FROM cosmetics c
        LEFT JOIN user_cosmetics uc
@@ -45,12 +47,17 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
     const { cosmetic_id } = parsed.data;
 
     // Load cosmetic
-    const cosmetic = await queryOne<{ price_gems: number; name: string }>(
-      'SELECT price_gems, name FROM cosmetics WHERE cosmetic_id = $1',
-      [cosmetic_id],
+    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string }>(
+      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity FROM cosmetics WHERE cosmetic_id = $1',
+      [cosmetic_id, 'common'],
     );
     if (!cosmetic) {
       return reply.status(404).send({ error: 'Item not found' });
+    }
+
+    // Legendary and mythic cosmetics cannot be purchased
+    if (cosmetic.rarity === 'legendary' || cosmetic.rarity === 'mythic') {
+      return reply.status(403).send({ error: 'This cosmetic can only be earned through achievements or seasonal rewards' });
     }
 
     // Check already owned

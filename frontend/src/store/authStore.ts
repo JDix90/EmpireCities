@@ -29,6 +29,14 @@ export interface AuthUser {
   is_guest?: boolean;
   /** True once the basic tutorial has been completed. */
   has_completed_tutorial?: boolean;
+  /** Onboarding quest stage (0–5, null = completed) */
+  onboarding_stage?: number | null;
+  /** Current win streak */
+  win_streak?: number;
+  /** Current daily streak */
+  daily_streak?: number;
+  /** Prestige level (reset count) */
+  prestige?: number;
 }
 
 interface AuthState {

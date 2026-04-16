@@ -4,7 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import toast from 'react-hot-toast';
-import { Play, Pause, SkipBack, SkipForward, ChevronLeft } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ChevronLeft, Share2, Copy, Check } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState } from '../store/gameStore';
 
@@ -34,6 +34,9 @@ export default function ReplayPage() {
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
+  const [isPublic, setIsPublic] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -124,6 +127,25 @@ export default function ReplayPage() {
     setReplayFrame(Math.min(replaySnapshots.length - 1, replayFrame + 1));
   };
 
+  const handleShareReplay = async () => {
+    if (!gameId) return;
+    setSharing(true);
+    try {
+      await api.post(`/share/${gameId}/make-public`);
+      setIsPublic(true);
+      const url = `${window.location.origin}/replay/${gameId}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Replay link copied!');
+      api.post(`/share/${gameId}`, { platform: 'link' }).catch(() => {});
+    } catch {
+      toast.error('Failed to make replay public');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const togglePlay = () => {
     if (playing) {
       stopPlayback();
@@ -171,6 +193,14 @@ export default function ReplayPage() {
         <span className="text-cc-muted text-xs ml-auto">
           Turn {currentTurn} of {replaySnapshots[totalFrames - 1]?.turn_number ?? totalFrames}
         </span>
+        <button
+          onClick={handleShareReplay}
+          disabled={sharing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cc-gold/10 border border-cc-gold/20 text-cc-gold hover:bg-cc-gold/20 text-xs font-medium transition-all disabled:opacity-50"
+        >
+          {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+          {isPublic ? 'Copy Link' : 'Share Replay'}
+        </button>
       </div>
 
       {/* Map area */}

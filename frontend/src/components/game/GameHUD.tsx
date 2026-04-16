@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
+import { getSocket } from '../../services/socket';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
@@ -68,6 +69,7 @@ export default function GameHUD({
   const [showCards, setShowCards] = useState(false);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [spectatorCount, setSpectatorCount] = useState(0);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
   const myPlayer = gameState?.players.find(
@@ -91,6 +93,16 @@ export default function GameHUD({
     }, 1000);
     return () => clearInterval(interval);
   }, [gameState?.turn_started_at, gameState?.settings.turn_timer_seconds]);
+
+  useEffect(() => {
+    if (!gameId) return;
+    const socket = getSocket();
+    const onSpectatorCount = ({ count }: { count: number }) => setSpectatorCount(count);
+    socket.on('game:spectator_count', onSpectatorCount);
+    return () => {
+      socket.off('game:spectator_count', onSpectatorCount);
+    };
+  }, [gameId]);
 
   const toggleCardSelection = (cardId: string) => {
     setSelectedCards((prev) =>
@@ -158,6 +170,9 @@ export default function GameHUD({
           <p className="text-cc-gold text-sm mt-2 font-medium">
             {draftPool} units to place
           </p>
+        )}
+        {spectatorCount > 0 && (
+          <p className="text-xs text-sky-300 mt-2 font-medium">{spectatorCount} watching</p>
         )}
         {gameState.phase === 'territory_select' && (() => {
           const unclaimed = Object.values(gameState.territories).filter((t) => t.owner_id === null).length;

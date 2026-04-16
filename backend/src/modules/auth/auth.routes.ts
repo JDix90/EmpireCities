@@ -20,7 +20,7 @@ const LoginSchema = z.object({
 
 function refreshCookieOpts(maxAgeSeconds: number) {
   const sameSite = config.refreshCookieSameSite;
-  const secure = sameSite === 'none' ? true : config.nodeEnv === 'production';
+  const secure = sameSite === 'none' ? true : config.refreshCookieSecure;
   return {
     httpOnly: true,
     secure,

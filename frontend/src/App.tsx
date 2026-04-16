@@ -1,25 +1,38 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import { initPushNotifications } from './services/pushNotifications';
 
 // Pages
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import LobbyPage from './pages/LobbyPage';
-import GamePage from './pages/GamePage';
-import MapEditorPage from './pages/MapEditorPage';
-import ProfilePage from './pages/ProfilePage';
-import MapHubPage from './pages/MapHubPage';
-import FriendsPage from './pages/FriendsPage';
-import NotFoundPage from './pages/NotFoundPage';
-import PrivacyPage from './pages/PrivacyPage';
-import TutorialPage from './pages/TutorialPage';
-import DailyChallengePage from './pages/DailyChallengePage';
-import StorePage from './pages/StorePage';
-import ReplayPage from './pages/ReplayPage';
-import CampaignPage from './pages/CampaignPage';
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const LobbyPage = lazy(() => import('./pages/LobbyPage'));
+const GamePage = lazy(() => import('./pages/GamePage'));
+const MapEditorPage = lazy(() => import('./pages/MapEditorPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const MapHubPage = lazy(() => import('./pages/MapHubPage'));
+const FriendsPage = lazy(() => import('./pages/FriendsPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TutorialPage = lazy(() => import('./pages/TutorialPage'));
+const DailyChallengePage = lazy(() => import('./pages/DailyChallengePage'));
+const StorePage = lazy(() => import('./pages/StorePage'));
+const ReplayPage = lazy(() => import('./pages/ReplayPage'));
+const CampaignPage = lazy(() => import('./pages/CampaignPage'));
+const LeaderboardsPage = lazy(() => import('./pages/LeaderboardsPage'));
+const LiveGamesPage = lazy(() => import('./pages/LiveGamesPage'));
+const SpectatorPage = lazy(() => import('./pages/SpectatorPage'));
+
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-cc-dark flex items-center justify-center px-6">
+      <div className="text-center">
+        <p className="font-display text-xl tracking-widest text-cc-gold">Loading</p>
+        <p className="mt-2 text-sm text-cc-muted animate-pulse">Preparing the next front…</p>
+      </div>
+    </div>
+  );
+}
 
 // Route guard
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -52,35 +65,42 @@ export default function App() {
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {
     if (isAuthenticated && user && !user.is_guest) {
-      initPushNotifications();
+      void import('./services/pushNotifications')
+        .then(({ initPushNotifications }) => initPushNotifications())
+        .catch(() => {});
     }
   }, [isAuthenticated, user]);
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
-      <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+        <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 
-      {/* Protected routes */}
-      <Route path="/tutorial" element={<PrivateRoute><TutorialPage /></PrivateRoute>} />
-      <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />
-      <Route path="/store" element={<PrivateRoute><StorePage /></PrivateRoute>} />
-      <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />
-      <Route path="/game/:gameId" element={<PrivateRoute><GamePage /></PrivateRoute>} />
-      <Route path="/replay/:gameId" element={<PrivateRoute><ReplayPage /></PrivateRoute>} />
-      <Route path="/editor" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
-      <Route path="/editor/:mapId" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
-      <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-      <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-      <Route path="/campaign" element={<PrivateRoute><CampaignPage /></PrivateRoute>} />
-      <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
-      <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
+        {/* Protected routes */}
+        <Route path="/tutorial" element={<PrivateRoute><TutorialPage /></PrivateRoute>} />
+        <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />
+        <Route path="/store" element={<PrivateRoute><StorePage /></PrivateRoute>} />
+        <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />
+        <Route path="/game/:gameId" element={<PrivateRoute><GamePage /></PrivateRoute>} />
+        <Route path="/replay/:gameId" element={<PrivateRoute><ReplayPage /></PrivateRoute>} />
+        <Route path="/editor" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
+        <Route path="/editor/:mapId" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/campaign" element={<PrivateRoute><CampaignPage /></PrivateRoute>} />
+        <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
+        <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
+        <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
+        <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />
+        <Route path="/spectate/:gameId" element={<PrivateRoute><SpectatorPage /></PrivateRoute>} />
 
-      {/* 404 */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* 404 */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   );
 }

@@ -79,7 +79,7 @@ function BonusTable({ rows }: { rows: BonusRow[] }) {
               )}
             </div>
             {row.description && (
-              <p className="text-xs text-cc-muted mt-0.5 leading-relaxed">{row.description}</p>
+              <p className="text-xs text-cc-muted mt-0.5 leading-relaxed whitespace-pre-line">{row.description}</p>
             )}
           </div>
         </div>
@@ -94,6 +94,8 @@ interface FactionInfo {
   faction_id: string;
   name: string;
   description: string;
+  lore?: string;
+  flavor_quote?: string;
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
 }
@@ -227,8 +229,19 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                       icon: '🏴',
                       label: factionData.name,
                       value: '',
-                      description: factionData.description,
+                      description: factionData.lore
+                        ? `${factionData.description}\n\n${factionData.lore}`
+                        : factionData.description,
                     },
+                    ...(factionData.flavor_quote
+                      ? [{
+                          icon: '📜',
+                          label: 'Lore',
+                          value: '',
+                          description: `"${factionData.flavor_quote}"`,
+                          valueColor: 'text-amber-200',
+                        }]
+                      : []),
                     ...(factionData.passive_attack_bonus
                       ? [{
                           icon: '⚔️',

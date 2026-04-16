@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { authenticate } from '../../middleware/authenticate';
 import { query, queryOne } from '../../db/postgres';
 import type { Server } from 'socket.io';
+import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 
 const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
@@ -141,6 +142,7 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
     );
 
     await attemptMatch(body.era_id, body.bucket);
+    checkOnboardingQuests(request.userId, 'ranked_join').catch(() => {});
 
     return reply.send({ queued: true });
   });

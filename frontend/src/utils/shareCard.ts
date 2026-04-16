@@ -1,5 +1,5 @@
 /**
- * Generates a 600×300 PNG share card for post-game results.
+ * Generates a stylized PNG share card for post-game results.
  */
 
 export interface ShareCardOptions {
@@ -11,6 +11,8 @@ export interface ShareCardOptions {
   username: string;
   shareUrl: string;
   isWinner: boolean;
+  achievements?: string[];
+  friendStreakBonus?: number;
 }
 
 const VICTORY_LABELS: Record<string, string> = {
@@ -23,100 +25,132 @@ const VICTORY_LABELS: Record<string, string> = {
 };
 
 export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
-  const W = 600;
-  const H = 300;
+  const W = 800;
+  const H = 420;
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  // Background
-  ctx.fillStyle = '#1a1a2e';
+  const gradient = ctx.createLinearGradient(0, 0, W, H);
+  gradient.addColorStop(0, '#101724');
+  gradient.addColorStop(0.55, '#1b2335');
+  gradient.addColorStop(1, '#0a0f18');
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle grid pattern
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillStyle = `${opts.factionColor}18`;
+  ctx.beginPath();
+  ctx.arc(W - 120, 90, 160, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(140, H - 40, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = opts.factionColor;
+  ctx.fillRect(0, 0, W, 8);
+  ctx.fillRect(0, 0, 8, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 30) {
+  for (let x = 0; x < W; x += 40) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
-  for (let y = 0; y < H; y += 30) {
+  for (let y = 0; y < H; y += 40) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
 
-  // Era-color accent stripe (top, 6px)
-  ctx.fillStyle = opts.factionColor;
-  ctx.fillRect(0, 0, W, 6);
-
-  // Left faction color bar (full height, 6px)
-  ctx.fillStyle = opts.factionColor;
-  ctx.fillRect(0, 0, 6, H);
-
-  // Faction color dot (large circle, left side)
-  const dotX = 56;
-  const dotY = H / 2;
+  const dotX = 92;
+  const dotY = 120;
   ctx.beginPath();
-  ctx.arc(dotX, dotY, 32, 0, Math.PI * 2);
+  ctx.arc(dotX, dotY, 48, 0, Math.PI * 2);
   ctx.fillStyle = opts.factionColor + '33';
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(dotX, dotY, 32, 0, Math.PI * 2);
+  ctx.arc(dotX, dotY, 48, 0, Math.PI * 2);
   ctx.strokeStyle = opts.factionColor;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
   ctx.stroke();
 
   // Outcome icon text in circle
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 28px sans-serif';
+  ctx.font = 'bold 42px serif';
   ctx.fillStyle = opts.isWinner ? '#f1c40f' : '#e74c3c';
   ctx.fillText(opts.isWinner ? '🏆' : '💀', dotX, dotY);
 
   // Username
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.font = 'bold 26px sans-serif';
+  ctx.font = '600 18px Georgia, serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.58)';
+  ctx.fillText('Eras of Empire', 168, 72);
+
+  ctx.font = 'bold 34px Georgia, serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(opts.username, 108, 100);
+  ctx.fillText(opts.username, 168, 118);
 
   // Outcome text
   const outcomeLabel = opts.isWinner ? 'Victory!' : 'Defeated';
-  ctx.font = 'bold 32px sans-serif';
+  ctx.font = 'bold 46px Georgia, serif';
   ctx.fillStyle = opts.isWinner ? '#f1c40f' : '#e74c3c';
-  ctx.fillText(outcomeLabel, 108, 148);
+  ctx.fillText(outcomeLabel, 168, 174);
 
   // Victory condition label
   const condLabel = VICTORY_LABELS[opts.victoryCondition] ?? opts.victoryCondition;
-  ctx.font = '16px sans-serif';
+  ctx.font = '16px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.fillText(condLabel, 108, 180);
+  ctx.fillText(condLabel, 168, 206);
 
-  // Stats row
-  const statsY = 220;
-  ctx.font = 'bold 20px sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.fillText(`${opts.territoryCount} territories`, 108, statsY);
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.fillText('  ·  ', 108 + ctx.measureText(`${opts.territoryCount} territories`).width, statsY);
-  const dotSep = ctx.measureText(`${opts.territoryCount} territories  ·  `).width;
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.fillText(`${opts.turnCount} turns`, 108 + dotSep, statsY);
+  const statCards = [
+    { label: 'Territories', value: String(opts.territoryCount) },
+    { label: 'Turns', value: String(opts.turnCount) },
+    { label: 'Era', value: opts.eraName },
+  ];
+  if (opts.friendStreakBonus && opts.friendStreakBonus > 0) {
+    statCards.push({ label: 'Friend Bonus', value: `+${opts.friendStreakBonus}%` });
+  }
 
-  // Era name
-  ctx.font = '14px sans-serif';
+  statCards.forEach((card, index) => {
+    const x = 48 + index * 180;
+    const y = 262;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(x, y, 156, 74);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeRect(x, y, 156, 74);
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.52)';
+    ctx.fillText(card.label.toUpperCase(), x + 14, y + 22);
+    ctx.font = 'bold 24px Georgia, serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(card.value, x + 14, y + 52);
+  });
+
+  const badgeY = 354;
+  const badges = (opts.achievements ?? []).slice(0, 2);
+  badges.forEach((badge, index) => {
+    const x = 48 + index * 230;
+    ctx.fillStyle = 'rgba(241, 196, 15, 0.1)';
+    ctx.fillRect(x, badgeY, 210, 30);
+    ctx.strokeStyle = 'rgba(241, 196, 15, 0.18)';
+    ctx.strokeRect(x, badgeY, 210, 30);
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = '#f4d35e';
+    ctx.fillText(badge.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()), x + 12, badgeY + 20);
+  });
+
+  ctx.font = '14px system-ui, sans-serif';
   ctx.fillStyle = opts.factionColor;
-  ctx.fillText(opts.eraName.toUpperCase(), 108, 258);
+  ctx.fillText(opts.eraName.toUpperCase(), 610, 306);
 
-  // Footer — right-aligned domain
   ctx.textAlign = 'right';
-  ctx.font = '13px sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillText('erasofempire.com', W - 20, H - 16);
+  ctx.font = '13px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillText(opts.shareUrl.replace(/^https?:\/\//, ''), W - 28, H - 28);
 
-  // Bottom accent line
   ctx.fillStyle = opts.factionColor + '66';
-  ctx.fillRect(0, H - 3, W, 3);
+  ctx.fillRect(0, H - 4, W, 4);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

@@ -19,6 +19,12 @@ interface GameChatProps {
   gameId: string;
   /** In-sidebar layout: does not use fixed positioning, so it never covers the map or territory panel. */
   embedded?: boolean;
+  /** Whether the chat should start expanded on first render. */
+  defaultOpen?: boolean;
+  /** When true, uses lobby chat events (game:lobby_chat / game:lobby_chat_message) instead of in-game events. */
+  lobbyMode?: boolean;
+  /** When true, uses spectator chat events scoped to the spectator room. */
+  spectatorMode?: boolean;
 }
 
 const GIF_REGEX = /^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/;
@@ -38,33 +44,42 @@ function renderMessage(message: string) {
   return <span className="text-cc-text/90 break-words">{message}</span>;
 }
 
-export default function GameChat({ gameId, embedded = false }: GameChatProps) {
+export default function GameChat({ gameId, embedded = false, defaultOpen = false, lobbyMode = false, spectatorMode = false }: GameChatProps) {
   const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
   const [input, setInput] = useState('');
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [gifSearchOpen, setGifSearchOpen] = useState(false);
   const [gifQuery, setGifQuery] = useState('');
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifSearching, setGifSearching] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const gifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emojiData = useRef<any>(null);
 
   useEffect(() => {
     const socket = getSocket();
+    const eventName = spectatorMode
+      ? 'game:spectator_chat_message'
+      : lobbyMode
+        ? 'game:lobby_chat_message'
+        : 'game:chat_message';
     const onMsg = (msg: ChatMessagePayload) => {
       if (msg.gameId !== gameId) return;
       setMessages((prev) => [...prev.slice(-99), msg]);
     };
-    socket.on('game:chat_message', onMsg);
+    socket.on(eventName, onMsg);
     return () => {
-      socket.off('game:chat_message', onMsg);
+      socket.off(eventName, onMsg);
     };
-  }, [gameId]);
+  }, [gameId, lobbyMode, spectatorMode]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages]);
 
   // Lazy-load emoji data
@@ -80,7 +95,10 @@ export default function GameChat({ gameId, embedded = false }: GameChatProps) {
     const t = (msg ?? input).trim();
     if (!t) return;
     const socket = getSocket();
-    socket.emit('game:chat', { gameId, message: t });
+    socket.emit(
+      spectatorMode ? 'game:spectator_chat' : lobbyMode ? 'game:lobby_chat' : 'game:chat',
+      { gameId, message: t },
+    );
     if (!msg) setInput('');
     setEmojiPickerOpen(false);
     setGifSearchOpen(false);
@@ -136,6 +154,7 @@ export default function GameChat({ gameId, embedded = false }: GameChatProps) {
         <>
           {/* Messages */}
           <div
+            ref={chatContainerRef}
             className={clsx(
               'overflow-y-auto px-3 py-2 space-y-1.5',
               embedded ? 'max-h-[140px]' : 'h-[180px]',

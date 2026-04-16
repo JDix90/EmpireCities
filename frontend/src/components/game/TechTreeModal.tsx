@@ -46,6 +46,28 @@ function NodeBonusTags({ node }: { node: TechNode }) {
   );
 }
 
+function UnlockChainTags({ node, allTechs }: { node: TechNode; allTechs: TechNode[] }) {
+  const unlockedTechs = allTechs.filter((t) => t.prerequisite === node.tech_id);
+  if (unlockedTechs.length === 0) return null;
+  
+  return (
+    <div className="mt-2 pt-1.5 border-t border-amber-900/40">
+      <p className="text-xs text-amber-400/90 font-semibold mb-1">🔓 Unlocks next tier:</p>
+      <div className="flex flex-wrap gap-1">
+        {unlockedTechs.map((t) => (
+          <span
+            key={t.tech_id}
+            className="px-2 py-0.5 rounded text-xs bg-amber-900/30 text-amber-300 border border-amber-700/40"
+            title={t.name}
+          >
+            {t.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function TechTreeModal({ gameState, currentPlayerId, techTree, onResearch, onClose }: Props) {
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   const unlocked = useMemo(() => new Set(player?.unlocked_techs ?? []), [player]);
@@ -74,6 +96,17 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
           </button>
         </div>
 
+        {/* Info banner */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-700/40 text-xs text-amber-200">
+            <p className="font-semibold mb-1">💡 Strategy Tip:</p>
+            <p>
+              Researching a tech unlocks related technologies in higher tiers. Plan your tech path to unlock synergies!
+              Look for the <span className="text-amber-300">🔓 Unlocks</span> section to see chains.
+            </p>
+          </div>
+        </div>
+
         {/* Tree body */}
         <div className="overflow-y-auto p-4 space-y-6">
           {tiers.map((tier) => {
@@ -89,6 +122,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
                     const isUnlocked = unlocked.has(node.tech_id);
                     const prereqsMet = !node.prerequisite || unlocked.has(node.prerequisite);
                     const canResearch = !isUnlocked && prereqsMet && techPoints >= node.cost;
+                    const unlockedByThis = techTree.filter((t) => t.prerequisite === node.tech_id);
 
                     return (
                       <div
@@ -121,6 +155,11 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
 
                         {/* Bonus tags */}
                         <NodeBonusTags node={node} />
+
+                        {/* Unlock chain indicator */}
+                        {unlockedByThis.length > 0 && (
+                          <UnlockChainTags node={node} allTechs={techTree} />
+                        )}
 
                         {/* Research button */}
                         {canResearch && (

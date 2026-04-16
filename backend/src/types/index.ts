@@ -181,8 +181,6 @@ export interface PushToken {
 export interface EraModifiers {
   // Ancient
   legion_reroll?: boolean;
-  // Medieval
-  castle_fortification?: boolean;
   // Discovery
   sea_lanes?: boolean;
   // WW2
@@ -322,6 +320,7 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  error?: string;
 }
 
 // ── Map Data ──────────────────────────────────────────────────────────────────

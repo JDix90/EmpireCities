@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { getLeaderboard } from '../../db/redis';
+import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 
 const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account'),
@@ -57,20 +58,29 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       equipped_frame?: string | null;
       equipped_marker?: string | null;
       gold: number;
+      onboarding_stage: number;
+      win_streak: number;
+      daily_streak: number;
+      prestige: number;
     };
 
     let user: UserRow | null = null;
     try {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
-                equipped_frame, equipped_marker, COALESCE(gold, 0) AS gold
+                equipped_frame, equipped_marker, COALESCE(gold, 0) AS gold,
+                COALESCE(onboarding_stage, 0) AS onboarding_stage,
+                COALESCE(win_streak, 0) AS win_streak,
+                COALESCE(daily_streak, 0) AS daily_streak,
+                COALESCE(prestige, 0) AS prestige
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
     } catch {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
-                COALESCE(gold, 0) AS gold
+                COALESCE(gold, 0) AS gold,
+                0 AS onboarding_stage, 0 AS win_streak, 0 AS daily_streak, 0 AS prestige
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
@@ -127,7 +137,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
          SELECT state_json::text::jsonb AS state_json, saved_at FROM game_states
          WHERE game_id = g.game_id ORDER BY turn_number DESC LIMIT 1
        ) gs ON true
-       WHERE gp.user_id = $1 AND g.status = 'in_progress'
+       WHERE gp.user_id = $1 AND g.status IN ('waiting', 'in_progress')
          AND COALESCE(g.settings_json::jsonb->>'tutorial', 'false') <> 'true'
        ORDER BY COALESCE(gs.saved_at, g.started_at, g.created_at) DESC`,
       [request.userId],
@@ -474,6 +484,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'You cannot accept your own outgoing request' });
     }
     await query(`UPDATE friendships SET status = 'accepted' WHERE id = $1`, [row.id]);
+    checkOnboardingQuests(request.userId, 'friend_accept').catch(() => {});
     return reply.send({ ok: true });
   });
 
@@ -511,7 +522,13 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/users/me/friends ────────────────────────────────────────────
   fastify.get('/me/friends', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const friends = await query(
-      `SELECT u.user_id, u.username, u.level, u.mmr, u.avatar_url, f.status, f.created_at
+      `SELECT u.user_id, u.username, u.level, u.mmr, u.avatar_url, f.status, f.created_at,
+              CASE
+                WHEN f.last_game_together IS NULL THEN 0
+                WHEN f.last_game_together < NOW() - INTERVAL '72 hours' THEN 0
+                ELSE COALESCE(f.friend_streak, 0)
+              END AS friend_streak,
+              f.last_game_together
        FROM friendships f
        JOIN users u ON (
          CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END = u.user_id

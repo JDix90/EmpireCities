@@ -24,7 +24,7 @@ import {
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
-  medieval:     { castle_fortification: true },
+  medieval:     {},
   discovery:    { sea_lanes: true },
   ww2:          { wartime_logistics: true },
   coldwar:      { influence_spread: true, influence_range: 1 },
@@ -56,13 +56,50 @@ export function initializeGameState(
     };
   }
 
-  // Assign factions to players (round-robin from available era factions) when enabled
+  // Assign factions to players (unique picks, resolve conflicts with dice roll) when enabled
   if (settingsNorm.factions_enabled) {
     const eraFactions = getEraFactions(era);
+    // Map: faction_id -> array of player indices who want it
+    const factionRequests: Record<string, number[]> = {};
+    const unassignedPlayers: number[] = [];
     players.forEach((p, idx) => {
-      if (!p.faction_id) {
-        p.faction_id = eraFactions[idx % eraFactions.length]?.faction_id ?? null;
+      if (p.faction_id) {
+        if (!factionRequests[p.faction_id]) factionRequests[p.faction_id] = [];
+        factionRequests[p.faction_id].push(idx);
+      } else {
+        unassignedPlayers.push(idx);
       }
+    });
+
+    // Track which factions are already assigned
+    const assignedFactions = new Set<string>();
+    // Resolve conflicts: if >1 player wants a faction, pick one at random
+    Object.entries(factionRequests).forEach(([factionId, indices]) => {
+      if (indices.length === 1) {
+        players[indices[0]].faction_id = factionId;
+        assignedFactions.add(factionId);
+      } else {
+        // Dice roll: pick one at random
+        const winnerIdx = indices[Math.floor(Math.random() * indices.length)];
+        players[winnerIdx].faction_id = factionId;
+        assignedFactions.add(factionId);
+        // The rest go to unassigned pool
+        indices.forEach((idx) => {
+          if (idx !== winnerIdx) unassignedPlayers.push(idx);
+        });
+      }
+    });
+
+    // Assign remaining players to random available factions
+    const availableFactions = eraFactions.map(f => f.faction_id).filter(f => !assignedFactions.has(f));
+    // Shuffle for fairness
+    for (let i = availableFactions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [availableFactions[i], availableFactions[j]] = [availableFactions[j], availableFactions[i]];
+    }
+    unassignedPlayers.forEach((idx, i) => {
+      players[idx].faction_id = availableFactions[i] ?? null;
+      if (availableFactions[i]) assignedFactions.add(availableFactions[i]);
     });
   }
 
@@ -700,12 +737,9 @@ function shuffleArray<T>(arr: T[]): T[] {
 /**
  * Geographic territory distribution for faction-enabled games.
  *
- * Algorithm:
- * 1. Each player has a faction (via player.faction_id); look up that faction's
- *    home_region_ids from ERA_FACTIONS.
- * 2. BFS-expand from home territories outward, assigning each wave to the
- *    nearest-home-region player.  Ties broken by player index.
- * 3. Any leftover territories are distributed round-robin.
+ * Players should begin near their faction home regions, but no faction should gain a
+ * runaway start simply because its metadata references more regions than another faction.
+ * This balances both territory count and territory value while preserving geographic flavor.
  */
 function distributeTerritoriesGeographic(
   territories: Record<string, TerritoryState>,
@@ -715,8 +749,8 @@ function distributeTerritoriesGeographic(
   initialUnitCount: number
 ): void {
   const factions = getEraFactions(era);
+  if (players.length === 0) return;
 
-  // Build adjacency map
   const adjacency: Record<string, string[]> = {};
   for (const conn of map.connections) {
     if (!adjacency[conn.from]) adjacency[conn.from] = [];
@@ -725,83 +759,351 @@ function distributeTerritoriesGeographic(
     adjacency[conn.to].push(conn.from);
   }
 
-  // For each player, find their home territories from their faction
-  const playerHomeIds: string[][] = players.map((p) => {
-    if (!p.faction_id) return [];
-    const faction = factions.find((f) => f.faction_id === p.faction_id);
-    if (!faction) return [];
-    return map.territories
-      .filter((t) => faction.home_region_ids.includes(t.region_id))
-      .map((t) => t.territory_id);
+  const territoryById = new Map(map.territories.map((territory) => [territory.territory_id, territory]));
+  const playerIndexById = new Map(players.map((player, playerIndex) => [player.player_id, playerIndex]));
+  const regionBonusById = new Map(map.regions.map((region) => [region.region_id, region.bonus]));
+  const territoryIdsByRegion = new Map<string, string[]>();
+  for (const territory of map.territories) {
+    const current = territoryIdsByRegion.get(territory.region_id) ?? [];
+    current.push(territory.territory_id);
+    territoryIdsByRegion.set(territory.region_id, current);
+  }
+
+  const territoryValues = new Map<string, number>();
+  for (const territory of map.territories) {
+    const regionTerritories = territoryIdsByRegion.get(territory.region_id) ?? [];
+    const regionBonus = regionBonusById.get(territory.region_id) ?? 0;
+    territoryValues.set(
+      territory.territory_id,
+      1 + regionBonus / Math.max(1, regionTerritories.length),
+    );
+  }
+
+  const playerHomeRegionSets = players.map((player) => {
+    const faction = factions.find((entry) => entry.faction_id === player.faction_id);
+    return new Set(faction?.home_region_ids ?? []);
+  });
+  const playersByRegion = new Map<string, number[]>();
+  playerHomeRegionSets.forEach((regionSet, playerIndex) => {
+    for (const regionId of regionSet) {
+      const claimers = playersByRegion.get(regionId) ?? [];
+      claimers.push(playerIndex);
+      playersByRegion.set(regionId, claimers);
+    }
   });
 
-  // Assign home territories with round-robin draft when multiple factions share a region.
-  // Group all home claims by region, then interleave assignments so each player gets an
-  // equal slice before anyone takes a second territory from the same contested region.
-  const regionClaimers = new Map<string, number[]>(); // region_id → [player indices]
-  for (let pi = 0; pi < players.length; pi++) {
-    const faction = factions.find((f) => f.faction_id === players[pi].faction_id);
-    if (!faction) continue;
-    for (const regionId of faction.home_region_ids) {
-      if (!regionClaimers.has(regionId)) regionClaimers.set(regionId, []);
-      regionClaimers.get(regionId)!.push(pi);
-    }
-  }
-  const assigned = new Map<string, string>(); // territory_id → player_id
-  for (const [regionId, piList] of regionClaimers.entries()) {
-    const regionTerritories = map.territories
-      .filter((t) => t.region_id === regionId)
-      .map((t) => t.territory_id);
-    regionTerritories.forEach((tid, i) => {
-      const pi = piList[i % piList.length];
-      if (!assigned.has(tid)) {
-        assigned.set(tid, players[pi].player_id);
-      }
-    });
-  }
+  const playerHomeIds: string[][] = players.map((_player, playerIndex) => {
+    const preferredRegions = playerHomeRegionSets[playerIndex];
+    return map.territories
+      .filter((territory) => preferredRegions.has(territory.region_id))
+      .map((territory) => territory.territory_id)
+      .sort((left, right) => {
+        const leftRegionId = territoryById.get(left)?.region_id ?? '';
+        const rightRegionId = territoryById.get(right)?.region_id ?? '';
+        const leftClaimers = playersByRegion.get(leftRegionId)?.length ?? 0;
+        const rightClaimers = playersByRegion.get(rightRegionId)?.length ?? 0;
+        if (leftClaimers !== rightClaimers) return leftClaimers - rightClaimers;
 
-  // True simultaneous multi-source BFS: maintain per-player frontier queues and expand
-  // one wave at a time. All players' claims for a wave are collected before any are applied,
-  // so no player has a positional advantage from iteration order.
-  const unassigned = new Set(Object.keys(territories).filter((tid) => !assigned.has(tid)));
-  if (unassigned.size > 0) {
-    const frontiers: Set<string>[] = players.map((_p, pi) => new Set(playerHomeIds[pi]));
-    while (unassigned.size > 0) {
-      // Collect all claims for this wave without assigning yet
-      const waveClaims = new Map<string, number>(); // territory_id → first claiming player index
-      for (let pi = 0; pi < players.length; pi++) {
-        for (const tid of frontiers[pi]) {
-          for (const nid of (adjacency[tid] ?? [])) {
-            if (unassigned.has(nid) && !waveClaims.has(nid)) {
-              waveClaims.set(nid, pi);
-            }
+        const leftDegree = adjacency[left]?.length ?? 0;
+        const rightDegree = adjacency[right]?.length ?? 0;
+        if (leftDegree !== rightDegree) return rightDegree - leftDegree;
+
+        return left.localeCompare(right);
+      });
+  });
+
+  const targetCountBase = Math.floor(map.territories.length / players.length);
+  const targetCountRemainder = map.territories.length % players.length;
+  const targetCounts = players.map((_, playerIndex) => targetCountBase + (playerIndex < targetCountRemainder ? 1 : 0));
+  const targetValue = [...territoryValues.values()].reduce((sum, value) => sum + value, 0) / players.length;
+
+  const assigned = new Map<string, string>();
+  const ownedCounts = players.map(() => 0);
+  const ownedValues = players.map(() => 0);
+  const ownedTerritories = players.map(() => new Set<string>());
+
+  const assignTerritory = (territoryId: string, playerIndex: number) => {
+    if (assigned.has(territoryId)) return;
+    assigned.set(territoryId, players[playerIndex].player_id);
+    ownedCounts[playerIndex] += 1;
+    ownedValues[playerIndex] += territoryValues.get(territoryId) ?? 1;
+    ownedTerritories[playerIndex].add(territoryId);
+  };
+
+  const chooseBestPlayer = (territoryId: string, candidates: number[]): number => {
+    const regionId = territoryById.get(territoryId)?.region_id ?? '';
+    return [...candidates].sort((left, right) => {
+      const leftCountPressure = ownedCounts[left] / Math.max(1, targetCounts[left]);
+      const rightCountPressure = ownedCounts[right] / Math.max(1, targetCounts[right]);
+      if (leftCountPressure !== rightCountPressure) return leftCountPressure - rightCountPressure;
+
+      const leftValuePressure = ownedValues[left] / Math.max(1, targetValue);
+      const rightValuePressure = ownedValues[right] / Math.max(1, targetValue);
+      if (leftValuePressure !== rightValuePressure) return leftValuePressure - rightValuePressure;
+
+      const leftHome = playerHomeRegionSets[left].has(regionId) ? 1 : 0;
+      const rightHome = playerHomeRegionSets[right].has(regionId) ? 1 : 0;
+      if (leftHome !== rightHome) return rightHome - leftHome;
+
+      if (ownedCounts[left] !== ownedCounts[right]) return ownedCounts[left] - ownedCounts[right];
+      if (ownedValues[left] !== ownedValues[right]) return ownedValues[left] - ownedValues[right];
+      return left - right;
+    })[0] ?? candidates[0] ?? 0;
+  };
+
+  const getOwnedTerritoriesByPlayer = (ownership: Map<string, string>): string[][] => {
+    const grouped = players.map(() => [] as string[]);
+    for (const [territoryId, ownerId] of ownership.entries()) {
+      const playerIndex = playerIndexById.get(ownerId);
+      if (playerIndex != null) grouped[playerIndex].push(territoryId);
+    }
+    return grouped;
+  };
+
+  const getRegionBonusForOwnedTerritories = (ownedIds: Set<string>): number => {
+    let bonus = 0;
+    for (const region of map.regions) {
+      const regionTerritories = territoryIdsByRegion.get(region.region_id) ?? [];
+      if (regionTerritories.length > 0 && regionTerritories.every((territoryId) => ownedIds.has(territoryId))) {
+        bonus += region.bonus;
+      }
+    }
+    return bonus;
+  };
+
+  const getLargestConnectedComponentSize = (ownedIds: Set<string>): number => {
+    const remaining = new Set(ownedIds);
+    let largest = 0;
+    while (remaining.size > 0) {
+      const [start] = remaining;
+      if (!start) break;
+      const queue = [start];
+      remaining.delete(start);
+      let size = 0;
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        size += 1;
+        for (const adjacentId of adjacency[current] ?? []) {
+          if (remaining.has(adjacentId)) {
+            remaining.delete(adjacentId);
+            queue.push(adjacentId);
           }
         }
       }
-      if (waveClaims.size === 0) break;
-      // Apply all wave claims and advance frontiers
-      const nextFrontiers: string[][] = players.map(() => []);
-      for (const [nid, pi] of waveClaims.entries()) {
-        assigned.set(nid, players[pi].player_id);
-        unassigned.delete(nid);
-        nextFrontiers[pi].push(nid);
-      }
-      for (let pi = 0; pi < players.length; pi++) {
-        frontiers[pi] = new Set(nextFrontiers[pi]);
-      }
+      largest = Math.max(largest, size);
     }
-  }
+    return largest;
+  };
 
-  // Round-robin any truly isolated leftover territories
-  const remaining = [...unassigned];
-  remaining.forEach((tid, idx) => {
-    assigned.set(tid, players[idx % players.length].player_id);
+  const scoreOwnership = (ownership: Map<string, string>): number[] => {
+    const ownedByPlayer = getOwnedTerritoriesByPlayer(ownership);
+    return ownedByPlayer.map((territoryIds, playerIndex) => {
+      const ownedSet = new Set(territoryIds);
+      const territoryValue = territoryIds.reduce((sum, territoryId) => sum + (territoryValues.get(territoryId) ?? 1), 0);
+      const regionBonus = getRegionBonusForOwnedTerritories(ownedSet);
+      const reinforcements = calculateReinforcements(territoryIds.length, regionBonus, players.length);
+
+      let hostileEdges = 0;
+      let seaEdges = 0;
+      let homeOwned = 0;
+      for (const territoryId of territoryIds) {
+        const territory = territoryById.get(territoryId);
+        if (territory && playerHomeRegionSets[playerIndex].has(territory.region_id)) {
+          homeOwned += 1;
+        }
+        for (const connection of map.connections) {
+          if (connection.from !== territoryId && connection.to !== territoryId) continue;
+          const otherId = connection.from === territoryId ? connection.to : connection.from;
+          if (!ownedSet.has(otherId)) hostileEdges += 1;
+          if (connection.type === 'sea') seaEdges += 1;
+        }
+      }
+
+      const cohesion = getLargestConnectedComponentSize(ownedSet);
+      return territoryValue
+        + reinforcements * 1.6
+        + cohesion * 0.22
+        + homeOwned * 0.18
+        + seaEdges * 0.04
+        - hostileEdges * 0.08;
+    });
+  };
+
+  const rebalanceAssignedTerritories = () => {
+    const maxIterations = Math.min(6, map.territories.length);
+    const ownership = new Map(assigned);
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+      const scores = scoreOwnership(ownership);
+      let strongestIndex = 0;
+      let weakestIndex = 0;
+      for (let playerIndex = 1; playerIndex < players.length; playerIndex++) {
+        if (scores[playerIndex] > scores[strongestIndex]) strongestIndex = playerIndex;
+        if (scores[playerIndex] < scores[weakestIndex]) weakestIndex = playerIndex;
+      }
+
+      const currentGap = scores[strongestIndex] - scores[weakestIndex];
+      if (currentGap <= 1.5) break;
+
+      const strongestOwned = getOwnedTerritoriesByPlayer(ownership)[strongestIndex] ?? [];
+      const weakestOwned = new Set(getOwnedTerritoriesByPlayer(ownership)[weakestIndex] ?? []);
+      const strongestHomeOwnedCount = strongestOwned.filter((territoryId) =>
+        playerHomeRegionSets[strongestIndex].has(territoryById.get(territoryId)?.region_id ?? ''),
+      ).length;
+      const weakestHomeOwnedCount = [...weakestOwned].filter((territoryId) =>
+        playerHomeRegionSets[weakestIndex].has(territoryById.get(territoryId)?.region_id ?? ''),
+      ).length;
+
+      const strongestCandidates = strongestOwned
+        .filter((territoryId) => (adjacency[territoryId] ?? []).some((adjacentId) => weakestOwned.has(adjacentId)))
+        .filter((territoryId) => {
+          const regionId = territoryById.get(territoryId)?.region_id ?? '';
+          if (!playerHomeRegionSets[strongestIndex].has(regionId)) return true;
+          return strongestHomeOwnedCount > 1;
+        })
+        .sort((left, right) => {
+          const leftHome = playerHomeRegionSets[strongestIndex].has(territoryById.get(left)?.region_id ?? '') ? 1 : 0;
+          const rightHome = playerHomeRegionSets[strongestIndex].has(territoryById.get(right)?.region_id ?? '') ? 1 : 0;
+          if (leftHome !== rightHome) return leftHome - rightHome;
+          const leftValue = territoryValues.get(left) ?? 1;
+          const rightValue = territoryValues.get(right) ?? 1;
+          if (leftValue !== rightValue) return rightValue - leftValue;
+          return left.localeCompare(right);
+        });
+
+      const weakestCandidates = [...weakestOwned]
+        .filter((territoryId) => (adjacency[territoryId] ?? []).some((adjacentId) => ownership.get(adjacentId) === players[strongestIndex].player_id))
+        .filter((territoryId) => {
+          const regionId = territoryById.get(territoryId)?.region_id ?? '';
+          if (!playerHomeRegionSets[weakestIndex].has(regionId)) return true;
+          return weakestHomeOwnedCount > 1;
+        })
+        .sort((left, right) => {
+          const leftHome = playerHomeRegionSets[weakestIndex].has(territoryById.get(left)?.region_id ?? '') ? 1 : 0;
+          const rightHome = playerHomeRegionSets[weakestIndex].has(territoryById.get(right)?.region_id ?? '') ? 1 : 0;
+          if (leftHome !== rightHome) return rightHome - leftHome;
+          const leftValue = territoryValues.get(left) ?? 1;
+          const rightValue = territoryValues.get(right) ?? 1;
+          if (leftValue !== rightValue) return leftValue - rightValue;
+          return left.localeCompare(right);
+        });
+
+      let bestSwap:
+        | { fromStrongest: string; fromWeakest: string; gap: number }
+        | null = null;
+
+      for (const strongestTerritory of strongestCandidates.slice(0, 8)) {
+        for (const weakestTerritory of weakestCandidates.slice(0, 8)) {
+          const trialOwnership = new Map(ownership);
+          trialOwnership.set(strongestTerritory, players[weakestIndex].player_id);
+          trialOwnership.set(weakestTerritory, players[strongestIndex].player_id);
+          const trialScores = scoreOwnership(trialOwnership);
+          const trialGap = Math.max(...trialScores) - Math.min(...trialScores);
+          if (trialGap + 0.25 < currentGap && (!bestSwap || trialGap < bestSwap.gap)) {
+            bestSwap = {
+              fromStrongest: strongestTerritory,
+              fromWeakest: weakestTerritory,
+              gap: trialGap,
+            };
+          }
+        }
+      }
+
+      if (!bestSwap) break;
+      ownership.set(bestSwap.fromStrongest, players[weakestIndex].player_id);
+      ownership.set(bestSwap.fromWeakest, players[strongestIndex].player_id);
+    }
+
+    assigned.clear();
+    for (const [territoryId, ownerId] of ownership.entries()) {
+      assigned.set(territoryId, ownerId);
+    }
+  };
+
+  const allTerritoryIds = map.territories
+    .map((territory) => territory.territory_id)
+    .sort((left, right) => {
+      const leftDegree = adjacency[left]?.length ?? 0;
+      const rightDegree = adjacency[right]?.length ?? 0;
+      if (leftDegree !== rightDegree) return rightDegree - leftDegree;
+      return left.localeCompare(right);
+    });
+
+  const seedOrder = players.map((_, playerIndex) => playerIndex).sort((left, right) => {
+    const leftChoices = playerHomeIds[left]?.length ?? 0;
+    const rightChoices = playerHomeIds[right]?.length ?? 0;
+    if (leftChoices !== rightChoices) return leftChoices - rightChoices;
+    return left - right;
   });
 
-  // Apply assignments to territories
-  for (const [tid, playerId] of assigned.entries()) {
-    territories[tid].owner_id = playerId;
-    territories[tid].unit_count = initialUnitCount;
+  for (const playerIndex of seedOrder) {
+    const preferredSeed = playerHomeIds[playerIndex].find((territoryId) => !assigned.has(territoryId));
+    const fallbackSeed = allTerritoryIds.find((territoryId) => !assigned.has(territoryId));
+    const seedTerritoryId = preferredSeed ?? fallbackSeed;
+    if (seedTerritoryId) assignTerritory(seedTerritoryId, playerIndex);
+  }
+
+  const unassigned = new Set(allTerritoryIds.filter((territoryId) => !assigned.has(territoryId)));
+  const frontiers = ownedTerritories.map((territorySet) => new Set(territorySet));
+
+  while (unassigned.size > 0) {
+    const waveClaims = new Map<string, number[]>();
+    for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
+      if (ownedCounts[playerIndex] >= targetCounts[playerIndex]) continue;
+      for (const territoryId of frontiers[playerIndex]) {
+        for (const adjacentId of adjacency[territoryId] ?? []) {
+          if (!unassigned.has(adjacentId)) continue;
+          const claimers = waveClaims.get(adjacentId) ?? [];
+          if (!claimers.includes(playerIndex)) claimers.push(playerIndex);
+          waveClaims.set(adjacentId, claimers);
+        }
+      }
+    }
+
+    if (waveClaims.size === 0) break;
+
+    const nextFrontiers: string[][] = players.map(() => []);
+    const waveTerritories = [...waveClaims.keys()].sort((left, right) => {
+      const leftValue = territoryValues.get(left) ?? 1;
+      const rightValue = territoryValues.get(right) ?? 1;
+      if (leftValue !== rightValue) return rightValue - leftValue;
+      return left.localeCompare(right);
+    });
+
+    for (const territoryId of waveTerritories) {
+      const candidates = waveClaims.get(territoryId) ?? [];
+      const playerIndex = chooseBestPlayer(territoryId, candidates);
+      assignTerritory(territoryId, playerIndex);
+      unassigned.delete(territoryId);
+      nextFrontiers[playerIndex].push(territoryId);
+    }
+
+    nextFrontiers.forEach((territoryIds, playerIndex) => {
+      frontiers[playerIndex] = new Set(territoryIds);
+    });
+  }
+
+  for (const territoryId of [...unassigned].sort((left, right) => {
+    const leftValue = territoryValues.get(left) ?? 1;
+    const rightValue = territoryValues.get(right) ?? 1;
+    if (leftValue !== rightValue) return rightValue - leftValue;
+    return left.localeCompare(right);
+  })) {
+    const underQuotaPlayers = players
+      .map((_, playerIndex) => playerIndex)
+      .filter((playerIndex) => ownedCounts[playerIndex] < targetCounts[playerIndex]);
+    const playerIndex = chooseBestPlayer(
+      territoryId,
+      underQuotaPlayers.length > 0 ? underQuotaPlayers : players.map((_, playerIndex) => playerIndex),
+    );
+    assignTerritory(territoryId, playerIndex);
+    unassigned.delete(territoryId);
+  }
+
+  rebalanceAssignedTerritories();
+
+  for (const [territoryId, playerId] of assigned.entries()) {
+    territories[territoryId].owner_id = playerId;
+    territories[territoryId].unit_count = initialUnitCount;
   }
 }
 

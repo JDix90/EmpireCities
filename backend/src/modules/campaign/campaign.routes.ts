@@ -16,7 +16,25 @@ const ERA_MAP_IDS: Record<CampaignEra, string> = {
   modern:    'era_modern',
 };
 
-const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
+const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
+
+const ERA_AI_DIFFICULTY: Record<CampaignEra, string> = {
+  ancient:   'easy',
+  medieval:  'medium',
+  discovery: 'medium',
+  ww2:       'hard',
+  coldwar:   'hard',
+  modern:    'expert',
+};
+
+const ERA_AI_COUNT: Record<CampaignEra, number> = {
+  ancient:   3,
+  medieval:  3,
+  discovery: 3,
+  ww2:       3,
+  coldwar:   4,
+  modern:    4,
+};
 
 export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   /**
@@ -51,12 +69,13 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     const eraId = CAMPAIGN_ERAS[0];
     const mapId = ERA_MAP_IDS[eraId];
     const gameId = uuidv4();
+    const aiCount = ERA_AI_COUNT[eraId];
     const settings = {
       era: eraId,
       map_id: mapId,
       is_campaign: true,
       campaign_prestige_bonus: 0,
-      player_count: 4,
+      player_count: aiCount + 1,
     };
 
     await query(
@@ -72,12 +91,12 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       [gameId, userId, PLAYER_COLORS[0]],
     );
 
-    // Add 3 AI opponents
-    for (let i = 1; i < 4; i++) {
+    // Add AI opponents (count and difficulty scale with era)
+    for (let i = 1; i <= aiCount; i++) {
       await query(
         `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
          VALUES ($1, NULL, $2, $3, true, $4)`,
-        [gameId, i, PLAYER_COLORS[i], 'medium'],
+        [gameId, i, PLAYER_COLORS[i], ERA_AI_DIFFICULTY[eraId]],
       );
     }
 
@@ -93,6 +112,103 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       current_era: eraId,
       current_era_index: 0,
       prestige_points: 0,
+      game_id: gameId,
+    });
+  });
+
+  /**
+   * POST /api/campaign/continue
+   * Create the next era game for an active campaign, applying prestige bonus
+   * and era-appropriate AI difficulty.
+   */
+  app.post('/continue', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
+    const userId = (req as any).user.user_id as string;
+
+    const campaign = await queryOne<{
+      campaign_id: string;
+      current_era_index: number;
+      prestige_points: number;
+    }>(
+      `SELECT campaign_id, current_era_index, prestige_points
+       FROM user_campaigns WHERE user_id = $1 AND status = 'active'`,
+      [userId],
+    );
+    if (!campaign) return reply.status(404).send({ error: 'No active campaign' });
+
+    const eraIndex = campaign.current_era_index;
+    if (eraIndex >= CAMPAIGN_ERAS.length) {
+      return reply.status(409).send({ error: 'Campaign already completed' });
+    }
+
+    // Check no game already exists for this era
+    const existingEntry = await queryOne<{ game_id: string }>(
+      `SELECT ce.game_id FROM campaign_entries ce
+       JOIN games g ON g.game_id = ce.game_id
+       WHERE ce.campaign_id = $1 AND ce.era_id = $2 AND g.status IN ('waiting', 'in_progress')`,
+      [campaign.campaign_id, CAMPAIGN_ERAS[eraIndex]],
+    );
+    if (existingEntry) {
+      return reply.send({
+        campaign_id: campaign.campaign_id,
+        current_era: CAMPAIGN_ERAS[eraIndex],
+        current_era_index: eraIndex,
+        prestige_points: campaign.prestige_points,
+        game_id: existingEntry.game_id,
+      });
+    }
+
+    const userRow = await queryOne<{ username: string }>(
+      `SELECT username FROM users WHERE user_id = $1`,
+      [userId],
+    );
+    if (!userRow) return reply.status(404).send({ error: 'User not found' });
+
+    const eraId = CAMPAIGN_ERAS[eraIndex];
+    const mapId = ERA_MAP_IDS[eraId];
+    const aiCount = ERA_AI_COUNT[eraId];
+    const gameId = uuidv4();
+    const settings = {
+      era: eraId,
+      map_id: mapId,
+      is_campaign: true,
+      campaign_prestige_bonus: campaign.prestige_points,
+      player_count: aiCount + 1,
+    };
+
+    await query(
+      `INSERT INTO games (game_id, status, game_type, era_id, map_id, settings_json, created_by)
+       VALUES ($1, 'waiting', 'solo', $2, $3, $4::jsonb, $5)`,
+      [gameId, eraId, mapId, JSON.stringify(settings), userId],
+    );
+
+    // Add human player
+    await query(
+      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
+       VALUES ($1, $2, 0, $3, false)`,
+      [gameId, userId, PLAYER_COLORS[0]],
+    );
+
+    // Add AI opponents with era-appropriate difficulty
+    for (let i = 1; i <= aiCount; i++) {
+      await query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
+         VALUES ($1, NULL, $2, $3, true, $4)`,
+        [gameId, i, PLAYER_COLORS[i], ERA_AI_DIFFICULTY[eraId]],
+      );
+    }
+
+    await query(
+      `INSERT INTO campaign_entries (id, campaign_id, era_id, game_id, won, completed_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, false, NOW())
+       ON CONFLICT DO NOTHING`,
+      [campaign.campaign_id, eraId, gameId],
+    );
+
+    return reply.status(201).send({
+      campaign_id: campaign.campaign_id,
+      current_era: eraId,
+      current_era_index: eraIndex,
+      prestige_points: campaign.prestige_points,
       game_id: gameId,
     });
   });

@@ -1,16 +1,18 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 import { isMobileViewport } from '../utils/device';
-import GlobeMapEditor, {
-  type EditorTerritory,
-  type EditorConnection,
-  type EditorRegion,
-  type EditorTool,
+import type {
+  EditorTerritory,
+  EditorConnection,
+  EditorRegion,
+  EditorTool,
 } from '../components/editor/GlobeMapEditor';
+
+const GlobeMapEditor = lazy(() => import('../components/editor/GlobeMapEditor'));
 
 const REGION_COLORS = [
   '#c9a84c', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6',
@@ -312,20 +314,22 @@ export default function MapEditorPage() {
 
         {/* Globe Canvas */}
         <div ref={containerRef} className="flex-1 overflow-hidden relative">
-          <GlobeMapEditor
-            territories={territories}
-            connections={connections}
-            regions={regions}
-            selectedTerritoryId={selectedTerritoryId}
-            connectSource={connectSource}
-            activeTool={activeTool}
-            drawingPoints={drawingPoints}
-            width={globeSize.w}
-            height={globeSize.h}
-            onTerritoryClick={handleTerritoryClick}
-            onGlobeClickCoords={handleGlobeClick}
-            onCountryPick={handleCountryPick}
-          />
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-cc-muted animate-pulse">Loading editor globe…</div>}>
+            <GlobeMapEditor
+              territories={territories}
+              connections={connections}
+              regions={regions}
+              selectedTerritoryId={selectedTerritoryId}
+              connectSource={connectSource}
+              activeTool={activeTool}
+              drawingPoints={drawingPoints}
+              width={globeSize.w}
+              height={globeSize.h}
+              onTerritoryClick={handleTerritoryClick}
+              onGlobeClickCoords={handleGlobeClick}
+              onCountryPick={handleCountryPick}
+            />
+          </Suspense>
 
           {/* Hint bar */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-cc-surface/90 backdrop-blur border border-cc-border rounded-lg px-4 py-2 text-sm text-cc-muted flex items-center gap-3">

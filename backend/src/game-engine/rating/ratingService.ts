@@ -67,4 +67,29 @@ export function syntheticAiOpponent(difficulty: string): { mu: number; phi: numb
   return { mu: INITIAL_MU + (offsets[difficulty] ?? 0), phi: 50 };
 }
 
+// ── Ranked tier helpers ─────────────────────────────────────────────────
+export type RankedTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+
+export function getTier(mu: number): RankedTier {
+  if (mu >= 1900) return 'diamond';
+  if (mu >= 1700) return 'platinum';
+  if (mu >= 1500) return 'gold';
+  if (mu >= 1300) return 'silver';
+  return 'bronze';
+}
+
+const SEASON_TIER_COSMETICS: Record<string, Record<RankedTier, string>> = {
+  '2026_Q2': {
+    bronze: 'frame_s1_bronze',
+    silver: 'frame_s1_silver',
+    gold: 'frame_s1_gold',
+    platinum: 'frame_s1_platinum',
+    diamond: 'frame_s1_diamond',
+  },
+};
+
+export function getSeasonTierCosmetic(seasonId: string, tier: RankedTier): string | undefined {
+  return SEASON_TIER_COSMETICS[seasonId]?.[tier];
+}
+
 export { INITIAL_MU, INITIAL_PHI };

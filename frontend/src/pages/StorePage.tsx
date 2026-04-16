@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, ChevronLeft, CheckCircle } from 'lucide-react';
+import { RARITY_COLORS } from '@erasofempire/shared';
+import type { CosmeticRarity } from '@erasofempire/shared';
 
 interface CosmeticItem {
   cosmetic_id: string;
@@ -14,6 +16,7 @@ interface CosmeticItem {
   price_gems: number;
   is_premium: boolean;
   owned: boolean;
+  rarity?: CosmeticRarity | null;
 }
 
 interface OwnedItem {
@@ -248,7 +251,21 @@ export default function StorePage() {
 
                     {/* Name & description */}
                     <div>
-                      <p className="font-display text-cc-text">{item.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-display text-cc-text">{item.name}</p>
+                        {item.rarity && item.rarity !== 'common' && (
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                            style={{
+                              color: RARITY_COLORS[item.rarity],
+                              backgroundColor: `${RARITY_COLORS[item.rarity]}15`,
+                              border: `1px solid ${RARITY_COLORS[item.rarity]}40`,
+                            }}
+                          >
+                            {item.rarity}
+                          </span>
+                        )}
+                      </div>
                       {item.description && (
                         <p className="text-cc-muted text-xs mt-0.5">{item.description}</p>
                       )}
