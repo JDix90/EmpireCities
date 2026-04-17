@@ -11,6 +11,7 @@ interface FactionInfo {
   home_region_ids?: string[];
 }
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
@@ -34,28 +35,135 @@ import Modal from '../components/ui/Modal';
 
 // ── Small tooltip component used in the game-creation form ─────────────────
 function FeatureTooltip({ text }: { text: string }) {
+  const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const popoverRef = React.useRef<HTMLDivElement | null>(null);
   const [show, setShow] = React.useState(false);
+  const [mobileLayout, setMobileLayout] = React.useState(false);
+  const [popoverStyle, setPopoverStyle] = React.useState<React.CSSProperties>({});
+
+  const updatePosition = React.useCallback(() => {
+    if (typeof window === 'undefined' || !buttonRef.current) return;
+
+    const rect = buttonRef.current.getBoundingClientRect();
+    const isMobileViewport = window.innerWidth < 640 || window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    setMobileLayout(isMobileViewport);
+
+    if (isMobileViewport) {
+      setPopoverStyle({
+        left: '1rem',
+        right: '1rem',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+        width: 'auto',
+        maxWidth: 'min(26rem, calc(100vw - 2rem))',
+      });
+      return;
+    }
+
+    const width = Math.min(320, window.innerWidth - 32);
+    const preferredLeft = rect.right + 10;
+    const fallbackLeft = rect.left - width - 10;
+    const left = preferredLeft + width <= window.innerWidth - 16
+      ? preferredLeft
+      : Math.max(16, Math.min(fallbackLeft, window.innerWidth - width - 16));
+
+    const top = Math.max(16, Math.min(rect.top + rect.height / 2, window.innerHeight - 16));
+
+    setPopoverStyle({
+      left,
+      top,
+      width,
+      transform: 'translateY(-50%)',
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!show) return;
+
+    updatePosition();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShow(false);
+    };
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (buttonRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setShow(false);
+    };
+
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [show, updatePosition]);
+
+  const tooltipNode = show && typeof document !== 'undefined'
+    ? createPortal(
+        <div
+          ref={popoverRef}
+          className={mobileLayout
+            ? 'fixed z-[80] rounded-xl bg-cc-dark border border-cc-border px-4 py-3 text-xs text-cc-text leading-relaxed shadow-2xl'
+            : 'fixed z-[80] rounded-lg bg-cc-dark border border-cc-border px-3 py-2 text-xs text-cc-text leading-relaxed shadow-xl pointer-events-none'}
+          style={popoverStyle}
+          role="tooltip"
+        >
+          {text}
+        </div>,
+        document.body,
+      )
+    : null;
+
   return (
-    <span className="relative inline-flex items-center" style={{ verticalAlign: 'middle' }}>
+    <>
+    <span className="inline-flex items-baseline align-baseline gap-x-1.5" style={{ verticalAlign: 'baseline' }}>
       <button
+        ref={buttonRef}
         type="button"
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
+        onMouseEnter={() => {
+          if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+            setShow(true);
+          }
+        }}
+        onMouseLeave={() => {
+          if (typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches) {
+            setShow(false);
+          }
+        }}
         onFocus={() => setShow(true)}
         onBlur={() => setShow(false)}
-        className="text-cc-muted hover:text-cc-gold transition-colors focus:outline-none"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setShow((current) => !current);
+        }}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onTouchStart={(event) => {
+          event.stopPropagation();
+        }}
+        className="text-cc-muted hover:text-cc-gold transition-colors focus:outline-none p-0 m-0 align-baseline"
         aria-label="More info"
+        aria-expanded={show}
+        tabIndex={0}
+        style={{ lineHeight: 1, verticalAlign: 'baseline' }}
       >
-        <Info className="w-3.5 h-3.5" />
+        <Info className="w-3.5 h-3.5 align-baseline" />
       </button>
-      {show && (
-        <span className="absolute left-5 top-1/2 -translate-y-1/2 z-50 w-56 px-3 py-2 rounded-lg
-                         bg-cc-dark border border-cc-border text-xs text-cc-text leading-relaxed shadow-xl
-                         pointer-events-none">
-          {text}
-        </span>
-      )}
     </span>
+    {tooltipNode}
+    </>
   );
 }
 
@@ -938,7 +1046,7 @@ export default function LobbyPage() {
               className="max-w-2xl w-full"
               showCloseButton
             >
-              <form onSubmit={handleCreateGame} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleCreateGame} className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                   {selectedCommunityMapId ? (
                     <div className="md:col-span-2">
                       <label className="label">Map</label>
@@ -1005,20 +1113,21 @@ export default function LobbyPage() {
                       <p className="text-xs text-cc-gold mt-1">Players will be notified when it's their turn.</p>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-6">
-                    <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
+                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                      <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
                       <input
                         type="checkbox"
                         id="territory-draft-top"
                         checked={territorySelection}
                         onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
                         disabled={factionsEnabled}
-                        className="w-4 h-4 accent-cc-gold"
+                        className="w-4 h-4 mt-0.5 accent-cc-gold"
                       />
-                      <label htmlFor="territory-draft-top" className="text-cc-text text-sm cursor-pointer">Territory Draft</label>
-                      <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
-                    </div>
-                    <div className="flex items-center gap-3">
+                      <span className="leading-snug min-w-0">Territory Draft</span>
+                    </label>
+                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                      <FeatureTooltip text="Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft." />
                       <input
                         type="checkbox"
                         id="asymmetric-factions-top"
@@ -1028,49 +1137,43 @@ export default function LobbyPage() {
                           if (e.target.checked) setTerritorySelection(false);
                         }}
                         disabled={territorySelection}
-                        className="w-4 h-4 accent-cc-gold"
+                        className="w-4 h-4 mt-0.5 accent-cc-gold"
                       />
-                      <label htmlFor="asymmetric-factions-top" className="text-cc-text text-sm cursor-pointer">Asymmetric Factions</label>
-                      <FeatureTooltip text="Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft." />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="fog"
-                        checked={fogOfWar}
-                        onChange={(e) => setFogOfWar(e.target.checked)}
-                        className="w-4 h-4 accent-cc-gold"
-                      />
-                      <label htmlFor="fog" className="text-cc-text text-sm cursor-pointer">Enable Fog of War</label>
-                    </div>
+                      <span className="leading-snug min-w-0">Asymmetric Factions</span>
+                    </label>
                   </div>
                   <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
                     <label className="label mb-2">Advanced Features</label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <label className="flex items-center gap-2 text-sm text-cc-text cursor-pointer">
-                        <input type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 accent-cc-gold" />
-                        Economy &amp; Buildings
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power." />
+                        <input type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Economy &amp; Buildings</span>
                       </label>
-                      <label className="flex items-center gap-2 text-sm text-cc-text cursor-pointer">
-                        <input type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 accent-cc-gold" />
-                        Technology Trees
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time." />
+                        <input type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Technology Trees</span>
                       </label>
-                      <label className="flex items-center gap-2 text-sm text-cc-text cursor-pointer">
-                        <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 accent-cc-gold" />
-                        Historical Events
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response." />
+                        <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Historical Events</span>
                       </label>
-                      <label className="flex items-center gap-2 text-sm text-cc-text cursor-pointer">
-                        <input type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 accent-cc-gold" />
-                        Naval Warfare
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores." />
+                        <input type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Naval Warfare</span>
                       </label>
-                      <label className="flex items-center gap-2 text-sm text-cc-text cursor-pointer">
-                        <input type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 accent-cc-gold" />
-                        Population &amp; Stability
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Each territory tracks stability (0–100%). Low stability reduces income and unit placement. Captured territories start unstable; neglected ones may rebel and lose units automatically." />
+                        <input type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Population &amp; Stability</span>
+                      </label>
+                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                        <FeatureTooltip text="Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important." />
+                        <input type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
+                        <span className="leading-snug min-w-0">Fog of War</span>
                       </label>
                     </div>
                   </div>
@@ -1084,17 +1187,15 @@ export default function LobbyPage() {
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
                       ] as const).map(([id, label, tip]) => (
-                        <label key={id} className="flex items-start gap-2 text-sm text-cc-text cursor-pointer">
+                        <label key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                          <FeatureTooltip text={tip} />
                           <input
                             type="checkbox"
                             className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
                             checked={victoryModes.has(id)}
                             onChange={() => toggleVictoryMode(id)}
                           />
-                          <span className="flex items-center gap-1.5 flex-wrap">
-                            {label}
-                            <FeatureTooltip text={tip} />
-                          </span>
+                          <span className="leading-snug min-w-0">{label}</span>
                         </label>
                       ))}
                     </div>
@@ -1113,17 +1214,19 @@ export default function LobbyPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-3 items-end md:col-span-2">
-                    <button type="submit" className="btn-primary flex-1" disabled={creating}>
+                  <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-cc-border bg-cc-surface/95 backdrop-blur md:col-span-2">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-end">
+                      <button
+                        type="button"
+                        className="btn-secondary w-full sm:w-auto"
+                        onClick={() => { setShowCreate(false); setSelectedCommunityMapId(null); }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn-primary w-full sm:flex-1" disabled={creating}>
                       {creating ? 'Creating...' : 'Create & Enter Lobby'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => { setShowCreate(false); setSelectedCommunityMapId(null); }}
-                    >
-                      Cancel
-                    </button>
+                      </button>
+                    </div>
                   </div>
                 </form>
             </Modal>

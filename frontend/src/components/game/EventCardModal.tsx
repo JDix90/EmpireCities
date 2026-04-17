@@ -79,11 +79,12 @@ export default function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: 
   const hasChoices = card.choices && card.choices.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in px-4 pt-safe pb-safe">
-      <div className={clsx(
-        'border rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] overflow-y-auto',
-        style.bg, style.border,
-      )}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm animate-fade-in px-3 py-4 pt-safe pb-safe sm:px-4">
+      <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
+        <div className={clsx(
+          'border rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain',
+          style.bg, style.border,
+        )}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700/50">
           <div className="flex items-center gap-2">
@@ -174,6 +175,7 @@ export default function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: 
             </button>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

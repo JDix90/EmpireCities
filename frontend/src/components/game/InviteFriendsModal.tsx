@@ -58,63 +58,65 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 px-3 py-4 pt-safe pb-safe sm:px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-friends-title"
     >
-      <div className="card max-w-md w-full max-h-[90vh] overflow-y-auto border border-cc-gold/20 relative">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 text-cc-muted hover:text-cc-text p-1"
-          aria-label="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <h3 id="invite-friends-title" className="font-display text-xl text-cc-gold mb-2 pr-8 flex items-center gap-2">
-          <UserPlus className="w-6 h-6" /> Invite friends
-        </h3>
-        <p className="text-cc-muted text-sm mb-4">
-          Copy a link or code, or notify an online friend (they will see a prompt if connected).
-        </p>
-
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button type="button" onClick={copyLink} className="btn-primary text-sm flex items-center gap-1">
-            <Copy className="w-4 h-4" /> Copy game link
+      <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
+        <div className="card max-w-md w-full max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain border border-cc-gold/20 relative p-4 sm:p-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-3 right-3 text-cc-muted hover:text-cc-text p-1"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
           </button>
-          {joinCode && (
-            <button type="button" onClick={copyCode} className="btn-secondary text-sm flex items-center gap-1">
-              <Copy className="w-4 h-4" /> Code {joinCode}
+          <h3 id="invite-friends-title" className="font-display text-xl text-cc-gold mb-2 pr-8 flex items-center gap-2">
+            <UserPlus className="w-6 h-6" /> Invite friends
+          </h3>
+          <p className="text-cc-muted text-sm mb-4">
+            Copy a link or code, or notify an online friend (they will see a prompt if connected).
+          </p>
+
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button type="button" onClick={copyLink} className="btn-primary text-sm flex items-center gap-1 w-full sm:w-auto justify-center">
+              <Copy className="w-4 h-4" /> Copy game link
             </button>
-          )}
-          <button type="button" onClick={copyLobbyLink} className="btn-secondary text-sm flex items-center gap-1">
-            <Copy className="w-4 h-4" /> Copy lobby join link
-          </button>
-        </div>
+            {joinCode && (
+              <button type="button" onClick={copyCode} className="btn-secondary text-sm flex items-center gap-1 w-full sm:w-auto justify-center">
+                <Copy className="w-4 h-4" /> Code {joinCode}
+              </button>
+            )}
+            <button type="button" onClick={copyLobbyLink} className="btn-secondary text-sm flex items-center gap-1 w-full sm:w-auto justify-center">
+              <Copy className="w-4 h-4" /> Copy lobby join link
+            </button>
+          </div>
 
-        <h4 className="text-sm font-medium text-cc-text mb-2">Notify a friend</h4>
-        {friends.length === 0 ? (
-          <p className="text-cc-muted text-sm mb-2">Add friends from the Friends page first.</p>
-        ) : (
-          <ul className="space-y-2">
-            {friends.map((f) => (
-              <li
-                key={f.user_id}
-                className="flex items-center justify-between gap-2 p-2 rounded-lg bg-cc-dark border border-cc-border"
-              >
-                <span className="text-cc-text text-sm">{f.username}</span>
-                <button
-                  type="button"
-                  className="btn-secondary text-xs py-1 px-2"
-                  onClick={() => void notifyFriend(f.user_id)}
+          <h4 className="text-sm font-medium text-cc-text mb-2">Notify a friend</h4>
+          {friends.length === 0 ? (
+            <p className="text-cc-muted text-sm mb-2">Add friends from the Friends page first.</p>
+          ) : (
+            <ul className="space-y-2">
+              {friends.map((f) => (
+                <li
+                  key={f.user_id}
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-cc-dark border border-cc-border"
                 >
-                  Send invite
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+                  <span className="text-cc-text text-sm">{f.username}</span>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs py-1 px-2"
+                    onClick={() => void notifyFriend(f.user_id)}
+                  >
+                    Send invite
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

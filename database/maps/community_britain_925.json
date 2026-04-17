@@ -1822,11 +1822,6 @@
       "type": "land"
     },
     {
-      "from": "brycheiniog",
-      "to": "england",
-      "type": "land"
-    },
-    {
       "from": "essex",
       "to": "kent",
       "type": "land"
@@ -1860,6 +1855,11 @@
       "from": "wessex",
       "to": "cornwall",
       "type": "land"
+    },
+    {
+      "from": "cornwall",
+      "to": "deheubarth",
+      "type": "sea"
     }
   ],
   "regions": [
@@ -1875,7 +1875,7 @@
     {
       "region_id": "viking_danish",
       "name": "Viking & Danish",
-      "bonus": 3,
+      "bonus": 2,
       "territory_ids": [
         "jorvik",
         "danish_east_anglia"

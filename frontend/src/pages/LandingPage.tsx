@@ -161,7 +161,7 @@ function EraDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-50 overflow-y-auto px-3 py-4 pt-safe pb-safe sm:px-4 sm:py-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="era-modal-title"
@@ -172,10 +172,11 @@ function EraDetailModal({
         onClick={onClose}
         aria-label="Close dialog"
       />
-      <div
-        className="relative w-full max-w-lg rounded-xl border border-cc-border bg-[#0f1419] shadow-2xl shadow-black/50 p-6 sm:p-8 max-h-[90vh] overflow-y-auto"
-        style={{ boxShadow: `0 0 0 1px ${era.color}33, 0 25px 50px -12px rgba(0,0,0,0.5)` }}
-      >
+      <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
+        <div
+          className="relative w-full max-w-lg rounded-xl border border-cc-border bg-[#0f1419] shadow-2xl shadow-black/50 p-4 sm:p-6 md:p-8 max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
+          style={{ boxShadow: `0 0 0 1px ${era.color}33, 0 25px 50px -12px rgba(0,0,0,0.5)` }}
+        >
         <button
           type="button"
           onClick={onClose}
@@ -218,6 +219,7 @@ function EraDetailModal({
           <Link to={playHref} className="btn-primary text-center order-1 sm:order-2">
             Play this Map
           </Link>
+        </div>
         </div>
       </div>
     </div>

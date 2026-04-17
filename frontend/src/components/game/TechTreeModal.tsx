@@ -76,8 +76,9 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
   const tiers = [1, 2, 3, 4] as const;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 pt-safe pb-safe">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm px-3 py-4 pt-safe pb-safe sm:px-4">
+      <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
+        <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-3xl max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-2">
@@ -191,6 +192,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
             <p className="text-center text-gray-500 py-8">No technology tree available for this era.</p>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -35,6 +35,10 @@ const RISORGIMENTO_GEOJSON_URL = '/geo/risorgimento_admin1.json';
 /** ne_10m admin-1 subset — IR/AE/OM/QA/BH provinces for community_strait_hormuz globe coastlines */
 const STRAIT_HORMUZ_GEOJSON_URL = '/geo/strait_hormuz_admin1.json';
 
+
+const AUSTRALIA_GEOJSON_URL = '/geo/australia_1337_admin1.json';
+const BRITAIN_GEOJSON_URL = '/geo/britain_925_admin1.json';
+const HORN_AFRICA_GEOJSON_URL = '/geo/horn_africa_admin1.json';
 /** Nearly opaque fills so adjacent territories do not read as “bleeding” through each other. */
 const PLAYER_COLORS: Record<string, string> = {
   '#e74c3c': 'rgba(231, 76, 60, 0.96)',
@@ -278,6 +282,12 @@ export default function GlobeMap({
   const [admin50Geo, setAdmin50Geo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Gulf admin-1 — community_strait_hormuz */
   const [straitHormuzGeo, setStraitHormuzGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  /** AU/NZ admin-1 — community_australia_1337 */
+  const [australiaGeo, setAustraliaGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  /** GB admin-1 — community_britain_925 */
+  const [britainGeo, setBritainGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  /** Horn of Africa admin-1 — community_horn_africa */
+  const [hornAfricaGeo, setHornAfricaGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Bumps when react-globe.gl calls onGlobeReady so we can apply camera after the ref exists */
   const [globeReadyTick, setGlobeReadyTick] = useState(0);
 
@@ -374,6 +384,42 @@ export default function GlobeMap({
       });
   }, [needsStraitHormuzGeo]);
 
+  const needsAustraliaGeo = mapData.map_id === 'community_australia_1337';
+  useEffect(() => {
+    if (!needsAustraliaGeo) { setAustraliaGeo(null); return; }
+    fetch(AUSTRALIA_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setAustraliaGeo)
+      .catch((err) => {
+        console.warn('Failed to load Australia admin-1 GeoJSON:', err);
+        setAustraliaGeo({ type: 'FeatureCollection', features: [] });
+      });
+  }, [needsAustraliaGeo]);
+
+  const needsBritainGeo = mapData.map_id === 'community_britain_925';
+  useEffect(() => {
+    if (!needsBritainGeo) { setBritainGeo(null); return; }
+    fetch(BRITAIN_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setBritainGeo)
+      .catch((err) => {
+        console.warn('Failed to load Britain admin-1 GeoJSON:', err);
+        setBritainGeo({ type: 'FeatureCollection', features: [] });
+      });
+  }, [needsBritainGeo]);
+
+  const needsHornAfricaGeo = mapData.map_id === 'community_horn_africa';
+  useEffect(() => {
+    if (!needsHornAfricaGeo) { setHornAfricaGeo(null); return; }
+    fetch(HORN_AFRICA_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setHornAfricaGeo)
+      .catch((err) => {
+        console.warn('Failed to load Horn of Africa admin-1 GeoJSON:', err);
+        setHornAfricaGeo({ type: 'FeatureCollection', features: [] });
+      });
+  }, [needsHornAfricaGeo]);
+
   // ── Polygon data (territories) ─────────────────────────────────────────
 
   const polygonsData = useMemo(
@@ -384,8 +430,11 @@ export default function GlobeMap({
         risorgimentoGeo,
         admin50Geo,
         straitHormuzGeo,
+        australiaGeo,
+        britainGeo,
+        hornAfricaGeo,
       }),
-    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo],
+    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo, australiaGeo, britainGeo, hornAfricaGeo],
   );
 
   const renderedPolygonsData = useMemo(

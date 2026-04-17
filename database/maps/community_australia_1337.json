@@ -2075,6 +2075,11 @@
       "from": "dharawal",
       "to": "te_ika_a_maui",
       "type": "sea"
+    },
+    {
+      "from": "tui_manua",
+      "to": "challbi",
+      "type": "sea"
     }
   ],
   "regions": [

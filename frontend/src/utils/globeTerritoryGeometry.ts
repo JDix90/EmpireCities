@@ -21,6 +21,13 @@ import { clipToBbox, type ClipBbox } from './geoClip';
 import { unionGeoJsonGeometries } from './geoUnion';
 import { COMMUNITY_14N_TERRITORY_GEO } from '../data/community14nAdmin1Map';
 import { COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO } from '../data/communityStraitHormuzGeo';
+import { COMMUNITY_AUSTRALIA_1337_TERRITORY_GEO } from '../data/communityAustralia1337Geo';
+import { COMMUNITY_BRITAIN_925_TERRITORY_GEO } from '../data/communityBritain925Geo';
+import { COMMUNITY_HORN_AFRICA_TERRITORY_GEO } from '../data/communityHornAfricaGeo';
+import { COMMUNITY_14N_VORONOI_CLIP } from '../data/community14nVoronoiClip';
+import { AUSTRALIA_1337_VORONOI_CLIP } from '../data/australia1337VoronoiClip';
+import { BRITAIN_925_VORONOI_CLIP } from '../data/britain925VoronoiClip';
+import { clipToPolygon } from './geoClipPolygon';
 
 /** Minimal territory shape for geometry building (matches GameMap + GlobeMap props). */
 export interface GlobeTerritoryInput {
@@ -125,6 +132,25 @@ function getCountryClippedToBbox(
   return clipToBbox(merged, bbox);
 }
 
+function getCountryClippedToPolygon(
+  iso2: string,
+  poly: GeoJSON.Polygon,
+  isoToFeatures: Map<string, GeoJSON.Feature[]>,
+): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
+  const feats = isoToFeatures.get(iso2);
+  if (!feats?.length) return null;
+  const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+  for (const f of feats) {
+    const g = f.geometry;
+    if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+      geoms.push(g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+    }
+  }
+  if (geoms.length === 0) return null;
+  const merged = geoms.length === 1 ? geoms[0] : mergeGeometries(geoms);
+  return clipToPolygon(merged, poly);
+}
+
 function mergeGeometries(geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[]): GeoJSON.MultiPolygon {
   const polygons: GeoJSON.Position[][][] = [];
   for (const geom of geometries) {
@@ -210,6 +236,12 @@ export interface GlobeGeometryInputs {
   admin50Geo?: GeoJSON.FeatureCollection | null;
   /** ne_10m admin-1 subset — Gulf states for community_strait_hormuz */
   straitHormuzGeo?: GeoJSON.FeatureCollection | null;
+  /** ne_10m admin-1 subset — AU/NZ for community_australia_1337 */
+  australiaGeo?: GeoJSON.FeatureCollection | null;
+  /** ne_10m admin-1 subset — GB for community_britain_925 */
+  britainGeo?: GeoJSON.FeatureCollection | null;
+  /** ne_10m admin-1 subset — YE/ET/ER/DJ/SO/KE/UG/SS for community_horn_africa */
+  hornAfricaGeo?: GeoJSON.FeatureCollection | null;
 }
 
 export interface GlobeMapDataForGeometry {
@@ -232,6 +264,9 @@ export function buildTerritoryGlobeGeometries(
     risorgimentoGeo,
     admin50Geo = null,
     straitHormuzGeo = null,
+    australiaGeo = null,
+    britainGeo = null,
+    hornAfricaGeo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
   const canvasW = mapData.canvas_width ?? 1200;
@@ -317,6 +352,42 @@ export function buildTerritoryGlobeGeometries(
     }
   }
 
+  const australiaIso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (australiaGeo?.features) {
+    for (const f of australiaGeo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        australiaIso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
+  const britainIso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (britainGeo?.features) {
+    for (const f of britainGeo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        britainIso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
+  const hornAfricaIso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (hornAfricaGeo?.features) {
+    for (const f of hornAfricaGeo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        hornAfricaIso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
   return mapData.territories.map((raw) => {
     const territory = raw as TerritoryRow;
 
@@ -379,14 +450,120 @@ export function buildTerritoryGlobeGeometries(
         const merged =
           geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
         if (merged) {
-          const clipped = clipToBbox(merged, c14.clip_bbox);
-          const finalGeom = clipped ?? merged;
+          // Prefer Voronoi clip polygon for organic borders; fall back to rectangular bbox
+          const voronoiCoords = COMMUNITY_14N_VORONOI_CLIP[territory.territory_id];
+          let finalGeom: GeoJSON.Polygon | GeoJSON.MultiPolygon | null = null;
+          if (voronoiCoords) {
+            const voronoiPoly: GeoJSON.Polygon = { type: 'Polygon', coordinates: voronoiCoords };
+            finalGeom = clipToPolygon(merged, voronoiPoly);
+          }
+          if (!finalGeom) {
+            finalGeom = clipToBbox(merged, c14.clip_bbox) ?? merged;
+          }
           return {
             territory_id: territory.territory_id,
             name: territory.name,
             geometry: finalGeom,
           };
         }
+      }
+    }
+
+    /** Community "Australia 1337": NE 10m admin-1 union + clip for AU/NZ coastlines */
+    const auDef = COMMUNITY_AUSTRALIA_1337_TERRITORY_GEO[territory.territory_id];
+    if (
+      mapData.map_id === 'community_australia_1337' &&
+      auDef &&
+      australiaIso3166ToGeom.size > 0 &&
+      countriesGeo &&
+      isoToFeatures.size > 0
+    ) {
+      const auVoronoiCoords = AUSTRALIA_1337_VORONOI_CLIP[territory.territory_id];
+      const auVoronoiPoly: GeoJSON.Polygon | null = auVoronoiCoords
+        ? { type: 'Polygon', coordinates: auVoronoiCoords }
+        : null;
+      const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      for (const code of auDef.admin1) {
+        const g = australiaIso3166ToGeom.get(code);
+        if (!g) continue;
+        const clipped = auVoronoiPoly
+          ? clipToPolygon(g, auVoronoiPoly)
+          : clipToBbox(g, auDef.clip_bbox);
+        if (clipped) geoms.push(clipped);
+      }
+      if (auDef.fill_country_iso) {
+        const fill = auVoronoiPoly
+          ? getCountryClippedToPolygon(auDef.fill_country_iso, auVoronoiPoly, isoToFeatures)
+          : getCountryClippedToBbox(auDef.fill_country_iso, auDef.clip_bbox, isoToFeatures);
+        if (fill) geoms.push(fill);
+      }
+      if (geoms.length > 0) {
+        try {
+          const merged = geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
+          if (merged) {
+            return { territory_id: territory.territory_id, name: territory.name, geometry: merged };
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    /** Community "Britain 925": NE 10m admin-1 union + clip for GB coastlines */
+    const gbDef = COMMUNITY_BRITAIN_925_TERRITORY_GEO[territory.territory_id];
+    if (
+      mapData.map_id === 'community_britain_925' &&
+      gbDef &&
+      britainIso3166ToGeom.size > 0
+    ) {
+      const gbVoronoiCoords = BRITAIN_925_VORONOI_CLIP[territory.territory_id];
+      const gbVoronoiPoly: GeoJSON.Polygon | null = gbVoronoiCoords
+        ? { type: 'Polygon', coordinates: gbVoronoiCoords }
+        : null;
+      const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      for (const code of gbDef.admin1) {
+        const g = britainIso3166ToGeom.get(code);
+        if (!g) continue;
+        const clipped = gbVoronoiPoly
+          ? clipToPolygon(g, gbVoronoiPoly)
+          : clipToBbox(g, gbDef.clip_bbox);
+        if (clipped) geoms.push(clipped);
+      }
+      if (geoms.length > 0) {
+        try {
+          const merged = geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
+          if (merged) {
+            return { territory_id: territory.territory_id, name: territory.name, geometry: merged };
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    /** Community "Horn of Africa": NE 10m admin-1 union + clip for coastlines */
+    const hoaDef = COMMUNITY_HORN_AFRICA_TERRITORY_GEO[territory.territory_id];
+    if (
+      mapData.map_id === 'community_horn_africa' &&
+      hoaDef &&
+      hornAfricaIso3166ToGeom.size > 0 &&
+      countriesGeo &&
+      isoToFeatures.size > 0
+    ) {
+      const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      for (const code of hoaDef.admin1) {
+        const g = hornAfricaIso3166ToGeom.get(code);
+        if (!g) continue;
+        const clipped = clipToBbox(g, hoaDef.clip_bbox);
+        if (clipped) geoms.push(clipped);
+      }
+      if (hoaDef.fill_country_iso) {
+        const fill = getCountryClippedToBbox(hoaDef.fill_country_iso, hoaDef.clip_bbox, isoToFeatures);
+        if (fill) geoms.push(fill);
+      }
+      if (geoms.length > 0) {
+        try {
+          const merged = geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
+          if (merged) {
+            return { territory_id: territory.territory_id, name: territory.name, geometry: merged };
+          }
+        } catch { /* fall through */ }
       }
     }
 

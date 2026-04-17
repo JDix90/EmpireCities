@@ -22,6 +22,7 @@ const CampaignPage = lazy(() => import('./pages/CampaignPage'));
 const LeaderboardsPage = lazy(() => import('./pages/LeaderboardsPage'));
 const LiveGamesPage = lazy(() => import('./pages/LiveGamesPage'));
 const SpectatorPage = lazy(() => import('./pages/SpectatorPage'));
+const ModalLabPage = lazy(() => import('./pages/ModalLabPage'));
 
 function RouteLoadingFallback() {
   return (
@@ -76,6 +77,7 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/__modal-lab" element={<ModalLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
