@@ -261,6 +261,7 @@ export interface GameState {
 export type EventEffectType =
   | 'units_added'
   | 'units_removed'
+  | 'enemy_units_removed'
   | 'production_bonus'
   | 'attack_modifier'
   | 'defense_modifier'

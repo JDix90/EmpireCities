@@ -83,7 +83,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_olympic_truce',
     title: 'Olympic Truce',
-    description: 'Heralds proclaim the sacred truce of Olympia. All warring parties must honor the gods and lay down arms while the games are held.',
+    description: 'Heralds proclaim the sacred truce of Olympia. You must honor the gods and lay down arms with a rival while the games are held.',
     category: 'player_targeted',
     era_id: 'ancient',
     effect: { type: 'truce', target: 'player', value: 2 },

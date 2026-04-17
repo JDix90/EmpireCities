@@ -397,6 +397,16 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (next <= state.current_player_index) {
     state.turn_number++;
 
+    // Decrement truce timers once per round (not per player turn)
+    for (const entry of state.diplomacy) {
+      if (entry.status === 'truce' && entry.truce_turns_remaining > 0) {
+        entry.truce_turns_remaining--;
+        if (entry.truce_turns_remaining === 0) {
+          entry.status = 'neutral';
+        }
+      }
+    }
+
     // Draw an event card at the start of each new round
     if (state.settings.events_enabled) {
       const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])];
@@ -462,7 +472,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     tickTemporaryModifiers(state, nextPlayer.player_id);
     // Apply instant event cards now (current_player_index is set to next player)
     if (state.active_event && (!state.active_event.choices || state.active_event.choices.length === 0) && state.active_event.effect) {
-      const effectResult = applyEventEffect(state, state.active_event.effect);
+      const effectResult = applyEventEffect(state, state.active_event.effect, state.active_event.affects_all_players);
       state.active_event_result = effectResult;
       // Leave active_event set so the socket layer can broadcast it, then clear it there
     }
@@ -476,16 +486,6 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   for (const player of state.players) {
     player.ability_uses = {};
     player.territories_captured_this_turn = 0;
-  }
-
-  // Decrement truce timers
-  for (const entry of state.diplomacy) {
-    if (entry.status === 'truce' && entry.truce_turns_remaining > 0) {
-      entry.truce_turns_remaining--;
-      if (entry.truce_turns_remaining === 0) {
-        entry.status = 'neutral';
-      }
-    }
   }
 }
 

@@ -59,7 +59,7 @@ const STYLES = `
 }
 `;
 
-export default function AtomBombAnimation({ targetName, onDone }: Props) {
+function AtomBombAnimation({ targetName, onDone }: Props) {
   useEffect(() => {
     const t = setTimeout(onDone, 5200);
     return () => clearTimeout(t);
@@ -183,3 +183,6 @@ export default function AtomBombAnimation({ targetName, onDone }: Props) {
     </>
   );
 }
+
+
+export default React.memo(AtomBombAnimation);

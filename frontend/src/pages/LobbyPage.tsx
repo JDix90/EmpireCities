@@ -18,7 +18,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
-  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword, Trophy, Eye,
+  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword, Trophy, Eye, HelpCircle,
 } from 'lucide-react';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
@@ -31,6 +31,8 @@ import MonthlyChallenges from '../components/ui/MonthlyChallenges';
 import DailyLoginCalendar from '../components/ui/DailyLoginCalendar';
 import ActivityFeed from '../components/ui/ActivityFeed';
 import LeaderboardWidget from '../components/lobby/LeaderboardWidget';
+import MobileTabBar from '../components/ui/MobileTabBar';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import Modal from '../components/ui/Modal';
 
 // ── Small tooltip component used in the game-creation form ─────────────────
@@ -245,6 +247,10 @@ export default function LobbyPage() {
   const validEra = resolvedEra && ERAS.some((e) => e.id === resolvedEra) ? resolvedEra : null;
   const [showCreate, setShowCreate] = useState(!!validEra || !!presetMap);
   const [lobbyTab, setLobbyTab] = useState<'casual' | 'ranked'>('casual');
+
+  const { refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: async () => { await Promise.all([fetchPublicGames(), fetchActiveGames()]); },
+  });
 
   // Ranked matchmaking state
   const [rankedQueued, setRankedQueued] = useState(false);
@@ -670,13 +676,25 @@ export default function LobbyPage() {
   }, [user?.is_guest, joinGameFromInvite]);
 
   return (
-    <div className="min-h-screen bg-cc-dark">
+    <div className="min-h-screen bg-cc-dark" {...pullHandlers}>
+      {/* Pull-to-refresh indicator */}
+      {(pullDistance > 0 || refreshing) && (
+        <div
+          className="flex justify-center items-center transition-all text-cc-muted text-xs"
+          style={{ height: refreshing ? 32 : pullDistance * 0.4 }}
+        >
+          {refreshing ? 'Refreshing…' : pullDistance >= 80 ? 'Release to refresh' : '↓ Pull to refresh'}
+        </div>
+      )}
       {/* Top Bar */}
       <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-safe px-safe">
         <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors shrink-0">
           ERAS OF EMPIRE
         </Link>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 justify-end">
+        <div className="hidden md:flex flex-wrap items-center gap-x-4 gap-y-2 justify-end">
+          <Link to="/how-to-play" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+            <HelpCircle className="w-4 h-4 shrink-0" /> How to Play
+          </Link>
           <Link to="/maps" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
             <Map className="w-4 h-4 shrink-0" /> Map Hub
           </Link>
@@ -721,7 +739,7 @@ export default function LobbyPage() {
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
         {/* Onboarding Quest Banner */}
         {user && user.onboarding_stage != null && (
           <OnboardingBanner
@@ -1313,6 +1331,13 @@ export default function LobbyPage() {
           </nav>
         </div>
       </footer>
+
+      {/* Mobile Tab Bar */}
+      <MobileTabBar
+        isGuest={user?.is_guest}
+        onCreateGame={() => setShowCreate(true)}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
 
 // Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -15,6 +16,7 @@ const FriendsPage = lazy(() => import('./pages/FriendsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TutorialPage = lazy(() => import('./pages/TutorialPage'));
+const HowToPlayPage = lazy(() => import('./pages/HowToPlayPage'));
 const DailyChallengePage = lazy(() => import('./pages/DailyChallengePage'));
 const StorePage = lazy(() => import('./pages/StorePage'));
 const ReplayPage = lazy(() => import('./pages/ReplayPage'));
@@ -72,13 +74,21 @@ export default function App() {
     }
   }, [isAuthenticated, user]);
 
+  const isOnline = useNetworkStatus();
+
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
+      {!isOnline && (
+        <div className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm py-1.5 font-medium">
+          You are offline — reconnecting…
+        </div>
+      )}
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/__modal-lab" element={<ModalLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 

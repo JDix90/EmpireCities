@@ -49,7 +49,7 @@ export const coldwarEvents: EventCard[] = [
     category: 'player_targeted',
     era_id: 'coldwar',
     choices: [
-      { choice_id: 'sabotage', label: 'Sabotage (enemy loses 2 units)', effect: { type: 'units_removed', target: 'player', value: 2 } },
+      { choice_id: 'sabotage', label: 'Sabotage (enemy loses 2 units)', effect: { type: 'enemy_units_removed', target: 'player', value: 2 } },
       { choice_id: 'secrets', label: 'Military secrets (+1 defense die for 3 turns)', effect: { type: 'defense_modifier', target: 'player', value: 1, duration_turns: 3 } },
     ],
   },

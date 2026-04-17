@@ -105,9 +105,9 @@
   to   { transform: translateY(0); }
 }
 
-/* Landscape mobile: reduce bottom bar and bottom-sheet heights */
+/* Landscape mobile: reduce bottom-sheet heights and hide tab bar */
 @media (max-width: 768px) and (orientation: landscape) {
   .mobile-bottom-sheet {
-    max-height: 40vh;
+    max-height: 35vh;
   }
 }

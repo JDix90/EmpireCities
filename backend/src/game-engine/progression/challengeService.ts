@@ -307,3 +307,242 @@ export async function claimChallenge(userId: string, challengeId: string): Promi
   // Already completed = rewards already given inline
   return row?.completed_at != null;
 }
+
+// ── Automated monthly challenge generation ─────────────────────────────
+
+const MONTH_ABBREVS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+// Epoch for difficulty cycling: January 2026 = month 0
+const EPOCH_YEAR = 2026;
+const EPOCH_MONTH = 0; // 0-indexed (January)
+const DIFFICULTY_CYCLE = 6;
+
+interface ChallengeTemplate {
+  title: string;
+  descriptionTemplate: string; // {target} is replaced with the actual number
+}
+
+const CHALLENGE_TEMPLATES: Record<ChallengeCondition['type'], ChallengeTemplate[]> = {
+  wins: [
+    { title: 'Victor\'s March',       descriptionTemplate: 'Win {target} games this month' },
+    { title: 'Five Victories',        descriptionTemplate: 'Achieve {target} victories' },
+    { title: 'Conqueror\'s Path',     descriptionTemplate: 'Claim {target} wins across any mode' },
+    { title: 'Triumphant',            descriptionTemplate: 'Emerge victorious in {target} battles' },
+    { title: 'Supreme Commander',     descriptionTemplate: 'Win {target} games to prove your skill' },
+    { title: 'War Champion',          descriptionTemplate: 'Lead your forces to {target} victories' },
+  ],
+  ranked_games: [
+    { title: 'Ranked Warrior',        descriptionTemplate: 'Play {target} ranked games' },
+    { title: 'Ranked Veteran',        descriptionTemplate: 'Complete {target} ranked matches' },
+    { title: 'Ladder Climber',        descriptionTemplate: 'Enter {target} ranked battles' },
+    { title: 'Competitive Spirit',    descriptionTemplate: 'Compete in {target} ranked games' },
+    { title: 'Arena Contender',       descriptionTemplate: 'Participate in {target} ranked matches' },
+    { title: 'Rating Seeker',         descriptionTemplate: 'Queue up for {target} ranked games' },
+  ],
+  buildings_built: [
+    { title: 'Master Builder',        descriptionTemplate: 'Build {target} structures across all games' },
+    { title: 'Architect',             descriptionTemplate: 'Construct {target} buildings' },
+    { title: 'City Planner',          descriptionTemplate: 'Erect {target} structures in your territories' },
+    { title: 'Grand Architect',       descriptionTemplate: 'Raise {target} buildings across your empire' },
+    { title: 'Foundation Layer',      descriptionTemplate: 'Build {target} structures this month' },
+    { title: 'Monument Maker',        descriptionTemplate: 'Construct {target} buildings in any game' },
+  ],
+  techs_researched: [
+    { title: 'Scholar',               descriptionTemplate: 'Research {target} technologies' },
+    { title: 'Renaissance Mind',      descriptionTemplate: 'Discover {target} technologies this month' },
+    { title: 'Enlightened',           descriptionTemplate: 'Unlock {target} tech advances' },
+    { title: 'Knowledge Seeker',      descriptionTemplate: 'Research {target} technologies across games' },
+    { title: 'Innovator',             descriptionTemplate: 'Advance {target} technologies' },
+    { title: 'Sage of Eras',          descriptionTemplate: 'Complete {target} research projects' },
+  ],
+  territories_conquered: [
+    { title: 'Territorial Ambition',  descriptionTemplate: 'Conquer {target} territories in any game mode' },
+    { title: 'Empire Builder',        descriptionTemplate: 'Conquer {target} territories' },
+    { title: 'Land Grab',             descriptionTemplate: 'Seize {target} territories this month' },
+    { title: 'Expansionist',          descriptionTemplate: 'Capture {target} territories across all games' },
+    { title: 'Border Pusher',         descriptionTemplate: 'Take control of {target} territories' },
+    { title: 'Manifest Destiny',      descriptionTemplate: 'Claim {target} territories for your empire' },
+  ],
+  unique_eras_played: [
+    { title: 'Time Traveler',         descriptionTemplate: 'Play games in at least {target} different eras' },
+    { title: 'Temporal Explorer',     descriptionTemplate: 'Experience {target} different eras' },
+    { title: 'Era Hopper',            descriptionTemplate: 'Complete games across {target} distinct eras' },
+    { title: 'Through the Ages',      descriptionTemplate: 'Play in {target} or more different eras' },
+    { title: 'Epoch Walker',          descriptionTemplate: 'Visit {target} unique eras this month' },
+    { title: 'History Buff',          descriptionTemplate: 'Explore {target} different eras of history' },
+  ],
+  win_streak: [
+    { title: 'Hot Streak',            descriptionTemplate: 'Achieve a {target}-game win streak' },
+    { title: 'On Fire',               descriptionTemplate: 'Win {target} games in a row' },
+    { title: 'Unstoppable',           descriptionTemplate: 'Build a win streak of {target}' },
+    { title: 'Dominant Force',        descriptionTemplate: 'Reach a {target}-game winning streak' },
+    { title: 'Unbroken',              descriptionTemplate: 'Win {target} consecutive games' },
+    { title: 'Streak Master',         descriptionTemplate: 'Maintain a {target}-game win streak' },
+  ],
+  daily_streak: [
+    { title: 'Dedicated Commander',   descriptionTemplate: 'Log in for {target} consecutive days' },
+    { title: 'Faithful General',      descriptionTemplate: 'Maintain a {target}-day login streak' },
+    { title: 'Daily Devotion',        descriptionTemplate: 'Achieve a {target}-day daily streak' },
+    { title: 'Persistent Ruler',      descriptionTemplate: 'Keep your streak alive for {target} days' },
+    { title: 'Iron Discipline',       descriptionTemplate: 'Play for {target} consecutive days' },
+    { title: 'Steadfast Leader',      descriptionTemplate: 'Log in {target} days in a row' },
+  ],
+};
+
+// Min/max values for target_count, reward_gold, reward_xp per condition type
+// Index 0 = tier 0 (easiest), index 1 = tier 5 (hardest)
+interface ScalingRange {
+  targetMin: number;
+  targetMax: number;
+  goldMin: number;
+  goldMax: number;
+  xpMin: number;
+  xpMax: number;
+}
+
+const SCALING: Record<ChallengeCondition['type'], ScalingRange> = {
+  wins:                  { targetMin: 3,  targetMax: 15, goldMin: 50,  goldMax: 300, xpMin: 100, xpMax: 600 },
+  ranked_games:          { targetMin: 2,  targetMax: 8,  goldMin: 50,  goldMax: 200, xpMin: 100, xpMax: 400 },
+  buildings_built:       { targetMin: 8,  targetMax: 40, goldMin: 40,  goldMax: 200, xpMin: 80,  xpMax: 400 },
+  techs_researched:      { targetMin: 4,  targetMax: 15, goldMin: 40,  goldMax: 200, xpMin: 80,  xpMax: 400 },
+  territories_conquered: { targetMin: 20, targetMax: 80, goldMin: 50,  goldMax: 250, xpMin: 100, xpMax: 500 },
+  unique_eras_played:    { targetMin: 2,  targetMax: 5,  goldMin: 60,  goldMax: 150, xpMin: 120, xpMax: 300 },
+  win_streak:            { targetMin: 2,  targetMax: 7,  goldMin: 40,  goldMax: 200, xpMin: 80,  xpMax: 400 },
+  daily_streak:          { targetMin: 5,  targetMax: 21, goldMin: 50,  goldMax: 300, xpMin: 100, xpMax: 600 },
+};
+
+/** Linearly interpolate between min and max, rounded to nearest multiple of `step`. */
+function lerp(min: number, max: number, t: number, step: number): number {
+  const raw = min + (max - min) * t;
+  return Math.round(raw / step) * step;
+}
+
+/** Get challenge parameters for a condition type at a given difficulty tier (0–5). */
+export function getChallengeParams(
+  type: ChallengeCondition['type'],
+  tier: number,
+): { target_count: number; reward_gold: number; reward_xp: number } {
+  const s = SCALING[type];
+  const t = Math.min(tier, DIFFICULTY_CYCLE - 1) / (DIFFICULTY_CYCLE - 1);
+  return {
+    target_count: lerp(s.targetMin, s.targetMax, t, 1),
+    reward_gold:  lerp(s.goldMin, s.goldMax, t, 5),
+    reward_xp:    lerp(s.xpMin, s.xpMax, t, 10),
+  };
+}
+
+/** Compute the month index (months since epoch) for deterministic generation. */
+function getMonthIndex(year: number, month: number): number {
+  return (year - EPOCH_YEAR) * 12 + (month - EPOCH_MONTH);
+}
+
+/**
+ * Generate challenge rows for a given year and 0-indexed month.
+ * Pure function — returns the rows to insert without touching the DB.
+ */
+export function buildChallengeRows(
+  year: number,
+  month: number,
+): Array<{
+  challenge_id: string;
+  month: string;
+  title: string;
+  description: string;
+  target_count: number;
+  reward_gold: number;
+  reward_xp: number;
+  condition_json: string;
+}> {
+  const monthIdx = getMonthIndex(year, month);
+  const tier = monthIdx % DIFFICULTY_CYCLE;
+  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const prefix = `${MONTH_ABBREVS[month]}${String(year).slice(2)}`;
+
+  const CONDITION_TYPES: ChallengeCondition['type'][] = [
+    'wins', 'ranked_games', 'buildings_built', 'techs_researched',
+    'territories_conquered', 'unique_eras_played', 'win_streak', 'daily_streak',
+  ];
+
+  return CONDITION_TYPES.map((type) => {
+    const templates = CHALLENGE_TEMPLATES[type];
+    const template = templates[monthIdx % templates.length];
+    const params = getChallengeParams(type, tier);
+
+    return {
+      challenge_id: `${prefix}_${type}`,
+      month: monthStr,
+      title: template.title,
+      description: template.descriptionTemplate.replace('{target}', String(params.target_count)),
+      target_count: params.target_count,
+      reward_gold: params.reward_gold,
+      reward_xp: params.reward_xp,
+      condition_json: JSON.stringify({ type }),
+    };
+  });
+}
+
+/**
+ * Ensure challenges exist for the current month.
+ * If none exist, generate and insert them. Idempotent via ON CONFLICT.
+ */
+export async function ensureMonthlyChallenges(): Promise<void> {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+  const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+  const existing = await queryOne<{ cnt: string }>(
+    'SELECT COUNT(*) AS cnt FROM monthly_challenges WHERE month = $1',
+    [monthStart],
+  );
+  if (parseInt(existing?.cnt ?? '0', 10) > 0) return;
+
+  const rows = buildChallengeRows(year, month);
+
+  const valuePlaceholders = rows.map(
+    (_, i) => `($${i * 8 + 1}, $${i * 8 + 2}, $${i * 8 + 3}, $${i * 8 + 4}, $${i * 8 + 5}, $${i * 8 + 6}, $${i * 8 + 7}, $${i * 8 + 8})`,
+  ).join(', ');
+
+  const params = rows.flatMap((r) => [
+    r.challenge_id, r.month, r.title, r.description,
+    r.target_count, r.reward_gold, r.reward_xp, r.condition_json,
+  ]);
+
+  await query(
+    `INSERT INTO monthly_challenges (challenge_id, month, title, description, target_count, reward_gold, reward_xp, condition_json)
+     VALUES ${valuePlaceholders}
+     ON CONFLICT (challenge_id) DO NOTHING`,
+    params,
+  );
+
+  console.log(`[Challenges] Generated ${rows.length} challenges for ${monthStart}`);
+}
+
+// ── Challenge sweep (same pattern as seasonService) ────────────────────
+
+let challengeInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startChallengeSweep(): void {
+  if (challengeInterval) return;
+  // Check every hour (same cadence as season sweep)
+  challengeInterval = setInterval(async () => {
+    try {
+      await ensureMonthlyChallenges();
+    } catch (err) {
+      console.error('[Challenges] Sweep error:', err);
+    }
+  }, 60 * 60 * 1000);
+  challengeInterval.unref();
+
+  // Run immediately on startup
+  ensureMonthlyChallenges().catch((err) =>
+    console.error('[Challenges] Initial check error:', err),
+  );
+}
+
+export function stopChallengeSweep(): void {
+  if (challengeInterval) {
+    clearInterval(challengeInterval);
+    challengeInterval = null;
+  }
+}

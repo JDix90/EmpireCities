@@ -55,6 +55,9 @@ import { getTutorialMap } from '../game-engine/tutorial/tutorialScript';
 import type { GameState, GameMap, AiDifficulty } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
+import { isSafeMapId } from '../utils/mapId';
+import { registerChatHandlers } from './handlers/chatHandler';
+import type { SocketContext } from './handlers/types';
 import {
   scheduleAsyncDeadline,
   cancelAsyncDeadline,
@@ -82,6 +85,7 @@ async function resolveMap(mapId: string): Promise<GameMap | null> {
   if (mapDoc) return loadMapFromDoc(mapDoc);
 
   // Fallback: load from static JSON files in database/maps/
+  if (!isSafeMapId(mapId)) return null;
   const jsonPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
   if (fs.existsSync(jsonPath)) {
     const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
@@ -412,6 +416,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
     const username = (socket as Socket & { username: string }).username;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
     socket.join(`user:${userId}`);
+
+    // ── Extracted handlers ──────────────────────────────────────────────────
+    const ctx: SocketContext = {
+      io, socket, userId, username,
+      activeGames, broadcastState, scheduleDebouncedSave, isSocketUsersTurn,
+    };
+    registerChatHandlers(ctx);
 
     // ── Join Game Room ──────────────────────────────────────────────────────
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
@@ -1631,88 +1642,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
     });
 
-    // ── In-game chat ────────────────────────────────────────────────────────
-    socket.on('game:chat', ({ gameId, message }: { gameId: string; message: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return;
-      if (room.connectedSockets.get(socket.id) !== userId) return;
-
-      const raw = String(message).trim().slice(0, 500);
-      if (!raw) return;
-
-      // Allow GIF messages from trusted domains; sanitise everything else
-      const gifMatch = raw.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-      const clean = gifMatch
-        ? raw // pass through validated GIF URL
-        : raw.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      if (!clean) return;
-
-      const player = room.state.players.find((p) => p.player_id === userId);
-      io.to(gameId).emit('game:chat_message', {
-        gameId,
-        playerId: userId,
-        username: player?.username ?? 'Unknown',
-        color: player?.color ?? '#888',
-        message: clean,
-        timestamp: Date.now(),
-      });
-    });
-
-    socket.on('game:spectator_chat', ({ gameId, message }: { gameId: string; message: string }) => {
-      const spectatingGameId = socket.data?.spectating as string | undefined;
-      if (spectatingGameId !== gameId) return;
-
-      const now = Date.now();
-      const lastMessageAt = (socket.data?.spectatorChatLastAt as number | undefined) ?? 0;
-      if (now - lastMessageAt < SPECTATOR_CHAT_COOLDOWN_MS) return;
-      socket.data.spectatorChatLastAt = now;
-
-      const raw = String(message).trim().slice(0, 300);
-      if (!raw) return;
-
-      io.to(`${gameId}:spectators`).emit('game:spectator_chat_message', {
-        gameId,
-        playerId: userId,
-        username: socket.data?.username ?? username,
-        color: '#7dd3fc',
-        message: raw.replace(/</g, '&lt;').replace(/>/g, '&gt;'),
-        timestamp: now,
-      });
-    });
-
-    socket.on('game:spectator_emote', ({ gameId, emote }: { gameId: string; emote: string }) => {
-      const spectatingGameId = socket.data?.spectating as string | undefined;
-      if (spectatingGameId !== gameId) return;
-      const safeEmote = String(emote).slice(0, 4);
-      if (!safeEmote) return;
-      io.to(`${gameId}:spectators`).emit('game:spectator_emote', {
-        gameId,
-        emote: safeEmote,
-        username: socket.data?.username ?? username,
-        timestamp: Date.now(),
-      });
-    });
-
-    // ── Lobby (pre-game) chat ─────────────────────────────────────────────
-    socket.on('game:lobby_chat', ({ gameId, message }: { gameId: string; message: string }) => {
-      const raw = String(message).trim().slice(0, 500);
-      if (!raw) return;
-
-      const gifMatch = raw.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-      const clean = gifMatch
-        ? raw
-        : raw.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      if (!clean) return;
-
-      io.to(gameId).emit('game:lobby_chat_message', {
-        gameId,
-        playerId: userId,
-        username: socket.data?.username ?? username,
-        color: socket.data?.color ?? '#888',
-        message: clean,
-        timestamp: Date.now(),
-      });
-    });
+    // Chat handlers extracted to handlers/chatHandler.ts
 
     socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
       const lobby = await loadWaitingLobbyDetails(gameId);

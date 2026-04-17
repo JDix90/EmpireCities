@@ -94,4 +94,6 @@ export const config = {
   push: {
     fcmServiceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH || '',
   },
+
+  sentryDsn: process.env.SENTRY_DSN || '',
 };

@@ -178,6 +178,10 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     if (map) return reply.send({ map });
 
     // Fallback: load from static JSON files in database/maps/
+    const { isSafeMapId } = await import('../../utils/mapId');
+    if (!isSafeMapId(mapId)) {
+      return reply.status(400).send({ error: 'Invalid map ID format' });
+    }
     const jsonPath = path.resolve(__dirname, '../../../../database/maps', `${mapId}.json`);
     if (fs.existsSync(jsonPath)) {
       const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));

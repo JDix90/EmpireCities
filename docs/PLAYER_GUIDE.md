@@ -1,6 +1,6 @@
 # Eras of Empire — Player Guide & FAQ
 
-A complete guide to the advanced game features: Economy & Buildings, Technology Trees, Naval Warfare, Event Cards, Factions, and Population & Stability.
+A complete guide to the game — from core rules to advanced features. New players should start with the **Core Rules** section; experienced Risk players can skip ahead to the advanced features.
 
 All advanced features are **opt-in** — the host toggles them individually when creating a game via the **Advanced Features** checkboxes in the lobby.
 
@@ -8,14 +8,123 @@ All advanced features are **opt-in** — the host toggles them individually when
 
 ## Table of Contents
 
-1. [Economy & Buildings](#economy--buildings)
-2. [Technology Trees](#technology-trees)
-3. [Naval Warfare](#naval-warfare)
-4. [Event Cards (Historical Events)](#event-cards)
-5. [Asymmetric Factions](#asymmetric-factions)
-6. [Population & Stability](#population--stability)
-7. [How Features Interact](#how-features-interact)
-8. [FAQ](#faq)
+1. [Core Rules](#core-rules)
+   - [Turn Structure](#turn-structure)
+   - [Combat & Dice](#combat--dice)
+   - [Territory Cards](#territory-cards)
+   - [Victory Conditions](#victory-conditions)
+2. [Game Settings](#game-settings)
+3. [Economy & Buildings](#economy--buildings)
+4. [Technology Trees](#technology-trees)
+5. [Naval Warfare](#naval-warfare)
+6. [Event Cards (Historical Events)](#event-cards)
+7. [Asymmetric Factions](#asymmetric-factions)
+8. [Population & Stability](#population--stability)
+9. [How Features Interact](#how-features-interact)
+10. [FAQ](#faq)
+
+---
+
+## Core Rules
+
+### Turn Structure
+
+Each turn has three phases:
+
+1. **Draft (Reinforcement)** — Receive new units and place them on your territories.
+2. **Attack** — Attack adjacent enemy territories (optional — you can skip).
+3. **Fortify** — Move units between connected friendly territories (once, optional).
+
+**Reinforcement formula:**
+
+| Component | Units |
+|-----------|-------|
+| Base | 1 per 3 territories you own (minimum 3) |
+| Continent bonus | Extra units for owning all territories in a continent (scaled by player count) |
+| Card trade-in | Bonus units from redeeming a card set (see below) |
+
+Some games also include a **Territory Selection** phase before the first turn, where players take turns picking starting territories.
+
+### Combat & Dice
+
+To attack, you need at least **2 units** on your territory (one must stay behind to garrison).
+
+| Role | Dice |
+|------|------|
+| **Attacker** | Rolls up to **3 dice** (specifically: `min(attacking_units − 1, 3)`) |
+| **Defender** | Rolls up to **2 dice** (specifically: `min(defending_units, 2)`) |
+
+All dice are standard **d6** (1–6). Both sides sort their rolls from highest to lowest, then compare in pairs:
+
+- **Highest attacker die vs highest defender die** — lower roll loses 1 unit.
+- **Second highest vs second highest** (if both have ≥2 dice) — lower roll loses 1 unit.
+- **Ties go to the defender.** The defender's unit survives; the attacker loses one.
+
+You **capture** a territory when its last defending unit is destroyed. At least one attacking unit automatically moves in.
+
+**Era-specific modifiers** can modify combat (e.g., Ancient-era "Legion Reroll" lets the attacker re-roll their lowest die, ACW "Rifle Doctrine" gives the attacker a re-roll on ties). These are shown in the HUD during gameplay.
+
+### Territory Cards
+
+If you capture **at least one territory** during your attack phase, you draw a card at the end of your turn. Each card shows a symbol:
+
+| Symbol | |
+|--------|-|
+| **Infantry** | 🪖 |
+| **Cavalry** | 🐎 |
+| **Artillery** | 💣 |
+| **Wild** | ★ (2 in the deck; matches any symbol) |
+
+During your Draft phase, you can trade a **set of 3 cards** for bonus reinforcement units.
+
+**Valid sets:**
+- Three of a kind (e.g., 3 Infantry)
+- One of each (Infantry + Cavalry + Artillery)
+- Any 2 matching + 1 Wild
+
+**Escalating bonus** — Each successive trade-in (globally across all players) gives more units:
+
+| Trade-in # | 1st | 2nd | 3rd | 4th | 5th | 6th | 7th+ |
+|------------|-----|-----|-----|-----|-----|-----|------|
+| **Bonus** | 4 | 6 | 8 | 10 | 12 | 15 | +5 each |
+
+Timing your trade-ins is a strategic decision — trade early for a small safe bonus, or hold cards for a massive later payout (risking elimination).
+
+### Victory Conditions
+
+The host selects one or more victory conditions at game creation. The first player to satisfy **any** enabled condition wins:
+
+| Condition | How to Win |
+|-----------|-----------|
+| **Domination** (default) | Capture every territory — or be the last player standing |
+| **Threshold** | Own ≥ X% of all territories (percentage set by host, e.g., 70%) |
+| **Capital Conquest** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
+| **Secret Mission** | Each player receives a hidden objective at game start |
+
+**Secret Mission types:**
+- **Capture territories** — Conquer 2 specific enemy territories
+- **Eliminate player** — Eliminate a specific opponent entirely
+- **Control regions** — Control 1 or 2 entire continents
+- **Alliance** (rare, 4+ player games) — You and a secret ally each hold ≥20% of all territories
+
+---
+
+## Game Settings
+
+When creating a game, the host can configure:
+
+| Setting | Options |
+|---------|---------|
+| **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, or community maps |
+| **Players** | 2–12 (mix of human and AI) |
+| **AI Bots** | 0–7 bots at Easy / Medium / Hard / Expert difficulty |
+| **Turn Timer** | None, 3 min, 5 min, 10 min, or async (12h / 24h / 72h) |
+| **Victory** | Domination, Threshold, Capital, Secret Mission (can enable multiple) |
+| **Fog of War** | Only see owned territories + immediate neighbors |
+| **Territory Draft** | Players pick starting territories instead of random assignment |
+| **Ranked / Casual** | Ranked games affect your skill rating and leaderboard position |
+
+**Advanced feature toggles** (each independent): Economy & Buildings, Technology Trees, Naval Warfare, Historical Events, Factions, Population & Stability.
 
 ---
 

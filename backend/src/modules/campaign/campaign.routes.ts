@@ -43,7 +43,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    * Fails if they already have an active campaign.
    */
   app.post('/start', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
-    const userId = (req as any).user.user_id as string;
+    const userId = (req as any).userId as string;
 
     const existing = await queryOne<{ campaign_id: string }>(
       `SELECT campaign_id FROM user_campaigns WHERE user_id = $1 AND status = 'active'`,
@@ -122,7 +122,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    * and era-appropriate AI difficulty.
    */
   app.post('/continue', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
-    const userId = (req as any).user.user_id as string;
+    const userId = (req as any).userId as string;
 
     const campaign = await queryOne<{
       campaign_id: string;
@@ -218,7 +218,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    * Return the active (or most recent) campaign for the authenticated user.
    */
   app.get('/me', { preHandler: [authenticate] }, async (req, reply) => {
-    const userId = (req as any).user.user_id as string;
+    const userId = (req as any).userId as string;
 
     const campaign = await queryOne<{
       campaign_id: string;

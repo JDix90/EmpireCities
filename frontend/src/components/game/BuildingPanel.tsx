@@ -127,7 +127,7 @@ interface Props {
   eraWonder?: EraWonderInfo;
 }
 
-export default function BuildingPanel({
+function BuildingPanel({
   buildings,
   playerResources,
   isMine,
@@ -299,3 +299,6 @@ export default function BuildingPanel({
     </div>
   );
 }
+
+
+export default React.memo(BuildingPanel);

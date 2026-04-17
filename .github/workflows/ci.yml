@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm -C packages/shared run build
+
+      - name: Backend type-check
+        run: pnpm -C backend exec tsc --noEmit
+
+      - name: Backend tests
+        run: pnpm run test:backend
+
+      - name: Validate maps
+        run: pnpm run validate:maps
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm -C packages/shared run build
+
+      - name: Frontend type-check
+        run: pnpm -C frontend exec tsc --noEmit
+
+      - name: Frontend build
+        run: pnpm -C frontend run build

@@ -65,7 +65,7 @@ const MODIFIER_INFO: ModifierInfo[] = [
   },
 ];
 
-export default function EraModifierBadge({ gameState, className }: Props) {
+function EraModifierBadge({ gameState, className }: Props) {
   const mods = gameState.era_modifiers;
   if (!mods) return null;
 
@@ -108,3 +108,6 @@ export default function EraModifierBadge({ gameState, className }: Props) {
     </div>
   );
 }
+
+
+export default React.memo(EraModifierBadge);

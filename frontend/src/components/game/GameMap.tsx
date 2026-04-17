@@ -4,6 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { scalePolygon } from '../../services/mapService';
+import { hapticImpact } from '../../utils/haptics';
 
 interface MapTerritory {
   territory_id: string;
@@ -33,6 +34,8 @@ interface GameMapProps {
   height?: number;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
+  /** If provided, GameMap writes a reset-view callback into this ref. */
+  resetViewRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 const PLAYER_COLORS: Record<string, number> = {
@@ -50,7 +53,7 @@ function hexToPixi(hex: string): number {
   return PLAYER_COLORS[hex] ?? 0x888888;
 }
 
-export default function GameMap({ mapData, onTerritoryClick, width = 900, height = 600, highlightTerritoryId }: GameMapProps) {
+export default function GameMap({ mapData, onTerritoryClick, width = 900, height = 600, highlightTerritoryId, resetViewRef }: GameMapProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
@@ -155,7 +158,24 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
 
       drawTerritory(g, scaledPolygon, 0x2d3448, 0x4a5568);
 
-      g.on('pointerdown', () => onTerritoryClickRef.current(territory.territory_id));
+      // Tap detection: only fire click if pointer hasn't moved far (avoids conflict with pan)
+      let tapDownPos: { x: number; y: number } | null = null;
+      let tapDownTime = 0;
+      g.on('pointerdown', (e: PIXI.FederatedPointerEvent) => {
+        tapDownPos = { x: e.globalX, y: e.globalY };
+        tapDownTime = Date.now();
+      });
+      g.on('pointerup', (e: PIXI.FederatedPointerEvent) => {
+        if (!tapDownPos) return;
+        const dist = Math.hypot(e.globalX - tapDownPos.x, e.globalY - tapDownPos.y);
+        const elapsed = Date.now() - tapDownTime;
+        if (dist <= 10 && elapsed < 300) {
+          hapticImpact();
+          onTerritoryClickRef.current(territory.territory_id);
+        }
+        tapDownPos = null;
+      });
+      g.on('pointerupoutside', () => { tapDownPos = null; });
       g.on('pointerover', () => {
         if (!territoryGraphicsRef.current.get(territory.territory_id)) return;
         g.alpha = 0.85;
@@ -167,9 +187,10 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
       mapContainer.addChild(g);
       territoryGraphicsRef.current.set(territory.territory_id, g);
 
-      // Territory name label
+      // Territory name label — scale font size with canvas width for mobile readability
+      const baseLabelSize = Math.min(16, Math.max(10, Math.round(canvasW / 80)));
       const label = new PIXI.Text(territory.name, {
-        fontSize: 10,
+        fontSize: baseLabelSize,
         fill: 0xaaaaaa,
         align: 'center',
         wordWrap: true,
@@ -203,17 +224,29 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
       mapContainer.scale.set(s);
       labelContainer.scale.set(s);
       buildingLayer.scale.set(s);
+      // Hide labels when zoomed out too far to reduce clutter on small screens
+      labelContainer.visible = s >= 0.6;
     };
 
     const onPointerDown = (e: PointerEvent) => {
       canvas.setPointerCapture(e.pointerId);
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (activePointers.size === 1) {
-        // Double-tap to reset view
+        // Double-tap: zoom in 2× centered on tap, or reset if near max zoom
         const now = Date.now();
         if (now - lastTapTime < 300) {
-          syncLayers(0, 0);
-          scaleAllLayers(initialScale);
+          const currentScale = mapContainer.scale.x;
+          if (currentScale >= 3.8) {
+            syncLayers(0, 0);
+            scaleAllLayers(initialScale);
+          } else {
+            const newScale = Math.min(4, currentScale * 2);
+            const ratio = newScale / currentScale;
+            const newX = e.clientX - (e.clientX - mapContainer.x) * ratio;
+            const newY = e.clientY - (e.clientY - mapContainer.y) * ratio;
+            scaleAllLayers(newScale);
+            syncLayers(newX, newY);
+          }
         }
         lastTapTime = now;
         isDragging = true;
@@ -270,7 +303,16 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
     canvas.addEventListener('pointercancel', onPointerUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
 
+    // Expose reset-view callback to parent
+    if (resetViewRef) {
+      resetViewRef.current = () => {
+        syncLayers(0, 0);
+        scaleAllLayers(initialScale);
+      };
+    }
+
     return () => {
+      if (resetViewRef) resetViewRef.current = null;
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
@@ -388,7 +430,7 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
           existing.position.set(cx + 14, cy - 14);
           existing.visible = true;
         } else {
-          const txt = new PIXI.Text(icons, { fontSize: 9, align: 'left' });
+          const txt = new PIXI.Text(icons, { fontSize: Math.min(15, Math.max(9, Math.round(canvasW / 80) - 1)), align: 'left' });
           txt.anchor.set(0, 0.5);
           txt.position.set(cx + 14, cy - 14);
           buildingLayer.addChild(txt);

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
+import { hapticNotification, NotificationType } from '../../utils/haptics';
 
 interface MobileCardsTrayProps {
   cards: Array<{ card_id: string; symbol: string }>;
@@ -10,7 +12,7 @@ interface MobileCardsTrayProps {
   onClose: () => void;
 }
 
-export default function MobileCardsTray({
+function MobileCardsTray({
   cards,
   isMyTurn,
   isDraftPhase,
@@ -18,6 +20,7 @@ export default function MobileCardsTray({
   onClose,
 }: MobileCardsTrayProps) {
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
+  const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
   const toggleCard = (cardId: string) => {
     setSelectedCards((prev) =>
@@ -31,6 +34,7 @@ export default function MobileCardsTray({
 
   const handleRedeem = () => {
     if (selectedCards.length === 3) {
+      hapticNotification(NotificationType.Success);
       onRedeemCards(selectedCards);
       setSelectedCards([]);
       onClose();
@@ -38,9 +42,9 @@ export default function MobileCardsTray({
   };
 
   return (
-    <div className="fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up bg-cc-surface pb-safe">
-      {/* Drag handle */}
-      <div className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10">
+    <div ref={sheetRef} className="fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up bg-cc-surface pb-safe">
+      {/* Drag handle (swipe-to-dismiss) */}
+      <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10 cursor-grab">
         <div className="w-8 h-1 rounded-full bg-cc-border" />
       </div>
 
@@ -109,3 +113,6 @@ export default function MobileCardsTray({
     </div>
   );
 }
+
+
+export default React.memo(MobileCardsTray);

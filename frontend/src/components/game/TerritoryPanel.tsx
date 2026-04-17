@@ -8,6 +8,7 @@ import { computeDraftPool } from '../../utils/draftPool';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
+import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -71,17 +72,20 @@ export default function TerritoryPanel({
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
   const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
   const isMobile = isMobileViewport();
+  const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
   return (
-    <div className={clsx(
+    <div
+      ref={isMobile ? sheetRef : undefined}
+      className={clsx(
       'bg-cc-surface animate-fade-in',
       isMobile
         ? 'fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
         : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
     )}>
-      {/* Drag handle — mobile only */}
+      {/* Drag handle — mobile only (swipe-to-dismiss) */}
       {isMobile && (
-        <div className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10">
+        <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10 cursor-grab">
           <div className="w-8 h-1 rounded-full bg-cc-border" />
         </div>
       )}

@@ -43,7 +43,7 @@ export async function updateDailyStreak(
   userId: string,
 ): Promise<{ streak: number; milestone: number | null }> {
   const row = await client.query<{ daily_streak: number; last_played_date: string | null }>(
-    'SELECT daily_streak, last_played_date FROM users WHERE user_id = $1',
+    'SELECT daily_streak, last_played_date::text AS last_played_date FROM users WHERE user_id = $1',
     [userId],
   );
   const current = row.rows[0];
@@ -257,7 +257,7 @@ const DAILY_LOGIN_GOLD = 10;
 export async function claimDailyLogin(userId: string): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
   const row = await queryOne<{ last_login_date: string | null }>(
-    'SELECT last_login_date FROM users WHERE user_id = $1',
+    'SELECT last_login_date::text AS last_login_date FROM users WHERE user_id = $1',
     [userId],
   );
   if (row?.last_login_date === today) return false;

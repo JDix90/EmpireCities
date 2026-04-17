@@ -47,8 +47,13 @@ export function drawRandomCard(deck: EventCard[]): EventCard | undefined {
 /**
  * Apply an instant event effect to the game state.
  * For player-targeted effects the current player is used unless target_id specifies another.
+ * When `affectsAllPlayers` is true, player-targeted effects are applied to every non-eliminated player.
  */
-export function applyEventEffect(state: GameState, effect: EventEffect): EventEffectResult {
+export function applyEventEffect(
+  state: GameState,
+  effect: EventEffect,
+  affectsAllPlayers = false,
+): EventEffectResult {
   const currentPlayer = state.players[state.current_player_index];
   const affected: Array<{ territory_id: string; delta: number }> = [];
 
@@ -77,19 +82,24 @@ export function applyEventEffect(state: GameState, effect: EventEffect): EventEf
     }
     case 'units_removed': {
       if (effect.target === 'player') {
-        const entries = Object.entries(state.territories)
-          .filter(([, t]) => t.owner_id === currentPlayer.player_id)
-          .sort(([, a], [, b]) => b.unit_count - a.unit_count);
-        let remaining = Math.max(0, effect.value);
-        for (const [id, t] of entries) {
-          if (remaining <= 0) break;
-          const removable = Math.max(0, t.unit_count - 1);
-          const remove = Math.min(removable, remaining);
-          if (remove > 0) {
-            t.unit_count -= remove;
-            affected.push({ territory_id: id, delta: -remove });
+        const targetPlayers = affectsAllPlayers
+          ? state.players.filter((p) => !p.is_eliminated)
+          : [currentPlayer];
+        for (const player of targetPlayers) {
+          const entries = Object.entries(state.territories)
+            .filter(([, t]) => t.owner_id === player.player_id)
+            .sort(([, a], [, b]) => b.unit_count - a.unit_count);
+          let remaining = Math.max(0, effect.value);
+          for (const [id, t] of entries) {
+            if (remaining <= 0) break;
+            const removable = Math.max(0, t.unit_count - 1);
+            const remove = Math.min(removable, remaining);
+            if (remove > 0) {
+              t.unit_count -= remove;
+              affected.push({ territory_id: id, delta: -remove });
+            }
+            remaining -= remove;
           }
-          remaining -= remove;
         }
       } else if (effect.target === 'region') {
         // Remove units from all territories in the region
@@ -102,18 +112,46 @@ export function applyEventEffect(state: GameState, effect: EventEffect): EventEf
       }
       break;
     }
+    case 'enemy_units_removed': {
+      // Remove units from a random opponent's territories
+      const opponents = state.players.filter(
+        (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id,
+      );
+      if (opponents.length > 0) {
+        const opponent = opponents[Math.floor(Math.random() * opponents.length)];
+        const entries = Object.entries(state.territories)
+          .filter(([, t]) => t.owner_id === opponent.player_id)
+          .sort(([, a], [, b]) => b.unit_count - a.unit_count);
+        let remaining = Math.max(0, effect.value);
+        for (const [id, t] of entries) {
+          if (remaining <= 0) break;
+          const removable = Math.max(0, t.unit_count - 1);
+          const remove = Math.min(removable, remaining);
+          if (remove > 0) {
+            t.unit_count -= remove;
+            affected.push({ territory_id: id, delta: -remove });
+          }
+          remaining -= remove;
+        }
+      }
+      break;
+    }
     case 'attack_modifier':
     case 'defense_modifier':
     case 'production_bonus': {
       if (effect.duration_turns && effect.duration_turns > 0) {
-        // Add as a temporary modifier on the current player
-        const mods: TemporaryModifier[] = currentPlayer.temporary_modifiers ?? [];
-        mods.push({
-          type: effect.type,
-          value: effect.value,
-          turns_remaining: effect.duration_turns,
-        });
-        currentPlayer.temporary_modifiers = mods;
+        const targetPlayers = affectsAllPlayers
+          ? state.players.filter((p) => !p.is_eliminated)
+          : [currentPlayer];
+        for (const player of targetPlayers) {
+          const mods: TemporaryModifier[] = player.temporary_modifiers ?? [];
+          mods.push({
+            type: effect.type,
+            value: effect.value,
+            turns_remaining: effect.duration_turns,
+          });
+          player.temporary_modifiers = mods;
+        }
       }
       break;
     }
@@ -182,7 +220,7 @@ export function resolveEventChoice(
   const choice = event.choices?.find((c) => c.choice_id === choiceId);
   if (!choice) return false;
 
-  applyEventEffect(state, choice.effect);
+  applyEventEffect(state, choice.effect, event.affects_all_players);
   state.active_event = undefined;
   return true;
 }

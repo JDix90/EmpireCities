@@ -74,7 +74,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-export default function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
+function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
   const style = CATEGORY_STYLES[card.category] ?? CATEGORY_STYLES.global;
   const hasChoices = card.choices && card.choices.length > 0;
 
@@ -180,3 +180,6 @@ export default function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: 
     </div>
   );
 }
+
+
+export default React.memo(EventCardModal);

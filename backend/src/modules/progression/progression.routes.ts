@@ -202,7 +202,7 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
     );
 
     const user = await queryOne<{ daily_streak: number; last_login_date: string | null }>(
-      'SELECT daily_streak, last_login_date FROM users WHERE user_id = $1',
+      'SELECT daily_streak, last_login_date::text AS last_login_date FROM users WHERE user_id = $1',
       [request.userId],
     );
 

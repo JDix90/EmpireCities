@@ -83,7 +83,7 @@ export const modernEvents: EventCard[] = [
   {
     card_id: 'modern_un_peacekeeping',
     title: 'UN Peacekeeping Mission',
-    description: 'The Security Council authorizes blue helmets to patrol the contested zone. All parties are compelled to observe a temporary cessation of hostilities.',
+    description: 'The Security Council authorizes blue helmets to patrol the contested zone. You are compelled to observe a temporary cessation of hostilities with a rival.',
     category: 'player_targeted',
     era_id: 'modern',
     effect: { type: 'truce', target: 'player', value: 2 },

@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2 } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
+import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
@@ -289,6 +290,7 @@ export default function GamePage() {
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const mapDataRef = useRef<MapData | null>(null);
+  const resetViewRef = useRef<(() => void) | null>(null);
 
   // Active interaction HUD pill
   const activeInteractionLabel = useMemo(() => {
@@ -664,6 +666,7 @@ export default function GamePage() {
       };
 
       setLastCombatResult(enriched);
+      hapticImpact(ImpactStyle.Heavy);
 
       const isMyAttack = attackerOwner === userRef.current?.user_id;
       const isMyDefense = defenderOwner === userRef.current?.user_id;
@@ -729,6 +732,7 @@ export default function GamePage() {
     });
 
     socket.on('game:cards_redeemed', ({ bonus }: { bonus: number }) => {
+      hapticNotification(NotificationType.Success);
       toast.success(`Card set redeemed! +${bonus} bonus units`);
       const curr = useGameStore.getState().draftUnitsRemaining;
       setDraftUnitsRemaining(curr + bonus);
@@ -1130,6 +1134,21 @@ export default function GamePage() {
     getSocket().emit('game:start', { gameId });
   };
 
+  const handleCancelGame = async () => {
+    if (!gameId) return;
+    try {
+      await api.delete(`/games/${gameId}/cancel`);
+      toast.success('Game cancelled.');
+      navigate('/lobby');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to cancel game');
+    }
+  };
+
+  const handleLeaveGame = () => {
+    navigate('/lobby');
+  };
+
   const handleTerritoryClick = useCallback((territoryId: string) => {
     if (!gameState) return;
     const socket = getSocket();
@@ -1199,6 +1218,7 @@ export default function GamePage() {
   };
 
   const handleAdvancePhase = () => {
+    hapticImpact(ImpactStyle.Medium);
     getSocket().emit('game:advance_phase', { gameId });
     setSelectedTerritory(null);
     setAttackSource(null);
@@ -1276,6 +1296,7 @@ export default function GamePage() {
   };
 
   const handleRedeemCards = (cardIds: string[]) => {
+    hapticNotification(NotificationType.Success);
     getSocket().emit('game:redeem_cards', { gameId, cardIds });
   };
 
@@ -1654,14 +1675,30 @@ export default function GamePage() {
                           <UserPlus className="w-4 h-4" /> Invite Friends
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={handleCancelGame}
+                        className="w-full text-sm py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                      >
+                        Cancel Game
+                      </button>
                       <p className="text-xs leading-relaxed text-cc-muted">
                         Start immediately, or wait for more players to join and vote on any rule changes first.
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-cc-muted leading-relaxed">
-                      Waiting for {hostPlayer ? playerLobbyDisplayName(hostPlayer) : 'the host'} to start the game.
-                    </p>
+                    <div className="space-y-3">
+                      <p className="text-sm text-cc-muted leading-relaxed">
+                        Waiting for {hostPlayer ? playerLobbyDisplayName(hostPlayer) : 'the host'} to start the game.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleLeaveGame}
+                        className="w-full text-sm py-2 rounded border border-cc-border text-cc-muted hover:text-cc-text hover:border-cc-muted transition-colors"
+                      >
+                        Leave Game
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -1808,12 +1845,25 @@ export default function GamePage() {
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
                 highlightTerritoryId={tutorialHighlightId}
+                resetViewRef={resetViewRef}
               />
             )
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-cc-muted">Loading map...</p>
             </div>
+          )}
+
+          {/* Reset View button (mobile) */}
+          {mapView === '2d' && (
+            <button
+              type="button"
+              onClick={() => resetViewRef.current?.()}
+              className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
+              aria-label="Reset map view"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
           )}
 
           {/* Territory Info Panel */}
@@ -2101,9 +2151,13 @@ export default function GamePage() {
           onAdvance={() => setTutorialStep((s) => Math.min(s + 1, TUTORIAL_STEPS.length))}
           onContinuePlaying={handleTutorialContinuePlaying}
           onReturnToLobby={handleTutorialReturnToLobby}
+          onSkipTutorial={handleTutorialContinuePlaying}
           centered={
             TUTORIAL_STEPS[tutorialStep]?.id === 'welcome' ||
             TUTORIAL_STEPS[tutorialStep]?.id === 'draft_explain' ||
+            TUTORIAL_STEPS[tutorialStep]?.id === 'cards_explain' ||
+            TUTORIAL_STEPS[tutorialStep]?.id === 'victory_explain' ||
+            TUTORIAL_STEPS[tutorialStep]?.id === 'settings_overview' ||
             TUTORIAL_STEPS[tutorialStep]?.variant === 'wrapup'
           }
         />

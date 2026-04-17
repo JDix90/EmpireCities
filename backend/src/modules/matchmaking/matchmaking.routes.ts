@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { query, queryOne } from '../../db/postgres';
 import type { Server } from 'socket.io';
@@ -7,6 +8,13 @@ import { checkOnboardingQuests } from '../../game-engine/progression/progression
 
 const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
+
+const VALID_ERA_IDS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento'] as const;
+
+const JoinSchema = z.object({
+  era_id: z.enum(VALID_ERA_IDS),
+  bucket: z.enum(VALID_BUCKETS),
+});
 
 const BUCKET_SETTINGS: Record<Bucket, { turn_timer_seconds: number; label: string; async_mode?: boolean }> = {
   blitz_120:    { turn_timer_seconds: 120,    label: 'Blitz 2m' },
@@ -118,13 +126,14 @@ async function createRankedGame(
 
 export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/join', { preHandler: authenticate }, async (request, reply) => {
-    const body = request.body as { era_id?: string; bucket?: string } | undefined;
-    if (!body?.era_id || !body?.bucket) {
-      return reply.status(400).send({ error: 'era_id and bucket are required' });
+    const parsed = JoinSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid matchmaking parameters',
+        details: parsed.error.flatten().fieldErrors,
+      });
     }
-    if (!VALID_BUCKETS.includes(body.bucket as Bucket)) {
-      return reply.status(400).send({ error: 'Invalid bucket' });
-    }
+    const { era_id, bucket } = parsed.data;
 
     const rating = await queryOne<{ mu: number; phi: number }>(
       `SELECT mu, phi FROM user_ratings WHERE user_id = $1 AND rating_type = 'ranked'`,
@@ -138,10 +147,10 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id) DO UPDATE
        SET era_id = $2, bucket = $3, mu = $4, phi = $5, enqueued_at = NOW()`,
-      [request.userId, body.era_id, body.bucket, mu, phi],
+      [request.userId, era_id, bucket, mu, phi],
     );
 
-    await attemptMatch(body.era_id, body.bucket);
+    await attemptMatch(era_id, bucket);
     checkOnboardingQuests(request.userId, 'ranked_join').catch(() => {});
 
     return reply.send({ queued: true });

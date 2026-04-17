@@ -3,6 +3,7 @@ import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy } from 'lucide-react';
 import clsx from 'clsx';
+import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
 
@@ -186,9 +187,13 @@ function CombatResultView({
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    hapticImpact(ImpactStyle.Light);
     const maxDice = Math.max(result.attacker_rolls.length, result.defender_rolls.length);
     const settleTime = (8 + (maxDice - 1) * 4) * 55 + 500;
-    const timer = setTimeout(() => setShowResult(true), settleTime);
+    const timer = setTimeout(() => {
+      hapticImpact(ImpactStyle.Medium);
+      setShowResult(true);
+    }, settleTime);
     return () => clearTimeout(timer);
   }, [result]);
 

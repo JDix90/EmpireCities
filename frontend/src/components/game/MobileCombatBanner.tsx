@@ -8,7 +8,7 @@ interface MobileCombatBannerProps {
   onOpenFullLog: () => void;
 }
 
-export default function MobileCombatBanner({
+function MobileCombatBanner({
   lastCombatResult,
   onOpenFullLog,
 }: MobileCombatBannerProps) {
@@ -129,3 +129,6 @@ export default function MobileCombatBanner({
     </div>
   );
 }
+
+
+export default React.memo(MobileCombatBanner);

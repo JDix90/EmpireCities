@@ -294,21 +294,26 @@ export default function ProfilePage() {
           <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-cc-gold/20">
             <div>
               <h3 className="font-display text-lg text-cc-gold flex items-center gap-2">
-                <GraduationCap className="w-5 h-5" /> Interactive tutorial
+                <GraduationCap className="w-5 h-5" /> Learn to Play
               </h3>
               <p className="text-cc-muted text-sm mt-1 max-w-xl">
-                Start a new guided match on the World War II map with on-screen tips for draft, attack, and fortify. Replay anytime for a refresher.
+                Launch a guided tutorial match, or read the full rules reference covering combat, cards, victory conditions, and all advanced features.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleStartTutorial}
-              disabled={tutorialLaunching}
-              className="btn-primary flex items-center justify-center gap-2 shrink-0 py-2.5 px-5 disabled:opacity-60"
-            >
-              <GraduationCap className="w-4 h-4" />
-              {tutorialLaunching ? 'Starting…' : 'Launch tutorial'}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link to="/how-to-play" className="btn-secondary flex items-center justify-center gap-2 py-2.5 px-4">
+                📖 Rules
+              </Link>
+              <button
+                type="button"
+                onClick={handleStartTutorial}
+                disabled={tutorialLaunching}
+                className="btn-primary flex items-center justify-center gap-2 py-2.5 px-5 disabled:opacity-60"
+              >
+                <GraduationCap className="w-4 h-4" />
+                {tutorialLaunching ? 'Starting…' : 'Tutorial'}
+              </button>
+            </div>
           </div>
         )}
 

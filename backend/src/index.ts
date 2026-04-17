@@ -31,10 +31,14 @@ import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
 import { startSeasonSweep, stopSeasonSweep } from './game-engine/progression/seasonService';
+import { startChallengeSweep, stopChallengeSweep } from './game-engine/progression/challengeService';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
+import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
+import { initSentry } from './services/sentry';
 
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
+  initSentry();
 
   await connectPostgres();
   await connectMongo();
@@ -132,7 +136,9 @@ async function bootstrap(): Promise<void> {
   startMatchmakingSweep();
   startAsyncDeadlineWorker();
   startSeasonSweep();
+  startChallengeSweep();
   startOrphanedGameSweep();
+  startGuestCleanupSweep();
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
 
@@ -153,7 +159,9 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     try {
       stopMatchmakingSweep();
       stopSeasonSweep();
+      stopChallengeSweep();
       stopOrphanedGameSweep();
+      stopGuestCleanupSweep();
       await shutdownGameSocket(io);
       await app.close();
       await mongoose.connection.close();
