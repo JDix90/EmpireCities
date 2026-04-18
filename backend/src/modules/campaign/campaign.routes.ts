@@ -43,14 +43,6 @@ const ERA_AI_COUNT: Record<CampaignEra, number> = {
   modern:    4,
 };
 
-/** Merge delta into carry, clamping prestige_bonus to a max of 12. */
-function applyCarryDelta(carry: Partial<PathCarry>, delta: Partial<PathCarry>): Partial<PathCarry> {
-  const result = { ...carry };
-  if (delta.prestige_bonus) result.prestige_bonus = (result.prestige_bonus ?? 0) + delta.prestige_bonus;
-  if (delta.survivor_bonus) result.survivor_bonus = Math.min(8, (result.survivor_bonus ?? 0) + delta.survivor_bonus);
-  if (delta.revolutionary_spirit) result.revolutionary_spirit = Math.min(10, (result.revolutionary_spirit ?? 0) + delta.revolutionary_spirit);
-  return result;
-}
 
 export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   /**

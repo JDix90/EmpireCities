@@ -419,7 +419,10 @@ export default function CampaignPage() {
             <div className="flex flex-col gap-2">
               <p className="text-green-400 font-semibold">🏆 Campaign Completed!</p>
               <button
-                onClick={() => setShowPathSelection(true)}
+                onClick={() => {
+                  setCampaign(null);
+                  setShowPathSelection(true);
+                }}
                 disabled={starting}
                 className="px-6 py-3 bg-cc-surface border border-cc-border text-cc-text rounded-lg hover:bg-cc-border/20 transition-colors disabled:opacity-60"
               >
