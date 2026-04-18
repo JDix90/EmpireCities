@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { GameState, BuildingType, PlayerState } from '../../types';
-import { getStabilityMultiplier } from './stabilityManager';
+import { getStabilityMultiplier, getPopulationMultiplier } from './stabilityManager';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 
@@ -270,9 +270,12 @@ export function collectProduction(
     const stabilityScale = state.settings.stability_enabled
       ? getStabilityMultiplier(territory.stability)
       : 1;
+    const popScale = state.settings.stability_enabled
+      ? getPopulationMultiplier(territory.population)
+      : 1;
     for (const building of territory.buildings ?? []) {
-      productionEarned += Math.floor((BUILDING_PRODUCTION_INCOME[building] ?? 0) * stabilityScale);
-      techPointsEarned += Math.floor((BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale);
+      productionEarned += Math.floor((BUILDING_PRODUCTION_INCOME[building] ?? 0) * stabilityScale * popScale);
+      techPointsEarned += Math.floor((BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale);
     }
   }
 

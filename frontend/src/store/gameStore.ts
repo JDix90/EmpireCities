@@ -11,6 +11,7 @@ export interface TerritoryState {
   production_bonus?: number;
   naval_units?: number;
   stability?: number;
+  population?: number;
 }
 
 export interface SecretMissionPayload {

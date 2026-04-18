@@ -21,6 +21,7 @@ import { coldwarEvents } from './decks/coldwar';
 import { modernEvents } from './decks/modern';
 import { acwEvents } from './decks/acw';
 import { risorgimentoEvents } from './decks/risorgimento';
+import { applyStabilityChange, applyGlobalStabilityChange } from '../state/stabilityManager';
 
 const ERA_DECKS: Record<string, EventCard[]> = {
   ancient: ancientEvents,
@@ -199,6 +200,14 @@ export function applyEventEffect(
         }
       }
       return { global: true };
+    }
+    case 'stability_change': {
+      if (affectsAllPlayers) {
+        applyGlobalStabilityChange(state, effect.value);
+      } else {
+        applyStabilityChange(state, currentPlayer.player_id, effect.value);
+      }
+      return { global: affectsAllPlayers };
     }
   }
 

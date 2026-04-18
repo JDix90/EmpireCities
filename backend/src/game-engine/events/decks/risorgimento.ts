@@ -108,4 +108,21 @@ export const risorgimentoEvents: EventCard[] = [
     era_id: 'risorgimento',
     effect: { type: 'production_bonus', target: 'player', value: 2, duration_turns: 2 },
   },
+  {
+    card_id: 'riso_national_awakening',
+    title: 'National Awakening',
+    description: 'Patriotic literature and revolutionary ideals inspire your people. A wave of civic pride stabilizes your territories.',
+    category: 'player_targeted',
+    era_id: 'risorgimento',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'riso_reactionary_crackdown',
+    title: 'Reactionary Crackdown',
+    description: 'Conservative powers suppress liberal movements across Europe. Police raids and censorship destabilize every state.',
+    category: 'global',
+    era_id: 'risorgimento',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

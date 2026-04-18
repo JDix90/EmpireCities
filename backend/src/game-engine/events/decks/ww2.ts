@@ -108,4 +108,21 @@ export const ww2Events: EventCard[] = [
     effect: { type: 'region_disaster', target: 'region', value: 1 },
     affects_all_players: true,
   },
+  {
+    card_id: 'ww2_home_front_rally',
+    title: 'Home Front Rally',
+    description: 'Patriotic fervor sweeps the nation. War bonds sell out, factories run overtime, and civilian morale is at an all-time high.',
+    category: 'player_targeted',
+    era_id: 'ww2',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'ww2_war_weariness',
+    title: 'War Weariness',
+    description: 'Years of total war take their toll. Civilian populations on all sides grow restless, and anti-war sentiment destabilizes every government.',
+    category: 'global',
+    era_id: 'ww2',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

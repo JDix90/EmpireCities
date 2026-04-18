@@ -38,6 +38,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     ability_id: 'greek_fire',
     ability_description: 'Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled.',
     color: '#8e44ad',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'caliphate',

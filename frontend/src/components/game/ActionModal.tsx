@@ -678,6 +678,11 @@ function WinProbabilityChart({
     return { pl, d: pts.join(' ') };
   });
 
+  // Calculate tick positions and turn numbers for the x-axis
+  const tickCount = Math.min(8, n); // Show up to 8 ticks for clarity
+  const tickIndexes = Array.from({ length: tickCount }, (_, i) => Math.round(i * (n - 1) / (tickCount - 1)));
+  const tickSet = new Set(tickIndexes);
+
   return (
     <div className="w-full text-left">
       <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 text-center">Win probability over time</p>
@@ -699,6 +704,28 @@ function WinProbabilityChart({
             stroke="rgba(255,255,255,0.08)"
             strokeDasharray={t === 0.5 ? '4 4' : '0'}
           />
+        ))}
+        {/* X-axis ticks and turn numbers */}
+        {history.map((snap, i) => tickSet.has(i) && (
+          <g key={i}>
+            <line
+              x1={xAt(i)}
+              x2={xAt(i)}
+              y1={pad.t + innerH}
+              y2={pad.t + innerH + 6}
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth={1}
+            />
+            <text
+              x={xAt(i)}
+              y={pad.t + innerH + 16}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.38)"
+              fontSize={9}
+            >
+              {snap.turn}
+            </text>
+          </g>
         ))}
         <text x={pad.l - 4} y={yAt(1) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>100%</text>
         <text x={pad.l - 4} y={yAt(0) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>0%</text>

@@ -49,6 +49,7 @@ export const WW2_FACTIONS: Faction[] = [
     ability_id: 'commonwealth',
     ability_description: 'Commonwealth: once per turn, reinforce any owned territory from another owned territory via sea at no movement cost.',
     color: '#e74c3c',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'japan',

@@ -71,6 +71,8 @@ export interface TerritoryState {
   naval_units?: number;
   /** Stability rating 0-100 (population/stability feature). */
   stability?: number;
+  /** Population level 1-10 (population/stability feature). Grows when stable, multiplies production. */
+  population?: number;
 }
 
 export interface PlayerState {
@@ -255,6 +257,8 @@ export interface GameState {
   active_event_result?: EventEffectResult;
   /** Seasonal event cards injected at game start — merged into era deck when drawing. */
   seasonal_event_cards?: EventCard[];
+  /** Transient: territory IDs that rebelled last tick (cleared after broadcast). */
+  last_rebellion_territories?: string[];
 }
 
 // ── Event Cards ───────────────────────────────────────────────────────────────
@@ -266,7 +270,8 @@ export type EventEffectType =
   | 'attack_modifier'
   | 'defense_modifier'
   | 'truce'
-  | 'region_disaster';
+  | 'region_disaster'
+  | 'stability_change';
 
 export type EventCategory = 'global' | 'regional' | 'player_targeted' | 'natural_disaster';
 

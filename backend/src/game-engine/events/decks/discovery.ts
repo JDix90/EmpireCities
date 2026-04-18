@@ -108,4 +108,21 @@ export const discoveryEvents: EventCard[] = [
       { choice_id: 'units', label: 'Hire mercenaries (+2 units)', effect: { type: 'units_added', target: 'player', value: 2 } },
     ],
   },
+  {
+    card_id: 'discovery_colonial_prosperity',
+    title: 'Colonial Prosperity',
+    description: 'Wealth from the New World pours into your coffers, funding civic improvements and bolstering loyalty across your territories.',
+    category: 'player_targeted',
+    era_id: 'discovery',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'discovery_reformation_turmoil',
+    title: 'Reformation Turmoil',
+    description: 'Religious upheaval tears through every nation. Riots and iconoclasm destabilize governments across the continent.',
+    category: 'global',
+    era_id: 'discovery',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

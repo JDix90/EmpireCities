@@ -107,4 +107,21 @@ export const coldwarEvents: EventCard[] = [
       { choice_id: 'negotiate', label: 'Negotiate a stand-down (truce for 2 turns)', effect: { type: 'truce', target: 'player', value: 2 } },
     ],
   },
+  {
+    card_id: 'coldwar_space_race_triumph',
+    title: 'Space Race Triumph',
+    description: 'Your nation achieves a landmark in space exploration. National pride soars and political stability strengthens.',
+    category: 'player_targeted',
+    era_id: 'coldwar',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'coldwar_nuclear_anxiety',
+    title: 'Nuclear Anxiety',
+    description: 'A near-miss nuclear incident sparks worldwide panic. Civil unrest and fear of annihilation destabilize every regime.',
+    category: 'global',
+    era_id: 'coldwar',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

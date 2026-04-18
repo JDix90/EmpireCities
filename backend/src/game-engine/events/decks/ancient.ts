@@ -108,4 +108,21 @@ export const ancientEvents: EventCard[] = [
       { choice_id: 'units', label: 'Train hoplites (+2 units)', effect: { type: 'units_added', target: 'player', value: 2 } },
     ],
   },
+  {
+    card_id: 'ancient_golden_age',
+    title: 'Golden Age of Athens',
+    description: 'Art, philosophy, and civic pride flourish across your lands. Citizens rally behind your rule and stability rises.',
+    category: 'player_targeted',
+    era_id: 'ancient',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'ancient_barbarian_migrations',
+    title: 'Barbarian Migrations',
+    description: 'Massive tribal migrations sweep across the known world, destabilizing borders and disrupting order everywhere.',
+    category: 'global',
+    era_id: 'ancient',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

@@ -16,15 +16,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import {
-  Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
-  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword, Trophy, Eye, HelpCircle,
-} from 'lucide-react';
+import { Info } from 'lucide-react';// ...existing code...
+import TopNavBar from '../components/ui/TopNavBar';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { COMMUNITY_MAP_TITLES, ERA_LABELS } from '../constants/gameLobbyLabels';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
+import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import StreakBadge from '../components/ui/StreakBadge';
 import SeasonBanner from '../components/ui/SeasonBanner';
 import MonthlyChallenges from '../components/ui/MonthlyChallenges';
@@ -687,57 +686,7 @@ export default function LobbyPage() {
         </div>
       )}
       {/* Top Bar */}
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-safe px-safe">
-        <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors shrink-0">
-          ERAS OF EMPIRE
-        </Link>
-        <div className="hidden md:flex flex-wrap items-center gap-x-4 gap-y-2 justify-end">
-          <Link to="/how-to-play" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <HelpCircle className="w-4 h-4 shrink-0" /> How to Play
-          </Link>
-          <Link to="/maps" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <Map className="w-4 h-4 shrink-0" /> Map Hub
-          </Link>
-          {!user?.is_guest && (
-            <Link to="/daily" className="flex items-center gap-1.5 text-cc-gold/80 hover:text-cc-gold text-sm transition-colors font-medium">
-              <Calendar className="w-4 h-4 shrink-0" /> Daily
-            </Link>
-          )}
-          {!user?.is_guest && (
-            <Link to="/store" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-              <ShoppingBag className="w-4 h-4 shrink-0" /> Store
-            </Link>
-          )}
-          {!user?.is_guest && (
-            <Link to="/editor" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-              <PenSquare className="w-4 h-4 shrink-0" /> Map Editor
-            </Link>
-          )}
-          {!user?.is_guest && (
-            <Link to="/friends" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-              <Users className="w-4 h-4 shrink-0" /> Friends
-            </Link>
-          )}
-          <Link to="/leaderboards" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <Trophy className="w-4 h-4 shrink-0" /> Leaderboards
-          </Link>
-          <Link to="/live-games" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <Eye className="w-4 h-4 shrink-0" /> Live
-          </Link>
-          <Link to="/profile" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <User className="w-4 h-4 shrink-0" /> {user?.username ?? 'Profile'}
-          </Link>
-          <Link to="/privacy" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <FileText className="w-4 h-4 shrink-0" /> Privacy
-          </Link>
-          <Link to="/" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <Home className="w-4 h-4 shrink-0" /> Home
-          </Link>
-          <button type="button" onClick={handleLogout} className="flex items-center gap-1.5 text-cc-muted hover:text-red-400 text-sm transition-colors">
-            <LogOut className="w-4 h-4 shrink-0" /> Logout
-          </button>
-        </div>
-      </nav>
+      <TopNavBar user={user} onLogout={handleLogout} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
         {/* Onboarding Quest Banner */}
@@ -771,17 +720,17 @@ export default function LobbyPage() {
               aria-haspopup="dialog"
               aria-controls="create-game-modal"
             >
-              <Plus className="w-4 h-4" /> New Game
+              New Game
             </button>
             <button
               onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
               className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center"
             >
-              <Eye className="w-4 h-4" /> Watch a Game
+              Watch a Game
             </button>
             {!user?.is_guest && (
               <Link to="/editor" className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center">
-                <Map className="w-4 h-4" /> Map Editor
+                Map Editor
               </Link>
             )}
           </div>
@@ -793,7 +742,7 @@ export default function LobbyPage() {
             {activeGames.length > 0 && (
               <div className="card mb-6 animate-fade-in">
                 <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
-                  <Play className="w-5 h-5" /> Your Active Games
+                  Your Active Games
                 </h3>
                 <div className="space-y-3">
                   {activeGames.map((game) => (
@@ -837,14 +786,14 @@ export default function LobbyPage() {
                             const urgencyColor = ratio > 0.5 ? 'text-green-400' : ratio > 0.25 ? 'text-yellow-400' : 'text-red-400';
                             return (
                               <span className={`flex items-center gap-1 ${urgencyColor}`}>
-                                <Clock className="w-3.5 h-3.5" />
+                                {/* Time icon removed */}
                                 {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} left
                               </span>
                             );
                           })()}
                           {game.saved_at && !game.async_mode && (
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5" /> {timeAgo(game.saved_at)}
+                              {timeAgo(game.saved_at)}
                             </span>
                           )}
                         </div>
@@ -872,14 +821,14 @@ export default function LobbyPage() {
                             className="p-1.5 rounded text-cc-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             title="Delete game"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {/* Trash icon removed */}
                           </button>
                         )}
                         <button
                           onClick={() => navigate(`/game/${game.game_id}`)}
                           className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5"
                         >
-                          <Play className="w-3.5 h-3.5" /> {game.saved_at ? 'Resume' : 'Continue'}
+                          {game.saved_at ? 'Resume' : 'Continue'}
                         </button>
                       </div>
                     </div>
@@ -888,11 +837,19 @@ export default function LobbyPage() {
               </div>
             )}
 
+            {/* Faction Selection Panel for all players in pre-game lobby */}
+            {/* Only show if in a lobby (waiting room), not after game start */}
+            {lobbyTab === 'casual' && !showCreate && typeof window !== 'undefined' && (window as any).lobbySnapshot && (
+              <FactionSelectionPanel
+                lobby={(window as any).lobbySnapshot}
+                eraId={(window as any).lobbySnapshot.era_id}
+              />
+            )}
             {/* Quick-start cards for new users */}
             {user && user.xp === 0 && lobbyTab === 'casual' && (
               <div className="card mb-6 animate-fade-in border-cc-gold/20">
                 <h3 className="font-display text-lg text-cc-gold mb-4 flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5" /> Getting Started
+                  Getting Started
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
@@ -905,7 +862,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-gold/20 hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    <GraduationCap className="w-6 h-6 text-cc-gold mb-2" />
+                    {/* GraduationCap icon removed */}
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Learn the Basics</p>
                     <p className="text-cc-muted text-xs mt-1">Interactive tutorial match against a scripted AI.</p>
                   </button>
@@ -914,7 +871,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    <Calendar className="w-6 h-6 text-cc-gold mb-2" />
+                    {/* Calendar icon removed */}
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
                     <p className="text-cc-muted text-xs mt-1">One game per day, same map for everyone. Climb the leaderboard!</p>
                   </button>
@@ -923,7 +880,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    <Bot className="w-6 h-6 text-cc-gold mb-2" />
+                    {/* Bot icon removed */}
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Quick Solo Match</p>
                     <p className="text-cc-muted text-xs mt-1">1v3 AI in the Ancient World — a 20-min game.</p>
                   </button>
@@ -935,7 +892,7 @@ export default function LobbyPage() {
             {user && user.has_completed_tutorial && !user.is_guest && lobbyTab === 'casual' && (
               <div className="card mb-6 animate-fade-in border-amber-700/30">
                 <h3 className="font-display text-lg text-amber-400 mb-4 flex items-center gap-2">
-                  <Sword className="w-5 h-5" /> Next Steps
+                  Next Steps
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
@@ -948,7 +905,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-amber-700/30 hover:border-amber-500
                                transition-colors text-left group"
                   >
-                    <Sword className="w-6 h-6 text-amber-400 mb-2" />
+                    {/* Sword icon removed */}
                     <p className="font-display text-amber-400 group-hover:text-white transition-colors">WW2 Theatre</p>
                     <p className="text-cc-muted text-xs mt-1">Apply your skills in the World War II era with tanks, bombers, and atom bombs.</p>
                   </button>
@@ -968,7 +925,6 @@ export default function LobbyPage() {
                       : 'text-cc-muted hover:text-cc-text border border-transparent'
                   }`}
                 >
-                  {tab === 'casual' ? <Globe className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                   {tab === 'casual' ? 'Casual' : 'Ranked'}
                 </button>
               ))}
@@ -978,7 +934,7 @@ export default function LobbyPage() {
             {lobbyTab === 'ranked' && (
               <div className="card mb-8 animate-fade-in">
             <h3 className="font-display text-xl text-cc-gold mb-2 flex items-center gap-2">
-              <Shield className="w-5 h-5" /> Ranked 1v1 Matchmaking
+              Ranked 1v1 Matchmaking
             </h3>
             <p className="text-cc-muted text-sm mb-6">
               1v1 domination. No AI. No fog of war. Rating changes apply.
@@ -995,9 +951,7 @@ export default function LobbyPage() {
 
             {rankedQueued ? (
               <div className="flex items-center gap-4 p-4 bg-cc-dark rounded-lg border border-cc-gold/20">
-                <div className="animate-pulse text-cc-gold">
-                  <Timer className="w-6 h-6" />
-                </div>
+                <div className="animate-pulse text-cc-gold"></div>
                 <div className="flex-1">
                   <p className="text-cc-text text-sm font-medium">Searching for opponent...</p>
                   <p className="text-cc-muted text-xs">
@@ -1013,17 +967,16 @@ export default function LobbyPage() {
                 <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Real-Time</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   {([
-                    { bucket: 'blitz_120',    label: 'Blitz',    desc: '2 min per turn', icon: Zap },
-                    { bucket: 'standard_300', label: 'Standard', desc: '5 min per turn', icon: Clock },
-                    { bucket: 'long_1200',    label: 'Long',     desc: '20 min per turn', icon: Timer },
-                  ] as const).map(({ bucket, label, desc, icon: Icon }) => (
+                    { bucket: 'blitz_120',    label: 'Blitz',    desc: '2 min per turn' },
+                    { bucket: 'standard_300', label: 'Standard', desc: '5 min per turn' },
+                    { bucket: 'long_1200',    label: 'Long',     desc: '20 min per turn' },
+                  ] as const).map(({ bucket, label, desc }) => (
                     <button
                       key={bucket}
                       onClick={() => joinRankedQueue(bucket)}
                       className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                  transition-colors text-left group"
                     >
-                      <Icon className="w-5 h-5 text-cc-gold mb-2" />
                       <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
                       <p className="text-cc-muted text-xs mt-1">{desc}</p>
                     </button>
@@ -1032,17 +985,16 @@ export default function LobbyPage() {
                 <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Async</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {([
-                    { bucket: 'async_43200',  label: '12 Hours', desc: '12h per turn', icon: Clock },
-                    { bucket: 'async_86400',  label: '24 Hours', desc: '1 day per turn', icon: Calendar },
-                    { bucket: 'async_259200', label: '3 Days',   desc: '3 days per turn', icon: Calendar },
-                  ] as const).map(({ bucket, label, desc, icon: Icon }) => (
+                    { bucket: 'async_43200',  label: '12 Hours', desc: '12h per turn' },
+                    { bucket: 'async_86400',  label: '24 Hours', desc: '1 day per turn' },
+                    { bucket: 'async_259200', label: '3 Days',   desc: '3 days per turn' },
+                  ] as const).map(({ bucket, label, desc }) => (
                     <button
                       key={bucket}
                       onClick={() => joinRankedQueue(bucket)}
                       className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                  transition-colors text-left group"
                     >
-                      <Icon className="w-5 h-5 text-cc-gold mb-2" />
                       <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
                       <p className="text-cc-muted text-xs mt-1">{desc}</p>
                     </button>
@@ -1132,7 +1084,7 @@ export default function LobbyPage() {
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
-                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
                       <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
                       <input
                         type="checkbox"
@@ -1140,11 +1092,11 @@ export default function LobbyPage() {
                         checked={territorySelection}
                         onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
                         disabled={factionsEnabled}
-                        className="w-4 h-4 mt-0.5 accent-cc-gold"
+                        className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto"
                       />
-                      <span className="leading-snug min-w-0">Territory Draft</span>
+                      <span className="leading-snug min-w-0 select-none">Territory Draft</span>
                     </label>
-                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
                       <FeatureTooltip text="Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft." />
                       <input
                         type="checkbox"
@@ -1155,46 +1107,46 @@ export default function LobbyPage() {
                           if (e.target.checked) setTerritorySelection(false);
                         }}
                         disabled={territorySelection}
-                        className="w-4 h-4 mt-0.5 accent-cc-gold"
+                        className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto"
                       />
-                      <span className="leading-snug min-w-0">Asymmetric Factions</span>
+                      <span className="leading-snug min-w-0 select-none">Asymmetric Factions</span>
                     </label>
                   </div>
-                  <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
-                    <label className="label mb-2">Advanced Features</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power." />
-                        <input type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Economy &amp; Buildings</span>
-                      </label>
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time." />
-                        <input type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Technology Trees</span>
-                      </label>
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response." />
-                        <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Historical Events</span>
-                      </label>
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores." />
-                        <input type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Naval Warfare</span>
-                      </label>
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Each territory tracks stability (0–100%). Low stability reduces income and unit placement. Captured territories start unstable; neglected ones may rebel and lose units automatically." />
-                        <input type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Population &amp; Stability</span>
+                    <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
+                      <label className="label mb-2">Advanced Features</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <FeatureTooltip text="Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power." />
+                          <input type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
+                          <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
+                        </label>
+                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <FeatureTooltip text="Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time." />
+                          <input type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
+                          <span className="leading-snug min-w-0 select-none">Technology Trees</span>
+                        </label>
+                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <FeatureTooltip text="Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response." />
+                          <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
+                          <span className="leading-snug min-w-0 select-none">Historical Events</span>
+                        </label>
+                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <FeatureTooltip text="Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores." />
+                          <input type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
+                          <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
+                        </label>
+                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <FeatureTooltip text="Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start at 30% stability with halved population. Select factions gain faster stability recovery." />
+                          <input type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
+                          <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                       </label>
                       <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
                         <FeatureTooltip text="Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important." />
                         <input type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
                         <span className="leading-snug min-w-0">Fog of War</span>
-                      </label>
+                        </label>
+                      </div>
                     </div>
-                  </div>
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
                     <p className="text-xs text-cc-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
@@ -1253,7 +1205,7 @@ export default function LobbyPage() {
             {lobbyTab === 'casual' && (
               <div className="card mb-8 animate-fade-in">
             <h3 className="font-display text-xl text-cc-gold mb-2 flex items-center gap-2">
-              <Link2 className="w-5 h-5" /> Join with code
+              Join with code
             </h3>
             <p className="text-cc-muted text-sm mb-4">
               Paste the short join code, or the full game ID from your host. You can also use a lobby link with <code className="text-cc-gold/90">?join=</code>.
@@ -1276,7 +1228,7 @@ export default function LobbyPage() {
             {/* Public Games */}
             {lobbyTab === 'casual' && <div className="card">
           <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
-            <Globe className="w-5 h-5" /> Open Games
+            Open Games
           </h3>
           {publicGames.length === 0 ? (
             <p className="text-cc-muted text-center py-8">No open games. Create one to get started!</p>

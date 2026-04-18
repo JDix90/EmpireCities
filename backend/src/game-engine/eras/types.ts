@@ -43,6 +43,8 @@ export interface Faction {
   ability_description?: string;
   /** UI color (CSS hex) — used in lobby display. */
   color: string;
+  /** Extra stability recovery per turn for this faction's territories. */
+  stability_recovery_bonus?: number;
 }
 
 /** A node in an era-specific technology tree. */

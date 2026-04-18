@@ -2,6 +2,8 @@
 
 > A browser-based historical world map strategy game inspired by Risk — featuring eight playable historical eras, asymmetric factions, a tech tree, an economy system, event cards, secret missions, a 3D globe view, ranked matchmaking, a daily challenge, a campaign mode, game replays, an in-game cosmetics store, and a full JWT authentication system.
 
+> **Now with Population & Stability:** Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start unstable with halved population. Select factions gain faster stability recovery. New event cards and mechanics included!
+
 ---
 
 ## Table of Contents
@@ -16,15 +18,16 @@
 8. [Database Setup](#database-setup)
 9. [Running the Application](#running-the-application)
 10. [Game Mechanics Reference](#game-mechanics-reference)
-11. [Factions & Asymmetric Gameplay](#factions--asymmetric-gameplay)
-12. [Technology Tree](#technology-tree)
-13. [Economy & Buildings](#economy--buildings)
-14. [Event Cards](#event-cards)
-15. [Victory Conditions](#victory-conditions)
-16. [Map Editor Guide](#map-editor-guide)
-17. [Architecture Overview](#architecture-overview)
-18. [Pages & Features](#pages--features)
-19. [Development Notes](#development-notes)
+11. [Population & Stability System](#population--stability-system)
+12. [Factions & Asymmetric Gameplay](#factions--asymmetric-gameplay)
+13. [Technology Tree](#technology-tree)
+14. [Economy & Buildings](#economy--buildings)
+15. [Event Cards](#event-cards)
+16. [Victory Conditions](#victory-conditions)
+17. [Map Editor Guide](#map-editor-guide)
+18. [Architecture Overview](#architecture-overview)
+19. [Pages & Features](#pages--features)
+20. [Development Notes](#development-notes)
 
 ---
 
@@ -477,6 +480,26 @@ Cards are earned by capturing at least one territory per turn. Valid sets of 3:
 
 ---
 
+## Population & Stability System
+
+Each territory now tracks two new stats:
+
+- **Stability (0–100%)**: Low stability reduces production income, caps unit placement, and risks rebellion. High stability enables population growth and maximizes income.
+- **Population (1–10)**: Higher population increases production output (up to 1.5× at max population, 0.5× at minimum). Population grows when stability is high, shrinks when stability is low, and is halved (min 1) when a territory is captured.
+
+**Key mechanics:**
+
+- **Deploy Cap:** If stability < 30%, you may only place 1 unit per draft action on that territory; if < 50%, max 3 units; otherwise, unlimited.
+- **Rebellion:** If stability ≤ 10%, each turn there is a 25% chance the territory loses a unit (or revolts if empty).
+- **Stability Recovery:** Territories recover stability each turn, with bonuses for garrisoned units and select factions.
+- **Population Growth:** If stability ≥ 50%, population may grow (1-in-4 chance per turn); if < 30%, population may shrink (10% chance per turn).
+- **Faction Bonuses:** One faction per era (e.g., Rome, Byzantine, Ming, UK, USA, Western Bloc, Union, Papal States) gains +3 stability recovery per turn.
+- **Event Cards:** New event cards can increase or decrease stability globally or for a single player.
+
+All stability and population effects are visible in the territory panel. The system is fully server-authoritative and persists in replays and campaign.
+
+---
+
 ## Factions & Asymmetric Gameplay
 
 Each era includes 4–6 selectable factions. Factions are chosen at game creation and give each player a distinct identity with:
@@ -536,6 +559,7 @@ Each era has a dedicated shuffled event card deck. At configurable intervals, th
 - **Territory transfer** — a neutral or contested territory changes hands
 - **Temporary modifiers** — attack/defense bonuses lasting N turns
 - **Gold awards** — instant gold for store purchases
+- **Stability change** — new event cards can increase or decrease stability globally or for a single player (e.g., Golden Age, Great Famine)
 
 Cards are era-thematic (e.g., plague in Medieval, nuclear tension in Cold War, diplomatic protest in Modern). All effects are resolved server-side.
 

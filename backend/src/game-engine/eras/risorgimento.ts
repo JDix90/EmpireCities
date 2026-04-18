@@ -38,6 +38,7 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
     ability_id: 'papal_dispensation',
     ability_description: 'Papal Dispensation: once per turn, prevent one influence attempt against any Papal territory.',
     color: '#f1c40f',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'kingdom_naples',

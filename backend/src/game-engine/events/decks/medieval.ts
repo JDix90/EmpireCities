@@ -108,4 +108,21 @@ export const medievalEvents: EventCard[] = [
       { choice_id: 'attack', label: 'Siege mastery (+1 attack die for 2 turns)', effect: { type: 'attack_modifier', target: 'player', value: 1, duration_turns: 2 } },
     ],
   },
+  {
+    card_id: 'medieval_royal_charter',
+    title: 'Royal Charter Granted',
+    description: 'The crown issues a charter guaranteeing rights and privileges to your towns. Morale and order improve across your realm.',
+    category: 'player_targeted',
+    era_id: 'medieval',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'medieval_great_famine',
+    title: 'The Great Famine',
+    description: 'Failed harvests and endless rain bring widespread starvation. Peasant revolts and despair grip every kingdom.',
+    category: 'global',
+    era_id: 'medieval',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

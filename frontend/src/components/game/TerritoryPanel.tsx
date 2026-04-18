@@ -143,6 +143,18 @@ export default function TerritoryPanel({
               style={{ width: `${tState.stability}%` }}
             />
           </div>
+          {tState.population != null && (
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-cc-muted">Population</span>
+              <span className="text-xs font-mono text-cc-text">{tState.population} / 10</span>
+            </div>
+          )}
+          {tState.stability < 30 && (
+            <p className="text-xs text-red-400 mt-1">⚠ Low stability — deploy cap reduced</p>
+          )}
+          {tState.stability <= 10 && (
+            <p className="text-xs text-red-300 mt-0.5">⚠ Rebellion risk — territory may revolt</p>
+          )}
         </div>
       )}
 

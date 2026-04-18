@@ -14,6 +14,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
     ability_id: 'testudo',
     ability_description: 'Testudo Formation: once per turn during attack phase, negate all attacker losses on one combat exchange.',
     color: '#c0392b',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'parthia',

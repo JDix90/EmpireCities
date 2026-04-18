@@ -32,7 +32,7 @@ import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange 
 import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
-import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty } from '../game-engine/state/stabilityManager';
+import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
@@ -764,6 +764,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const territory = state.territories[territoryId];
       if (!territory || territory.owner_id !== userId) {
         return socket.emit('error', { message: 'Invalid territory' });
+      }
+
+      if (state.settings.stability_enabled) {
+        const cap = getDeployCap(territory.stability);
+        if (units > cap) {
+          return socket.emit('error', { message: `Stability too low — max ${cap} units per placement here` });
+        }
       }
 
       territory.unit_count += units;

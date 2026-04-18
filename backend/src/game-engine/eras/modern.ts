@@ -14,6 +14,7 @@ export const MODERN_FACTIONS: Faction[] = [
     ability_id: 'precision_airstrike',
     ability_description: 'Precision Airstrike: once per turn, deal 2 unit losses to any adjacent enemy territory without a full attack exchange.',
     color: '#3498db',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'eastern_bloc',

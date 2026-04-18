@@ -39,7 +39,7 @@ export async function getFriendActivity(
      JOIN users u ON u.user_id = af.user_id
      WHERE af.user_id IN (
        SELECT CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END
-       FROM friends f
+       FROM friendships f
        WHERE (f.user_id_a = $1 OR f.user_id_b = $1) AND f.status = 'accepted'
      )
      ORDER BY af.created_at DESC

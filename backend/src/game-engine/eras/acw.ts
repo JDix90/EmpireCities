@@ -13,6 +13,7 @@ export const ACW_FACTIONS: Faction[] = [
     ability_id: 'total_war',
     ability_description: 'Total War: once per game, in one turn place double your normal reinforcements.',
     color: '#3498db',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'confederacy',

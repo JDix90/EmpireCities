@@ -108,4 +108,21 @@ export const modernEvents: EventCard[] = [
       { choice_id: 'weapons', label: 'Deploy weapons (+1 attack die for 2 turns)', effect: { type: 'attack_modifier', target: 'player', value: 1, duration_turns: 2 } },
     ],
   },
+  {
+    card_id: 'modern_economic_boom',
+    title: 'Economic Boom',
+    description: 'A surge of foreign investment and technological innovation drives growth. Public confidence and institutional stability rise sharply.',
+    category: 'player_targeted',
+    era_id: 'modern',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'modern_global_pandemic',
+    title: 'Global Pandemic',
+    description: 'A highly contagious virus spreads across borders. Lockdowns, shortages, and public fear destabilize governments worldwide.',
+    category: 'global',
+    era_id: 'modern',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

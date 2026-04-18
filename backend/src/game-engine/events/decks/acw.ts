@@ -108,4 +108,21 @@ export const acwEvents: EventCard[] = [
     effect: { type: 'region_disaster', target: 'region', value: 1 },
     affects_all_players: true,
   },
+  {
+    card_id: 'acw_emancipation_fervor',
+    title: 'Emancipation Fervor',
+    description: 'A bold proclamation inspires your populace. Renewed sense of purpose strengthens resolve and order across your territories.',
+    category: 'player_targeted',
+    era_id: 'acw',
+    effect: { type: 'stability_change', target: 'player', value: 15 },
+  },
+  {
+    card_id: 'acw_draft_riots',
+    title: 'Draft Riots',
+    description: 'Compulsory conscription sparks violent riots in cities on both sides. Public order collapses as mobs clash with militia.',
+    category: 'global',
+    era_id: 'acw',
+    effect: { type: 'stability_change', target: 'player', value: -10 },
+    affects_all_players: true,
+  },
 ];

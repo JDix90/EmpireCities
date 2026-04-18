@@ -61,6 +61,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     ability_id: 'great_wall',
     ability_description: "Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted).",
     color: '#e74c3c',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'mughal',

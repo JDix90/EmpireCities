@@ -13,6 +13,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
     ability_id: 'marshall_plan',
     ability_description: 'Marshall Plan: once per turn during draft, place 1 free unit on any allied or newly captured territory.',
     color: '#3498db',
+    stability_recovery_bonus: 3,
   },
   {
     faction_id: 'ussr',
