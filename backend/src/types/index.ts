@@ -164,6 +164,15 @@ export interface GameSettings {
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
   campaign_prestige_bonus?: number;
+  /** Campaign path identifier — determines locked factions, narrative text, and carry stat rules. */
+  campaign_path_id?: string;
+  /** Faction id that the human player is locked into for this era (faction picker disabled). */
+  campaign_locked_faction?: string;
+  /** Numeric carry-forward stats injected from path_carry at game creation time. */
+  campaign_carry?: {
+    survivor_bonus?: number;
+    revolutionary_spirit?: number;
+  };
 }
 
 // ── User Preferences / Push Tokens ────────────────────────────────────────────

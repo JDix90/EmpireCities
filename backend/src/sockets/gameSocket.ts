@@ -2214,8 +2214,16 @@ async function flushAllPendingSaves(): Promise<void> {
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
 async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
-  const campaignRow = await queryOne<{ campaign_id: string; current_era_index: number; prestige_points: number }>(
-    `SELECT uc.campaign_id, uc.current_era_index, uc.prestige_points
+  const campaignRow = await queryOne<{
+    campaign_id: string;
+    current_era_index: number;
+    prestige_points: number;
+    path_id: string | null;
+    path_carry: Record<string, number>;
+    path_narrative: Record<string, string>;
+  }>(
+    `SELECT uc.campaign_id, uc.current_era_index, uc.prestige_points,
+            uc.path_id, uc.path_carry, uc.path_narrative
      FROM user_campaigns uc
      JOIN campaign_entries ce ON ce.campaign_id = uc.campaign_id
      WHERE ce.game_id = $1 AND uc.status = 'active'
@@ -2225,6 +2233,10 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
   if (!campaignRow) return;
 
   const won = !!winnerId && !state.players.find((p) => p.player_id === winnerId)?.is_ai;
+  const eraIndex = campaignRow.current_era_index;
+  const narrativeKey = `era_${eraIndex}_outcome`;
+  const updatedNarrative = { ...campaignRow.path_narrative, [narrativeKey]: won ? 'won' : 'lost' };
+
   await query(
     `INSERT INTO campaign_entries (id, campaign_id, era_id, game_id, won, completed_at)
      VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
@@ -2232,24 +2244,66 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
     [campaignRow.campaign_id, state.era, gameId, won],
   );
 
+  // Determine prestige delta and carry-forward updates
+  let prestigeDelta = 1; // standard classic prestige
+  let updatedCarry = { ...campaignRow.path_carry };
+
+  if (campaignRow.path_id) {
+    // Dynamically import to avoid circular dep; path config is pure data
+    const { getPathEraConfig } = await import('../modules/campaign/campaignPaths');
+    const pathEra = getPathEraConfig(campaignRow.path_id as any, eraIndex);
+    if (pathEra) {
+      const delta = won ? pathEra.carry_on_win : pathEra.carry_on_loss;
+      // Apply each delta key
+      if (delta.prestige_bonus != null) {
+        prestigeDelta = delta.prestige_bonus;
+        updatedCarry.prestige_bonus = (updatedCarry.prestige_bonus ?? 0) + delta.prestige_bonus;
+      } else {
+        prestigeDelta = 0;
+      }
+      if (delta.survivor_bonus != null) {
+        updatedCarry.survivor_bonus = Math.min(8, (updatedCarry.survivor_bonus ?? 0) + delta.survivor_bonus);
+      }
+      if (delta.revolutionary_spirit != null) {
+        updatedCarry.revolutionary_spirit = Math.min(10, (updatedCarry.revolutionary_spirit ?? 0) + delta.revolutionary_spirit);
+      }
+    }
+  }
+
+  const newPrestige = campaignRow.prestige_points + (won ? prestigeDelta : 0);
+
   if (won) {
-    const newIdx = campaignRow.current_era_index + 1;
-    const newPrestige = campaignRow.prestige_points + 1;
+    const newIdx = eraIndex + 1;
     if (newIdx >= CAMPAIGN_ERAS.length) {
       await query(
-        `UPDATE user_campaigns SET status = 'completed', completed_at = NOW() WHERE campaign_id = $1`,
-        [campaignRow.campaign_id],
+        `UPDATE user_campaigns
+         SET status = 'completed', completed_at = NOW(),
+             prestige_points = $1, path_carry = $2::jsonb, path_narrative = $3::jsonb
+         WHERE campaign_id = $4`,
+        [newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
       );
     } else {
       await query(
-        `UPDATE user_campaigns SET current_era_index = $1, prestige_points = $2 WHERE campaign_id = $3`,
-        [newIdx, newPrestige, campaignRow.campaign_id],
+        `UPDATE user_campaigns
+         SET current_era_index = $1, prestige_points = $2,
+             path_carry = $3::jsonb, path_narrative = $4::jsonb
+         WHERE campaign_id = $5`,
+        [newIdx, newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
       );
       io.to(`user:${winnerId}`).emit('game:campaign_advanced', {
         next_era: CAMPAIGN_ERAS[newIdx],
         campaign_id: campaignRow.campaign_id,
+        path_carry: updatedCarry,
       });
     }
+  } else {
+    // On loss: still update path_carry (carry_on_loss may give spirit/bonus) and narrative
+    await query(
+      `UPDATE user_campaigns
+       SET path_carry = $1::jsonb, path_narrative = $2::jsonb
+       WHERE campaign_id = $3`,
+      [JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
+    );
   }
 }
 

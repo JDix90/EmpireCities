@@ -92,6 +92,12 @@ export function applyStabilityTick(
     // Faction bonus (e.g., Roman stability recovery)
     recovery += factionBonus;
 
+    // Campaign carry: Revolutionary Spirit adds stability recovery for the human player
+    const player = state.players.find((p) => p.player_id === playerId);
+    if (!player?.is_ai) {
+      recovery += state.settings.campaign_carry?.revolutionary_spirit ?? 0;
+    }
+
     t.stability = Math.min(100, t.stability + recovery);
 
     // ── Population growth ──
