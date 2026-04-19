@@ -115,7 +115,7 @@ interface GameMapData {
   /** Optional globe camera: used for regional / single-theater maps */
   globe_view?: GlobeViewConfig;
   territories: MapTerritory[];
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
 }
 
 interface GlobeMapProps {

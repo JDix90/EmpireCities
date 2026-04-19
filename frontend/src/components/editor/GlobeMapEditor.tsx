@@ -36,7 +36,7 @@ export interface EditorTerritory {
 export interface EditorConnection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 export interface EditorRegion {

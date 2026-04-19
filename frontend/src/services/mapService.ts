@@ -20,7 +20,7 @@ export interface Territory {
 export interface Connection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 export interface Region {
