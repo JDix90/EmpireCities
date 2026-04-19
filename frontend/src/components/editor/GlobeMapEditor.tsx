@@ -69,7 +69,7 @@ interface ArcDatum {
   endLat: number;
   endLng: number;
   kind: 'connection' | 'drawing';
-  connectionType?: 'land' | 'sea';
+  connectionType?: 'land' | 'sea' | 'orbit';
 }
 
 interface GlobeMapEditorProps {
