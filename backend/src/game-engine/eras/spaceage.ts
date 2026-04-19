@@ -220,7 +220,7 @@ export const SPACE_AGE_WONDER: EraWonder = {
   wonder_id: 'wonder_space_elevator',
   name: 'Space Elevator',
   description: 'Tethered orbital ribbon — Moon access requires only Lunar Expansion tech + Launch Pad (skips Space Station launch).',
-  cost: 28,
+  cost: 25,
   passive_effect_type: 'influence_range',
   passive_effect_value: 1,
 };
