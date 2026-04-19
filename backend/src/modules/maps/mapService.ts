@@ -16,12 +16,14 @@ export interface Territory {
   region_id: string;
   /** WGS84 ring — globe uses this when set */
   geo_polygon?: [number, number][];
+  /** Which globe surface (Earth or Moon). Defaults to 'earth'. */
+  globe_id?: 'earth' | 'moon';
 }
 
 export interface Connection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 export interface Region {
@@ -34,7 +36,7 @@ export interface GameMap {
   map_id: string;
   name: string;
   description: string;
-  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'custom';
+  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'custom';
   canvas_width: number;
   canvas_height: number;
   projection_bounds?: {

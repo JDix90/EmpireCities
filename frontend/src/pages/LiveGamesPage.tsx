@@ -13,6 +13,7 @@ const ERA_LABELS: Record<string, string> = {
   modern: 'Modern',
   acw: 'American Civil War',
   risorgimento: 'Risorgimento',
+  space_age: 'Space Age',
 };
 
 interface LiveGame {

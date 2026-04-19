@@ -20,7 +20,7 @@ export interface Territory {
 export interface Connection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 export interface Region {
@@ -138,6 +138,13 @@ export const ERA_METADATA: Record<string, {
     color: '#008C45',
     bgColor: '#0f1a14',
     description: 'Risorgimento Italy: Piedmont, the Two Sicilies, Papal States, and Austrian Italy on a peninsula-scale map.',
+  },
+  space_age: {
+    label: 'Space Age',
+    year: '2100 AD',
+    color: '#8E9AF2',
+    bgColor: '#0a0d1f',
+    description: 'Projected 2100 Earth with lunar territories — research Lunar Expansion, build a Launch Pad, and launch a Space Station to claim the Moon.',
   },
   custom: {
     label: 'Community map',

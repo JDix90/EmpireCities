@@ -35,12 +35,14 @@ const TerritorySchema = new mongoose.Schema({
   region_id:     { type: String, required: true },
   /** WGS84 rings — must match MapModel.ts or Mongoose strips them on seed (globe needs this). */
   geo_polygon:   { type: [[Number]], default: undefined },
+  /** Space Age multi-globe support. Defaults to 'earth' when omitted. */
+  globe_id:      { type: String, enum: ['earth', 'moon'], default: undefined },
 }, { _id: false });
 
 const ConnectionSchema = new mongoose.Schema({
   from: { type: String, required: true },
   to:   { type: String, required: true },
-  type: { type: String, enum: ['land', 'sea'], default: 'land' },
+  type: { type: String, enum: ['land', 'sea', 'orbit'], default: 'land' },
 }, { _id: false });
 
 const RegionSchema = new mongoose.Schema({
@@ -99,6 +101,7 @@ const MAP_FILES = [
   'era_modern.json',
   'era_acw.json',
   'era_risorgimento.json',
+  'era_space_age.json',
 ];
 
 /** Community maps: same schema as era JSON, but published under a user id for Map Hub. */

@@ -17,7 +17,7 @@ interface MapTerritory {
 interface MapConnection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 interface GameMapData {

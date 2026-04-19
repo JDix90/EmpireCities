@@ -6,7 +6,7 @@ import type { GamePhase, ConnectionType, MapConnectionEdge } from '@erasofempire
 
 export type { GamePhase, ConnectionType, MapConnectionEdge };
 
-export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'custom';
+export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
@@ -73,6 +73,8 @@ export interface TerritoryState {
   stability?: number;
   /** Population level 1-10 (population/stability feature). Grows when stable, multiplies production. */
   population?: number;
+  /** Which globe this territory belongs to (Space Age multi-globe support). Defaults to 'earth' when omitted. */
+  globe_id?: 'earth' | 'moon';
 }
 
 export interface PlayerState {
@@ -114,6 +116,8 @@ export interface PlayerState {
   truces_established?: string[];
   /** ID of the last opponent this player attacked (used for event card truce targeting). */
   last_attacked_player_id?: string;
+  /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
+  space_station_launched?: boolean;
 }
 
 export interface DiplomacyEntry {
@@ -205,6 +209,8 @@ export interface EraModifiers {
   rifle_doctrine?: boolean;
   // Risorgimento
   carbonari_network?: boolean;
+  // Space Age
+  space_program?: boolean;
 }
 
 /** Building tiers: production (income), defense (dice/fortify), tech generation, era specials, and era wonders. */
@@ -221,7 +227,9 @@ export type BuildingType =
   | 'wonder_sputnik'     // coldwar
   | 'wonder_cern'        // modern
   | 'wonder_arsenal'     // acw
-  | 'wonder_unification' // risorgimento;
+  | 'wonder_unification' // risorgimento
+  | 'launch_pad'         // space_age: orbital launch infrastructure
+  | 'wonder_space_elevator'; // space_age
 
 /** Snapshots for end-of-game win-probability chart (territory + army blend, renormalized). */
 export interface WinProbabilitySnapshot {
@@ -352,6 +360,8 @@ export interface MapTerritory {
   region_id: string;
   /** Closed ring in WGS84 [lng, lat] — used by globe when set (avoids warped canvas→globe mapping). */
   geo_polygon?: [number, number][];
+  /** Which globe this territory belongs to (Space Age multi-globe support). Defaults to 'earth' when omitted. */
+  globe_id?: 'earth' | 'moon';
   /** ISO_A2 country codes for geographic boundaries */
   iso_codes?: string[];
   /** Clip merged geometry to [minLng, minLat, maxLng, maxLat] */

@@ -14,6 +14,7 @@ export const ERA_LABELS: Record<string, string> = {
   modern: 'Modern Day',
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
+  space_age: 'Space Age',
   custom: 'Community map',
 };
 

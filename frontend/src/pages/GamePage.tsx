@@ -62,8 +62,9 @@ interface MapData {
     center_point: [number, number];
     region_id: string;
     geo_polygon?: [number, number][];
+    globe_id?: 'earth' | 'moon';
   }>;
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
   regions: Array<{ region_id: string; name: string; bonus: number }>;
 }
 
@@ -286,6 +287,7 @@ export default function GamePage() {
   const [gameStarted, setGameStarted] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
+  const [globeView, setGlobeView] = useState<'earth' | 'moon'>('earth');
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
@@ -885,6 +887,26 @@ export default function GamePage() {
       wonderNotifTimerRef.current = setTimeout(() => setWonderNotif(null), 4000);
     });
 
+    socket.on('game:space_station_launched', ({ playerName, launchTerritoryId }: {
+      playerId: string;
+      playerName: string;
+      playerColor: string;
+      launchTerritoryId: string;
+    }) => {
+      const tName = mapDataRef.current?.territories.find((t) => t.territory_id === launchTerritoryId)?.name ?? launchTerritoryId;
+      const isMe = playerName === user?.username;
+      toast(
+        isMe
+          ? `🚀 You launched a Space Station from ${tName}! Moon access unlocked.`
+          : `🚀 ${playerName} launched a Space Station from ${tName}.`,
+        {
+          duration: 6000,
+          style: { background: '#0a0d1f', border: '1px solid #8E9AF2', color: '#c7ceff' },
+        },
+      );
+      setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
+    });
+
     socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId }: {
       attackerId: string;
       attackerName: string;
@@ -939,6 +961,7 @@ export default function GamePage() {
       socket.off('error');
       socket.off('game:wonder_built');
       socket.off('game:atom_bomb');
+      socket.off('game:space_station_launched');
       // Notify server we left so it can schedule eviction / save state
       socket.emit('game:leave', { gameId });
       clearGame();
@@ -1750,6 +1773,30 @@ export default function GamePage() {
   const reducedGlobe =
     prefersReducedMotion() || (isMobileViewport() && mapView === 'globe');
 
+  const hasMoonTerritories = useMemo(
+    () => !!mapData?.territories.some((t) => t.globe_id === 'moon'),
+    [mapData],
+  );
+
+  const playerHasMoonAccessLocal = useMemo(() => {
+    if (!gameState || !user) return false;
+    const me = gameState.players.find((p: { player_id: string }) => p.player_id === user.user_id);
+    if (!me) return false;
+    if ((me as { faction_id?: string }).faction_id === 'lunar_pioneers') return true;
+    const unlocked = (me as { unlocked_techs?: string[] }).unlocked_techs ?? [];
+    const hasTech = unlocked.includes('sa_lunar_expansion');
+    const myTerritories = Object.values((gameState as { territories: Record<string, { owner_id: string | null; buildings?: string[] }> }).territories ?? {})
+      .filter((t) => t.owner_id === user.user_id);
+    const hasLaunchPad = myTerritories.some((t) => t.buildings?.includes('launch_pad'));
+    const hasSpaceElevator = myTerritories.some((t) => t.buildings?.includes('wonder_space_elevator'));
+    const launched = (me as { space_station_launched?: boolean }).space_station_launched === true;
+    return hasTech && hasLaunchPad && (launched || hasSpaceElevator);
+  }, [gameState, user]);
+
+  useEffect(() => {
+    if (globeView === 'moon' && !playerHasMoonAccessLocal) setGlobeView('earth');
+  }, [globeView, playerHasMoonAccessLocal]);
+
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
       {/* Top Bar */}
@@ -1798,6 +1845,28 @@ export default function GamePage() {
               <span className="hidden sm:inline">Spin</span>
             </button>
           )}
+          {mapView === 'globe' && hasMoonTerritories && (
+            <>
+              <button
+                type="button"
+                onClick={() => setGlobeView('earth')}
+                className={`min-h-[40px] px-2 py-1 text-xs rounded ${globeView === 'earth' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+                aria-label="View Earth"
+              >
+                Earth
+              </button>
+              <button
+                type="button"
+                onClick={() => setGlobeView('moon')}
+                disabled={!playerHasMoonAccessLocal}
+                title={playerHasMoonAccessLocal ? 'View Moon' : 'Moon locked — research Lunar Expansion, build Launch Pad, launch a Space Station'}
+                className={`min-h-[40px] px-2 py-1 text-xs rounded ${globeView === 'moon' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'} ${!playerHasMoonAccessLocal ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="View Moon"
+              >
+                Moon {!playerHasMoonAccessLocal ? '🔒' : ''}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1836,6 +1905,20 @@ export default function GamePage() {
                   reducedEffects={reducedGlobe}
                   autoSpin={globeSpinEnabled}
                   highlightTerritoryId={tutorialHighlightId}
+                  globeView={globeView}
+                  globeImageUrl={
+                    globeView === 'moon'
+                      ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_surface.jpg'
+                      : undefined
+                  }
+                  bumpImageUrl={
+                    globeView === 'moon'
+                      ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_bumpmap.jpg'
+                      : undefined
+                  }
+                  showAtmosphere={globeView !== 'moon'}
+                  atmosphereColor={globeView === 'moon' ? 'rgba(180,180,200,0.4)' : undefined}
+                  backgroundColor={globeView === 'moon' ? 'rgba(4, 6, 14, 1)' : undefined}
                 />
               </Suspense>
             ) : (

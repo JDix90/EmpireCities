@@ -28,12 +28,14 @@ const TerritorySchema = z.object({
     .optional(),
   /** Polygon exterior ring in geographic [lng, lat] coords (globe editor) */
   geo_polygon: z.array(z.tuple([z.number(), z.number()])).min(3).optional(),
+  /** Which globe surface (Earth or Moon). Defaults to 'earth' when omitted. */
+  globe_id: z.enum(['earth', 'moon']).optional(),
 });
 
 const ConnectionSchema = z.object({
   from: z.string(),
   to: z.string(),
-  type: z.enum(['land', 'sea']).default('land'),
+  type: z.enum(['land', 'sea', 'orbit']).default('land'),
 });
 
 const RegionSchema = z.object({

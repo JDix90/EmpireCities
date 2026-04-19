@@ -123,4 +123,5 @@ const FALLBACK_ERA_SUMMARIES: MapSummary[] = [
   { map_id: 'era_modern',    name: 'The Modern Day',             description: '', era_theme: 'modern',    territory_count: 43, region_count: 8, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
   { map_id: 'era_acw',       name: 'American Civil War (1861–1865)', description: '', era_theme: 'acw', territory_count: 18, region_count: 6, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
   { map_id: 'era_risorgimento', name: 'Italian Unification (1859–1871)', description: '', era_theme: 'risorgimento', territory_count: 14, region_count: 6, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
+  { map_id: 'era_space_age', name: 'Space Age (2100 AD)', description: 'Earth in 2100 + the Moon. Launch space stations to reach lunar territories.', era_theme: 'space_age', territory_count: 55, region_count: 10, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
 ];

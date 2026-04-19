@@ -130,6 +130,20 @@ const ERAS: EraDefinition[] = [
       + 'Tighter and faster than a world map—ideal for diplomacy and coastal maneuver.',
     suggestedPlayers: '2–4 players',
   },
+  {
+    id: 'space_age',
+    mapId: 'era_space_age',
+    label: 'Space Age',
+    years: '2100 AD',
+    color: '#8E9AF2',
+    scope: 'global',
+    territoryCount: 55,
+    summary:
+      'A projected world of 2100 with rising seas, coastal megacities, and a contested Moon. '
+      + 'Research Lunar Expansion, build a Launch Pad, and launch a Space Station to project power into orbit. '
+      + 'The Lunar Pioneers faction starts with Moon access; wonder builders may skip the station with a Space Elevator.',
+    suggestedPlayers: '2–6 players',
+  },
 ];
 
 const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global');

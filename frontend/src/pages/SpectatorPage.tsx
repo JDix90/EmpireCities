@@ -19,7 +19,7 @@ interface MapData {
     center_point: [number, number];
     region_id: string;
   }>;
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
 }
 
 export default function SpectatorPage() {

@@ -21,6 +21,7 @@ import { coldwarEvents } from './decks/coldwar';
 import { modernEvents } from './decks/modern';
 import { acwEvents } from './decks/acw';
 import { risorgimentoEvents } from './decks/risorgimento';
+import { spaceageEvents } from './decks/spaceage';
 import { applyStabilityChange, applyGlobalStabilityChange } from '../state/stabilityManager';
 
 const ERA_DECKS: Record<string, EventCard[]> = {
@@ -32,6 +33,7 @@ const ERA_DECKS: Record<string, EventCard[]> = {
   modern: modernEvents,
   acw: acwEvents,
   risorgimento: risorgimentoEvents,
+  space_age: spaceageEvents,
 };
 
 /** Returns the full event card deck for an era. */

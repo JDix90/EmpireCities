@@ -177,6 +177,7 @@ const ERAS = [
   { id: 'modern',    label: 'The Modern Day'  },
   { id: 'acw',       label: 'American Civil War' },
   { id: 'risorgimento', label: 'Italian Unification' },
+  { id: 'space_age', label: 'Space Age' },
 ];
 
 const ERA_MAP_IDS: Record<string, string> = {
@@ -188,6 +189,7 @@ const ERA_MAP_IDS: Record<string, string> = {
   modern:    'era_modern',
   acw:       'era_acw',
   risorgimento: 'era_risorgimento',
+  space_age: 'era_space_age',
 };
 
 interface PublicGame {

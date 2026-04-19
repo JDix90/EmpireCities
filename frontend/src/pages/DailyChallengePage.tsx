@@ -45,6 +45,7 @@ const ERA_ICON: Record<string, string> = {
   modern:       '🌐',
   acw:          '🎖️',
   risorgimento: '🇮🇹',
+  space_age:    '🚀',
 };
 
 function formatDate(iso: string): string {

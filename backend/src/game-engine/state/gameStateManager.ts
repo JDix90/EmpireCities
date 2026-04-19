@@ -31,6 +31,7 @@ const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   modern:       { precision_strike: true },
   acw:          { rifle_doctrine: true },
   risorgimento: { carbonari_network: true, influence_range: 1 },
+  space_age:    { space_program: true },
 };
 
 /**
@@ -145,6 +146,7 @@ export function initializeGameState(
     special_resource: (settingsNorm.tech_trees_enabled || settingsNorm.economy_enabled) ? 0 : undefined,
     unlocked_techs: [],
     ability_uses: {},
+    space_station_launched: p.faction_id === 'lunar_pioneers' ? true : undefined,
   }));
 
   // Initialize buildings array on territories when economy is enabled
