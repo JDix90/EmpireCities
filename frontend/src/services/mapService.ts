@@ -139,6 +139,13 @@ export const ERA_METADATA: Record<string, {
     bgColor: '#0f1a14',
     description: 'Risorgimento Italy: Piedmont, the Two Sicilies, Papal States, and Austrian Italy on a peninsula-scale map.',
   },
+  space_age: {
+    label: 'Space Age',
+    year: '2100 AD',
+    color: '#8E9AF2',
+    bgColor: '#0a0d1f',
+    description: 'Projected 2100 Earth with lunar territories — research Lunar Expansion, build a Launch Pad, and launch a Space Station to claim the Moon.',
+  },
   custom: {
     label: 'Community map',
     year: 'Regional',

@@ -131,6 +131,20 @@ interface GlobeMapProps {
   autoSpin?: boolean;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
+  /** Override globe surface texture (defaults to Earth blue marble). */
+  globeImageUrl?: string;
+  /** Override globe bump/topology texture. */
+  bumpImageUrl?: string;
+  /** Override atmosphere glow color. */
+  atmosphereColor?: string;
+  /** Override atmosphere altitude (0 disables visible halo). */
+  atmosphereAltitude?: number;
+  /** Override whether atmosphere is shown at all. */
+  showAtmosphere?: boolean;
+  /** Override globe canvas background color. */
+  backgroundColor?: string;
+  /** Which globe to render — filters territories by `globe_id` (defaults to 'earth'). */
+  globeView?: 'earth' | 'moon';
 }
 
 interface HtmlDatum {
@@ -270,6 +284,13 @@ export default function GlobeMap({
   reducedEffects = false,
   autoSpin = true,
   highlightTerritoryId,
+  globeImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg',
+  bumpImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png',
+  atmosphereColor = 'lightskyblue',
+  atmosphereAltitude = 0.15,
+  showAtmosphere = true,
+  backgroundColor = 'rgba(10, 14, 26, 1)',
+  globeView = 'earth',
 }: GlobeMapProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState } = useGameStore();
@@ -440,9 +461,12 @@ export default function GlobeMap({
   const renderedPolygonsData = useMemo(
     () => polygonsData.filter((p) => {
       const territory = mapData.territories.find((t) => t.territory_id === p.territory_id);
-      return territory?.region_id !== 'sea_routes';
+      if (!territory) return false;
+      if (territory.region_id === 'sea_routes') return false;
+      const tGlobe = (territory as { globe_id?: 'earth' | 'moon' }).globe_id ?? 'earth';
+      return tGlobe === globeView;
     }),
-    [polygonsData, mapData.territories],
+    [polygonsData, mapData.territories, globeView],
   );
 
   // ── Territory center lookup ────────────────────────────────────────────
@@ -1315,12 +1339,12 @@ export default function GlobeMap({
         ref={globeRef}
         width={width}
         height={height}
-        backgroundColor="rgba(10, 14, 26, 1)"
-        globeImageUrl="https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg"
-        bumpImageUrl="https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png"
-        showAtmosphere={true}
-        atmosphereColor="lightskyblue"
-        atmosphereAltitude={0.15}
+        backgroundColor={backgroundColor}
+        globeImageUrl={globeImageUrl}
+        bumpImageUrl={bumpImageUrl}
+        showAtmosphere={showAtmosphere}
+        atmosphereColor={atmosphereColor}
+        atmosphereAltitude={atmosphereAltitude}
 
         /* Territories */
         polygonsData={renderedPolygonsData}

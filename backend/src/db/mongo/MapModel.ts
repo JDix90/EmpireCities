@@ -19,12 +19,14 @@ export interface ITerritory {
   geo_config?: IGeoConfigItem[];
   /** Polygon exterior ring in geographic [lng, lat] coords (globe editor) */
   geo_polygon?: [number, number][];
+  /** Which globe surface (Earth or Moon) this territory belongs to. Defaults to 'earth'. */
+  globe_id?: 'earth' | 'moon';
 }
 
 export interface IConnection {
   from: string;
   to: string;
-  type: 'land' | 'sea';
+  type: 'land' | 'sea' | 'orbit';
 }
 
 export interface IRegion {
@@ -85,12 +87,13 @@ const TerritorySchema = new Schema<ITerritory>({
     default: undefined,
   },
   geo_polygon: { type: [[Number]], default: undefined },
+  globe_id: { type: String, enum: ['earth', 'moon'], default: undefined },
 });
 
 const ConnectionSchema = new Schema<IConnection>({
   from: { type: String, required: true },
   to: { type: String, required: true },
-  type: { type: String, enum: ['land', 'sea'], default: 'land' },
+  type: { type: String, enum: ['land', 'sea', 'orbit'], default: 'land' },
 });
 
 const RegionSchema = new Schema<IRegion>({

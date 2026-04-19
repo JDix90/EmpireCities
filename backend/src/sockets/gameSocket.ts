@@ -33,6 +33,12 @@ import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
 import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
+import {
+  connectionRequiresMoonAccess,
+  territoryIsLunar,
+  getMoonAccessState,
+  formatMoonAccessError,
+} from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
@@ -793,6 +799,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!territory) return socket.emit('error', { message: 'Territory not found' });
       if (!isUnclaimedOwner(territory.owner_id)) return socket.emit('error', { message: 'Territory already claimed' });
 
+      // Space Age: block claiming Moon territories without Moon access
+      if (territoryIsLunar(map, territoryId)) {
+        const access = getMoonAccessState(state, currentPlayer);
+        if (!access.allowed) {
+          return socket.emit('error', { message: formatMoonAccessError(access) });
+        }
+      }
+
       // Claim the territory
       territory.owner_id = userId;
       territory.unit_count = state.settings.initial_unit_count;
@@ -868,6 +882,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!isAdjacent) return socket.emit('error', { message: 'Territories not adjacent' });
+
+      // Space Age: Moon-gating on orbit connections
+      if (connectionRequiresMoonAccess(map, fromId, toId)) {
+        const access = getMoonAccessState(state, currentPlayer);
+        if (!access.allowed) {
+          return socket.emit('error', { message: formatMoonAccessError(access) });
+        }
+      }
 
       // Enforce active truce — block attacking a player the current player has a truce with
       const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
@@ -1108,6 +1130,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'No connected path between territories' });
       }
 
+      // Space Age: Moon-gating on orbit connections (direct adjacency; path uses same connections).
+      // If either territory is on the Moon OR the connection is orbital, require Moon access.
+      if (
+        territoryIsLunar(map, fromId) ||
+        territoryIsLunar(map, toId) ||
+        connectionRequiresMoonAccess(map, fromId, toId)
+      ) {
+        const access = getMoonAccessState(state, currentPlayer);
+        if (!access.allowed) {
+          return socket.emit('error', { message: formatMoonAccessError(access) });
+        }
+      }
+
       // Enforce fortify move limit (wartime_logistics allows 2 per turn, otherwise 1)
       const fortifyMoveLimit = state.era_modifiers?.wartime_logistics ? 2 : 1;
       const movesUsed = state.fortify_moves_used ?? 0;
@@ -1297,7 +1332,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       // Check ability cooldown (once per turn) — skip for once-per-game abilities
-      const GAME_SCOPED_ABILITIES = ['atom_bomb'];
+      const GAME_SCOPED_ABILITIES = ['atom_bomb', 'launch_space_station'];
       const isGameScoped = GAME_SCOPED_ABILITIES.includes(abilityId);
       const uses = currentPlayer.ability_uses ?? {};
       if (!isGameScoped && uses[abilityId]) {
@@ -1447,6 +1482,49 @@ export function initGameSocket(httpServer: HttpServer): Server {
           state.victory_condition = condition;
           finalizeGame(io, gameId, state, winnerIds);
         }
+        return;
+      }
+
+      // ── Ability: launch_space_station (Space Age) — once per game ───────────
+      // Unlocks the final step of Moon access. Requires:
+      //   • Phase is draft or fortify (not attack)
+      //   • Player has researched sa_space_station
+      //   • Player owns at least one territory with a launch_pad building
+      // Effect: sets space_station_launched = true, triggers a globe arc animation.
+      if (abilityId === 'launch_space_station') {
+        if (state.phase === 'attack') {
+          return socket.emit('error', { message: 'Launch must be scheduled during draft or fortify phase' });
+        }
+        if (currentPlayer.space_station_launched) {
+          return socket.emit('error', { message: 'Your Space Station has already been launched' });
+        }
+        // Find the launch pad territory (needed for arc origin)
+        const launchPadTerritory = Object.values(state.territories).find(
+          (t) => t.owner_id === userId && (t.buildings?.includes('launch_pad') ?? false),
+        );
+        if (!launchPadTerritory) {
+          return socket.emit('error', { message: 'You need a Launch Pad building to launch a Space Station' });
+        }
+
+        // Record once-per-game use after all guards pass
+        currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
+        currentPlayer.space_station_launched = true;
+
+        socket.emit('game:ability_result', {
+          abilityId,
+          success: true,
+          effect: 'space_station_launched',
+          territoryId: launchPadTerritory.territory_id,
+        });
+        io.to(gameId).emit('game:space_station_launched', {
+          playerId: userId,
+          playerName: currentPlayer.username,
+          playerColor: currentPlayer.color,
+          launchTerritoryId: launchPadTerritory.territory_id,
+        });
+
+        broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
         return;
       }
 

@@ -4,7 +4,7 @@
 
 export type GamePhase = 'territory_select' | 'draft' | 'attack' | 'fortify' | 'game_over';
 
-export type ConnectionType = 'land' | 'sea';
+export type ConnectionType = 'land' | 'sea' | 'orbit';
 
 export interface MapConnectionEdge {
   from: string;
