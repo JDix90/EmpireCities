@@ -3232,7 +3232,7 @@
     {
       "region_id": "coastal_megacities_2100",
       "name": "Coastal Megacity Belt",
-      "bonus": 6
+      "bonus": 1
     },
     {
       "region_id": "lunar_surface",

@@ -1492,7 +1492,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       //   • Player owns at least one territory with a launch_pad building
       // Effect: sets space_station_launched = true, triggers a globe arc animation.
       if (abilityId === 'launch_space_station') {
-        if (state.phase === 'attack') {
+        if (state.phase !== 'draft' && state.phase !== 'fortify') {
           return socket.emit('error', { message: 'Launch must be scheduled during draft or fortify phase' });
         }
         if (currentPlayer.space_station_launched) {

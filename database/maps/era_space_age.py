@@ -162,7 +162,7 @@ def main():
         {'region_id': 'central_asia_2100',       'name': 'Central Asia Corridor',    'bonus': 3},
         {'region_id': 'latin_america_2100',      'name': 'South American Bloc',      'bonus': 4},
         {'region_id': 'oceania_2100',            'name': 'Pacific Rim Alliance',     'bonus': 3},
-        {'region_id': 'coastal_megacities_2100', 'name': 'Coastal Megacity Belt',    'bonus': 6},
+        {'region_id': 'coastal_megacities_2100', 'name': 'Coastal Megacity Belt',    'bonus': 1},
         {'region_id': 'lunar_surface',           'name': 'Lunar Surface',            'bonus': 8},
     ]
 
