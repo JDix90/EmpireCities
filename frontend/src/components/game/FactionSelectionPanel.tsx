@@ -22,9 +22,6 @@ interface FactionSelectionPanelProps {
   eraId: string;
 }
 
-
-// ...existing code up to the first export default function...
-
 export default function FactionSelectionPanel({ lobby, eraId }: FactionSelectionPanelProps) {
   const { user } = useAuthStore();
   const [factions, setFactions] = useState<FactionInfo[]>([]);

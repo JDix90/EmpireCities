@@ -16,14 +16,16 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Info } from 'lucide-react';// ...existing code...
+import {
+  Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
+  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword, Trophy, Eye, HelpCircle,
+} from 'lucide-react';
 import TopNavBar from '../components/ui/TopNavBar';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { COMMUNITY_MAP_TITLES, ERA_LABELS } from '../constants/gameLobbyLabels';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
-import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import StreakBadge from '../components/ui/StreakBadge';
 import SeasonBanner from '../components/ui/SeasonBanner';
 import MonthlyChallenges from '../components/ui/MonthlyChallenges';
@@ -839,14 +841,6 @@ export default function LobbyPage() {
               </div>
             )}
 
-            {/* Faction Selection Panel for all players in pre-game lobby */}
-            {/* Only show if in a lobby (waiting room), not after game start */}
-            {lobbyTab === 'casual' && !showCreate && typeof window !== 'undefined' && (window as any).lobbySnapshot && (
-              <FactionSelectionPanel
-                lobby={(window as any).lobbySnapshot}
-                eraId={(window as any).lobbySnapshot.era_id}
-              />
-            )}
             {/* Quick-start cards for new users */}
             {user && user.xp === 0 && lobbyTab === 'casual' && (
               <div className="card mb-6 animate-fade-in border-cc-gold/20">

@@ -22,6 +22,7 @@ import ActionModal, { ActionNotification, ModalData, NotificationData, Reinforce
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import LobbyProposals from '../components/game/LobbyProposals';
+import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import { computeDraftPool } from '../utils/draftPool';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
@@ -1614,6 +1615,10 @@ export default function GamePage() {
                     </div>
                     <LobbyProposals gameId={gameId} isHost={isHost} currentSettings={lobby.settings_json ?? null} />
                   </div>
+                )}
+
+                {lobby.settings_json?.factions_enabled && lobby.era_id && (
+                  <FactionSelectionPanel lobby={lobby} eraId={lobby.era_id} />
                 )}
 
                 <div className="card">
