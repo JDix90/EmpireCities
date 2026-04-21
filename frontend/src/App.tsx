@@ -55,15 +55,14 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { isAuthenticated, refreshToken } = useAuthStore();
-
   const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   // Attempt silent token refresh on app load
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshToken();
-    }
-  }, []);
+    if (!isAuthenticated || !user || user.is_guest || !accessToken) return;
+    void refreshToken();
+  }, [isAuthenticated, user, accessToken, refreshToken]);
 
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {

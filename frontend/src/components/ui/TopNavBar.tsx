@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Plus
+  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Plus, Swords
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 
@@ -19,6 +19,7 @@ const mainNav: NavItem[] = [
   { to: '/new-game', label: 'New Game', icon: Plus, title: 'New Game' },
   { to: '/maps', label: 'Map Hub', icon: Map, title: 'Map Hub' },
   { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily', hideForGuest: true },
+  { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
   { to: '/store', label: 'Store', icon: ShoppingBag, title: 'Store', hideForGuest: true },
   { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
   { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },

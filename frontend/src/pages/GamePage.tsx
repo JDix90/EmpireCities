@@ -286,6 +286,7 @@ export default function GamePage() {
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [combatLog, setCombatLog] = useState<string[]>([]);
   const [gameStarted, setGameStarted] = useState(false);
+  const [isStartingGame, setIsStartingGame] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
   const [globeView, setGlobeView] = useState<'earth' | 'moon'>('earth');
@@ -642,6 +643,7 @@ export default function GamePage() {
     });
 
     socket.on('game:started', () => {
+      setIsStartingGame(false);
       setGameStarted(true);
       toast.success('Game started! Good luck, Commander!');
     });
@@ -874,6 +876,14 @@ export default function GamePage() {
     });
 
     socket.on('error', ({ message }: { message: string }) => {
+      if (
+        message === 'Failed to start game' ||
+        message === 'Game not found' ||
+        message === 'Game cannot be started' ||
+        message === 'Map not found'
+      ) {
+        setIsStartingGame(false);
+      }
       toast.error(message);
     });
 
@@ -1074,6 +1084,12 @@ export default function GamePage() {
     return () => window.clearTimeout(t);
   }, [isTutorial, gameId, tutorialStep, gameState?.phase, user?.user_id]);
 
+  useEffect(() => {
+    if (!isStartingGame) return;
+    const timeout = window.setTimeout(() => setIsStartingGame(false), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [isStartingGame]);
+
   const loadLobby = useCallback(() => {
     if (!gameId) return;
     api
@@ -1155,6 +1171,8 @@ export default function GamePage() {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleStartGame = () => {
+    if (!gameId || isStartingGame) return;
+    setIsStartingGame(true);
     getSocket().emit('game:start', { gameId });
   };
 
@@ -1472,6 +1490,30 @@ export default function GamePage() {
     }
   }, [selectedTerritory]);
 
+  const hasMoonTerritories = useMemo(
+    () => !!mapData?.territories.some((t) => t.globe_id === 'moon'),
+    [mapData],
+  );
+
+  const playerHasMoonAccessLocal = useMemo(() => {
+    if (!gameState || !user) return false;
+    const me = gameState.players.find((p: { player_id: string }) => p.player_id === user.user_id);
+    if (!me) return false;
+    if ((me as { faction_id?: string }).faction_id === 'lunar_pioneers') return true;
+    const unlocked = (me as { unlocked_techs?: string[] }).unlocked_techs ?? [];
+    const hasTech = unlocked.includes('sa_lunar_expansion');
+    const myTerritories = Object.values((gameState as { territories: Record<string, { owner_id: string | null; buildings?: string[] }> }).territories ?? {})
+      .filter((t) => t.owner_id === user.user_id);
+    const hasLaunchPad = myTerritories.some((t) => t.buildings?.includes('launch_pad'));
+    const hasSpaceElevator = myTerritories.some((t) => t.buildings?.includes('wonder_space_elevator'));
+    const launched = (me as { space_station_launched?: boolean }).space_station_launched === true;
+    return hasTech && hasLaunchPad && (launched || hasSpaceElevator);
+  }, [gameState, user]);
+
+  useEffect(() => {
+    if (globeView === 'moon' && !playerHasMoonAccessLocal) setGlobeView('earth');
+  }, [globeView, playerHasMoonAccessLocal]);
+
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
     const shareUrl = gameId ? `${window.location.origin}/game/${gameId}` : '';
@@ -1691,8 +1733,8 @@ export default function GamePage() {
 
                   {isHost ? (
                     <div className="space-y-3">
-                      <button onClick={handleStartGame} className="btn-primary w-full text-base py-3">
-                        Start Game
+                      <button onClick={handleStartGame} disabled={isStartingGame} className="btn-primary w-full text-base py-3 disabled:opacity-70 disabled:cursor-not-allowed">
+                        {isStartingGame ? 'Starting...' : 'Start Game'}
                       </button>
                       {!user?.is_guest && gameId && (
                         <button
@@ -1777,30 +1819,6 @@ export default function GamePage() {
 
   const reducedGlobe =
     prefersReducedMotion() || (isMobileViewport() && mapView === 'globe');
-
-  const hasMoonTerritories = useMemo(
-    () => !!mapData?.territories.some((t) => t.globe_id === 'moon'),
-    [mapData],
-  );
-
-  const playerHasMoonAccessLocal = useMemo(() => {
-    if (!gameState || !user) return false;
-    const me = gameState.players.find((p: { player_id: string }) => p.player_id === user.user_id);
-    if (!me) return false;
-    if ((me as { faction_id?: string }).faction_id === 'lunar_pioneers') return true;
-    const unlocked = (me as { unlocked_techs?: string[] }).unlocked_techs ?? [];
-    const hasTech = unlocked.includes('sa_lunar_expansion');
-    const myTerritories = Object.values((gameState as { territories: Record<string, { owner_id: string | null; buildings?: string[] }> }).territories ?? {})
-      .filter((t) => t.owner_id === user.user_id);
-    const hasLaunchPad = myTerritories.some((t) => t.buildings?.includes('launch_pad'));
-    const hasSpaceElevator = myTerritories.some((t) => t.buildings?.includes('wonder_space_elevator'));
-    const launched = (me as { space_station_launched?: boolean }).space_station_launched === true;
-    return hasTech && hasLaunchPad && (launched || hasSpaceElevator);
-  }, [gameState, user]);
-
-  useEffect(() => {
-    if (globeView === 'moon' && !playerHasMoonAccessLocal) setGlobeView('earth');
-  }, [globeView, playerHasMoonAccessLocal]);
 
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">

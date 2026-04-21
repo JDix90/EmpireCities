@@ -790,7 +790,7 @@ export default function LobbyPage() {
                             const urgencyColor = ratio > 0.5 ? 'text-green-400' : ratio > 0.25 ? 'text-yellow-400' : 'text-red-400';
                             return (
                               <span className={`flex items-center gap-1 ${urgencyColor}`}>
-                                {/* Time icon removed */}
+                                <Timer className="w-3.5 h-3.5" />
                                 {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} left
                               </span>
                             );
@@ -824,8 +824,9 @@ export default function LobbyPage() {
                             onClick={() => setConfirmAbandon(game.game_id)}
                             className="p-1.5 rounded text-cc-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             title="Delete game"
+                            aria-label="Delete game"
                           >
-                            {/* Trash icon removed */}
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                         <button
@@ -858,7 +859,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-gold/20 hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    {/* GraduationCap icon removed */}
+                    <GraduationCap className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Learn the Basics</p>
                     <p className="text-cc-muted text-xs mt-1">Interactive tutorial match against a scripted AI.</p>
                   </button>
@@ -867,7 +868,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    {/* Calendar icon removed */}
+                    <Calendar className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
                     <p className="text-cc-muted text-xs mt-1">One game per day, same map for everyone. Climb the leaderboard!</p>
                   </button>
@@ -876,7 +877,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
                                transition-colors text-left group"
                   >
-                    {/* Bot icon removed */}
+                    <Bot className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">Quick Solo Match</p>
                     <p className="text-cc-muted text-xs mt-1">1v3 AI in the Ancient World — a 20-min game.</p>
                   </button>
@@ -901,7 +902,7 @@ export default function LobbyPage() {
                     className="p-4 rounded-lg bg-cc-dark border border-amber-700/30 hover:border-amber-500
                                transition-colors text-left group"
                   >
-                    {/* Sword icon removed */}
+                    <Sword className="w-5 h-5 text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-amber-400 group-hover:text-white transition-colors">WW2 Theatre</p>
                     <p className="text-cc-muted text-xs mt-1">Apply your skills in the World War II era with tanks, bombers, and atom bombs.</p>
                   </button>

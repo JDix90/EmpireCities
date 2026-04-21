@@ -327,7 +327,7 @@ export default function CampaignPage() {
       <div className="min-h-screen bg-cc-dark text-cc-text">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-8">
-            <Link to="/profile" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
+            <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
             <span className="text-cc-muted">·</span>
             <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
           </div>
@@ -347,7 +347,7 @@ export default function CampaignPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          <Link to="/profile" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
+          <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
           <span className="text-cc-muted">·</span>
           <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
           {campaign?.path_config && (
