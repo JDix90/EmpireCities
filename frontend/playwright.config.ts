@@ -10,10 +10,16 @@ export default defineConfig({
   webServer: {
     command: 'pnpm exec vite preview --host 127.0.0.1 --port 4173',
     url: 'http://localhost:4173',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
   projects: [
+    {
+      name: 'chromium-smoke',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
     {
       name: 'mobile-safari-size',
       use: {

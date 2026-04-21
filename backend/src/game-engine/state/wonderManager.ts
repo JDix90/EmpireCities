@@ -2,7 +2,7 @@
 // Wonder Manager — era wonder uniqueness, ownership, passive bonuses
 // ============================================================
 
-import type { GameState, GameMap, BuildingType } from '../../types';
+import type { GameState, BuildingType } from '../../types';
 import { getEraWonder } from '../eras';
 
 /** All wonder building ID prefixes, for quick type narrowing. */

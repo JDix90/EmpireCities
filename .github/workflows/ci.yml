@@ -31,6 +31,9 @@ jobs:
       - name: Validate maps
         run: pnpm run validate:maps
 
+      - name: ESLint (backend)
+        run: pnpm run lint
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -52,3 +55,11 @@ jobs:
 
       - name: Frontend build
         run: pnpm -C frontend run build
+
+      - name: Install Playwright (Chromium)
+        run: pnpm -C frontend exec playwright install chromium --with-deps
+
+      - name: E2E smoke (Chromium)
+        env:
+          CI: true
+        run: pnpm run test:e2e:smoke

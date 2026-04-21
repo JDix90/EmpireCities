@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import { claimDailyLogin, checkOnboardingQuests } from '../../game-engine/progression/progressionService';
+import { claimDailyLogin } from '../../game-engine/progression/progressionService';
 import { getTier } from '../../game-engine/rating/ratingService';
 import { ONBOARDING_QUESTS } from '@erasofempire/shared';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';

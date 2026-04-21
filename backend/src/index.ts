@@ -18,7 +18,9 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
 import { mapsRoutes } from './modules/maps/maps.routes';
-import { initGameSocket, shutdownGameSocket } from './sockets/gameSocket';
+import { initGameSocket, shutdownGameSocket, getActiveGameMetrics } from './sockets/gameSocket';
+import { runReadinessChecks } from './health/readiness';
+import { featureFlags } from './config/featureFlags';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
 import { dailyRoutes } from './modules/daily/daily.routes';
 import { storeRoutes } from './modules/store/store.routes';
@@ -27,6 +29,7 @@ import { progressionRoutes } from './modules/progression/progression.routes';
 import { shareRoutes } from './modules/share/share.routes';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { feedRoutes } from './modules/feed/feed.routes';
+import { enhancementsRoutes } from './modules/enhancements/enhancements.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
@@ -104,12 +107,40 @@ async function bootstrap(): Promise<void> {
   await app.register(shareRoutes, { prefix: '/api/share' });
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
   await app.register(feedRoutes, { prefix: '/api/feed' });
+  await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });
 
   app.get('/api/lobby/seasonal', async (_req, reply) => {
     return reply.send(getActiveSeasonal(new Date()));
   });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  /** Readiness for orchestrators — verifies Postgres, MongoDB, Redis. */
+  app.get('/ready', async (_req, reply) => {
+    const result = await runReadinessChecks();
+    return result.ok
+      ? reply.send({ status: 'ready', checks: result.checks })
+      : reply.code(503).send({ status: 'not_ready', checks: result.checks });
+  });
+
+  /**
+   * Lightweight process metrics (no secrets). Disable with METRICS_ENDPOINT_ENABLED=false.
+   * For dashboards, scrape this or forward to your metrics stack.
+   */
+  app.get('/metrics/json', async (_req, reply) => {
+    if (!featureFlags.metricsEndpointEnabled) {
+      return reply.code(404).send({ error: 'Not found' });
+    }
+    const mem = process.memoryUsage();
+    const { activeGameRooms } = getActiveGameMetrics();
+    return reply.send({
+      uptime_seconds: process.uptime(),
+      active_game_rooms: activeGameRooms,
+      rss_bytes: mem.rss,
+      heap_used_bytes: mem.heapUsed,
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   // Static era tech tree — public, no auth needed
   app.get<{ Params: { era: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {

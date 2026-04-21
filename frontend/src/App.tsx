@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
@@ -63,15 +63,20 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, refreshToken } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const user = useAuthStore((s) => s.user);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const attemptedInitialSilentRefreshRef = useRef(false);
 
-  // Attempt silent token refresh on app load (avoid session-expired toast / login banner for expected expiry)
+  // Attempt silent token refresh only once on app boot for existing sessions.
+  // Running this immediately after a fresh login can fail on some mobile cookie policies
+  // and incorrectly bounce users back to the login screen.
   useEffect(() => {
-    if (!isAuthenticated || !user || user.is_guest || !accessToken) return;
-    void refreshToken({ silent: true });
-  }, [isAuthenticated, user, accessToken, refreshToken]);
+    if (attemptedInitialSilentRefreshRef.current) return;
+    attemptedInitialSilentRefreshRef.current = true;
+    const state = useAuthStore.getState();
+    if (!state.isAuthenticated || !state.user || state.user.is_guest || !state.accessToken) return;
+    void state.refreshToken({ silent: true });
+  }, []);
 
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {

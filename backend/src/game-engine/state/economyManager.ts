@@ -2,7 +2,7 @@
 // Economy Manager — buildings, production, tech point income
 // ============================================================
 
-import type { GameState, BuildingType, PlayerState } from '../../types';
+import type { GameState, BuildingType } from '../../types';
 import { getStabilityMultiplier, getPopulationMultiplier } from './stabilityManager';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';

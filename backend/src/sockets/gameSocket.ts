@@ -57,6 +57,8 @@ import { updateFriendStreaks } from '../game-engine/progression/friendStreakServ
 import { updateChallengeProgress, type GameChallengeEvent } from '../game-engine/progression/challengeService';
 import { checkReferralCompletion } from '../game-engine/progression/referralService';
 import { recordActivity } from '../services/activityService';
+import { recordServerEvent } from '../services/analyticsEvents';
+import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { getTutorialMap } from '../game-engine/tutorial/tutorialScript';
 import type { GameState, GameMap, AiDifficulty } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
@@ -73,8 +75,7 @@ import { notifyTurnChange } from '../services/notificationService';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
 import { createPuzzleDieRoll } from '../game-engine/daily/puzzleDice';
 import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleScenario';
-import { evaluatePuzzleObjective, isPuzzleTimedOut } from '../game-engine/daily/puzzleObjective';
-import { computePuzzleMoveFeedback } from '../game-engine/daily/puzzleMoveFeedback';
+import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
 
 function loadMapFromDoc(mapDoc: any): GameMap {
   return {
@@ -111,6 +112,11 @@ const activeGames = new Map<string, {
   map: GameMap;
   connectedSockets: Map<string, string>; // socketId → playerId
 }>();
+
+/** For GET /metrics/json — count of in-memory game rooms (ops signal, not player count). */
+export function getActiveGameMetrics(): { activeGameRooms: number } {
+  return { activeGameRooms: activeGames.size };
+}
 
 type WaitingLobbyPlayerRow = {
   player_index: number;
@@ -401,7 +407,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     broadcastState(io, gameId, state);
 
     const humanAfterAsync = state.players.find((p) => !p.is_ai);
-    if (humanAfterAsync && maybeResolveDailyPuzzle(io, gameId, room, null, humanAfterAsync.player_id)) {
+    if (humanAfterAsync && maybeResolveDailyPuzzle(io, gameId, room, null, humanAfterAsync.player_id, finalizeGame)) {
       return;
     }
 
@@ -1081,7 +1087,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (cardEarned) drawCard(state, userId);
 
-      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId)) {
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId, finalizeGame)) {
         io.to(gameId).emit('game:combat_result', { fromId, toId, result });
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
@@ -1125,7 +1131,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         advanceToNextPlayer(state, map);
         broadcastEventCard(io, gameId, state, map);
 
-        if (maybeResolveDailyPuzzle(io, gameId, room, null, userId)) {
+        if (maybeResolveDailyPuzzle(io, gameId, room, null, userId, finalizeGame)) {
           broadcastState(io, gameId, state);
           scheduleDebouncedSave(gameId);
           return;
@@ -1269,7 +1275,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           territoryId,
         });
       }
-      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeBuild, userId)) {
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeBuild, userId, finalizeGame)) {
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
         return;
@@ -1369,7 +1375,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       applyResearch(state, userId, validation.node!);
       socket.emit('game:research_result', { techId, success: true, node: validation.node });
       checkOnboardingQuests(userId, 'research').catch(() => {});
-      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeResearch, userId)) {
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeResearch, userId, finalizeGame)) {
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
         return;
@@ -2061,7 +2067,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      if (maybeResolveDailyPuzzle(io, gameId, room, null, userId)) {
+      if (maybeResolveDailyPuzzle(io, gameId, room, null, userId, finalizeGame)) {
         await saveGameState(gameId, state);
         broadcastState(io, gameId, state);
         return;
@@ -2359,80 +2365,6 @@ async function flushAllPendingSaves(): Promise<void> {
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
-function getDailyPuzzleSpec(state: GameState): DailyPuzzleSpec | null {
-  const raw = state.settings.daily_challenge_spec;
-  if (!raw || typeof raw !== 'object') return null;
-  const s = raw as unknown as DailyPuzzleSpec;
-  return s.archetype ? s : null;
-}
-
-/**
- * Returns true if the game was finalized (puzzle objective solved, time loss, etc.).
- */
-function maybeResolveDailyPuzzle(
-  io: Server,
-  gameId: string,
-  room: { state: GameState; map: GameMap },
-  stateBefore: GameState | null,
-  actingUserId: string,
-): boolean {
-  const { state, map } = room;
-  const spec = getDailyPuzzleSpec(state);
-  if (!spec || spec.archetype === 'domination') return false;
-
-  const human = state.players.find((p) => !p.is_ai);
-  if (!human) return false;
-
-  if (stateBefore && actingUserId === human.player_id) {
-    const fb = computePuzzleMoveFeedback(stateBefore, state, map, human.player_id, spec);
-    if (fb) {
-      if (fb.tier === 'risky') {
-        state.puzzle_feedback_mistakes = (state.puzzle_feedback_mistakes ?? 0) + 1;
-      }
-      io.to(gameId).emit('game:puzzle_feedback', { ...fb, gameId });
-    }
-  }
-
-  const status = evaluatePuzzleObjective(state, map, spec, human.player_id);
-  if (status === 'solved') {
-    state.puzzle_objective_met = true;
-    state.phase = 'game_over';
-    state.winner_id = human.player_id;
-    state.winner_ids = [human.player_id];
-    state.victory_condition = 'domination';
-    void finalizeGame(io, gameId, state, [human.player_id]);
-    return true;
-  }
-
-  if (status === 'failed') {
-    const ai = state.players.find((p) => p.is_ai);
-    if (ai) {
-      state.puzzle_objective_met = false;
-      state.phase = 'game_over';
-      state.winner_id = ai.player_id;
-      state.winner_ids = [ai.player_id];
-      state.victory_condition = 'last_standing';
-      void finalizeGame(io, gameId, state, [ai.player_id]);
-      return true;
-    }
-  }
-
-  if (isPuzzleTimedOut(state, spec)) {
-    const ai = state.players.find((p) => p.is_ai);
-    if (ai) {
-      state.puzzle_objective_met = false;
-      state.phase = 'game_over';
-      state.winner_id = ai.player_id;
-      state.winner_ids = [ai.player_id];
-      state.victory_condition = 'last_standing';
-      void finalizeGame(io, gameId, state, [ai.player_id]);
-      return true;
-    }
-  }
-
-  return false;
-}
-
 async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
   const campaignRow = await queryOne<{
     campaign_id: string;
@@ -2583,6 +2515,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
             mistakes,
           ],
         );
+        recordServerEvent('daily_challenge_settled', {
+          game_id: gameId,
+          challenge_date: dailyRow.daily_challenge_date,
+          user_id: humanPlayer.player_id,
+          won: entryWon,
+          archetype: spec?.archetype ?? 'domination',
+          puzzle_score: puzzleScore,
+        });
       }
     }
   } catch (dailyErr) {
@@ -2610,6 +2550,21 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const unlockedByPlayer: Record<string, string[]> = {};
   const humanPlayers = state.players.filter((p) => !p.is_ai);
   const ranks = computeRanks(state.players, winnerId);
+
+  if (resultCtx.isRanked && humanPlayers.length > 0) {
+    for (const player of humanPlayers) {
+      await query(
+        `INSERT INTO ranked_placement_progress (
+           user_id, season_id, placement_matches_played, provisional, smurf_risk_score, stall_penalties, updated_at
+         ) VALUES ($1, '2026_Q2', 1, true, 0, 0, NOW())
+         ON CONFLICT (user_id) DO UPDATE
+         SET placement_matches_played = ranked_placement_progress.placement_matches_played + 1,
+             provisional = (ranked_placement_progress.placement_matches_played + 1) < 8,
+             updated_at = NOW()`,
+        [player.player_id],
+      );
+    }
+  }
 
   if (humanPlayers.length > 0) {
     const client = await pgPool.connect();
@@ -2837,6 +2792,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   };
   io.to(gameId).emit('game:over', stats);
 
+  // Generate replay highlights + coaching insights asynchronously.
+  generateAndStorePostMatchAnalysis(gameId).catch((err) => {
+    console.error('[Socket] Post-match analysis pipeline failed:', err);
+  });
+  updateSkillProfilesFromGameState(state).catch((err) => {
+    console.error('[Socket] Skill profile update failed:', err);
+  });
+
   // Clean up after a delay so clients can see final state
   setTimeout(() => activeGames.delete(gameId), 30000);
 }
@@ -2981,7 +2944,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 
   const doVictoryCheck = async (): Promise<boolean> => {
-    if (maybeResolveDailyPuzzle(io, gameId, room, null, currentPlayer.player_id)) {
+    if (maybeResolveDailyPuzzle(io, gameId, room, null, currentPlayer.player_id, finalizeGame)) {
       aiInFlight.delete(gameId);
       return true;
     }
@@ -3361,7 +3324,7 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     broadcastState(io, gameId, room.state);
 
     const humanT = room.state.players.find((p) => !p.is_ai);
-    if (humanT && maybeResolveDailyPuzzle(io, gameId, room, null, humanT.player_id)) {
+    if (humanT && maybeResolveDailyPuzzle(io, gameId, room, null, humanT.player_id, finalizeGame)) {
       return;
     }
 

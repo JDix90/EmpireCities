@@ -81,7 +81,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       [campaignId, userId, pathId ?? null, JSON.stringify(initialCarry)],
     );
 
-    const { gameId, eraId, mapId } = await createEraGame({
+    const { gameId, eraId } = await createEraGame({
       userId,
       campaignId,
       eraIndex: 0,

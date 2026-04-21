@@ -791,6 +791,19 @@ export default function GamePage() {
         winnerIds,
         progression: myProgression,
       };
+      if (gameId) {
+        api
+          .get<{ insights: Array<{ turn: number; title: string; impact: 'high' | 'medium'; explanation: string; alternative: string }> }>(
+            `/enhancements/matches/${gameId}/insights`,
+          )
+          .then((res) => {
+            setModalQueue((q) => [...q, { ...gameOverData, insights: res.data.insights }]);
+          })
+          .catch(() => {
+            setModalQueue((q) => [...q, gameOverData]);
+          });
+        return;
+      }
       setModalQueue(q => [...q, gameOverData]);
     });
 

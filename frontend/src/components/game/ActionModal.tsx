@@ -74,6 +74,13 @@ export interface GameOverModalData {
     level_cosmetic: string | null;
     friend_streak_bonus?: number;
   };
+  insights?: Array<{
+    turn: number;
+    title: string;
+    impact: 'high' | 'medium';
+    explanation: string;
+    alternative: string;
+  }>;
 }
 
 export interface EliminationModalData {
@@ -990,6 +997,35 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
           <WinProbabilityChart history={probHistory} players={data.players} />
+        </div>
+      )}
+
+      {data.insights && data.insights.length > 0 && (
+        <div className={clsx(
+          'mb-6 transition-all duration-500 delay-500',
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        )}>
+          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Coaching Turning Points</p>
+          <div className="space-y-2">
+            {data.insights.slice(0, 3).map((insight, idx) => (
+              <div key={`${insight.turn}-${idx}`} className="text-left rounded-lg bg-white/[0.03] border border-white/10 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-white/80 font-medium">{insight.title}</p>
+                  <span className={clsx(
+                    'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border',
+                    insight.impact === 'high'
+                      ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
+                      : 'text-sky-300 border-sky-500/40 bg-sky-500/10',
+                  )}>
+                    {insight.impact}
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/45 mt-1">Turn {insight.turn}</p>
+                <p className="text-xs text-white/70 mt-2">{insight.explanation}</p>
+                <p className="text-xs text-emerald-300/90 mt-2">Alternative: {insight.alternative}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

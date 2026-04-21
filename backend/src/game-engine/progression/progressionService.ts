@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { query, queryOne } from '../../db/postgres';
-import { getTier, getSeasonTierCosmetic } from '../rating/ratingService';
+import { getTier } from '../rating/ratingService';
 import { ONBOARDING_QUESTS } from '@erasofempire/shared';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────

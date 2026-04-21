@@ -30,7 +30,7 @@ export async function checkAndUnlockAchievements(
   ctx: AchievementContext,
 ): Promise<string[]> {
   const unlocked: string[] = [];
-  const { userId, gameId, gameState, winnerId, rank, totalPlayers, isRanked, playerMu, opponentAvgMu } = ctx;
+  const { userId, gameId, gameState, winnerId: _winnerId, rank, totalPlayers: _totalPlayers, isRanked, playerMu, opponentAvgMu } = ctx;
   const isWinner = rank === 1;
 
   // first_blood: first ever win

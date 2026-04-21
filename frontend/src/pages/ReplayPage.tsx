@@ -37,6 +37,7 @@ export default function ReplayPage() {
   const [isPublic, setIsPublic] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [highlights, setHighlights] = useState<Array<{ turn: number; label: string; type: string }>>([]);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -55,6 +56,13 @@ export default function ReplayPage() {
           return;
         }
         loadReplay(states);
+        api
+          .get<{ highlights: Array<{ turn: number; label: string; type: string }> }>(`/enhancements/replays/${gameId}/highlights`)
+          .then((highlightsRes) => {
+            if (!mounted) return;
+            setHighlights(highlightsRes.data.highlights ?? []);
+          })
+          .catch(() => {});
         // Load map data from first snapshot
         const mapId = states[0]?.map_id;
         if (mapId) {
@@ -237,6 +245,23 @@ export default function ReplayPage() {
 
       {/* Playback controls */}
       <div className="border-t border-cc-border bg-cc-surface px-4 py-3 flex flex-col gap-2">
+        {highlights.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            {highlights.slice(0, 5).map((h, idx) => (
+              <button
+                key={`${h.turn}-${idx}`}
+                onClick={() => {
+                  stopPlayback();
+                  const index = replaySnapshots.findIndex((s) => (s.turn_number ?? 0) >= h.turn);
+                  if (index >= 0) setReplayFrame(index);
+                }}
+                className="px-2 py-1 rounded-md text-xs border border-cc-gold/25 bg-cc-gold/10 text-cc-gold hover:bg-cc-gold/20 transition-colors"
+              >
+                T{h.turn}: {h.label}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Scrubber */}
         <input
           type="range"

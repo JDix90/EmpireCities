@@ -90,7 +90,7 @@ export async function getMapById(mapId: string): Promise<GameMap | null> {
     if (cached) {
       return JSON.parse(cached) as GameMap;
     }
-  } catch (err) {
+  } catch {
     // Redis unavailable — fall through to MongoDB
     console.warn('[MapService] Redis cache miss, falling back to MongoDB');
   }

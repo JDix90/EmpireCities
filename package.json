@@ -20,6 +20,8 @@
     "seed:maps": "pnpm -C backend run seed:maps",
     "validate:maps": "pnpm -C backend run validate:maps",
     "test:backend": "pnpm -C backend run test",
+    "lint": "pnpm exec eslint backend/src --max-warnings 0",
+    "test:e2e:smoke": "pnpm -C frontend exec playwright test --project=chromium-smoke",
     "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=backend",
     "docker:prod:build": "test -f .env.production || cp .env.production.example .env.production; docker compose -f docker/docker-compose.prod.yml --env-file .env.production build",
     "docker:prod:up": "test -f .env.production || cp .env.production.example .env.production; docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d",
@@ -28,6 +30,9 @@
     "smoke:production": "bash scripts/smoke-production.sh"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^10.2.1",
+    "typescript-eslint": "^8.59.0"
   }
 }

@@ -2,7 +2,7 @@
 // Tech Manager — technology tree research, passive bonuses
 // ============================================================
 
-import type { GameState, GameMap } from '../../types';
+import type { GameState } from '../../types';
 import type { TechNode } from '../eras/types';
 import { getEraTechTree, getFactionById, getTechNodeById } from '../eras';
 import { getWonderTechCostMultiplier } from './wonderManager';
