@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 
 // Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -37,10 +38,14 @@ function RouteLoadingFallback() {
   );
 }
 
-// Route guard
+// Route guard — wait for persisted auth to rehydrate so we do not send users to /login on refresh
 function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const hydrated = useAuthStoreHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const location = useLocation();
+  if (!hydrated) {
+    return <RouteLoadingFallback />;
+  }
   if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
@@ -49,7 +54,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const hydrated = useAuthStoreHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  if (!hydrated) {
+    return <RouteLoadingFallback />;
+  }
   return !isAuthenticated ? <>{children}</> : <Navigate to="/lobby" replace />;
 }
 
@@ -58,10 +67,10 @@ export default function App() {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
 
-  // Attempt silent token refresh on app load
+  // Attempt silent token refresh on app load (avoid session-expired toast / login banner for expected expiry)
   useEffect(() => {
     if (!isAuthenticated || !user || user.is_guest || !accessToken) return;
-    void refreshToken();
+    void refreshToken({ silent: true });
   }, [isAuthenticated, user, accessToken, refreshToken]);
 
   // Initialize push notifications for authenticated non-guest users

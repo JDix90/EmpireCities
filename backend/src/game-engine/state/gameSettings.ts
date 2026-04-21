@@ -45,9 +45,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
 
   let allowed: VictoryType[];
   const fromArr = raw.allowed_victory_conditions;
-  if (Array.isArray(fromArr) && fromArr.length > 0) {
-    allowed = [...new Set(fromArr.filter(isVictoryType))];
-    if (allowed.length === 0) allowed = ['domination'];
+  if (Array.isArray(fromArr)) {
+    if (fromArr.length === 0) {
+      allowed = [];
+    } else {
+      allowed = [...new Set(fromArr.filter(isVictoryType))];
+      if (allowed.length === 0) allowed = ['domination'];
+    }
   } else if (isVictoryType(raw.victory_type)) {
     allowed = [raw.victory_type];
   } else {
@@ -60,7 +64,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     threshold = Math.max(1, Math.min(99, Math.floor(raw.victory_threshold)));
   }
 
-  return {
+  const base: GameSettings = {
     fog_of_war: fog,
     victory_type: vt,
     allowed_victory_conditions: allowed,
@@ -81,11 +85,31 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     stability_enabled: stabilityEnabled || undefined,
     territory_selection: territorySelection || undefined,
   };
+
+  // Preserve extensions not part of the normalized core (campaign, daily puzzle, lobby).
+  const ext = raw as Partial<GameSettings>;
+  return {
+    ...base,
+    is_campaign: ext.is_campaign,
+    campaign_prestige_bonus: ext.campaign_prestige_bonus,
+    campaign_path_id: ext.campaign_path_id,
+    campaign_locked_faction: ext.campaign_locked_faction,
+    campaign_carry: ext.campaign_carry,
+    daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
+    daily_challenge_spec: ext.daily_challenge_spec && typeof ext.daily_challenge_spec === 'object'
+      ? ext.daily_challenge_spec
+      : undefined,
+    seed: typeof ext.seed === 'number' ? ext.seed : undefined,
+    max_players: typeof ext.max_players === 'number' ? ext.max_players : undefined,
+  };
 }
 
 export function getAllowedVictoryConditions(settings: GameSettings): VictoryType[] {
   if (settings.allowed_victory_conditions && settings.allowed_victory_conditions.length > 0) {
     return settings.allowed_victory_conditions;
+  }
+  if (Array.isArray(settings.allowed_victory_conditions) && settings.allowed_victory_conditions.length === 0) {
+    return [];
   }
   return [settings.victory_type ?? 'domination'];
 }

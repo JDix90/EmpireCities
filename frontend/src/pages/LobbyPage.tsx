@@ -10,7 +10,7 @@ interface FactionInfo {
   reinforce_bonus?: number;
   home_region_ids?: string[];
 }
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -216,6 +216,19 @@ interface ActiveGame {
   current_player_id?: string | null;
 }
 
+/** Subset of GET /campaign/me for lobby CTA */
+interface LobbyCampaignMe {
+  campaign_id: string;
+  status: 'active' | 'completed';
+  current_era: string | null;
+  current_era_index: number;
+  prestige_points: number;
+  path_id: string | null;
+  path_config: { name: string; signature_carry_key: string; signature_carry_label?: string } | null;
+  path_carry: Record<string, number>;
+  eras: Array<{ era_id: string; game_id: string | null }>;
+}
+
 const GAME_TYPE_LABELS: Record<string, string> = {
   solo: 'Solo',
   multiplayer: 'Multiplayer',
@@ -251,8 +264,48 @@ export default function LobbyPage() {
   const [showCreate, setShowCreate] = useState(!!validEra || !!presetMap);
   const [lobbyTab, setLobbyTab] = useState<'casual' | 'ranked'>('casual');
 
+  const [campaignMe, setCampaignMe] = useState<LobbyCampaignMe | null>(null);
+  const [campaignMeReady, setCampaignMeReady] = useState(false);
+
+  const fetchCampaignMe = useCallback(async () => {
+    if (!user || user.is_guest) {
+      setCampaignMe(null);
+      setCampaignMeReady(true);
+      return;
+    }
+    setCampaignMeReady(false);
+    try {
+      const res = await api.get<LobbyCampaignMe>('/campaign/me');
+      setCampaignMe(res.data);
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 404) {
+        setCampaignMe(null);
+      } else {
+        setCampaignMe(null);
+      }
+    } finally {
+      setCampaignMeReady(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void fetchCampaignMe();
+  }, [fetchCampaignMe]);
+
+  const resumeCampaignFromLobby = useCallback(() => {
+    if (!campaignMe || campaignMe.status !== 'active') {
+      navigate('/campaign');
+      return;
+    }
+    const entry = campaignMe.eras.find((e) => e.era_id === campaignMe.current_era && e.game_id);
+    if (entry?.game_id) navigate(`/game/${entry.game_id}`);
+    else navigate('/campaign');
+  }, [campaignMe, navigate]);
+
   const { refreshing, pullDistance, handlers: pullHandlers } = usePullToRefresh({
-    onRefresh: async () => { await Promise.all([fetchPublicGames(), fetchActiveGames()]); },
+    onRefresh: async () => {
+      await Promise.all([fetchPublicGames(), fetchActiveGames(), fetchCampaignMe()]);
+    },
   });
 
   // Ranked matchmaking state
@@ -739,6 +792,122 @@ export default function LobbyPage() {
             )}
           </div>
         </div>
+
+        {/* Solo campaign — lobby CTA (context-aware) */}
+        {user?.is_guest ? (
+          <div className="card mb-6 border border-cc-border/80 bg-cc-surface/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <Sword className="w-6 h-6 text-cc-gold shrink-0 mt-0.5" aria-hidden />
+                <div>
+                  <h3 className="font-display text-lg text-cc-gold">Solo campaign</h3>
+                  <p className="text-cc-muted text-sm mt-1">
+                    Play the six-era narrative — create a free account to save progress and unlock paths.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/register"
+                className="btn-secondary self-start sm:self-center shrink-0 min-h-[44px] inline-flex items-center justify-center px-4 touch-manipulation"
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
+        ) : !campaignMeReady ? (
+          <div
+            className="card mb-6 h-[108px] animate-pulse bg-cc-surface/40 border border-cc-border/60 rounded-xl"
+            aria-hidden
+          />
+        ) : !campaignMe ? (
+          <div className="card mb-6 border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.07] to-transparent">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div className="flex items-start gap-3 min-w-0">
+                <Sword className="w-7 h-7 text-cc-gold shrink-0" aria-hidden />
+                <div>
+                  <h3 className="font-display text-lg text-cc-gold">Campaign</h3>
+                  <p className="text-cc-muted text-sm mt-1 max-w-xl">
+                    Six linked eras, narrative paths, and carry bonuses — open HQ to start a run or choose your path.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/campaign"
+                className="btn-primary min-h-[44px] inline-flex items-center justify-center px-6 touch-manipulation shrink-0"
+              >
+                Open campaign HQ
+              </Link>
+            </div>
+          </div>
+        ) : campaignMe.status === 'completed' ? (
+          <div className="card mb-6 border border-green-700/35 bg-green-950/20">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="font-display text-lg text-green-300">Campaign conquered</h3>
+                <p className="text-cc-muted text-sm mt-1">
+                  Prestige {campaignMe.prestige_points} · Start a fresh run with a new path anytime.
+                </p>
+              </div>
+              <Link
+                to="/campaign"
+                className="btn-primary min-h-[44px] inline-flex items-center justify-center px-5 touch-manipulation shrink-0 self-start sm:self-center"
+              >
+                Start a new run
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="card mb-6 border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.07] to-transparent">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <Sword className="w-7 h-7 text-cc-gold shrink-0" aria-hidden />
+                <div className="space-y-2 min-w-0">
+                  <div>
+                    <h3 className="font-display text-lg text-cc-gold">
+                      {campaignMe.path_config?.name ?? 'Solo campaign'}
+                    </h3>
+                    <p className="text-cc-muted text-sm mt-1">
+                      Era {Math.min(campaignMe.current_era_index + 1, 6)} of 6
+                      {campaignMe.current_era != null && (
+                        <>
+                          {' '}
+                          · {ERA_LABELS[campaignMe.current_era] ?? campaignMe.current_era}
+                        </>
+                      )}
+                      {' · '}
+                      Prestige {campaignMe.prestige_points}
+                    </p>
+                  </div>
+                  {campaignMe.path_config &&
+                    (campaignMe.path_carry[campaignMe.path_config.signature_carry_key] ?? 0) > 0 && (
+                      <p className="text-xs text-cc-gold/90 inline-flex items-center gap-1.5 rounded-md border border-cc-gold/25 bg-cc-gold/5 px-2.5 py-1 w-fit">
+                        <Trophy className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                        <span>
+                          {campaignMe.path_config.signature_carry_label ?? 'Path bonus'}:{' '}
+                          {campaignMe.path_carry[campaignMe.path_config.signature_carry_key] ?? 0}
+                        </span>
+                      </p>
+                    )}
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={resumeCampaignFromLobby}
+                  className="btn-primary min-h-[44px] inline-flex items-center justify-center px-5 touch-manipulation w-full sm:w-auto"
+                >
+                  Continue campaign
+                </button>
+                <Link
+                  to="/campaign"
+                  className="btn-secondary min-h-[44px] inline-flex items-center justify-center px-5 touch-manipulation w-full sm:w-auto text-center"
+                >
+                  Campaign HQ
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div className="min-w-0">

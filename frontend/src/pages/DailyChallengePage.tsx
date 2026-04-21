@@ -5,12 +5,27 @@ import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
 import { Calendar, Trophy, Play, Crown, Clock, Sword, ChevronLeft } from 'lucide-react';
 
+interface DailyPuzzleSpecPublic {
+  archetype: string;
+  title: string;
+  intro: string;
+  goal: string;
+  hint?: string;
+  max_turns?: number;
+  era_id: string;
+  map_id: string;
+  seed: number;
+  player_count: number;
+}
+
 interface DailyChallenge {
   challenge_date: string;
   era_id: string;
   map_id: string;
   seed: number;
   player_count: number;
+  kind: string;
+  spec: DailyPuzzleSpecPublic;
 }
 
 interface MyEntry {
@@ -48,8 +63,16 @@ const ERA_ICON: Record<string, string> = {
   space_age:    '🚀',
 };
 
-function formatDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
+function formatDate(raw: string | undefined): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const ymd = raw.slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return '';
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const da = Number(m[3]);
+  const d = new Date(y, mo - 1, da);
+  if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
@@ -131,12 +154,21 @@ export default function DailyChallengePage() {
         <div className="rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/80 p-6 shadow-xl">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="text-cc-muted text-sm mb-1">{formatDate(challenge.challenge_date)}</p>
+              <p className="text-cc-muted text-sm mb-1">
+                {formatDate(challenge.challenge_date) ||
+                  (typeof challenge.challenge_date === 'string' ? challenge.challenge_date.slice(0, 10) : '')}
+              </p>
               <div className="flex items-center gap-2">
                 <span className="text-2xl" role="img" aria-label={eraLabel}>{eraIcon}</span>
                 <h2 className="font-display text-2xl text-cc-gold">{eraLabel}</h2>
               </div>
               <p className="text-cc-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
+              {challenge.spec?.title && (
+                <p className="text-cc-text font-medium mt-3">{challenge.spec.title}</p>
+              )}
+              {challenge.spec?.goal && (
+                <p className="text-cc-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
+              )}
             </div>
             {alreadyPlayed && (
               <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${

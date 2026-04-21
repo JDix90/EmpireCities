@@ -75,6 +75,16 @@ export interface GameState {
     events_enabled?: boolean;
     naval_enabled?: boolean;
     stability_enabled?: boolean;
+    daily_challenge_date?: string;
+    /** Daily puzzle metadata (when playing a daily challenge). */
+    daily_challenge_spec?: {
+      archetype?: string;
+      title?: string;
+      intro?: string;
+      goal?: string;
+      hint?: string;
+      max_turns?: number;
+    };
   };
   era_modifiers?: {
     legion_reroll?: boolean;

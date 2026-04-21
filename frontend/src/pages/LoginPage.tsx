@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -8,10 +8,20 @@ import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = sanitizePostAuthRedirect(searchParams.get('redirect'));
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('cc-auth-notice') === 'session_expired') {
+        setSessionExpiredBanner(true);
+        sessionStorage.removeItem('cc-auth-notice');
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +47,14 @@ export default function LoginPage() {
         </div>
 
         <div className="card">
+          {sessionExpiredBanner && (
+            <div
+              role="status"
+              className="mb-5 rounded-lg border border-amber-600/40 bg-amber-900/20 px-3 py-2.5 text-sm text-amber-100"
+            >
+              Your session ended. Sign in again to continue — you will return to the page you were on after login.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="label">Email Address</label>

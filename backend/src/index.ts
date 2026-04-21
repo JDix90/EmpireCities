@@ -32,6 +32,7 @@ import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
 import { startSeasonSweep, stopSeasonSweep } from './game-engine/progression/seasonService';
 import { startChallengeSweep, stopChallengeSweep } from './game-engine/progression/challengeService';
+import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleService';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry } from './services/sentry';
@@ -139,6 +140,10 @@ async function bootstrap(): Promise<void> {
   startChallengeSweep();
   startOrphanedGameSweep();
   startGuestCleanupSweep();
+
+  void ensureDailyChallengeForToday().catch((err) => {
+    console.error('[daily] Failed to ensure today challenge row:', err);
+  });
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
 

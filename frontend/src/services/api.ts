@@ -56,7 +56,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const success = await useAuthStore.getState().refreshToken();
+        const success = await useAuthStore.getState().refreshToken({ silent: false });
         if (success) {
           const newToken = useAuthStore.getState().accessToken!;
           drainQueue(newToken);

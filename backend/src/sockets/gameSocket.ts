@@ -70,6 +70,11 @@ import {
   setDeadlineProcessor,
 } from '../workers/asyncDeadlineWorker';
 import { notifyTurnChange } from '../services/notificationService';
+import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
+import { createPuzzleDieRoll } from '../game-engine/daily/puzzleDice';
+import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleScenario';
+import { evaluatePuzzleObjective, isPuzzleTimedOut } from '../game-engine/daily/puzzleObjective';
+import { computePuzzleMoveFeedback } from '../game-engine/daily/puzzleMoveFeedback';
 
 function loadMapFromDoc(mapDoc: any): GameMap {
   return {
@@ -395,6 +400,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
     broadcastEventCard(io, gameId, state, map);
     broadcastState(io, gameId, state);
 
+    const humanAfterAsync = state.players.find((p) => !p.is_ai);
+    if (humanAfterAsync && maybeResolveDailyPuzzle(io, gameId, room, null, humanAfterAsync.player_id)) {
+      return;
+    }
+
     // Schedule next deadline or trigger AI
     if (!state.active_event?.choices?.length) {
       startTurnTimer(io, gameId, state, map);
@@ -712,6 +722,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const settings = game.settings_json as GameState['settings'];
         const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings);
 
+        const puzzleSpec = getDailyPuzzleSpec(state);
+        if (puzzleSpec) {
+          const humanId = playerStates.find((p) => !p.is_ai)?.player_id;
+          const aiP = playerStates.find((p) => p.is_ai);
+          const aiId = aiP?.player_id ?? `ai_${aiP?.player_index ?? 1}`;
+          if (humanId) {
+            applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanId, aiId);
+          }
+        }
+
         // Populate connectedSockets from sockets currently in the room
         const connectedSockets = new Map<string, string>();
         const socketsInRoom = await io.in(gameId).fetchSockets();
@@ -998,12 +1018,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
           ? Math.min(fromTerritory.unit_count - 1, 3) + combinedAttackBonus
           : undefined;
 
+      const puzzleSpecPre = getDailyPuzzleSpec(state);
+      const stateBeforePuzzle =
+        puzzleSpecPre && puzzleSpecPre.archetype !== 'domination'
+          ? (JSON.parse(JSON.stringify(state)) as GameState)
+          : null;
+      const puzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
+
       const result = resolveCombat(
       fromTerritory.unit_count,
       toTerritory.unit_count,
       finalAttackerDiceOverride,
       defenderDiceOverride,
-      undefined,
+      puzzleDieRoll,
       state.era_modifiers,
     );
 
@@ -1054,6 +1081,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (cardEarned) drawCard(state, userId);
 
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId)) {
+        io.to(gameId).emit('game:combat_result', { fromId, toId, result });
+        broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
+        return;
+      }
+
       // Check victory
       const victoryResult = checkVictory(state, map);
       if (victoryResult) {
@@ -1090,6 +1124,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       } else if (state.phase === 'fortify') {
         advanceToNextPlayer(state, map);
         broadcastEventCard(io, gameId, state, map);
+
+        if (maybeResolveDailyPuzzle(io, gameId, room, null, userId)) {
+          broadcastState(io, gameId, state);
+          scheduleDebouncedSave(gameId);
+          return;
+        }
 
         // Trigger AI if next player is AI; otherwise restart turn timer
         if (state.players[state.current_player_index].is_ai) {
@@ -1210,6 +1250,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: validation.error ?? 'Cannot build here' });
       }
 
+      const specB = getDailyPuzzleSpec(state);
+      const stateBeforeBuild =
+        specB && specB.archetype !== 'domination'
+          ? (JSON.parse(JSON.stringify(state)) as GameState)
+          : null;
+
       applyBuild(state, userId, territoryId, buildingType);
       socket.emit('game:build_result', { territoryId, buildingType, success: true });
       // Quest check: first building
@@ -1222,6 +1268,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
           builderColor: currentPlayer.color,
           territoryId,
         });
+      }
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeBuild, userId)) {
+        broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
+        return;
       }
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
@@ -1309,9 +1360,20 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: validation.error ?? 'Cannot research this technology' });
       }
 
+      const specR = getDailyPuzzleSpec(state);
+      const stateBeforeResearch =
+        specR && specR.archetype !== 'domination'
+          ? (JSON.parse(JSON.stringify(state)) as GameState)
+          : null;
+
       applyResearch(state, userId, validation.node!);
       socket.emit('game:research_result', { techId, success: true, node: validation.node });
       checkOnboardingQuests(userId, 'research').catch(() => {});
+      if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeResearch, userId)) {
+        broadcastState(io, gameId, state);
+        scheduleDebouncedSave(gameId);
+        return;
+      }
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1999,6 +2061,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
+      if (maybeResolveDailyPuzzle(io, gameId, room, null, userId)) {
+        await saveGameState(gameId, state);
+        broadcastState(io, gameId, state);
+        return;
+      }
+
       const resignVictoryResult = checkVictory(state, map);
       if (resignVictoryResult) {
         const { winnerIds, condition } = resignVictoryResult;
@@ -2291,6 +2359,80 @@ async function flushAllPendingSaves(): Promise<void> {
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
+function getDailyPuzzleSpec(state: GameState): DailyPuzzleSpec | null {
+  const raw = state.settings.daily_challenge_spec;
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as unknown as DailyPuzzleSpec;
+  return s.archetype ? s : null;
+}
+
+/**
+ * Returns true if the game was finalized (puzzle objective solved, time loss, etc.).
+ */
+function maybeResolveDailyPuzzle(
+  io: Server,
+  gameId: string,
+  room: { state: GameState; map: GameMap },
+  stateBefore: GameState | null,
+  actingUserId: string,
+): boolean {
+  const { state, map } = room;
+  const spec = getDailyPuzzleSpec(state);
+  if (!spec || spec.archetype === 'domination') return false;
+
+  const human = state.players.find((p) => !p.is_ai);
+  if (!human) return false;
+
+  if (stateBefore && actingUserId === human.player_id) {
+    const fb = computePuzzleMoveFeedback(stateBefore, state, map, human.player_id, spec);
+    if (fb) {
+      if (fb.tier === 'risky') {
+        state.puzzle_feedback_mistakes = (state.puzzle_feedback_mistakes ?? 0) + 1;
+      }
+      io.to(gameId).emit('game:puzzle_feedback', { ...fb, gameId });
+    }
+  }
+
+  const status = evaluatePuzzleObjective(state, map, spec, human.player_id);
+  if (status === 'solved') {
+    state.puzzle_objective_met = true;
+    state.phase = 'game_over';
+    state.winner_id = human.player_id;
+    state.winner_ids = [human.player_id];
+    state.victory_condition = 'domination';
+    void finalizeGame(io, gameId, state, [human.player_id]);
+    return true;
+  }
+
+  if (status === 'failed') {
+    const ai = state.players.find((p) => p.is_ai);
+    if (ai) {
+      state.puzzle_objective_met = false;
+      state.phase = 'game_over';
+      state.winner_id = ai.player_id;
+      state.winner_ids = [ai.player_id];
+      state.victory_condition = 'last_standing';
+      void finalizeGame(io, gameId, state, [ai.player_id]);
+      return true;
+    }
+  }
+
+  if (isPuzzleTimedOut(state, spec)) {
+    const ai = state.players.find((p) => p.is_ai);
+    if (ai) {
+      state.puzzle_objective_met = false;
+      state.phase = 'game_over';
+      state.winner_id = ai.player_id;
+      state.winner_ids = [ai.player_id];
+      state.victory_condition = 'last_standing';
+      void finalizeGame(io, gameId, state, [ai.player_id]);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
   const campaignRow = await queryOne<{
     campaign_id: string;
@@ -2414,16 +2556,31 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     if (dailyRow?.daily_challenge_date) {
       const humanPlayer = state.players.find((p) => !p.is_ai);
       if (humanPlayer) {
+        const spec = getDailyPuzzleSpec(state);
+        const isDomination = !spec || spec.archetype === 'domination';
+        let entryWon = humanPlayer.player_id === winnerId;
+        if (entryWon && !isDomination) {
+          entryWon = state.puzzle_objective_met === true;
+        }
+        const mistakes = state.puzzle_feedback_mistakes ?? 0;
+        const puzzleScore = Math.max(0, 1000 - mistakes * 12);
         await query(
-          `INSERT INTO daily_challenge_entries (challenge_date, user_id, won, turn_count, territory_count)
-           VALUES ($1, $2, $3, $4, $5)
+          `INSERT INTO daily_challenge_entries (
+             challenge_date, user_id, won, turn_count, territory_count,
+             puzzle_score, objective_met, archetype, move_feedback_mistakes
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (challenge_date, user_id) DO NOTHING`,
           [
             dailyRow.daily_challenge_date,
             humanPlayer.player_id,
-            humanPlayer.player_id === winnerId,
+            entryWon,
             state.turn_number,
             humanPlayer.territory_count,
+            puzzleScore,
+            state.puzzle_objective_met ?? null,
+            spec?.archetype ?? null,
+            mistakes,
           ],
         );
       }
@@ -2824,6 +2981,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 
   const doVictoryCheck = async (): Promise<boolean> => {
+    if (maybeResolveDailyPuzzle(io, gameId, room, null, currentPlayer.player_id)) {
+      aiInFlight.delete(gameId);
+      return true;
+    }
     const victoryResult = checkVictory(state, map);
     if (victoryResult) {
       const { winnerIds, condition } = victoryResult;
@@ -3055,12 +3216,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       ? Math.min(from.unit_count - 1, 3) + aiTotalAttackBonus
       : undefined;
 
+    const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
+
     const result = resolveCombat(
       from.unit_count,
       to.unit_count,
       aiAttackerDiceOverride,
       aiDefenderDiceOverride,
-      undefined,
+      aiPuzzleDieRoll,
       state.era_modifiers,
     );
     // If resolveCombat returns an error, skip this attack
@@ -3196,6 +3359,12 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     await saveGameState(gameId, room.state);
     broadcastEventCard(io, gameId, room.state, room.map);
     broadcastState(io, gameId, room.state);
+
+    const humanT = room.state.players.find((p) => !p.is_ai);
+    if (humanT && maybeResolveDailyPuzzle(io, gameId, room, null, humanT.player_id)) {
+      return;
+    }
+
     // Don't restart timer while a choice-based event is pending resolution
     if (!room.state.active_event?.choices?.length) {
       startTurnTimer(io, gameId, room.state, room.map);

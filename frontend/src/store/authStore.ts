@@ -49,7 +49,7 @@ interface AuthState {
   register: (username: string, email: string, password: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<boolean>;
+  refreshToken: (options?: { silent?: boolean }) => Promise<boolean>;
   setUser: (user: AuthUser) => void;
   setAccessToken: (token: string) => void;
 }
@@ -67,6 +67,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.post('/auth/login', { email, password });
           const { accessToken, user } = res.data;
+          try {
+            sessionStorage.removeItem('cc-auth-notice');
+          } catch { /* ignore */ }
           set({ user, accessToken, isAuthenticated: true, isLoading: false });
         } catch (err) {
           set({ isLoading: false });
@@ -79,6 +82,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.post('/auth/register', { username, email, password });
           const { accessToken, user } = res.data;
+          try {
+            sessionStorage.removeItem('cc-auth-notice');
+          } catch { /* ignore */ }
           set({ user, accessToken, isAuthenticated: true, isLoading: false });
         } catch (err) {
           set({ isLoading: false });
@@ -105,11 +111,15 @@ export const useAuthStore = create<AuthState>()(
             await api.post('/auth/logout');
           }
         } finally {
+          try {
+            sessionStorage.removeItem('cc-auth-notice');
+          } catch { /* ignore */ }
           set({ user: null, accessToken: null, isAuthenticated: false });
         }
       },
 
-      refreshToken: async () => {
+      refreshToken: async (options) => {
+        const silent = options?.silent ?? false;
         if (get().user?.is_guest) {
           return false;
         }
@@ -121,6 +131,11 @@ export const useAuthStore = create<AuthState>()(
           return true;
         } catch {
           set({ user: null, accessToken: null, isAuthenticated: false });
+          if (!silent && typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('cc-auth-notice', 'session_expired');
+            } catch { /* ignore */ }
+          }
           return false;
         }
       },

@@ -3,7 +3,8 @@ import { config } from '../config';
 import type { JwtAccessPayload, JwtRefreshPayload } from '../types';
 
 /**
- * Generate a short-lived access token (15 minutes by default).
+ * Generate a short-lived access token.
+ * Expiry uses `config.jwt.accessExpiresIn` (default `1h` when `JWT_ACCESS_EXPIRES_IN` is unset).
  */
 export function signAccessToken(
   payload: Omit<JwtAccessPayload, 'iat' | 'exp'>,
@@ -15,7 +16,8 @@ export function signAccessToken(
 }
 
 /**
- * Generate a long-lived refresh token (7 days by default).
+ * Generate a long-lived refresh token.
+ * Expiry uses `config.jwt.refreshExpiresIn` (default `7d` when `JWT_REFRESH_EXPIRES_IN` is unset).
  */
 export function signRefreshToken(payload: Omit<JwtRefreshPayload, 'iat' | 'exp'>): string {
   return jwt.sign(payload, config.jwt.refreshSecret, {

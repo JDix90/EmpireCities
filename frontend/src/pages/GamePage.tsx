@@ -383,6 +383,9 @@ export default function GamePage() {
   } | null>(null);
   const wonderNotifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [puzzleFeedback, setPuzzleFeedback] = useState<{ tier: string; message: string } | null>(null);
+  const puzzleFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /** Map area is flex-sized; measure it so Globe/PIXI get real pixels when the viewport changes (devtools, rotate, resize). */
   const mapAreaRef = useRef<HTMLDivElement>(null);
   const [mapCanvasSize, setMapCanvasSize] = useState(() => {
@@ -646,6 +649,13 @@ export default function GamePage() {
       setIsStartingGame(false);
       setGameStarted(true);
       toast.success('Game started! Good luck, Commander!');
+    });
+
+    socket.on('game:puzzle_feedback', (payload: { gameId?: string; tier: string; message: string }) => {
+      if (payload.gameId && gameId && payload.gameId !== gameId) return;
+      setPuzzleFeedback({ tier: payload.tier, message: payload.message });
+      if (puzzleFeedbackTimerRef.current) clearTimeout(puzzleFeedbackTimerRef.current);
+      puzzleFeedbackTimerRef.current = setTimeout(() => setPuzzleFeedback(null), 8000);
     });
 
     socket.on('game:combat_result', (data: {
@@ -973,6 +983,7 @@ export default function GamePage() {
       socket.off('game:wonder_built');
       socket.off('game:atom_bomb');
       socket.off('game:space_station_launched');
+      socket.off('game:puzzle_feedback');
       // Notify server we left so it can schedule eviction / save state
       socket.emit('game:leave', { gameId });
       clearGame();
@@ -1733,14 +1744,18 @@ export default function GamePage() {
 
                   {isHost ? (
                     <div className="space-y-3">
-                      <button onClick={handleStartGame} disabled={isStartingGame} className="btn-primary w-full text-base py-3 disabled:opacity-70 disabled:cursor-not-allowed">
+                      <button
+                        onClick={handleStartGame}
+                        disabled={isStartingGame}
+                        className="btn-primary w-full text-base min-h-[48px] py-3 touch-manipulation disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
                         {isStartingGame ? 'Starting...' : 'Start Game'}
                       </button>
                       {!user?.is_guest && gameId && (
                         <button
                           type="button"
                           onClick={() => setShowInviteModal(true)}
-                          className="btn-secondary w-full text-base py-3 flex items-center justify-center gap-2"
+                          className="btn-secondary w-full text-base min-h-[48px] py-3 flex items-center justify-center gap-2 touch-manipulation"
                         >
                           <UserPlus className="w-4 h-4" /> Invite Friends
                         </button>
@@ -1748,7 +1763,7 @@ export default function GamePage() {
                       <button
                         type="button"
                         onClick={handleCancelGame}
-                        className="w-full text-sm py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                        className="w-full text-sm min-h-[44px] py-2.5 rounded border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors touch-manipulation"
                       >
                         Cancel Game
                       </button>
@@ -1764,7 +1779,7 @@ export default function GamePage() {
                       <button
                         type="button"
                         onClick={handleLeaveGame}
-                        className="w-full text-sm py-2 rounded border border-cc-border text-cc-muted hover:text-cc-text hover:border-cc-muted transition-colors"
+                        className="w-full text-sm min-h-[44px] py-2.5 rounded border border-cc-border text-cc-muted hover:text-cc-text hover:border-cc-muted transition-colors touch-manipulation"
                       >
                         Leave Game
                       </button>
@@ -1905,6 +1920,31 @@ export default function GamePage() {
           {socketConnection === 'reconnecting'
             ? 'Reconnecting to game server…'
             : 'Disconnected from game server. Attempting to reconnect…'}
+        </div>
+      )}
+
+      {gameState?.settings?.daily_challenge_spec?.title && (
+        <div className="shrink-0 px-4 py-2 bg-amber-950/25 border-b border-amber-700/35 text-sm">
+          <span className="text-amber-400/90 font-display text-xs tracking-wide">Daily challenge</span>
+          <p className="text-cc-text mt-0.5 font-medium">{gameState.settings.daily_challenge_spec.title}</p>
+          {gameState.settings.daily_challenge_spec.archetype !== 'domination' &&
+            gameState.settings.daily_challenge_spec.goal && (
+              <p className="text-cc-muted text-xs mt-1 leading-snug">{gameState.settings.daily_challenge_spec.goal}</p>
+            )}
+        </div>
+      )}
+
+      {puzzleFeedback && (
+        <div
+          className={`shrink-0 px-4 py-2 text-sm border-b ${
+            puzzleFeedback.tier === 'strong'
+              ? 'bg-emerald-950/35 border-emerald-700/45 text-emerald-100'
+              : puzzleFeedback.tier === 'risky'
+                ? 'bg-red-950/35 border-red-700/40 text-red-100'
+                : 'bg-cc-dark border-cc-border text-cc-text'
+          }`}
+        >
+          {puzzleFeedback.message}
         </div>
       )}
 

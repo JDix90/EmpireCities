@@ -177,6 +177,13 @@ export interface GameSettings {
     survivor_bonus?: number;
     revolutionary_spirit?: number;
   };
+  /** Daily challenge date (YYYY-MM-DD) when this session is the daily. */
+  daily_challenge_date?: string;
+  /** Serialized daily puzzle spec from `daily_challenges.spec_json`. */
+  daily_challenge_spec?: Record<string, unknown>;
+  /** Lobby / daily generator seed. */
+  seed?: number;
+  max_players?: number;
 }
 
 // ── User Preferences / Push Tokens ────────────────────────────────────────────
@@ -276,6 +283,12 @@ export interface GameState {
   seasonal_event_cards?: EventCard[];
   /** Transient: territory IDs that rebelled last tick (cleared after broadcast). */
   last_rebellion_territories?: string[];
+  /** Daily puzzle: deterministic d6 stream for combat (Tier B). */
+  puzzle_dice_queue?: number[];
+  puzzle_dice_index?: number;
+  puzzle_feedback_mistakes?: number;
+  /** Set when a non-domination daily objective was achieved. */
+  puzzle_objective_met?: boolean;
 }
 
 // ── Event Cards ───────────────────────────────────────────────────────────────

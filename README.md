@@ -336,7 +336,7 @@ The frontend starts on **http://localhost:5173**. Open this URL in your browser.
 | `REDIS_PORT` | `6379` | Redis port |
 | `JWT_ACCESS_SECRET` | **CHANGE THIS** | Access token signing secret |
 | `JWT_REFRESH_SECRET` | **CHANGE THIS** | Refresh token signing secret |
-| `JWT_ACCESS_EXPIRES_IN` | `15m` | Access token lifetime |
+| `JWT_ACCESS_EXPIRES_IN` | `1h` | Access token lifetime |
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh token lifetime |
 | `BCRYPT_ROUNDS` | `12` | Password hashing cost |
 
