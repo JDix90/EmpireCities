@@ -10,7 +10,7 @@ export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | '
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
-export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory';
+export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory' | 'abandoned';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =
@@ -46,6 +46,7 @@ export interface JwtAccessPayload {
   sub: string;       // user_id
   username: string;
   guest?: boolean;
+  admin?: boolean;
   iat?: number;
   exp?: number;
 }
@@ -189,6 +190,19 @@ export interface GameSettings {
   daily_challenge_spec?: Record<string, unknown>;
   /** Lobby / daily generator seed. */
   seed?: number;
+  /** Snapshot of economy tuning used for this game instance. */
+  economy_snapshot?: {
+    building_costs?: Partial<Record<BuildingType, number>>;
+    production_income?: Partial<Record<BuildingType, number>>;
+  };
+  /** Snapshot of XP tuning used for this game instance. */
+  xp_snapshot?: {
+    base?: number;
+    win_bonus?: number;
+    per_territory?: number;
+    placement_bonus_max?: number;
+    multipliers?: Partial<Record<'solo' | 'multiplayer' | 'hybrid', number>>;
+  };
   max_players?: number;
 }
 
@@ -232,7 +246,7 @@ export type BuildingType =
   | 'defense_1' | 'defense_2' | 'defense_3'
   | 'tech_gen_1' | 'tech_gen_2'
   | 'special_a' | 'special_b'
-  | 'port' | 'naval_base'
+  | 'port' | 'naval_base' | 'coastal_battery'
   | 'wonder_colosseum'   // ancient
   | 'wonder_cathedral'   // medieval
   | 'wonder_lighthouse'  // discovery

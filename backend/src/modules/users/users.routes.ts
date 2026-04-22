@@ -62,6 +62,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       win_streak: number;
       daily_streak: number;
       prestige: number;
+      is_admin: boolean;
     };
 
     let user: UserRow | null = null;
@@ -72,7 +73,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
                 COALESCE(onboarding_stage, 0) AS onboarding_stage,
                 COALESCE(win_streak, 0) AS win_streak,
                 COALESCE(daily_streak, 0) AS daily_streak,
-                COALESCE(prestige, 0) AS prestige
+                COALESCE(prestige, 0) AS prestige,
+                COALESCE(is_admin, false) AS is_admin
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
@@ -80,7 +82,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
                 COALESCE(gold, 0) AS gold,
-                0 AS onboarding_stage, 0 AS win_streak, 0 AS daily_streak, 0 AS prestige
+                0 AS onboarding_stage, 0 AS win_streak, 0 AS daily_streak, 0 AS prestige,
+                COALESCE(is_admin, false) AS is_admin
          FROM users WHERE user_id = $1`,
         [request.userId],
       );

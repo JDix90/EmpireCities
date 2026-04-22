@@ -3,6 +3,16 @@ import { normalizeGameSettings, getAllowedVictoryConditions } from './gameSettin
 import type { GameSettings } from '../../types';
 
 describe('normalizeGameSettings', () => {
+  it('preserves economy_snapshot and xp_snapshot from lobby JSON', () => {
+    const s = normalizeGameSettings({
+      fog_of_war: false,
+      victory_type: 'domination',
+      economy_snapshot: { building_costs: { production_1: 99 } as any },
+      xp_snapshot: { base: 12 },
+    });
+    expect(s.economy_snapshot?.building_costs?.production_1).toBe(99);
+    expect(s.xp_snapshot?.base).toBe(12);
+  });
   it('maps legacy victory_type to allowed_victory_conditions', () => {
     const s = normalizeGameSettings({ fog_of_war: false, victory_type: 'threshold', victory_threshold: 55 });
     expect(s.allowed_victory_conditions).toEqual(['threshold']);

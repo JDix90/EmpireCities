@@ -59,7 +59,7 @@ export interface GameOverModalData {
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
@@ -852,10 +852,12 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
       case 'capital':         return 'Capital Conquest — all rival capitals seized';
       case 'secret_mission':  return 'Secret Mission completed';
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
+      case 'abandoned':       return 'Game ended — no human players remained';
       default:                return null;
     }
   };
 
+  const isAbandoned = data.victory_condition === 'abandoned';
   const isAlliance = data.victory_condition === 'alliance_victory';
   const winnerIds = data.winnerIds ?? [];
   const allyName = isAlliance
@@ -866,9 +868,11 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
 
   return (
     <div className="w-full min-w-0 text-center">
-      {/* Trophy / Skull Animation */}
+      {/* Trophy / Skull / Flag Animation */}
       <div className={clsx('mb-6 transition-all duration-700', showContent ? 'opacity-100 scale-100' : 'opacity-0 scale-50')}>
-        {data.isWinner ? (
+        {isAbandoned ? (
+          <Skull className="w-20 h-20 text-white/30 mx-auto" />
+        ) : data.isWinner ? (
           <div className="relative inline-block">
             <Trophy className="w-20 h-20 text-yellow-400 drop-shadow-[0_0_30px_rgba(234,179,8,0.4)]" />
             <div className="absolute inset-0 animate-ping">
@@ -884,21 +888,23 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
       <h2 className={clsx(
         'text-3xl font-bold font-display mb-2 transition-all duration-500 delay-200',
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
-        data.isWinner ? 'text-yellow-400' : 'text-red-400'
+        isAbandoned ? 'text-white/50' : data.isWinner ? 'text-yellow-400' : 'text-red-400'
       )}>
-        {isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
+        {isAbandoned ? 'Game Abandoned' : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
       </h2>
       <p className={clsx(
         'text-white/50 text-sm mb-3 transition-all duration-500 delay-300',
         showContent ? 'opacity-100' : 'opacity-0'
       )}>
-        {data.isWinner
-          ? isAlliance && allyName
-            ? `You and ${allyName} have triumphed together!`
-            : 'You have conquered the world!'
-          : isAlliance
-            ? 'Defeated by an Alliance.'
-            : `${data.winnerName} has won the game`}
+        {isAbandoned
+          ? 'You resigned. The game ended with no human players remaining.'
+          : data.isWinner
+            ? isAlliance && allyName
+              ? `You and ${allyName} have triumphed together!`
+              : 'You have conquered the world!'
+            : isAlliance
+              ? 'Defeated by an Alliance.'
+              : `${data.winnerName} has won the game`}
       </p>
 
       {/* Alliance co-winners display */}

@@ -4,16 +4,27 @@ import {
   glickoUpdate,
   placementScore,
   syntheticAiOpponent,
-  INITIAL_MU,
-  INITIAL_PHI,
+  getInitialRatings,
 } from '../rating/ratingService';
+import { getXpConfig } from '../../services/adminConfig';
 
 type GameType = 'solo' | 'multiplayer' | 'hybrid';
 
-const XP_BASE = 50;
-const XP_WIN_BONUS = 100;
-const XP_PER_TERRITORY = 2;
-const XP_MULTIPLIER: Record<GameType, number> = { solo: 0.5, multiplayer: 1, hybrid: 0.75 };
+export function resolveXpConfig(state: GameState) {
+  const fallback = getXpConfig();
+  const snapshot = state.settings.xp_snapshot;
+  return {
+    base: snapshot?.base ?? fallback.base,
+    win_bonus: snapshot?.win_bonus ?? fallback.win_bonus,
+    per_territory: snapshot?.per_territory ?? fallback.per_territory,
+    placement_bonus_max: snapshot?.placement_bonus_max ?? fallback.placement_bonus_max,
+    multipliers: {
+      solo: snapshot?.multipliers?.solo ?? fallback.multipliers.solo,
+      multiplayer: snapshot?.multipliers?.multiplayer ?? fallback.multipliers.multiplayer,
+      hybrid: snapshot?.multipliers?.hybrid ?? fallback.multipliers.hybrid,
+    } as Record<GameType, number>,
+  };
+}
 
 export function computeRanks(players: PlayerState[], winnerId: string): Map<string, number> {
   const ranks = new Map<string, number>();
@@ -38,20 +49,21 @@ export function computeRanks(players: PlayerState[], winnerId: string): Map<stri
 }
 
 function computeXp(
+  xpConfig: ReturnType<typeof resolveXpConfig>,
   player: PlayerState,
   rank: number,
   totalPlayers: number,
   gameType: GameType,
 ): number {
-  let xp = XP_BASE;
-  xp += player.territory_count * XP_PER_TERRITORY;
-  if (rank === 1) xp += XP_WIN_BONUS;
+  let xp = xpConfig.base;
+  xp += player.territory_count * xpConfig.per_territory;
+  if (rank === 1) xp += xpConfig.win_bonus;
 
   const divisor = Math.max(1, totalPlayers - 1);
   const placementRatio = Math.max(0, (totalPlayers - rank) / divisor);
-  xp += Math.round(placementRatio * 40);
+  xp += Math.round(placementRatio * xpConfig.placement_bonus_max);
 
-  return Math.round(xp * XP_MULTIPLIER[gameType]);
+  return Math.round(xp * xpConfig.multipliers[gameType]);
 }
 
 export function computeLevel(totalXp: number): number {
@@ -71,6 +83,8 @@ export async function recordGameResults(
   winnerId: string,
 ): Promise<GameResultContext> {
   const ctx: GameResultContext = { isRanked: false, ratingDeltas: new Map(), xpEarnedByPlayer: {} };
+  const xpConfig = resolveXpConfig(state);
+  const initialRatings = getInitialRatings();
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
@@ -104,15 +118,15 @@ export async function recordGameResults(
 
     for (const p of humanPlayers) {
       const rank = ranks.get(p.player_id) ?? totalPlayers;
-      const xp = computeXp(p, rank, totalPlayers, gameType);
+      const xp = computeXp(xpConfig, p, rank, totalPlayers, gameType);
 
-      const current = ratingMap.get(p.player_id) ?? { mu: INITIAL_MU, phi: INITIAL_PHI };
+      const current = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
 
       // Build opponent list
       const opponents = [];
       for (const other of humanPlayers) {
         if (other.player_id === p.player_id) continue;
-        const otherRating = ratingMap.get(other.player_id) ?? { mu: INITIAL_MU, phi: INITIAL_PHI };
+        const otherRating = ratingMap.get(other.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
         opponents.push({
           mu: otherRating.mu,
           phi: otherRating.phi,

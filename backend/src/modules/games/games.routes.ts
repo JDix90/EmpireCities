@@ -8,6 +8,7 @@ import { query, queryOne, withTransaction } from '../../db/postgres';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
+import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -100,7 +101,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         await query(
           `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code, async_mode)
            VALUES ($1, $2, $3, 'waiting', $4, $5, $6, $7)`,
-          [gameId, map_id, era_id, JSON.stringify({ ...settings, max_players }), gameType, joinCode, !!settings.async_mode],
+          [gameId, map_id, era_id, JSON.stringify(applyAdminSnapshotsToSettings({ ...settings, max_players })), gameType, joinCode, !!settings.async_mode],
         );
         gameInsertOk = true;
         break;
@@ -160,7 +161,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
        VALUES ($1, $2, $3, 'waiting', $4, 'solo')`,
-      [gameId, mapId, eraId, JSON.stringify(tutorialSettings)],
+      [gameId, mapId, eraId, JSON.stringify(applyAdminSnapshotsToSettings(tutorialSettings))],
     );
 
     const colors = ['#3498db', '#e74c3c'];
@@ -303,7 +304,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
                 'is_ai', gp.is_ai,
                 'ai_difficulty', gp.ai_difficulty,
                 'is_eliminated', gp.is_eliminated,
-                'final_rank', gp.final_rank
+                'final_rank', gp.final_rank,
+                'faction_id', gp.faction_id
               ) ORDER BY gp.player_index) AS players
        FROM games g
        LEFT JOIN game_players gp ON gp.game_id = g.game_id

@@ -94,6 +94,13 @@ const BUILDING_META: Record<
     icon: <Anchor className="w-3 h-3" />,
     category: 'naval',
   },
+  coastal_battery: {
+    label: 'Coastal Battery',
+    description: 'Fortify the Coast: +1 defense die vs sea attacks',
+    cost: 4,
+    icon: <Shield className="w-3 h-3" />,
+    category: 'coastal_defense',
+  },
 };
 
 const UPGRADES: Record<string, string> = {
@@ -165,10 +172,20 @@ function BuildingPanel({
   if (isCoastal && !existingCategories.has('naval') && !buildOptions.includes('port')) {
     buildOptions.push('port');
   }
-  // Remove naval buildings from non-coastal territories
+  // Coastal Battery ("Fortify the Coast"): coastal territory with an existing harbor,
+  // no coastal_battery yet — adds +1 defense die against sea attacks.
+  if (
+    isCoastal &&
+    (existingSet.has('port') || existingSet.has('naval_base')) &&
+    !existingSet.has('coastal_battery') &&
+    !buildOptions.includes('coastal_battery')
+  ) {
+    buildOptions.push('coastal_battery');
+  }
+  // Remove naval / coastal-defense buildings from non-coastal territories
   const filteredOptions = isCoastal
     ? buildOptions
-    : buildOptions.filter((b) => b !== 'port' && b !== 'naval_base');
+    : buildOptions.filter((b) => b !== 'port' && b !== 'naval_base' && b !== 'coastal_battery');
 
   if (buildings.length === 0 && filteredOptions.length === 0 && !canBuild && !eraWonder) return null;
 

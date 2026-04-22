@@ -216,6 +216,24 @@ interface ActiveGame {
   current_player_id?: string | null;
 }
 
+interface WeeklyChallengeSummary {
+  challenge_id: string;
+  week_start_date: string;
+  seed: number;
+  rules_json: {
+    objective?: string;
+    turn_limit?: number;
+    scoring?: string;
+  };
+}
+
+interface RankedQueueIntegrity {
+  smurf_risk_score: number;
+  smurf_risk_tier: 'low' | 'medium' | 'high';
+  stall_penalties: number;
+  provisional?: boolean;
+}
+
 /** Subset of GET /campaign/me for lobby CTA */
 interface LobbyCampaignMe {
   campaign_id: string;
@@ -313,6 +331,9 @@ export default function LobbyPage() {
   const [rankedBucket, setRankedBucket] = useState('');
   const [rankedEra, setRankedEra] = useState('ancient');
   const [queueElapsed, setQueueElapsed] = useState(0);
+  const [rankedIntegrity, setRankedIntegrity] = useState<RankedQueueIntegrity | null>(null);
+  const [weeklyChallenge, setWeeklyChallenge] = useState<WeeklyChallengeSummary | null>(null);
+  const [weeklyPreviewLeaderboard, setWeeklyPreviewLeaderboard] = useState<Array<{ username: string; score: number }>>([]);
 
   // Create game form state
   const [selectedEra, setSelectedEra] = useState(validEra ?? 'ww2');
@@ -389,6 +410,13 @@ export default function LobbyPage() {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
+    const weekly = searchParams.get('weekly');
+    if (weekly === '1') {
+      setLobbyTab('ranked');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (searchParams.get('quickstart') !== 'true') return;
     setShowCreate(true);
     setAiCount(3);
@@ -412,6 +440,22 @@ export default function LobbyPage() {
     api.get<Array<{ game_id: string }>>('/games/live', { params: { limit: 1 } }).then((res) => {
       setTopLiveGameId(res.data[0]?.game_id ?? null);
     }).catch(() => {});
+    api.get<{ challenge: WeeklyChallengeSummary }>('/enhancements/weekly/current')
+      .then(async (res) => {
+        setWeeklyChallenge(res.data.challenge);
+        try {
+          const lb = await api.get<{ leaderboard: Array<{ username: string; score: number }> }>(
+            `/enhancements/weekly/${res.data.challenge.challenge_id}/leaderboard`,
+          );
+          setWeeklyPreviewLeaderboard(lb.data.leaderboard.slice(0, 5));
+        } catch {
+          setWeeklyPreviewLeaderboard([]);
+        }
+      })
+      .catch(() => {
+        setWeeklyChallenge(null);
+        setWeeklyPreviewLeaderboard([]);
+      });
     return () => clearInterval(interval);
   }, []);
 
@@ -443,10 +487,14 @@ export default function LobbyPage() {
 
   const joinRankedQueue = async (bucket: string) => {
     try {
-      await api.post('/matchmaking/join', { era_id: rankedEra, bucket });
+      const res = await api.post<{
+        queued: boolean;
+        integrity?: RankedQueueIntegrity;
+      }>('/matchmaking/join', { era_id: rankedEra, bucket });
       setRankedQueued(true);
       setRankedBucket(bucket);
       setQueueElapsed(0);
+      setRankedIntegrity(res.data.integrity ?? null);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) toast.error(err.response?.data?.error || 'Failed to join queue');
     }
@@ -457,8 +505,32 @@ export default function LobbyPage() {
       await api.delete('/matchmaking/leave');
     } finally {
       setRankedQueued(false);
+      setRankedIntegrity(null);
     }
   };
+
+  useEffect(() => {
+    if (lobbyTab !== 'ranked') return;
+    let cancelled = false;
+    api.get<{
+      queued: boolean;
+      bucket?: string;
+      era_id?: string;
+      enqueued_at?: string;
+      integrity?: RankedQueueIntegrity;
+    }>('/matchmaking/status')
+      .then((res) => {
+        if (cancelled) return;
+        if (res.data.queued) {
+          setRankedQueued(true);
+          if (res.data.bucket) setRankedBucket(res.data.bucket);
+          if (res.data.era_id) setRankedEra(res.data.era_id);
+        }
+        setRankedIntegrity(res.data.integrity ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [lobbyTab]);
 
   const fetchPublicGames = async () => {
     try {
@@ -1106,6 +1178,43 @@ export default function LobbyPage() {
               1v1 domination. No AI. No fog of war. Rating changes apply.
             </p>
 
+            {weeklyChallenge && (
+              <div className="mb-6 rounded-lg border border-cc-gold/25 bg-cc-dark/70 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-cc-muted mb-1">Weekly seeded challenge</p>
+                    <p className="text-cc-gold font-medium">Week of {weeklyChallenge.week_start_date}</p>
+                    <p className="text-cc-muted text-xs mt-1">
+                      {weeklyChallenge.rules_json?.objective ?? 'Same seed, fair conditions for everyone.'}
+                    </p>
+                    {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
+                      <p className="text-cc-muted text-xs mt-1">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/daily?tab=weekly')}
+                    className="btn-secondary text-xs py-1.5 px-3 shrink-0"
+                  >
+                    Open Weekly
+                  </button>
+                </div>
+                {weeklyPreviewLeaderboard.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-cc-border/70">
+                    <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Top this week</p>
+                    <div className="space-y-1.5">
+                      {weeklyPreviewLeaderboard.map((row, idx) => (
+                        <div key={`${row.username}-${idx}`} className="flex items-center justify-between text-xs">
+                          <span className="text-cc-text">#{idx + 1} {row.username}</span>
+                          <span className="text-cc-gold font-mono">{row.score}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mb-4">
               <label className="label">Era</label>
               <select className="input max-w-xs" value={rankedEra} onChange={(e) => setRankedEra(e.target.value)} disabled={rankedQueued}>
@@ -1130,6 +1239,30 @@ export default function LobbyPage() {
               </div>
             ) : (
               <div>
+                {rankedIntegrity && (
+                  <div className="mb-4 rounded-lg border border-cc-border bg-cc-dark/60 p-3">
+                    <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Queue integrity</p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className={`px-2 py-1 rounded border ${
+                        rankedIntegrity.smurf_risk_tier === 'high'
+                          ? 'border-red-500/40 text-red-300 bg-red-500/10'
+                          : rankedIntegrity.smurf_risk_tier === 'medium'
+                            ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+                            : 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
+                      }`}>
+                        Smurf risk: {rankedIntegrity.smurf_risk_tier}
+                      </span>
+                      <span className="px-2 py-1 rounded border border-sky-500/35 text-sky-300 bg-sky-500/10">
+                        Stall penalties: {rankedIntegrity.stall_penalties}
+                      </span>
+                      {rankedIntegrity.provisional && (
+                        <span className="px-2 py-1 rounded border border-cc-gold/35 text-cc-gold bg-cc-gold/10">
+                          Provisional placement
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Real-Time</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   {([

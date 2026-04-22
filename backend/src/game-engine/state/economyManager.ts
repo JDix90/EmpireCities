@@ -6,11 +6,12 @@ import type { GameState, BuildingType } from '../../types';
 import { getStabilityMultiplier, getPopulationMultiplier } from './stabilityManager';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
+import { getEconomyConfig } from '../../services/adminConfig';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
 /** Gold / production units required to build each type. */
-export const BUILDING_COSTS: Record<BuildingType, number> = {
+const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   production_1: 3,
   production_2: 6,
   production_3: 10,
@@ -23,6 +24,7 @@ export const BUILDING_COSTS: Record<BuildingType, number> = {
   special_b: 8,
   port: 5,
   naval_base: 10,
+  coastal_battery: 4,
   // Era wonders
   wonder_colosseum:   18,
   wonder_cathedral:   20,
@@ -48,7 +50,7 @@ export const BUILDING_PREREQUISITES: Partial<Record<BuildingType, BuildingType>>
 };
 
 /** Extra reinforcement units produced per territory per turn from production buildings. */
-export const BUILDING_PRODUCTION_INCOME: Partial<Record<BuildingType, number>> = {
+const DEFAULT_BUILDING_PRODUCTION_INCOME: Partial<Record<BuildingType, number>> = {
   production_1: 1,
   production_2: 2,
   production_3: 4,
@@ -78,6 +80,18 @@ function buildingCategory(b: BuildingType): string {
   if (b === 'port' || b === 'naval_base') return 'naval';
   if (isWonderId(b)) return 'wonder';
   return b; // special_a, special_b — unique each
+}
+
+function resolveBuildingCosts(state: GameState): Record<BuildingType, number> {
+  return state.settings.economy_snapshot?.building_costs as Record<BuildingType, number>
+    ?? getEconomyConfig().building_costs
+    ?? DEFAULT_BUILDING_COSTS;
+}
+
+function resolveProductionIncome(state: GameState): Partial<Record<BuildingType, number>> {
+  return state.settings.economy_snapshot?.production_income
+    ?? getEconomyConfig().production_income
+    ?? DEFAULT_BUILDING_PRODUCTION_INCOME;
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -122,7 +136,7 @@ export function validateBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return { valid: false, error: 'Player not found' };
 
-  const cost = BUILDING_COSTS[buildingType];
+  const cost = resolveBuildingCosts(state)[buildingType];
   const playerProduction = player.special_resource ?? 0;
   if (playerProduction < cost) {
     return { valid: false, error: `Not enough production points (need ${cost}, have ${playerProduction})` };
@@ -176,6 +190,16 @@ export function validateBuild(
     return { valid: false, error: 'Can only build naval structures on coastal territories' };
   }
 
+  // Coastal Battery ("Fortify the Coast"): requires an existing harbor (Port or Naval Base)
+  // on the territory. Because Port must itself be coastal, this transitively enforces the
+  // sea-adjacency requirement without needing the map document here.
+  if (buildingType === 'coastal_battery') {
+    const hasHarbor = existingBuildings.includes('port') || existingBuildings.includes('naval_base');
+    if (!hasHarbor) {
+      return { valid: false, error: 'Coastal Battery requires a Port or Naval Base on this territory' };
+    }
+  }
+
   return { valid: true };
 // Helper to get a readable label for a building type
 function BUILDING_LABEL(buildingType: string): string {
@@ -190,6 +214,7 @@ function BUILDING_LABEL(buildingType: string): string {
     case 'tech_gen_2': return 'Research Center';
     case 'port': return 'Port';
     case 'naval_base': return 'Naval Base';
+    case 'coastal_battery': return 'Coastal Battery';
     default: return buildingType;
   }
 }
@@ -226,7 +251,7 @@ export function applyBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!territory || !player) return;
 
-  const cost = BUILDING_COSTS[buildingType];
+  const cost = resolveBuildingCosts(state)[buildingType];
   player.special_resource = (player.special_resource ?? 0) - cost;
 
   if (!territory.buildings) territory.buildings = [];
@@ -277,7 +302,7 @@ export function collectProduction(
       ? getPopulationMultiplier(territory.population)
       : 1;
     for (const building of territory.buildings ?? []) {
-      productionEarned += Math.floor((BUILDING_PRODUCTION_INCOME[building] ?? 0) * stabilityScale * popScale);
+      productionEarned += Math.floor((resolveProductionIncome(state)[building] ?? 0) * stabilityScale * popScale);
       techPointsEarned += Math.floor((BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale);
     }
   }
@@ -310,6 +335,9 @@ export function collectProduction(
 
 /**
  * Calculate the total defender dice bonus from buildings on a territory.
+ * Note: this is the *unconditional* defense bonus (applies regardless of attack vector).
+ * Sea-only bonuses (e.g. Coastal Battery) are returned separately by `getSeaDefenseBonus`
+ * so callers can gate them on the connection type.
  */
 export function getBuildingDefenseBonus(state: GameState, territoryId: string): number {
   const territory = state.territories[territoryId];
@@ -319,6 +347,30 @@ export function getBuildingDefenseBonus(state: GameState, territoryId: string): 
     bonus += BUILDING_DEFENSE_BONUS[building] ?? 0;
   }
   return bonus;
+}
+
+/** Defender dice bonus (per coastal_battery) that applies ONLY when the incoming
+ *  attack traverses a sea connection. The caller is responsible for checking that
+ *  the attack route is a sea connection before adding this to the total.
+ */
+export const COASTAL_BATTERY_SEA_DEFENSE_BONUS = 1;
+
+/**
+ * Returns the defender dice bonus from sea-conditional buildings on this territory
+ * (currently: `coastal_battery`). Returns 0 when:
+ *   - `economy_enabled` is off,
+ *   - the territory does not exist, or
+ *   - the territory has no coastal battery.
+ *
+ * This intentionally does NOT check the connection type — callers pass the result
+ * through only when the attack is confirmed to come via a sea connection.
+ */
+export function getSeaDefenseBonus(state: GameState, territoryId: string): number {
+  const territory = state.territories[territoryId];
+  if (!territory || !state.settings.economy_enabled) return 0;
+  return (territory.buildings ?? []).includes('coastal_battery')
+    ? COASTAL_BATTERY_SEA_DEFENSE_BONUS
+    : 0;
 }
 
 /**

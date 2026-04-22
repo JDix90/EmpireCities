@@ -10,6 +10,7 @@ import {
   CAMPAIGN_PATH_LIST,
   getPathEraConfig,
 } from './campaignPaths';
+import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 type CampaignEra = typeof CAMPAIGN_ERAS[number];
@@ -352,7 +353,7 @@ async function createEraGame({
   await query(
     `INSERT INTO games (game_id, status, game_type, era_id, map_id, settings_json, created_by)
      VALUES ($1, 'waiting', 'solo', $2, $3, $4::jsonb, $5)`,
-    [gameId, eraId, mapId, JSON.stringify(settings), userId],
+    [gameId, eraId, mapId, JSON.stringify(applyAdminSnapshotsToSettings(settings)), userId],
   );
 
   // Add human player — with locked faction if path requires it

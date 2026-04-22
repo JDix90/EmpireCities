@@ -1,4 +1,5 @@
 import type { GameSettings, VictoryType } from '../../types';
+import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
 
@@ -11,13 +12,14 @@ function isVictoryType(v: unknown): v is VictoryType {
  * Old snapshots only have `victory_type`; new games use `allowed_victory_conditions`.
  */
 export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings {
+  const defaults = getDefaultGameSettingsConfig();
   const fog = typeof raw.fog_of_war === 'boolean' ? raw.fog_of_war : false;
   const turnTimer = typeof raw.turn_timer_seconds === 'number' && !Number.isNaN(raw.turn_timer_seconds)
     ? raw.turn_timer_seconds
-    : 300;
+    : defaults.turn_timer_seconds;
   const initialUnits = typeof raw.initial_unit_count === 'number' && raw.initial_unit_count >= 1
     ? raw.initial_unit_count
-    : 3;
+    : defaults.initial_unit_count;
   const cardEsc = typeof raw.card_set_escalating === 'boolean' ? raw.card_set_escalating : true;
   const dip = typeof raw.diplomacy_enabled === 'boolean' ? raw.diplomacy_enabled : true;
   const factionsEnabled = typeof raw.factions_enabled === 'boolean' ? raw.factions_enabled : false;
@@ -101,6 +103,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     seed: typeof ext.seed === 'number' ? ext.seed : undefined,
     max_players: typeof ext.max_players === 'number' ? ext.max_players : undefined,
+    economy_snapshot: ext.economy_snapshot && typeof ext.economy_snapshot === 'object' ? ext.economy_snapshot : undefined,
+    xp_snapshot: ext.xp_snapshot && typeof ext.xp_snapshot === 'object' ? ext.xp_snapshot : undefined,
   };
 }
 

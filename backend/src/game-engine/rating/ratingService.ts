@@ -1,3 +1,5 @@
+import { getGlickoConfig } from '../../services/adminConfig';
+
 const Q = Math.log(10) / 400;
 const PI2 = Math.PI * Math.PI;
 
@@ -9,6 +11,11 @@ const PHI_CEILING = 350;
 // logic; ceiling prevents runaway inflation from degenerate game sequences.
 const MU_FLOOR = 100;
 const MU_CEILING = 4000;
+
+export function getInitialRatings(): { mu: number; phi: number } {
+  const cfg = getGlickoConfig();
+  return { mu: cfg.initial_mu, phi: cfg.initial_phi };
+}
 
 interface Opponent {
   mu: number;
@@ -30,6 +37,7 @@ export function glickoUpdate(
   opponents: Opponent[],
 ): { mu: number; phi: number } {
   if (opponents.length === 0) return { mu: playerMu, phi: playerPhi };
+  const cfg = getGlickoConfig();
 
   let dInvSq = 0;
   let muDelta = 0;
@@ -46,8 +54,8 @@ export function glickoUpdate(
   const newPhi = Math.sqrt(1 / (1 / phiSq + dInvSq));
 
   return {
-    mu: Math.min(MU_CEILING, Math.max(MU_FLOOR, Math.round(newMu * 10) / 10)),
-    phi: Math.min(PHI_CEILING, Math.max(PHI_FLOOR, Math.round(newPhi * 10) / 10)),
+    mu: Math.min(cfg.mu_ceiling ?? MU_CEILING, Math.max(cfg.mu_floor ?? MU_FLOOR, Math.round(newMu * 10) / 10)),
+    phi: Math.min(cfg.phi_ceiling ?? PHI_CEILING, Math.max(cfg.phi_floor ?? PHI_FLOOR, Math.round(newPhi * 10) / 10)),
   };
 }
 
@@ -61,6 +69,7 @@ export function displayRating(mu: number, phi: number): { display: number; provi
 }
 
 export function syntheticAiOpponent(difficulty: string): { mu: number; phi: number } {
+  const initial = getInitialRatings();
   const offsets: Record<string, number> = {
     easy: -200,
     medium: 0,
@@ -68,7 +77,7 @@ export function syntheticAiOpponent(difficulty: string): { mu: number; phi: numb
     expert: 300,
     tutorial: -400,
   };
-  return { mu: INITIAL_MU + (offsets[difficulty] ?? 0), phi: 50 };
+  return { mu: initial.mu + (offsets[difficulty] ?? 0), phi: 50 };
 }
 
 // ── Ranked tier helpers ─────────────────────────────────────────────────

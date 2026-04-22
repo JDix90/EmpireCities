@@ -778,7 +778,7 @@ export default function GamePage() {
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory';
+      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
     }) => {
       const myId = userRef.current?.user_id;
@@ -1173,8 +1173,8 @@ export default function GamePage() {
   useEffect(() => {
     if (!lobbySnapshot || !user?.user_id) return;
     const me = lobbySnapshot.players.find(p => p.user_id === user.user_id);
-    if (me && 'faction_id' in me) {
-      requestedFactionRef.current = (me as any).faction_id || null;
+    if (me) {
+      requestedFactionRef.current = me.faction_id || null;
     }
   }, [lobbySnapshot, user?.user_id]);
 

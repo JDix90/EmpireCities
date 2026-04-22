@@ -42,7 +42,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
   // Map of player_id to selected faction_id
   const playerFactions: Record<string, string | null> = {};
   lobby.players.forEach(p => {
-    playerFactions[p.user_id || `ai_${p.player_index}`] = (p as any).faction_id || null;
+    playerFactions[p.user_id || `ai_${p.player_index}`] = p.faction_id || null;
   });
 
   // Set of all picked faction_ids

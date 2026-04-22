@@ -25,6 +25,7 @@ import {
   validateBuild,
   applyBuild,
   getBuildingDefenseBonus,
+  getSeaDefenseBonus,
   onTerritoryCapture,
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus } from '../game-engine/state/techManager';
@@ -45,7 +46,7 @@ import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/
 import { recordGameResults, computeRanks } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
-import { INITIAL_MU, INITIAL_PHI } from '../game-engine/rating/ratingService';
+import { getInitialRatings } from '../game-engine/rating/ratingService';
 import {
   updateWinStreak,
   updateDailyStreak,
@@ -123,6 +124,7 @@ type WaitingLobbyPlayerRow = {
   player_index: number;
   user_id: string | null;
   username: string | null;
+  faction_id: string | null;
   player_color: string;
   is_ai: boolean;
   ai_difficulty: string | null;
@@ -236,7 +238,7 @@ async function loadWaitingLobbyDetails(gameId: string): Promise<WaitingLobbyDeta
 
   const players = await query<WaitingLobbyPlayerRow>(
     `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
-            gp.is_ai, gp.ai_difficulty, gp.is_eliminated
+            gp.is_ai, gp.ai_difficulty, gp.is_eliminated, gp.faction_id
      FROM game_players gp
      LEFT JOIN users u ON u.user_id = gp.user_id
      WHERE gp.game_id = $1
@@ -297,6 +299,7 @@ async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: Wa
       ai_difficulty: player.ai_difficulty,
       is_eliminated: player.is_eliminated,
       final_rank: null as number | null,
+      faction_id: player.faction_id ?? null,
     })),
   });
 }
@@ -371,6 +374,14 @@ let gameIoSingleton: Server | null = null;
 /** For HTTP handlers (invites, etc.) that need to emit to user rooms. */
 export function getGameIo(): Server | null {
   return gameIoSingleton;
+}
+
+/**
+ * Public re-export so HTTP route handlers (e.g. /api/lobby/faction-select)
+ * can trigger a lobby broadcast without circular-import issues.
+ */
+export async function emitWaitingLobbySnapshotPublic(io: Server, gameId: string): Promise<void> {
+  return emitWaitingLobbySnapshot(io, gameId);
 }
 
 export function initGameSocket(httpServer: HttpServer): Server {
@@ -479,7 +490,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         const players = await query<WaitingLobbyPlayerRow>(
           `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
-                  gp.is_ai, gp.ai_difficulty, gp.is_eliminated
+                  gp.is_ai, gp.ai_difficulty, gp.is_eliminated, gp.faction_id
            FROM game_players gp
            LEFT JOIN users u ON u.user_id = gp.user_id
            WHERE gp.game_id = $1
@@ -1033,7 +1044,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const wonderDefenseBonus = state.settings.economy_enabled
         ? getWonderDefenseBonus(state, toTerritory.owner_id ?? '')
         : 0;
-      const totalDefenseBonus = buildingDefenseBonus + techDefenseBonus + factionDefenseBonus + eventDefenseBonus + wonderDefenseBonus;
+      // Fortify the Coast: coastal_battery grants +1 defense die ONLY when the incoming
+      // attack traverses a sea connection. Land and orbit attacks receive no bonus.
+      const seaDefenseBonus = connection?.type === 'sea'
+        ? getSeaDefenseBonus(state, toId)
+        : 0;
+      const totalDefenseBonus = buildingDefenseBonus + techDefenseBonus + factionDefenseBonus + eventDefenseBonus + wonderDefenseBonus + seaDefenseBonus;
       const defenderDiceOverride = totalDefenseBonus > 0
         ? Math.min(toTerritory.unit_count, 2) + totalDefenseBonus
         : undefined;
@@ -2123,6 +2139,77 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
+      // If the resigning player was the last human, end the game immediately —
+      // there is no value in letting AI bots fight on with no human audience.
+      //
+      // Anti-exploit policy: a player at turn ≥ 3 who is losing cannot use
+      // resignation to escape a rating/streak loss. After the grace window the
+      // leading surviving AI is credited with a 'last_standing' victory and
+      // the full finalizeGame pipeline runs (ratings, XP, streaks, achievements).
+      //
+      // The grace window (turns 1–2) exists for honest mis-starts: wrong map,
+      // wrong settings, bad initial draft. Early exits are recorded as an
+      // 'abandoned' game status with no stat impact. This is deliberately short
+      // — any meaningful information about game outcome requires at least a
+      // full round of play.
+      const RESIGN_GRACE_TURNS = 2;
+      const remainingHumans = state.players.filter((p) => !p.is_eliminated && !p.is_ai);
+      if (remainingHumans.length === 0) {
+        const survivingAi = state.players
+          .filter((p) => !p.is_eliminated && p.is_ai)
+          .sort((a, b) => b.territory_count - a.territory_count);
+        const inGraceWindow = state.turn_number <= RESIGN_GRACE_TURNS;
+        const haveAiWinner = survivingAi.length > 0;
+
+        if (inGraceWindow || !haveAiWinner) {
+          state.phase = 'game_over';
+          state.victory_condition = 'abandoned';
+          clearTurnTimer(gameId, state);
+          try {
+            await pgPool.query(
+              `UPDATE games SET status = 'abandoned', ended_at = NOW() WHERE game_id = $1 AND status <> 'completed'`,
+              [gameId],
+            );
+            await saveGameState(gameId, state);
+          } catch (err) {
+            console.error('[Socket] Failed to persist abandoned game:', err);
+          }
+          io.to(gameId).emit('game:over', {
+            winner_id: null,
+            winner_ids: [],
+            winner_name: '',
+            turn_count: state.turn_number,
+            players: state.players.map((p) => ({
+              player_id: p.player_id,
+              username: p.username,
+              color: p.color,
+              territory_count: p.territory_count,
+              is_eliminated: p.is_eliminated,
+              is_ai: p.is_ai,
+            })),
+            victory_condition: 'abandoned' as const,
+            win_probability_history: state.win_probability_history ?? [],
+            rating_deltas: {},
+            is_ranked: false,
+            achievements_unlocked: {},
+            xp_earned_by_player: {},
+          });
+          broadcastState(io, gameId, state);
+          return;
+        }
+
+        // Out of grace window: credit the leading surviving AI with the win
+        // and run the normal finalize path so the resigner takes a real loss.
+        const aiWinner = survivingAi[0]!;
+        state.phase = 'game_over';
+        state.winner_id = aiWinner.player_id;
+        state.winner_ids = [aiWinner.player_id];
+        state.victory_condition = 'last_standing';
+        await finalizeGame(io, gameId, state, [aiWinner.player_id]);
+        broadcastState(io, gameId, state);
+        return;
+      }
+
       const resignVictoryResult = checkVictory(state, map);
       if (resignVictoryResult) {
         const { winnerIds, condition } = resignVictoryResult;
@@ -2697,9 +2784,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         [humanPlayers.map((p) => p.player_id), resultCtx.isRanked ? 'ranked' : 'solo'],
       )).rows;
       const ratingMap = new Map(ratingRows.map((r) => [r.user_id, { mu: r.mu, phi: r.phi }]));
+      const initialRatings = getInitialRatings();
       const avgMu = ratingRows.length > 0
         ? ratingRows.reduce((s, r) => s + r.mu, 0) / ratingRows.length
-        : INITIAL_MU;
+        : initialRatings.mu;
 
       const gameRow = await client.query<{ game_type: string; is_ranked: boolean }>(
         'SELECT game_type, COALESCE(is_ranked, false) AS is_ranked FROM games WHERE game_id = $1',
@@ -2708,7 +2796,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       const gameType = (gameRow.rows[0]?.game_type ?? 'solo') as 'solo' | 'multiplayer' | 'hybrid';
 
       for (const p of humanPlayers) {
-        const myRating = ratingMap.get(p.player_id) ?? { mu: INITIAL_MU, phi: INITIAL_PHI };
+        const myRating = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
         const unlocked = await checkAndUnlockAchievements(client, {
           userId: p.player_id,
           gameId,
@@ -3254,23 +3342,22 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (!from || !to || from.unit_count < 2 || from.owner_id !== currentPlayer.player_id) continue;
     if (to.owner_id === currentPlayer.player_id) continue;
 
+    const aiConnection = map.connections.find(
+      (c) => (c.from === action.from && c.to === action.to) || (c.from === action.to && c.to === action.from),
+    );
+
     // Naval sea-lane gating: AI must have a fleet to cross sea connections
-    if (state.settings.naval_enabled) {
-      const aiConnection = map.connections.find(
-        (c) => (c.from === action.from && c.to === action.to) || (c.from === action.to && c.to === action.from),
-      );
-      if (aiConnection?.type === 'sea') {
-        if (!from.naval_units || from.naval_units <= 0) continue;
-        const defenderFleets = to.naval_units ?? 0;
-        if (defenderFleets > 0) {
-          const aiNavalResult = resolveNavalCombat(from.naval_units, defenderFleets);
-          from.naval_units = Math.max(0, from.naval_units - aiNavalResult.attacker_losses);
-          to.naval_units = Math.max(0, defenderFleets - aiNavalResult.defender_losses);
-          io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiNavalResult });
-          if (!aiNavalResult.attacker_won) continue;
-        }
-        from.naval_units = Math.max(0, from.naval_units - 1);
+    if (state.settings.naval_enabled && aiConnection?.type === 'sea') {
+      if (!from.naval_units || from.naval_units <= 0) continue;
+      const defenderFleets = to.naval_units ?? 0;
+      if (defenderFleets > 0) {
+        const aiNavalResult = resolveNavalCombat(from.naval_units, defenderFleets);
+        from.naval_units = Math.max(0, from.naval_units - aiNavalResult.attacker_losses);
+        to.naval_units = Math.max(0, defenderFleets - aiNavalResult.defender_losses);
+        io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiNavalResult });
+        if (!aiNavalResult.attacker_won) continue;
       }
+      from.naval_units = Math.max(0, from.naval_units - 1);
     }
 
     const aiDefenderId = to.owner_id;
@@ -3293,7 +3380,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     const aiWonderDefenseBonus = state.settings.economy_enabled
       ? getWonderDefenseBonus(state, aiDefenderId ?? '')
       : 0;
-    const aiTotalDefenseBonus = aiBuildingDefenseBonus + aiTechDefenseBonus + aiFactionDefenseBonus + aiEventDefenseBonus + aiWonderDefenseBonus;
+    // Fortify the Coast: coastal_battery grants +1 defense die ONLY on sea attacks.
+    const aiSeaDefenseBonus = aiConnection?.type === 'sea'
+      ? getSeaDefenseBonus(state, action.to)
+      : 0;
+    const aiTotalDefenseBonus = aiBuildingDefenseBonus + aiTechDefenseBonus + aiFactionDefenseBonus + aiEventDefenseBonus + aiWonderDefenseBonus + aiSeaDefenseBonus;
     const aiDefenderDiceOverride = aiTotalDefenseBonus > 0
       ? Math.min(to.unit_count, 2) + aiTotalDefenseBonus
       : undefined;

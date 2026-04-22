@@ -27,6 +27,8 @@ export interface AuthUser {
   gold?: number;
   /** Set for JWTs from POST /api/auth/guest */
   is_guest?: boolean;
+  /** True when the user can access /admin routes. */
+  is_admin?: boolean;
   /** True once the basic tutorial has been completed. */
   has_completed_tutorial?: boolean;
   /** Onboarding quest stage (0–5, null = completed) */

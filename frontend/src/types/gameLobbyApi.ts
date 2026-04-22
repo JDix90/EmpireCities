@@ -9,6 +9,7 @@ export interface GameLobbyPlayerRow {
   ai_difficulty: string | null;
   is_eliminated: boolean;
   final_rank?: number | null;
+  faction_id?: string | null;
 }
 
 export interface GameLobbySettingsJson {

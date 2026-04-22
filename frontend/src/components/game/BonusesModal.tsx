@@ -39,6 +39,7 @@ const BUILDING_META: Record<string, { label: string; effect: string; color: stri
   special_b:    { label: 'Special Project', effect: 'Unique era project',         color: 'text-emerald-300'},
   port:         { label: 'Port',            effect: 'Enables fleet deployment',   color: 'text-cyan-300'   },
   naval_base:   { label: 'Naval Base',      effect: '+2 fleet capacity',          color: 'text-cyan-300'   },
+  coastal_battery: { label: 'Coastal Battery', effect: '+1 defender die vs sea attacks only', color: 'text-cyan-300' },
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────

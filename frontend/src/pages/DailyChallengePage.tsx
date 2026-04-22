@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
@@ -51,6 +51,24 @@ interface DailyResponse {
   leaderboard: LeaderboardRow[];
 }
 
+interface WeeklyChallengeSummary {
+  challenge_id: string;
+  week_start_date: string;
+  seed: number;
+  rules_json: {
+    objective?: string;
+    turn_limit?: number;
+    scoring?: string;
+  };
+}
+
+interface WeeklyLeaderboardRow {
+  username: string;
+  score: number;
+  efficiency_score: number;
+  duration_seconds: number;
+}
+
 const ERA_ICON: Record<string, string> = {
   ancient:      '⚔️',
   medieval:     '🏰',
@@ -82,9 +100,12 @@ function formatTime(iso: string): string {
 
 export default function DailyChallengePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [weeklyChallenge, setWeeklyChallenge] = useState<WeeklyChallengeSummary | null>(null);
+  const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<WeeklyLeaderboardRow[]>([]);
 
   useEffect(() => {
     api
@@ -92,6 +113,30 @@ export default function DailyChallengePage() {
       .then((res) => setData(res.data))
       .catch(() => toast.error('Could not load Daily Challenge'))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get<{ challenge: WeeklyChallengeSummary }>('/enhancements/weekly/current')
+      .then(async (res) => {
+        if (cancelled) return;
+        setWeeklyChallenge(res.data.challenge);
+        try {
+          const lb = await api.get<{ leaderboard: WeeklyLeaderboardRow[] }>(
+            `/enhancements/weekly/${res.data.challenge.challenge_id}/leaderboard`,
+          );
+          if (!cancelled) setWeeklyLeaderboard(lb.data.leaderboard.slice(0, 10));
+        } catch {
+          if (!cancelled) setWeeklyLeaderboard([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWeeklyChallenge(null);
+          setWeeklyLeaderboard([]);
+        }
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const handlePlay = async () => {
@@ -135,6 +180,7 @@ export default function DailyChallengePage() {
   const alreadyPlayed = my_entry !== null;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;
   const eraIcon = ERA_ICON[challenge.era_id] ?? '🏛';
+  const weeklyTabRequested = searchParams.get('tab') === 'weekly';
 
   return (
     <div className="min-h-screen bg-cc-dark text-cc-text">
@@ -262,6 +308,53 @@ export default function DailyChallengePage() {
             </div>
           )}
         </div>
+
+        {/* Weekly seeded challenge entry point */}
+        {weeklyChallenge && (
+          <div className={`rounded-xl border overflow-hidden ${
+            weeklyTabRequested
+              ? 'border-cc-gold/45 bg-cc-gold/5'
+              : 'border-cc-border bg-[#1a1a2e]/60'
+          }`}>
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-cc-border">
+              <Trophy className="w-4 h-4 text-cc-gold" />
+              <h3 className="font-display text-sm text-cc-gold">Weekly Seeded Challenge</h3>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-cc-text text-sm">
+                Week of <span className="text-cc-gold font-medium">{weeklyChallenge.week_start_date}</span>
+              </p>
+              <p className="text-cc-muted text-sm">
+                {weeklyChallenge.rules_json?.objective ?? 'Same seed and rules for every competitor.'}
+              </p>
+              {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
+                <p className="text-cc-muted text-xs">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/lobby?weekly=1')}
+                  className="btn-primary flex-1"
+                >
+                  Enter Weekly Queue
+                </button>
+              </div>
+              {weeklyLeaderboard.length > 0 && (
+                <div className="pt-3 border-t border-cc-border">
+                  <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Top weekly players</p>
+                  <div className="space-y-1.5">
+                    {weeklyLeaderboard.slice(0, 5).map((row, idx) => (
+                      <div key={`${row.username}-${idx}`} className="flex items-center justify-between text-xs">
+                        <span className="text-cc-text">#{idx + 1} {row.username}</span>
+                        <span className="text-cc-gold font-mono">{row.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

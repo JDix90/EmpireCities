@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { api } from './services/api';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -27,6 +28,7 @@ const LeaderboardsPage = lazy(() => import('./pages/LeaderboardsPage'));
 const LiveGamesPage = lazy(() => import('./pages/LiveGamesPage'));
 const SpectatorPage = lazy(() => import('./pages/SpectatorPage'));
 const ModalLabPage = lazy(() => import('./pages/ModalLabPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 
 function RouteLoadingFallback() {
   return (
@@ -63,6 +65,14 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/lobby" replace />;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.is_admin) {
+    return <Navigate to="/lobby" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   const { isAuthenticated } = useAuthStore();
   const user = useAuthStore((s) => s.user);
@@ -76,7 +86,16 @@ export default function App() {
     attemptedInitialSilentRefreshRef.current = true;
     const state = useAuthStore.getState();
     if (!state.isAuthenticated || !state.user || state.user.is_guest || !state.accessToken) return;
-    void state.refreshToken({ silent: true });
+    void (async () => {
+      const ok = await state.refreshToken({ silent: true });
+      if (!ok) return;
+      try {
+        const res = await api.get('/users/me');
+        useAuthStore.getState().setUser(res.data);
+      } catch {
+        /* ignore — profile fetch is best-effort for flags like is_admin */
+      }
+    })();
   }, []);
 
   // Initialize push notifications for authenticated non-guest users
@@ -124,6 +143,7 @@ export default function App() {
         <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />
         <Route path="/spectate/:gameId" element={<PrivateRoute><SpectatorPage /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><AdminRoute><AdminPage /></AdminRoute></PrivateRoute>} />
 
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />

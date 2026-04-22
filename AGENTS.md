@@ -29,3 +29,4 @@ This repo is **Eras of Empire**: a browser-based historical Risk-style game — 
 - Maps live in **MongoDB**; game sessions in **PostgreSQL** — keep them distinct when debugging.
 - Globe: respect **GeoJSON winding** and **`projection_bounds` / `geo_polygon`**; map data changes may affect **both** 2D and globe.
 - Do not add new markdown docs unless the user asks.
+- **0→1 feature work:** when the user asks to add a new building, tech, wonder, event card, faction ability, combat/economy rule, or any new gameplay capability, load and follow `.cursor/skills/feature-integration-playbook/SKILL.md` before touching code.

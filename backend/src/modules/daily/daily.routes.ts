@@ -5,6 +5,7 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
+import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
@@ -152,7 +153,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
        VALUES ($1, $2, $3, 'waiting', $4, 'solo')`,
-      [gameId, row.map_id, row.era_id, JSON.stringify(settings)],
+      [gameId, row.map_id, row.era_id, JSON.stringify(applyAdminSnapshotsToSettings(settings))],
     );
 
     // Human player at index 0

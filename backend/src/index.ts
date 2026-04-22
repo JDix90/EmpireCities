@@ -10,15 +10,16 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import type { Server } from 'socket.io';
 import { config } from './config';
 import { validateProductionEnv } from './config/validateEnv';
-import { connectPostgres, pgPool } from './db/postgres';
+import { connectPostgres, pgPool, query, queryOne } from './db/postgres';
 import { connectMongo } from './db/mongo';
 import { connectRedis, redis } from './db/redis';
 import { registerErrorHandler } from './errorHandler';
+import { authenticate } from './middleware/authenticate';
 import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
 import { mapsRoutes } from './modules/maps/maps.routes';
-import { initGameSocket, shutdownGameSocket, getActiveGameMetrics } from './sockets/gameSocket';
+import { initGameSocket, shutdownGameSocket, getActiveGameMetrics, getGameIo, emitWaitingLobbySnapshotPublic } from './sockets/gameSocket';
 import { runReadinessChecks } from './health/readiness';
 import { featureFlags } from './config/featureFlags';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
@@ -30,6 +31,7 @@ import { shareRoutes } from './modules/share/share.routes';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { feedRoutes } from './modules/feed/feed.routes';
 import { enhancementsRoutes } from './modules/enhancements/enhancements.routes';
+import { adminRoutes } from './modules/admin/admin.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
 import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
@@ -39,6 +41,7 @@ import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleSer
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry } from './services/sentry';
+import { refreshAdminConfigCache } from './services/adminConfig';
 
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
@@ -108,9 +111,100 @@ async function bootstrap(): Promise<void> {
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
   await app.register(feedRoutes, { prefix: '/api/feed' });
   await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });
+  await app.register(
+    async (scope) => {
+      await scope.register(fastifyRateLimit, {
+        max: 30,
+        timeWindow: '1 minute',
+        errorResponseBuilder: () => ({
+          error: 'Too many admin requests. Please wait and try again.',
+        }),
+      });
+      await scope.register(adminRoutes);
+    },
+    { prefix: '/api/admin' },
+  );
 
   app.get('/api/lobby/seasonal', async (_req, reply) => {
     return reply.send(getActiveSeasonal(new Date()));
+  });
+
+  app.post('/api/lobby/faction-select', { preHandler: [authenticate] }, async (req, reply) => {
+    const body = req.body as {
+      game_id?: unknown;
+      player_id?: unknown;
+      ai_index?: unknown;
+      faction_id?: unknown;
+    };
+
+    const gameId = typeof body.game_id === 'string' ? body.game_id : null;
+    const playerId = typeof body.player_id === 'string' ? body.player_id : null;
+    const aiIndex = typeof body.ai_index === 'number' ? body.ai_index : null;
+    const factionId = typeof body.faction_id === 'string' && body.faction_id ? body.faction_id : null;
+
+    if (!gameId) return reply.status(400).send({ error: 'game_id is required' });
+
+    const game = await queryOne<{ status: string; settings_json: unknown }>(
+      'SELECT status, settings_json FROM games WHERE game_id = $1',
+      [gameId],
+    );
+    if (!game) return reply.status(404).send({ error: 'Game not found' });
+    if (game.status !== 'waiting') return reply.status(409).send({ error: 'Game has already started' });
+
+    const settings = typeof game.settings_json === 'string'
+      ? (JSON.parse(game.settings_json) as Record<string, unknown>)
+      : (game.settings_json as Record<string, unknown>);
+
+    if (!settings?.factions_enabled) {
+      return reply.status(409).send({ error: 'Factions are not enabled for this game' });
+    }
+
+    type PlayerRow = { player_index: number; user_id: string | null; is_ai: boolean; faction_id: string | null };
+    const players = await query<PlayerRow>(
+      'SELECT player_index, user_id, is_ai, faction_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
+      [gameId],
+    );
+
+    const hostRow = players.find((p) => p.player_index === 0 && !p.is_ai);
+    const isHost = hostRow?.user_id === req.userId;
+
+    // Determine which player row to update
+    let targetRow: PlayerRow | undefined;
+    if (aiIndex !== null) {
+      // Assigning AI faction — only the host may do this
+      if (!isHost) return reply.status(403).send({ error: 'Only the host can assign factions to AI players' });
+      targetRow = players.find((p) => p.is_ai && p.player_index === aiIndex);
+    } else if (playerId) {
+      // Assigning own faction — must be yourself
+      if (playerId !== req.userId) return reply.status(403).send({ error: 'You can only set your own faction' });
+      targetRow = players.find((p) => p.user_id === playerId && !p.is_ai);
+    } else {
+      // No target specified — treat as the requesting user's own row
+      targetRow = players.find((p) => p.user_id === req.userId && !p.is_ai);
+    }
+
+    if (!targetRow) return reply.status(404).send({ error: 'Player not found in this game' });
+
+    // Ensure no other player has already claimed this faction
+    if (factionId) {
+      const collision = players.find(
+        (p) => p.faction_id === factionId && p.player_index !== targetRow!.player_index,
+      );
+      if (collision) return reply.status(409).send({ error: 'That faction is already taken by another player' });
+    }
+
+    await query(
+      'UPDATE game_players SET faction_id = $1 WHERE game_id = $2 AND player_index = $3',
+      [factionId, gameId, targetRow.player_index],
+    );
+
+    // Notify all players in the lobby about the updated faction selections
+    const io = getGameIo();
+    if (io) {
+      await emitWaitingLobbySnapshotPublic(io, gameId);
+    }
+
+    return reply.send({ ok: true });
   });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -171,6 +265,7 @@ async function bootstrap(): Promise<void> {
   startChallengeSweep();
   startOrphanedGameSweep();
   startGuestCleanupSweep();
+  await refreshAdminConfigCache().catch(() => {});
 
   void ensureDailyChallengeForToday().catch((err) => {
     console.error('[daily] Failed to ensure today challenge row:', err);

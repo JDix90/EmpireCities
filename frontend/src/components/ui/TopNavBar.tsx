@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Plus, Swords
+  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Plus, Swords, Shield
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 
@@ -11,6 +11,7 @@ type NavItem = {
   icon: React.ElementType;
   title?: string;
   hideForGuest?: boolean;
+  hideForNonAdmin?: boolean;
   exact?: boolean;
 };
 
@@ -24,6 +25,7 @@ const mainNav: NavItem[] = [
   { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
   { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },
   { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true },
+  { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
 ];
 
 const accountNav: NavItem[] = [
@@ -48,8 +50,8 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Main nav groups */}
       <div className={styles.mainNav}>
         <div className={styles.navLinks}>
-          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, exact }) =>
-            (!hideForGuest || !user?.is_guest) && (
+          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, exact }) =>
+            (!hideForGuest || !user?.is_guest) && (!hideForNonAdmin || user?.is_admin) && (
               <Link
                 key={to}
                 to={to}

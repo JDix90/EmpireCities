@@ -7,6 +7,8 @@ declare module 'fastify' {
     username: string;
     /** True when JWT was issued by POST /api/auth/guest */
     isGuest: boolean;
+    /** True for administrator accounts. */
+    isAdmin: boolean;
   }
 }
 
@@ -33,4 +35,5 @@ export async function authenticate(
   request.userId = payload.sub;
   request.username = payload.username;
   request.isGuest = payload.guest === true;
+  request.isAdmin = payload.admin === true;
 }

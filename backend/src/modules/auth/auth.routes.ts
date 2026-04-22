@@ -65,7 +65,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [userId, username, email, password_hash]
     );
 
-    const accessToken = signAccessToken({ sub: userId, username, guest: true }, '4h');
+    const accessToken = signAccessToken({ sub: userId, username, guest: true, admin: false }, '4h');
 
     return reply.send({
       accessToken,
@@ -77,6 +77,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         xp: 0,
         mmr: 1000,
         is_guest: true,
+          is_admin: false,
       },
     });
   });
@@ -99,14 +100,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const password_hash = await bcrypt.hash(password, config.bcryptRounds);
-    const [user] = await query<{ user_id: string; username: string; level: number; xp: number; mmr: number }>(
+    const [user] = await query<{ user_id: string; username: string; level: number; xp: number; mmr: number; is_admin: boolean }>(
       `INSERT INTO users (username, email, password_hash)
        VALUES ($1, $2, $3)
-       RETURNING user_id, username, level, xp, mmr`,
+       RETURNING user_id, username, level, xp, mmr, is_admin`,
       [username, email, password_hash]
     );
 
-    const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
+    const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
     const refreshHash = hashRefreshToken(refreshToken);
@@ -133,9 +134,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const user = await queryOne<{
       user_id: string; username: string; password_hash: string;
-      level: number; xp: number; mmr: number; is_banned: boolean;
+      level: number; xp: number; mmr: number; is_banned: boolean; is_admin: boolean;
     }>(
-      'SELECT user_id, username, password_hash, level, xp, mmr, is_banned FROM users WHERE email = $1',
+      'SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin FROM users WHERE email = $1',
       [email]
     );
 
@@ -146,7 +147,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: 'Account is banned' });
     }
 
-    const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
+    const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
     const refreshHash = hashRefreshToken(refreshToken);
@@ -193,7 +194,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     type RotationResult =
-      | { code: 'ok'; username: string }
+      | { code: 'ok'; username: string; is_admin: boolean }
       | { code: 'invalid' }
       | { code: 'no_user' };
 
@@ -211,8 +212,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           return { code: 'invalid' };
         }
 
-        const { rows: userRows } = await client.query<{ username: string }>(
-          'SELECT username FROM users WHERE user_id = $1',
+        const { rows: userRows } = await client.query<{ username: string; is_admin: boolean }>(
+          'SELECT username, is_admin FROM users WHERE user_id = $1',
           [payload.sub],
         );
         if (userRows.length === 0) {
@@ -228,7 +229,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           [newTokenId, payload.sub, newRefreshHash, expiresAt],
         );
 
-        return { code: 'ok', username: userRows[0].username };
+        return { code: 'ok', username: userRows[0].username, is_admin: userRows[0].is_admin };
       });
     } catch (err) {
       request.log.error({ err, userId: payload.sub }, 'refresh rotation failed');
@@ -242,7 +243,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'User not found' });
     }
 
-    const newAccessToken = signAccessToken({ sub: payload.sub, username: rotation.username });
+    const newAccessToken = signAccessToken({
+      sub: payload.sub,
+      username: rotation.username,
+      admin: rotation.is_admin,
+    });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.send({ accessToken: newAccessToken });
