@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import type { Server } from 'socket.io';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 
@@ -33,45 +33,77 @@ export function setMatchmakingIo(io: Server): void {
   _io = io;
 }
 
-async function attemptMatch(eraId: string, bucket: string): Promise<void> {
-  const candidates = await query<{
-    id: string; user_id: string; era_id: string; bucket: string;
-    mu: number; phi: number; socket_id: string | null; enqueued_at: Date;
-  }>(
-    `SELECT * FROM ranked_queue
-     WHERE era_id = $1 AND bucket = $2
-     ORDER BY enqueued_at
-     LIMIT 20`,
-    [eraId, bucket],
-  );
-
-  if (candidates.length < 2) return;
-
-  for (let i = 0; i < candidates.length - 1; i++) {
-    for (let j = i + 1; j < candidates.length; j++) {
-      const a = candidates[i];
-      const b = candidates[j];
-      const waitMs = Date.now() - Math.min(
-        new Date(a.enqueued_at).getTime(),
-        new Date(b.enqueued_at).getTime(),
-      );
-      const waitBonus = 50 * Math.floor(waitMs / 30000);
-      const threshold = 200 + Math.max(a.phi, b.phi) + waitBonus;
-
-      if (Math.abs(a.mu - b.mu) <= threshold) {
-        await createRankedGame(a, b, eraId, bucket as Bucket);
-        return;
-      }
-    }
-  }
+interface QueueCandidate {
+  id: string;
+  user_id: string;
+  era_id: string;
+  bucket: string;
+  mu: number;
+  phi: number;
+  socket_id: string | null;
+  enqueued_at: Date;
 }
 
-async function createRankedGame(
-  playerA: { user_id: string; socket_id: string | null },
-  playerB: { user_id: string; socket_id: string | null },
+/**
+ * Scan the ranked queue for a matchable pair and create the game atomically.
+ *
+ * Concurrency model: both the per-join call and the periodic sweep can run
+ * this function simultaneously. Without transactional isolation, two sweeps
+ * could SELECT overlapping candidate sets and each pair the same user into a
+ * different game, producing two ranked games where one player is in both.
+ *
+ * Fix: wrap the entire read-pair-delete-insert flow in a single transaction
+ * and use `FOR UPDATE SKIP LOCKED` on the candidate SELECT. Rows locked by a
+ * parallel matcher are skipped rather than queued for, so concurrent sweeps
+ * simply work on disjoint candidate sets. If creation of the game fails, the
+ * queue DELETEs roll back and players remain queued for the next attempt.
+ */
+async function attemptMatch(eraId: string, bucket: string): Promise<void> {
+  const match = await withTransaction(async (client) => {
+    const { rows: candidates } = await client.query<QueueCandidate>(
+      `SELECT * FROM ranked_queue
+       WHERE era_id = $1 AND bucket = $2
+       ORDER BY enqueued_at
+       LIMIT 20
+       FOR UPDATE SKIP LOCKED`,
+      [eraId, bucket],
+    );
+
+    if (candidates.length < 2) return null;
+
+    // O(n^2) pair search is fine at LIMIT 20.
+    for (let i = 0; i < candidates.length - 1; i++) {
+      for (let j = i + 1; j < candidates.length; j++) {
+        const a = candidates[i];
+        const b = candidates[j];
+        const waitMs = Date.now() - Math.min(
+          new Date(a.enqueued_at).getTime(),
+          new Date(b.enqueued_at).getTime(),
+        );
+        const waitBonus = 50 * Math.floor(waitMs / 30000);
+        const threshold = 200 + Math.max(a.phi, b.phi) + waitBonus;
+
+        if (Math.abs(a.mu - b.mu) <= threshold) {
+          const gameId = await createRankedGameTx(client, a, b, eraId, bucket as Bucket);
+          return { gameId, a, b };
+        }
+      }
+    }
+    return null;
+  });
+
+  if (!match || !_io) return;
+  if (match.a.socket_id) _io.to(match.a.socket_id).emit('matchmaking:found', { game_id: match.gameId });
+  if (match.b.socket_id) _io.to(match.b.socket_id).emit('matchmaking:found', { game_id: match.gameId });
+}
+
+async function createRankedGameTx(
+  client: import('pg').PoolClient,
+  playerA: QueueCandidate,
+  playerB: QueueCandidate,
   eraId: string,
   bucket: Bucket,
-): Promise<void> {
+): Promise<string> {
   const gameId = uuidv4();
   const bucketCfg = BUCKET_SETTINGS[bucket];
   const settings: Record<string, unknown> = {
@@ -95,33 +127,28 @@ async function createRankedGame(
     risorgimento: 'era_risorgimento',
   };
 
-  await query(
+  await client.query(
     `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, is_ranked, queue_bucket, async_mode)
      VALUES ($1, $2, $3, 'waiting', $4, 'multiplayer', true, $5, $6)`,
     [gameId, eraMapIds[eraId] ?? 'era_ancient', eraId, JSON.stringify(settings), bucket, !!bucketCfg.async_mode],
   );
 
-  await query(
+  await client.query(
     `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
      VALUES ($1, $2, 0, $3, false)`,
     [gameId, playerA.user_id, COLORS[0]],
   );
-  await query(
+  await client.query(
     `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
      VALUES ($1, $2, 1, $3, false)`,
     [gameId, playerB.user_id, COLORS[1]],
   );
 
-  // Remove both from queue
-  await query('DELETE FROM ranked_queue WHERE user_id = ANY($1)', [
+  await client.query('DELETE FROM ranked_queue WHERE user_id = ANY($1)', [
     [playerA.user_id, playerB.user_id],
   ]);
 
-  // Notify via socket
-  if (_io) {
-    if (playerA.socket_id) _io.to(playerA.socket_id).emit('matchmaking:found', { game_id: gameId });
-    if (playerB.socket_id) _io.to(playerB.socket_id).emit('matchmaking:found', { game_id: gameId });
-  }
+  return gameId;
 }
 
 export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void> {

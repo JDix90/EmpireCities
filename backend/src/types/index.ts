@@ -110,6 +110,12 @@ export interface PlayerState {
   cards_redeemed_count?: number;
   /** Territories captured in the current turn; reset at turn start (blitzkrieg achievement). */
   territories_captured_this_turn?: number;
+  /**
+   * True once this player has received a territory card on the current turn.
+   * Classic Risk rule: max one card per turn regardless of capture count.
+   * Reset to false at turn start in `advanceToNextPlayer`.
+   */
+  card_earned_this_turn?: boolean;
   /** Max territories captured in any single turn this game (blitzkrieg achievement). */
   territories_captured_turn_max?: number;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */

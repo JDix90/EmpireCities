@@ -510,6 +510,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   for (const player of state.players) {
     player.ability_uses = {};
     player.territories_captured_this_turn = 0;
+    player.card_earned_this_turn = false;
   }
 }
 

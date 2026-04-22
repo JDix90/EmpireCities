@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 
 interface CosmeticRow {
   cosmetic_id: string;
@@ -60,56 +60,83 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: 'This cosmetic can only be earned through achievements or seasonal rewards' });
     }
 
-    // Check already owned
-    const alreadyOwned = await queryOne<{ cosmetic_id: string }>(
-      'SELECT cosmetic_id FROM user_cosmetics WHERE user_id = $1 AND cosmetic_id = $2',
-      [request.userId, cosmetic_id],
-    );
-    if (alreadyOwned) {
-      return reply.status(409).send({ error: 'You already own this item' });
-    }
-
-    // Free items — no gold check
+    // Free items — no gold check, but still need atomic "insert if not owned".
     if (cosmetic.price_gems === 0) {
-      await query(
-        'INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES ($1, $2)',
+      const inserted = await query<{ cosmetic_id: string }>(
+        `INSERT INTO user_cosmetics (user_id, cosmetic_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, cosmetic_id) DO NOTHING
+         RETURNING cosmetic_id`,
         [request.userId, cosmetic_id],
       );
+      if (inserted.length === 0) {
+        return reply.status(409).send({ error: 'You already own this item' });
+      }
       return reply.send({ message: 'Item added to your collection', cosmetic_id });
     }
 
-    // Check gold balance
-    const userRow = await queryOne<{ gold: number }>(
-      'SELECT COALESCE(gold, 0) AS gold FROM users WHERE user_id = $1',
-      [request.userId],
-    );
-    if (!userRow) return reply.status(404).send({ error: 'User not found' });
-    if (userRow.gold < cosmetic.price_gems) {
-      return reply.status(402).send({ error: 'Insufficient gold', required: cosmetic.price_gems, balance: userRow.gold });
+    // Paid purchase: run the whole flow inside a transaction so the balance
+    // check, deduction, grant, and audit log are atomic against concurrent
+    // requests. The UPDATE has an explicit `gold >= $price` guard so a race
+    // that slips past the pre-check still can't overdraw.
+    try {
+      const result = await withTransaction(async (client) => {
+        // Insert grant first; if already owned, bail out early so we never
+        // charge for a cosmetic the user already has.
+        const grant = await client.query<{ cosmetic_id: string }>(
+          `INSERT INTO user_cosmetics (user_id, cosmetic_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, cosmetic_id) DO NOTHING
+           RETURNING cosmetic_id`,
+          [request.userId, cosmetic_id],
+        );
+        if (grant.rowCount === 0) {
+          return { code: 'already_owned' as const };
+        }
+
+        const deduct = await client.query<{ gold: number }>(
+          `UPDATE users
+           SET gold = gold - $1
+           WHERE user_id = $2 AND COALESCE(gold, 0) >= $1
+           RETURNING gold`,
+          [cosmetic.price_gems, request.userId],
+        );
+        if (deduct.rowCount === 0) {
+          return { code: 'insufficient_gold' as const };
+        }
+
+        await client.query(
+          `INSERT INTO gold_transactions (user_id, amount, reason)
+           VALUES ($1, $2, $3)`,
+          [request.userId, -cosmetic.price_gems, `Purchased: ${cosmetic.name}`],
+        );
+
+        return { code: 'ok' as const, gold: deduct.rows[0].gold };
+      });
+
+      if (result.code === 'already_owned') {
+        return reply.status(409).send({ error: 'You already own this item' });
+      }
+      if (result.code === 'insufficient_gold') {
+        const bal = await queryOne<{ gold: number }>(
+          'SELECT COALESCE(gold, 0) AS gold FROM users WHERE user_id = $1',
+          [request.userId],
+        );
+        return reply.status(402).send({
+          error: 'Insufficient gold',
+          required: cosmetic.price_gems,
+          balance: bal?.gold ?? 0,
+        });
+      }
+
+      return reply.send({
+        message: 'Purchase successful',
+        cosmetic_id,
+        new_balance: result.gold,
+      });
+    } catch (err) {
+      request.log.error({ err, userId: request.userId, cosmetic_id }, 'store purchase failed');
+      return reply.status(500).send({ error: 'Purchase failed' });
     }
-
-    // Deduct gold, grant item, record transaction (all in a single round-trip via CTE)
-    await query(
-      `WITH deduct AS (
-         UPDATE users SET gold = gold - $1 WHERE user_id = $2
-       ),
-       grant_item AS (
-         INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES ($2, $3)
-       )
-       INSERT INTO gold_transactions (user_id, amount, reason)
-       VALUES ($2, $4, $5)`,
-      [cosmetic.price_gems, request.userId, cosmetic_id, -cosmetic.price_gems, `Purchased: ${cosmetic.name}`],
-    );
-
-    const updatedUser = await queryOne<{ gold: number }>(
-      'SELECT COALESCE(gold, 0) AS gold FROM users WHERE user_id = $1',
-      [request.userId],
-    );
-
-    return reply.send({
-      message: 'Purchase successful',
-      cosmetic_id,
-      new_balance: updatedUser?.gold ?? 0,
-    });
   });
 }

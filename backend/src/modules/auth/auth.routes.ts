@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { config } from '../../config';
 
@@ -156,35 +156,74 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'Invalid or expired refresh token' });
     }
 
-    const stored = await queryOne<{ token_hash: string; revoked: boolean }>(
-      'SELECT token_hash, revoked FROM refresh_tokens WHERE token_id = $1 AND user_id = $2',
-      [payload.tokenId, payload.sub]
-    );
-    if (!stored || stored.revoked || !(await bcrypt.compare(refreshToken, stored.token_hash))) {
-      return reply.status(401).send({ error: 'Refresh token invalid or revoked' });
-    }
-
-    const user = await queryOne<{ username: string }>(
-      'SELECT username FROM users WHERE user_id = $1',
-      [payload.sub]
-    );
-    if (!user) {
-      return reply.status(401).send({ error: 'User not found' });
-    }
-
-    // Rotate: revoke old token, issue new pair
-    await query('UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1', [payload.tokenId]);
+    // Rotation must be atomic: SELECT → bcrypt.compare → UPDATE revoked →
+    // INSERT new. If two parallel refreshes run with the same cookie (mobile
+    // tab duplication, retries on flaky network), the old non-transactional
+    // flow could both pass the revoked-check and each issue a new token,
+    // leaving two live refresh tokens for one logical session. Wrapping in a
+    // transaction with `FOR UPDATE` on the token row serializes the rotation:
+    // the second request sees `revoked = true` and bails with 401.
+    //
+    // bcrypt.compare is still run *inside* the txn — it's CPU-bound but brief
+    // (cost factor 8), and doing it outside creates the same TOCTOU we're
+    // fixing. The row lock covers the whole compare→update window.
     const newTokenId = uuidv4();
-    const newAccessToken = signAccessToken({ sub: payload.sub, username: user.username });
     const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
     const newRefreshHash = await bcrypt.hash(newRefreshToken, 8);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await query(
-      'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
-      [newTokenId, payload.sub, newRefreshHash, expiresAt]
-    );
 
+    type RotationResult =
+      | { code: 'ok'; username: string }
+      | { code: 'invalid' }
+      | { code: 'no_user' };
+
+    let rotation: RotationResult;
+    try {
+      rotation = await withTransaction<RotationResult>(async (client) => {
+        const { rows: storedRows } = await client.query<{ token_hash: string; revoked: boolean }>(
+          `SELECT token_hash, revoked FROM refresh_tokens
+           WHERE token_id = $1 AND user_id = $2
+           FOR UPDATE`,
+          [payload.tokenId, payload.sub],
+        );
+        const stored = storedRows[0];
+        if (!stored || stored.revoked || !(await bcrypt.compare(refreshToken, stored.token_hash))) {
+          return { code: 'invalid' };
+        }
+
+        const { rows: userRows } = await client.query<{ username: string }>(
+          'SELECT username FROM users WHERE user_id = $1',
+          [payload.sub],
+        );
+        if (userRows.length === 0) {
+          return { code: 'no_user' };
+        }
+
+        await client.query(
+          'UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1',
+          [payload.tokenId],
+        );
+        await client.query(
+          'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+          [newTokenId, payload.sub, newRefreshHash, expiresAt],
+        );
+
+        return { code: 'ok', username: userRows[0].username };
+      });
+    } catch (err) {
+      request.log.error({ err, userId: payload.sub }, 'refresh rotation failed');
+      return reply.status(500).send({ error: 'Refresh failed' });
+    }
+
+    if (rotation.code === 'invalid') {
+      return reply.status(401).send({ error: 'Refresh token invalid or revoked' });
+    }
+    if (rotation.code === 'no_user') {
+      return reply.status(401).send({ error: 'User not found' });
+    }
+
+    const newAccessToken = signAccessToken({ sub: payload.sub, username: rotation.username });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.send({ accessToken: newAccessToken });
