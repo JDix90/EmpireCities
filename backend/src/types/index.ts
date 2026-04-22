@@ -295,6 +295,15 @@ export interface GameState {
   puzzle_feedback_mistakes?: number;
   /** Set when a non-domination daily objective was achieved. */
   puzzle_objective_met?: boolean;
+  /**
+   * Random 128-bit salt used to seed secret-mission and capital-placement
+   * RNGs. Generated server-side at game init; NEVER sent to clients (stripped
+   * in `buildClientState`). Without this, a malicious client knowing the
+   * public `game_id` could re-run `assignSecretMissions` locally to mine
+   * every opponent's objective. The salt guarantees the PRNG stream is
+   * unknowable to the client even though `game_id` is public.
+   */
+  mission_seed_salt?: string;
 }
 
 // ── Event Cards ───────────────────────────────────────────────────────────────

@@ -118,13 +118,14 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
     const snapshots = rows.map((row) => {
       const state = typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json;
       if (state && typeof state === 'object') {
-        delete (state as Record<string, unknown>).card_deck;
-        if (Array.isArray((state as Record<string, unknown>).players)) {
-          (state as { players: Array<Record<string, unknown>> }).players =
-            (state as { players: Array<Record<string, unknown>> }).players.map((p) => ({
-              ...p,
-              secret_mission: null,
-            }));
+        const s = state as Record<string, unknown>;
+        delete s.card_deck;
+        delete s.mission_seed_salt;
+        if (Array.isArray(s.players)) {
+          s.players = (s.players as Array<Record<string, unknown>>).map((p) => ({
+            ...p,
+            secret_mission: null,
+          }));
         }
       }
       return { turn_number: row.turn_number, state };

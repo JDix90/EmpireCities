@@ -2349,6 +2349,9 @@ function stopSpectatorBroadcastLoop(gameId: string): void {
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
+    // mission_seed_salt is server-only; leaking it would let a client
+    // replay the PRNG and read every opponent's mission.
+    mission_seed_salt: undefined,
     players: s.players.map((p) =>
       // Reveal mission for: the viewing player, eliminated players, and everyone at game_over
       (playerId !== null && p.player_id === playerId) || p.is_eliminated || state.phase === 'game_over'
@@ -2520,11 +2523,29 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   clearTurnTimer(gameId, state);
   appendWinProbabilitySnapshot(state);
 
-  // Persist to DB first — only emit game:over to clients on success
+  // Idempotency guard: finalizeGame can be entered more than once on the same
+  // game — e.g. a resign victory check racing with the turn-timer victory
+  // check, or a daily puzzle objective resolving on the same turn as a
+  // domination win. Without the guard, the second pass would run
+  // `recordGameResults` a second time, doubling rating/XP deltas and writing
+  // duplicate achievement rows.
+  //
+  // Gate on the `games.status` transition: the UPDATE only fires when status
+  // is not already 'completed'. If rowCount is 0, another finalizer already
+  // ran and we bail before any downstream writes (ratings, achievements,
+  // campaign, notifications).
+  let firstFinalize = false;
   try {
-    await query('UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2 WHERE game_id = $3', [
-      'completed', winnerId, gameId,
-    ]);
+    const res = await pgPool.query(
+      `UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2
+       WHERE game_id = $3 AND status <> 'completed'`,
+      ['completed', winnerId, gameId],
+    );
+    firstFinalize = (res.rowCount ?? 0) > 0;
+    if (!firstFinalize) {
+      console.warn(`[Socket] finalizeGame called for already-completed game ${gameId}; skipping duplicate writes.`);
+      return;
+    }
     await saveGameState(gameId, state);
   } catch (err) {
     console.error('[Socket] Failed to persist game completion:', err);
@@ -2998,7 +3019,17 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   aiInFlight.add(gameId);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
-  const actions = await runAiWithTimeout(state, map, difficulty);
+  // Fog-fair AI planning: when fog_of_war is on, humans see only their own
+  // and adjacent territories' unit counts. Passing the raw authoritative
+  // state to the AI lets it peek at unit counts everywhere on the map —
+  // effectively giving every AI opponent a cheat against human players. We
+  // build the same filtered view buildClientState produces for humans, so
+  // the AI plans against the same information a human in its seat would.
+  // When fog is off, the filter is a no-op (full state passed through).
+  const planningState = state.settings.fog_of_war
+    ? buildClientState(state, currentPlayer.player_id, true)
+    : state;
+  const actions = await runAiWithTimeout(planningState, map, difficulty);
 
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 

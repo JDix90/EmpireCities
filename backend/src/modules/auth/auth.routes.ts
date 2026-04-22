@@ -6,16 +6,25 @@ import { z } from 'zod';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { config } from '../../config';
+import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
+
+const ChangePasswordSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_password: z.string().min(8).max(128),
+});
 
 const RegisterSchema = z.object({
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
-  email: z.string().email(),
+  email: z.string().email().max(254),
   password: z.string().min(8).max(128),
 });
 
 const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  email: z.string().email().max(254),
+  // Capped at 128: the registration schema enforces the same ceiling, and
+  // bcrypt.compare on an attacker-controlled 10MB string is a cheap DoS.
+  password: z.string().min(1).max(128),
 });
 
 function refreshCookieOpts(maxAgeSeconds: number) {
@@ -227,6 +236,51 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.send({ accessToken: newAccessToken });
+  });
+
+  // ── POST /api/auth/change-password ───────────────────────────────────────
+  // A logged-in, non-guest user rotates their password. Verifies the current
+  // password, hashes the new one, and revokes ALL refresh tokens so other
+  // active sessions (e.g. a compromised device) are kicked to the login
+  // screen. The current session's refresh cookie is cleared by the client on
+  // the next refresh attempt; we leave it to the client flow to re-login.
+  fastify.post('/change-password', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const parsed = ChangePasswordSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const { current_password, new_password } = parsed.data;
+    if (current_password === new_password) {
+      return reply.status(400).send({ error: 'New password must differ from current password' });
+    }
+
+    const user = await queryOne<{ password_hash: string }>(
+      'SELECT password_hash FROM users WHERE user_id = $1',
+      [request.userId],
+    );
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    const ok = await bcrypt.compare(current_password, user.password_hash);
+    if (!ok) return reply.status(401).send({ error: 'Incorrect current password' });
+
+    const newHash = await bcrypt.hash(new_password, 10);
+    try {
+      await withTransaction(async (client) => {
+        await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [newHash, request.userId]);
+        // Invalidate every existing session for this user — including the
+        // attacker's if the password rotation is a compromise-response.
+        await client.query(
+          'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+          [request.userId],
+        );
+      });
+    } catch (err) {
+      request.log.error({ err, userId: request.userId }, 'password change failed');
+      return reply.status(500).send({ error: 'Password change failed' });
+    }
+
+    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    return reply.send({ message: 'Password updated; please log in again' });
   });
 
   // ── POST /api/auth/logout ────────────────────────────────────────────────

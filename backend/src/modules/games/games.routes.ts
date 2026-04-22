@@ -496,15 +496,19 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const snapshots = rows.map((row) => {
       const state = typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json;
-      // Strip large card deck and secret missions for replay — game is over
       if (state && typeof state === 'object') {
-        delete (state as Record<string, unknown>).card_deck;
-        if (Array.isArray((state as Record<string, unknown>).players)) {
-          (state as { players: Array<Record<string, unknown>> }).players =
-            (state as { players: Array<Record<string, unknown>> }).players.map((p) => ({
-              ...p,
-              secret_mission: null,
-            }));
+        const s = state as Record<string, unknown>;
+        delete s.card_deck;
+        // mission_seed_salt is the private RNG seed used to assign secret
+        // missions. Leaving it in a downloadable replay would let anyone who
+        // saves one regenerate missions for any future game with a
+        // colliding gameId. Strip it here too.
+        delete s.mission_seed_salt;
+        if (Array.isArray(s.players)) {
+          s.players = (s.players as Array<Record<string, unknown>>).map((p) => ({
+            ...p,
+            secret_mission: null,
+          }));
         }
       }
       return { turn_number: row.turn_number, state };

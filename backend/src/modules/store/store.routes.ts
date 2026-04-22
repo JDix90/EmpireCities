@@ -17,7 +17,7 @@ interface CosmeticRow {
 }
 
 const BuySchema = z.object({
-  cosmetic_id: z.string().min(1),
+  cosmetic_id: z.string().min(1).max(128),
 });
 
 export async function storeRoutes(fastify: FastifyInstance): Promise<void> {

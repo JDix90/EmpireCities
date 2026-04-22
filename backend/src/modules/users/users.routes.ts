@@ -8,7 +8,7 @@ import { getLeaderboard } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 
 const DeleteAccountSchema = z.object({
-  password: z.string().min(1, 'Password is required to delete your account'),
+  password: z.string().min(1, 'Password is required to delete your account').max(128),
 });
 
 type RatingRow = { rating_type: string; mu: number; phi: number };
