@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { randomBytes } from 'crypto';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
   GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
@@ -187,12 +188,19 @@ export function initializeGameState(
     blitzkrieg_attacked: false,
   };
 
+  // Private salt — 128 bits from CSPRNG. The client knows `game_id` (it's in
+  // URLs, invite codes, replays), so deriving the mission RNG from game_id
+  // alone would let any client recompute every opponent's secret mission
+  // locally. The salt is generated server-side, persisted in the snapshot,
+  // and stripped from client broadcasts in `buildClientState`.
+  state.mission_seed_salt = randomBytes(16).toString('hex');
+
   const allowed = getAllowedVictoryConditions(settingsNorm);
   if (allowed.includes('capital')) {
     assignCapitals(state);
   }
   if (allowed.includes('secret_mission')) {
-    const seed = hashStringToSeed(`${gameId}:secret_missions`);
+    const seed = hashStringToSeed(`${gameId}:${state.mission_seed_salt}:secret_missions`);
     assignSecretMissions(state, map, createSeededRng(seed));
   }
 
@@ -510,6 +518,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   for (const player of state.players) {
     player.ability_uses = {};
     player.territories_captured_this_turn = 0;
+    player.card_earned_this_turn = false;
   }
 }
 

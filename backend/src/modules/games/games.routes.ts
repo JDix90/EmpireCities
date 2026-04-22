@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
@@ -317,42 +317,73 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/games/:gameId/join ─────────────────────────────────────────
+  //
+  // Slot allocation must be atomic. Two users hitting /join simultaneously on
+  // a lobby with one seat left could both read `players.length === 7`, both
+  // compute nextIndex = 7, and race to insert two rows with the same
+  // (game_id, player_index = 7) — one fails on the PK, but not before the
+  // first user's color assignment is corrupted. Worse, on a lobby with 2+
+  // seats open, both reads see the same length and pick overlapping indexes.
+  //
+  // Fix: take a row lock on the `games` row (serializes all join attempts for
+  // that game) and re-read the player roster inside the transaction before
+  // computing nextIndex and inserting. Other joiners block on the lock and
+  // get a consistent view.
   fastify.post<{ Params: { gameId: string } }>('/:gameId/join', { preHandler: authenticate }, async (request, reply) => {
-    const game = await queryOne<{ status: string; game_id: string; settings_json: Record<string, unknown> }>(
-      'SELECT game_id, status, settings_json FROM games WHERE game_id = $1',
-      [request.params.gameId]
-    );
-    if (!game) return reply.status(404).send({ error: 'Game not found' });
-    if (game.status !== 'waiting') return reply.status(409).send({ error: 'Game already started' });
-
-    const players = await query<{ player_index: number; user_id: string }>(
-      'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
-      [request.params.gameId]
-    );
-
-    const alreadyJoined = players.some((p) => p.user_id === request.userId);
-    if (alreadyJoined) return reply.status(409).send({ error: 'Already in this game' });
-
-    const settingsMaxPlayers = typeof game.settings_json?.max_players === 'number' ? game.settings_json.max_players : 8;
-    const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
-    if (players.length >= maxPlayers) return reply.status(409).send({ error: 'Game is full' });
-
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
-    const nextIndex = players.length;
 
-    await query(
-      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
-       VALUES ($1, $2, $3, $4, false)`,
-      [request.params.gameId, request.userId, nextIndex, colors[nextIndex]]
-    );
+    type JoinResult =
+      | { code: 'not_found' }
+      | { code: 'not_waiting' }
+      | { code: 'already_joined' }
+      | { code: 'full' }
+      | { code: 'ok'; player_index: number };
 
-    await query(
-      `UPDATE game_invites SET consumed_at = NOW()
-       WHERE game_id = $1 AND invitee_id = $2 AND consumed_at IS NULL`,
-      [request.params.gameId, request.userId],
-    );
+    const result = await withTransaction<JoinResult>(async (client) => {
+      const { rows: gameRows } = await client.query<{
+        status: string; settings_json: Record<string, unknown> | string;
+      }>(
+        'SELECT status, settings_json FROM games WHERE game_id = $1 FOR UPDATE',
+        [request.params.gameId],
+      );
+      if (gameRows.length === 0) return { code: 'not_found' };
+      const game = gameRows[0];
+      if (game.status !== 'waiting') return { code: 'not_waiting' };
 
-    return reply.send({ message: 'Joined game', player_index: nextIndex });
+      const settings = typeof game.settings_json === 'string'
+        ? JSON.parse(game.settings_json) as Record<string, unknown>
+        : game.settings_json;
+      const settingsMaxPlayers = typeof settings?.max_players === 'number' ? settings.max_players : 8;
+      const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
+
+      const { rows: players } = await client.query<{ player_index: number; user_id: string | null }>(
+        'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
+        [request.params.gameId],
+      );
+      if (players.some((p) => p.user_id === request.userId)) return { code: 'already_joined' };
+      if (players.length >= maxPlayers) return { code: 'full' };
+
+      const nextIndex = players.length;
+      await client.query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
+         VALUES ($1, $2, $3, $4, false)`,
+        [request.params.gameId, request.userId, nextIndex, colors[nextIndex]],
+      );
+      await client.query(
+        `UPDATE game_invites SET consumed_at = NOW()
+         WHERE game_id = $1 AND invitee_id = $2 AND consumed_at IS NULL`,
+        [request.params.gameId, request.userId],
+      );
+
+      return { code: 'ok', player_index: nextIndex };
+    });
+
+    if (result.code === 'not_found') return reply.status(404).send({ error: 'Game not found' });
+    if (result.code === 'not_waiting') return reply.status(409).send({ error: 'Game already started' });
+    if (result.code === 'already_joined') return reply.status(409).send({ error: 'Already in this game' });
+    if (result.code === 'full') return reply.status(409).send({ error: 'Game is full' });
+
+    return reply.send({ message: 'Joined game', player_index: result.player_index });
   });
 
   const InviteFriendSchema = z.object({ friend_user_id: z.string().uuid() });
@@ -440,8 +471,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   // ── GET /api/games/:gameId/replay ────────────────────────────────────────
-  fastify.get<{ Params: { gameId: string } }>('/:gameId/replay', { preHandler: authenticate }, async (request, reply) => {
+  // Optional query params: ?from=N&limit=N (for paginating large replays).
+  // Both are validated and clamped so clients cannot request unbounded data.
+  fastify.get<{ Params: { gameId: string }; Querystring: { from?: string; limit?: string } }>(
+    '/:gameId/replay',
+    { preHandler: authenticate },
+    async (request, reply) => {
     const { gameId } = request.params;
+
+    const fromTurn = Math.max(0, parseInt(request.query.from ?? '0', 10) || 0);
+    const limitTurns = Math.min(200, Math.max(1, parseInt(request.query.limit ?? '200', 10) || 200));
 
     // Game must exist and be completed
     const game = await queryOne<{ status: string }>(
@@ -459,21 +498,25 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (!participant) return reply.status(403).send({ error: 'Not a participant in this game' });
 
     const rows = await query<{ turn_number: number; state_json: unknown }>(
-      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number ASC LIMIT 200',
-      [gameId],
+      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 AND turn_number >= $2 ORDER BY turn_number ASC LIMIT $3',
+      [gameId, fromTurn, limitTurns],
     );
 
     const snapshots = rows.map((row) => {
       const state = typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json;
-      // Strip large card deck and secret missions for replay — game is over
       if (state && typeof state === 'object') {
-        delete (state as Record<string, unknown>).card_deck;
-        if (Array.isArray((state as Record<string, unknown>).players)) {
-          (state as { players: Array<Record<string, unknown>> }).players =
-            (state as { players: Array<Record<string, unknown>> }).players.map((p) => ({
-              ...p,
-              secret_mission: null,
-            }));
+        const s = state as Record<string, unknown>;
+        delete s.card_deck;
+        // mission_seed_salt is the private RNG seed used to assign secret
+        // missions. Leaving it in a downloadable replay would let anyone who
+        // saves one regenerate missions for any future game with a
+        // colliding gameId. Strip it here too.
+        delete s.mission_seed_salt;
+        if (Array.isArray(s.players)) {
+          s.players = (s.players as Array<Record<string, unknown>>).map((p) => ({
+            ...p,
+            secret_mission: null,
+          }));
         }
       }
       return { turn_number: row.turn_number, state };

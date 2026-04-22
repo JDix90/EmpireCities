@@ -110,6 +110,12 @@ export interface PlayerState {
   cards_redeemed_count?: number;
   /** Territories captured in the current turn; reset at turn start (blitzkrieg achievement). */
   territories_captured_this_turn?: number;
+  /**
+   * True once this player has received a territory card on the current turn.
+   * Classic Risk rule: max one card per turn regardless of capture count.
+   * Reset to false at turn start in `advanceToNextPlayer`.
+   */
+  card_earned_this_turn?: boolean;
   /** Max territories captured in any single turn this game (blitzkrieg achievement). */
   territories_captured_turn_max?: number;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
@@ -289,6 +295,15 @@ export interface GameState {
   puzzle_feedback_mistakes?: number;
   /** Set when a non-domination daily objective was achieved. */
   puzzle_objective_met?: boolean;
+  /**
+   * Random 128-bit salt used to seed secret-mission and capital-placement
+   * RNGs. Generated server-side at game init; NEVER sent to clients (stripped
+   * in `buildClientState`). Without this, a malicious client knowing the
+   * public `game_id` could re-run `assignSecretMissions` locally to mine
+   * every opponent's objective. The salt guarantees the PRNG stream is
+   * unknowable to the client even though `game_id` is public.
+   */
+  mission_seed_salt?: string;
 }
 
 // ── Event Cards ───────────────────────────────────────────────────────────────

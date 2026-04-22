@@ -1,21 +1,41 @@
 import type { FastifyInstance } from 'fastify';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { config } from '../../config';
+import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
+
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function compareRefreshToken(token: string, storedHash: string): boolean {
+  const candidate = Buffer.from(hashRefreshToken(token), 'hex');
+  const stored = Buffer.from(storedHash, 'hex');
+  if (candidate.length !== stored.length) return false;
+  return timingSafeEqual(candidate, stored);
+}
+
+const ChangePasswordSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_password: z.string().min(8).max(128),
+});
 
 const RegisterSchema = z.object({
   username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
-  email: z.string().email(),
+  email: z.string().email().max(254),
   password: z.string().min(8).max(128),
 });
 
 const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  email: z.string().email().max(254),
+  // Capped at 128: the registration schema enforces the same ceiling, and
+  // bcrypt.compare on an attacker-controlled 10MB string is a cheap DoS.
+  password: z.string().min(1).max(128),
 });
 
 function refreshCookieOpts(maxAgeSeconds: number) {
@@ -33,7 +53,7 @@ function refreshCookieOpts(maxAgeSeconds: number) {
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /** Short-lived session without refresh token; creates a minimal `users` row for FK integrity. */
-  fastify.post('/guest', async (_request, reply) => {
+  fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (_request, reply) => {
     const userId = uuidv4();
     const username = `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
     const email = `${userId}@guest.local`;
@@ -62,7 +82,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/register ──────────────────────────────────────────────
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = RegisterSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid input', details: body.error.flatten() });
@@ -89,7 +109,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
-    const refreshHash = await bcrypt.hash(refreshToken, 8);
+    const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -104,7 +124,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/login ─────────────────────────────────────────────────
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = LoginSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid input' });
@@ -129,7 +149,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
-    const refreshHash = await bcrypt.hash(refreshToken, 8);
+    const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -145,7 +165,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/refresh ───────────────────────────────────────────────
-  fastify.post('/refresh', async (request, reply) => {
+  fastify.post('/refresh', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const refreshToken = request.cookies?.refreshToken;
     if (!refreshToken) {
       return reply.status(401).send({ error: 'No refresh token' });
@@ -156,38 +176,121 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'Invalid or expired refresh token' });
     }
 
-    const stored = await queryOne<{ token_hash: string; revoked: boolean }>(
-      'SELECT token_hash, revoked FROM refresh_tokens WHERE token_id = $1 AND user_id = $2',
-      [payload.tokenId, payload.sub]
-    );
-    if (!stored || stored.revoked || !(await bcrypt.compare(refreshToken, stored.token_hash))) {
-      return reply.status(401).send({ error: 'Refresh token invalid or revoked' });
+    // Rotation must be atomic: SELECT → bcrypt.compare → UPDATE revoked →
+    // INSERT new. If two parallel refreshes run with the same cookie (mobile
+    // tab duplication, retries on flaky network), the old non-transactional
+    // flow could both pass the revoked-check and each issue a new token,
+    // leaving two live refresh tokens for one logical session. Wrapping in a
+    // transaction with `FOR UPDATE` on the token row serializes the rotation:
+    // the second request sees `revoked = true` and bails with 401.
+    //
+    // The token comparison runs inside the txn so the row lock covers the
+    // whole compare→update window, preventing TOCTOU on concurrent refreshes.
+    const newTokenId = uuidv4();
+    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
+    const newRefreshHash = hashRefreshToken(newRefreshToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    type RotationResult =
+      | { code: 'ok'; username: string }
+      | { code: 'invalid' }
+      | { code: 'no_user' };
+
+    let rotation: RotationResult;
+    try {
+      rotation = await withTransaction<RotationResult>(async (client) => {
+        const { rows: storedRows } = await client.query<{ token_hash: string; revoked: boolean }>(
+          `SELECT token_hash, revoked FROM refresh_tokens
+           WHERE token_id = $1 AND user_id = $2
+           FOR UPDATE`,
+          [payload.tokenId, payload.sub],
+        );
+        const stored = storedRows[0];
+        if (!stored || stored.revoked || !compareRefreshToken(refreshToken, stored.token_hash)) {
+          return { code: 'invalid' };
+        }
+
+        const { rows: userRows } = await client.query<{ username: string }>(
+          'SELECT username FROM users WHERE user_id = $1',
+          [payload.sub],
+        );
+        if (userRows.length === 0) {
+          return { code: 'no_user' };
+        }
+
+        await client.query(
+          'UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1',
+          [payload.tokenId],
+        );
+        await client.query(
+          'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+          [newTokenId, payload.sub, newRefreshHash, expiresAt],
+        );
+
+        return { code: 'ok', username: userRows[0].username };
+      });
+    } catch (err) {
+      request.log.error({ err, userId: payload.sub }, 'refresh rotation failed');
+      return reply.status(500).send({ error: 'Refresh failed' });
     }
 
-    const user = await queryOne<{ username: string }>(
-      'SELECT username FROM users WHERE user_id = $1',
-      [payload.sub]
-    );
-    if (!user) {
+    if (rotation.code === 'invalid') {
+      return reply.status(401).send({ error: 'Refresh token invalid or revoked' });
+    }
+    if (rotation.code === 'no_user') {
       return reply.status(401).send({ error: 'User not found' });
     }
 
-    // Rotate: revoke old token, issue new pair
-    await query('UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1', [payload.tokenId]);
-    const newTokenId = uuidv4();
-    const newAccessToken = signAccessToken({ sub: payload.sub, username: user.username });
-    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
-    const newRefreshHash = await bcrypt.hash(newRefreshToken, 8);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    await query(
-      'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
-      [newTokenId, payload.sub, newRefreshHash, expiresAt]
-    );
-
+    const newAccessToken = signAccessToken({ sub: payload.sub, username: rotation.username });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.send({ accessToken: newAccessToken });
+  });
+
+  // ── POST /api/auth/change-password ───────────────────────────────────────
+  // A logged-in, non-guest user rotates their password. Verifies the current
+  // password, hashes the new one, and revokes ALL refresh tokens so other
+  // active sessions (e.g. a compromised device) are kicked to the login
+  // screen. The current session's refresh cookie is cleared by the client on
+  // the next refresh attempt; we leave it to the client flow to re-login.
+  fastify.post('/change-password', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    const parsed = ChangePasswordSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+    }
+    const { current_password, new_password } = parsed.data;
+    if (current_password === new_password) {
+      return reply.status(400).send({ error: 'New password must differ from current password' });
+    }
+
+    const user = await queryOne<{ password_hash: string }>(
+      'SELECT password_hash FROM users WHERE user_id = $1',
+      [request.userId],
+    );
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    const ok = await bcrypt.compare(current_password, user.password_hash);
+    if (!ok) return reply.status(401).send({ error: 'Incorrect current password' });
+
+    const newHash = await bcrypt.hash(new_password, config.bcryptRounds);
+    try {
+      await withTransaction(async (client) => {
+        await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [newHash, request.userId]);
+        // Invalidate every existing session for this user — including the
+        // attacker's if the password rotation is a compromise-response.
+        await client.query(
+          'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+          [request.userId],
+        );
+      });
+    } catch (err) {
+      request.log.error({ err, userId: request.userId }, 'password change failed');
+      return reply.status(500).send({ error: 'Password change failed' });
+    }
+
+    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    return reply.send({ message: 'Password updated; please log in again' });
   });
 
   // ── POST /api/auth/logout ────────────────────────────────────────────────

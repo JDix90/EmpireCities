@@ -42,6 +42,12 @@ export async function updateLeaderboard(era: string, userId: string, mmr: number
   await redis.zadd(`leaderboard:${era}`, mmr, userId);
 }
 
+/** Remove a user from every era leaderboard — called on account deletion. */
+export async function removeFromAllLeaderboards(userId: string): Promise<void> {
+  const eras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age'];
+  await Promise.all(eras.map((era) => redis.zrem(`leaderboard:${era}`, userId)));
+}
+
 export async function getLeaderboard(era: string, top = 100): Promise<{ userId: string; mmr: number }[]> {
   const results = await redis.zrevrangebyscore(
     `leaderboard:${era}`,

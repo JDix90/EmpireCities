@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import {
   generateAndStorePostMatchAnalysis,
@@ -91,7 +92,7 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
     };
   });
 
-  fastify.put('/players/me/qol-settings', { preHandler: authenticate }, async (request, reply) => {
+  fastify.put('/players/me/qol-settings', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = QolSettingsSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid settings', details: parsed.error.flatten() });
 
@@ -169,7 +170,7 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
     return { challenge };
   });
 
-  fastify.post<{ Params: { challengeId: string } }>('/weekly/:challengeId/submit', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post<{ Params: { challengeId: string } }>('/weekly/:challengeId/submit', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = WeeklySubmitSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid submission', details: parsed.error.flatten() });
     const { challengeId } = request.params;

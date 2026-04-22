@@ -14,7 +14,7 @@ const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()])
 const TerritorySchema = z.object({
   territory_id: z.string(),
   name: z.string().min(1).max(64),
-  polygon: z.array(z.tuple([z.number(), z.number()])).min(3),
+  polygon: z.array(z.tuple([z.number(), z.number()])).min(3).max(500),
   center_point: z.tuple([z.number(), z.number()]),
   region_id: z.string(),
   /** ISO_A2 country codes for geographic boundaries */
@@ -27,7 +27,7 @@ const TerritorySchema = z.object({
     .min(1)
     .optional(),
   /** Polygon exterior ring in geographic [lng, lat] coords (globe editor) */
-  geo_polygon: z.array(z.tuple([z.number(), z.number()])).min(3).optional(),
+  geo_polygon: z.array(z.tuple([z.number(), z.number()])).min(3).max(500).optional(),
   /** Which globe surface (Earth or Moon). Defaults to 'earth' when omitted. */
   globe_id: z.enum(['earth', 'moon']).optional(),
 });

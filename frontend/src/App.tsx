@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -90,6 +91,7 @@ export default function App() {
   const isOnline = useNetworkStatus();
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<RouteLoadingFallback />}>
       {!isOnline && (
         <div className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm py-1.5 font-medium">
@@ -127,5 +129,6 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }

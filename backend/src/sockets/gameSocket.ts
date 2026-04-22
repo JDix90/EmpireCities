@@ -66,6 +66,7 @@ import { config } from '../config';
 import { isSafeMapId } from '../utils/mapId';
 import { registerChatHandlers } from './handlers/chatHandler';
 import type { SocketContext } from './handlers/types';
+import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
 import {
   scheduleAsyncDeadline,
   cancelAsyncDeadline,
@@ -341,9 +342,29 @@ const SPECTATOR_BROADCAST_MS = 3_000;
 const SPECTATOR_BUFFER_LIMIT = 24;
 const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
 
+// Adjacency cache: map_id → territory_id → neighbour_ids[]
+// Built once per unique map when the first room using it loads; reused for fog
+// visibility in buildClientState across all subsequent calls for that map.
+const adjacencyByMapId = new Map<string, Map<string, string[]>>();
+
+function getOrBuildAdjacency(map: GameMap): Map<string, string[]> {
+  const cached = adjacencyByMapId.get(map.map_id);
+  if (cached) return cached;
+  const adj = new Map<string, string[]>();
+  for (const conn of map.connections) {
+    if (!adj.has(conn.from)) adj.set(conn.from, []);
+    if (!adj.has(conn.to)) adj.set(conn.to, []);
+    adj.get(conn.from)!.push(conn.to);
+    adj.get(conn.to)!.push(conn.from);
+  }
+  adjacencyByMapId.set(map.map_id, adj);
+  return adj;
+}
+
 const spectatorSocketsByGame = new Map<string, Set<string>>();
-const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState }>>();
+const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState; seq: number }>>();
 const spectatorBroadcastLoops = new Map<string, ReturnType<typeof setInterval>>();
+const spectatorSeqCounters = new Map<string, number>();
 
 let gameIoSingleton: Server | null = null;
 
@@ -384,6 +405,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!gameMap) return;
       repairDraftUnitsIfMissing(saved.state_json, gameMap);
       repairLegacyGameState(saved.state_json, gameMap);
+      getOrBuildAdjacency(gameMap);
       activeGames.set(gameId, { state: saved.state_json, map: gameMap, connectedSockets: new Map() });
       room = activeGames.get(gameId)!;
     }
@@ -501,6 +523,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
             repairDraftUnitsIfMissing(savedState.state_json, gameMap);
             repairLegacyGameState(savedState.state_json, gameMap);
+            getOrBuildAdjacency(gameMap);
             activeGames.set(gameId, {
               state: savedState.state_json,
               map: gameMap,
@@ -583,6 +606,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             if (gameMap) {
               repairDraftUnitsIfMissing(savedState.state_json, gameMap);
               repairLegacyGameState(savedState.state_json, gameMap);
+              getOrBuildAdjacency(gameMap);
               activeGames.set(gameId, {
                 state: savedState.state_json,
                 map: gameMap,
@@ -605,7 +629,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const room = activeGames.get(gameId);
         if (room) {
           recordSpectatorState(gameId, room.state);
-          socket.emit('game:state', getDelayedSpectatorState(gameId) ?? buildClientState(room.state, null, false));
+          const initEntry = getDelayedSpectatorState(gameId);
+          socket.emit('game:state', initEntry
+            ? { ...initEntry.state, _spectator_seq: initEntry.seq }
+            : buildClientState(room.state, null, false));
           ensureSpectatorBroadcastLoop(io, gameId);
 
           // Broadcast updated spectator count
@@ -680,6 +707,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
             repairDraftUnitsIfMissing(savedState.state_json, gameMap);
             repairLegacyGameState(savedState.state_json, gameMap);
+            getOrBuildAdjacency(gameMap);
             activeGames.set(gameId, {
               state: savedState.state_json,
               map: gameMap,
@@ -748,6 +776,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           }
         }
 
+        getOrBuildAdjacency(gameMap);
         activeGames.set(gameId, { state, map: gameMap, connectedSockets });
 
         // Compute game_type based on actual player composition at start
@@ -780,9 +809,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Draft Action ────────────────────────────────────────────────────────
-    socket.on('game:draft', ({ gameId, territoryId, units }: { gameId: string; territoryId: string; units: number }) => {
+    socket.on('game:draft', ({ gameId, territoryId, units, action_id }: { gameId: string; territoryId: string; units: number; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -812,9 +842,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Territory Selection (territory draft mode) ────────────────────────
-    socket.on('game:select_territory', ({ gameId, territoryId }: { gameId: string; territoryId: string }) => {
+    socket.on('game:select_territory', ({ gameId, territoryId, action_id }: { gameId: string; territoryId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       if (state.phase !== 'territory_select') return socket.emit('error', { message: 'Not in territory selection phase' });
@@ -881,9 +912,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Attack Action ───────────────────────────────────────────────────────
-    socket.on('game:attack', ({ gameId, fromId, toId }: { gameId: string; fromId: string; toId: string }) => {
+    socket.on('game:attack', ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1085,7 +1117,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      if (cardEarned) drawCard(state, userId);
+      // Classic Risk rule: at most one territory card per turn, regardless of
+      // how many captures you make. `card_earned_this_turn` is reset in
+      // `advanceToNextPlayer` so multi-attack turns can't farm extra cards.
+      if (cardEarned && !currentPlayer.card_earned_this_turn) {
+        drawCard(state, userId);
+        currentPlayer.card_earned_this_turn = true;
+      }
 
       if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId, finalizeGame)) {
         io.to(gameId).emit('game:combat_result', { fromId, toId, result });
@@ -1114,9 +1152,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Advance Phase ───────────────────────────────────────────────────────
-    socket.on('game:advance_phase', ({ gameId }: { gameId: string }) => {
+    socket.on('game:advance_phase', ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1151,11 +1190,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Fortify Action ──────────────────────────────────────────────────────
-    socket.on('game:fortify', ({ gameId, fromId, toId, units }: {
-      gameId: string; fromId: string; toId: string; units: number;
+    socket.on('game:fortify', ({ gameId, fromId, toId, units, action_id }: {
+      gameId: string; fromId: string; toId: string; units: number; action_id?: string;
     }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1204,9 +1244,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Redeem Cards ────────────────────────────────────────────────────────
-    socket.on('game:redeem_cards', ({ gameId, cardIds }: { gameId: string; cardIds: string[] }) => {
+    socket.on('game:redeem_cards', ({ gameId, cardIds, action_id }: { gameId: string; cardIds: string[]; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1226,11 +1267,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Build (Economy) ──────────────────────────────────────────────────────
-    socket.on('game:build', ({ gameId, territoryId, buildingType }: {
-      gameId: string; territoryId: string; buildingType: BuildingType;
+    socket.on('game:build', ({ gameId, territoryId, buildingType, action_id }: {
+      gameId: string; territoryId: string; buildingType: BuildingType; action_id?: string;
     }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1285,11 +1327,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Naval Move (relocate fleets between own coastal territories) ─────────
-    socket.on('game:naval_move', ({ gameId, fromId, toId, count }: {
-      gameId: string; fromId: string; toId: string; count: number;
+    socket.on('game:naval_move', ({ gameId, fromId, toId, count, action_id }: {
+      gameId: string; fromId: string; toId: string; count: number; action_id?: string;
     }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       if (!state.settings.naval_enabled) return socket.emit('error', { message: 'Naval warfare not enabled' });
@@ -1307,11 +1350,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Naval Attack (standalone fleet combat / blockade) ────────────────────
-    socket.on('game:naval_attack', ({ gameId, fromId, toId }: {
-      gameId: string; fromId: string; toId: string;
+    socket.on('game:naval_attack', ({ gameId, fromId, toId, action_id }: {
+      gameId: string; fromId: string; toId: string; action_id?: string;
     }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       if (!state.settings.naval_enabled) return socket.emit('error', { message: 'Naval warfare not enabled' });
@@ -1350,9 +1394,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Research Tech ────────────────────────────────────────────────────────
-    socket.on('game:research_tech', ({ gameId, techId }: { gameId: string; techId: string }) => {
+    socket.on('game:research_tech', ({ gameId, techId, action_id }: { gameId: string; techId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1387,13 +1432,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Use Ability ──────────────────────────────────────────────────────────
     // Generic handler for once-per-turn faction/tech abilities not covered by
     // dedicated events (influence, blitzkrieg, etc.).
-    socket.on('game:use_ability', ({ gameId, abilityId, params }: {
+    socket.on('game:use_ability', ({ gameId, abilityId, params, action_id }: {
       gameId: string;
       abilityId: string;
       params?: Record<string, unknown>;
+      action_id?: string;
     }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1605,9 +1652,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // Converts a neutral or enemy territory within influence_range hops of any
     // owned territory, costing 3 of the current player's units (spread across
     // adjacent owned territories). Only one use per turn.
-    socket.on('game:influence', ({ gameId, targetId }: { gameId: string; targetId: string }) => {
+    socket.on('game:influence', ({ gameId, targetId, action_id }: { gameId: string; targetId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1771,9 +1819,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Event Card Choice ───────────────────────────────────────────────────
-    socket.on('game:event_choice', ({ gameId, choiceId }: { gameId: string; choiceId: string }) => {
+    socket.on('game:event_choice', ({ gameId, choiceId, action_id }: { gameId: string; choiceId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1914,6 +1963,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
             activeGames.delete(gameId);
             aiInFlight.delete(gameId);
+            clearActionIdempotency(gameId);
+            spectatorSeqCounters.delete(gameId);
+            spectatorStateBuffers.delete(gameId);
             console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
           }
         }, 5 * 60 * 1000);
@@ -1922,9 +1974,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Propose Truce ─────────────────────────────────────────────────────
-    socket.on('game:propose_truce', ({ gameId, targetPlayerId }: { gameId: string; targetPlayerId: string }) => {
+    socket.on('game:propose_truce', ({ gameId, targetPlayerId, action_id }: { gameId: string; targetPlayerId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       if (!state.settings.diplomacy_enabled) {
@@ -1983,9 +2036,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Respond to Truce Proposal ──────────────────────────────────────────
-    socket.on('game:truce_response', ({ gameId, proposerId, accepted }: { gameId: string; proposerId: string; accepted: boolean }) => {
+    socket.on('game:truce_response', ({ gameId, proposerId, accepted, action_id }: { gameId: string; proposerId: string; accepted: boolean; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
       if (!state.pending_truces) return socket.emit('error', { message: 'No pending truce' });
@@ -2033,9 +2087,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Resign ────────────────────────────────────────────────────────────
-    socket.on('game:resign', async ({ gameId }: { gameId: string }) => {
+    socket.on('game:resign', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const player = state.players.find((p) => p.player_id === userId);
@@ -2057,16 +2112,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         playerName: player.username,
       });
 
-      // If it was this player's turn, advance
-      const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id === userId) {
-        advanceToNextPlayer(state, map);
-        broadcastEventCard(io, gameId, state, map);
-        if (state.players[state.current_player_index].is_ai) {
-          setTimeout(() => processAiTurn(io, gameId), 1500);
-        }
-      }
-
+      // CRITICAL ORDER: check victory BEFORE advancing to the next player.
+      // If a resign leaves only one survivor (e.g. 1v1), advancing first would
+      // hand the turn to an AI and schedule processAiTurn, which then runs on
+      // a game that is actually over. Evaluate the end condition first, then
+      // only advance if the game continues.
       if (maybeResolveDailyPuzzle(io, gameId, room, null, userId, finalizeGame)) {
         await saveGameState(gameId, state);
         broadcastState(io, gameId, state);
@@ -2082,10 +2132,34 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.winner_ids = winnerIds;
         state.victory_condition = condition;
         await finalizeGame(io, gameId, state, winnerIds);
-      } else {
-        await saveGameState(gameId, state);
+        broadcastState(io, gameId, state);
+        return;
       }
 
+      // Game continues — advance turn if it was this player's turn.
+      const currentPlayer = state.players[state.current_player_index];
+      if (currentPlayer.player_id === userId) {
+        advanceToNextPlayer(state, map);
+        broadcastEventCard(io, gameId, state, map);
+        // Re-check after advancement: advancement may itself cause elimination
+        // (e.g. a player who hit rebellion-floor on their turn-start tick).
+        const postAdvanceVictory = checkVictory(state, map);
+        if (postAdvanceVictory) {
+          const { winnerIds, condition } = postAdvanceVictory;
+          state.phase = 'game_over';
+          state.winner_id = winnerIds[0]!;
+          state.winner_ids = winnerIds;
+          state.victory_condition = condition;
+          await finalizeGame(io, gameId, state, winnerIds);
+          broadcastState(io, gameId, state);
+          return;
+        }
+        if (state.players[state.current_player_index].is_ai) {
+          setTimeout(() => processAiTurn(io, gameId), 1500);
+        }
+      }
+
+      await saveGameState(gameId, state);
       broadcastState(io, gameId, state);
     });
 
@@ -2153,6 +2227,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
                 }
                 activeGames.delete(gameId);
                 aiInFlight.delete(gameId);
+                clearActionIdempotency(gameId);
                 console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
               }
             }, 5 * 60 * 1000);
@@ -2213,10 +2288,15 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
-    // Runtime check: ensure no claimed territory has 0 units
+    // Runtime tripwire: no owned territory should ever have 0 units. If this
+    // ever fires, a game-engine path wrote an illegal state (leave-1 rule
+    // violated). Auto-correct to keep the game playable, but log loudly so
+    // we catch the regression in staging/prod logs.
     for (const territory of Object.values(state.territories)) {
       if (territory.owner_id && territory.unit_count === 0) {
-        console.warn?.(`Auto-correct: Claimed territory ${territory.territory_id} had 0 units. Setting to 1.`);
+        console.warn(
+          `[game-engine][INVARIANT] game=${gameId} turn=${state.turn_number} phase=${state.phase} territory=${territory.territory_id} had 0 units post-mutation; auto-correcting to 1. This is a bug.`,
+        );
         territory.unit_count = 1;
       }
     }
@@ -2233,16 +2313,25 @@ function broadcastState(io: Server, gameId: string, state: GameState): void {
     }
   } else {
     // Fallback: no tracked sockets (e.g. right after start); broadcast to whole room
-    io.to(gameId).emit('game:state', buildClientState(state, null, false));
+    // Always fog-filter when fog_of_war is enabled to avoid leaking full state
+    // to any client that joined the room before connectedSockets tracked it.
+    io.to(gameId).emit('game:state', buildClientState(state, null, state.settings.fog_of_war));
   }
-  io.to(gameId).emit('game:state_public', buildClientState(state, null, false));
+  // NOTE: The room-wide `game:state_public` broadcast was removed — it sent an
+  // unfiltered state snapshot to every socket in the room regardless of the
+  // fog_of_war setting, trivially defeating fog of war. Players now receive
+  // only filtered state via `game:state`; delayed/filtered spectator state is
+  // served via the dedicated `${gameId}:spectators` room.
 }
 
 function recordSpectatorState(gameId: string, state: GameState): void {
   const snapshot = buildClientState(state, null, false);
+  const seq = (spectatorSeqCounters.get(gameId) ?? 0) + 1;
+  spectatorSeqCounters.set(gameId, seq);
   const buffer = spectatorStateBuffers.get(gameId) ?? [];
   buffer.push({
     timestamp: Date.now(),
+    seq,
     state: JSON.parse(JSON.stringify(snapshot)) as GameState,
   });
   while (buffer.length > SPECTATOR_BUFFER_LIMIT) {
@@ -2251,16 +2340,18 @@ function recordSpectatorState(gameId: string, state: GameState): void {
   spectatorStateBuffers.set(gameId, buffer);
 }
 
-function getDelayedSpectatorState(gameId: string): GameState | null {
+function getDelayedSpectatorState(gameId: string): { state: GameState; seq: number } | null {
   const buffer = spectatorStateBuffers.get(gameId);
   if (!buffer || buffer.length === 0) return null;
 
   const cutoff = Date.now() - SPECTATOR_DELAY_MS;
   for (let index = buffer.length - 1; index >= 0; index -= 1) {
-    if (buffer[index].timestamp <= cutoff) return buffer[index].state;
+    if (buffer[index].timestamp <= cutoff) {
+      return { state: buffer[index].state, seq: buffer[index].seq };
+    }
   }
 
-  return buffer[0].state;
+  return { state: buffer[0].state, seq: buffer[0].seq };
 }
 
 function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
@@ -2273,9 +2364,9 @@ function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
       return;
     }
 
-    const delayedState = getDelayedSpectatorState(gameId);
-    if (delayedState) {
-      io.to(`${gameId}:spectators`).emit('game:state', delayedState);
+    const entry = getDelayedSpectatorState(gameId);
+    if (entry) {
+      io.to(`${gameId}:spectators`).emit('game:state', { ...entry.state, _spectator_seq: entry.seq });
     }
   }, SPECTATOR_BROADCAST_MS);
   timer.unref();
@@ -2293,6 +2384,9 @@ function stopSpectatorBroadcastLoop(gameId: string): void {
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
+    // mission_seed_salt is server-only; leaking it would let a client
+    // replay the PRNG and read every opponent's mission.
+    mission_seed_salt: undefined,
     players: s.players.map((p) =>
       // Reveal mission for: the viewing player, eliminated players, and everyone at game_over
       (playerId !== null && p.player_id === playerId) || p.is_eliminated || state.phase === 'game_over'
@@ -2303,13 +2397,22 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 
   if (!fogOfWar || !playerId) return stripSecretMissions(state);
 
-  // Build visible territory set
+  // Owned territories are always visible
   const visibleIds = new Set<string>();
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id === playerId) visibleIds.add(tid);
   }
 
-  // Add adjacent territories
+  // Adjacent territories are visible (border scouting)
+  const adj = adjacencyByMapId.get(state.map_id);
+  if (adj) {
+    for (const tid of Array.from(visibleIds)) {
+      for (const neighbour of adj.get(tid) ?? []) {
+        visibleIds.add(neighbour);
+      }
+    }
+  }
+
   const filtered: GameState = { ...state, territories: { ...state.territories } };
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (!visibleIds.has(tid)) {
@@ -2464,11 +2567,29 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   clearTurnTimer(gameId, state);
   appendWinProbabilitySnapshot(state);
 
-  // Persist to DB first — only emit game:over to clients on success
+  // Idempotency guard: finalizeGame can be entered more than once on the same
+  // game — e.g. a resign victory check racing with the turn-timer victory
+  // check, or a daily puzzle objective resolving on the same turn as a
+  // domination win. Without the guard, the second pass would run
+  // `recordGameResults` a second time, doubling rating/XP deltas and writing
+  // duplicate achievement rows.
+  //
+  // Gate on the `games.status` transition: the UPDATE only fires when status
+  // is not already 'completed'. If rowCount is 0, another finalizer already
+  // ran and we bail before any downstream writes (ratings, achievements,
+  // campaign, notifications).
+  let firstFinalize = false;
   try {
-    await query('UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2 WHERE game_id = $3', [
-      'completed', winnerId, gameId,
-    ]);
+    const res = await pgPool.query(
+      `UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2
+       WHERE game_id = $3 AND status <> 'completed'`,
+      ['completed', winnerId, gameId],
+    );
+    firstFinalize = (res.rowCount ?? 0) > 0;
+    if (!firstFinalize) {
+      console.warn(`[Socket] finalizeGame called for already-completed game ${gameId}; skipping duplicate writes.`);
+      return;
+    }
     await saveGameState(gameId, state);
   } catch (err) {
     console.error('[Socket] Failed to persist game completion:', err);
@@ -2801,7 +2922,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   });
 
   // Clean up after a delay so clients can see final state
-  setTimeout(() => activeGames.delete(gameId), 30000);
+  setTimeout(() => {
+    activeGames.delete(gameId);
+    clearActionIdempotency(gameId);
+  }, 30000);
 }
 
 async function processAiTerritorySelect(io: Server, gameId: string): Promise<void> {
@@ -2939,7 +3063,17 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   aiInFlight.add(gameId);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
-  const actions = await runAiWithTimeout(state, map, difficulty);
+  // Fog-fair AI planning: when fog_of_war is on, humans see only their own
+  // and adjacent territories' unit counts. Passing the raw authoritative
+  // state to the AI lets it peek at unit counts everywhere on the map —
+  // effectively giving every AI opponent a cheat against human players. We
+  // build the same filtered view buildClientState produces for humans, so
+  // the AI plans against the same information a human in its seat would.
+  // When fog is off, the filter is a no-op (full state passed through).
+  const planningState = state.settings.fog_of_war
+    ? buildClientState(state, currentPlayer.player_id, true)
+    : state;
+  const actions = await runAiWithTimeout(planningState, map, difficulty);
 
   const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
 
@@ -3201,7 +3335,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       to.owner_id = currentPlayer.player_id;
       to.unit_count = Math.min(from.unit_count - 1, 3);
       from.unit_count = Math.max(1, from.unit_count - to.unit_count);
-      drawCard(state, currentPlayer.player_id);
+      // One card per turn — gated by state flag (see human handler + advanceToNextPlayer).
+      if (!currentPlayer.card_earned_this_turn) {
+        drawCard(state, currentPlayer.player_id);
+        currentPlayer.card_earned_this_turn = true;
+      }
       // Raze buildings and apply stability penalty on AI capture
       onTerritoryCapture(state, action.to);
       if (state.settings.stability_enabled) {
