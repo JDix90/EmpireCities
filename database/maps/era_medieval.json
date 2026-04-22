@@ -995,6 +995,16 @@
       "from": "southeast_asia",
       "to": "southern_china_med",
       "type": "land"
+    },
+    {
+      "from": "mali_empire",
+      "to": "central_africa_med",
+      "type": "land"
+    },
+    {
+      "from": "central_africa_med",
+      "to": "east_africa_med",
+      "type": "land"
     }
   ],
   "regions": [
