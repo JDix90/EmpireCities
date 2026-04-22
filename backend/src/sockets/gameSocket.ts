@@ -342,9 +342,29 @@ const SPECTATOR_BROADCAST_MS = 3_000;
 const SPECTATOR_BUFFER_LIMIT = 24;
 const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
 
+// Adjacency cache: map_id → territory_id → neighbour_ids[]
+// Built once per unique map when the first room using it loads; reused for fog
+// visibility in buildClientState across all subsequent calls for that map.
+const adjacencyByMapId = new Map<string, Map<string, string[]>>();
+
+function getOrBuildAdjacency(map: GameMap): Map<string, string[]> {
+  const cached = adjacencyByMapId.get(map.map_id);
+  if (cached) return cached;
+  const adj = new Map<string, string[]>();
+  for (const conn of map.connections) {
+    if (!adj.has(conn.from)) adj.set(conn.from, []);
+    if (!adj.has(conn.to)) adj.set(conn.to, []);
+    adj.get(conn.from)!.push(conn.to);
+    adj.get(conn.to)!.push(conn.from);
+  }
+  adjacencyByMapId.set(map.map_id, adj);
+  return adj;
+}
+
 const spectatorSocketsByGame = new Map<string, Set<string>>();
-const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState }>>();
+const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState; seq: number }>>();
 const spectatorBroadcastLoops = new Map<string, ReturnType<typeof setInterval>>();
+const spectatorSeqCounters = new Map<string, number>();
 
 let gameIoSingleton: Server | null = null;
 
@@ -385,6 +405,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!gameMap) return;
       repairDraftUnitsIfMissing(saved.state_json, gameMap);
       repairLegacyGameState(saved.state_json, gameMap);
+      getOrBuildAdjacency(gameMap);
       activeGames.set(gameId, { state: saved.state_json, map: gameMap, connectedSockets: new Map() });
       room = activeGames.get(gameId)!;
     }
@@ -502,6 +523,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
             repairDraftUnitsIfMissing(savedState.state_json, gameMap);
             repairLegacyGameState(savedState.state_json, gameMap);
+            getOrBuildAdjacency(gameMap);
             activeGames.set(gameId, {
               state: savedState.state_json,
               map: gameMap,
@@ -584,6 +606,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             if (gameMap) {
               repairDraftUnitsIfMissing(savedState.state_json, gameMap);
               repairLegacyGameState(savedState.state_json, gameMap);
+              getOrBuildAdjacency(gameMap);
               activeGames.set(gameId, {
                 state: savedState.state_json,
                 map: gameMap,
@@ -606,7 +629,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const room = activeGames.get(gameId);
         if (room) {
           recordSpectatorState(gameId, room.state);
-          socket.emit('game:state', getDelayedSpectatorState(gameId) ?? buildClientState(room.state, null, false));
+          const initEntry = getDelayedSpectatorState(gameId);
+          socket.emit('game:state', initEntry
+            ? { ...initEntry.state, _spectator_seq: initEntry.seq }
+            : buildClientState(room.state, null, false));
           ensureSpectatorBroadcastLoop(io, gameId);
 
           // Broadcast updated spectator count
@@ -681,6 +707,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
             repairDraftUnitsIfMissing(savedState.state_json, gameMap);
             repairLegacyGameState(savedState.state_json, gameMap);
+            getOrBuildAdjacency(gameMap);
             activeGames.set(gameId, {
               state: savedState.state_json,
               map: gameMap,
@@ -749,6 +776,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           }
         }
 
+        getOrBuildAdjacency(gameMap);
         activeGames.set(gameId, { state, map: gameMap, connectedSockets });
 
         // Compute game_type based on actual player composition at start
@@ -1936,6 +1964,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
             activeGames.delete(gameId);
             aiInFlight.delete(gameId);
             clearActionIdempotency(gameId);
+            spectatorSeqCounters.delete(gameId);
+            spectatorStateBuffers.delete(gameId);
             console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
           }
         }, 5 * 60 * 1000);
@@ -2296,9 +2326,12 @@ function broadcastState(io: Server, gameId: string, state: GameState): void {
 
 function recordSpectatorState(gameId: string, state: GameState): void {
   const snapshot = buildClientState(state, null, false);
+  const seq = (spectatorSeqCounters.get(gameId) ?? 0) + 1;
+  spectatorSeqCounters.set(gameId, seq);
   const buffer = spectatorStateBuffers.get(gameId) ?? [];
   buffer.push({
     timestamp: Date.now(),
+    seq,
     state: JSON.parse(JSON.stringify(snapshot)) as GameState,
   });
   while (buffer.length > SPECTATOR_BUFFER_LIMIT) {
@@ -2307,16 +2340,18 @@ function recordSpectatorState(gameId: string, state: GameState): void {
   spectatorStateBuffers.set(gameId, buffer);
 }
 
-function getDelayedSpectatorState(gameId: string): GameState | null {
+function getDelayedSpectatorState(gameId: string): { state: GameState; seq: number } | null {
   const buffer = spectatorStateBuffers.get(gameId);
   if (!buffer || buffer.length === 0) return null;
 
   const cutoff = Date.now() - SPECTATOR_DELAY_MS;
   for (let index = buffer.length - 1; index >= 0; index -= 1) {
-    if (buffer[index].timestamp <= cutoff) return buffer[index].state;
+    if (buffer[index].timestamp <= cutoff) {
+      return { state: buffer[index].state, seq: buffer[index].seq };
+    }
   }
 
-  return buffer[0].state;
+  return { state: buffer[0].state, seq: buffer[0].seq };
 }
 
 function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
@@ -2329,9 +2364,9 @@ function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
       return;
     }
 
-    const delayedState = getDelayedSpectatorState(gameId);
-    if (delayedState) {
-      io.to(`${gameId}:spectators`).emit('game:state', delayedState);
+    const entry = getDelayedSpectatorState(gameId);
+    if (entry) {
+      io.to(`${gameId}:spectators`).emit('game:state', { ...entry.state, _spectator_seq: entry.seq });
     }
   }, SPECTATOR_BROADCAST_MS);
   timer.unref();
@@ -2362,13 +2397,22 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 
   if (!fogOfWar || !playerId) return stripSecretMissions(state);
 
-  // Build visible territory set
+  // Owned territories are always visible
   const visibleIds = new Set<string>();
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id === playerId) visibleIds.add(tid);
   }
 
-  // Add adjacent territories
+  // Adjacent territories are visible (border scouting)
+  const adj = adjacencyByMapId.get(state.map_id);
+  if (adj) {
+    for (const tid of Array.from(visibleIds)) {
+      for (const neighbour of adj.get(tid) ?? []) {
+        visibleIds.add(neighbour);
+      }
+    }
+  }
+
   const filtered: GameState = { ...state, territories: { ...state.territories } };
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (!visibleIds.has(tid)) {

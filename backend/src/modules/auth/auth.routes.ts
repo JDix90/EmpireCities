@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -8,6 +8,17 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../uti
 import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
+
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function compareRefreshToken(token: string, storedHash: string): boolean {
+  const candidate = Buffer.from(hashRefreshToken(token), 'hex');
+  const stored = Buffer.from(storedHash, 'hex');
+  if (candidate.length !== stored.length) return false;
+  return timingSafeEqual(candidate, stored);
+}
 
 const ChangePasswordSchema = z.object({
   current_password: z.string().min(1).max(128),
@@ -98,7 +109,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
-    const refreshHash = await bcrypt.hash(refreshToken, 8);
+    const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -138,7 +149,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username });
     const tokenId = uuidv4();
     const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
-    const refreshHash = await bcrypt.hash(refreshToken, 8);
+    const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -173,12 +184,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // transaction with `FOR UPDATE` on the token row serializes the rotation:
     // the second request sees `revoked = true` and bails with 401.
     //
-    // bcrypt.compare is still run *inside* the txn — it's CPU-bound but brief
-    // (cost factor 8), and doing it outside creates the same TOCTOU we're
-    // fixing. The row lock covers the whole compare→update window.
+    // The token comparison runs inside the txn so the row lock covers the
+    // whole compare→update window, preventing TOCTOU on concurrent refreshes.
     const newTokenId = uuidv4();
     const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
-    const newRefreshHash = await bcrypt.hash(newRefreshToken, 8);
+    const newRefreshHash = hashRefreshToken(newRefreshToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -197,7 +207,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           [payload.tokenId, payload.sub],
         );
         const stored = storedRows[0];
-        if (!stored || stored.revoked || !(await bcrypt.compare(refreshToken, stored.token_hash))) {
+        if (!stored || stored.revoked || !compareRefreshToken(refreshToken, stored.token_hash)) {
           return { code: 'invalid' };
         }
 

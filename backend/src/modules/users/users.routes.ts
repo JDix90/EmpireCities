@@ -550,6 +550,79 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send(friends);
   });
 
+  // ── GET /api/users/me/export (GDPR data export) ────────────────────────────
+  // Returns a JSON object containing all personal data stored for the requesting
+  // user. Rate-limited to 2 requests per day to prevent abuse.
+  fastify.get(
+    '/me/export',
+    { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 2, timeWindow: '1 day' } } },
+    async (request, reply) => {
+      const userId = request.userId;
+
+      const [profile, games, achievements, cosmetics, goldTx, friends] = await Promise.all([
+        queryOne<{
+          user_id: string; username: string; email: string; level: number; xp: number;
+          mmr: number; avatar_url: string | null; created_at: Date; win_streak: number;
+          daily_streak: number; prestige: number; gold: number;
+        }>(
+          `SELECT user_id, username, email, level, xp, mmr, avatar_url, created_at,
+                  COALESCE(win_streak, 0) AS win_streak,
+                  COALESCE(daily_streak, 0) AS daily_streak,
+                  COALESCE(prestige, 0) AS prestige,
+                  COALESCE(gold, 0) AS gold
+           FROM users WHERE user_id = $1`,
+          [userId],
+        ),
+        query<{ game_id: string; era_id: string; status: string; created_at: Date; ended_at: Date | null; final_rank: number | null; xp_earned: number | null; mmr_change: number | null }>(
+          `SELECT g.game_id, g.era_id, g.status, g.created_at, g.ended_at,
+                  gp.final_rank, gp.xp_earned, gp.mmr_change
+           FROM game_players gp JOIN games g ON g.game_id = gp.game_id
+           WHERE gp.user_id = $1 ORDER BY g.created_at DESC`,
+          [userId],
+        ),
+        query<{ achievement_id: string; unlocked_at: Date }>(
+          `SELECT a.achievement_id, ua.unlocked_at FROM user_achievements ua
+           JOIN achievements a ON a.achievement_id = ua.achievement_id
+           WHERE ua.user_id = $1 ORDER BY ua.unlocked_at DESC`,
+          [userId],
+        ),
+        query<{ cosmetic_id: string; type: string; name: string; acquired_at: Date }>(
+          `SELECT c.cosmetic_id, c.type, c.name, uc.acquired_at
+           FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
+           WHERE uc.user_id = $1 ORDER BY uc.acquired_at DESC`,
+          [userId],
+        ).catch(() => [] as { cosmetic_id: string; type: string; name: string; acquired_at: Date }[]),
+        query<{ amount: number; reason: string; created_at: Date }>(
+          `SELECT amount, reason, created_at FROM gold_transactions
+           WHERE user_id = $1 ORDER BY created_at DESC`,
+          [userId],
+        ).catch(() => [] as { amount: number; reason: string; created_at: Date }[]),
+        query<{ other_user_id: string; other_username: string; status: string; since: Date }>(
+          `SELECT CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END AS other_user_id,
+                  ou.username AS other_username, f.status,
+                  f.created_at AS since
+           FROM friendships f
+           JOIN users ou ON ou.user_id = (CASE WHEN f.user_id_a = $1 THEN f.user_id_b ELSE f.user_id_a END)
+           WHERE f.user_id_a = $1 OR f.user_id_b = $1`,
+          [userId],
+        ),
+      ]);
+
+      if (!profile) return reply.status(404).send({ error: 'User not found' });
+
+      reply.header('Content-Disposition', `attachment; filename="empire-cities-data-${userId}.json"`);
+      return reply.send({
+        exported_at: new Date().toISOString(),
+        profile,
+        games,
+        achievements,
+        cosmetics,
+        gold_transactions: goldTx,
+        friends,
+      });
+    },
+  );
+
   // ── GET /api/users/:userId (public profile) — must be after /achievements etc ─
   fastify.get<{ Params: { userId: string } }>('/:userId', async (request, reply) => {
     const user = await queryOne<{
