@@ -70,7 +70,30 @@ export default function MapEditorPage() {
   const [mapName, setMapName] = useState('My Custom Map');
   const [mapDescription, setMapDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const skipDirtyRef = useRef(true); // suppress dirty on initial mount and load
   const [globeSize, setGlobeSize] = useState({ w: 800, h: 600 });
+
+  // Mark dirty whenever user changes map content, but not on initial load/save
+  useEffect(() => {
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
+    }
+    setIsDirty(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [territories, connections, regions, mapName, mapDescription]);
+
+  // Warn on page close/refresh when there are unsaved changes
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
 
   // Measure available space for the globe
   useEffect(() => {
@@ -84,16 +107,18 @@ export default function MapEditorPage() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Load existing map
+  // Load existing map (not dirty until user edits after load)
   useEffect(() => {
     if (!mapId) return;
     api.get(`/maps/${mapId}`).then((res) => {
       const data = res.data.map ?? res.data;
+      skipDirtyRef.current = true;
       setMapName(data.name);
       setMapDescription(data.description ?? '');
       setTerritories(data.territories ?? []);
       setConnections(data.connections ?? []);
       setRegions(data.regions ?? []);
+      setIsDirty(false);
     }).catch(() => toast.error('Failed to load map'));
   }, [mapId]);
 
@@ -237,6 +262,8 @@ export default function MapEditorPage() {
         toast.success('Map saved!');
         navigate(`/editor/${res.data.map_id}`);
       }
+      skipDirtyRef.current = true;
+      setIsDirty(false);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         toast.error(err.response?.data?.error || 'Failed to save map');

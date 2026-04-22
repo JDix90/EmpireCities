@@ -9,6 +9,16 @@ import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 
+/** Format a date string with locale date + browser timezone abbreviation (e.g. "Apr 21, 2025 · PDT"). */
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const tz = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
+    .formatToParts(d)
+    .find((p) => p.type === 'timeZoneName')?.value ?? '';
+  return tz ? `${date} · ${tz}` : date;
+}
+
 interface RatingInfo { mu: number; phi: number; display: number; provisional: boolean }
 
 interface UserProfile {
@@ -434,7 +444,7 @@ export default function ProfilePage() {
                     <p className="text-xs text-cc-muted mt-1 leading-relaxed">{a.description}</p>
                     {unlocked?.unlocked_at && (
                       <p className="text-[10px] text-cc-muted/60 mt-1">
-                        {new Date(unlocked.unlocked_at).toLocaleDateString()}
+                        {formatDate(unlocked.unlocked_at)}
                       </p>
                     )}
                     <p className="text-[10px] text-cc-gold/50 mt-1">+{a.xp_reward} XP</p>
@@ -559,7 +569,7 @@ export default function ProfilePage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-cc-muted">{new Date(game.created_at).toLocaleDateString()}</p>
+                          <p className="text-xs text-cc-muted">{formatDate(game.created_at)}</p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-4">

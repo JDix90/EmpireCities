@@ -5,12 +5,35 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 
+const AGE_GATE_KEY = 'cc-age-verified';
+const MIN_AGE = 13;
+
+function AgeGateModal({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+      <div className="bg-cc-surface border border-cc-border rounded-xl p-8 max-w-sm w-full text-center">
+        <p className="font-display text-xl text-cc-gold tracking-wide mb-2">Age Verification</p>
+        <p className="text-cc-muted text-sm mb-6">
+          You must be at least {MIN_AGE} years old to create an account.
+          Are you {MIN_AGE} or older?
+        </p>
+        <div className="flex gap-3">
+          <button className="btn-secondary flex-1" onClick={onDeny}>No</button>
+          <button className="btn-primary flex-1" onClick={onConfirm}>Yes, I am {MIN_AGE}+</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
+  const [ageGateVisible, setAgeGateVisible] = useState(false);
+  const [ageDenied, setAgeDenied] = useState(false);
   const { register, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -24,6 +47,24 @@ export default function RegisterPage() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(AGE_GATE_KEY)) {
+        setAgeGateVisible(true);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  function handleAgeConfirm() {
+    try { localStorage.setItem(AGE_GATE_KEY, '1'); } catch { /* ignore */ }
+    setAgeGateVisible(false);
+  }
+
+  function handleAgeDeny() {
+    setAgeGateVisible(false);
+    setAgeDenied(true);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +92,23 @@ export default function RegisterPage() {
     }
   };
 
+  if (ageDenied) {
+    return (
+      <div className="min-h-screen-safe bg-cc-dark flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <p className="font-display text-xl text-cc-gold tracking-wide mb-3">Not eligible</p>
+          <p className="text-cc-muted text-sm mb-6">
+            You must be at least {MIN_AGE} years old to create an account.
+          </p>
+          <Link to="/" className="btn-secondary">Back to home</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <>
+    {ageGateVisible && <AgeGateModal onConfirm={handleAgeConfirm} onDeny={handleAgeDeny} />}
     <div className="min-h-screen-safe bg-cc-dark flex items-center justify-center px-4 pt-safe pb-safe">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
@@ -140,5 +197,6 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

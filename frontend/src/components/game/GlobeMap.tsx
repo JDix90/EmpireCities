@@ -7,6 +7,7 @@
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { FastForward } from 'lucide-react';
+import GameMap from './GameMap';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { type TerritoryGeoConfig, type ClipBbox } from '../../data/territoryGeoMapping';
@@ -274,7 +275,7 @@ const ANIMATION_STYLES = `
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function GlobeMap({
+function GlobeMap({
   mapData,
   onTerritoryClick,
   width = 900,
@@ -1397,3 +1398,45 @@ export default function GlobeMap({
     </div>
   );
 }
+
+// ── WebGL-aware export ─────────────────────────────────────────────────────────
+// Detects WebGL support at runtime; falls back to the 2D SVG GameMap so the
+// game remains fully playable on browsers/devices without GPU acceleration.
+export { GlobeMap as GlobeMapCore };
+
+function GlobeMapWithFallback(props: GlobeMapProps) {
+  const [webglOk, setWebglOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl');
+      setWebglOk(!!ctx);
+    } catch {
+      setWebglOk(false);
+    }
+  }, []);
+
+  if (webglOk === null) return null;
+
+  if (!webglOk) {
+    return (
+      <div style={{ width: props.width, height: props.height, position: 'relative' }}>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-amber-800/80 text-amber-100 text-xs px-3 py-1 rounded-full pointer-events-none">
+          3D globe unavailable — showing 2D map
+        </div>
+        <GameMap
+          mapData={props.mapData}
+          onTerritoryClick={props.onTerritoryClick ?? (() => {})}
+          width={props.width}
+          height={props.height}
+          highlightTerritoryId={props.highlightTerritoryId}
+        />
+      </div>
+    );
+  }
+
+  return <GlobeMap {...props} />;
+}
+
+export default GlobeMapWithFallback;

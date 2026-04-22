@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2 } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -21,6 +21,7 @@ import EventCardModal, { type EventCard } from '../components/game/EventCardModa
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
+import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import LobbyProposals from '../components/game/LobbyProposals';
 import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import { computeDraftPool } from '../utils/draftPool';
@@ -363,6 +364,7 @@ export default function GamePage() {
   // Track if notification has been shown for faction assignment
   const factionNotifShownRef = useReactRef(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
   const [showBonuses, setShowBonuses] = useState(false);
@@ -430,6 +432,18 @@ export default function GamePage() {
     draftSummaryShownRef.current = false;
     pendingDraftSummaryRef.current = null;
   }, [gameId]);
+
+  // Global keyboard shortcuts while in-game
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Don't fire while typing in an input or textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === '?') setShowShortcuts((s) => !s);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (draftSummaryShownRef.current) return;
@@ -1834,6 +1848,7 @@ export default function GamePage() {
             </div>
           )}
         </div>
+        {showShortcuts && <GameShortcutsModal onClose={() => setShowShortcuts(false)} />}
         {showInviteModal && gameId && (
           <InviteFriendsModal
             gameId={gameId}
@@ -2013,16 +2028,27 @@ export default function GamePage() {
             </div>
           )}
 
-          {/* Reset View button (mobile) */}
+          {/* Reset View button (mobile) + Shortcuts button (desktop) */}
           {mapView === '2d' && (
-            <button
-              type="button"
-              onClick={() => resetViewRef.current?.()}
-              className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
-              aria-label="Reset map view"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => resetViewRef.current?.()}
+                className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
+                aria-label="Reset map view"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowShortcuts(true)}
+                className="hidden md:flex absolute bottom-3 right-3 z-20 w-9 h-9 items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
+                aria-label="Keyboard shortcuts (?)"
+                title="Keyboard shortcuts (?)"
+              >
+                <Keyboard className="w-4 h-4" />
+              </button>
+            </>
           )}
 
           {/* Territory Info Panel */}
