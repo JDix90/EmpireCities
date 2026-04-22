@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
+import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import type { Server } from 'socket.io';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
@@ -152,7 +153,7 @@ async function createRankedGameTx(
 }
 
 export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post('/join', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post('/join', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = JoinSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -183,7 +184,7 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
     return reply.send({ queued: true });
   });
 
-  fastify.delete('/leave', { preHandler: authenticate }, async (request, reply) => {
+  fastify.delete('/leave', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     await query('DELETE FROM ranked_queue WHERE user_id = $1', [request.userId]);
     return reply.send({ queued: false });
   });

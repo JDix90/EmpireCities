@@ -39,7 +39,7 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/store/buy ──────────────────────────────────────────────────
-  fastify.post('/buy', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/buy', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = BuySchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });

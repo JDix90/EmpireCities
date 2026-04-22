@@ -5,6 +5,10 @@ const INITIAL_MU = 1500;
 const INITIAL_PHI = 350;
 const PHI_FLOOR = 30;
 const PHI_CEILING = 350;
+// Rating floor prevents negative ratings from confusing display/leaderboard
+// logic; ceiling prevents runaway inflation from degenerate game sequences.
+const MU_FLOOR = 100;
+const MU_CEILING = 4000;
 
 interface Opponent {
   mu: number;
@@ -42,7 +46,7 @@ export function glickoUpdate(
   const newPhi = Math.sqrt(1 / (1 / phiSq + dInvSq));
 
   return {
-    mu: Math.max(100, Math.round(newMu * 10) / 10),
+    mu: Math.min(MU_CEILING, Math.max(MU_FLOOR, Math.round(newMu * 10) / 10)),
     phi: Math.min(PHI_CEILING, Math.max(PHI_FLOOR, Math.round(newPhi * 10) / 10)),
   };
 }

@@ -42,7 +42,7 @@ function refreshCookieOpts(maxAgeSeconds: number) {
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /** Short-lived session without refresh token; creates a minimal `users` row for FK integrity. */
-  fastify.post('/guest', async (_request, reply) => {
+  fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (_request, reply) => {
     const userId = uuidv4();
     const username = `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
     const email = `${userId}@guest.local`;
@@ -71,7 +71,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/register ──────────────────────────────────────────────
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = RegisterSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid input', details: body.error.flatten() });
@@ -113,7 +113,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/login ─────────────────────────────────────────────────
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = LoginSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid input' });
@@ -154,7 +154,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/refresh ───────────────────────────────────────────────
-  fastify.post('/refresh', async (request, reply) => {
+  fastify.post('/refresh', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const refreshToken = request.cookies?.refreshToken;
     if (!refreshToken) {
       return reply.status(401).send({ error: 'No refresh token' });
@@ -244,7 +244,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // active sessions (e.g. a compromised device) are kicked to the login
   // screen. The current session's refresh cookie is cleared by the client on
   // the next refresh attempt; we leave it to the client flow to re-login.
-  fastify.post('/change-password', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/change-password', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const parsed = ChangePasswordSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
@@ -263,7 +263,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const ok = await bcrypt.compare(current_password, user.password_hash);
     if (!ok) return reply.status(401).send({ error: 'Incorrect current password' });
 
-    const newHash = await bcrypt.hash(new_password, 10);
+    const newHash = await bcrypt.hash(new_password, config.bcryptRounds);
     try {
       await withTransaction(async (client) => {
         await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [newHash, request.userId]);

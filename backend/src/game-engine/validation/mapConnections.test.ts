@@ -31,4 +31,28 @@ describe('validateMapConnections', () => {
     };
     expect(validateMapConnections(map).length).toBeGreaterThan(0);
   });
+
+  it('errors when graph has disconnected component', () => {
+    const map = {
+      territories: [
+        { territory_id: 'a' },
+        { territory_id: 'b' },
+        { territory_id: 'c' }, // island — no connection to a/b
+      ],
+      connections: [{ from: 'a', to: 'b', type: 'land' as const }],
+    };
+    const errors = validateMapConnections(map);
+    expect(errors.some((e) => e.includes('Disconnected'))).toBe(true);
+  });
+
+  it('passes when sea connections bridge all territories', () => {
+    const map = {
+      territories: [{ territory_id: 'a' }, { territory_id: 'b' }, { territory_id: 'c' }],
+      connections: [
+        { from: 'a', to: 'b', type: 'land' as const },
+        { from: 'b', to: 'c', type: 'sea' as const },
+      ],
+    };
+    expect(validateMapConnections(map)).toEqual([]);
+  });
 });
