@@ -775,8 +775,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const players = await query<{
           player_index: number; user_id: string | null; username: string | null;
           player_color: string; is_ai: boolean; ai_difficulty: string | null;
+          faction_id: string | null;
         }>(
-          `SELECT gp.player_index, gp.user_id, u.username, gp.player_color, gp.is_ai, gp.ai_difficulty
+          `SELECT gp.player_index, gp.user_id, u.username, gp.player_color, gp.is_ai, gp.ai_difficulty,
+                  gp.faction_id
            FROM game_players gp
            LEFT JOIN users u ON u.user_id = gp.user_id
            WHERE gp.game_id = $1
@@ -797,6 +799,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           ai_difficulty: (p.ai_difficulty as AiDifficulty) ?? undefined,
           is_eliminated: false,
           mmr: 1000,
+          faction_id: p.faction_id ?? undefined,
         }));
 
         const settings = game.settings_json as GameState['settings'];
@@ -2704,11 +2707,16 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // ran and we bail before any downstream writes (ratings, achievements,
   // campaign, notifications).
   let firstFinalize = false;
+  // `games.winner_id` is a UUID referencing users. AI players use synthetic
+  // string ids like "ai_1" that are not valid UUIDs, so we must persist NULL
+  // for AI wins and keep the synthetic id only in the in-memory/broadcast state.
+  const winnerPlayer = state.players.find((p) => p.player_id === winnerId);
+  const persistedWinnerId = winnerPlayer?.is_ai ? null : winnerId;
   try {
     const res = await pgPool.query(
       `UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2
        WHERE game_id = $3 AND status <> 'completed'`,
-      ['completed', winnerId, gameId],
+      ['completed', persistedWinnerId, gameId],
     );
     firstFinalize = (res.rowCount ?? 0) > 0;
     if (!firstFinalize) {

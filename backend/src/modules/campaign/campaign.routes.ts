@@ -167,23 +167,82 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(409).send({ error: 'Campaign already completed' });
     }
 
-    // Check if a game already exists for this era
-    const existingEntry = await queryOne<{ game_id: string }>(
-      `SELECT ce.game_id FROM campaign_entries ce
+    // Look up any existing era game (regardless of status). If the prior
+    // attempt ended (won=false means a loss since completion handler would
+    // have advanced the era on a win), or the game is stuck in a terminal
+    // state but was never finalized, abandon it and start fresh. Only a
+    // genuinely in-progress game — one where the human is still alive and
+    // the phase is not game_over — should be resumable.
+    const existingGame = await queryOne<{
+      game_id: string;
+      status: string;
+      won: boolean;
+    }>(
+      `SELECT ce.game_id, g.status, ce.won
+       FROM campaign_entries ce
        JOIN games g ON g.game_id = ce.game_id
-       WHERE ce.campaign_id = $1 AND ce.era_id = $2 AND g.status IN ('waiting', 'in_progress')`,
+       WHERE ce.campaign_id = $1 AND ce.era_id = $2`,
       [campaign.campaign_id, CAMPAIGN_ERAS[eraIndex]],
     );
-    if (existingEntry) {
-      return reply.send({
-        campaign_id: campaign.campaign_id,
-        current_era: CAMPAIGN_ERAS[eraIndex],
-        current_era_index: eraIndex,
-        prestige_points: campaign.prestige_points,
-        path_id: campaign.path_id,
-        path_carry: campaign.path_carry,
-        game_id: existingEntry.game_id,
-      });
+
+    let shouldCreateFresh = !existingGame;
+
+    if (existingGame) {
+      if (existingGame.status === 'completed' || existingGame.status === 'abandoned') {
+        shouldCreateFresh = true;
+      } else {
+        // status is 'waiting' or 'in_progress'. Inspect the latest snapshot
+        // to decide whether the game can really be resumed, or whether it
+        // was effectively lost (e.g. finalize failed previously) and should
+        // be abandoned so the user can retry.
+        const snapshot = await queryOne<{ state_json: any }>(
+          `SELECT state_json FROM game_states
+           WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
+          [existingGame.game_id],
+        );
+        const stateJson = snapshot?.state_json as
+          | {
+              phase?: string;
+              players?: Array<{ is_ai?: boolean; territory_count?: number }>;
+            }
+          | undefined;
+        const humanPlayer = stateJson?.players?.find((p) => !p.is_ai);
+        const humanEliminated = humanPlayer != null && (humanPlayer.territory_count ?? 0) === 0;
+        const gameIsOver = stateJson?.phase === 'game_over';
+
+        if (humanEliminated || gameIsOver) {
+          await query(
+            `UPDATE games SET status = 'abandoned', ended_at = NOW()
+             WHERE game_id = $1 AND status <> 'completed'`,
+            [existingGame.game_id],
+          );
+          shouldCreateFresh = true;
+        } else {
+          return reply.send({
+            campaign_id: campaign.campaign_id,
+            current_era: CAMPAIGN_ERAS[eraIndex],
+            current_era_index: eraIndex,
+            prestige_points: campaign.prestige_points,
+            path_id: campaign.path_id,
+            path_carry: campaign.path_carry,
+            game_id: existingGame.game_id,
+          });
+        }
+      }
+    }
+
+    // Clear any stale per-era narrative outcome (e.g. 'lost' from a previous
+    // attempt) so the retro outro text does not linger into the retry.
+    if (shouldCreateFresh) {
+      const narrativeKey = `era_${eraIndex}_outcome`;
+      if (campaign.path_narrative && narrativeKey in campaign.path_narrative) {
+        const cleanedNarrative: Record<string, string> = { ...campaign.path_narrative };
+        delete cleanedNarrative[narrativeKey];
+        await query(
+          `UPDATE user_campaigns SET path_narrative = $1::jsonb WHERE campaign_id = $2`,
+          [JSON.stringify(cleanedNarrative), campaign.campaign_id],
+        );
+      }
     }
 
     const userRow = await queryOne<{ username: string }>(
@@ -496,9 +555,9 @@ async function createEraGame({
   const gameId = uuidv4();
 
   await query(
-    `INSERT INTO games (game_id, status, game_type, era_id, map_id, settings_json, created_by)
-     VALUES ($1, 'waiting', 'solo', $2, $3, $4::jsonb, $5)`,
-    [gameId, eraId, mapId, JSON.stringify(applyAdminSnapshotsToSettings(settings)), userId],
+    `INSERT INTO games (game_id, status, game_type, era_id, map_id, settings_json)
+     VALUES ($1, 'waiting', 'solo', $2, $3, $4::jsonb)`,
+    [gameId, eraId, mapId, JSON.stringify(applyAdminSnapshotsToSettings(settings))],
   );
 
   // Add human player — with locked faction if path requires it

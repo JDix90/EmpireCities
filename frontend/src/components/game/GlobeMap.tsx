@@ -169,6 +169,14 @@ interface ArcDatum {
   dashGap: number;
   animateTime: number;
   altitude: number | null;
+  /**
+   * Optional territory to forward clicks to. Set on adjacency / combat arcs so
+   * that arcs rendered over the globe do not "swallow" clicks that were
+   * intended for a territory sitting underneath the arc geometry. Without
+   * this, raycasting inside react-globe.gl can hit the arc tube before the
+   * polygon cap and drop the click.
+   */
+  clickForwardTerritoryId?: string;
 }
 
 interface RingDatum {
@@ -715,6 +723,7 @@ function GlobeMap({
           dashGap: 0.15,
           animateTime: 500,
           altitude: null,
+          clickForwardTerritoryId: event.territoryId,
         });
       }, 600);
     }
@@ -1086,6 +1095,9 @@ function GlobeMap({
           dashGap: isSea ? 4 : 3,
           animateTime: 2000,
           altitude: isSea ? 0.15 : 0.05,
+          // Clicks landing on an attack arc should select the attackable target;
+          // that's the territory the user is most likely aiming at.
+          clickForwardTerritoryId: neighborId,
         });
       } else if (phase === 'fortify') {
         if (neighborOwner !== myId) continue;
@@ -1101,6 +1113,7 @@ function GlobeMap({
           dashGap: 4,
           animateTime: 3000,
           altitude: 0.04,
+          clickForwardTerritoryId: neighborId,
         });
       }
     }
@@ -1381,6 +1394,18 @@ function GlobeMap({
         arcDashGap={arcAccessors.dashGap}
         arcDashAnimateTime={arcAccessors.animateTime}
         arcAltitude={arcAccessors.altitude}
+        /**
+         * Forward arc clicks to the underlying territory. The adjacency /
+         * combat arcs rendered during Attack and Fortify phases cover a fair
+         * amount of space between source and target, and react-globe.gl's
+         * raycaster can hit the arc tube before the polygon cap. Without this
+         * handler those clicks are swallowed, making it hard to select the
+         * attackable / fortifiable territory the arc is pointing at.
+         */
+        onArcClick={(arc) => {
+          const tid = (arc as ArcDatum).clickForwardTerritoryId;
+          if (tid) onTerritoryClick(tid);
+        }}
 
         /* Rings (explosion effects + tutorial highlight) */
         ringsData={combinedRings}

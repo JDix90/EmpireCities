@@ -31,35 +31,149 @@ function getPlayerTerritoryCounts(state: GameState): Record<string, number> {
   return counts;
 }
 
+interface TurnAggregate {
+  turn: number;
+  probBefore: number;
+  probAfter: number;
+  probDelta: number;
+  territoryDelta: number;
+}
+
+/**
+ * Build coaching insights from the human player's perspective.
+ *
+ * Prior versions iterated over *every* snapshot pair and over *every* player,
+ * which meant a dominant AI opponent's territory gains were attributed to the
+ * viewer ("You gained 3…") and multiple swings within the same turn clustered
+ * onto the same turn label. This rewrite:
+ *   - scopes all swings to the human (first `!is_ai`) player,
+ *   - aggregates per-turn (start-of-turn vs end-of-turn) so each insight maps
+ *     to a distinct integer turn on the endgame chart,
+ *   - leans on `win_probability_history` (the exact series the chart renders)
+ *     as the primary signal so coaching points line up with chart movement,
+ *   - falls back to territory-count deltas when an older game state has no
+ *     probability history attached.
+ */
 function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightItem[] {
   if (rows.length < 2) return [];
-  const parsed = rows.map((r) => ({ turn: r.turn_number, state: parseState(r) }));
-  const swings: Array<{ turn: number; playerId: string; delta: number }> = [];
+  const lastState = parseState(rows[rows.length - 1]);
+  const humanPlayer = lastState.players.find((p) => !p.is_ai);
+  if (!humanPlayer) return [];
+  const humanId = humanPlayer.player_id;
 
-  for (let i = 1; i < parsed.length; i++) {
-    const prevCounts = getPlayerTerritoryCounts(parsed[i - 1].state);
-    const nextCounts = getPlayerTerritoryCounts(parsed[i].state);
-    for (const [playerId, next] of Object.entries(nextCounts)) {
-      const prev = prevCounts[playerId] ?? 0;
-      const delta = next - prev;
-      if (Math.abs(delta) >= 2) swings.push({ turn: parsed[i].turn, playerId, delta });
+  // ── Territory trajectory per turn (from game_states snapshots) ────────
+  const territoryByTurn = new Map<number, { first: number; last: number }>();
+  for (const row of rows) {
+    const state = parseState(row);
+    const counts = getPlayerTerritoryCounts(state);
+    const humanCount = counts[humanId] ?? 0;
+    const existing = territoryByTurn.get(row.turn_number);
+    if (!existing) {
+      territoryByTurn.set(row.turn_number, { first: humanCount, last: humanCount });
+    } else {
+      existing.last = humanCount;
     }
   }
 
-  swings.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-  return swings.slice(0, 3).map((s) => ({
-    turn: s.turn,
-    title: s.delta > 0 ? 'Momentum swing captured' : 'Map control slipped',
-    impact: Math.abs(s.delta) >= 3 ? 'high' : 'medium',
-    explanation:
-      s.delta > 0
-        ? `You gained ${s.delta} net territories in this window, creating a tempo advantage.`
-        : `You lost ${Math.abs(s.delta)} net territories in this window, which reduced map control.`,
-    alternative:
-      s.delta > 0
-        ? 'Pressure adjacent weak borders earlier next turn to convert momentum into region bonus control.'
-        : 'Reinforce a connected defensive cluster before attacking to avoid overextension and chain losses.',
-  }));
+  const byTurn = new Map<number, TurnAggregate>();
+  const orderedTurns = Array.from(territoryByTurn.keys()).sort((a, b) => a - b);
+  for (let i = 0; i < orderedTurns.length; i++) {
+    const t = orderedTurns[i];
+    const endCount = territoryByTurn.get(t)!.last;
+    const baseline = i === 0
+      ? territoryByTurn.get(t)!.first
+      : territoryByTurn.get(orderedTurns[i - 1])!.last;
+    byTurn.set(t, {
+      turn: t,
+      probBefore: 0,
+      probAfter: 0,
+      probDelta: 0,
+      territoryDelta: endCount - baseline,
+    });
+  }
+
+  // ── Win-probability trajectory per turn (same data the chart renders) ─
+  const history = lastState.win_probability_history ?? [];
+  if (history.length >= 2) {
+    const historyByTurn = new Map<number, { first: number; last: number }>();
+    for (const snap of history) {
+      const prob = snap.probabilities[humanId] ?? 0;
+      const existing = historyByTurn.get(snap.turn);
+      if (!existing) historyByTurn.set(snap.turn, { first: prob, last: prob });
+      else existing.last = prob;
+    }
+    const probTurns = Array.from(historyByTurn.keys()).sort((a, b) => a - b);
+    for (let i = 0; i < probTurns.length; i++) {
+      const t = probTurns[i];
+      const endProb = historyByTurn.get(t)!.last;
+      const baseline = i === 0
+        ? historyByTurn.get(t)!.first
+        : historyByTurn.get(probTurns[i - 1])!.last;
+      const agg = byTurn.get(t) ?? {
+        turn: t,
+        probBefore: baseline,
+        probAfter: endProb,
+        probDelta: endProb - baseline,
+        territoryDelta: 0,
+      };
+      agg.probBefore = baseline;
+      agg.probAfter = endProb;
+      agg.probDelta = endProb - baseline;
+      byTurn.set(t, agg);
+    }
+  }
+
+  // ── Rank turns by combined impact and keep the top 3 ──────────────────
+  const scored = Array.from(byTurn.values())
+    .filter((a) => Math.abs(a.probDelta) >= 0.04 || Math.abs(a.territoryDelta) >= 2)
+    .map((a) => ({
+      ...a,
+      // Blend probability and raw territory swing so games with no
+      // probability history still produce meaningful rankings.
+      score: Math.abs(a.probDelta) + Math.abs(a.territoryDelta) * 0.02,
+    }));
+  scored.sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, 3).map((s) => {
+    // Prefer probability-delta direction when we have chart data; otherwise
+    // fall back to the territory count trend.
+    const direction = s.probDelta !== 0 ? Math.sign(s.probDelta) : Math.sign(s.territoryDelta);
+    const territoryPhrase = s.territoryDelta === 0
+      ? null
+      : s.territoryDelta > 0
+        ? `gained ${s.territoryDelta} territor${s.territoryDelta === 1 ? 'y' : 'ies'}`
+        : `lost ${Math.abs(s.territoryDelta)} territor${Math.abs(s.territoryDelta) === 1 ? 'y' : 'ies'}`;
+    const probPct = Math.round(Math.abs(s.probDelta) * 100);
+    const beforePct = Math.round(s.probBefore * 100);
+    const afterPct = Math.round(s.probAfter * 100);
+    const probPhrase = probPct > 0
+      ? ` Win probability shifted from ${beforePct}% to ${afterPct}%.`
+      : '';
+    const impactHigh = probPct >= 10 || Math.abs(s.territoryDelta) >= 3;
+
+    if (direction > 0) {
+      return {
+        turn: s.turn,
+        title: 'Momentum swing captured',
+        impact: impactHigh ? 'high' : 'medium',
+        explanation: (territoryPhrase
+          ? `You ${territoryPhrase} this turn, creating a tempo advantage.`
+          : 'Your position strengthened this turn, creating a tempo advantage.') + probPhrase,
+        alternative:
+          'Pressure adjacent weak borders next turn to convert momentum into region bonus control.',
+      };
+    }
+    return {
+      turn: s.turn,
+      title: 'Map control slipped',
+      impact: impactHigh ? 'high' : 'medium',
+      explanation: (territoryPhrase
+        ? `You ${territoryPhrase} this turn, which reduced map control.`
+        : 'Your position weakened this turn, which reduced map control.') + probPhrase,
+      alternative:
+        'Reinforce a connected defensive cluster before attacking to avoid overextension and chain losses.',
+    };
+  });
 }
 
 function buildHighlightsFromInsights(insights: InsightItem[]): ReplayHighlightItem[] {

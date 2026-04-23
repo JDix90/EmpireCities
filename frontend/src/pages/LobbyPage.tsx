@@ -1388,67 +1388,84 @@ export default function LobbyPage() {
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
-                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                    {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
+                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                       <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
-                      <input
-                        type="checkbox"
-                        id="territory-draft-top"
-                        checked={territorySelection}
-                        onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
-                        disabled={factionsEnabled}
-                        className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto"
-                      />
-                      <span className="leading-snug min-w-0 select-none">Territory Draft</span>
-                    </label>
-                    <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                      <label htmlFor="territory-draft-top" className="contents cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="territory-draft-top"
+                          checked={territorySelection}
+                          onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
+                          disabled={factionsEnabled}
+                          className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                        />
+                        <span className="leading-snug min-w-0 select-none">Territory Draft</span>
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                       <FeatureTooltip text="Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft." />
-                      <input
-                        type="checkbox"
-                        id="asymmetric-factions-top"
-                        checked={factionsEnabled}
-                        onChange={(e) => {
-                          setFactionsEnabled(e.target.checked);
-                          if (e.target.checked) setTerritorySelection(false);
-                        }}
-                        disabled={territorySelection}
-                        className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto"
-                      />
-                      <span className="leading-snug min-w-0 select-none">Asymmetric Factions</span>
-                    </label>
+                      <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="asymmetric-factions-top"
+                          checked={factionsEnabled}
+                          onChange={(e) => {
+                            setFactionsEnabled(e.target.checked);
+                            if (e.target.checked) setTerritorySelection(false);
+                          }}
+                          disabled={territorySelection}
+                          className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                        />
+                        <span className="leading-snug min-w-0 select-none">Asymmetric Factions</span>
+                      </label>
+                    </div>
                   </div>
                     <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text="Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power." />
-                          <input type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
-                          <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
-                        </label>
-                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <label htmlFor="create-game-economy" className="contents cursor-pointer">
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text="Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time." />
-                          <input type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
-                          <span className="leading-snug min-w-0 select-none">Technology Trees</span>
-                        </label>
-                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Technology Trees</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text="Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response." />
-                          <input type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
-                          <span className="leading-snug min-w-0 select-none">Historical Events</span>
-                        </label>
-                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <label htmlFor="create-game-events" className="contents cursor-pointer">
+                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Historical Events</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text="Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores." />
-                          <input type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
-                          <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
-                        </label>
-                        <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer w-full">
+                          <label htmlFor="create-game-naval" className="contents cursor-pointer">
+                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text="Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start at 30% stability with halved population. Select factions gain faster stability recovery." />
-                          <input type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold pointer-events-auto" />
-                          <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
-                      </label>
-                      <label className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
-                        <FeatureTooltip text="Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important." />
-                        <input type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold" />
-                        <span className="leading-snug min-w-0">Fog of War</span>
-                        </label>
+                          <label htmlFor="create-game-stability" className="contents cursor-pointer">
+                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                          <FeatureTooltip text="Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important." />
+                          <label htmlFor="create-game-fog" className="contents cursor-pointer">
+                            <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Fog of War</span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                   <div className="md:col-span-2">
@@ -1461,16 +1478,19 @@ export default function LobbyPage() {
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
                       ] as const).map(([id, label, tip]) => (
-                        <label key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text cursor-pointer">
+                        <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text={tip} />
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
-                            checked={victoryModes.has(id)}
-                            onChange={() => toggleVictoryMode(id)}
-                          />
-                          <span className="leading-snug min-w-0">{label}</span>
-                        </label>
+                          <label htmlFor={`create-game-victory-${id}`} className="contents cursor-pointer">
+                            <input
+                              id={`create-game-victory-${id}`}
+                              type="checkbox"
+                              className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                              checked={victoryModes.has(id)}
+                              onChange={() => toggleVictoryMode(id)}
+                            />
+                            <span className="leading-snug min-w-0 select-none">{label}</span>
+                          </label>
+                        </div>
                       ))}
                     </div>
                     {victoryModes.has('threshold') && (
