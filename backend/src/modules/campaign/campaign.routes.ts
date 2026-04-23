@@ -59,12 +59,33 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Invalid path_id' });
     }
 
-    const existing = await queryOne<{ campaign_id: string }>(
-      `SELECT campaign_id FROM user_campaigns WHERE user_id = $1 AND status = 'active'`,
-      [userId],
-    );
-    if (existing) {
-      return reply.status(409).send({ error: 'Active campaign already in progress' });
+    // Prevent two active campaigns on the SAME path — each path has unique narrative
+    // state, so starting a duplicate would be confusing. Different paths (including
+    // Classic + a narrative path) are allowed to run concurrently.
+    if (pathId) {
+      const duplicate = await queryOne<{ campaign_id: string }>(
+        `SELECT campaign_id FROM user_campaigns
+         WHERE user_id = $1 AND status = 'active' AND path_id = $2`,
+        [userId, pathId],
+      );
+      if (duplicate) {
+        return reply.status(409).send({
+          error: 'You already have an active campaign on this path',
+          campaign_id: duplicate.campaign_id,
+        });
+      }
+    } else {
+      const duplicate = await queryOne<{ campaign_id: string }>(
+        `SELECT campaign_id FROM user_campaigns
+         WHERE user_id = $1 AND status = 'active' AND path_id IS NULL`,
+        [userId],
+      );
+      if (duplicate) {
+        return reply.status(409).send({
+          error: 'You already have an active classic campaign',
+          campaign_id: duplicate.campaign_id,
+        });
+      }
     }
 
     const userRow = await queryOne<{ username: string }>(
@@ -108,20 +129,37 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post('/continue', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
     const userId = (req as any).userId as string;
+    const body = (req.body ?? {}) as { campaign_id?: string };
+    const requestedId = body.campaign_id;
 
-    const campaign = await queryOne<{
-      campaign_id: string;
-      current_era_index: number;
-      prestige_points: number;
-      path_id: string | null;
-      path_carry: Partial<PathCarry>;
-      path_narrative: Record<string, string>;
-    }>(
-      `SELECT campaign_id, current_era_index, prestige_points, path_id,
-              path_carry, path_narrative
-       FROM user_campaigns WHERE user_id = $1 AND status = 'active'`,
-      [userId],
-    );
+    const campaign = requestedId
+      ? await queryOne<{
+          campaign_id: string;
+          current_era_index: number;
+          prestige_points: number;
+          path_id: string | null;
+          path_carry: Partial<PathCarry>;
+          path_narrative: Record<string, string>;
+        }>(
+          `SELECT campaign_id, current_era_index, prestige_points, path_id,
+                  path_carry, path_narrative
+           FROM user_campaigns WHERE campaign_id = $1 AND user_id = $2 AND status = 'active'`,
+          [requestedId, userId],
+        )
+      : await queryOne<{
+          campaign_id: string;
+          current_era_index: number;
+          prestige_points: number;
+          path_id: string | null;
+          path_carry: Partial<PathCarry>;
+          path_narrative: Record<string, string>;
+        }>(
+          `SELECT campaign_id, current_era_index, prestige_points, path_id,
+                  path_carry, path_narrative
+           FROM user_campaigns WHERE user_id = $1 AND status = 'active'
+           ORDER BY started_at DESC LIMIT 1`,
+          [userId],
+        );
     if (!campaign) return reply.status(404).send({ error: 'No active campaign' });
 
     const eraIndex = campaign.current_era_index;
@@ -175,8 +213,115 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
+   * GET /api/campaign/list
+   * Return ALL campaigns (active + completed) for the authenticated user.
+   * Used by the multi-campaign picker UI.
+   */
+  app.get('/list', { preHandler: [authenticate] }, async (req, reply) => {
+    const userId = (req as any).userId as string;
+
+    const campaigns = await query<{
+      campaign_id: string;
+      current_era_index: number;
+      prestige_points: number;
+      status: string;
+      started_at: string;
+      completed_at: string | null;
+      path_id: string | null;
+      path_carry: Partial<PathCarry>;
+      path_narrative: Record<string, string>;
+    }>(
+      `SELECT campaign_id, current_era_index, prestige_points, status, started_at, completed_at,
+              path_id, path_carry, path_narrative
+       FROM user_campaigns
+       WHERE user_id = $1
+       ORDER BY
+         CASE WHEN status = 'active' THEN 0 ELSE 1 END,
+         started_at DESC`,
+      [userId],
+    );
+
+    if (campaigns.length === 0) {
+      return reply.send({ campaigns: [] });
+    }
+
+    const campaignIds = campaigns.map((c) => c.campaign_id);
+    const allEntries = await query<{
+      campaign_id: string;
+      era_id: string;
+      game_id: string | null;
+      won: boolean;
+      completed_at: string;
+      faction_id: string | null;
+      map_id_override: string | null;
+    }>(
+      `SELECT campaign_id, era_id, game_id, won, completed_at, faction_id, map_id_override
+       FROM campaign_entries
+       WHERE campaign_id = ANY($1::uuid[])
+       ORDER BY completed_at ASC`,
+      [campaignIds],
+    );
+
+    const out = campaigns.map((c) => {
+      const entries = allEntries.filter((e) => e.campaign_id === c.campaign_id);
+      const pathConfig = c.path_id ? CAMPAIGN_PATHS[c.path_id as PathId] : null;
+      const currentEraIndex = c.current_era_index;
+      const currentEra = CAMPAIGN_ERAS[currentEraIndex] ?? null;
+      const nextEra = currentEraIndex + 1 < CAMPAIGN_ERAS.length
+        ? CAMPAIGN_ERAS[currentEraIndex + 1]
+        : null;
+
+      const erasWithNarrative = CAMPAIGN_ERAS.map((era, idx) => {
+        const entry = entries.find((e) => e.era_id === era);
+        const pathEra = pathConfig?.eras[idx];
+        return {
+          era_id: era,
+          index: idx,
+          won: entry?.won ?? false,
+          completed: !!entry,
+          game_id: entry?.game_id ?? null,
+          faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
+          map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
+          intro_text: pathEra?.intro_text ?? null,
+          outro_win_text: pathEra?.outro_win_text ?? null,
+          outro_loss_text: pathEra?.outro_loss_text ?? null,
+        };
+      });
+
+      return {
+        campaign_id: c.campaign_id,
+        status: c.status,
+        current_era: currentEra,
+        current_era_index: currentEraIndex,
+        next_era: nextEra,
+        prestige_points: c.prestige_points,
+        started_at: c.started_at,
+        completed_at: c.completed_at,
+        path_id: c.path_id,
+        path_carry: c.path_carry,
+        path_narrative: c.path_narrative,
+        path_config: pathConfig
+          ? {
+              path_id: pathConfig.path_id,
+              name: pathConfig.name,
+              tagline: pathConfig.tagline,
+              description: pathConfig.description,
+              signature_carry_key: pathConfig.signature_carry_key,
+              signature_carry_label: pathConfig.signature_carry_label,
+              signature_carry_max: pathConfig.signature_carry_max,
+            }
+          : null,
+        eras: erasWithNarrative,
+      };
+    });
+
+    return reply.send({ campaigns: out });
+  });
+
+  /**
    * GET /api/campaign/me
    * Return the active (or most recent) campaign for the authenticated user.
+   * Retained for backward compatibility; new code should prefer /campaign/list.
    */
   app.get('/me', { preHandler: [authenticate] }, async (req, reply) => {
     const userId = (req as any).userId as string;
