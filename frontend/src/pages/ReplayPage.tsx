@@ -41,16 +41,31 @@ export default function ReplayPage() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load replay on mount
+  // Load replay on mount — retry up to 3× with 2 s delay for spectators redirected
+  // immediately after game:over (DB write may still be in flight).
   useEffect(() => {
     if (!gameId) return;
     let mounted = true;
     setLoading(true);
-    api
-      .get<{ snapshots: Array<{ turn_number: number; state: GameState }> }>(`/games/${gameId}/replay`)
-      .then((res) => {
+
+    async function fetchReplay(attemptsLeft: number): Promise<{ snapshots: Array<{ turn_number: number; state: GameState }> }> {
+      try {
+        const res = await api.get<{ snapshots: Array<{ turn_number: number; state: GameState }> }>(`/games/${gameId}/replay`);
+        return res.data;
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (attemptsLeft > 1 && (status === 404 || status === 503)) {
+          await new Promise((r) => setTimeout(r, 2000));
+          return fetchReplay(attemptsLeft - 1);
+        }
+        throw err;
+      }
+    }
+
+    fetchReplay(3)
+      .then((data) => {
         if (!mounted) return;
-        const states = res.data.snapshots.map((s) => s.state);
+        const states = data.snapshots.map((s) => s.state);
         if (states.length === 0) {
           setError('No replay data available for this game.');
           return;

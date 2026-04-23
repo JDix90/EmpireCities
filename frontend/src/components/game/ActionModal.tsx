@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy } from 'lucide-react';
+import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
@@ -81,6 +81,12 @@ export interface GameOverModalData {
     explanation: string;
     alternative: string;
   }>;
+  rematchConfig?: {
+    era_id: string;
+    map_id: string;
+    settings: Record<string, unknown>;
+    human_player_ids: string[];
+  };
 }
 
 export interface EliminationModalData {
@@ -132,11 +138,23 @@ export interface NotificationData {
 
 // ─── Animated Die ──────────────────────────────────────────────────────────
 
-function AnimatedDie({ value, index, variant }: { value: number; index: number; variant: 'attacker' | 'defender' }) {
-  const [display, setDisplay] = useState(Math.ceil(Math.random() * 6));
-  const [settled, setSettled] = useState(false);
+const FAST_COMBAT_KEY = 'cc-fast-combat';
+
+function getFastCombat(): boolean {
+  try {
+    const v = localStorage.getItem(FAST_COMBAT_KEY);
+    if (v !== null) return v === 'true';
+    // Default on for coarse-pointer (touch) devices
+    return window.matchMedia('(pointer: coarse)').matches;
+  } catch { return false; }
+}
+
+function AnimatedDie({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
+  const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * 6));
+  const [settled, setSettled] = useState(!!fast);
 
   useEffect(() => {
+    if (fast) { setDisplay(value); setSettled(true); return; }
     let frame = 0;
     const totalFrames = 8 + index * 4;
     const timer = setInterval(() => {
@@ -150,7 +168,7 @@ function AnimatedDie({ value, index, variant }: { value: number; index: number; 
       }
     }, 55);
     return () => clearInterval(timer);
-  }, [value, index]);
+  }, [value, index, fast]);
 
   const isAttacker = variant === 'attacker';
   return (
@@ -172,8 +190,8 @@ function AnimatedDie({ value, index, variant }: { value: number; index: number; 
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant }: { value: number; index: number; variant: 'attacker' | 'defender' }) {
-  return <AnimatedDie value={value} index={index} variant={variant} />;
+function DieFace({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -192,11 +210,12 @@ function CombatResultView({
   onRepeatAttack?: () => void;
 }) {
   const [showResult, setShowResult] = useState(false);
+  const fast = getFastCombat();
 
   useEffect(() => {
     hapticImpact(ImpactStyle.Light);
     const maxDice = Math.max(result.attacker_rolls.length, result.defender_rolls.length);
-    const settleTime = (8 + (maxDice - 1) * 4) * 55 + 500;
+    const settleTime = fast ? 300 : (8 + (maxDice - 1) * 4) * 55 + 500;
     const timer = setTimeout(() => {
       hapticImpact(ImpactStyle.Medium);
       setShowResult(true);
@@ -238,7 +257,7 @@ function CombatResultView({
           </p>
           <div className="flex justify-center gap-2.5">
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} />
             ))}
           </div>
         </div>
@@ -255,7 +274,7 @@ function CombatResultView({
           </p>
           <div className="flex justify-center gap-2.5">
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} />
             ))}
           </div>
         </div>
@@ -767,7 +786,11 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss: () => void }) {
+function GameOverView({ data, onDismiss, onRematch }: {
+  data: GameOverModalData;
+  onDismiss: () => void;
+  onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
+}) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
 
@@ -1101,6 +1124,17 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           Return to Lobby
           <ChevronRight className="w-4 h-4" />
         </button>
+        {data.rematchConfig && !data.rematchConfig.settings?.daily_challenge_date && !data.rematchConfig.settings?.tutorial && onRematch && (
+          <button
+            onClick={() => onRematch(data.rematchConfig!)}
+            className="shrink-0 py-3 px-4 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30
+                       border border-cc-gold/40 text-cc-gold font-medium transition-all
+                       flex items-center justify-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Rematch
+          </button>
+        )}
       </div>
 
       {/* Share preview overlay */}
@@ -1350,9 +1384,10 @@ interface ActionModalProps {
   onResignConfirm?: () => void;
   /** Re-roll the same attack after a failed capture (attacker still has 2+ on source) */
   onRepeatCombat?: (fromId: string, toId: string) => void;
+  onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
 }
 
-export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat }: ActionModalProps) {
+export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat, onRematch }: ActionModalProps) {
   const isGameOver = data?.type === 'game_over';
   const isResign = data?.type === 'resign_confirm';
 
@@ -1410,7 +1445,7 @@ export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeat
             onDismiss={onDismiss}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} />}
         {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}

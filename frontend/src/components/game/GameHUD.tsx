@@ -8,6 +8,15 @@ import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
 import { getSocket } from '../../services/socket';
 
+const FAST_COMBAT_KEY = 'cc-fast-combat';
+function readFastCombat() {
+  try {
+    const v = localStorage.getItem(FAST_COMBAT_KEY);
+    if (v !== null) return v === 'true';
+    return window.matchMedia('(pointer: coarse)').matches;
+  } catch { return false; }
+}
+
 interface GameHUDProps {
   onAdvancePhase: () => void;
   onRedeemCards: (cardIds: string[]) => void;
@@ -70,6 +79,7 @@ export default function GameHUD({
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
+  const [fastCombat, setFastCombat] = useState(readFastCombat);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
   const myPlayer = gameState?.players.find(
@@ -440,6 +450,18 @@ export default function GameHUD({
               <Save className="w-3 h-3" /> Save & Leave
             </button>
           )}
+          <label className="flex items-center gap-2 px-1 py-1 text-xs text-cc-muted cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={fastCombat}
+              onChange={(e) => {
+                setFastCombat(e.target.checked);
+                try { localStorage.setItem(FAST_COMBAT_KEY, String(e.target.checked)); } catch { /* noop */ }
+              }}
+              className="accent-cc-gold w-3 h-3"
+            />
+            Fast combat
+          </label>
           {onResign && (
             <button
               onClick={onResign}

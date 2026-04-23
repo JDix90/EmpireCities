@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { GameLobbySnapshot } from '../../types/gameLobbyApi';
+import FactionLoreModal, { type FactionLoreInfo } from './FactionLoreModal';
 
 interface FactionInfo {
   faction_id: string;
@@ -9,9 +11,12 @@ interface FactionInfo {
   description: string;
   lore?: string;
   flavor_quote?: string;
+  color?: string;
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
   reinforce_bonus?: number;
+  stability_recovery_bonus?: number;
+  ability_description?: string;
   home_region_ids?: string[];
 }
 
@@ -26,7 +31,8 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
   const { user } = useAuthStore();
   const [factions, setFactions] = useState<FactionInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState<string | null>(null); // player_id being submitted
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [loreFaction, setLoreFaction] = useState<FactionLoreInfo | null>(null);
 
   // Host is the first non-AI player
   const host = lobby.players.find(p => !p.is_ai);
@@ -77,6 +83,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
             <tr className="text-cc-muted border-b border-cc-border">
               <th className="text-left py-2">Player</th>
               <th className="text-left py-2">Faction</th>
+              <th className="py-2" />
             </tr>
           </thead>
           <tbody>
@@ -123,12 +130,29 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                       </span>
                     )}
                   </td>
+                  <td className="py-2 pl-2">
+                    {(() => {
+                      const selectedId = playerFactions[playerKey];
+                      const f = selectedId ? factions.find(ff => ff.faction_id === selectedId) : null;
+                      if (!f) return null;
+                      return (
+                        <button
+                          onClick={() => setLoreFaction(f as FactionLoreInfo)}
+                          className="p-1 text-cc-muted hover:text-cc-gold transition-colors"
+                          title="Read faction lore"
+                        >
+                          <BookOpen className="w-4 h-4" />
+                        </button>
+                      );
+                    })()}
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       )}
+      {loreFaction && <FactionLoreModal faction={loreFaction} onClose={() => setLoreFaction(null)} />}
     </div>
   );
 }

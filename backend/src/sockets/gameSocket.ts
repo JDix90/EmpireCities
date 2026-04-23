@@ -2998,6 +2998,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,
     victory_condition: state.victory_condition,
     progression: progressionByPlayer,
+    rematch_config: {
+      era_id: state.era,
+      map_id: state.map_id,
+      settings: state.settings,
+      human_player_ids: state.players
+        .filter((p) => !p.is_ai && p.player_id !== winnerId)
+        .map((p) => p.player_id),
+    },
   };
   io.to(gameId).emit('game:over', stats);
 
