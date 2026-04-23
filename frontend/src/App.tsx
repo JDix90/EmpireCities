@@ -29,6 +29,8 @@ const LiveGamesPage = lazy(() => import('./pages/LiveGamesPage'));
 const SpectatorPage = lazy(() => import('./pages/SpectatorPage'));
 const ModalLabPage = lazy(() => import('./pages/ModalLabPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
+const CodexPage = lazy(() => import('./pages/CodexPage'));
+const WarRoomPage = lazy(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
   return (
@@ -144,6 +146,8 @@ export default function App() {
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />
         <Route path="/spectate/:gameId" element={<PrivateRoute><SpectatorPage /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><AdminRoute><AdminPage /></AdminRoute></PrivateRoute>} />
+        <Route path="/codex" element={<CodexPage />} />
+        <Route path="/war-room" element={<PrivateRoute><WarRoomPage /></PrivateRoute>} />
 
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />

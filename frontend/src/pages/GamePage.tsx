@@ -780,6 +780,8 @@ export default function GamePage() {
       xp_earned_by_player?: Record<string, number>;
       victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
+      rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
+      combat_stats?: Record<string, { attacks: number; attack_wins: number; defenses: number; defense_wins: number; territories_captured: number }>;
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
@@ -804,6 +806,10 @@ export default function GamePage() {
         eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
         winnerIds,
         progression: myProgression,
+        rematchConfig: stats.rematch_config,
+        combat_stats: stats.combat_stats,
+        xp_earned_by_player: stats.xp_earned_by_player,
+        rating_deltas: stats.rating_deltas,
       };
       if (gameId) {
         api
@@ -1451,6 +1457,26 @@ export default function GamePage() {
     dismissModal();
     navigate('/lobby');
   };
+
+  const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
+    try {
+      const res = await api.post<{ game_id: string }>('/games', {
+        era_id: cfg.era_id,
+        map_id: cfg.map_id,
+        settings: cfg.settings,
+        ai_count: 0,
+        max_players: 8,
+      });
+      const newGameId = res.data.game_id;
+      for (const pid of cfg.human_player_ids) {
+        await api.post(`/games/${newGameId}/invite`, { friend_user_id: pid }).catch(() => {});
+      }
+      dismissModal();
+      navigate(`/game/${newGameId}`);
+    } catch {
+      toast.error('Could not create rematch');
+    }
+  }, [navigate, dismissModal]);
 
   const handleTutorialContinuePlaying = useCallback(() => {
     setTutorialStep(TUTORIAL_STEPS.length);
@@ -2324,6 +2350,7 @@ export default function GamePage() {
         onDismiss={modalQueue[0]?.type === 'game_over' ? handleGameOverDismiss : dismissModal}
         onResignConfirm={handleResignConfirm}
         onRepeatCombat={handleAttack}
+        onRematch={handleRematch}
       />
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}

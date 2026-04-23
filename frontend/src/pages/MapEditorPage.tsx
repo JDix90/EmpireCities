@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState, useCallback, useRef } from 
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft } from 'lucide-react';
+import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft, Undo2, Redo2 } from 'lucide-react';
 import axios from 'axios';
 import { isMobileViewport } from '../utils/device';
 import type {
@@ -72,6 +72,89 @@ export default function MapEditorPage() {
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const skipDirtyRef = useRef(true); // suppress dirty on initial mount and load
+
+  // ── Undo / Redo ────────────────────────────────────────────────────────────
+  interface EditorSnapshot {
+    territories: EditorTerritory[];
+    connections: EditorConnection[];
+    regions: EditorRegion[];
+    mapName: string;
+    mapDescription: string;
+  }
+  const historyRef = useRef<EditorSnapshot[]>([]);
+  const historyIndexRef = useRef<number>(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const territoriesRef = useRef(territories);
+  territoriesRef.current = territories;
+  const connectionsRef2 = useRef(connections);
+  connectionsRef2.current = connections;
+  const regionsRef = useRef(regions);
+  regionsRef.current = regions;
+  const mapNameRef = useRef(mapName);
+  mapNameRef.current = mapName;
+  const mapDescRef = useRef(mapDescription);
+  mapDescRef.current = mapDescription;
+
+  const updateUndoRedoFlags = useCallback(() => {
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, []);
+
+  const takeSnapshot = useCallback((): EditorSnapshot => ({
+    territories: structuredClone(territoriesRef.current),
+    connections: structuredClone(connectionsRef2.current),
+    regions: structuredClone(regionsRef.current),
+    mapName: mapNameRef.current,
+    mapDescription: mapDescRef.current,
+  }), []);
+
+  const pushHistory = useCallback((snap: EditorSnapshot) => {
+    historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
+    historyRef.current.push(snap);
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    historyIndexRef.current = historyRef.current.length - 1;
+    updateUndoRedoFlags();
+  }, [updateUndoRedoFlags]);
+
+  // Capture snapshot BEFORE a user mutation; call immediately before setState calls.
+  const recordUndo = useCallback(() => { pushHistory(takeSnapshot()); }, [pushHistory, takeSnapshot]);
+
+  const applySnapshot = useCallback((snap: EditorSnapshot) => {
+    skipDirtyRef.current = true;
+    setTerritories(snap.territories);
+    setConnections(snap.connections);
+    setRegions(snap.regions);
+    setMapName(snap.mapName);
+    setMapDescription(snap.mapDescription);
+    updateUndoRedoFlags();
+  }, [updateUndoRedoFlags]);
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current--;
+    applySnapshot(historyRef.current[historyIndexRef.current]!);
+  }, [applySnapshot]);
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current++;
+    applySnapshot(historyRef.current[historyIndexRef.current]!);
+  }, [applySnapshot]);
+
+  // Keyboard: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y = redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (meta && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (meta && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
   const [globeSize, setGlobeSize] = useState({ w: 800, h: 600 });
 
   // Mark dirty whenever user changes map content, but not on initial load/save
@@ -107,6 +190,17 @@ export default function MapEditorPage() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
+  // Seed history with the initial empty state on first render (new maps)
+  useEffect(() => {
+    if (!mapId) {
+      historyRef.current = [takeSnapshot()];
+      historyIndexRef.current = 0;
+      updateUndoRedoFlags();
+    }
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load existing map (not dirty until user edits after load)
   useEffect(() => {
     if (!mapId) return;
@@ -119,8 +213,14 @@ export default function MapEditorPage() {
       setConnections(data.connections ?? []);
       setRegions(data.regions ?? []);
       setIsDirty(false);
+      // Seed history after load — use setTimeout so state has settled
+      setTimeout(() => {
+        historyRef.current = [takeSnapshot()];
+        historyIndexRef.current = 0;
+        updateUndoRedoFlags();
+      }, 0);
     }).catch(() => toast.error('Failed to load map'));
-  }, [mapId]);
+  }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset tool-specific state when switching tools
   const switchTool = useCallback((tool: EditorTool) => {
@@ -154,6 +254,7 @@ export default function MapEditorPage() {
   const handleTerritoryClick = useCallback((id: string) => {
     const tool = activeToolRef.current;
     if (tool === 'delete') {
+      recordUndo();
       setTerritories((prev) => prev.filter((t) => t.territory_id !== id));
       setConnections((prev) => prev.filter((c) => c.from !== id && c.to !== id));
       setSelectedTerritoryId((prev) => (prev === id ? null : prev));
@@ -167,6 +268,7 @@ export default function MapEditorPage() {
           (c) => (c.from === src && c.to === id) || (c.from === id && c.to === src)
         );
         if (!exists) {
+          recordUndo();
           setConnections((prev) => [...prev, { from: src, to: id, type: 'land' }]);
         }
         setConnectSource(null);
@@ -175,7 +277,7 @@ export default function MapEditorPage() {
       // select/country_pick/draw: toggle selection
       setSelectedTerritoryId((prev) => (prev === id ? null : id));
     }
-  }, []);
+  }, [recordUndo]);
 
   // Globe background click
   const handleGlobeClick = useCallback((lng: number, lat: number) => {
@@ -203,11 +305,12 @@ export default function MapEditorPage() {
       region_id: regions[0]?.region_id ?? 'region_1',
       geo_polygon: drawingPoints,
     };
+    recordUndo();
     setTerritories((prev) => [...prev, newTerritory]);
     setDrawingPoints([]);
     setSelectedTerritoryId(newTerritory.territory_id);
     toast.success('Territory created!');
-  }, [drawingPoints, territories.length, regions]);
+  }, [drawingPoints, territories.length, regions, recordUndo]);
 
   // Country-pick: add a country as a territory
   const handleCountryPick = useCallback((isoCode: string, name: string, geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon) => {
@@ -226,12 +329,14 @@ export default function MapEditorPage() {
       region_id: regions[0]?.region_id ?? 'region_1',
       iso_codes: [isoCode],
     };
+    recordUndo();
     setTerritories((prev) => [...prev, newTerritory]);
     setSelectedTerritoryId(newTerritory.territory_id);
     toast.success(`${name} added!`);
-  }, [territories, regions]);
+  }, [territories, regions, recordUndo]);
 
   const addRegion = () => {
+    recordUndo();
     const id = `region_${Date.now()}`;
     setRegions((prev) => [...prev, { region_id: id, name: `Region ${prev.length + 1}`, bonus: 3 }]);
   };
@@ -313,6 +418,7 @@ export default function MapEditorPage() {
         <input
           className="bg-transparent border-none text-cc-gold font-display text-lg focus:outline-none w-64"
           value={mapName}
+          onFocus={recordUndo}
           onChange={(e) => setMapName(e.target.value)}
           placeholder="Map Name"
         />
@@ -337,6 +443,24 @@ export default function MapEditorPage() {
               {icon}
             </button>
           ))}
+          <div className="mt-2 border-t border-cc-border w-full pt-2 flex flex-col items-center gap-2">
+            <button
+              title="Undo (Ctrl+Z)"
+              onClick={undo}
+              disabled={!canUndo}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-cc-dark text-cc-muted hover:bg-cc-border disabled:opacity-30"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              title="Redo (Ctrl+Shift+Z)"
+              onClick={redo}
+              disabled={!canRedo}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-cc-dark text-cc-muted hover:bg-cc-border disabled:opacity-30"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Globe Canvas */}
@@ -393,6 +517,7 @@ export default function MapEditorPage() {
                   <input
                     className="input text-sm py-1.5"
                     value={selectedTerritory.name}
+                    onFocus={recordUndo}
                     onChange={(e) => setTerritories((prev) =>
                       prev.map((t) => t.territory_id === selectedTerritoryId ? { ...t, name: e.target.value } : t)
                     )}
@@ -403,9 +528,12 @@ export default function MapEditorPage() {
                   <select
                     className="input text-sm py-1.5"
                     value={selectedTerritory.region_id}
-                    onChange={(e) => setTerritories((prev) =>
-                      prev.map((t) => t.territory_id === selectedTerritoryId ? { ...t, region_id: e.target.value } : t)
-                    )}
+                    onChange={(e) => {
+                      recordUndo();
+                      setTerritories((prev) =>
+                        prev.map((t) => t.territory_id === selectedTerritoryId ? { ...t, region_id: e.target.value } : t)
+                      );
+                    }}
                   >
                     {regions.map((r) => (
                       <option key={r.region_id} value={r.region_id}>{r.name}</option>
@@ -420,6 +548,7 @@ export default function MapEditorPage() {
                 <button
                   onClick={() => {
                     const id = selectedTerritoryId!;
+                    recordUndo();
                     setTerritories((prev) => prev.filter((t) => t.territory_id !== id));
                     setConnections((prev) => prev.filter((c) => c.from !== id && c.to !== id));
                     setSelectedTerritoryId(null);
@@ -451,6 +580,7 @@ export default function MapEditorPage() {
                     <input
                       className="bg-transparent text-sm text-cc-text flex-1 focus:outline-none"
                       value={region.name}
+                      onFocus={recordUndo}
                       onChange={(e) => setRegions((prev) =>
                         prev.map((r) => r.region_id === region.region_id ? { ...r, name: e.target.value } : r)
                       )}
@@ -464,6 +594,7 @@ export default function MapEditorPage() {
                       min={1}
                       max={20}
                       value={region.bonus}
+                      onFocus={recordUndo}
                       onChange={(e) => setRegions((prev) =>
                         prev.map((r) => r.region_id === region.region_id ? { ...r, bonus: Number(e.target.value) } : r)
                       )}

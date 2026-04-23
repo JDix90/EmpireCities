@@ -257,6 +257,24 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send(achievements);
   });
 
+  // ── GET /api/users/me/achievements/progress ────────────────────────────
+  fastify.get('/me/achievements/progress', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const userId = request.userId as string;
+    const [gamesRow, userRow] = await Promise.all([
+      query<{ count: string }>(`SELECT COUNT(*) AS count FROM game_players WHERE user_id = $1`, [userId]),
+      queryOne<{ win_streak: number }>(
+        `SELECT COALESCE(win_streak, 0) AS win_streak FROM users WHERE user_id = $1`, [userId],
+      ),
+    ]);
+    const gamesPlayed = Number(gamesRow[0]?.count ?? 0);
+    const winStreak = userRow?.win_streak ?? 0;
+    return reply.send({
+      veteran:         { current: gamesPlayed, target: 50 },
+      ten_streak:      { current: winStreak,   target: 10 },
+      immortal_streak: { current: winStreak,   target: 25 },
+    });
+  });
+
   // ── GET /api/users/me/games ──────────────────────────────────────────────
   fastify.get('/me/games', { preHandler: authenticate }, async (request, reply) => {
     try {

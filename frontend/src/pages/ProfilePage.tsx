@@ -182,6 +182,7 @@ export default function ProfilePage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [tutorialLaunching, setTutorialLaunching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [achievementProgress, setAchievementProgress] = useState<Record<string, { current: number; target: number }>>({});
 
   const targetId = userId ?? currentUser?.user_id;
   const isOwnProfile = !userId || userId === currentUser?.user_id;
@@ -195,12 +196,14 @@ export default function ProfilePage() {
       isOwnProfile ? api.get('/users/me/stats') : Promise.resolve({ data: null }),
       isOwnProfile ? api.get('/users/me/achievements') : Promise.resolve({ data: [] }),
       api.get('/users/achievements').catch(() => ({ data: [] })),
-    ]).then(([profileRes, gamesRes, statsRes, achRes, allAchRes]) => {
+      isOwnProfile ? api.get('/users/me/achievements/progress').catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+    ]).then(([profileRes, gamesRes, statsRes, achRes, allAchRes, progressRes]) => {
       setProfile(profileRes.data);
       setGames(gamesRes.data);
       if (statsRes.data) setStats(statsRes.data);
       setAchievements(achRes.data);
       setAllAchievements(allAchRes.data);
+      setAchievementProgress(progressRes.data ?? {});
     }).catch((err: unknown) => {
       const msg = axios.isAxiosError(err) ? (err.response?.data as { error?: string })?.error ?? err.message : 'Failed to load profile';
       setLoadError(msg);
@@ -283,10 +286,25 @@ export default function ProfilePage() {
                 <Bot className="w-3 h-3" /> Solo {profile.ratings?.solo?.display ?? '—'}
                 {profile.ratings?.solo?.provisional && <span className="text-cc-gold/60">(P)</span>}
               </span>
-              <span className="text-cc-muted text-xs flex items-center gap-1">
+              <span className="relative group text-cc-muted text-xs flex items-center gap-1 cursor-default">
                 <Shield className="w-3 h-3" /> Ranked {profile.ratings?.ranked?.display ?? '—'}
                 {profile.ratings?.ranked?.provisional && <span className="text-cc-gold/60">(P)</span>}
                 {profile.ratings?.ranked && <TierBadge mu={profile.ratings.ranked.mu} className="ml-1" />}
+                {profile.ratings?.ranked && (
+                  <span className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:flex
+                                   flex-col gap-1 bg-cc-dark border border-cc-border rounded-lg p-3
+                                   w-52 text-xs text-cc-muted shadow-xl z-20 whitespace-normal">
+                    <span className="font-semibold text-cc-text">Rating Confidence (RD)</span>
+                    <span>RD: {Math.round(profile.ratings.ranked.phi)}</span>
+                    <span className="text-cc-muted/80 leading-relaxed">
+                      {profile.ratings.ranked.phi > 150
+                        ? 'Provisional — play more ranked games to settle your rating.'
+                        : profile.ratings.ranked.phi > 80
+                        ? 'Settling — a few more games will stabilise this.'
+                        : 'Stable — high confidence in this rating.'}
+                    </span>
+                  </span>
+                )}
               </span>
             </div>
             <div className="mt-3">
@@ -429,13 +447,14 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {allAchievements.map((a) => {
                 const unlocked = achievements.find((u) => u.achievement_id === a.achievement_id);
+                const prog = !unlocked ? achievementProgress[a.achievement_id] : undefined;
                 return (
                   <div
                     key={a.achievement_id}
                     className={`p-3 rounded-lg border ${
                       unlocked
                         ? 'bg-cc-gold/5 border-cc-gold/20'
-                        : 'bg-cc-dark border-cc-border opacity-50'
+                        : 'bg-cc-dark border-cc-border opacity-60'
                     }`}
                   >
                     <p className={`text-sm font-medium ${unlocked ? 'text-cc-gold' : 'text-cc-muted'}`}>
@@ -446,6 +465,20 @@ export default function ProfilePage() {
                       <p className="text-[10px] text-cc-muted/60 mt-1">
                         {formatDate(unlocked.unlocked_at)}
                       </p>
+                    )}
+                    {prog && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-cc-muted mb-1">
+                          <span>Progress</span>
+                          <span>{Math.min(prog.current, prog.target)} / {prog.target}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-cc-dark/80 overflow-hidden border border-cc-border">
+                          <div
+                            className="h-full rounded-full bg-cc-gold transition-all"
+                            style={{ width: `${Math.min(100, (prog.current / prog.target) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
                     )}
                     <p className="text-[10px] text-cc-gold/50 mt-1">+{a.xp_reward} XP</p>
                   </div>

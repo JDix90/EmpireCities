@@ -115,6 +115,41 @@ const activeGames = new Map<string, {
   connectedSockets: Map<string, string>; // socketId → playerId
 }>();
 
+// Per-game per-player combat accumulator (keyed gameId -> playerId -> stats)
+interface PlayerCombatStats {
+  attacks: number;
+  attack_wins: number;
+  defenses: number;
+  defense_wins: number;
+  territories_captured: number;
+}
+const gameCombatStats = new Map<string, Map<string, PlayerCombatStats>>();
+
+function ensureCombatStats(gameId: string, playerId: string): PlayerCombatStats {
+  if (!gameCombatStats.has(gameId)) gameCombatStats.set(gameId, new Map());
+  const gm = gameCombatStats.get(gameId)!;
+  if (!gm.has(playerId)) gm.set(playerId, { attacks: 0, attack_wins: 0, defenses: 0, defense_wins: 0, territories_captured: 0 });
+  return gm.get(playerId)!;
+}
+
+function recordCombatResult(
+  gameId: string,
+  attackerId: string,
+  defenderId: string | null,
+  result: { attacker_losses: number; defender_losses: number; territory_captured: boolean },
+): void {
+  const atk = ensureCombatStats(gameId, attackerId);
+  atk.attacks++;
+  if (result.defender_losses > result.attacker_losses) atk.attack_wins++;
+  if (result.territory_captured) atk.territories_captured++;
+
+  if (defenderId) {
+    const def = ensureCombatStats(gameId, defenderId);
+    def.defenses++;
+    if (result.attacker_losses > result.defender_losses) def.defense_wins++;
+  }
+}
+
 /** For GET /metrics/json — count of in-memory game rooms (ops signal, not player count). */
 export function getActiveGameMetrics(): { activeGameRooms: number } {
   return { activeGameRooms: activeGames.size };
@@ -1091,9 +1126,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       fromTerritory.unit_count -= result.attacker_losses;
       toTerritory.unit_count -= result.defender_losses;
 
+      // Accumulate per-player combat stats for post-game breakdown
+      const defenderId = toTerritory.owner_id;
+      recordCombatResult(gameId, userId, defenderId ?? null, result);
+
       let cardEarned = false;
       let defenderEliminated = false;
-      const defenderId = toTerritory.owner_id;
       if (result.territory_captured) {
         toTerritory.owner_id = userId;
         toTerritory.unit_count = Math.min(fromTerritory.unit_count - 1, 3);
@@ -2998,8 +3036,20 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,
     victory_condition: state.victory_condition,
     progression: progressionByPlayer,
+    rematch_config: {
+      era_id: state.era,
+      map_id: state.map_id,
+      settings: state.settings,
+      human_player_ids: state.players
+        .filter((p) => !p.is_ai && p.player_id !== winnerId)
+        .map((p) => p.player_id),
+    },
+    combat_stats: Object.fromEntries(
+      Array.from(gameCombatStats.get(gameId)?.entries() ?? []).map(([pid, s]) => [pid, s]),
+    ),
   };
   io.to(gameId).emit('game:over', stats);
+  gameCombatStats.delete(gameId);
 
   // Generate replay highlights + coaching insights asynchronously.
   generateAndStorePostMatchAnalysis(gameId).catch((err) => {

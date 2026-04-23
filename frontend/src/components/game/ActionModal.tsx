@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy } from 'lucide-react';
+import MatchStatsTab from './MatchStatsTab';
+import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
@@ -81,6 +82,23 @@ export interface GameOverModalData {
     explanation: string;
     alternative: string;
   }>;
+  rematchConfig?: {
+    era_id: string;
+    map_id: string;
+    settings: Record<string, unknown>;
+    human_player_ids: string[];
+  };
+  combat_stats?: Record<string, {
+    attacks: number;
+    attack_wins: number;
+    defenses: number;
+    defense_wins: number;
+    territories_captured: number;
+  }>;
+  /** Full per-player XP map (for MatchStatsTab table). */
+  xp_earned_by_player?: Record<string, number>;
+  /** Full per-player MMR delta map (for MatchStatsTab table). */
+  rating_deltas?: Record<string, number>;
 }
 
 export interface EliminationModalData {
@@ -132,11 +150,23 @@ export interface NotificationData {
 
 // ─── Animated Die ──────────────────────────────────────────────────────────
 
-function AnimatedDie({ value, index, variant }: { value: number; index: number; variant: 'attacker' | 'defender' }) {
-  const [display, setDisplay] = useState(Math.ceil(Math.random() * 6));
-  const [settled, setSettled] = useState(false);
+const FAST_COMBAT_KEY = 'cc-fast-combat';
+
+function getFastCombat(): boolean {
+  try {
+    const v = localStorage.getItem(FAST_COMBAT_KEY);
+    if (v !== null) return v === 'true';
+    // Default on for coarse-pointer (touch) devices
+    return window.matchMedia('(pointer: coarse)').matches;
+  } catch { return false; }
+}
+
+function AnimatedDie({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
+  const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * 6));
+  const [settled, setSettled] = useState(!!fast);
 
   useEffect(() => {
+    if (fast) { setDisplay(value); setSettled(true); return; }
     let frame = 0;
     const totalFrames = 8 + index * 4;
     const timer = setInterval(() => {
@@ -150,7 +180,7 @@ function AnimatedDie({ value, index, variant }: { value: number; index: number; 
       }
     }, 55);
     return () => clearInterval(timer);
-  }, [value, index]);
+  }, [value, index, fast]);
 
   const isAttacker = variant === 'attacker';
   return (
@@ -172,8 +202,8 @@ function AnimatedDie({ value, index, variant }: { value: number; index: number; 
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant }: { value: number; index: number; variant: 'attacker' | 'defender' }) {
-  return <AnimatedDie value={value} index={index} variant={variant} />;
+function DieFace({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -192,11 +222,12 @@ function CombatResultView({
   onRepeatAttack?: () => void;
 }) {
   const [showResult, setShowResult] = useState(false);
+  const fast = getFastCombat();
 
   useEffect(() => {
     hapticImpact(ImpactStyle.Light);
     const maxDice = Math.max(result.attacker_rolls.length, result.defender_rolls.length);
-    const settleTime = (8 + (maxDice - 1) * 4) * 55 + 500;
+    const settleTime = fast ? 300 : (8 + (maxDice - 1) * 4) * 55 + 500;
     const timer = setTimeout(() => {
       hapticImpact(ImpactStyle.Medium);
       setShowResult(true);
@@ -238,7 +269,7 @@ function CombatResultView({
           </p>
           <div className="flex justify-center gap-2.5">
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} />
             ))}
           </div>
         </div>
@@ -255,7 +286,7 @@ function CombatResultView({
           </p>
           <div className="flex justify-center gap-2.5">
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} />
             ))}
           </div>
         </div>
@@ -767,9 +798,14 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss: () => void }) {
+function GameOverView({ data, onDismiss, onRematch }: {
+  data: GameOverModalData;
+  onDismiss: () => void;
+  onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
+}) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
+  const [statsTab, setStatsTab] = useState<'result' | 'stats'>('result');
 
   const { user } = useAuthStore();
   const [shareOpen, setShareOpen] = useState(false);
@@ -1035,47 +1071,81 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
         </div>
       )}
 
-      {/* Leaderboard */}
+      {/* Tab bar — Results vs Match Stats */}
       <div className={clsx(
-        'mb-6 transition-all duration-500 delay-500',
-        showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        'mb-4 flex border-b border-white/10 transition-all duration-500 delay-500',
+        showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Final Standings</p>
-        <div className="space-y-1.5">
-          {sortedPlayers.map((p, i) => (
-            <div key={p.player_id} className={clsx(
-              'flex items-center gap-3 p-2.5 rounded-lg text-sm',
-              i === 0 ? 'bg-yellow-500/[0.08] border border-yellow-500/15' : 'bg-white/[0.03]'
-            )}>
-              <span className="text-white/30 text-xs w-5 text-right">#{i + 1}</span>
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-              <span className={clsx('flex-1 text-left truncate', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
-                {p.username} {p.is_ai ? <span className="text-white/25 text-xs">(AI)</span> : ''}
-              </span>
-              <span className="text-white/30 text-xs tabular-nums">{p.territory_count}T</span>
-              {p.is_eliminated && <span className="text-red-400/50 text-xs">Eliminated</span>}
-            </div>
-          ))}
-        </div>
+        {(['result', 'stats'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setStatsTab(tab)}
+            className={clsx(
+              'flex-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-widest transition-colors',
+              statsTab === tab
+                ? 'text-cc-gold border-b-2 border-cc-gold -mb-px'
+                : 'text-white/30 hover:text-white/50',
+            )}
+          >
+            {tab === 'result' ? 'Results' : 'Match Stats'}
+          </button>
+        ))}
       </div>
 
-      {/* Achievements unlocked */}
-      {data.achievements_unlocked && data.achievements_unlocked.length > 0 && (
+      {statsTab === 'stats' ? (
+        /* ── Match Stats Tab ─────────────────────────────────────────────── */
         <div className={clsx(
           'mb-6 transition-all duration-500 delay-500',
-          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         )}>
-          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Medals Earned</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {data.achievements_unlocked.map((id) => (
-              <div key={id} className="px-3 py-1.5 rounded-lg bg-yellow-500/10
-                          border border-yellow-500/20 text-yellow-300 text-xs
-                          font-medium animate-fade-in">
-                {id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-              </div>
-            ))}
-          </div>
+          <MatchStatsTab data={data} myId={user?.user_id ?? null} />
         </div>
+      ) : (
+        /* ── Results Tab (original content) ─────────────────────────────── */
+        <>
+          {/* Leaderboard */}
+          <div className={clsx(
+            'mb-6 transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          )}>
+            <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Final Standings</p>
+            <div className="space-y-1.5">
+              {sortedPlayers.map((p, i) => (
+                <div key={p.player_id} className={clsx(
+                  'flex items-center gap-3 p-2.5 rounded-lg text-sm',
+                  i === 0 ? 'bg-yellow-500/[0.08] border border-yellow-500/15' : 'bg-white/[0.03]'
+                )}>
+                  <span className="text-white/30 text-xs w-5 text-right">#{i + 1}</span>
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  <span className={clsx('flex-1 text-left truncate', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
+                    {p.username} {p.is_ai ? <span className="text-white/25 text-xs">(AI)</span> : ''}
+                  </span>
+                  <span className="text-white/30 text-xs tabular-nums">{p.territory_count}T</span>
+                  {p.is_eliminated && <span className="text-red-400/50 text-xs">Eliminated</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Achievements unlocked */}
+          {data.achievements_unlocked && data.achievements_unlocked.length > 0 && (
+            <div className={clsx(
+              'mb-6 transition-all duration-500 delay-500',
+              showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            )}>
+              <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Medals Earned</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {data.achievements_unlocked.map((id) => (
+                  <div key={id} className="px-3 py-1.5 rounded-lg bg-yellow-500/10
+                              border border-yellow-500/20 text-yellow-300 text-xs
+                              font-medium animate-fade-in">
+                    {id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Buttons */}
@@ -1101,6 +1171,17 @@ function GameOverView({ data, onDismiss }: { data: GameOverModalData; onDismiss:
           Return to Lobby
           <ChevronRight className="w-4 h-4" />
         </button>
+        {data.rematchConfig && !data.rematchConfig.settings?.daily_challenge_date && !data.rematchConfig.settings?.tutorial && onRematch && (
+          <button
+            onClick={() => onRematch(data.rematchConfig!)}
+            className="shrink-0 py-3 px-4 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30
+                       border border-cc-gold/40 text-cc-gold font-medium transition-all
+                       flex items-center justify-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Rematch
+          </button>
+        )}
       </div>
 
       {/* Share preview overlay */}
@@ -1350,9 +1431,10 @@ interface ActionModalProps {
   onResignConfirm?: () => void;
   /** Re-roll the same attack after a failed capture (attacker still has 2+ on source) */
   onRepeatCombat?: (fromId: string, toId: string) => void;
+  onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
 }
 
-export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat }: ActionModalProps) {
+export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat, onRematch }: ActionModalProps) {
   const isGameOver = data?.type === 'game_over';
   const isResign = data?.type === 'resign_confirm';
 
@@ -1410,7 +1492,7 @@ export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeat
             onDismiss={onDismiss}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} />}
         {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}
