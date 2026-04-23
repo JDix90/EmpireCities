@@ -322,6 +322,11 @@ export default function GamePage() {
   const userRef = useRef(user);
   userRef.current = user;
 
+  // When the server emits `game:campaign_advanced`, we stash the campaign_id so
+  // that dismissing the game-over modal routes back to the right campaign detail.
+  // (Also set on loss via looking at game settings — see handleGameOverDismiss.)
+  const campaignAdvancedRef = useRef<{ campaign_id: string; next_era: string } | null>(null);
+
   // ── Globe animation events ───────────────────────────────────────────────
   const [globeEvents, setGlobeEvents] = useState<GlobeEvent[]>([]);
   const globeEventCounter = useRef(0);
@@ -990,6 +995,16 @@ export default function GamePage() {
       });
     });
 
+    socket.on('game:campaign_advanced', ({ campaign_id, next_era }: {
+      campaign_id: string;
+      next_era: string;
+      path_carry?: Record<string, number>;
+    }) => {
+      campaignAdvancedRef.current = { campaign_id, next_era };
+      const nextLabel = ERA_LABELS[next_era] ?? next_era;
+      toast.success(`Era cleared — next: ${nextLabel}`, { duration: 4000 });
+    });
+
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -1001,6 +1016,7 @@ export default function GamePage() {
       socket.off('game:combat_result');
       socket.off('game:cards_redeemed');
       socket.off('game:over');
+      socket.off('game:campaign_advanced');
       socket.off('game:chat_message');
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
@@ -1455,6 +1471,20 @@ export default function GamePage() {
 
   const handleGameOverDismiss = () => {
     dismissModal();
+    // Campaign games route back to the campaign detail page so the player can
+    // continue to the next era (or retry a loss) without a trip through /lobby.
+    const isCampaign = useGameStore.getState().gameState?.settings?.is_campaign === true;
+    if (isCampaign) {
+      const advanced = campaignAdvancedRef.current;
+      if (advanced) {
+        navigate(`/campaign?campaign_id=${advanced.campaign_id}`);
+      } else {
+        // Lost (or draw) — return to the campaign list; the page will refresh
+        // state and surface the "try again" affordance for this era.
+        navigate('/campaign');
+      }
+      return;
+    }
     navigate('/lobby');
   };
 

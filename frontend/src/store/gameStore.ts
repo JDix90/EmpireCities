@@ -76,6 +76,9 @@ export interface GameState {
     naval_enabled?: boolean;
     stability_enabled?: boolean;
     daily_challenge_date?: string;
+    /** True when this game is an era of a solo campaign. Set server-side in campaign.routes.ts. */
+    is_campaign?: boolean;
+    campaign_path_id?: string;
     /** Daily puzzle metadata (when playing a daily challenge). */
     daily_challenge_spec?: {
       archetype?: string;

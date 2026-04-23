@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   Trophy, ChevronRight, CheckCircle, Circle, Lock,
-  Flame, Shield, Sword, ChevronDown, ChevronUp,
+  Flame, Shield, Sword, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 
@@ -63,7 +63,7 @@ interface AvailablePath {
   era_count: number;
 }
 
-// ── Carry icon helper ──────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────
 
 function CarryIcon({ carryKey, className }: { carryKey: string; className?: string }) {
   if (carryKey === 'survivor_bonus') return <Shield className={className} />;
@@ -83,25 +83,37 @@ function carryBgColor(carryKey: string): string {
   return 'bg-amber-900/30 border-amber-600/40';
 }
 
-function pathAccentColor(pathId: string): string {
+function pathAccentColor(pathId: string | null): string {
   if (pathId === 'blood_empire') return 'border-amber-600/60 bg-amber-900/10';
   if (pathId === 'revolutionary_flame') return 'border-red-600/60 bg-red-900/10';
   if (pathId === 'last_defenders') return 'border-blue-600/60 bg-blue-900/10';
   return 'border-cc-gold/60 bg-cc-gold/5';
 }
 
+function campaignDisplayName(c: Campaign): string {
+  return c.path_config?.name ?? 'Classic Campaign';
+}
+
 // ── Path Selection Screen ──────────────────────────────────────────────
 
 function PathSelectionScreen({
   paths,
+  activePathIds,
+  hasActiveClassic,
   onSelect,
   onClassic,
+  onCancel,
   starting,
+  canCancel,
 }: {
   paths: AvailablePath[];
+  activePathIds: Set<string>;
+  hasActiveClassic: boolean;
   onSelect: (pathId: string) => void;
   onClassic: () => void;
+  onCancel: () => void;
   starting: boolean;
+  canCancel: boolean;
 }) {
   return (
     <div>
@@ -110,39 +122,63 @@ function PathSelectionScreen({
         Each path puts you in a distinct historical narrative that builds across all six eras.
       </p>
       <div className="flex flex-col gap-4 mb-6">
-        {paths.map((path) => (
-          <button
-            key={path.path_id}
-            onClick={() => onSelect(path.path_id)}
-            disabled={starting}
-            className={`text-left p-4 rounded-lg border transition-colors hover:border-cc-text disabled:opacity-60 ${pathAccentColor(path.path_id)}`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <CarryIcon carryKey={path.signature_carry_key} className={`w-4 h-4 ${carryColor(path.signature_carry_key)}`} />
-                  <span className="font-semibold text-cc-text">{path.name}</span>
+        {paths.map((path) => {
+          const alreadyActive = activePathIds.has(path.path_id);
+          return (
+            <button
+              key={path.path_id}
+              onClick={() => onSelect(path.path_id)}
+              disabled={starting || alreadyActive}
+              title={alreadyActive ? 'You already have an active campaign on this path' : undefined}
+              className={`text-left p-4 rounded-lg border transition-colors hover:border-cc-text disabled:opacity-40 disabled:cursor-not-allowed ${pathAccentColor(path.path_id)}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CarryIcon carryKey={path.signature_carry_key} className={`w-4 h-4 ${carryColor(path.signature_carry_key)}`} />
+                    <span className="font-semibold text-cc-text">{path.name}</span>
+                    {alreadyActive && (
+                      <span className="ml-1 text-[10px] uppercase tracking-widest text-cc-muted bg-cc-surface border border-cc-border rounded-full px-2 py-0.5">
+                        In progress
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-cc-muted italic mb-2">{path.tagline}</p>
+                  <p className="text-sm text-cc-muted">{path.description}</p>
                 </div>
-                <p className="text-xs text-cc-muted italic mb-2">{path.tagline}</p>
-                <p className="text-sm text-cc-muted">{path.description}</p>
+                <ChevronRight className="w-4 h-4 text-cc-muted flex-shrink-0 mt-1" />
               </div>
-              <ChevronRight className="w-4 h-4 text-cc-muted flex-shrink-0 mt-1" />
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
-      <div className="border-t border-cc-border pt-4">
+      <div className="border-t border-cc-border pt-4 flex flex-col gap-3">
         <button
           onClick={onClassic}
-          disabled={starting}
-          className="w-full text-left p-4 rounded-lg border border-cc-border bg-cc-surface/50 hover:border-cc-text transition-colors disabled:opacity-60"
+          disabled={starting || hasActiveClassic}
+          title={hasActiveClassic ? 'You already have an active classic campaign' : undefined}
+          className="w-full text-left p-4 rounded-lg border border-cc-border bg-cc-surface/50 hover:border-cc-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <div className="flex items-center gap-2 mb-1">
             <Sword className="w-4 h-4 text-cc-muted" />
             <span className="font-semibold text-cc-text">Classic Campaign</span>
+            {hasActiveClassic && (
+              <span className="ml-1 text-[10px] uppercase tracking-widest text-cc-muted bg-cc-surface border border-cc-border rounded-full px-2 py-0.5">
+                In progress
+              </span>
+            )}
           </div>
           <p className="text-xs text-cc-muted">Free faction choice, standard progression — no narrative path.</p>
         </button>
+        {canCancel && (
+          <button
+            onClick={onCancel}
+            disabled={starting}
+            className="self-start text-sm text-cc-muted hover:text-cc-text transition-colors disabled:opacity-60"
+          >
+            ← Back to campaigns
+          </button>
+        )}
       </div>
     </div>
   );
@@ -263,31 +299,113 @@ function EraRow({
   );
 }
 
+// ── Campaign List Card (for the picker) ────────────────────────────────
+
+function CampaignListCard({
+  campaign,
+  onOpen,
+}: {
+  campaign: Campaign;
+  onOpen: () => void;
+}) {
+  const wonCount = campaign.eras.filter((e) => e.won).length;
+  const currentLabel = campaign.current_era ? (ERA_LABELS[campaign.current_era] ?? campaign.current_era) : '—';
+  const isCompleted = campaign.status === 'completed';
+
+  return (
+    <button
+      onClick={onOpen}
+      className={`text-left p-4 rounded-lg border transition-colors hover:border-cc-text ${pathAccentColor(campaign.path_id)}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <CarryIcon
+              carryKey={campaign.path_config?.signature_carry_key ?? 'prestige'}
+              className={`w-4 h-4 ${carryColor(campaign.path_config?.signature_carry_key ?? 'prestige')}`}
+            />
+            <span className="font-semibold text-cc-text">{campaignDisplayName(campaign)}</span>
+            {isCompleted ? (
+              <span className="text-[10px] uppercase tracking-widest bg-green-900/50 text-green-300 rounded-full px-2 py-0.5">
+                Completed
+              </span>
+            ) : (
+              <span className="text-[10px] uppercase tracking-widest bg-cc-gold/20 text-cc-gold rounded-full px-2 py-0.5">
+                Active
+              </span>
+            )}
+          </div>
+          {campaign.path_config?.tagline && (
+            <p className="text-xs text-cc-muted italic mb-2">{campaign.path_config.tagline}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-cc-muted">
+            <span>
+              {isCompleted ? 'Final era cleared' : (
+                <>Next up: <span className="text-cc-text font-medium">{currentLabel}</span></>
+              )}
+            </span>
+            <span>· {wonCount} / {CAMPAIGN_ERAS.length} eras won</span>
+            {campaign.prestige_points > 0 && (
+              <span className="flex items-center gap-1">
+                · <Trophy className="w-3 h-3 text-amber-400" /> {campaign.prestige_points}
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-cc-muted flex-shrink-0 mt-1" />
+      </div>
+    </button>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────
 
 export default function CampaignPage() {
   useAuthStore();
   const navigate = useNavigate();
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [availablePaths, setAvailablePaths] = useState<AvailablePath[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [continuing, setContinuing] = useState<string | null>(null);
   const [showPathSelection, setShowPathSelection] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('campaign_id'));
+
+  const refresh = React.useCallback(async () => {
+    try {
+      const [listRes, pathsRes] = await Promise.all([
+        api.get<{ campaigns: Campaign[] }>('/campaign/list').then((r) => r.data.campaigns).catch(() => []),
+        api.get<AvailablePath[]>('/campaign/paths').then((r) => r.data).catch(() => []),
+      ]);
+      setCampaigns(listRes);
+      setAvailablePaths(pathsRes);
+      // If no campaigns at all, drop the user straight into path selection.
+      if (listRes.length === 0) {
+        setShowPathSelection(true);
+        setSelectedId(null);
+      } else if (selectedId && !listRes.find((c) => c.campaign_id === selectedId)) {
+        setSelectedId(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedId]);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Campaign>('/campaign/me').then((r) => r.data).catch((err) => {
-        if (err?.response?.status !== 404) toast.error('Failed to load campaign');
-        return null;
-      }),
-      api.get<AvailablePath[]>('/campaign/paths').then((r) => r.data).catch(() => []),
-    ]).then(([campaignData, pathsData]) => {
-      setCampaign(campaignData);
-      setAvailablePaths(pathsData);
-      // Show path selection if no campaign exists
-      if (!campaignData) setShowPathSelection(true);
-    }).finally(() => setLoading(false));
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const activePathIds = new Set(
+    campaigns.filter((c) => c.status === 'active' && c.path_id).map((c) => c.path_id!),
+  );
+  const hasActiveClassic = campaigns.some((c) => c.status === 'active' && !c.path_id);
+
+  const activeCampaigns = campaigns.filter((c) => c.status === 'active');
+  const completedCampaigns = campaigns.filter((c) => c.status === 'completed');
+
+  const selectedCampaign = selectedId ? campaigns.find((c) => c.campaign_id === selectedId) ?? null : null;
 
   const handleStartWithPath = async (pathId?: string) => {
     setStarting(true);
@@ -298,50 +416,198 @@ export default function CampaignPage() {
       );
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Failed to start campaign';
+      const errData = (err as { response?: { data?: { error?: string; campaign_id?: string } } })?.response?.data;
+      const msg = errData?.error ?? 'Failed to start campaign';
       toast.error(msg);
+      // If the backend says there's already an active campaign on this path,
+      // send the user into it instead of leaving them on a dead-end error.
+      if (errData?.campaign_id) {
+        await refresh();
+        setSelectedId(errData.campaign_id);
+        setShowPathSelection(false);
+      }
     } finally {
       setStarting(false);
     }
   };
 
-  const handleContinue = () => {
-    if (!campaign) return;
-    const currentEntry = campaign.eras.find((e) => e.era_id === campaign.current_era && e.game_id);
-    if (currentEntry?.game_id) {
-      navigate(`/game/${currentEntry.game_id}`);
+  const handleContinue = async (campaign: Campaign) => {
+    if (campaign.status === 'completed') return;
+    setContinuing(campaign.campaign_id);
+    try {
+      const res = await api.post<{ game_id: string }>(
+        '/campaign/continue',
+        { campaign_id: campaign.campaign_id },
+      );
+      navigate(`/game/${res.data.game_id}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not continue campaign';
+      toast.error(msg);
+    } finally {
+      setContinuing(null);
     }
+  };
+
+  const openCampaign = (id: string) => {
+    setSelectedId(id);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('campaign_id', id);
+      return next;
+    }, { replace: true });
+  };
+
+  const closeCampaign = () => {
+    setSelectedId(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('campaign_id');
+      return next;
+    }, { replace: true });
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <p className="text-cc-muted">Loading campaign…</p>
+        <p className="text-cc-muted">Loading campaigns…</p>
       </div>
     );
   }
 
-  // Campaign select / new campaign screen
-  if (showPathSelection && !campaign) {
+  // ── Path selection screen ─────────────────────────────────────────
+  if (showPathSelection) {
     return (
       <div className="min-h-screen bg-cc-dark text-cc-text">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <div className="flex items-center gap-3 mb-8">
             <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
             <span className="text-cc-muted">·</span>
-            <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
+            <h1 className="font-display text-2xl text-cc-gold tracking-widest">NEW CAMPAIGN</h1>
           </div>
           <PathSelectionScreen
             paths={availablePaths}
+            activePathIds={activePathIds}
+            hasActiveClassic={hasActiveClassic}
             onSelect={(pathId) => handleStartWithPath(pathId)}
             onClassic={() => handleStartWithPath(undefined)}
+            onCancel={() => setShowPathSelection(false)}
             starting={starting}
+            canCancel={campaigns.length > 0}
           />
         </div>
       </div>
     );
   }
 
+  // ── Campaign detail view ──────────────────────────────────────────
+  if (selectedCampaign) {
+    const campaign = selectedCampaign;
+    const isContinuing = continuing === campaign.campaign_id;
+    return (
+      <div className="min-h-screen bg-cc-dark text-cc-text">
+        <div className="max-w-3xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-8 flex-wrap">
+            <button onClick={closeCampaign} className="text-cc-gold hover:text-white transition-colors text-sm">
+              ← All Campaigns
+            </button>
+            <span className="text-cc-muted">·</span>
+            <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
+            {campaign.path_config ? (
+              <span className="text-sm text-cc-muted">— {campaign.path_config.name}</span>
+            ) : (
+              <span className="text-sm text-cc-muted">— Classic</span>
+            )}
+          </div>
+
+          {/* Path tagline */}
+          {campaign.path_config && (
+            <div className={`mb-4 p-3 rounded-lg border ${pathAccentColor(campaign.path_id)}`}>
+              <p className="text-sm text-cc-muted italic">{campaign.path_config.tagline}</p>
+            </div>
+          )}
+
+          {/* Badges */}
+          <div className="mb-6 flex flex-wrap gap-3">
+            {campaign.prestige_points > 0 && (
+              <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-600/40 rounded-lg px-4 py-2">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span className="text-amber-300 text-sm font-semibold">{campaign.prestige_points} Prestige</span>
+              </div>
+            )}
+            <PathCarryBadge campaign={campaign} />
+          </div>
+
+          {/* Timeline */}
+          <div className="mb-8">
+            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">Campaign Progress</h2>
+            <div className="flex flex-col gap-2">
+              {CAMPAIGN_ERAS.map((era, idx) => {
+                const entry = campaign.eras.find((e) => e.era_id === era) ?? {
+                  era_id: era, index: idx, won: false, completed: false,
+                  game_id: null, faction_id: null, map_id: `era_${era}`,
+                  intro_text: null, outro_win_text: null, outro_loss_text: null,
+                };
+                const isCurrent = campaign.current_era === era && campaign.status === 'active';
+                const isLocked = idx > campaign.current_era_index;
+                const isDone = entry.won === true;
+                const isAttempted = entry.completed === true && !isDone;
+
+                return (
+                  <EraRow
+                    key={era}
+                    era={entry}
+                    idx={idx}
+                    isCurrent={isCurrent}
+                    isLocked={isLocked}
+                    isDone={isDone}
+                    isAttempted={isAttempted}
+                    narrative={!!campaign.path_id}
+                    pathNarrative={campaign.path_narrative ?? {}}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 flex-wrap">
+            {campaign.status === 'completed' ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <p className="text-green-400 font-semibold">🏆 Campaign Completed!</p>
+                </div>
+                <button
+                  onClick={() => setShowPathSelection(true)}
+                  className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
+                >
+                  Start Another Campaign
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => handleContinue(campaign)}
+                disabled={isContinuing}
+                className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60"
+              >
+                {isContinuing
+                  ? 'Preparing era…'
+                  : `Continue → ${ERA_LABELS[campaign.current_era ?? ''] ?? campaign.current_era}`}
+              </button>
+            )}
+            <button
+              onClick={closeCampaign}
+              className="px-6 py-3 border border-cc-border text-cc-muted rounded-lg hover:border-cc-text hover:text-cc-text transition-colors"
+            >
+              All Campaigns
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Campaign list (multi-campaign picker) ─────────────────────────
   return (
     <div className="min-h-screen bg-cc-dark text-cc-text">
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -349,94 +615,62 @@ export default function CampaignPage() {
         <div className="flex items-center gap-3 mb-8">
           <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
           <span className="text-cc-muted">·</span>
-          <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
-          {campaign?.path_config && (
-            <span className="text-sm text-cc-muted">— {campaign.path_config.name}</span>
-          )}
+          <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGNS</h1>
         </div>
 
-        {/* Path tagline */}
-        {campaign?.path_config && (
-          <div className={`mb-4 p-3 rounded-lg border ${pathAccentColor(campaign.path_id!)}`}>
-            <p className="text-sm text-cc-muted italic">{campaign.path_config.tagline}</p>
+        {/* Active campaigns */}
+        {activeCampaigns.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">
+              Active ({activeCampaigns.length})
+            </h2>
+            <div className="flex flex-col gap-3">
+              {activeCampaigns.map((c) => (
+                <CampaignListCard
+                  key={c.campaign_id}
+                  campaign={c}
+                  onOpen={() => openCampaign(c.campaign_id)}
+                />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Badges row */}
-        <div className="mb-6 flex flex-wrap gap-3">
-          {campaign && campaign.prestige_points > 0 && (
-            <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-600/40 rounded-lg px-4 py-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span className="text-amber-300 text-sm font-semibold">{campaign.prestige_points} Prestige</span>
-            </div>
-          )}
-          {campaign && <PathCarryBadge campaign={campaign} />}
-        </div>
-
-        {/* Campaign timeline */}
+        {/* Start new */}
         <div className="mb-8">
-          <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">Campaign Progress</h2>
-          <div className="flex flex-col gap-2">
-            {CAMPAIGN_ERAS.map((era, idx) => {
-              const entry = campaign?.eras.find((e) => e.era_id === era) ?? {
-                era_id: era, index: idx, won: false, completed: false,
-                game_id: null, faction_id: null, map_id: `era_${era}`,
-                intro_text: null, outro_win_text: null, outro_loss_text: null,
-              };
-              const isCurrent = campaign?.current_era === era && campaign?.status === 'active';
-              const isLocked = !campaign || idx > campaign.current_era_index;
-              const isDone = entry.won === true;
-              const isAttempted = entry.completed === true && !isDone;
-
-              return (
-                <EraRow
-                  key={era}
-                  era={entry}
-                  idx={idx}
-                  isCurrent={isCurrent}
-                  isLocked={isLocked}
-                  isDone={isDone}
-                  isAttempted={isAttempted}
-                  narrative={!!campaign?.path_id}
-                  pathNarrative={campaign?.path_narrative ?? {}}
-                />
-              );
-            })}
-          </div>
+          <button
+            onClick={() => setShowPathSelection(true)}
+            disabled={starting}
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60"
+          >
+            <Plus className="w-4 h-4" />
+            {starting ? 'Starting…' : 'Start New Campaign'}
+          </button>
+          <p className="mt-2 text-xs text-cc-muted text-center">
+            Run multiple campaigns in parallel — each path tracks its own progression.
+          </p>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 flex-wrap">
-          {!campaign ? (
-            <button
-              onClick={() => setShowPathSelection(true)}
-              disabled={starting}
-              className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60"
-            >
-              {starting ? 'Starting…' : 'Start Campaign'}
-            </button>
-          ) : campaign.status === 'completed' ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-green-400 font-semibold">🏆 Campaign Completed!</p>
-              <button
-                onClick={() => {
-                  setCampaign(null);
-                  setShowPathSelection(true);
-                }}
-                disabled={starting}
-                className="px-6 py-3 bg-cc-surface border border-cc-border text-cc-text rounded-lg hover:bg-cc-border/20 transition-colors disabled:opacity-60"
-              >
-                {starting ? 'Starting…' : 'New Campaign'}
-              </button>
+        {/* Completed */}
+        {completedCampaigns.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">
+              Completed ({completedCampaigns.length})
+            </h2>
+            <div className="flex flex-col gap-3">
+              {completedCampaigns.map((c) => (
+                <CampaignListCard
+                  key={c.campaign_id}
+                  campaign={c}
+                  onOpen={() => openCampaign(c.campaign_id)}
+                />
+              ))}
             </div>
-          ) : (
-            <button
-              onClick={handleContinue}
-              className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
-            >
-              Continue → {ERA_LABELS[campaign.current_era ?? ''] ?? campaign.current_era}
-            </button>
-          )}
+          </div>
+        )}
+
+        {/* Back to lobby */}
+        <div className="flex">
           <Link
             to="/lobby"
             className="px-6 py-3 border border-cc-border text-cc-muted rounded-lg hover:border-cc-text hover:text-cc-text transition-colors"
