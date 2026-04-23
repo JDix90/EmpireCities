@@ -781,6 +781,7 @@ export default function GamePage() {
       victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
+      combat_stats?: Record<string, { attacks: number; attack_wins: number; defenses: number; defense_wins: number; territories_captured: number }>;
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
@@ -806,6 +807,9 @@ export default function GamePage() {
         winnerIds,
         progression: myProgression,
         rematchConfig: stats.rematch_config,
+        combat_stats: stats.combat_stats,
+        xp_earned_by_player: stats.xp_earned_by_player,
+        rating_deltas: stats.rating_deltas,
       };
       if (gameId) {
         api

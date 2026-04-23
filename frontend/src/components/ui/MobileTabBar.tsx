@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, User, MoreHorizontal, X, HelpCircle,
-  Map, Calendar, ShoppingBag, PenSquare, Trophy, Eye, FileText, LogOut, Swords,
+  Map, Calendar, ShoppingBag, PenSquare, Trophy, Eye, FileText, LogOut, Swords, Shield, BookOpen,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIsLandscape } from '../../hooks/useIsLandscape';
@@ -44,6 +44,8 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
             <nav className="px-4 pb-4 grid grid-cols-3 gap-2">
               <MoreLink to="/how-to-play" icon={HelpCircle} label="How to Play" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/maps" icon={Map} label="Map Hub" onClick={() => setMoreOpen(false)} />
+              {!isGuest && <MoreLink to="/war-room" icon={Shield} label="War Room" onClick={() => setMoreOpen(false)} />}
+              <MoreLink to="/codex" icon={BookOpen} label="Codex" onClick={() => setMoreOpen(false)} />
               {!isGuest && <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />}
               {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
               {!isGuest && <MoreLink to="/editor" icon={PenSquare} label="Editor" onClick={() => setMoreOpen(false)} />}

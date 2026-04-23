@@ -858,7 +858,12 @@ export default function LobbyPage() {
               Watch a Game
             </button>
             {!user?.is_guest && (
-              <Link to="/editor" className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center">
+              <Link to="/war-room" className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center">
+                War Room
+              </Link>
+            )}
+            {!user?.is_guest && (
+              <Link to="/editor" className="btn-secondary items-center gap-2 hidden lg:flex">
                 Map Editor
               </Link>
             )}
@@ -1571,6 +1576,10 @@ export default function LobbyPage() {
           <p className="font-display text-cc-gold/90 text-sm tracking-wide">Dashboard</p>
           <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-cc-muted justify-center sm:justify-end" aria-label="Site">
             <Link to="/lobby" className="hover:text-cc-gold transition-colors">Lobby</Link>
+            {!user?.is_guest && (
+              <Link to="/war-room" className="hover:text-cc-gold transition-colors">War Room</Link>
+            )}
+            <Link to="/codex" className="hover:text-cc-gold transition-colors">Codex</Link>
             <Link to="/maps" className="hover:text-cc-gold transition-colors">Map Hub</Link>
             {!user?.is_guest && (
               <Link to="/editor" className="hover:text-cc-gold transition-colors">Map Editor</Link>
