@@ -5,7 +5,7 @@ import { Star, Globe, Plus, Map, Users, Zap, Compass } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
-import { REGIONAL_MAPS, fetchRegionalMap, RegionalMapMeta } from '../data/regionalMaps';
+import { REGIONAL_MAPS, fetchRegionalMap } from '../data/regionalMaps';
 
 interface PublicMap {
   map_id: string;

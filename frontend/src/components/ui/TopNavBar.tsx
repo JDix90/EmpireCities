@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Plus, Swords, Shield
+  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 
@@ -17,7 +17,6 @@ type NavItem = {
 
 const mainNav: NavItem[] = [
   { to: '/', label: 'Home', icon: Home, title: 'Home', exact: true },
-  { to: '/new-game', label: 'New Game', icon: Plus, title: 'New Game' },
   { to: '/maps', label: 'Map Hub', icon: Map, title: 'Map Hub' },
   { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily', hideForGuest: true },
   { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
@@ -26,13 +25,6 @@ const mainNav: NavItem[] = [
   { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },
   { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true },
   { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
-];
-
-const accountNav: NavItem[] = [
-  { to: '/profile', label: '', icon: User, title: 'Profile' },
-  { to: '/friends', label: 'Friends', icon: Users, title: 'Friends', hideForGuest: true },
-  { to: '/privacy', label: 'Privacy', icon: FileText, title: 'Privacy' },
-  { to: '/how-to-play', label: 'Help', icon: HelpCircle, title: 'How to Play' },
 ];
 
 export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () => void }) {

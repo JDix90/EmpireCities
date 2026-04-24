@@ -281,6 +281,8 @@ export interface GameState {
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   settings: GameSettings;
   draft_units_remaining: number;
+  /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
+  draft_placements_this_turn?: Record<string, number>;
   turn_started_at: number;       // Unix timestamp ms
   winner_id?: string;
   /** All winner IDs — more than one when alliance_victory occurs. */
@@ -385,6 +387,23 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  /** Optional server-computed attribution for why extra attack dice were granted. */
+  attacker_bonus_breakdown?: {
+    tech?: number;
+    faction?: number;
+    event?: number;
+    total?: number;
+  };
+  /** Optional server-computed attribution for why extra defense dice were granted. */
+  defender_bonus_breakdown?: {
+    building?: number;
+    tech?: number;
+    faction?: number;
+    event?: number;
+    wonder?: number;
+    sea?: number;
+    total?: number;
+  };
   error?: string;
 }
 

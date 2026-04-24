@@ -87,6 +87,18 @@ export default function GameHUD({
   );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
   const draftPool = computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining);
+  const attackerFactionBonus = lastCombatResult?.attacker_bonus_breakdown?.faction ?? 0;
+  const defenderFactionBonus = lastCombatResult?.defender_bonus_breakdown?.faction ?? 0;
+  const myFactionTriggeredAsAttacker =
+    !!myPlayer &&
+    !!lastCombatResult &&
+    (lastCombatResult.attackerId === myPlayer.player_id) &&
+    attackerFactionBonus > 0;
+  const myFactionTriggeredAsDefender =
+    !!myPlayer &&
+    !!lastCombatResult &&
+    (lastCombatResult.defenderId === myPlayer.player_id) &&
+    defenderFactionBonus > 0;
 
   // Turn timer countdown
   useEffect(() => {
@@ -374,6 +386,30 @@ export default function GameHUD({
               <p className="text-cc-gold font-medium pt-1 border-t border-cc-border">
                 Territory Captured!
               </p>
+            )}
+            {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
+              <div className="pt-1.5 border-t border-cc-border/80 space-y-1">
+                {attackerFactionBonus > 0 && (
+                  <p className={clsx(
+                    'text-xs px-2 py-1 rounded-md border animate-pulse',
+                    myFactionTriggeredAsAttacker
+                      ? 'border-red-400/70 bg-red-500/15 text-red-200'
+                      : 'border-red-500/40 bg-red-900/20 text-red-300',
+                  )}>
+                    ⚔️ Faction attack bonus activated (+{attackerFactionBonus} die)
+                  </p>
+                )}
+                {defenderFactionBonus > 0 && (
+                  <p className={clsx(
+                    'text-xs px-2 py-1 rounded-md border animate-pulse',
+                    myFactionTriggeredAsDefender
+                      ? 'border-blue-300/70 bg-blue-500/15 text-blue-100'
+                      : 'border-blue-500/40 bg-blue-900/20 text-blue-300',
+                  )}>
+                    🛡️ Faction defense bonus activated (+{defenderFactionBonus} die)
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}

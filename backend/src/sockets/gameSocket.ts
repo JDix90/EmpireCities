@@ -28,12 +28,13 @@ import {
   getSeaDefenseBonus,
   onTerritoryCapture,
 } from '../game-engine/state/economyManager';
-import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus } from '../game-engine/state/techManager';
+import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus } from '../game-engine/state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
 import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
+import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import {
   connectionRequiresMoonAccess,
   territoryIsLunar,
@@ -68,6 +69,7 @@ import { isSafeMapId } from '../utils/mapId';
 import { registerChatHandlers } from './handlers/chatHandler';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
+import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
 import {
   scheduleAsyncDeadline,
   cancelAsyncDeadline,
@@ -725,6 +727,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Start Game ──────────────────────────────────────────────────────────
     socket.on('game:start', async ({ gameId }: { gameId: string }) => {
       try {
+        const callerSeat = await queryOne<{ player_index: number }>(
+          `SELECT player_index
+           FROM game_players
+           WHERE game_id = $1 AND user_id = $2
+           LIMIT 1`,
+          [gameId, userId],
+        );
         const game = await queryOne<{
           game_id: string; era_id: string; map_id: string; status: string; settings_json: object;
         }>(
@@ -733,6 +742,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         );
         if (!game) {
           return socket.emit('error', { message: 'Game not found' });
+        }
+        const startAuthError = getStartGameAuthorizationError({
+          callerSeat,
+          gameStatus: game.status,
+        });
+        if (startAuthError) {
+          return socket.emit('error', { message: startAuthError });
         }
 
         // Already in progress: host (or client) clicked Start after reconnect; DB says started but UI may not have received game:started
@@ -771,7 +787,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (game.status !== 'waiting') {
           return socket.emit('error', { message: 'Game cannot be started' });
         }
-
         const players = await query<{
           player_index: number; user_id: string | null; username: string | null;
           player_color: string; is_ai: boolean; ai_difficulty: string | null;
@@ -878,14 +893,28 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       if (state.settings.stability_enabled) {
-        const cap = getDeployCap(territory.stability);
-        if (units > cap) {
-          return socket.emit('error', { message: `Stability too low — max ${cap} units per placement here` });
+        const cap = getDeployCap(territory.stability, {
+          era: state.era,
+          turnNumber: state.turn_number,
+          economyEnabled: !!state.settings.economy_enabled,
+          playerSpecialResource: currentPlayer.special_resource ?? 0,
+        });
+        const placements = state.draft_placements_this_turn ?? {};
+        const alreadyPlaced = placements[territoryId] ?? 0;
+        if (alreadyPlaced + units > cap) {
+          const remainingCap = Math.max(0, cap - alreadyPlaced);
+          return socket.emit('error', {
+            message: `Stability cap reached — ${remainingCap} unit${remainingCap === 1 ? '' : 's'} left for this territory this draft`,
+          });
         }
       }
 
       territory.unit_count += units;
       state.draft_units_remaining -= units;
+      if (state.settings.stability_enabled) {
+        state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
+        state.draft_placements_this_turn[territoryId] = (state.draft_placements_this_turn[territoryId] ?? 0) + units;
+      }
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -934,16 +963,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (unclaimed === 0) {
         // Transition to draft phase
         state.phase = 'draft';
+        state.draft_placements_this_turn = {};
         state.current_player_index = 0;
         state.turn_number = 1;
         state.turn_started_at = Date.now();
         const firstPlayer = state.players[0];
         const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
+        const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
         state.draft_units_remaining = calculateReinforcements(
           firstPlayer.territory_count,
           bonus,
           state.players.length,
-        );
+        ) + passiveReinforceBonus;
       }
 
       broadcastState(io, gameId, state);
@@ -1088,6 +1119,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
         ? getSeaDefenseBonus(state, toId)
         : 0;
       const totalDefenseBonus = buildingDefenseBonus + techDefenseBonus + factionDefenseBonus + eventDefenseBonus + wonderDefenseBonus + seaDefenseBonus;
+      const defenderBonusBreakdown = {
+        building: buildingDefenseBonus,
+        tech: techDefenseBonus,
+        faction: factionDefenseBonus,
+        event: eventDefenseBonus,
+        wonder: wonderDefenseBonus,
+        sea: seaDefenseBonus,
+        total: totalDefenseBonus,
+      };
       const defenderDiceOverride = totalDefenseBonus > 0
         ? Math.min(toTerritory.unit_count, 2) + totalDefenseBonus
         : undefined;
@@ -1104,6 +1144,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         ? getTemporaryModifierValue(state, userId, 'attack_modifier')
         : 0;
       const combinedAttackBonus = techAttackBonus + factionAttackBonus + eventAttackBonus;
+      const attackerBonusBreakdown = {
+        tech: techAttackBonus,
+        faction: factionAttackBonus,
+        event: eventAttackBonus,
+        total: combinedAttackBonus,
+      };
       const finalAttackerDiceOverride = attackerDiceOverride !== undefined
         ? attackerDiceOverride + combinedAttackBonus
         : combinedAttackBonus > 0
@@ -1125,6 +1171,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       puzzleDieRoll,
       state.era_modifiers,
     );
+      result.attacker_bonus_breakdown = attackerBonusBreakdown;
+      result.defender_bonus_breakdown = defenderBonusBreakdown;
 
       fromTerritory.unit_count -= result.attacker_losses;
       toTerritory.unit_count -= result.defender_losses;
@@ -1263,6 +1311,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const to = state.territories[toId];
       if (!from || from.owner_id !== userId || !to || to.owner_id !== userId) {
         return socket.emit('error', { message: 'Invalid territories for fortification' });
+      }
+      const fortifyUnitsError = getFortifyUnitsValidationError(units);
+      if (fortifyUnitsError) {
+        return socket.emit('error', { message: fortifyUnitsError });
       }
       if (units >= from.unit_count) {
         return socket.emit('error', { message: 'Must leave at least 1 unit behind' });
@@ -1737,42 +1789,26 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // BFS to check target is within influence_range hops from any owned territory
       const baseHopLimit = modifiers?.influence_range ?? 1;
+      const unlockedTechs = currentPlayer.unlocked_techs ?? [];
+      const techTree = state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [];
       const wonderRangeBonus = state.settings.economy_enabled
         ? getWonderInfluenceRange(state, userId)
         : 0;
-      const hopLimit = baseHopLimit + wonderRangeBonus;
-      const adjacency: Record<string, string[]> = {};
-      for (const conn of map.connections) {
-        if (!adjacency[conn.from]) adjacency[conn.from] = [];
-        if (!adjacency[conn.to]) adjacency[conn.to] = [];
-        adjacency[conn.from].push(conn.to);
-        adjacency[conn.to].push(conn.from);
-      }
-
-      const ownedSet = new Set(
-        Object.entries(state.territories)
-          .filter(([, t]) => t.owner_id === userId)
-          .map(([id]) => id)
-      );
-
-      let reachable = false;
-      const visited = new Set<string>(ownedSet);
-      let frontier = [...ownedSet];
-      for (let hop = 0; hop < hopLimit; hop++) {
-        const next: string[] = [];
-        for (const tid of frontier) {
-          for (const nid of (adjacency[tid] ?? [])) {
-            if (!visited.has(nid)) {
-              visited.add(nid);
-              next.push(nid);
-              if (nid === targetId) { reachable = true; break; }
-            }
-          }
-          if (reachable) break;
-        }
-        frontier = next;
-        if (reachable) break;
-      }
+      const hopLimit = getInfluenceHopLimit({
+        baseHopLimit,
+        unlockedTechs,
+        techTree,
+        wonderRangeBonus,
+      });
+      const ownedIds = Object.entries(state.territories)
+        .filter(([, t]) => t.owner_id === userId)
+        .map(([id]) => id);
+      const reachable = isTerritoryReachableWithinHops({
+        map,
+        ownedTerritoryIds: ownedIds,
+        targetId,
+        hopLimit,
+      });
 
       if (!reachable) {
         return socket.emit('error', { message: 'Target territory not within influence range' });
@@ -1803,7 +1839,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
 
         // Deduct 3 units from the largest owned adjacent territory
-        const adjacentOwned = (adjacency[targetId] ?? [])
+        const adjacentOwned = getAdjacentTerritoryIds(map, targetId)
           .filter((nid) => state.territories[nid]?.owner_id === userId)
           .sort((a, b) => (state.territories[b]?.unit_count ?? 0) - (state.territories[a]?.unit_count ?? 0));
 
@@ -1871,7 +1907,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         scheduleDebouncedSave(gameId);
       }
 
-      socket.emit('game:influence_result', { targetId, previousOwner });
+      socket.emit('game:influence_result', { success: true, targetId, previousOwner });
       broadcastState(io, gameId, state);
     });
 
@@ -3171,16 +3207,18 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   const remaining = Object.values(state.territories).filter((t) => isUnclaimedOwner(t.owner_id)).length;
   if (remaining === 0) {
     state.phase = 'draft';
+    state.draft_placements_this_turn = {};
     state.current_player_index = 0;
     state.turn_number = 1;
     state.turn_started_at = Date.now();
     const firstPlayer = state.players[0];
     const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
+    const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
     state.draft_units_remaining = calculateReinforcements(
       firstPlayer.territory_count,
       bonus,
       state.players.length,
-    );
+    ) + passiveReinforceBonus;
   }
 
   broadcastState(io, gameId, state);
@@ -3284,10 +3322,58 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (action.type !== 'draft' || !action.to || !action.units) continue;
     await delay();
     const t = state.territories[action.to];
-    const clamped = Math.min(action.units, state.draft_units_remaining);
+    let clamped = Math.min(action.units, state.draft_units_remaining);
+    if (t && state.settings.stability_enabled) {
+      const cap = getDeployCap(t.stability, {
+        era: state.era,
+        turnNumber: state.turn_number,
+        economyEnabled: !!state.settings.economy_enabled,
+        playerSpecialResource: currentPlayer.special_resource ?? 0,
+      });
+      const placements = state.draft_placements_this_turn ?? {};
+      const alreadyPlaced = placements[action.to] ?? 0;
+      clamped = Math.min(clamped, Math.max(0, cap - alreadyPlaced));
+    }
     if (t && t.owner_id === currentPlayer.player_id && clamped > 0) {
       t.unit_count += clamped;
       state.draft_units_remaining -= clamped;
+      if (state.settings.stability_enabled) {
+        state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
+        state.draft_placements_this_turn[action.to] = (state.draft_placements_this_turn[action.to] ?? 0) + clamped;
+      }
+    }
+    broadcastState(io, gameId, state);
+  }
+
+  // Place any remaining draft units while respecting stability caps per territory.
+  if (state.draft_units_remaining > 0) {
+    const ownedIds = Object.keys(state.territories).filter(
+      (tid) => state.territories[tid].owner_id === currentPlayer.player_id,
+    );
+    let placedAny = true;
+    while (state.draft_units_remaining > 0 && placedAny) {
+      placedAny = false;
+      for (const tid of ownedIds) {
+        if (state.draft_units_remaining <= 0) break;
+        const territory = state.territories[tid];
+        if (!territory) continue;
+        if (state.settings.stability_enabled) {
+          const cap = getDeployCap(territory.stability, {
+            era: state.era,
+            turnNumber: state.turn_number,
+            economyEnabled: !!state.settings.economy_enabled,
+            playerSpecialResource: currentPlayer.special_resource ?? 0,
+          });
+          const placements = state.draft_placements_this_turn ?? {};
+          const alreadyPlaced = placements[tid] ?? 0;
+          if (alreadyPlaced >= cap) continue;
+          state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
+          state.draft_placements_this_turn[tid] = alreadyPlaced + 1;
+        }
+        territory.unit_count += 1;
+        state.draft_units_remaining -= 1;
+        placedAny = true;
+      }
     }
     broadcastState(io, gameId, state);
   }
@@ -3330,6 +3416,24 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       const target = state.territories[action.to];
       if (!target || target.owner_id === currentPlayer.player_id) continue;
       if (target.unit_count > 3) continue;
+      const aiTechTree = state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [];
+      const aiHopLimit = getInfluenceHopLimit({
+        baseHopLimit: modifiers?.influence_range ?? 1,
+        unlockedTechs: currentPlayer.unlocked_techs ?? [],
+        techTree: aiTechTree,
+        wonderRangeBonus: state.settings.economy_enabled
+          ? getWonderInfluenceRange(state, currentPlayer.player_id)
+          : 0,
+      });
+      const aiOwnedIds = Object.entries(state.territories)
+        .filter(([, t]) => t.owner_id === currentPlayer.player_id)
+        .map(([id]) => id);
+      if (!isTerritoryReachableWithinHops({
+        map,
+        ownedTerritoryIds: aiOwnedIds,
+        targetId: action.to,
+        hopLimit: aiHopLimit,
+      })) continue;
 
       // Cost: need 3 spare units; deduct from adjacent owned territories
       const adjacency: Record<string, string[]> = {};
@@ -3443,6 +3547,15 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       ? getSeaDefenseBonus(state, action.to)
       : 0;
     const aiTotalDefenseBonus = aiBuildingDefenseBonus + aiTechDefenseBonus + aiFactionDefenseBonus + aiEventDefenseBonus + aiWonderDefenseBonus + aiSeaDefenseBonus;
+    const aiDefenderBonusBreakdown = {
+      building: aiBuildingDefenseBonus,
+      tech: aiTechDefenseBonus,
+      faction: aiFactionDefenseBonus,
+      event: aiEventDefenseBonus,
+      wonder: aiWonderDefenseBonus,
+      sea: aiSeaDefenseBonus,
+      total: aiTotalDefenseBonus,
+    };
     const aiDefenderDiceOverride = aiTotalDefenseBonus > 0
       ? Math.min(to.unit_count, 2) + aiTotalDefenseBonus
       : undefined;
@@ -3458,6 +3571,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       ? getTemporaryModifierValue(state, currentPlayer.player_id, 'attack_modifier')
       : 0;
     const aiTotalAttackBonus = aiTechAttackBonus + aiFactionAttackBonus + aiEventAttackBonus;
+    const aiAttackerBonusBreakdown = {
+      tech: aiTechAttackBonus,
+      faction: aiFactionAttackBonus,
+      event: aiEventAttackBonus,
+      total: aiTotalAttackBonus,
+    };
     const aiAttackerDiceOverride = aiTotalAttackBonus > 0
       ? Math.min(from.unit_count - 1, 3) + aiTotalAttackBonus
       : undefined;
@@ -3472,6 +3591,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       aiPuzzleDieRoll,
       state.era_modifiers,
     );
+    result.attacker_bonus_breakdown = aiAttackerBonusBreakdown;
+    result.defender_bonus_breakdown = aiDefenderBonusBreakdown;
     // If resolveCombat returns an error, skip this attack
     if (result.error) {
       // Optionally emit a warning or log for debugging

@@ -99,6 +99,9 @@ interface FactionInfo {
   flavor_quote?: string;
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
+  reinforce_bonus?: number;
+  stability_recovery_bonus?: number;
+  ability_description?: string;
 }
 
 export interface BonusesModalProps {
@@ -259,6 +262,33 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                           value: `+${factionData.passive_defense_bonus} die`,
                           description: 'Added to your defense rolls every battle.',
                           valueColor: 'text-blue-300',
+                        }]
+                      : []),
+                    ...(factionData.reinforce_bonus
+                      ? [{
+                          icon: '🪖',
+                          label: 'Faction Reinforcement Bonus',
+                          value: `+${factionData.reinforce_bonus} / turn`,
+                          description: 'Added at the start of each of your draft phases.',
+                          valueColor: 'text-amber-300',
+                        }]
+                      : []),
+                    ...(factionData.stability_recovery_bonus
+                      ? [{
+                          icon: '📈',
+                          label: 'Faction Stability Recovery',
+                          value: `+${factionData.stability_recovery_bonus} / turn`,
+                          description: 'Applied to each of your owned territories during stability tick.',
+                          valueColor: 'text-emerald-300',
+                        }]
+                      : []),
+                    ...(factionData.ability_description
+                      ? [{
+                          icon: '✨',
+                          label: 'Faction Ability',
+                          value: 'Active',
+                          description: factionData.ability_description,
+                          valueColor: 'text-violet-300',
                         }]
                       : []),
                   ]}

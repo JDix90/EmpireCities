@@ -679,7 +679,15 @@ export default function GamePage() {
 
     socket.on('game:combat_result', (data: {
       fromId: string; toId: string;
-      result: { attacker_rolls: number[]; defender_rolls: number[]; attacker_losses: number; defender_losses: number; territory_captured: boolean };
+      result: {
+        attacker_rolls: number[];
+        defender_rolls: number[];
+        attacker_losses: number;
+        defender_losses: number;
+        territory_captured: boolean;
+        attacker_bonus_breakdown?: { tech?: number; faction?: number; event?: number; total?: number };
+        defender_bonus_breakdown?: { building?: number; tech?: number; faction?: number; event?: number; wonder?: number; sea?: number; total?: number };
+      };
     }) => {
       const currentMap = mapDataRef.current;
       const state = useGameStore.getState().gameState;
@@ -695,6 +703,8 @@ export default function GamePage() {
         ...data.result,
         fromName,
         toName,
+        attackerId: attackerOwner ?? null,
+        defenderId: defenderOwner ?? null,
         attackerName,
         defenderName,
       };
@@ -1369,34 +1379,6 @@ export default function GamePage() {
     });
   };
 
-  const handleFortify = (fromId: string, toId: string, units: number) => {
-    getSocket().emit('game:fortify', { gameId, fromId, toId, units });
-    setSelectedTerritory(null);
-    setAttackSource(null);
-    setNavalSource(null);
-
-    const fromName = mapDataRef.current?.territories.find(t => t.territory_id === fromId)?.name ?? fromId;
-    const toName = mapDataRef.current?.territories.find(t => t.territory_id === toId)?.name ?? toId;
-    ownTurnFortificationsRef.current.push({ fromName, toName, units });
-    showNotification({
-      type: 'fortify',
-      text: `Moved ${units} troops: ${fromName} → ${toName}`,
-      icon: 'arrow',
-      accentBg: 'bg-sky-500/20',
-      accentBorder: 'border-sky-500/30',
-      accentText: 'text-sky-400',
-    });
-
-    const myColor = gameState?.players.find(p => p.player_id === user?.user_id)?.color;
-    pushGlobeEvent({
-      type: 'fortify',
-      territoryId: toId,
-      fromTerritoryId: fromId,
-      units,
-      playerColor: myColor,
-    });
-  };
-
   const handleRedeemCards = (cardIds: string[]) => {
     hapticNotification(NotificationType.Success);
     getSocket().emit('game:redeem_cards', { gameId, cardIds });
@@ -1749,7 +1731,7 @@ export default function GamePage() {
                       </div>
                       <span className="text-xs text-cc-muted">Majority approval required</span>
                     </div>
-                    <LobbyProposals gameId={gameId} isHost={isHost} currentSettings={lobby.settings_json ?? null} />
+                    <LobbyProposals gameId={gameId} currentSettings={lobby.settings_json ?? null} />
                   </div>
                 )}
 
@@ -2113,7 +2095,6 @@ export default function GamePage() {
               mapTerritories={mapData.territories}
               onAttack={handleAttack}
               onDraft={handleDraft}
-              onFortify={handleFortify}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
               onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
               onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}

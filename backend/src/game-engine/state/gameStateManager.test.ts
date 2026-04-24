@@ -7,6 +7,7 @@ import {
   findRedeemableCardIds,
   initializeGameState,
 } from './gameStateManager';
+import { calculateReinforcements } from '../combat/combatResolver';
 import type { GameState, PlayerState, TerritoryState, GameSettings, TerritoryCard, GameMap } from '../../types';
 
 function makeSettings(overrides?: Partial<GameSettings>): GameSettings {
@@ -324,6 +325,99 @@ describe('initializeGameState faction distribution', () => {
     expect(playerOneRegions.has('western_front') || playerOneRegions.has('north_africa_th')).toBe(true);
     expect(playerTwoRegions.has('eastern_front')).toBe(true);
     expect(playerOneOwnsWesternFront && playerOneOwnsNorthAfrica).toBe(false);
+  });
+
+  it('applies faction reinforce bonus on the very first draft turn', () => {
+    const map: GameMap = {
+      map_id: 'first_draft_faction_bonus_map',
+      name: 'First Draft Faction Bonus Map',
+      territories: [
+        { territory_id: 't1', name: 'T1', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 't2', name: 'T2', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 't3', name: 'T3', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+        { territory_id: 't4', name: 'T4', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+        { territory_id: 't5', name: 'T5', polygon: [], center_point: [0, 0], region_id: 'pacific_theatre' },
+        { territory_id: 't6', name: 'T6', polygon: [], center_point: [0, 0], region_id: 'pacific_theatre' },
+      ],
+      connections: [],
+      regions: [
+        { region_id: 'western_front', name: 'Western Front', bonus: 0 },
+        { region_id: 'eastern_front', name: 'Eastern Front', bonus: 0 },
+        { region_id: 'pacific_theatre', name: 'Pacific Theatre', bonus: 0 },
+      ],
+    };
+
+    const state = initializeGameState(
+      'first-draft-faction-bonus',
+      'ww2',
+      map,
+      [
+        {
+          player_id: 'p1',
+          player_index: 0,
+          username: 'USSR Player',
+          color: '#f00',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'soviet_union', // +2 reinforcements
+        },
+        {
+          player_id: 'p2',
+          player_index: 1,
+          username: 'Germany Player',
+          color: '#00f',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'germany',
+        },
+      ],
+      makeSettings({ factions_enabled: true }),
+    );
+
+    const firstPlayer = state.players[0]!;
+    const baseDraft = calculateReinforcements(firstPlayer.territory_count, 0, state.players.length);
+    expect(state.phase).toBe('draft');
+    expect(state.draft_units_remaining).toBe(baseDraft + 2);
+  });
+
+  it('keeps draft_units_remaining at 0 during territory selection even with factions enabled', () => {
+    const map: GameMap = {
+      map_id: 'territory_select_faction_bonus_map',
+      name: 'Territory Select Faction Bonus Map',
+      territories: [
+        { territory_id: 't1', name: 'T1', polygon: [], center_point: [0, 0], region_id: 'western_front' },
+        { territory_id: 't2', name: 'T2', polygon: [], center_point: [0, 0], region_id: 'eastern_front' },
+      ],
+      connections: [],
+      regions: [
+        { region_id: 'western_front', name: 'Western Front', bonus: 0 },
+        { region_id: 'eastern_front', name: 'Eastern Front', bonus: 0 },
+      ],
+    };
+
+    const state = initializeGameState(
+      'territory-select-faction-bonus',
+      'ww2',
+      map,
+      [
+        {
+          player_id: 'p1',
+          player_index: 0,
+          username: 'USSR Player',
+          color: '#f00',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'soviet_union',
+        },
+      ],
+      makeSettings({ factions_enabled: true, territory_selection: true }),
+    );
+
+    expect(state.phase).toBe('territory_select');
+    expect(state.draft_units_remaining).toBe(0);
   });
 });
 

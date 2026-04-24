@@ -17,8 +17,7 @@ import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import {
-  Plus, LogOut, User, Map, Globe, Play, Clock, Trash2, Shield, Zap, Timer, GraduationCap, Bot,
-  Home, FileText, PenSquare, Users, Link2, Info, Calendar, ShoppingBag, Sword, Trophy, Eye, HelpCircle,
+  Trash2, Timer, GraduationCap, Bot, Info, Calendar, Sword, Trophy,
 } from 'lucide-react';
 import TopNavBar from '../components/ui/TopNavBar';
 import axios from 'axios';
@@ -360,9 +359,9 @@ export default function LobbyPage() {
   const [territorySelection, setTerritorySelection] = useState(false);
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   // Factions selection state
-  const [availableFactions, setAvailableFactions] = useState<FactionInfo[]>([]);
+  const [_availableFactions, setAvailableFactions] = useState<FactionInfo[]>([]);
   const [selectedFactionId, setSelectedFactionId] = useState<string>('random');
-  const [factionsLoading, setFactionsLoading] = useState(false);
+  const [_factionsLoading, setFactionsLoading] = useState(false);
   const [topLiveGameId, setTopLiveGameId] = useState<string | null>(null);
   const joinFromUrlHandled = useRef(false);
 
@@ -564,7 +563,7 @@ export default function LobbyPage() {
     }
   };
 
-  const handleCancelGame = async (gameId: string) => {
+  const _handleCancelGame = async (gameId: string) => {
     try {
       await api.delete(`/games/${gameId}/cancel`);
       toast.success('Game canceled successfully.');
@@ -826,7 +825,9 @@ export default function LobbyPage() {
               try {
                 await api.post('/progression/onboarding/skip');
                 useAuthStore.getState().setUser({ ...user, onboarding_stage: null });
-              } catch {}
+              } catch {
+                // ignore skip failures; user can keep playing
+              }
             }}
             className="mb-4"
           />

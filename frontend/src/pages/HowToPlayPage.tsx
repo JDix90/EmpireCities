@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, ArrowLeft, Swords, Shield, Dices, CreditCard, Trophy, Settings2, Map, Users, Zap } from 'lucide-react';
-import clsx from 'clsx';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {

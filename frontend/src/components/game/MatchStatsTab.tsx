@@ -2,18 +2,6 @@ import React from 'react';
 import clsx from 'clsx';
 import type { GameOverModalData } from './ActionModal';
 
-function StatRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-white/50 text-sm">{label}</span>
-      <div className="text-right">
-        <span className="text-white/85 text-sm font-medium tabular-nums">{value}</span>
-        {sub && <p className="text-white/30 text-[10px] leading-tight">{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
 function EfficiencyBar({ pct }: { pct: number }) {
   return (
     <div className="h-1 w-20 rounded-full bg-white/10 overflow-hidden">

@@ -83,11 +83,10 @@ const PROPOSABLE_SETTINGS: SettingOption[] = [
 
 interface LobbyProposalsProps {
   gameId: string;
-  isHost: boolean;
   currentSettings: GameLobbySettingsJson | null;
 }
 
-export default function LobbyProposals({ gameId, isHost, currentSettings }: LobbyProposalsProps) {
+export default function LobbyProposals({ gameId, currentSettings }: LobbyProposalsProps) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedSetting, setSelectedSetting] = useState<string>('');

@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 /**
  * Incremental adoption: legacy hotspots are ignored until refactored (see 90-day roadmap).
@@ -21,6 +22,9 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     files: ['backend/**/*.ts', 'frontend/**/*.{ts,tsx}', 'packages/shared/**/*.ts'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     rules: {
       // Incremental cleanup — tighten to 'error' + max-warnings 0 over time
       'no-useless-assignment': 'off',

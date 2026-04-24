@@ -63,7 +63,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
         ai_index: playerKey.startsWith('ai_') ? Number(playerKey.replace('ai_', '')) : undefined,
         faction_id: factionId,
       });
-    } catch (err) {
+    } catch {
       // TODO: Show error toast
     } finally {
       setSubmitting(null);

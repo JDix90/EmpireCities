@@ -700,7 +700,6 @@ function GlobeMap({
     }
 
     const atkColor = event.attackerColor ?? '#ef4444';
-    const defColor = event.defenderColor ?? '#3b82f6';
     const arcId = uid('combat-arc');
     const ringId = uid('combat-ring');
     const explosionId = uid('combat-explosion');

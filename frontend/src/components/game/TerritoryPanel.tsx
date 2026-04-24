@@ -18,7 +18,6 @@ interface TerritoryPanelProps {
   }>;
   onAttack: (fromId: string, toId: string) => void;
   onDraft: (territoryId: string, units: number) => void;
-  onFortify: (fromId: string, toId: string, units: number) => void;
   onBuild?: (buildingType: string) => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
   onNavalAttack?: (fromId: string, toId: string) => void;
@@ -32,7 +31,6 @@ export default function TerritoryPanel({
   mapTerritories,
   onAttack,
   onDraft,
-  onFortify,
   onBuild,
   onNavalMove,
   onNavalAttack,

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
-import clsx from 'clsx';
 import { CombatResult } from '../../store/gameStore';
 
 interface MobileCombatBannerProps {
@@ -32,6 +31,8 @@ function MobileCombatBanner({
   }, [lastCombatResult]);
 
   if (!visible || !displayResult) return null;
+  const attackerFactionBonus = displayResult.attacker_bonus_breakdown?.faction ?? 0;
+  const defenderFactionBonus = displayResult.defender_bonus_breakdown?.faction ?? 0;
 
   return (
     <div className="hidden max-md:block">
@@ -111,6 +112,20 @@ function MobileCombatBanner({
             <p className="text-cc-gold font-medium text-xs pt-1.5 mt-1.5 border-t border-cc-border">
               Territory Captured!
             </p>
+          )}
+          {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
+            <div className="pt-1.5 mt-1.5 border-t border-cc-border space-y-1">
+              {attackerFactionBonus > 0 && (
+                <p className="text-[10px] px-2 py-1 rounded border border-red-500/40 bg-red-900/20 text-red-300">
+                  ⚔️ Faction attack bonus (+{attackerFactionBonus} die)
+                </p>
+              )}
+              {defenderFactionBonus > 0 && (
+                <p className="text-[10px] px-2 py-1 rounded border border-blue-500/40 bg-blue-900/20 text-blue-300">
+                  🛡️ Faction defense bonus (+{defenderFactionBonus} die)
+                </p>
+              )}
+            </div>
           )}
 
           {/* View full log link */}

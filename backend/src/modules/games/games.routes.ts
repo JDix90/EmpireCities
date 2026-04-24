@@ -9,6 +9,7 @@ import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
+import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -558,6 +559,17 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // Add DELETE endpoint for canceling a game
   fastify.delete<{ Params: { gameId: string } }>('/:gameId/cancel', { preHandler: authenticate }, async (request, reply) => {
     const { gameId } = request.params;
+    const caller = await queryOne<{ player_index: number }>(
+      `SELECT player_index
+       FROM game_players
+       WHERE game_id = $1 AND user_id = $2
+       LIMIT 1`,
+      [gameId, request.userId],
+    );
+    const cancelAuthError = getCancelGameAuthorizationError({ callerSeat: caller });
+    if (cancelAuthError) {
+      return reply.status(403).send({ error: cancelAuthError });
+    }
 
     const game = await queryOne<{ status: string }>(
       'SELECT status FROM games WHERE game_id = $1',

@@ -4,7 +4,7 @@ import { Trophy, Flame, Star, TrendingUp, ArrowLeft, ChevronLeft, ChevronRight, 
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { getTier, type TierInfo } from '@erasofempire/shared';
+import type { TierInfo } from '@erasofempire/shared';
 
 type LeaderboardTab = 'rating' | 'level' | 'season' | 'weekly' | 'streaks';
 

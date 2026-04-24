@@ -244,8 +244,6 @@ export default function ProfilePage() {
     );
   }
 
-  const xpForNextLevel = profile.level * 500;
-  const xpProgress = Math.min(100, (profile.xp / xpForNextLevel) * 100);
   const activeBucket: StatsBucket | null = stats
     ? (activeTab === 'solo' ? stats.solo : activeTab === 'multi' ? stats.multi : stats.hybrid)
     : null;

@@ -4,7 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import toast from 'react-hot-toast';
-import { Play, Pause, SkipBack, SkipForward, ChevronLeft, Share2, Copy, Check } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ChevronLeft, Share2, Check } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState } from '../store/gameStore';
 

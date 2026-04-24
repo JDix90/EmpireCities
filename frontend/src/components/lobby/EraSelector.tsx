@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Globe, Users, Map, Star } from 'lucide-react';
+import { Globe, Users, Map } from 'lucide-react';
 import { fetchEraMaps, MapSummary, ERA_METADATA } from '../../services/mapService';
 
 interface EraSelectorProps {

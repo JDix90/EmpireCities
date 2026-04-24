@@ -26,6 +26,11 @@ const CAPTURE_POPULATION_FLOOR = 1;      // population after capture
 const DEPLOY_CAP_CRITICAL = 1;      // stability < 30
 const DEPLOY_CAP_LOW = 3;           // stability 30-49
 // stability ≥ 50 → no cap
+const DEPLOY_CAP_ERA_BONUS_MAX = 3;
+const DEPLOY_CAP_TURN_BONUS_MAX = 10;
+const DEPLOY_CAP_ECONOMY_BONUS_MAX = 2;
+const DEPLOY_CAP_TURN_STEP = 7;
+const DEPLOY_CAP_TURN_STEP_BONUS = 2;
 
 // ── Initialization ─────────────────────────────────────────────────────
 
@@ -155,11 +160,58 @@ export function onInfluenceStabilityPenalty(state: GameState, territoryId: strin
  * in a single draft phase. Returns Infinity when there is no cap.
  * Works independently of economy — the cap applies whenever stability is enabled.
  */
-export function getDeployCap(stability: number | undefined): number {
+export function getDeployCap(
+  stability: number | undefined,
+  context?: {
+    era?: GameState['era'];
+    turnNumber?: number;
+    economyEnabled?: boolean;
+    playerSpecialResource?: number;
+  },
+): number {
   if (stability == null) return Infinity;
-  if (stability < 30) return DEPLOY_CAP_CRITICAL;
-  if (stability < 50) return DEPLOY_CAP_LOW;
-  return Infinity;
+  if (stability >= 50) return Infinity;
+
+  const baseCap = stability < 30 ? DEPLOY_CAP_CRITICAL : DEPLOY_CAP_LOW;
+  const eraBonus = getEraDeployCapBonus(context?.era);
+  const turnBonus = Math.min(
+    DEPLOY_CAP_TURN_BONUS_MAX,
+    Math.max(
+      0,
+      Math.floor(((context?.turnNumber ?? 1) - 1) / DEPLOY_CAP_TURN_STEP) * DEPLOY_CAP_TURN_STEP_BONUS,
+    ),
+  );
+  const economyBonus = getEconomyDeployCapBonus(
+    !!context?.economyEnabled,
+    context?.playerSpecialResource ?? 0,
+  );
+  return baseCap + eraBonus + turnBonus + economyBonus;
+}
+
+function getEraDeployCapBonus(era: GameState['era'] | undefined): number {
+  switch (era) {
+    case 'ww2':
+    case 'acw':
+    case 'risorgimento':
+      return 1;
+    case 'coldwar':
+    case 'modern':
+      return 2;
+    case 'space_age':
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function getEconomyDeployCapBonus(
+  economyEnabled: boolean,
+  playerSpecialResource: number,
+): number {
+  if (!economyEnabled) return 0;
+  if (playerSpecialResource >= 25) return DEPLOY_CAP_ECONOMY_BONUS_MAX;
+  if (playerSpecialResource >= 10) return 1;
+  return 0;
 }
 
 // ── Production multiplier ──────────────────────────────────────────────
@@ -239,4 +291,9 @@ export const STABILITY_CONSTANTS = {
   CAPTURE_POPULATION_FLOOR,
   DEPLOY_CAP_CRITICAL,
   DEPLOY_CAP_LOW,
+  DEPLOY_CAP_ERA_BONUS_MAX,
+  DEPLOY_CAP_TURN_BONUS_MAX,
+  DEPLOY_CAP_ECONOMY_BONUS_MAX,
+  DEPLOY_CAP_TURN_STEP,
+  DEPLOY_CAP_TURN_STEP_BONUS,
 } as const;

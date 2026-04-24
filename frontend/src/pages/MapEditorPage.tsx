@@ -164,7 +164,7 @@ export default function MapEditorPage() {
       return;
     }
     setIsDirty(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [territories, connections, regions, mapName, mapDescription]);
 
   // Warn on page close/refresh when there are unsaved changes
@@ -198,7 +198,7 @@ export default function MapEditorPage() {
       updateUndoRedoFlags();
     }
   // Only run once on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // Load existing map (not dirty until user edits after load)
@@ -220,7 +220,7 @@ export default function MapEditorPage() {
         updateUndoRedoFlags();
       }, 0);
     }).catch(() => toast.error('Failed to load map'));
-  }, [mapId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapId]);  
 
   // Reset tool-specific state when switching tools
   const switchTool = useCallback((tool: EditorTool) => {

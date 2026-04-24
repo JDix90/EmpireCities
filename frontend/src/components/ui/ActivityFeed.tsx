@@ -112,7 +112,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
           const cfg = EVENT_CONFIG[ev.event_type] ?? {
             icon: Swords,
             color: 'text-cc-muted',
-            label: (d: Record<string, unknown>, lookup: (d: Record<string, unknown>) => string) => ev.event_type.replace(/_/g, ' '),
+            label: (_d: Record<string, unknown>, _lookup: (d: Record<string, unknown>) => string) => ev.event_type.replace(/_/g, ' '),
           };
           const Icon = cfg.icon;
           // Use displayLocationName for territory/region if present

@@ -297,6 +297,32 @@ function CombatResultView({
         'transition-all duration-500 ease-out',
         showResult ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'
       )}>
+        {/* Bonus activation feedback */}
+        {((result.attacker_bonus_breakdown?.faction ?? 0) > 0 || (result.defender_bonus_breakdown?.faction ?? 0) > 0) && (
+          <div className="mb-4 space-y-2">
+            {(result.attacker_bonus_breakdown?.faction ?? 0) > 0 && (
+              <p className={clsx(
+                'text-xs px-3 py-2 rounded-lg border animate-pulse',
+                perspective === 'attacker'
+                  ? 'border-red-400/70 bg-red-500/15 text-red-200'
+                  : 'border-red-500/40 bg-red-900/20 text-red-300',
+              )}>
+                ⚔️ Faction attack bonus activated (+{result.attacker_bonus_breakdown?.faction} die)
+              </p>
+            )}
+            {(result.defender_bonus_breakdown?.faction ?? 0) > 0 && (
+              <p className={clsx(
+                'text-xs px-3 py-2 rounded-lg border animate-pulse',
+                perspective === 'defender'
+                  ? 'border-blue-300/70 bg-blue-500/15 text-blue-100'
+                  : 'border-blue-500/40 bg-blue-900/20 text-blue-300',
+              )}>
+                🛡️ Faction defense bonus activated (+{result.defender_bonus_breakdown?.faction} die)
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Losses */}
         <div className="flex gap-3 mb-4">
           {result.attacker_losses > 0 && (

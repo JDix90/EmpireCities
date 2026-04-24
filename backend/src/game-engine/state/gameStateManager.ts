@@ -180,6 +180,7 @@ export function initializeGameState(
     diplomacy,
     settings: settingsNorm,
     draft_units_remaining: initialDraft,
+    draft_placements_this_turn: {},
     turn_started_at: Date.now(),
     win_probability_history: [],
     era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
@@ -187,6 +188,11 @@ export function initializeGameState(
     influence_cooldown_remaining: 0,
     blitzkrieg_attacked: false,
   };
+
+  // Ensure first draft turn follows the same reinforcement rules as subsequent turns.
+  if (!isTerritorySelect) {
+    state.draft_units_remaining += getPlayerReinforceBonus(state, firstPlayer.player_id);
+  }
 
   // Private salt — 128 bits from CSPRNG. The client knows `game_id` (it's in
   // URLs, invite codes, replays), so deriving the mission RNG from game_id
@@ -451,6 +457,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
   state.current_player_index = next;
   state.phase = 'draft';
+  state.draft_placements_this_turn = {};
   state.turn_started_at = Date.now();
 
   const nextPlayer = state.players[next];

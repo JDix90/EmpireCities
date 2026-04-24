@@ -117,8 +117,25 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  attacker_bonus_breakdown?: {
+    tech?: number;
+    faction?: number;
+    event?: number;
+    total?: number;
+  };
+  defender_bonus_breakdown?: {
+    building?: number;
+    tech?: number;
+    faction?: number;
+    event?: number;
+    wonder?: number;
+    sea?: number;
+    total?: number;
+  };
   fromName?: string;
   toName?: string;
+  attackerId?: string | null;
+  defenderId?: string | null;
   attackerName?: string;
   defenderName?: string;
 }

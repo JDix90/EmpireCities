@@ -18,7 +18,7 @@ export default function TutorialPage() {
         toast.error('Could not start the tutorial. Try again.');
         navigate('/lobby', { replace: true });
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   return (

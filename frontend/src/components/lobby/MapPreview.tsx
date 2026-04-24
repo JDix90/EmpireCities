@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { fetchMapById, GameMap, Territory, ERA_METADATA, scalePolygon } from '../../services/mapService';
+import { fetchMapById, GameMap, ERA_METADATA, scalePolygon } from '../../services/mapService';
 import { Loader2 } from 'lucide-react';
 
 // Distinct region colors for preview
@@ -136,7 +136,7 @@ export default function MapPreview({ mapId, mapData, width = 480, height = 280, 
               stroke={isHov ? '#FFFFFF' : '#FFFFFF44'}
               strokeWidth={isHov ? 1.5 : 0.5}
               className="cursor-pointer transition-all duration-100"
-              onMouseEnter={(e) => {
+              onMouseEnter={() => {
                 setHovered(t.territory_id);
                 const rect = svgRef.current?.getBoundingClientRect();
                 if (rect) {
