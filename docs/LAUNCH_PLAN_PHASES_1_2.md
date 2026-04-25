@@ -1,5 +1,7 @@
 # Launch Plan — Phases 1 & 2: Hardening + Stability
 
+> **Note:** This document captures a **point-in-time** launch hardening plan. Line numbers and file paths may drift; verify against current source before acting. Prefer `docs/RUNBOOK.md`, `DEPLOYMENT.md`, and the repo verify script for day-to-day release practice.
+
 ## Phase 1: Hardening
 
 ### 1.1 Fix Path Traversal in Map Loading

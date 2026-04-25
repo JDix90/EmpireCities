@@ -324,7 +324,7 @@ export default function ProfilePage() {
                 <GraduationCap className="w-5 h-5" /> Learn to Play
               </h3>
               <p className="text-cc-muted text-sm mt-1 max-w-xl">
-                Launch a guided tutorial match, or read the full rules reference covering combat, cards, victory conditions, and all advanced features.
+                Launch a guided tutorial match, or open <strong className="text-cc-text">Rules</strong> for the in-app guide (combat, cards, victory conditions, advanced features). Developers and power users can also read <code className="text-xs">docs/PLAYER_GUIDE.md</code> in the repository for the longest-form FAQ and tables.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

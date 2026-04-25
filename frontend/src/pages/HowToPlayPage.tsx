@@ -53,8 +53,8 @@ export default function HowToPlayPage() {
             </p>
             <p>
               Games are played on historical maps spanning different eras (Ancient, Medieval, Age of
-              Discovery, WW2, Cold War, Modern, and more). Each era can have unique combat modifiers
-              that add flavor without changing core rules.
+              Discovery, WW2, Cold War, Modern, American Civil War, Italian Unification, Space Age, and
+              more). Each era can have unique combat modifiers that add flavor without changing core rules.
             </p>
             <p>
               You can play with friends, random opponents, or AI bots. Games can be real-time (fast
@@ -78,7 +78,8 @@ export default function HowToPlayPage() {
               </li>
               <li>
                 <strong className="text-cc-text">Fortify</strong> — Move units from one of your
-                territories to another connected friendly territory. You can fortify once or skip.
+                territories to another connected friendly territory. By default you fortify once per turn;
+                some tech or era rules can allow an extra fortify move. You can always skip.
               </li>
             </ol>
             <p className="text-cc-muted/70 text-xs">
@@ -110,6 +111,12 @@ export default function HowToPlayPage() {
             <p>
               You capture a territory when its last defending unit is destroyed. At least 1 attacking
               unit moves in automatically. Attacking is always optional — you can skip the phase.
+            </p>
+            <p>
+              When optional rules are on (factions, tech, buildings, wonders, events, sea lanes), attack and
+              defense can roll <strong className="text-cc-text">extra dice</strong>. The server sends a
+              breakdown when relevant; the HUD, combat modal, and mobile banner highlight faction-based
+              extra dice so you can see why a roll used more than the base 3/2 dice.
             </p>
           </Section>
 
@@ -177,8 +184,8 @@ export default function HowToPlayPage() {
                 modifiers.
               </p>
               <p>
-                <strong className="text-cc-text">Players & AI</strong> — 2–12 players. Add AI bots
-                (Easy / Medium / Hard / Expert) to fill slots.
+                <strong className="text-cc-text">Players & AI</strong> — 2–8 players per lobby. Add AI bots
+                (Easy / Medium / Hard / Expert) to fill empty slots.
               </p>
               <p>
                 <strong className="text-cc-text">Turn Timer</strong> — Real-time (3–10 min per turn)
@@ -225,16 +232,36 @@ export default function HowToPlayPage() {
               </div>
               <div className="bg-cc-dark/50 rounded-lg p-3">
                 <p className="font-medium text-cc-text">Asymmetric Factions</p>
-                <p>Each player is assigned a faction with unique passive bonuses (attack, defense, reinforcement, or geographic advantages).</p>
+                <p>
+                  Each player can be assigned a faction with passive bonuses (attack, defense, reinforcements,
+                  stability recovery) and a once-per-turn ability. During combat, extra dice from your faction
+                  (and other sources) are called out in the combat log, combat modal, and mobile banner when
+                  applicable. Open <strong className="text-cc-text">Bonuses &amp; Active Rules</strong> in-game
+                  for a full breakdown of your modifiers.
+                </p>
               </div>
               <div className="bg-cc-dark/50 rounded-lg p-3">
                 <p className="font-medium text-cc-text">Population & Stability</p>
-                <p>Territories have a stability rating (0–100%) that affects production. Conquering or losing territories causes instability. Manage your empire's health.</p>
+                <p>
+                  Territories track stability (0–100) and population. Low stability reduces economy income and
+                  limits how many units you can deploy to that territory <em>per draft phase</em> — the cap is
+                  cumulative for that territory until your next draft (AI uses the same rule). Caps scale with
+                  game progression (turn, era, economy when enabled) so late-game reinforcements are not
+                  overly punishing. Very low stability can trigger rebellion checks.
+                </p>
+              </div>
+              <div className="bg-cc-dark/50 rounded-lg p-3">
+                <p className="font-medium text-cc-text">Influence (Cold War / Risorgimento)</p>
+                <p>
+                  When the era allows it, you can spend units to flip a weak neighboring territory during the
+                  attack phase, with a cooldown between uses. Certain technologies extend your influence reach
+                  by one extra hop; some wonders extend it further when Economy is on.
+                </p>
               </div>
             </div>
             <p className="text-cc-muted/70 text-xs mt-2">
-              For detailed rules on each advanced feature, see the{' '}
-              <strong className="text-cc-gold">Player Guide</strong> (accessible from your Profile).
+              This page summarizes core and advanced rules. For tables, building costs, and extended FAQs, see{' '}
+              <code className="text-cc-gold/90">docs/PLAYER_GUIDE.md</code> in the project repository.
             </p>
           </Section>
 

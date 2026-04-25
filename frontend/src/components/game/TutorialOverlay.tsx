@@ -87,8 +87,8 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'settings_overview',
     title: 'Game Modes & Options',
-    message: 'When you create a game, you can customize the experience. Choose an era (Ancient → Modern), add AI opponents, set turn timers, toggle fog of war, and enable advanced features.',
-    detail: 'Advanced features include: Economy & Buildings, Technology Trees, Naval Warfare, Historical Events, Factions, and Population & Stability. Each can be toggled independently — start simple and add complexity as you like.',
+    message: 'When you create a game, you can customize the experience. Choose an era (Ancient through Space Age and more), add AI opponents, set turn timers, toggle fog of war, and enable advanced features.',
+    detail: 'Advanced features include: Economy & Buildings, Technology Trees, Naval Warfare, Historical Events, Factions, and Population & Stability (draft placement caps on unstable territories, recovery, rebellion risk). Each can be toggled independently — start simple and add complexity as you like.',
   },
 
   // ── Wrap-up ───────────────────────────────────────────────

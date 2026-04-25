@@ -24,6 +24,7 @@ import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { COMMUNITY_MAP_TITLES, ERA_LABELS } from '../constants/gameLobbyLabels';
+import { advancedFeatureTooltip, getCustomMapImmersion } from '../data/customMapImmersion';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
 import StreakBadge from '../components/ui/StreakBadge';
 import SeasonBanner from '../components/ui/SeasonBanner';
@@ -365,6 +366,16 @@ export default function LobbyPage() {
   const [topLiveGameId, setTopLiveGameId] = useState<string | null>(null);
   const joinFromUrlHandled = useRef(false);
 
+  const mapImmersion = React.useMemo(
+    () => getCustomMapImmersion(selectedCommunityMapId),
+    [selectedCommunityMapId],
+  );
+
+  /** When a curated custom / regional map is chosen, align rules era with its immersion profile. */
+  useEffect(() => {
+    const imm = getCustomMapImmersion(selectedCommunityMapId);
+    if (imm) setSelectedEra(imm.recommended_rules_era);
+  }, [selectedCommunityMapId]);
 
   const searchParamBootstrapDone = useRef(false);
 
@@ -595,7 +606,9 @@ export default function LobbyPage() {
     setCreating(true);
     try {
       const mapId = selectedCommunityMapId ?? ERA_MAP_IDS[selectedEra];
-      const eraId = selectedCommunityMapId ? 'custom' : selectedEra;
+      // Community maps still run under a concrete era ruleset so advanced systems
+      // (factions, tech tree, events, naval, stability) are fully active.
+      const eraId = selectedEra;
       const allowed = Array.from(victoryModes) as VictoryMode[];
       const settings: Record<string, unknown> = {
         fog_of_war: fogOfWar,
@@ -1322,7 +1335,7 @@ export default function LobbyPage() {
               showCloseButton
             >
               <form onSubmit={handleCreateGame} className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  {selectedCommunityMapId ? (
+                  {selectedCommunityMapId && (
                     <div className="md:col-span-2">
                       <label className="label">Map</label>
                       <p className="input bg-cc-dark/50 border-cc-border text-cc-text cursor-default">
@@ -1330,32 +1343,43 @@ export default function LobbyPage() {
                         <span className="text-cc-muted text-sm ml-2">(community)</span>
                       </p>
                     </div>
-                  ) : (
-                    <div>
-                      <label className="label">
-                        Historical Era
-                        {activeSeasonal.some((s) => s.era_id === selectedEra) && (
-                          <span className="ml-2 text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold">
-                            🎯 Seasonal
-                          </span>
-                        )}
-                      </label>
-                      <select
-                        className="input"
-                        value={selectedEra}
-                        onChange={(e) => {
-                          setSelectedEra(e.target.value);
-                          setSelectedCommunityMapId(null);
-                        }}
-                      >
-                        {ERAS.map((era) => (
-                          <option key={era.id} value={era.id}>
-                            {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
-                          </option>
-                        ))}
-                      </select>
+                  )}
+                  {mapImmersion && (
+                    <div className="md:col-span-2 rounded-lg border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.08] to-transparent px-3 py-3">
+                      <p className="text-cc-gold text-sm font-display tracking-wide">{mapImmersion.tagline}</p>
+                      <p className="text-cc-muted text-xs mt-1.5 leading-relaxed">{mapImmersion.backdrop}</p>
+                      <p className="text-cc-muted text-[11px] mt-2">
+                        Suggested rules era:{' '}
+                        <span className="text-cc-text font-medium">
+                          {ERA_LABELS[mapImmersion.recommended_rules_era] ?? mapImmersion.recommended_rules_era}
+                        </span>
+                        {' '}— matches era cards, tech, and faction roster. You can still change it above.
+                      </p>
                     </div>
                   )}
+                  <div>
+                    <label className="label">
+                      {selectedCommunityMapId ? 'Rules Era' : 'Historical Era'}
+                      {activeSeasonal.some((s) => s.era_id === selectedEra) && (
+                        <span className="ml-2 text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold">
+                          🎯 Seasonal
+                        </span>
+                      )}
+                    </label>
+                    <select
+                      className="input"
+                      value={selectedEra}
+                      onChange={(e) => {
+                        setSelectedEra(e.target.value);
+                      }}
+                    >
+                      {ERAS.map((era) => (
+                        <option key={era.id} value={era.id}>
+                          {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="label">AI Opponents</label>
                     <select className="input" value={aiCount} onChange={(e) => setAiCount(Number(e.target.value))}>
@@ -1391,7 +1415,7 @@ export default function LobbyPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
                     {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
                     <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                      <FeatureTooltip text="All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions." />
+                      <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'territory_draft')} />
                       <label htmlFor="territory-draft-top" className="contents cursor-pointer">
                         <input
                           type="checkbox"
@@ -1405,7 +1429,7 @@ export default function LobbyPage() {
                       </label>
                     </div>
                     <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                      <FeatureTooltip text="Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft." />
+                      <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'asymmetric_factions')} />
                       <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
                         <input
                           type="checkbox"
@@ -1424,44 +1448,49 @@ export default function LobbyPage() {
                   </div>
                     <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
+                      {mapImmersion && (
+                        <p className="text-[11px] text-cc-muted mb-3 leading-relaxed">
+                          Hover each (i) for theater-specific lore layered on the normal rules — tuned for this map.
+                        </p>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
                             <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
                             <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Technology Trees</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'historical_events')} />
                           <label htmlFor="create-game-events" className="contents cursor-pointer">
                             <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Historical Events</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'naval_warfare')} />
                           <label htmlFor="create-game-naval" className="contents cursor-pointer">
                             <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start at 30% stability with halved population. Select factions gain faster stability recovery." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'population_stability')} />
                           <label htmlFor="create-game-stability" className="contents cursor-pointer">
                             <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
-                          <FeatureTooltip text="Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important." />
+                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'fog_of_war')} />
                           <label htmlFor="create-game-fog" className="contents cursor-pointer">
                             <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Fog of War</span>

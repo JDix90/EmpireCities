@@ -1,6 +1,6 @@
 # Eras of Empire — Player Guide & FAQ
 
-A complete guide to the game — from core rules to advanced features. New players should start with the **Core Rules** section; experienced Risk players can skip ahead to the advanced features.
+A complete guide to the game — from core rules to advanced features. New players should start with the **Core Rules** section; experienced Risk players can skip ahead to the advanced features. The in-app **How to Play** page (`/how-to-play`) mirrors this at a shorter length for quick reference.
 
 All advanced features are **opt-in** — the host toggles them individually when creating a game via the **Advanced Features** checkboxes in the lobby.
 
@@ -115,8 +115,8 @@ When creating a game, the host can configure:
 
 | Setting | Options |
 |---------|---------|
-| **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, or community maps |
-| **Players** | 2–12 (mix of human and AI) |
+| **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, Space Age, Custom, or community maps |
+| **Players** | 2–8 (mix of human and AI) |
 | **AI Bots** | 0–7 bots at Easy / Medium / Hard / Expert difficulty |
 | **Turn Timer** | None, 3 min, 5 min, 10 min, or async (12h / 24h / 72h) |
 | **Victory** | Domination, Threshold, Capital, Secret Mission (can enable multiple) |
@@ -369,20 +369,26 @@ Every owned territory has a **Stability** rating from 0 to 100, shown as a color
 ### Stability Effects
 
 - **Production scaling**: All building income (Production Points, Tech Points) from a territory is multiplied by `stability / 100`. A territory at 50% stability produces half its normal income.
-- **Recovery**: Each of your territories recovers **+5 stability per turn** automatically on your turn (capped at 100).
+- **Population scaling**: Population (1–10) also multiplies production from that territory when Population & Stability is enabled.
+- **Draft deploy cap** (when Population & Stability is on): Each territory limits how many reinforcement units you may place there **per draft phase**, tracked **cumulatively** for that territory until your next draft (so repeated small placements cannot bypass the cap). The cap scales with stability tier, **game turn**, **era**, and (if Economy is enabled) your **Production Points** balance — low stability is still restrictive early, but less punishing in long games. AI players use the same rule.
+- **Recovery**: On your turn, each owned territory gains base stability recovery, **plus** extra recovery if it is garrisoned (enough units), **plus** any faction or campaign carry bonuses that apply to you. Values are clamped to 100.
 
 ### Stability Penalties
 
 | Event | Stability Effect |
 |-------|-----------------|
 | **Territory captured** (via combat) | Reset to **30** |
-| **Territory flipped** (via Cold War influence) | −20 from current value (floor 0) |
+| **Territory flipped** (via Cold War / Risorgimento-style influence) | −20 from current value (floor 0) |
+
+### Influence range (Cold War / Risorgimento)
+
+When the era allows influence, valid targets must lie within **N hops** along map connections from any territory you own. **N** starts from the era modifier (often 1). Researching certain techs (`propaganda_extended`, `expanded_network`) adds **+1** hop. With Economy enabled, some **wonders** can add further reach. Influence is resolved on the server during the **attack** phase and may be gated by cooldown and target strength — see in-game tooltips and the **Bonuses** panel for your current modifiers.
 
 ### Strategy Tips
 
-- Newly conquered territories are near-useless economically (30% output). It takes ~14 turns to fully recover.
+- Newly conquered territories are weak economically (low stability) until they recover; plan expansion if Economy is on.
 - Avoid over-extending if Economy is also on — expanding too fast tanks your overall income.
-- Defensive play is rewarded: territories you've held for many turns are at 100% and produce maximum income.
+- Defensive play is rewarded: territories you've held for many turns tend toward high stability and maximum income.
 - Build production buildings on long-held interior territories for maximum value.
 
 ---
@@ -398,7 +404,8 @@ These features were designed to be mixed and matched. Here are the key interacti
 | **Economy + Stability** | Low stability reduces building income. New conquests produce very little until stability recovers. |
 | **Tech Trees + Economy** | Tech Point income partly comes from tech_gen buildings (Lab, Research Center). Base TP income helps bootstrap. |
 | **Events + Combat** | Event card temporary modifiers (+/− attack or defense) apply automatically to all combats during their duration. |
-| **Factions + Combat** | Faction passive attack/defense bonuses stack with tech bonuses, building bonuses, and event modifiers. |
+| **Factions + Combat** | Faction passive attack/defense/reinforce bonuses stack with tech, buildings, wonders, sea connections, and event modifiers. Combat results can include a server-side **bonus breakdown** so the UI can show when faction dice contributed. |
+| **Tech + Influence** | Range-extending tech nodes increase maximum influence hops when tech trees are enabled for that game. |
 | **Naval + Stability** | Capturing a coastal territory via sea-lane attack still triggers the stability penalty (reset to 30). |
 
 ### Recommended Combinations for New Players
@@ -463,11 +470,11 @@ A: Each modifier specifies a turn duration (typically 2–3 turns). They tick do
 
 ### Stability
 
-**Q: A territory I captured has 30% output — how do I fix it?**
-A: Stability recovers +5 per turn automatically. From 30, it takes 14 turns to reach 100. There's no way to speed it up currently — plan your economy around this.
+**Q: A territory I captured has low stability — how do I fix it?**
+A: Stability recovers each turn (base amount plus garrison and faction bonuses). There is no instant “repair stability” button — plan economy and garrisons around recovery.
 
-**Q: Does stability affect reinforcement count?**
-A: No. Stability only scales **building income** (Production Points and Tech Points). Your reinforcement count from territory/continent bonuses is unaffected.
+**Q: Does stability affect how many reinforcements I receive?**
+A: Your **reinforcement pool** for the turn still comes from territories, continents, cards, tech, and factions. Stability instead limits how many of those units you may **place on a given territory during your draft phase** when Population & Stability is enabled (cumulative per territory per draft), and it scales income from buildings on that territory.
 
 **Q: Does stability go below 0?**
 A: No, stability is floored at 0 and capped at 100.

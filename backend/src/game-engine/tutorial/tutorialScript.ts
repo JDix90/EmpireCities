@@ -48,7 +48,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'fortify_explain',
     phase: 'fortify',
     title: 'Fortify Phase',
-    message: 'Move units between your connected territories to shore up defenses. You can fortify once, or skip.',
+    message: 'Move units between your connected territories to shore up defenses. You can fortify once per turn by default (some games allow more via tech), or skip.',
     requireAction: 'end_phase',
   },
   {

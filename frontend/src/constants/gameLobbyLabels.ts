@@ -3,6 +3,10 @@
 export const COMMUNITY_MAP_TITLES: Record<string, string> = {
   community_14_nations: 'The 14 Nations',
   community_strait_hormuz: 'Strait of Hormuz',
+  community_flooded_north_america: 'Flooded North America',
+  community_britain_925: 'Great Britain 925 A.D.',
+  community_horn_africa: 'Horn of Africa & Yemen',
+  community_australia_1337: 'Karkiyapani & Aotearoa 1337',
 };
 
 export const ERA_LABELS: Record<string, string> = {

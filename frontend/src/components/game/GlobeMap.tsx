@@ -100,6 +100,7 @@ interface MapTerritory {
   clip_bbox?: ClipBbox;
   geo_config?: TerritoryGeoConfig;
   geo_polygon?: [number, number][];
+  geo_multipolygon?: [number, number][][];
 }
 
 interface GameMapData {
@@ -301,6 +302,9 @@ function GlobeMap({
   backgroundColor = 'rgba(10, 14, 26, 1)',
   globeView = 'earth',
 }: GlobeMapProps) {
+  const isFloodedNorthAmerica =
+    mapData.map_id === 'community_flooded_north_america' ||
+    mapData.territories.some((t) => t.territory_id === 'rainier_islands');
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState } = useGameStore();
   const { selectedTerritory, attackSource } = useUiStore();
@@ -604,6 +608,11 @@ function GlobeMap({
       const id = (polygon as PolygonData).territory_id;
       const authoredRegional = mapData.projection_bounds != null;
       const tutorialIsland = mapData.map_id === 'tutorial';
+      if (isFloodedNorthAmerica) {
+        const base = 0.022;
+        const jitter = polygonAltitudeHash(id) * 0.001;
+        return base + jitter;
+      }
       const base = authoredRegional
         ? tutorialIsland
           ? 0.014
@@ -615,7 +624,7 @@ function GlobeMap({
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
       return base + jitter;
     },
-    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds],
+    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds, isFloodedNorthAmerica],
   );
 
   // ── Animation sequences ────────────────────────────────────────────────
@@ -1225,7 +1234,9 @@ function GlobeMap({
 
   const getPolygonColor = useCallback((polygon: object) => {
     const p = polygon as PolygonData;
-    const empty = useSolidPlayerCaps ? 'rgb(45, 52, 72)' : 'rgba(45, 52, 72, 0.92)';
+    const empty = isFloodedNorthAmerica
+      ? (useSolidPlayerCaps ? 'rgb(245, 242, 230)' : 'rgba(245, 242, 230, 0.98)')
+      : (useSolidPlayerCaps ? 'rgb(45, 52, 72)' : 'rgba(45, 52, 72, 0.92)');
     if (!gameState) return empty;
     const tState = gameState.territories[p.territory_id];
     if (!tState?.owner_id) return empty;
@@ -1235,7 +1246,7 @@ function GlobeMap({
     const raw = (player.color || '').trim();
     const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
     return table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
-  }, [gameState, useSolidPlayerCaps]);
+  }, [gameState, useSolidPlayerCaps, isFloodedNorthAmerica]);
 
   const adjacencyTargets = useMemo(() => {
     const set = new Set<string>();

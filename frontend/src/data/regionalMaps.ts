@@ -19,6 +19,18 @@ export interface RegionalMapMeta {
 
 export const REGIONAL_MAPS: RegionalMapMeta[] = [
   {
+    map_id: 'community_flooded_north_america',
+    name: 'Flooded North America',
+    description:
+      'A climate-collapse North America where inland seas and fractured coastlines redefine every front. Hold the surviving mountain arcs, bay citadels, and island corridors.',
+    territory_count: 32,
+    region_count: 6,
+    icon: '🌊',
+    color: '#5DADE2',
+    bgColor: '#0E1A2B',
+    year: 'Alt-2100',
+  },
+  {
     map_id: 'community_britain_925',
     name: 'Great Britain 925 A.D.',
     description:

@@ -95,8 +95,26 @@ function loadMapFromDoc(mapDoc: any): GameMap {
   };
 }
 
+const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_britain_925',
+  'community_horn_africa',
+  'community_australia_1337',
+  'community_flooded_north_america',
+]);
+
 async function resolveMap(mapId: string): Promise<GameMap | null> {
   if (mapId === 'tutorial') return getTutorialMap();
+  // Curated regional maps should always resolve from static JSON so gameplay
+  // uses the exact shipped geometry (avoids stale Mongo copies).
+  if (CURATED_STATIC_REGIONAL_MAP_IDS.has(mapId)) {
+    if (!isSafeMapId(mapId)) return null;
+    const curatedPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
+    if (fs.existsSync(curatedPath)) {
+      const data = JSON.parse(fs.readFileSync(curatedPath, 'utf-8'));
+      return loadMapFromDoc(data);
+    }
+    return null;
+  }
   const mapDoc = await CustomMap.findOne({ map_id: mapId }).lean();
   if (mapDoc) return loadMapFromDoc(mapDoc);
 

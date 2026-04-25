@@ -13,6 +13,6 @@ External reviews sometimes assume an early stub. The following are **already imp
 | Global HTTP rate limit | `backend/src/index.ts` — `@fastify/rate-limit` |
 | Docker healthchecks and named volumes | `docker/docker-compose.yml` |
 
-**Tests:** Run `pnpm run test` from `backend/` (Vitest). Map connection JSON validation: `pnpm run validate:maps` from `backend/` (undirected edges, unique pairs).
+**Tests:** From repo root, `pnpm run test:backend` (Vitest). Map connection JSON validation: `pnpm run validate:maps` (undirected edges, unique pairs).
 
 See also [README.md](../README.md) for setup and [AGENTS.md](../AGENTS.md) for agent orientation.

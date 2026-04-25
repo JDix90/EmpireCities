@@ -1,5 +1,7 @@
 # Eras of Empire — Launch QA Remediation Roadmap
 
+> **Status (2026):** Historical remediation companion from a pre-launch QA pass. Many items below may already be fixed in `main`; treat each bullet as a checklist to **verify in source**, not as guaranteed current bugs. Prefer the repo verify script (`bash .cursor/skills/feature-integration-playbook/scripts/verify.sh`) plus targeted gameplay smoke for release gating.
+
 > Companion document to the pre-launch QA report. Describes the ordering, batching,
 > and verification strategy for remediating each finding. One-shot implementation
 > reference — not a living design doc.

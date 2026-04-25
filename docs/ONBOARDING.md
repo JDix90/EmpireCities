@@ -24,8 +24,9 @@
 
 ```bash
 pnpm -C packages/shared run build
-pnpm exec eslint backend/src --max-warnings 0
+pnpm run lint
 pnpm run test:backend
+pnpm -C backend exec tsc --noEmit
 pnpm -C frontend exec tsc --noEmit
 pnpm -C frontend run build
 pnpm run validate:maps

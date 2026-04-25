@@ -39,6 +39,7 @@ export interface GlobeTerritoryInput {
   iso_codes?: string[];
   clip_bbox?: ClipBbox;
   geo_polygon?: [number, number][];
+  geo_multipolygon?: [number, number][][];
 }
 
 export interface ProjectionBounds {
@@ -84,6 +85,7 @@ function getPolygonCoordinates(geom: GeoJSON.Polygon | GeoJSON.MultiPolygon): Ge
   if (geom.type === 'Polygon') return [geom.coordinates];
   return geom.coordinates;
 }
+
 
 function centerPlaceholderGeometry(
   centerPoint: [number, number],
@@ -198,7 +200,10 @@ function sanitizeClosedExteriorRing(ring: GeoJSON.Position[]): GeoJSON.Position[
  * Skipping rewind kept “bit-identical” coords but broke RFC 7946 exterior orientation; three-globe’s
  * conic polygon caps then triangulate incorrectly (spiky / exploded caps on the globe).
  */
-function ringToPolygonGeometry(ringInput: [number, number][]): GeoJSON.Polygon {
+function ringToPolygonGeometry(
+  ringInput: [number, number][],
+  opts?: { reverse?: boolean },
+): GeoJSON.Polygon {
   let ring: [number, number][] = ringInput.map((p) => [Number(p[0]), Number(p[1])]);
   if (ring.length < 3) {
     return { type: 'Polygon', coordinates: [ring] };
@@ -215,7 +220,7 @@ function ringToPolygonGeometry(ringInput: [number, number][]): GeoJSON.Polygon {
   const closed: [number, number][] = [...ring, ring[0]];
   try {
     const feat = turfPolygon([closed]);
-    const rewound = rewind(feat) as GeoJSON.Feature<GeoJSON.Polygon>;
+    const rewound = rewind(feat, { reverse: opts?.reverse === true }) as GeoJSON.Feature<GeoJSON.Polygon>;
     if (rewound.geometry?.type === 'Polygon') {
       const coords = rewound.geometry.coordinates.map((r, i) =>
         i === 0 ? sanitizeClosedExteriorRing(r) : r,
@@ -226,6 +231,29 @@ function ringToPolygonGeometry(ringInput: [number, number][]): GeoJSON.Polygon {
     /* fall through */
   }
   return { type: 'Polygon', coordinates: [sanitizeClosedExteriorRing(closed)] };
+}
+
+function ringsToMultiPolygonGeometry(
+  ringsInput: [number, number][][],
+  opts?: { reverse?: boolean },
+): GeoJSON.MultiPolygon {
+  const polygons: GeoJSON.Position[][][] = [];
+  for (const ringInput of ringsInput) {
+    if (!Array.isArray(ringInput) || ringInput.length < 3) continue;
+    const ring: [number, number][] = [...ringInput];
+    if (
+      ring[0][0] !== ring[ring.length - 1][0] ||
+      ring[0][1] !== ring[ring.length - 1][1]
+    ) {
+      ring.push([...ring[0]]);
+    }
+    const single = ringToPolygonGeometry(ring, opts);
+    polygons.push(single.coordinates);
+  }
+  if (polygons.length === 0) {
+    return { type: 'MultiPolygon', coordinates: [] };
+  }
+  return { type: 'MultiPolygon', coordinates: polygons };
 }
 
 export interface GlobeGeometryInputs {
@@ -269,6 +297,8 @@ export function buildTerritoryGlobeGeometries(
     hornAfricaGeo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
+  const shouldReverseExteriorWinding = mapData.map_id === 'community_flooded_north_america';
+
   const canvasW = mapData.canvas_width ?? 1200;
   const canvasH = mapData.canvas_height ?? 700;
   const regionalBounds = mapData.projection_bounds;
@@ -567,6 +597,17 @@ export function buildTerritoryGlobeGeometries(
       }
     }
 
+    // Explicit authored island groups for regional maps.
+    if (territory.geo_multipolygon && territory.geo_multipolygon.length > 0) {
+      return {
+        territory_id: territory.territory_id,
+        name: territory.name,
+        geometry: ringsToMultiPolygonGeometry(territory.geo_multipolygon, {
+          reverse: shouldReverseExteriorWinding,
+        }),
+      };
+    }
+
     // Explicit map-authored rings (editor drawings). Skipped when Natural Earth paths above win (14 Nations, Hormuz).
     if (territory.geo_polygon && territory.geo_polygon.length >= 3) {
       const ring: [number, number][] = [...territory.geo_polygon];
@@ -579,7 +620,7 @@ export function buildTerritoryGlobeGeometries(
       return {
         territory_id: territory.territory_id,
         name: territory.name,
-        geometry: ringToPolygonGeometry(ring),
+        geometry: ringToPolygonGeometry(ring, { reverse: shouldReverseExteriorWinding }),
       };
     }
 
@@ -721,7 +762,7 @@ export function buildTerritoryGlobeGeometries(
     return {
       territory_id: territory.territory_id,
       name: territory.name,
-      geometry: ringToPolygonGeometry(coords as [number, number][]),
+      geometry: ringToPolygonGeometry(coords as [number, number][], { reverse: shouldReverseExteriorWinding }),
     };
   });
 }

@@ -10,6 +10,7 @@ This repo is **Eras of Empire**: a browser-based historical Risk-style game — 
 ## Scripts (from repo root)
 
 - `pnpm run test:backend` — backend Vitest tests.
+- `pnpm run lint` — ESLint on backend and frontend (`lint:backend` + `lint:frontend`).
 - `pnpm run validate:maps` — validate map JSON under `database/maps/`.
 
 ## Quick pointers

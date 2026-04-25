@@ -155,6 +155,18 @@ export const ERA_METADATA: Record<string, {
   },
 };
 
+/**
+ * Curated regional maps ship as static JSON in `/public/maps/regional`.
+ * Prefer static payloads for these IDs so gameplay uses the exact curated geometry
+ * (avoids stale backend copies drifting from the shipped map assets).
+ */
+const STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_britain_925',
+  'community_horn_africa',
+  'community_australia_1337',
+  'community_flooded_north_america',
+]);
+
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 /**
@@ -170,6 +182,10 @@ export async function fetchEraMaps(): Promise<MapSummary[]> {
  * Falls back to static regional map files (in /public/maps/regional/) when the API 404s.
  */
 export async function fetchMapById(mapId: string): Promise<GameMap> {
+  if (STATIC_REGIONAL_MAP_IDS.has(mapId)) {
+    const staticResp = await fetch(`/maps/regional/${mapId}.json`);
+    if (staticResp.ok) return staticResp.json();
+  }
   try {
     const response = await api.get<{ map: GameMap }>(`/maps/${mapId}`);
     return response.data.map;

@@ -1,8 +1,8 @@
 # Eras of Empire
 
-> A browser-based historical world map strategy game inspired by Risk — featuring eight playable historical eras, asymmetric factions, a tech tree, an economy system, event cards, secret missions, a 3D globe view, ranked matchmaking, a daily challenge, a campaign mode, game replays, an in-game cosmetics store, and a full JWT authentication system.
+> A browser-based historical world map strategy game inspired by Risk — featuring nine playable historical eras (plus custom/community maps), asymmetric factions, a tech tree, an economy system, event cards, secret missions, a 3D globe view, ranked matchmaking, a daily challenge, a campaign mode, game replays, an in-game cosmetics store, and a full JWT authentication system.
 
-> **Now with Population & Stability:** Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start unstable with halved population. Select factions gain faster stability recovery. New event cards and mechanics included!
+> **Population & Stability:** Each territory tracks stability (0–100) and population (1–10). Low stability reduces economy income, limits how many draft units you can stack onto that territory per draft phase (server-enforced cumulative cap, with AI parity), and can trigger rebellion checks. High stability grows population, which boosts production. Captured territories start unstable with reduced population. Factions and garrisoning can accelerate stability recovery. See `docs/PLAYER_GUIDE.md` and in-app **How to Play** for full detail.
 
 ---
 
@@ -33,7 +33,7 @@
 
 ## Project Overview
 
-Eras of Empire is a full-stack web application where players command armies across historically accurate maps spanning eight distinct eras. Each era features asymmetric factions with unique passive bonuses and once-per-turn abilities, a multi-tier technology tree, an optional territory economy with upgradeable buildings, a shuffled deck of era-specific event cards, and a unique wonder structure. Matches support 2–8 players (human or AI bot), real-time WebSocket gameplay, reconnection recovery, fog of war, and multiple configurable victory conditions.
+Eras of Empire is a full-stack web application where players command armies across historically accurate maps spanning nine distinct eras (plus custom and community maps). Each era features asymmetric factions with unique passive bonuses and once-per-turn abilities, a multi-tier technology tree, an optional territory economy with upgradeable buildings, a shuffled deck of era-specific event cards, and a unique wonder structure. Matches support 2–8 players (human or AI bot), real-time WebSocket gameplay, reconnection recovery, fog of war, and multiple configurable victory conditions.
 
 Beyond live multiplayer, the game includes a ranked matchmaking queue with Glicko-2 ratings, a daily challenge seeded from the date, a linear single-player campaign across six eras, a turn-by-turn replay viewer, a community map hub with ratings and moderation, a custom D3-based map editor, a 3D interactive globe view, an in-game cosmetics store, a friends system with game invites, an interactive tutorial, and guest play without registration.
 
@@ -51,6 +51,7 @@ Beyond live multiplayer, the game includes a ranked matchmaking queue with Glick
 | The Modern Day | Present | 43 | 94 | 8 |
 | American Civil War | 1861–1865 | 18 | 37 | 6 |
 | Italian Unification | 1859–1871 | 14 | 23 | 6 |
+| Space Age | 2100 AD | 55 | 93 | 10 |
 
 Two community maps (14 Nations and Strait of Hormuz) are also included. Additional custom maps can be created with the built-in map editor and published to the community hub.
 
@@ -146,6 +147,7 @@ eras-of-empire/
 │       │   ├── CampaignPage.tsx  # Single-player era campaign progress
 │       │   ├── DailyChallengePage.tsx # Daily seeded challenge + leaderboard
 │       │   ├── TutorialPage.tsx  # Auto-starts an interactive tutorial game
+│       │   ├── HowToPlayPage.tsx # In-app rules reference (collapsible sections)
 │       │   ├── PrivacyPage.tsx
 │       │   └── NotFoundPage.tsx
 │       ├── components/
@@ -412,6 +414,7 @@ Or run them individually in separate terminals as described in Quick Start.
 | Location | Command | Description |
 |---|---|---|
 | Root | `pnpm run dev` | Start both frontend and backend concurrently |
+| Root | `pnpm run lint` | ESLint backend + frontend (same gate as CI-style checks) |
 | `backend/` | `pnpm run dev` | Start backend with hot reload (tsx watch) |
 | `backend/` | `pnpm run build` | Compile TypeScript to `dist/` |
 | `backend/` | `pnpm run migrate` | Run all PostgreSQL migrations |
@@ -489,7 +492,7 @@ Each territory now tracks two new stats:
 
 **Key mechanics:**
 
-- **Deploy Cap:** If stability < 30%, you may only place 1 unit per draft action on that territory; if < 50%, max 3 units; otherwise, unlimited.
+- **Deploy cap (draft phase):** Low stability limits how many units you can place on a territory **per draft phase**, tracked cumulatively for that territory until your next draft (prevents bypassing by many small placements). The cap scales with stability tier, **turn number**, **era**, and (when Economy is enabled) your **Production Points** reserve — strict when unstable, more forgiving in long games. **≥50 stability** removes the cap for that territory. AI uses the same rules.
 - **Rebellion:** If stability ≤ 10%, each turn there is a 25% chance the territory loses a unit (or revolts if empty).
 - **Stability Recovery:** Territories recover stability each turn, with bonuses for garrisoned units and select factions.
 - **Population Growth:** If stability ≥ 50%, population may grow (1-in-4 chance per turn); if < 30%, population may shrink (10% chance per turn).
@@ -504,7 +507,7 @@ All stability and population effects are visible in the territory panel. The sys
 
 Each era includes 4–6 selectable factions. Factions are chosen at game creation and give each player a distinct identity with:
 
-- **Passive attack or defense bonuses** — e.g., Rome's Testudo negates attacker losses on one exchange; Maurya's war elephants add an extra attack die
+- **Passive attack or defense bonuses** — extra combat dice or modifiers that stack with tech, buildings, wonders, events, and sea connections (see in-game **Bonuses** and combat feedback)
 - **Extra reinforcement income** — e.g., Han Dynasty (+2/turn), Union Army (+1/turn)
 - **Once-per-turn special ability** — activated during the appropriate phase
 
@@ -517,7 +520,7 @@ Example factions per era:
 | Italian Unification | Kingdom of Sardinia, Austrian Empire, Papal States, Kingdom of the Two Sicilies |
 | Modern Day | Western Bloc, Eastern Coalition, Rogue State, Emerging Economy, Petrostate |
 
-All eight eras have complete faction definitions with passive bonuses and unique special abilities.
+All shipped historical eras have complete faction definitions (where factions are enabled for that era) with passive bonuses and unique special abilities.
 
 ---
 
@@ -543,9 +546,9 @@ When economy mode is enabled, players earn production points and can construct b
 | Category | Tier I | Tier II | Tier III |
 |---|---|---|---|
 | Production | Camp (+1 unit/turn) | Barracks (+2 units/turn) | Arsenal (+4 units/turn) |
-| Defense | Palisade (+1 def die) | Fort (+2 def die) | Citadel (+3 def die) |
-| Tech | Workshop (+1 TP/turn) | Academy (+2 TP/turn) | University (+3 TP/turn) |
-| Special | Port (sea connections) | Lighthouse (coastal bonus) | — |
+| Defense | Palisade (+1 def die) | Fortress (+2 def die) | Citadel (+3 def die) |
+| Tech | Laboratory (+2 TP/turn) | Research Center (+4 TP/turn) | — |
+| Naval (coastal) | Port (+1 fleet/turn) | Naval Base (+2 fleets/turn) | — |
 
 Higher tiers require the previous tier and specific researched tech nodes.
 

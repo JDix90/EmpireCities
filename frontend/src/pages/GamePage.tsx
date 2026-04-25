@@ -39,6 +39,8 @@ import {
 } from '../utils/device';
 
 const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
+const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
+const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
 interface MapData {
   map_id: string;
@@ -1570,6 +1572,16 @@ export default function GamePage() {
     () => !!mapData?.territories.some((t) => t.globe_id === 'moon'),
     [mapData],
   );
+  const customGlobeSkin = useMemo(() => {
+    if (!mapData || globeView === 'moon') return null;
+    if (mapData.map_id !== FLOODED_NA_MAP_ID) return null;
+    return {
+      globeImageUrl: FLOODED_NA_GLOBE_TEXTURE,
+      bumpImageUrl: undefined as string | undefined,
+      showAtmosphere: false,
+      backgroundColor: 'rgba(6, 16, 34, 1)',
+    };
+  }, [mapData, globeView]);
 
   const playerHasMoonAccessLocal = useMemo(() => {
     if (!gameState || !user) return false;
@@ -2038,16 +2050,20 @@ export default function GamePage() {
                   globeImageUrl={
                     globeView === 'moon'
                       ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_surface.jpg'
-                      : undefined
+                      : customGlobeSkin?.globeImageUrl
                   }
                   bumpImageUrl={
                     globeView === 'moon'
                       ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_bumpmap.jpg'
-                      : undefined
+                      : customGlobeSkin?.bumpImageUrl
                   }
-                  showAtmosphere={globeView !== 'moon'}
+                  showAtmosphere={globeView === 'moon' ? false : (customGlobeSkin?.showAtmosphere ?? true)}
                   atmosphereColor={globeView === 'moon' ? 'rgba(180,180,200,0.4)' : undefined}
-                  backgroundColor={globeView === 'moon' ? 'rgba(4, 6, 14, 1)' : undefined}
+                  backgroundColor={
+                    globeView === 'moon'
+                      ? 'rgba(4, 6, 14, 1)'
+                      : customGlobeSkin?.backgroundColor
+                  }
                 />
               </Suspense>
             ) : (

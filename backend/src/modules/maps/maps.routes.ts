@@ -54,6 +54,13 @@ const CreateMapSchema = z.object({
   regions: z.array(RegionSchema).min(1),
 });
 
+const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_britain_925',
+  'community_horn_africa',
+  'community_australia_1337',
+  'community_flooded_north_america',
+]);
+
 export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/maps/eras ───────────────────────────────────────────────────
@@ -166,6 +173,20 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     // Hardcoded tutorial island (same geometry as gameSocket resolveMap('tutorial'))
     if (mapId === 'tutorial') {
       return reply.send({ map: getTutorialMap() });
+    }
+
+    // Curated regional maps are served from static JSON as source of truth.
+    if (CURATED_STATIC_REGIONAL_MAP_IDS.has(mapId)) {
+      const { isSafeMapId } = await import('../../utils/mapId');
+      if (!isSafeMapId(mapId)) {
+        return reply.status(400).send({ error: 'Invalid map ID format' });
+      }
+      const curatedPath = path.resolve(__dirname, '../../../../database/maps', `${mapId}.json`);
+      if (fs.existsSync(curatedPath)) {
+        const data = JSON.parse(fs.readFileSync(curatedPath, 'utf-8'));
+        return reply.send({ map: data });
+      }
+      return reply.status(404).send({ error: 'Map not found' });
     }
 
     // Era maps are served from MongoDB via mapService (with Redis caching)

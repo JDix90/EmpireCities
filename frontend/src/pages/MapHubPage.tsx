@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
 import { REGIONAL_MAPS, fetchRegionalMap } from '../data/regionalMaps';
+import { getCustomMapImmersion } from '../data/customMapImmersion';
+import { ERA_LABELS } from '../constants/gameLobbyLabels';
 
 interface PublicMap {
   map_id: string;
@@ -218,6 +220,31 @@ export default function MapHubPage() {
                 </div>
 
                 <p className="text-cc-muted text-xs mb-3 line-clamp-2">{rm.description}</p>
+
+                {(() => {
+                  const imm = getCustomMapImmersion(rm.map_id);
+                  if (!imm) return null;
+                  return (
+                    <details className="mb-3 text-xs rounded-md border border-cc-border/80 bg-cc-dark/50 px-2 py-1.5">
+                      <summary className="cursor-pointer text-cc-gold/90 hover:text-cc-gold select-none">
+                        Theater guide &amp; suggested rules
+                      </summary>
+                      <p className="text-cc-muted mt-2 leading-relaxed">{imm.backdrop}</p>
+                      <p className="text-cc-text mt-1.5 font-medium">{imm.tagline}</p>
+                      <p className="text-cc-muted mt-1">
+                        Suggested rules era:{' '}
+                        <span className="text-cc-gold">
+                          {ERA_LABELS[imm.recommended_rules_era] ?? imm.recommended_rules_era}
+                        </span>
+                      </p>
+                      <ul className="mt-2 space-y-1 text-[11px] text-cc-muted list-disc pl-4">
+                        <li>Economy: {imm.advanced.economy_buildings.lore}</li>
+                        <li>Naval: {imm.advanced.naval_warfare.lore}</li>
+                        <li>Events: {imm.advanced.historical_events.lore}</li>
+                      </ul>
+                    </details>
+                  );
+                })()}
 
                 {/* Stats */}
                 <div className="flex items-center gap-3 text-xs text-cc-muted mb-3">
