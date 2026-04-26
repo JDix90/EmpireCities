@@ -39,4 +39,8 @@ export const COMMUNITY_AUSTRALIA_1337_TERRITORY_GEO: Record<string, CommunityAus
   "dirillo": { admin1: ["AU-SA","AU-WA"], clip_bbox: [118.5, -35, 131.5, -26.5] },
   "te_ika_a_maui": { admin1: ["NZ-AUK","NZ-BOP","NZ-GIS","NZ-HKB","NZ-MBH","NZ-MWT","NZ-NSN","NZ-NTL","NZ-TKI","NZ-WGN","NZ-WKO"], clip_bbox: [173.5, -41.5, 178.5, -34.5] },
   "te_waipounamu": { admin1: ["NZ-CAN","NZ-MBH","NZ-OTA","NZ-STL","NZ-TAS","NZ-WTC"], clip_bbox: [166, -47.5, 174.5, -41.5] },
+  // Pacific island territories — admin-0 country fill (no admin-1 in NE 10m bundle for WS/TO).
+  // Natural Earth encodes these east of the antimeridian (lon > 180), so the bbox uses lon 181–188.
+  "tui_manua": { admin1: [], fill_country_iso: "WS", clip_bbox: [181, -15, 187, -10] },
+  "tonga": { admin1: [], fill_country_iso: "TO", clip_bbox: [183, -22, 188, -15] },
 };

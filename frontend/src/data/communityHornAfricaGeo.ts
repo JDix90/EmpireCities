@@ -56,8 +56,10 @@ export const COMMUNITY_HORN_AFRICA_TERRITORY_GEO: Record<string, CommunityHornAf
 
   // --- Historical Oromia provinces (carve ET-OR via bbox) ---
   "shewa": { admin1: ["ET-AA", "ET-OR"], clip_bbox: [37, 8, 40.5, 11.5] },
-  "welega": { admin1: ["ET-OR", "ET-BE"], clip_bbox: [33.5, 7.5, 38, 11] },
-  "illubabor": { admin1: ["ET-OR", "ET-GA"], clip_bbox: [33, 6, 36.5, 9] },
+  // Tightened: minLng was 33.5 — 0.5° west of ET-OR/ET-BE actual extent (caught Sudan slivers).
+  "welega": { admin1: ["ET-OR", "ET-BE"], clip_bbox: [34.0, 7.5, 38, 11] },
+  // Tightened: minLng was 33 — touched ET-GA boundary sliver near South Sudan.
+  "illubabor": { admin1: ["ET-OR", "ET-GA"], clip_bbox: [33.2, 6, 36.5, 9] },
   "arsi": { admin1: ["ET-OR"], clip_bbox: [37.5, 6.5, 41, 9.5] },
   "bale": { admin1: ["ET-OR"], clip_bbox: [39, 5, 42.5, 8.5] },
 
@@ -74,8 +76,10 @@ export const COMMUNITY_HORN_AFRICA_TERRITORY_GEO: Record<string, CommunityHornAf
     admin1: ["ET-SO", "DJ-AR", "DJ-AS", "DJ-DI", "DJ-TA", "DJ-OB", "DJ-DJ"],
     clip_bbox: [42.5, 8.5, 46.5, 13.5],
   },
-  "soomaali_galbeed": { admin1: ["ET-SO"], clip_bbox: [36.5, 2.5, 46.5, 10] },
-  "burao": { admin1: ["ET-SO"], clip_bbox: [43.5, 8.5, 48.5, 14.7] },
+  // Tightened: minLng was 36.5 — 2.6° west of ET-SO actual min (39.090) caught stray geometry.
+  "soomaali_galbeed": { admin1: ["ET-SO"], clip_bbox: [38.5, 2.5, 46.5, 10] },
+  // Tightened: maxLat was 14.7 — 3.6° north of ET-SO actual max (11.089) extended into Yemen sea.
+  "burao": { admin1: ["ET-SO"], clip_bbox: [43.5, 8.5, 48.5, 11.5] },
 
   // --- Somalia (1:1 admin-1 unions for non-overlapping regions) ---
   "migiurtinia": { admin1: ["SO-BR", "SO-NU"] },
