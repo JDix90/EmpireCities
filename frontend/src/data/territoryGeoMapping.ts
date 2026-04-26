@@ -230,6 +230,324 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   acw_louisiana:     [{ iso: 'US', clip_bbox: [-94.1, 28.9, -88.8, 33.1] }], // LA + Gulf coast
   acw_texas:         [{ iso: 'US', clip_bbox: [-106.6, 25.8, -93.5, 36.5] }], // TX
   acw_far_west:      [{ iso: 'US', clip_bbox: [-125.0, 31.0, -106.6, 49.0] }], // CA OR WA NV AZ NM UT CO MT WY ID
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPACE AGE 2100 — alt-future political bodies. Bboxes derived from each
+  // territory's existing geo_polygon in database/maps/era_space_age.json.
+  // Earth-half migration from raw rectangular geo_polygons (which fail
+  // earcut triangulation on the sphere) to admin-0 country clipping.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // North America
+  na_arctic_dominion: [
+    { iso: 'CA', clip_bbox: [-141, 60, -60, 83] },
+    { iso: 'US', clip_bbox: [-170, 60, -130, 72] }, // Alaska north slope
+    { iso: 'GL', clip_bbox: [-75, 60, -10, 84] }, // Greenland (if present in NE 110m)
+  ],
+  na_western_states: [
+    { iso: 'US', clip_bbox: [-125, 32, -100, 50] },
+    { iso: 'CA', clip_bbox: [-141, 49, -100, 60] }, // BC, AB, SK, MB south
+  ],
+  na_central_plains: [
+    { iso: 'US', clip_bbox: [-100, 32, -85, 50] },
+    { iso: 'CA', clip_bbox: [-100, 49, -75, 60] }, // ON, QC, central
+  ],
+  na_launch_base: [{ iso: 'US', clip_bbox: [-85, 25, -75, 35] }], // Florida + SE coast
+  na_eastern_corridor: [
+    { iso: 'US', clip_bbox: [-85, 35, -65, 50] },
+    { iso: 'CA', clip_bbox: [-75, 49, -55, 60] }, // QC east, NB, NS, NL
+  ],
+  na_southern_belt: [
+    { iso: 'MX' },
+    { iso: 'GT' },
+    { iso: 'BZ' },
+    { iso: 'HN' },
+    { iso: 'SV' },
+    { iso: 'NI' },
+    { iso: 'CR' },
+    { iso: 'PA' },
+    { iso: 'US', clip_bbox: [-115, 25, -100, 32] }, // US-MX border strip (TX/AZ/NM south)
+  ],
+
+  // Latin America
+  la_amazonia: [
+    { iso: 'BR', clip_bbox: [-74, -10, -46, 5] },
+    { iso: 'CO', clip_bbox: [-74, -4, -67, 5] },
+    { iso: 'VE', clip_bbox: [-74, 1, -60, 8] }, // S Venezuela (N coast claimed by la_caribbean)
+    { iso: 'GY' },
+    { iso: 'SR' },
+    { iso: 'GF' },
+  ],
+  la_andes: [
+    { iso: 'PE' },
+    { iso: 'BO' },
+    { iso: 'EC' },
+    { iso: 'CL', clip_bbox: [-75, -22, -68, -17] },
+    { iso: 'BR', clip_bbox: [-74, -22, -57, -10] }, // SW Brazil interior
+  ],
+  la_pampas: [
+    { iso: 'AR', clip_bbox: [-71, -40, -53, -22] },
+    { iso: 'UY' },
+    { iso: 'PY' },
+    { iso: 'CL', clip_bbox: [-75, -40, -68, -22] },
+    { iso: 'BR', clip_bbox: [-58, -33, -48, -22] }, // S Brazil
+  ],
+  la_patagonia: [
+    { iso: 'AR', clip_bbox: [-75, -56, -52, -40] },
+    { iso: 'CL', clip_bbox: [-78, -56, -65, -40] },
+  ],
+  la_caribbean: [
+    { iso: 'CU' },
+    { iso: 'JM' },
+    { iso: 'HT' },
+    { iso: 'DO' },
+    { iso: 'PR' },
+    { iso: 'BS' },
+    { iso: 'TT' },
+    { iso: 'CO', clip_bbox: [-78, 8, -71, 13] }, // Colombia north coast
+    { iso: 'VE', clip_bbox: [-72, 8, -60, 13] }, // Venezuela north coast
+  ],
+
+  // Europe
+  euro_british_isles: [
+    { iso: 'GB' },
+    { iso: 'IE' },
+    { iso: 'IS' },
+  ],
+  euro_iberia: [
+    { iso: 'ES' },
+    { iso: 'PT' },
+  ],
+  euro_spaceport: [
+    { iso: 'FR' },
+    { iso: 'BE' },
+    { iso: 'NL' },
+    { iso: 'LU' },
+    { iso: 'CH' },
+    { iso: 'IT', clip_bbox: [6, 41, 14, 47] }, // N Italy
+    { iso: 'DE', clip_bbox: [3, 47, 14, 52] }, // SW Germany
+  ],
+  euro_nordic: [
+    { iso: 'NO' },
+    { iso: 'SE' },
+    { iso: 'FI' },
+    { iso: 'DK' },
+    { iso: 'EE' },
+    { iso: 'LV' },
+    { iso: 'LT' },
+    { iso: 'DE', clip_bbox: [5, 52, 16, 56] }, // N Germany
+  ],
+  euro_balkan: [
+    { iso: 'IT', clip_bbox: [6, 36, 19, 41] }, // S Italy (N caught by spaceport)
+    { iso: 'GR' },
+    { iso: 'BG' },
+    { iso: 'AL' },
+    { iso: 'MK' },
+    { iso: 'RS' },
+    { iso: 'BA' },
+    { iso: 'HR' },
+    { iso: 'SI' },
+    { iso: 'ME' },
+    { iso: 'XK' },
+    { iso: 'AT' },
+    { iso: 'HU' },
+    { iso: 'RO' },
+  ],
+  euro_east: [
+    { iso: 'PL' },
+    { iso: 'CZ' },
+    { iso: 'SK' },
+    { iso: 'BY' },
+    { iso: 'UA' },
+    { iso: 'MD' },
+    { iso: 'RU', clip_bbox: [22, 45, 50, 60] }, // W Russia
+  ],
+
+  // Middle East / North Africa
+  mena_levant: [
+    { iso: 'TR', clip_bbox: [25, 29, 45, 36] }, // S Turkey (Mediterranean coast)
+    { iso: 'SY' },
+    { iso: 'LB' },
+    { iso: 'IL' },
+    { iso: 'JO' },
+    { iso: 'PS' },
+    { iso: 'IQ', clip_bbox: [38, 30, 45, 38] },
+  ],
+  mena_arabia: [
+    { iso: 'SA' },
+    { iso: 'YE' },
+    { iso: 'OM' },
+    { iso: 'AE' },
+    { iso: 'QA' },
+    { iso: 'BH' },
+    { iso: 'KW' },
+  ],
+  mena_persia: [
+    { iso: 'IR' },
+    { iso: 'IQ', clip_bbox: [44, 25, 50, 38] }, // E Iraq (Persian Gulf side)
+    // (Afghanistan is owned entirely by ca_indus to avoid double-claim.)
+  ],
+  mena_maghreb: [
+    { iso: 'MA' },
+    { iso: 'DZ' },
+    { iso: 'TN' },
+    { iso: 'LY', clip_bbox: [-17, 22, 18, 37] },
+    { iso: 'EH' },
+    { iso: 'MR', clip_bbox: [-17, 22, 0, 28] }, // N Mauritania
+  ],
+  mena_nile: [
+    { iso: 'EG' },
+    { iso: 'SD', clip_bbox: [22, 15, 38, 22] }, // N Sudan
+    { iso: 'TR', clip_bbox: [25, 36, 45, 42] }, // S Turkey portion
+  ],
+
+  // Sub-Saharan Africa
+  africa_sahel: [
+    { iso: 'NE' },
+    { iso: 'TD' },
+    { iso: 'ML', clip_bbox: [-12, 10, 5, 25] },
+    { iso: 'MR', clip_bbox: [-17, 10, 0, 22] },
+    { iso: 'BF' },
+    { iso: 'SD', clip_bbox: [22, 8, 38, 15] }, // S Sudan portion (N owned by mena_nile)
+    { iso: 'SS' },
+    { iso: 'ER' },
+    { iso: 'DJ' },
+    { iso: 'NG', clip_bbox: [3, 10, 14, 14] }, // N Nigeria
+  ],
+  africa_west: [
+    { iso: 'SN' },
+    { iso: 'GM' },
+    { iso: 'GW' },
+    { iso: 'GN' },
+    { iso: 'SL' },
+    { iso: 'LR' },
+    { iso: 'CI' },
+    { iso: 'GH' },
+    { iso: 'TG' },
+    { iso: 'BJ' },
+    { iso: 'NG', clip_bbox: [3, -2, 14, 10] }, // S Nigeria
+    { iso: 'CM', clip_bbox: [8, 0, 16, 14] },
+  ],
+  africa_horn: [
+    { iso: 'ET' },
+    { iso: 'SO' },
+    { iso: 'KE' },
+    { iso: 'YE', clip_bbox: [42, 12, 54, 18] }, // S Yemen / Aden
+  ],
+  africa_congo_basin: [
+    { iso: 'CD' },
+    { iso: 'CG' },
+    { iso: 'GA' },
+    { iso: 'GQ' },
+    { iso: 'CF' },
+    { iso: 'AO', clip_bbox: [11, -13, 25, -4] },
+  ],
+  africa_east: [
+    { iso: 'TZ' },
+    { iso: 'UG' },
+    { iso: 'RW' },
+    { iso: 'BI' },
+    { iso: 'MW' },
+    { iso: 'MZ', clip_bbox: [30, -12, 42, -10] }, // N Mozambique
+  ],
+  africa_south: [
+    { iso: 'ZA' },
+    { iso: 'NA' },
+    { iso: 'BW' },
+    { iso: 'ZW' },
+    { iso: 'ZM' },
+    { iso: 'MZ', clip_bbox: [30, -27, 42, -12] },
+    { iso: 'AO', clip_bbox: [11, -18, 25, -13] }, // S Angola
+    { iso: 'LS' },
+    { iso: 'SZ' },
+    { iso: 'MG' },
+  ],
+
+  // Central Asia
+  ca_steppe: [
+    { iso: 'KZ' },
+    { iso: 'MN' },
+    { iso: 'RU', clip_bbox: [50, 50, 90, 65] }, // S Siberia
+  ],
+  ca_tien_shan: [
+    { iso: 'UZ' },
+    { iso: 'KG' },
+    { iso: 'TJ' },
+    { iso: 'TM' },
+  ],
+  ca_indus: [
+    { iso: 'PK' },
+    { iso: 'AF' }, // Entire Afghanistan
+  ],
+  ca_ganges: [
+    { iso: 'IN', clip_bbox: [72, 20, 92, 32] },
+    { iso: 'NP' },
+    { iso: 'BT' },
+    { iso: 'BD' },
+  ],
+  ca_deccan: [
+    { iso: 'IN', clip_bbox: [72, 6, 92, 22] },
+    { iso: 'LK' },
+  ],
+
+  // Asia
+  asia_cosmodrome: [
+    { iso: 'CN', clip_bbox: [73, 36, 115, 50] }, // N China + Inner Mongolia
+  ],
+  asia_heartland: [
+    { iso: 'CN', clip_bbox: [100, 22, 115, 36] }, // inland central China (excludes E coast)
+  ],
+  asia_coastal: [
+    { iso: 'CN', clip_bbox: [115, 18, 125, 24] }, // S China coast
+    { iso: 'HK' },
+    { iso: 'MO' },
+    { iso: 'TW' },
+  ],
+  asia_korea_archipelago: [
+    { iso: 'KR' },
+    { iso: 'KP' },
+    { iso: 'CN', clip_bbox: [125, 38, 135, 45] }, // NE China (Manchuria)
+  ],
+  asia_indochina: [
+    { iso: 'TH' },
+    { iso: 'VN' },
+    { iso: 'LA' },
+    { iso: 'KH' },
+    { iso: 'MM' },
+    { iso: 'MY', clip_bbox: [99, 1, 105, 8] },
+  ],
+  asia_malay_archipelago: [
+    { iso: 'ID' },
+    { iso: 'MY', clip_bbox: [108, 0, 119, 8] },
+    { iso: 'BN' },
+    { iso: 'PH' },
+    { iso: 'TL' },
+    { iso: 'PG' },
+    { iso: 'SG' },
+  ],
+  asia_japan_islands: [{ iso: 'JP' }],
+  asia_siberia_belt: [
+    // Two non-overlapping slices: arctic strip west of ca_steppe + everything
+    // east of ca_steppe lng. Together this covers central Siberia (Yakutsk,
+    // Krasnoyarsk) and the Russian Far East (Khabarovsk, Vladivostok).
+    { iso: 'RU', clip_bbox: [60, 65, 90, 82] },
+    { iso: 'RU', clip_bbox: [90, 45, 180, 82] },
+  ],
+
+  // Oceania
+  oc_australia: [{ iso: 'AU' }],
+  oc_new_zealand: [{ iso: 'NZ' }],
+  // oc_micronesia + oc_polynesia removed from TERRITORY_GEO_CONFIG: NE 110m
+  // does not include FM/MH/PW/GU/MP/WS/TO/KI/TV/NU/CK/PF (small Pacific
+  // states), so the union returns nothing and falls back to the densified
+  // geo_polygon authored in era_space_age.json. Re-add when a higher-resolution
+  // admin-0 source is loaded.
+
+  // Coastal Megacities (E China coast — Shanghai/Shandong corridor only;
+  // Korean peninsula is owned by asia_korea_archipelago).
+  megacity_pacific_rim: [
+    { iso: 'CN', clip_bbox: [115, 24, 125, 32] },
+  ],
 };
 
 /** Simple territory → ISO codes (no clipping). Used when TERRITORY_GEO_CONFIG has no entry. */

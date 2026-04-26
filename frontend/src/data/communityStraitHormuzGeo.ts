@@ -65,12 +65,25 @@ export const COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO: Record<string, StraitHormuzT
     clip_bbox: [49.0, 22.5, 53.0, 24.0],
     fill_country_iso: 'SA',
   },
-  hz_al_ain: { admin1: ['AE-AZ', 'OM-BU'], clip_bbox: [53.0, 22.5, 56.0, 24.0] },
+  // Widened maxLat 24.0 -> 24.5 to include the northern AE-AZ extent
+  // (Abu Dhabi reaches lat ~25.25 — prior bbox cut off the corridor's interior).
+  hz_al_ain: { admin1: ['AE-AZ', 'OM-BU'], clip_bbox: [53.0, 22.5, 56.0, 24.5] },
 
-  // --- UAE northern emirates + Oman (1:1) ---
-  hz_dubai: { admin1: ['AE-DU', 'AE-SH', 'AE-RK', 'AE-AJ', 'AE-UQ'] },
+  // --- UAE northern emirates + Oman (1:1 where admin-1 matches territory; bbox where it sprawls) ---
+  // Sharjah (AE-SH) is a multi-emirate bundle that extends north + east into Fujairah/Musandam
+  // territory; clip to Dubai-Sharjah coastal core to prevent overlap.
+  hz_dubai: {
+    admin1: ['AE-DU', 'AE-SH', 'AE-RK', 'AE-AJ', 'AE-UQ'],
+    clip_bbox: [55.0, 24.6, 56.3, 25.5],
+  },
   hz_musandam: { admin1: ['OM-MU'] },
-  hz_fujairah: { admin1: ['AE-FU', 'OM-SH'] },
-  hz_sohar: { admin1: ['OM-BA', 'OM-BJ'] },
-  hz_muscat: { admin1: ['OM-MA', 'OM-SS'] },
+  // OM-SH (Ash Sharqiyah South) was incorrectly listed here — it's a far-south
+  // Oman governorate (lat 20–22.6) NOT adjacent to Fujairah. Use AE-FU only.
+  hz_fujairah: { admin1: ['AE-FU'] },
+  // OM-BJ (Al Batinah South) extends south past coastal Sohar into Muscat zone;
+  // clip to the Batinah plateau to prevent overlap with hz_muscat.
+  hz_sohar: { admin1: ['OM-BA', 'OM-BJ'], clip_bbox: [56.1, 23.5, 58.1, 24.0] },
+  // OM-SS (Ash Sharqiyah North) is a sprawling interior region extending inland past
+  // Al Ain / Empty Quarter; clip to coastal Muscat strip.
+  hz_muscat: { admin1: ['OM-MA', 'OM-SS'], clip_bbox: [57.8, 22.8, 59.5, 23.7] },
 };

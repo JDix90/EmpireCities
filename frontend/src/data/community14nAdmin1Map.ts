@@ -39,7 +39,9 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
   "na_assiniboine": { admin1: ["CA-AB","CA-MB","CA-SK","US-MT","US-ND"], clip_bbox: [-110, 49, -100, 55] },
   "na_ojibwe": { admin1: ["CA-MB","CA-ON","US-MN","US-ND"], clip_bbox: [-100, 49, -88, 55] },
   "na_algonquin": { admin1: ["CA-NU","CA-ON","CA-QC"], clip_bbox: [-88, 49, -72, 55] },
-  "na_mikmaq": { admin1: ["CA-NB","CA-NL","CA-NS","CA-PE","CA-QC","US-ME","US-NH"], clip_bbox: [-72, 49, -55, 55] },
+  // Trimmed: dropped US-ME/US-NH to keep Mi'kmaq territory cleanly within the
+  // Canadian Maritime provinces (avoids the discontinuous render across the 49°N border).
+  "na_mikmaq": { admin1: ["CA-NB","CA-NL","CA-NS","CA-PE","CA-QC"], clip_bbox: [-72, 49, -55, 55] },
   "na_chinook": { admin1: ["CA-BC","US-OR","US-WA"], clip_bbox: [-130, 44, -122, 49] },
   "na_yakama": { admin1: ["CA-BC","US-ID","US-MT","US-OR","US-WA"], clip_bbox: [-122, 44, -115, 49] },
   "na_crow": { admin1: ["CA-AB","CA-BC","CA-SK","US-ID","US-MT","US-WY"], clip_bbox: [-115, 44, -105, 49] },
@@ -52,7 +54,8 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
   "na_pawnee": { admin1: ["US-CO","US-ID","US-NE","US-SD","US-UT","US-WY"], clip_bbox: [-112, 39, -103, 44] },
   "na_osage": { admin1: ["US-CO","US-IA","US-KS","US-MN","US-NE","US-SD"], clip_bbox: [-103, 39, -96, 44] },
   "na_shawnee": { admin1: ["US-IA","US-IL","US-IN","US-KS","US-MI","US-MN","US-MO","US-NE","US-WI"], clip_bbox: [-96, 39, -86, 44] },
-  "na_powhatan": { admin1: ["CA-ON","US-DC","US-IN","US-KY","US-MD","US-MI","US-NY","US-OH","US-PA","US-VA","US-WV"], clip_bbox: [-86, 39, -76, 44] },
+  // Trimmed: dropped CA-ON (irrelevant northern strip) and US-DC (city-sized noise).
+  "na_powhatan": { admin1: ["US-IN","US-KY","US-MD","US-MI","US-NY","US-OH","US-PA","US-VA","US-WV"], clip_bbox: [-86, 39, -76, 44] },
   "na_pomo": { admin1: ["US-CA"], clip_bbox: [-125, 36, -121, 40] },
   "na_chumash": { admin1: ["US-CA","US-NV"], clip_bbox: [-121, 31, -115, 39] },
   "na_dine": { admin1: ["US-AZ","US-CA","US-CO","US-NM","US-NV","US-UT"], clip_bbox: [-115, 34, -108, 39] },
@@ -66,7 +69,29 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
   "na_jumano": { admin1: ["US-TX"], clip_bbox: [-103, 27, -96, 33] },
   "na_chickasaw": { admin1: ["US-LA","US-MS","US-TX"], clip_bbox: [-96, 27, -90, 33] },
   "na_muscogee": { admin1: ["US-AL","US-FL","US-GA","US-LA","US-MS"], clip_bbox: [-90, 27, -84, 33] },
-  "na_florida": { admin1: ["US-FL","US-GA","US-SC"], clip_bbox: [-84, 24, -79, 33] },
+  // Designer-authored Florida peninsula polygon (12 vertices traversing
+  // Pensacola → Tampa Bay → Florida Keys → Miami → St. Augustine → Atlanta-area
+  // northern bound). Replaces the rectangular clip that cut straight across
+  // the Bahamas at lat 24°N.
+  "na_florida": {
+    admin1: ["US-FL", "US-GA", "US-SC"],
+    clip_bbox: [-84, 24, -79, 33],
+    clip_polygon: [[
+      [-84.0, 33.0],   // NW (NW Georgia)
+      [-84.0, 30.0],   // FL panhandle east of Pensacola
+      [-83.5, 28.5],   // Tampa Bay
+      [-82.5, 26.5],   // SW Florida coast
+      [-82.0, 25.0],   // Florida Keys west
+      [-81.0, 24.5],   // Florida Keys mid
+      [-80.3, 24.7],   // Florida Keys east
+      [-80.0, 25.5],   // Miami
+      [-80.2, 27.0],   // E coast central
+      [-80.5, 30.0],   // St. Augustine
+      [-81.0, 32.0],   // Savannah / SE Georgia
+      [-82.0, 33.0],   // central Georgia
+      [-84.0, 33.0],   // close
+    ]],
+  },
   "na_tohono": { admin1: [], clip_bbox: [-115, 21, -107, 27], fill_country_iso: "MX" },
   "na_coahuiltecos": { admin1: ["US-TX"], clip_bbox: [-107, 21, -98, 27], fill_country_iso: "MX" },
   "na_huastec": { admin1: ["US-TX"], clip_bbox: [-98, 21, -90, 27], fill_country_iso: "MX" },
