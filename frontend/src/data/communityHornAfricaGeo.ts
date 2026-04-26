@@ -9,38 +9,79 @@ import type { ClipBbox } from './territoryGeoMapping';
 
 export interface CommunityHornAfricaGeoDef {
   admin1: string[];
-  clip_bbox: ClipBbox;
+  /**
+   * Optional bbox clip. Omit when admin-1 codes uniquely match this territory
+   * (Option 1: real coastlines + ethnic borders). Provide when multiple
+   * territories share an admin-1 polygon (e.g. historical Ethiopian provinces
+   * subdividing modern Amhara/Oromia/SNNPR; Ogaden/ET-SO split between
+   * Soomaali Galbeed and Burao on the Ethiopia side).
+   */
+  clip_bbox?: ClipBbox;
   fill_country_iso?: string;
 }
 
+/**
+ * Hybrid admin-1 design (Option 2):
+ * - Coastal Yemen, Eritrea, Somali coast (Puntland, central/south Somalia),
+ *   plus Tigray/Afar render the full admin-1 polygon — real coastlines.
+ * - Historical Ethiopian provinces (Begender/Gojjam/Wollo carved from ET-AM;
+ *   Shewa/Welega/Illubabor/Arsi/Bale carved from ET-OR; Kaffa/Gamu Gofa from
+ *   ET-SN; Sidamo from ET-OR + ET-SN; Hararghe from ET-OR + ET-HA + ET-DD)
+ *   keep bbox slicing because admin-1 doesn't subdivide them.
+ * - Soomaali Galbeed and Burao both lie in ET-SO (Ogaden) and Hargeisa lies
+ *   in ET-SO + Djibouti — they retain bbox to subdivide that single admin-1.
+ * - Each admin-1 is assigned to a single primary 1:1 territory where one
+ *   exists; this eliminates overlapping ownership across territories.
+ */
 export const COMMUNITY_HORN_AFRICA_TERRITORY_GEO: Record<string, CommunityHornAfricaGeoDef> = {
-  "aden": { admin1: ["YE-AB","YE-AD","YE-LA","YE-TA"], clip_bbox: [44, 12, 46, 13.5] },
-  "lahij": { admin1: ["YE-AB","YE-AD","YE-BA","YE-DA","YE-DH","YE-HU","YE-IB","YE-LA","YE-MA","YE-RA","YE-SH","YE-TA"], clip_bbox: [43.5, 12.5, 46, 14.5] },
-  "abyan": { admin1: ["YE-AB","YE-AD","YE-BA","YE-DA","YE-LA","YE-MA","YE-SH"], clip_bbox: [45, 12, 47, 14.5] },
-  "shabwah": { admin1: ["YE-AB","YE-BA","YE-DA","YE-DH","YE-HD","YE-IB","YE-JA","YE-LA","YE-MA","YE-SH","YE-SN","YE-TA"], clip_bbox: [44.5, 13, 48.5, 16.5] },
-  "hadhramaut": { admin1: ["YE-AB","YE-HD","YE-JA","YE-MR","YE-SH"], clip_bbox: [47, 13, 52, 17.5] },
-  "mahra": { admin1: ["YE-HD","YE-MR"], clip_bbox: [50.5, 14, 54.5, 18] },
-  "eritrea": { admin1: ["ER-AN","ER-DK","ER-DU","ER-GB","ER-MA","ER-SK","ET-AF","ET-TI","YE-HJ","YE-HU","YE-MW","YE-SD"], clip_bbox: [35.5, 14, 43.5, 18.5] },
-  "tigray": { admin1: ["ER-AN","ER-DK","ER-DU","ER-GB","ER-MA","ER-SK","ET-AF","ET-AM","ET-BE","ET-TI"], clip_bbox: [35.5, 12, 41, 16] },
-  "begender": { admin1: ["ER-GB","ER-MA","ET-AM","ET-BE","ET-TI"], clip_bbox: [35.5, 11, 39, 15] },
-  "afar": { admin1: ["DJ-AR","DJ-AS","DJ-DI","DJ-DJ","DJ-OB","DJ-TA","ER-AN","ER-DK","ER-DU","ER-MA","ET-AF","ET-AM","ET-DD","ET-OR","ET-SO","ET-TI","YE-HJ","YE-HU","YE-MW","YE-TA"], clip_bbox: [39, 9.5, 43.5, 16.5] },
-  "wollo": { admin1: ["ET-AF","ET-AM","ET-OR","ET-TI"], clip_bbox: [38, 10, 40.5, 13.5] },
-  "gojjam": { admin1: ["ET-AM","ET-BE","ET-OR"], clip_bbox: [35.5, 9.5, 39, 12] },
-  "shewa": { admin1: ["ET-AA","ET-AF","ET-AM","ET-BE","ET-OR","ET-SN"], clip_bbox: [37, 8, 40.5, 11.5] },
-  "welega": { admin1: ["ET-AM","ET-BE","ET-GA","ET-OR","ET-SN","SS-JG","SS-NU"], clip_bbox: [33.5, 7.5, 38, 11] },
-  "illubabor": { admin1: ["ET-BE","ET-GA","ET-OR","ET-SN","SS-EE","SS-JG","SS-NU"], clip_bbox: [33, 6, 36.5, 9] },
-  "kaffa": { admin1: ["ET-GA","ET-OR","ET-SN","KE-700","SS-EE","SS-JG"], clip_bbox: [34.5, 5, 37.5, 7.5] },
-  "gamu_gofa": { admin1: ["ET-OR","ET-SN","KE-400","KE-700","SS-EE","SS-JG","UG-308","UG-315","UG-328"], clip_bbox: [34.5, 2.5, 38.5, 7] },
-  "sidamo": { admin1: ["ET-OR","ET-SN","ET-SO"], clip_bbox: [37.5, 4.5, 40.5, 8] },
-  "arsi": { admin1: ["ET-AA","ET-AF","ET-AM","ET-OR","ET-SN","ET-SO"], clip_bbox: [37.5, 6.5, 41, 9.5] },
-  "bale": { admin1: ["ET-OR","ET-SN","ET-SO"], clip_bbox: [39, 5, 42.5, 8.5] },
-  "hararghe": { admin1: ["DJ-AR","DJ-AS","DJ-DI","DJ-DJ","DJ-OB","DJ-TA","ER-DK","ET-AF","ET-AM","ET-DD","ET-HA","ET-OR","ET-SO","ET-TI"], clip_bbox: [39, 7.5, 43.5, 12.5] },
-  "hargeisa": { admin1: ["DJ-AR","DJ-AS","DJ-DI","DJ-DJ","DJ-OB","DJ-TA","ER-DK","ET-OR","ET-SO","YE-AB","YE-AD","YE-LA","YE-TA"], clip_bbox: [42.5, 8.5, 46.5, 13.5] },
-  "soomaali_galbeed": { admin1: ["ET-AA","ET-AF","ET-AM","ET-DD","ET-HA","ET-OR","ET-SN","ET-SO","KE-400","KE-500","KE-700","SO-BK","SO-BY","SO-GA","SO-GE","SO-HI","SO-MU","SO-SD","SO-SH"], clip_bbox: [36.5, 2.5, 46.5, 10] },
-  "burao": { admin1: ["ET-SO","SO-NU","YE-AB","YE-AD","YE-BA","YE-DA","YE-DH","YE-HD","YE-HU","YE-IB","YE-LA","YE-MA","YE-RA","YE-SH","YE-TA"], clip_bbox: [43.5, 8.5, 48.5, 14.7] },
-  "migiurtinia": { admin1: ["ET-SO","SO-BR","SO-GA","SO-MU","SO-NU","YE-AB","YE-HD","YE-MR","YE-SH"], clip_bbox: [46.5, 6.5, 51.5, 15.5] },
-  "mudugh": { admin1: ["ET-SO","SO-BK","SO-BR","SO-GA","SO-HI","SO-MU","SO-NU","SO-SD"], clip_bbox: [44.5, 3.5, 50.5, 10] },
-  "hiran": { admin1: ["ET-OR","ET-SO","KE-500","SO-BK","SO-BN","SO-BY","SO-GA","SO-GE","SO-HI","SO-JD","SO-SD","SO-SH"], clip_bbox: [41.5, 1.5, 46.5, 6.5] },
-  "alto_gubia": { admin1: ["ET-OR","ET-SN","ET-SO","KE-200","KE-300","KE-400","KE-500","KE-700","SO-BK","SO-BN","SO-BY","SO-GA","SO-GE","SO-HI","SO-JD","SO-JH","SO-MU","SO-SD","SO-SH"], clip_bbox: [36.5, -1, 48.5, 5] },
+  // --- Yemen (coastal, 1:1) ---
+  "aden": { admin1: ["YE-AD"] },
+  "lahij": { admin1: ["YE-LA", "YE-TA", "YE-IB", "YE-DH"] },
+  "abyan": { admin1: ["YE-AB", "YE-DA"] },
+  "shabwah": { admin1: ["YE-SH", "YE-BA", "YE-MA", "YE-AM", "YE-SN"] },
+  // Hadhramaut admin-1 includes Socotra island; bbox clips to mainland.
+  "hadhramaut": { admin1: ["YE-HD", "YE-JA"], clip_bbox: [47, 13, 52, 17.5] },
+  "mahra": { admin1: ["YE-MR"] },
   "socotra": { admin1: ["YE-HD"], clip_bbox: [52.5, 11.5, 55, 13.3], fill_country_iso: "YE" },
+
+  // --- North-east Africa (1:1) ---
+  "eritrea": { admin1: ["ER-AN", "ER-DK", "ER-DU", "ER-GB", "ER-MA", "ER-SK"] },
+  "tigray": { admin1: ["ET-TI"] },
+  "afar": { admin1: ["ET-AF"] },
+
+  // --- Historical Amhara provinces (carve ET-AM via bbox) ---
+  "begender": { admin1: ["ET-AM"], clip_bbox: [35.5, 11, 39, 15] },
+  "gojjam": { admin1: ["ET-AM", "ET-BE"], clip_bbox: [35.5, 9.5, 39, 12] },
+  "wollo": { admin1: ["ET-AM"], clip_bbox: [38, 10, 40.5, 13.5] },
+
+  // --- Historical Oromia provinces (carve ET-OR via bbox) ---
+  "shewa": { admin1: ["ET-AA", "ET-OR"], clip_bbox: [37, 8, 40.5, 11.5] },
+  "welega": { admin1: ["ET-OR", "ET-BE"], clip_bbox: [33.5, 7.5, 38, 11] },
+  "illubabor": { admin1: ["ET-OR", "ET-GA"], clip_bbox: [33, 6, 36.5, 9] },
+  "arsi": { admin1: ["ET-OR"], clip_bbox: [37.5, 6.5, 41, 9.5] },
+  "bale": { admin1: ["ET-OR"], clip_bbox: [39, 5, 42.5, 8.5] },
+
+  // --- Historical SNNPR provinces (carve ET-SN via bbox) ---
+  "kaffa": { admin1: ["ET-SN"], clip_bbox: [34.5, 5, 37.5, 7.5] },
+  "gamu_gofa": { admin1: ["ET-SN"], clip_bbox: [34.5, 2.5, 38.5, 7] },
+  "sidamo": { admin1: ["ET-OR", "ET-SN"], clip_bbox: [37.5, 4.5, 40.5, 8] },
+
+  // --- Hararghe (Eastern Ethiopia, includes Harari + Dire Dawa) ---
+  "hararghe": { admin1: ["ET-HA", "ET-DD", "ET-OR"], clip_bbox: [39, 7.5, 43.5, 12.5] },
+
+  // --- Somaliland & Ogaden (carve ET-SO + DJ codes via bbox) ---
+  "hargeisa": {
+    admin1: ["ET-SO", "DJ-AR", "DJ-AS", "DJ-DI", "DJ-TA", "DJ-OB", "DJ-DJ"],
+    clip_bbox: [42.5, 8.5, 46.5, 13.5],
+  },
+  "soomaali_galbeed": { admin1: ["ET-SO"], clip_bbox: [36.5, 2.5, 46.5, 10] },
+  "burao": { admin1: ["ET-SO"], clip_bbox: [43.5, 8.5, 48.5, 14.7] },
+
+  // --- Somalia (1:1 admin-1 unions for non-overlapping regions) ---
+  "migiurtinia": { admin1: ["SO-BR", "SO-NU"] },
+  "mudugh": { admin1: ["SO-MU", "SO-GA"] },
+  "hiran": { admin1: ["SO-HI", "SO-SD"] },
+  "alto_gubia": {
+    admin1: ["SO-BN", "SO-BY", "SO-BK", "SO-GE", "SO-JD", "SO-JH", "SO-SH"],
+  },
 };

@@ -294,19 +294,19 @@
     {"from": "socotra", "to": "mahra", "type": "sea"},
     {"from": "socotra", "to": "migiurtinia", "type": "sea"},
     {"from": "aden", "to": "eritrea", "type": "sea"},
-    {"from": "lahij", "to": "burao", "type": "land"},
-    {"from": "abyan", "to": "burao", "type": "land"},
-    {"from": "shabwah", "to": "burao", "type": "land"},
-    {"from": "shabwah", "to": "migiurtinia", "type": "land"},
-    {"from": "hadhramaut", "to": "migiurtinia", "type": "land"},
-    {"from": "aden", "to": "burao", "type": "land"},
+    {"from": "lahij", "to": "burao", "type": "sea"},
+    {"from": "abyan", "to": "burao", "type": "sea"},
+    {"from": "shabwah", "to": "burao", "type": "sea"},
+    {"from": "shabwah", "to": "migiurtinia", "type": "sea"},
+    {"from": "hadhramaut", "to": "migiurtinia", "type": "sea"},
+    {"from": "aden", "to": "burao", "type": "sea"},
     {"from": "afar", "to": "shewa", "type": "land"}
   ],
   "regions": [
     {
       "region_id": "yemen",
       "name": "Southern Yemen",
-      "bonus": 2,
+      "bonus": 3,
       "territory_ids": ["aden", "lahij", "abyan", "shabwah", "hadhramaut", "mahra", "socotra"]
     },
     {

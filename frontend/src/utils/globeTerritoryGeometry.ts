@@ -24,7 +24,6 @@ import { COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO } from '../data/communityStraitHo
 import { COMMUNITY_AUSTRALIA_1337_TERRITORY_GEO } from '../data/communityAustralia1337Geo';
 import { COMMUNITY_BRITAIN_925_TERRITORY_GEO } from '../data/communityBritain925Geo';
 import { COMMUNITY_HORN_AFRICA_TERRITORY_GEO } from '../data/communityHornAfricaGeo';
-import { COMMUNITY_14N_VORONOI_CLIP } from '../data/community14nVoronoiClip';
 import { AUSTRALIA_1337_VORONOI_CLIP } from '../data/australia1337VoronoiClip';
 import { BRITAIN_925_VORONOI_CLIP } from '../data/britain925VoronoiClip';
 import { clipToPolygon } from './geoClipPolygon';
@@ -434,10 +433,12 @@ export function buildTerritoryGlobeGeometries(
       for (const code of shDef.admin1) {
         const g = straitHormuzIso3166ToGeom.get(code);
         if (!g) continue;
-        const clipped = clipToBbox(g, shDef.clip_bbox);
-        if (clipped) geoms.push(clipped);
+        // Hybrid: clip only when clip_bbox is set (sub-admin-1 territories);
+        // omit clip_bbox to use the full admin-1 polygon (real coastlines).
+        const piece = shDef.clip_bbox ? clipToBbox(g, shDef.clip_bbox) : g;
+        if (piece) geoms.push(piece);
       }
-      if (shDef.fill_country_iso) {
+      if (shDef.fill_country_iso && shDef.clip_bbox) {
         const fill = getCountryClippedToBbox(shDef.fill_country_iso, shDef.clip_bbox, isoToFeatures);
         if (fill) geoms.push(fill);
       }
@@ -458,7 +459,7 @@ export function buildTerritoryGlobeGeometries(
       }
     }
 
-    /** Community "14 Nations": Natural Earth admin-1 union + clip (same idea as Risorgimento / era maps). */
+    /** Community "14 Nations": Natural Earth admin-1 union + hybrid clip (designer polygon | bbox | none). */
     const c14 = COMMUNITY_14N_TERRITORY_GEO[territory.territory_id];
     if (
       mapData.map_id === 'community_14_nations' &&
@@ -472,7 +473,7 @@ export function buildTerritoryGlobeGeometries(
         const g = usIso3166ToGeom.get(code) ?? admin50Iso3166ToGeom.get(code);
         if (g) geoms.push(g);
       }
-      if (c14.fill_country_iso === 'MX') {
+      if (c14.fill_country_iso === 'MX' && c14.clip_bbox) {
         const mx = getCountryClippedToBbox('MX', c14.clip_bbox, isoToFeatures);
         if (mx) geoms.push(mx);
       }
@@ -480,15 +481,17 @@ export function buildTerritoryGlobeGeometries(
         const merged =
           geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
         if (merged) {
-          // Prefer Voronoi clip polygon for organic borders; fall back to rectangular bbox
-          const voronoiCoords = COMMUNITY_14N_VORONOI_CLIP[territory.territory_id];
+          // Hybrid clip chain: designer polygon > bbox > full admin-1 union.
           let finalGeom: GeoJSON.Polygon | GeoJSON.MultiPolygon | null = null;
-          if (voronoiCoords) {
-            const voronoiPoly: GeoJSON.Polygon = { type: 'Polygon', coordinates: voronoiCoords };
-            finalGeom = clipToPolygon(merged, voronoiPoly);
+          if (c14.clip_polygon) {
+            const designerPoly: GeoJSON.Polygon = { type: 'Polygon', coordinates: c14.clip_polygon };
+            finalGeom = clipToPolygon(merged, designerPoly);
+          }
+          if (!finalGeom && c14.clip_bbox) {
+            finalGeom = clipToBbox(merged, c14.clip_bbox);
           }
           if (!finalGeom) {
-            finalGeom = clipToBbox(merged, c14.clip_bbox) ?? merged;
+            finalGeom = merged;
           }
           return {
             territory_id: territory.territory_id,
@@ -580,10 +583,12 @@ export function buildTerritoryGlobeGeometries(
       for (const code of hoaDef.admin1) {
         const g = hornAfricaIso3166ToGeom.get(code);
         if (!g) continue;
-        const clipped = clipToBbox(g, hoaDef.clip_bbox);
-        if (clipped) geoms.push(clipped);
+        // Hybrid: clip only when clip_bbox is set (sub-admin-1 territories);
+        // omit clip_bbox to use the full admin-1 polygon (real coastlines).
+        const piece = hoaDef.clip_bbox ? clipToBbox(g, hoaDef.clip_bbox) : g;
+        if (piece) geoms.push(piece);
       }
-      if (hoaDef.fill_country_iso) {
+      if (hoaDef.fill_country_iso && hoaDef.clip_bbox) {
         const fill = getCountryClippedToBbox(hoaDef.fill_country_iso, hoaDef.clip_bbox, isoToFeatures);
         if (fill) geoms.push(fill);
       }
