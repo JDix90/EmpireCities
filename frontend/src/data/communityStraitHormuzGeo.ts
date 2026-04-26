@@ -77,7 +77,9 @@ export const COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO: Record<string, StraitHormuzT
     clip_bbox: [55.0, 24.6, 56.3, 25.5],
   },
   hz_musandam: { admin1: ['OM-MU'] },
-  hz_fujairah: { admin1: ['AE-FU', 'OM-SH'] },
+  // OM-SH (Ash Sharqiyah South) was incorrectly listed here — it's a far-south
+  // Oman governorate (lat 20–22.6) NOT adjacent to Fujairah. Use AE-FU only.
+  hz_fujairah: { admin1: ['AE-FU'] },
   // OM-BJ (Al Batinah South) extends south past coastal Sohar into Muscat zone;
   // clip to the Batinah plateau to prevent overlap with hz_muscat.
   hz_sohar: { admin1: ['OM-BA', 'OM-BJ'], clip_bbox: [56.1, 23.5, 58.1, 24.0] },

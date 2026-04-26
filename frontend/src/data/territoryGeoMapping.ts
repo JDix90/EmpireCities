@@ -527,29 +527,21 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   ],
   asia_japan_islands: [{ iso: 'JP' }],
   asia_siberia_belt: [
-    { iso: 'RU', clip_bbox: [60, 65, 180, 82] }, // arctic Siberia (avoids ca_steppe RU clip)
+    // Two non-overlapping slices: arctic strip west of ca_steppe + everything
+    // east of ca_steppe lng. Together this covers central Siberia (Yakutsk,
+    // Krasnoyarsk) and the Russian Far East (Khabarovsk, Vladivostok).
+    { iso: 'RU', clip_bbox: [60, 65, 90, 82] },
+    { iso: 'RU', clip_bbox: [90, 45, 180, 82] },
   ],
 
   // Oceania
   oc_australia: [{ iso: 'AU' }],
   oc_new_zealand: [{ iso: 'NZ' }],
-  oc_micronesia: [
-    { iso: 'FM' },
-    { iso: 'MH' },
-    { iso: 'PW' },
-    { iso: 'GU' },
-    { iso: 'MP' },
-  ],
-  oc_polynesia: [
-    { iso: 'WS' },
-    { iso: 'TO' },
-    { iso: 'FJ' },
-    { iso: 'KI' },
-    { iso: 'TV' },
-    { iso: 'NU' },
-    { iso: 'CK' },
-    { iso: 'PF' },
-  ],
+  // oc_micronesia + oc_polynesia removed from TERRITORY_GEO_CONFIG: NE 110m
+  // does not include FM/MH/PW/GU/MP/WS/TO/KI/TV/NU/CK/PF (small Pacific
+  // states), so the union returns nothing and falls back to the densified
+  // geo_polygon authored in era_space_age.json. Re-add when a higher-resolution
+  // admin-0 source is loaded.
 
   // Coastal Megacities (E China coast — Shanghai/Shandong corridor only;
   // Korean peninsula is owned by asia_korea_archipelago).
