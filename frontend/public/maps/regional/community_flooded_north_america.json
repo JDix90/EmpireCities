@@ -3901,7 +3901,7 @@
         402.7,
         1280.3
       ],
-      "region_id": "pacific_rimlands",
+      "region_id": "inner_floodplain",
       "geo_polygon": [
         [
           -134.676823,
@@ -13087,7 +13087,7 @@
         452.3,
         794.6
       ],
-      "region_id": "pacific_rimlands",
+      "region_id": "northwest_archipelago",
       "geo_polygon": [
         [
           -131.515885,
@@ -13689,7 +13689,7 @@
         315.7,
         799.1
       ],
-      "region_id": "pacific_rimlands",
+      "region_id": "northwest_archipelago",
       "geo_polygon": [
         [
           -138.984375,
@@ -15089,12 +15089,12 @@
     {
       "region_id": "northwest_archipelago",
       "name": "Northwest Archipelago",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "pacific_rimlands",
       "name": "Pacific Rimlands",
-      "bonus": 5
+      "bonus": 4
     },
     {
       "region_id": "inner_floodplain",
