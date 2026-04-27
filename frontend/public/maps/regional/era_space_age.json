@@ -1,0 +1,2595 @@
+{
+  "map_id": "era_space_age",
+  "name": "Space Age (2100 AD)",
+  "description": "The world as it may be in 2100 — climate-reshaped borders, corporate enclaves, planetary megastates — plus a second globe representing a contested lunar surface. Research Lunar Expansion, build a Launch Pad, and launch your Space Station to claim the Moon.",
+  "era_theme": "space_age",
+  "canvas_width": 1200,
+  "canvas_height": 700,
+  "projection_bounds": {
+    "minLng": -180,
+    "maxLng": 180,
+    "minLat": -60,
+    "maxLat": 85
+  },
+  "globe_view": {
+    "lock_rotation": false,
+    "altitude": 2.5
+  },
+  "territories": [
+    {
+      "territory_id": "na_arctic_dominion",
+      "name": "Arctic Dominion",
+      "polygon": [
+        [
+          130,
+          120.7
+        ],
+        [
+          400,
+          120.7
+        ],
+        [
+          400,
+          9.7
+        ],
+        [
+          130,
+          9.7
+        ]
+      ],
+      "center_point": [
+        265,
+        65.2
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "na_western_states",
+      "name": "Pacific Megastate",
+      "polygon": [
+        [
+          183.3,
+          255.9
+        ],
+        [
+          266.7,
+          255.9
+        ],
+        [
+          266.7,
+          120.7
+        ],
+        [
+          183.3,
+          120.7
+        ]
+      ],
+      "center_point": [
+        225,
+        188.3
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "na_central_plains",
+      "name": "Central Plains Bloc",
+      "polygon": [
+        [
+          266.7,
+          255.9
+        ],
+        [
+          316.7,
+          255.9
+        ],
+        [
+          316.7,
+          144.8
+        ],
+        [
+          266.7,
+          144.8
+        ]
+      ],
+      "center_point": [
+        291.7,
+        200.3
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "na_launch_base",
+      "name": "Cape Canaveral Hub",
+      "polygon": [
+        [
+          316.7,
+          289.7
+        ],
+        [
+          350,
+          289.7
+        ],
+        [
+          350,
+          241.4
+        ],
+        [
+          316.7,
+          241.4
+        ]
+      ],
+      "center_point": [
+        333.3,
+        265.5
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "na_eastern_corridor",
+      "name": "Eastern Corridor",
+      "polygon": [
+        [
+          316.7,
+          241.4
+        ],
+        [
+          383.3,
+          241.4
+        ],
+        [
+          383.3,
+          144.8
+        ],
+        [
+          316.7,
+          144.8
+        ]
+      ],
+      "center_point": [
+        350,
+        193.1
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "na_southern_belt",
+      "name": "Gulf-Mexico Union",
+      "polygon": [
+        [
+          200,
+          352.4
+        ],
+        [
+          316.7,
+          352.4
+        ],
+        [
+          316.7,
+          255.9
+        ],
+        [
+          200,
+          255.9
+        ]
+      ],
+      "center_point": [
+        258.3,
+        304.1
+      ],
+      "region_id": "north_america_2100"
+    },
+    {
+      "territory_id": "euro_british_isles",
+      "name": "British Isles",
+      "polygon": [
+        [
+          563.3,
+          173.8
+        ],
+        [
+          610,
+          173.8
+        ],
+        [
+          610,
+          115.9
+        ],
+        [
+          563.3,
+          115.9
+        ]
+      ],
+      "center_point": [
+        586.7,
+        144.8
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "euro_iberia",
+      "name": "Iberian Federation",
+      "polygon": [
+        [
+          566.7,
+          241.4
+        ],
+        [
+          616.7,
+          241.4
+        ],
+        [
+          616.7,
+          197.9
+        ],
+        [
+          566.7,
+          197.9
+        ]
+      ],
+      "center_point": [
+        591.7,
+        219.7
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "euro_spaceport",
+      "name": "Kourou Spaceport",
+      "polygon": [
+        [
+          610,
+          212.4
+        ],
+        [
+          650,
+          212.4
+        ],
+        [
+          650,
+          169
+        ],
+        [
+          610,
+          169
+        ]
+      ],
+      "center_point": [
+        630,
+        190.7
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "euro_nordic",
+      "name": "Nordic Commonwealth",
+      "polygon": [
+        [
+          616.7,
+          149.7
+        ],
+        [
+          703.3,
+          149.7
+        ],
+        [
+          703.3,
+          67.6
+        ],
+        [
+          616.7,
+          67.6
+        ]
+      ],
+      "center_point": [
+        660,
+        108.6
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "euro_balkan",
+      "name": "Balkan Belt",
+      "polygon": [
+        [
+          640,
+          226.9
+        ],
+        [
+          700,
+          226.9
+        ],
+        [
+          700,
+          173.8
+        ],
+        [
+          640,
+          173.8
+        ]
+      ],
+      "center_point": [
+        670,
+        200.3
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "euro_east",
+      "name": "Carpathian Union",
+      "polygon": [
+        [
+          673.3,
+          193.1
+        ],
+        [
+          750,
+          193.1
+        ],
+        [
+          750,
+          130.3
+        ],
+        [
+          673.3,
+          130.3
+        ]
+      ],
+      "center_point": [
+        711.7,
+        161.7
+      ],
+      "region_id": "europe_2100"
+    },
+    {
+      "territory_id": "asia_cosmodrome",
+      "name": "Gobi Cosmodrome",
+      "polygon": [
+        [
+          916.7,
+          217.2
+        ],
+        [
+          983.3,
+          217.2
+        ],
+        [
+          983.3,
+          169
+        ],
+        [
+          916.7,
+          169
+        ]
+      ],
+      "center_point": [
+        950,
+        193.1
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_heartland",
+      "name": "Mandarin Heartland",
+      "polygon": [
+        [
+          933.3,
+          275.2
+        ],
+        [
+          1016.7,
+          275.2
+        ],
+        [
+          1016.7,
+          217.2
+        ],
+        [
+          933.3,
+          217.2
+        ]
+      ],
+      "center_point": [
+        975,
+        246.2
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_coastal",
+      "name": "Coastal Megacities",
+      "polygon": [
+        [
+          983.3,
+          313.8
+        ],
+        [
+          1016.7,
+          313.8
+        ],
+        [
+          1016.7,
+          255.9
+        ],
+        [
+          983.3,
+          255.9
+        ]
+      ],
+      "center_point": [
+        1000,
+        284.8
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_korea_archipelago",
+      "name": "Korean Archipelago",
+      "polygon": [
+        [
+          1016.7,
+          255.9
+        ],
+        [
+          1083.3,
+          255.9
+        ],
+        [
+          1083.3,
+          193.1
+        ],
+        [
+          1016.7,
+          193.1
+        ]
+      ],
+      "center_point": [
+        1050,
+        224.5
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_indochina",
+      "name": "Indochina Federation",
+      "polygon": [
+        [
+          916.7,
+          371.7
+        ],
+        [
+          966.7,
+          371.7
+        ],
+        [
+          966.7,
+          289.7
+        ],
+        [
+          916.7,
+          289.7
+        ]
+      ],
+      "center_point": [
+        941.7,
+        330.7
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_malay_archipelago",
+      "name": "Malay Archipelago",
+      "polygon": [
+        [
+          916.7,
+          463.4
+        ],
+        [
+          1070,
+          463.4
+        ],
+        [
+          1070,
+          371.7
+        ],
+        [
+          916.7,
+          371.7
+        ]
+      ],
+      "center_point": [
+        993.3,
+        417.6
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_japan_islands",
+      "name": "Japan Islands",
+      "polygon": [
+        [
+          1033.3,
+          265.5
+        ],
+        [
+          1086.7,
+          265.5
+        ],
+        [
+          1086.7,
+          188.3
+        ],
+        [
+          1033.3,
+          188.3
+        ]
+      ],
+      "center_point": [
+        1060,
+        226.9
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "asia_siberia_belt",
+      "name": "Siberian Corridor",
+      "polygon": [
+        [
+          800,
+          169
+        ],
+        [
+          1066.7,
+          169
+        ],
+        [
+          1066.7,
+          48.3
+        ],
+        [
+          800,
+          48.3
+        ]
+      ],
+      "center_point": [
+        933.3,
+        108.6
+      ],
+      "region_id": "asia_2100"
+    },
+    {
+      "territory_id": "africa_sahel",
+      "name": "Sahel Belt",
+      "polygon": [
+        [
+          543.3,
+          362.1
+        ],
+        [
+          733.3,
+          362.1
+        ],
+        [
+          733.3,
+          313.8
+        ],
+        [
+          543.3,
+          313.8
+        ]
+      ],
+      "center_point": [
+        638.3,
+        337.9
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "africa_west",
+      "name": "West African Union",
+      "polygon": [
+        [
+          543.3,
+          420
+        ],
+        [
+          633.3,
+          420
+        ],
+        [
+          633.3,
+          342.8
+        ],
+        [
+          543.3,
+          342.8
+        ]
+      ],
+      "center_point": [
+        588.3,
+        381.4
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "africa_horn",
+      "name": "Horn of Africa",
+      "polygon": [
+        [
+          716.7,
+          420
+        ],
+        [
+          773.3,
+          420
+        ],
+        [
+          773.3,
+          323.4
+        ],
+        [
+          716.7,
+          323.4
+        ]
+      ],
+      "center_point": [
+        745,
+        371.7
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "africa_congo_basin",
+      "name": "Congo Basin Federation",
+      "polygon": [
+        [
+          633.3,
+          473.1
+        ],
+        [
+          700,
+          473.1
+        ],
+        [
+          700,
+          386.2
+        ],
+        [
+          633.3,
+          386.2
+        ]
+      ],
+      "center_point": [
+        666.7,
+        429.7
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "africa_east",
+      "name": "East African Commonwealth",
+      "polygon": [
+        [
+          700,
+          468.3
+        ],
+        [
+          740,
+          468.3
+        ],
+        [
+          740,
+          386.2
+        ],
+        [
+          700,
+          386.2
+        ]
+      ],
+      "center_point": [
+        720,
+        427.2
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "africa_south",
+      "name": "Southern African Union",
+      "polygon": [
+        [
+          640,
+          579.3
+        ],
+        [
+          720,
+          579.3
+        ],
+        [
+          720,
+          482.8
+        ],
+        [
+          640,
+          482.8
+        ]
+      ],
+      "center_point": [
+        680,
+        531
+      ],
+      "region_id": "sub_saharan_africa_2100"
+    },
+    {
+      "territory_id": "mena_levant",
+      "name": "Levantine Prefecture",
+      "polygon": [
+        [
+          706.7,
+          270.3
+        ],
+        [
+          750,
+          270.3
+        ],
+        [
+          750,
+          226.9
+        ],
+        [
+          706.7,
+          226.9
+        ]
+      ],
+      "center_point": [
+        728.3,
+        248.6
+      ],
+      "region_id": "middle_east_2100"
+    },
+    {
+      "territory_id": "mena_arabia",
+      "name": "Arabian Photovoltaic",
+      "polygon": [
+        [
+          716.7,
+          337.9
+        ],
+        [
+          783.3,
+          337.9
+        ],
+        [
+          783.3,
+          265.5
+        ],
+        [
+          716.7,
+          265.5
+        ]
+      ],
+      "center_point": [
+        750,
+        301.7
+      ],
+      "region_id": "middle_east_2100"
+    },
+    {
+      "territory_id": "mena_persia",
+      "name": "Persian Sun Belt",
+      "polygon": [
+        [
+          746.7,
+          289.7
+        ],
+        [
+          810,
+          289.7
+        ],
+        [
+          810,
+          217.2
+        ],
+        [
+          746.7,
+          217.2
+        ]
+      ],
+      "center_point": [
+        778.3,
+        253.4
+      ],
+      "region_id": "middle_east_2100"
+    },
+    {
+      "territory_id": "mena_maghreb",
+      "name": "Maghreb Array",
+      "polygon": [
+        [
+          543.3,
+          304.1
+        ],
+        [
+          640,
+          304.1
+        ],
+        [
+          640,
+          231.7
+        ],
+        [
+          543.3,
+          231.7
+        ]
+      ],
+      "center_point": [
+        591.7,
+        267.9
+      ],
+      "region_id": "middle_east_2100"
+    },
+    {
+      "territory_id": "mena_nile",
+      "name": "Nile Corridor",
+      "polygon": [
+        [
+          680,
+          323.4
+        ],
+        [
+          726.7,
+          323.4
+        ],
+        [
+          726.7,
+          255.9
+        ],
+        [
+          680,
+          255.9
+        ]
+      ],
+      "center_point": [
+        703.3,
+        289.7
+      ],
+      "region_id": "middle_east_2100"
+    },
+    {
+      "territory_id": "ca_steppe",
+      "name": "Steppe Federation",
+      "polygon": [
+        [
+          766.7,
+          217.2
+        ],
+        [
+          900,
+          217.2
+        ],
+        [
+          900,
+          144.8
+        ],
+        [
+          766.7,
+          144.8
+        ]
+      ],
+      "center_point": [
+        833.3,
+        181
+      ],
+      "region_id": "central_asia_2100"
+    },
+    {
+      "territory_id": "ca_tien_shan",
+      "name": "Tien Shan Belt",
+      "polygon": [
+        [
+          826.7,
+          236.6
+        ],
+        [
+          883.3,
+          236.6
+        ],
+        [
+          883.3,
+          193.1
+        ],
+        [
+          826.7,
+          193.1
+        ]
+      ],
+      "center_point": [
+        855,
+        214.8
+      ],
+      "region_id": "central_asia_2100"
+    },
+    {
+      "territory_id": "ca_indus",
+      "name": "Indus Riparian Zone",
+      "polygon": [
+        [
+          800,
+          304.1
+        ],
+        [
+          860,
+          304.1
+        ],
+        [
+          860,
+          226.9
+        ],
+        [
+          800,
+          226.9
+        ]
+      ],
+      "center_point": [
+        830,
+        265.5
+      ],
+      "region_id": "central_asia_2100"
+    },
+    {
+      "territory_id": "ca_ganges",
+      "name": "Ganges Megaregion",
+      "polygon": [
+        [
+          840,
+          313.8
+        ],
+        [
+          906.7,
+          313.8
+        ],
+        [
+          906.7,
+          255.9
+        ],
+        [
+          840,
+          255.9
+        ]
+      ],
+      "center_point": [
+        873.3,
+        284.8
+      ],
+      "region_id": "central_asia_2100"
+    },
+    {
+      "territory_id": "ca_deccan",
+      "name": "Deccan Plateau",
+      "polygon": [
+        [
+          840,
+          371.7
+        ],
+        [
+          893.3,
+          371.7
+        ],
+        [
+          893.3,
+          304.1
+        ],
+        [
+          840,
+          304.1
+        ]
+      ],
+      "center_point": [
+        866.7,
+        337.9
+      ],
+      "region_id": "central_asia_2100"
+    },
+    {
+      "territory_id": "la_amazonia",
+      "name": "Amazon Preserve",
+      "polygon": [
+        [
+          353.3,
+          458.6
+        ],
+        [
+          446.7,
+          458.6
+        ],
+        [
+          446.7,
+          386.2
+        ],
+        [
+          353.3,
+          386.2
+        ]
+      ],
+      "center_point": [
+        400,
+        422.4
+      ],
+      "region_id": "latin_america_2100"
+    },
+    {
+      "territory_id": "la_andes",
+      "name": "Andean Federation",
+      "polygon": [
+        [
+          330,
+          506.9
+        ],
+        [
+          393.3,
+          506.9
+        ],
+        [
+          393.3,
+          420
+        ],
+        [
+          330,
+          420
+        ]
+      ],
+      "center_point": [
+        361.7,
+        463.4
+      ],
+      "region_id": "latin_america_2100"
+    },
+    {
+      "territory_id": "la_pampas",
+      "name": "Pampas Republic",
+      "polygon": [
+        [
+          363.3,
+          603.4
+        ],
+        [
+          423.3,
+          603.4
+        ],
+        [
+          423.3,
+          516.6
+        ],
+        [
+          363.3,
+          516.6
+        ]
+      ],
+      "center_point": [
+        393.3,
+        560
+      ],
+      "region_id": "latin_america_2100"
+    },
+    {
+      "territory_id": "la_patagonia",
+      "name": "Patagonian Free Zone",
+      "polygon": [
+        [
+          350,
+          680.7
+        ],
+        [
+          426.7,
+          680.7
+        ],
+        [
+          426.7,
+          603.4
+        ],
+        [
+          350,
+          603.4
+        ]
+      ],
+      "center_point": [
+        388.3,
+        642.1
+      ],
+      "region_id": "latin_america_2100"
+    },
+    {
+      "territory_id": "la_caribbean",
+      "name": "Caribbean Alliance",
+      "polygon": [
+        [
+          300,
+          362.1
+        ],
+        [
+          400,
+          362.1
+        ],
+        [
+          400,
+          284.8
+        ],
+        [
+          300,
+          284.8
+        ]
+      ],
+      "center_point": [
+        350,
+        323.4
+      ],
+      "region_id": "latin_america_2100"
+    },
+    {
+      "territory_id": "oc_australia",
+      "name": "Australian Meridian",
+      "polygon": [
+        [
+          983.3,
+          603.4
+        ],
+        [
+          1110,
+          603.4
+        ],
+        [
+          1110,
+          468.3
+        ],
+        [
+          983.3,
+          468.3
+        ]
+      ],
+      "center_point": [
+        1046.7,
+        535.9
+      ],
+      "region_id": "oceania_2100"
+    },
+    {
+      "territory_id": "oc_new_zealand",
+      "name": "New Zealand",
+      "polygon": [
+        [
+          1153.3,
+          637.2
+        ],
+        [
+          1196.7,
+          637.2
+        ],
+        [
+          1196.7,
+          574.5
+        ],
+        [
+          1153.3,
+          574.5
+        ]
+      ],
+      "center_point": [
+        1175,
+        605.9
+      ],
+      "region_id": "oceania_2100"
+    },
+    {
+      "territory_id": "oc_micronesia",
+      "name": "Micronesian Shield",
+      "polygon": [
+        [
+          1050,
+          410.3
+        ],
+        [
+          1166.7,
+          410.3
+        ],
+        [
+          1166.7,
+          313.8
+        ],
+        [
+          1050,
+          313.8
+        ]
+      ],
+      "center_point": [
+        1108.3,
+        362.1
+      ],
+      "region_id": "oceania_2100"
+    },
+    {
+      "territory_id": "oc_polynesia",
+      "name": "Polynesian Compact",
+      "polygon": [
+        [
+          16.7,
+          531
+        ],
+        [
+          133.3,
+          531
+        ],
+        [
+          133.3,
+          386.2
+        ],
+        [
+          16.7,
+          386.2
+        ]
+      ],
+      "center_point": [
+        75,
+        458.6
+      ],
+      "region_id": "oceania_2100"
+    },
+    {
+      "territory_id": "megacity_pacific_rim",
+      "name": "Pacific Rim Megacities",
+      "polygon": [
+        [
+          1033.3,
+          304.1
+        ],
+        [
+          1083.3,
+          304.1
+        ],
+        [
+          1083.3,
+          226.9
+        ],
+        [
+          1033.3,
+          226.9
+        ]
+      ],
+      "center_point": [
+        1058.3,
+        265.5
+      ],
+      "region_id": "coastal_megacities_2100"
+    },
+    {
+      "territory_id": "moon_near_side_north",
+      "name": "Mare Frigoris",
+      "polygon": [
+        [
+          400,
+          217.2
+        ],
+        [
+          800,
+          217.2
+        ],
+        [
+          800,
+          24.1
+        ],
+        [
+          400,
+          24.1
+        ]
+      ],
+      "center_point": [
+        600,
+        120.7
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -78,
+          47
+        ],
+        [
+          -50,
+          46
+        ],
+        [
+          -25,
+          48
+        ],
+        [
+          0,
+          47
+        ],
+        [
+          25,
+          49
+        ],
+        [
+          50,
+          47
+        ],
+        [
+          78,
+          46
+        ],
+        [
+          78,
+          50
+        ],
+        [
+          60,
+          56
+        ],
+        [
+          40,
+          58
+        ],
+        [
+          20,
+          59
+        ],
+        [
+          0,
+          60
+        ],
+        [
+          -20,
+          59
+        ],
+        [
+          -40,
+          58
+        ],
+        [
+          -60,
+          56
+        ],
+        [
+          -78,
+          50
+        ],
+        [
+          -78,
+          47
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_mare_imbrium",
+      "name": "Mare Imbrium",
+      "polygon": [
+        [
+          400,
+          337.9
+        ],
+        [
+          566.7,
+          337.9
+        ],
+        [
+          566.7,
+          217.2
+        ],
+        [
+          400,
+          217.2
+        ]
+      ],
+      "center_point": [
+        483.3,
+        277.6
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -40,
+          30
+        ],
+        [
+          -37,
+          22
+        ],
+        [
+          -30,
+          17
+        ],
+        [
+          -20,
+          16
+        ],
+        [
+          -10,
+          17
+        ],
+        [
+          0,
+          22
+        ],
+        [
+          4,
+          30
+        ],
+        [
+          3,
+          38
+        ],
+        [
+          -2,
+          44
+        ],
+        [
+          -12,
+          47
+        ],
+        [
+          -25,
+          47
+        ],
+        [
+          -35,
+          42
+        ],
+        [
+          -40,
+          35
+        ],
+        [
+          -40,
+          30
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_mare_tranquillitatis",
+      "name": "Sea of Tranquility",
+      "polygon": [
+        [
+          566.7,
+          362.1
+        ],
+        [
+          766.7,
+          362.1
+        ],
+        [
+          766.7,
+          217.2
+        ],
+        [
+          566.7,
+          217.2
+        ]
+      ],
+      "center_point": [
+        666.7,
+        289.7
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          10,
+          0
+        ],
+        [
+          15,
+          -3
+        ],
+        [
+          25,
+          -5
+        ],
+        [
+          38,
+          -3
+        ],
+        [
+          50,
+          0
+        ],
+        [
+          55,
+          8
+        ],
+        [
+          55,
+          18
+        ],
+        [
+          48,
+          25
+        ],
+        [
+          35,
+          28
+        ],
+        [
+          22,
+          27
+        ],
+        [
+          12,
+          22
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          10,
+          0
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_oceanus_procellarum",
+      "name": "Ocean of Storms",
+      "polygon": [
+        [
+          200,
+          458.6
+        ],
+        [
+          400,
+          458.6
+        ],
+        [
+          400,
+          217.2
+        ],
+        [
+          200,
+          217.2
+        ]
+      ],
+      "center_point": [
+        300,
+        337.9
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -85,
+          -8
+        ],
+        [
+          -72,
+          -10
+        ],
+        [
+          -58,
+          -8
+        ],
+        [
+          -50,
+          0
+        ],
+        [
+          -45,
+          12
+        ],
+        [
+          -43,
+          25
+        ],
+        [
+          -45,
+          38
+        ],
+        [
+          -50,
+          45
+        ],
+        [
+          -60,
+          47
+        ],
+        [
+          -72,
+          45
+        ],
+        [
+          -82,
+          38
+        ],
+        [
+          -86,
+          25
+        ],
+        [
+          -87,
+          10
+        ],
+        [
+          -85,
+          -8
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_near_side_south",
+      "name": "Mare Nubium",
+      "polygon": [
+        [
+          400,
+          603.4
+        ],
+        [
+          700,
+          603.4
+        ],
+        [
+          700,
+          362.1
+        ],
+        [
+          400,
+          362.1
+        ]
+      ],
+      "center_point": [
+        550,
+        482.8
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -58,
+          -45
+        ],
+        [
+          -40,
+          -50
+        ],
+        [
+          -15,
+          -52
+        ],
+        [
+          10,
+          -50
+        ],
+        [
+          30,
+          -45
+        ],
+        [
+          45,
+          -38
+        ],
+        [
+          50,
+          -25
+        ],
+        [
+          48,
+          -12
+        ],
+        [
+          40,
+          -3
+        ],
+        [
+          25,
+          2
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          -15,
+          2
+        ],
+        [
+          -32,
+          -2
+        ],
+        [
+          -48,
+          -10
+        ],
+        [
+          -55,
+          -25
+        ],
+        [
+          -58,
+          -45
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_far_side_north",
+      "name": "Far Side Highlands N",
+      "polygon": [
+        [
+          800,
+          362.1
+        ],
+        [
+          1200,
+          362.1
+        ],
+        [
+          1200,
+          120.7
+        ],
+        [
+          800,
+          120.7
+        ]
+      ],
+      "center_point": [
+        1000,
+        241.4
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          90,
+          2
+        ],
+        [
+          110,
+          0
+        ],
+        [
+          135,
+          3
+        ],
+        [
+          160,
+          0
+        ],
+        [
+          178,
+          5
+        ],
+        [
+          178,
+          30
+        ],
+        [
+          175,
+          50
+        ],
+        [
+          165,
+          58
+        ],
+        [
+          140,
+          60
+        ],
+        [
+          110,
+          58
+        ],
+        [
+          92,
+          50
+        ],
+        [
+          90,
+          25
+        ],
+        [
+          90,
+          2
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_far_side_south",
+      "name": "Far Side Highlands S",
+      "polygon": [
+        [
+          800,
+          603.4
+        ],
+        [
+          1200,
+          603.4
+        ],
+        [
+          1200,
+          362.1
+        ],
+        [
+          800,
+          362.1
+        ]
+      ],
+      "center_point": [
+        1000,
+        482.8
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          90,
+          -45
+        ],
+        [
+          115,
+          -47
+        ],
+        [
+          140,
+          -45
+        ],
+        [
+          165,
+          -47
+        ],
+        [
+          178,
+          -45
+        ],
+        [
+          178,
+          5
+        ],
+        [
+          160,
+          0
+        ],
+        [
+          135,
+          3
+        ],
+        [
+          110,
+          0
+        ],
+        [
+          90,
+          2
+        ],
+        [
+          88,
+          -10
+        ],
+        [
+          90,
+          -45
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_polar_north",
+      "name": "North Polar Basin",
+      "polygon": [
+        [
+          0,
+          120.7
+        ],
+        [
+          1200,
+          120.7
+        ],
+        [
+          1200,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "center_point": [
+        600,
+        60.3
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -180,
+          0
+        ],
+        [
+          -150,
+          2
+        ],
+        [
+          -120,
+          0
+        ],
+        [
+          -90,
+          2
+        ],
+        [
+          -90,
+          60
+        ],
+        [
+          -70,
+          60
+        ],
+        [
+          -50,
+          62
+        ],
+        [
+          -25,
+          60
+        ],
+        [
+          0,
+          62
+        ],
+        [
+          25,
+          60
+        ],
+        [
+          50,
+          62
+        ],
+        [
+          75,
+          60
+        ],
+        [
+          90,
+          60
+        ],
+        [
+          110,
+          58
+        ],
+        [
+          140,
+          60
+        ],
+        [
+          165,
+          58
+        ],
+        [
+          180,
+          60
+        ],
+        [
+          180,
+          88
+        ],
+        [
+          -180,
+          88
+        ],
+        [
+          -180,
+          0
+        ]
+      ]
+    },
+    {
+      "territory_id": "moon_polar_south",
+      "name": "South Pole-Aitken",
+      "polygon": [
+        [
+          0,
+          820.7
+        ],
+        [
+          1200,
+          820.7
+        ],
+        [
+          1200,
+          603.4
+        ],
+        [
+          0,
+          603.4
+        ]
+      ],
+      "center_point": [
+        600,
+        712.1
+      ],
+      "region_id": "lunar_surface",
+      "globe_id": "moon",
+      "geo_polygon": [
+        [
+          -180,
+          -88
+        ],
+        [
+          180,
+          -88
+        ],
+        [
+          180,
+          -45
+        ],
+        [
+          140,
+          -47
+        ],
+        [
+          90,
+          -45
+        ],
+        [
+          60,
+          -47
+        ],
+        [
+          25,
+          -45
+        ],
+        [
+          0,
+          -47
+        ],
+        [
+          -25,
+          -45
+        ],
+        [
+          -50,
+          -47
+        ],
+        [
+          -90,
+          -45
+        ],
+        [
+          -90,
+          0
+        ],
+        [
+          -120,
+          2
+        ],
+        [
+          -150,
+          0
+        ],
+        [
+          -180,
+          2
+        ],
+        [
+          -180,
+          -88
+        ]
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "na_arctic_dominion",
+      "to": "na_western_states",
+      "type": "land"
+    },
+    {
+      "from": "na_arctic_dominion",
+      "to": "na_central_plains",
+      "type": "land"
+    },
+    {
+      "from": "na_arctic_dominion",
+      "to": "na_eastern_corridor",
+      "type": "land"
+    },
+    {
+      "from": "na_western_states",
+      "to": "na_central_plains",
+      "type": "land"
+    },
+    {
+      "from": "na_western_states",
+      "to": "na_southern_belt",
+      "type": "land"
+    },
+    {
+      "from": "na_central_plains",
+      "to": "na_southern_belt",
+      "type": "land"
+    },
+    {
+      "from": "na_central_plains",
+      "to": "na_eastern_corridor",
+      "type": "land"
+    },
+    {
+      "from": "na_eastern_corridor",
+      "to": "na_launch_base",
+      "type": "land"
+    },
+    {
+      "from": "na_launch_base",
+      "to": "na_southern_belt",
+      "type": "land"
+    },
+    {
+      "from": "na_southern_belt",
+      "to": "la_caribbean",
+      "type": "land"
+    },
+    {
+      "from": "na_launch_base",
+      "to": "la_caribbean",
+      "type": "sea"
+    },
+    {
+      "from": "la_caribbean",
+      "to": "la_andes",
+      "type": "sea"
+    },
+    {
+      "from": "la_andes",
+      "to": "la_amazonia",
+      "type": "land"
+    },
+    {
+      "from": "la_andes",
+      "to": "la_pampas",
+      "type": "land"
+    },
+    {
+      "from": "la_amazonia",
+      "to": "la_pampas",
+      "type": "land"
+    },
+    {
+      "from": "la_pampas",
+      "to": "la_patagonia",
+      "type": "land"
+    },
+    {
+      "from": "na_eastern_corridor",
+      "to": "euro_british_isles",
+      "type": "sea"
+    },
+    {
+      "from": "euro_british_isles",
+      "to": "euro_nordic",
+      "type": "sea"
+    },
+    {
+      "from": "euro_british_isles",
+      "to": "euro_iberia",
+      "type": "sea"
+    },
+    {
+      "from": "euro_british_isles",
+      "to": "euro_spaceport",
+      "type": "sea"
+    },
+    {
+      "from": "euro_iberia",
+      "to": "euro_spaceport",
+      "type": "land"
+    },
+    {
+      "from": "euro_spaceport",
+      "to": "euro_nordic",
+      "type": "land"
+    },
+    {
+      "from": "euro_spaceport",
+      "to": "euro_balkan",
+      "type": "land"
+    },
+    {
+      "from": "euro_spaceport",
+      "to": "euro_east",
+      "type": "land"
+    },
+    {
+      "from": "euro_nordic",
+      "to": "euro_east",
+      "type": "land"
+    },
+    {
+      "from": "euro_balkan",
+      "to": "euro_east",
+      "type": "land"
+    },
+    {
+      "from": "euro_iberia",
+      "to": "euro_balkan",
+      "type": "sea"
+    },
+    {
+      "from": "euro_iberia",
+      "to": "mena_maghreb",
+      "type": "sea"
+    },
+    {
+      "from": "euro_balkan",
+      "to": "mena_levant",
+      "type": "sea"
+    },
+    {
+      "from": "euro_east",
+      "to": "mena_levant",
+      "type": "land"
+    },
+    {
+      "from": "mena_maghreb",
+      "to": "mena_nile",
+      "type": "land"
+    },
+    {
+      "from": "mena_nile",
+      "to": "mena_arabia",
+      "type": "land"
+    },
+    {
+      "from": "mena_nile",
+      "to": "mena_levant",
+      "type": "land"
+    },
+    {
+      "from": "mena_levant",
+      "to": "mena_arabia",
+      "type": "land"
+    },
+    {
+      "from": "mena_arabia",
+      "to": "mena_persia",
+      "type": "sea"
+    },
+    {
+      "from": "mena_levant",
+      "to": "mena_persia",
+      "type": "land"
+    },
+    {
+      "from": "mena_nile",
+      "to": "africa_sahel",
+      "type": "land"
+    },
+    {
+      "from": "mena_nile",
+      "to": "africa_horn",
+      "type": "land"
+    },
+    {
+      "from": "mena_maghreb",
+      "to": "africa_sahel",
+      "type": "land"
+    },
+    {
+      "from": "africa_sahel",
+      "to": "africa_west",
+      "type": "land"
+    },
+    {
+      "from": "africa_sahel",
+      "to": "africa_horn",
+      "type": "land"
+    },
+    {
+      "from": "africa_sahel",
+      "to": "africa_congo_basin",
+      "type": "land"
+    },
+    {
+      "from": "africa_west",
+      "to": "africa_congo_basin",
+      "type": "land"
+    },
+    {
+      "from": "africa_horn",
+      "to": "africa_east",
+      "type": "land"
+    },
+    {
+      "from": "africa_congo_basin",
+      "to": "africa_east",
+      "type": "land"
+    },
+    {
+      "from": "africa_congo_basin",
+      "to": "africa_south",
+      "type": "land"
+    },
+    {
+      "from": "africa_east",
+      "to": "africa_south",
+      "type": "land"
+    },
+    {
+      "from": "mena_persia",
+      "to": "ca_indus",
+      "type": "land"
+    },
+    {
+      "from": "mena_persia",
+      "to": "ca_steppe",
+      "type": "land"
+    },
+    {
+      "from": "ca_steppe",
+      "to": "ca_tien_shan",
+      "type": "land"
+    },
+    {
+      "from": "ca_tien_shan",
+      "to": "ca_indus",
+      "type": "land"
+    },
+    {
+      "from": "ca_indus",
+      "to": "ca_ganges",
+      "type": "land"
+    },
+    {
+      "from": "ca_ganges",
+      "to": "ca_deccan",
+      "type": "land"
+    },
+    {
+      "from": "ca_steppe",
+      "to": "euro_east",
+      "type": "land"
+    },
+    {
+      "from": "ca_steppe",
+      "to": "asia_siberia_belt",
+      "type": "land"
+    },
+    {
+      "from": "ca_tien_shan",
+      "to": "asia_heartland",
+      "type": "land"
+    },
+    {
+      "from": "ca_ganges",
+      "to": "asia_indochina",
+      "type": "land"
+    },
+    {
+      "from": "asia_siberia_belt",
+      "to": "asia_cosmodrome",
+      "type": "land"
+    },
+    {
+      "from": "asia_siberia_belt",
+      "to": "asia_heartland",
+      "type": "land"
+    },
+    {
+      "from": "asia_cosmodrome",
+      "to": "asia_heartland",
+      "type": "land"
+    },
+    {
+      "from": "asia_heartland",
+      "to": "asia_coastal",
+      "type": "land"
+    },
+    {
+      "from": "asia_heartland",
+      "to": "asia_indochina",
+      "type": "land"
+    },
+    {
+      "from": "asia_coastal",
+      "to": "asia_korea_archipelago",
+      "type": "sea"
+    },
+    {
+      "from": "asia_korea_archipelago",
+      "to": "asia_japan_islands",
+      "type": "sea"
+    },
+    {
+      "from": "asia_coastal",
+      "to": "asia_japan_islands",
+      "type": "sea"
+    },
+    {
+      "from": "asia_indochina",
+      "to": "asia_malay_archipelago",
+      "type": "sea"
+    },
+    {
+      "from": "asia_coastal",
+      "to": "megacity_pacific_rim",
+      "type": "sea"
+    },
+    {
+      "from": "asia_japan_islands",
+      "to": "megacity_pacific_rim",
+      "type": "sea"
+    },
+    {
+      "from": "asia_malay_archipelago",
+      "to": "oc_australia",
+      "type": "sea"
+    },
+    {
+      "from": "oc_australia",
+      "to": "oc_new_zealand",
+      "type": "sea"
+    },
+    {
+      "from": "oc_australia",
+      "to": "oc_micronesia",
+      "type": "sea"
+    },
+    {
+      "from": "oc_micronesia",
+      "to": "oc_polynesia",
+      "type": "sea"
+    },
+    {
+      "from": "asia_malay_archipelago",
+      "to": "oc_micronesia",
+      "type": "sea"
+    },
+    {
+      "from": "oc_polynesia",
+      "to": "la_andes",
+      "type": "sea"
+    },
+    {
+      "from": "oc_polynesia",
+      "to": "na_western_states",
+      "type": "sea"
+    },
+    {
+      "from": "na_launch_base",
+      "to": "moon_near_side_north",
+      "type": "orbit"
+    },
+    {
+      "from": "euro_spaceport",
+      "to": "moon_mare_tranquillitatis",
+      "type": "orbit"
+    },
+    {
+      "from": "asia_cosmodrome",
+      "to": "moon_oceanus_procellarum",
+      "type": "orbit"
+    },
+    {
+      "from": "moon_near_side_north",
+      "to": "moon_mare_imbrium",
+      "type": "land"
+    },
+    {
+      "from": "moon_near_side_north",
+      "to": "moon_mare_tranquillitatis",
+      "type": "land"
+    },
+    {
+      "from": "moon_mare_tranquillitatis",
+      "to": "moon_near_side_south",
+      "type": "land"
+    },
+    {
+      "from": "moon_mare_tranquillitatis",
+      "to": "moon_oceanus_procellarum",
+      "type": "land"
+    },
+    {
+      "from": "moon_mare_imbrium",
+      "to": "moon_oceanus_procellarum",
+      "type": "land"
+    },
+    {
+      "from": "moon_oceanus_procellarum",
+      "to": "moon_near_side_south",
+      "type": "land"
+    },
+    {
+      "from": "moon_oceanus_procellarum",
+      "to": "moon_far_side_north",
+      "type": "land"
+    },
+    {
+      "from": "moon_far_side_north",
+      "to": "moon_far_side_south",
+      "type": "land"
+    },
+    {
+      "from": "moon_far_side_south",
+      "to": "moon_near_side_south",
+      "type": "land"
+    },
+    {
+      "from": "moon_far_side_north",
+      "to": "moon_mare_tranquillitatis",
+      "type": "land"
+    },
+    {
+      "from": "moon_polar_north",
+      "to": "moon_mare_imbrium",
+      "type": "land"
+    },
+    {
+      "from": "moon_polar_north",
+      "to": "moon_near_side_north",
+      "type": "land"
+    },
+    {
+      "from": "moon_polar_north",
+      "to": "moon_far_side_north",
+      "type": "land"
+    },
+    {
+      "from": "moon_polar_south",
+      "to": "moon_near_side_south",
+      "type": "land"
+    },
+    {
+      "from": "moon_polar_south",
+      "to": "moon_far_side_south",
+      "type": "land"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "north_america_2100",
+      "name": "North American Union",
+      "bonus": 5
+    },
+    {
+      "region_id": "europe_2100",
+      "name": "European Confederacy",
+      "bonus": 5
+    },
+    {
+      "region_id": "asia_2100",
+      "name": "Sino-Pacific Zone",
+      "bonus": 7
+    },
+    {
+      "region_id": "sub_saharan_africa_2100",
+      "name": "African Union",
+      "bonus": 4
+    },
+    {
+      "region_id": "middle_east_2100",
+      "name": "Solar Caliphate Core",
+      "bonus": 4
+    },
+    {
+      "region_id": "central_asia_2100",
+      "name": "Central Asia Corridor",
+      "bonus": 3
+    },
+    {
+      "region_id": "latin_america_2100",
+      "name": "South American Bloc",
+      "bonus": 4
+    },
+    {
+      "region_id": "oceania_2100",
+      "name": "Pacific Rim Alliance",
+      "bonus": 3
+    },
+    {
+      "region_id": "coastal_megacities_2100",
+      "name": "Coastal Megacity Belt",
+      "bonus": 6
+    },
+    {
+      "region_id": "lunar_surface",
+      "name": "Lunar Surface",
+      "bonus": 8
+    }
+  ],
+  "is_public": true,
+  "is_moderated": true,
+  "moderation_status": "approved",
+  "creator_id": "system"
+}
