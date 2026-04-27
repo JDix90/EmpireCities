@@ -636,8 +636,26 @@ export function buildTerritoryGlobeGeometries(
       };
     }
 
-    // Explicit map-authored rings (editor drawings). Skipped when Natural Earth paths above win (14 Nations, Hormuz).
-    if (territory.geo_polygon && territory.geo_polygon.length >= 3) {
+    // Explicit map-authored rings (editor drawings). Skipped when Natural Earth
+    // paths above win (14 Nations, Hormuz) OR when a TERRITORY_GEO_CONFIG /
+    // TERRITORY_ISO_MAP entry exists for this territory and the admin-0 country
+    // data is loaded — that lets the era-config path (below) render real country
+    // shapes instead of stale rectangular geo_polygon data (e.g. Space Age Earth
+    // territories whose MongoDB documents still carry old bbox rectangles).
+    const eraConfigEntry =
+      territory.geo_config ?? TERRITORY_GEO_CONFIG[territory.territory_id];
+    const eraIsoCodes =
+      territory.iso_codes ?? TERRITORY_ISO_MAP[territory.territory_id];
+    const hasEraConfig =
+      (eraConfigEntry && eraConfigEntry.length > 0) ||
+      (eraIsoCodes && eraIsoCodes.length > 0);
+    const eraConfigUsable = hasEraConfig && !!countriesGeo && isoToFeatures.size > 0;
+
+    if (
+      territory.geo_polygon &&
+      territory.geo_polygon.length >= 3 &&
+      !eraConfigUsable
+    ) {
       const ring: [number, number][] = [...territory.geo_polygon];
       if (
         ring[0][0] !== ring[ring.length - 1][0] ||
