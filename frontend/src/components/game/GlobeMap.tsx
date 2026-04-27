@@ -19,8 +19,11 @@ import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regio
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
+// NE 50m admin-0 (vs 110m): ~238 ISO codes incl. Samoa, Tonga, Micronesian
+// states, Caribbean micro-states, Hong Kong, Macau, Singapore, Malta — needed
+// to render Space Age Pacific territories and AU 1337 Tui Manu'a/Tonga.
 const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
+  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
 
 /** US states/provinces (admin-1) — used for ACW territory outlines along real state borders */
 const STATES_GEOJSON_URL =
@@ -40,6 +43,8 @@ const STRAIT_HORMUZ_GEOJSON_URL = '/geo/strait_hormuz_admin1.json';
 const AUSTRALIA_GEOJSON_URL = '/geo/australia_1337_admin1.json';
 const BRITAIN_GEOJSON_URL = '/geo/britain_925_admin1.json';
 const HORN_AFRICA_GEOJSON_URL = '/geo/horn_africa_admin1.json';
+/** ne_10m admin-1 subset — 32 Mexican states for community_14_nations Mexico territories */
+const MEXICO_GEOJSON_URL = '/geo/mexico_admin1.json';
 /** Nearly opaque fills so adjacent territories do not read as “bleeding” through each other. */
 const PLAYER_COLORS: Record<string, string> = {
   '#e74c3c': 'rgba(231, 76, 60, 0.96)',
@@ -322,6 +327,8 @@ function GlobeMap({
   const [britainGeo, setBritainGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Horn of Africa admin-1 — community_horn_africa */
   const [hornAfricaGeo, setHornAfricaGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  /** ne_10m Mexican states admin-1 — community_14_nations Mexico tile */
+  const [mexicoGeo, setMexicoGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Bumps when react-globe.gl calls onGlobeReady so we can apply camera after the ref exists */
   const [globeReadyTick, setGlobeReadyTick] = useState(0);
 
@@ -454,6 +461,18 @@ function GlobeMap({
       });
   }, [needsHornAfricaGeo]);
 
+  const needsMexicoGeo = mapData.map_id === 'community_14_nations';
+  useEffect(() => {
+    if (!needsMexicoGeo) { setMexicoGeo(null); return; }
+    fetch(MEXICO_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setMexicoGeo)
+      .catch((err) => {
+        console.warn('Failed to load Mexico admin-1 GeoJSON:', err);
+        setMexicoGeo({ type: 'FeatureCollection', features: [] });
+      });
+  }, [needsMexicoGeo]);
+
   // ── Polygon data (territories) ─────────────────────────────────────────
 
   const polygonsData = useMemo(
@@ -467,8 +486,9 @@ function GlobeMap({
         australiaGeo,
         britainGeo,
         hornAfricaGeo,
+        mexicoGeo,
       }),
-    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo, australiaGeo, britainGeo, hornAfricaGeo],
+    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo, australiaGeo, britainGeo, hornAfricaGeo, mexicoGeo],
   );
 
   const renderedPolygonsData = useMemo(

@@ -269,6 +269,8 @@ export interface GlobeGeometryInputs {
   britainGeo?: GeoJSON.FeatureCollection | null;
   /** ne_10m admin-1 subset — YE/ET/ER/DJ/SO/KE/UG/SS for community_horn_africa */
   hornAfricaGeo?: GeoJSON.FeatureCollection | null;
+  /** ne_10m admin-1 subset — 32 Mexican states for community_14_nations */
+  mexicoGeo?: GeoJSON.FeatureCollection | null;
 }
 
 export interface GlobeMapDataForGeometry {
@@ -294,6 +296,7 @@ export function buildTerritoryGlobeGeometries(
     australiaGeo = null,
     britainGeo = null,
     hornAfricaGeo = null,
+    mexicoGeo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
   const shouldReverseExteriorWinding = mapData.map_id === 'community_flooded_north_america';
@@ -417,6 +420,18 @@ export function buildTerritoryGlobeGeometries(
     }
   }
 
+  const mexicoIso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (mexicoGeo?.features) {
+    for (const f of mexicoGeo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        mexicoIso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
   return mapData.territories.map((raw) => {
     const territory = raw as TerritoryRow;
 
@@ -470,10 +485,18 @@ export function buildTerritoryGlobeGeometries(
     ) {
       const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
       for (const code of c14.admin1) {
-        const g = usIso3166ToGeom.get(code) ?? admin50Iso3166ToGeom.get(code);
+        // Try US states (NE 110m), then Canadian provinces (NE 50m), then
+        // Mexican states (NE 10m, bundled at /geo/mexico_admin1.json).
+        const g =
+          usIso3166ToGeom.get(code) ??
+          admin50Iso3166ToGeom.get(code) ??
+          mexicoIso3166ToGeom.get(code);
         if (g) geoms.push(g);
       }
-      if (c14.fill_country_iso === 'MX' && c14.clip_bbox) {
+      if (c14.fill_country_iso === 'MX' && c14.clip_bbox && c14.admin1.length === 0) {
+        // Legacy fallback: only fill from country polygon if territory has no
+        // admin-1 codes assigned. Once Mexican states are listed, fill_country
+        // is unnecessary (and would double-render).
         const mx = getCountryClippedToBbox('MX', c14.clip_bbox, isoToFeatures);
         if (mx) geoms.push(mx);
       }
