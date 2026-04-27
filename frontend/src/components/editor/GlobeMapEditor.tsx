@@ -8,7 +8,7 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 
 const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson';
+  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
 
 const REGION_COLORS = [
   'rgba(201, 168, 76, 0.6)',

@@ -45,7 +45,30 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
   "na_chinook": { admin1: ["CA-BC","US-OR","US-WA"], clip_bbox: [-130, 44, -122, 49] },
   "na_yakama": { admin1: ["CA-BC","US-ID","US-MT","US-OR","US-WA"], clip_bbox: [-122, 44, -115, 49] },
   "na_crow": { admin1: ["CA-AB","CA-BC","CA-SK","US-ID","US-MT","US-WY"], clip_bbox: [-115, 44, -105, 49] },
-  "na_lakota": { admin1: ["CA-MB","CA-SK","US-MN","US-MT","US-ND","US-SD","US-WY"], clip_bbox: [-105, 44, -96, 49] },
+  "na_lakota": {
+    admin1: ["CA-MB","CA-SK","US-MN","US-MT","US-ND","US-SD","US-WY"],
+    clip_bbox: [-105, 44, -96, 49],
+    // Designer override: Northern Great Plains following the Black Hills /
+    // Missouri River / Red River — replaces the rectangular grid edge.
+    clip_polygon: [[
+      [-105, 49.0],     // Saskatchewan border
+      [-105, 47.5],
+      [-104.5, 47.0],
+      [-104.0, 46.0],   // Belle Fourche
+      [-103.5, 45.5],   // Black Hills W
+      [-103.0, 44.5],   // Black Hills S
+      [-102.5, 44.0],   // Badlands
+      [-100.5, 44.0],   // Missouri river bend
+      [-99.0, 44.2],
+      [-97.0, 44.5],    // James River
+      [-96.0, 45.0],
+      [-96.0, 47.0],    // Red River N
+      [-96.0, 49.0],    // Canadian border
+      [-99.0, 49.0],
+      [-102.0, 49.0],
+      [-105.0, 49.0],
+    ]],
+  },
   "na_potawatomi": { admin1: ["CA-MB","CA-ON","US-MI","US-MN","US-WI"], clip_bbox: [-96, 44, -86, 49] },
   "na_haudenosaunee": { admin1: ["CA-ON","CA-QC","US-MI","US-NY"], clip_bbox: [-86, 44, -76, 49] },
   "na_wabanaki": { admin1: ["CA-NB","CA-NS","CA-ON","CA-QC","US-ME","US-NH","US-NY","US-VT"], clip_bbox: [-76, 44, -66, 49] },
@@ -58,14 +81,82 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
   "na_powhatan": { admin1: ["US-IN","US-KY","US-MD","US-MI","US-NY","US-OH","US-PA","US-VA","US-WV"], clip_bbox: [-86, 39, -76, 44] },
   "na_pomo": { admin1: ["US-CA"], clip_bbox: [-125, 36, -121, 40] },
   "na_chumash": { admin1: ["US-CA","US-NV"], clip_bbox: [-121, 31, -115, 39] },
-  "na_dine": { admin1: ["US-AZ","US-CA","US-CO","US-NM","US-NV","US-UT"], clip_bbox: [-115, 34, -108, 39] },
+  "na_dine": {
+    admin1: ["US-AZ","US-CA","US-CO","US-NM","US-NV","US-UT"],
+    clip_bbox: [-115, 34, -108, 39],
+    // Designer override: Colorado Plateau / Four Corners. Western edge follows
+    // the Colorado River / Grand Canyon; southern edge follows Mogollon Rim
+    // and Salt/Gila River headwaters; eastern edge follows the NM Continental
+    // Divide; northern edge stays at the Utah/Colorado border.
+    clip_polygon: [[
+      [-115.0, 39.0],
+      [-114.5, 38.5],
+      [-113.5, 37.0],   // Glen Canyon / Lake Powell
+      [-113.0, 36.0],   // Grand Canyon W
+      [-112.5, 35.5],
+      [-111.5, 34.5],   // Mogollon Rim
+      [-110.5, 34.2],   // Salt River
+      [-109.5, 34.0],   // Gila headwaters
+      [-108.5, 34.5],
+      [-108.0, 35.5],
+      [-108.0, 37.0],
+      [-108.0, 38.5],   // NM/CO border
+      [-109.0, 39.0],   // Four Corners
+      [-111.0, 39.0],
+      [-113.0, 39.0],
+      [-115.0, 39.0],
+    ]],
+  },
   "na_pueblo": { admin1: ["US-CO","US-NM","US-OK","US-TX"], clip_bbox: [-108, 33, -103, 39] },
   "na_comanche": { admin1: ["US-CO","US-KS","US-OK","US-TX"], clip_bbox: [-103, 33, -96, 39] },
   "na_caddo": { admin1: ["US-AR","US-KS","US-LA","US-MO","US-MS","US-OK","US-TX"], clip_bbox: [-96, 33, -91, 39] },
-  "na_cherokee": { admin1: ["US-AL","US-AR","US-GA","US-IL","US-IN","US-KY","US-MO","US-MS","US-NC","US-OH","US-SC","US-TN","US-VA"], clip_bbox: [-91, 33, -83, 39] },
+  "na_cherokee": {
+    admin1: ["US-AL","US-AR","US-GA","US-IL","US-IN","US-KY","US-MO","US-MS","US-NC","US-OH","US-SC","US-TN","US-VA"],
+    clip_bbox: [-91, 33, -83, 39],
+    // Designer override: Southeast Highlands. Western edge follows the
+    // Mississippi River from St. Louis to Memphis, then bends along the
+    // Tennessee River into N Alabama; eastern edge climbs the Smokies
+    // through the Cumberland Gap into Ohio Valley.
+    clip_polygon: [[
+      [-91.0, 39.0],
+      [-91.0, 36.5],    // Ozarks SE
+      [-90.5, 36.0],
+      [-90.0, 35.5],    // Mississippi River
+      [-89.5, 35.0],    // Memphis
+      [-88.5, 35.0],    // TN/MS border
+      [-87.0, 34.5],    // N Alabama
+      [-86.0, 34.0],    // Birmingham
+      [-85.0, 33.5],    // GA central
+      [-84.0, 33.0],    // Atlanta SW
+      [-83.5, 33.5],
+      [-83.0, 34.5],    // Smokies
+      [-83.0, 36.5],    // VA/NC
+      [-83.0, 38.0],    // Cumberland Gap
+      [-83.0, 39.0],
+      [-91.0, 39.0],
+    ]],
+  },
   "na_tuscarora": { admin1: ["US-DC","US-GA","US-KY","US-MD","US-NC","US-OH","US-SC","US-TN","US-VA","US-WV"], clip_bbox: [-83, 33, -76, 39] },
   "na_yavapai": { admin1: ["US-AZ","US-CA","US-NM"], clip_bbox: [-115, 27, -108, 34] },
-  "na_apache": { admin1: ["US-NM","US-TX"], clip_bbox: [-108, 27, -103, 33] },
+  "na_apache": {
+    admin1: ["US-NM","US-TX"],
+    clip_bbox: [-108, 27, -103, 33],
+    // Designer override: Trans-Pecos / Apache homeland. Southern boundary
+    // traces the Rio Grande from Hatchita through El Paso and Big Bend.
+    clip_polygon: [[
+      [-108.0, 33.0],
+      [-107.5, 32.0],   // Cooke's Range
+      [-107.0, 31.3],   // Hatchita / NM border
+      [-106.5, 31.2],   // El Paso
+      [-105.5, 31.5],   // Davis Mountains foothills
+      [-104.5, 30.0],   // Big Bend
+      [-103.5, 29.5],   // Rio Grande bend
+      [-103.0, 30.0],
+      [-103.0, 31.5],
+      [-103.0, 33.0],
+      [-108.0, 33.0],
+    ]],
+  },
   "na_jumano": { admin1: ["US-TX"], clip_bbox: [-103, 27, -96, 33] },
   "na_chickasaw": { admin1: ["US-LA","US-MS","US-TX"], clip_bbox: [-96, 27, -90, 33] },
   "na_muscogee": { admin1: ["US-AL","US-FL","US-GA","US-LA","US-MS"], clip_bbox: [-90, 27, -84, 33] },
@@ -92,12 +183,42 @@ export const COMMUNITY_14N_TERRITORY_GEO: Record<string, Community14nTerritoryGe
       [-84.0, 33.0],   // close
     ]],
   },
-  "na_tohono": { admin1: [], clip_bbox: [-115, 21, -107, 27], fill_country_iso: "MX" },
-  "na_coahuiltecos": { admin1: ["US-TX"], clip_bbox: [-107, 21, -98, 27], fill_country_iso: "MX" },
-  "na_huastec": { admin1: ["US-TX"], clip_bbox: [-98, 21, -90, 27], fill_country_iso: "MX" },
-  "na_purepecha": { admin1: [], clip_bbox: [-107, 15, -100, 21], fill_country_iso: "MX" },
-  "na_mexica": { admin1: [], clip_bbox: [-100, 15, -94, 21], fill_country_iso: "MX" },
-  "na_maya": { admin1: [], clip_bbox: [-94, 15, -86, 21], fill_country_iso: "MX" },
+  // ── Mexico territories: organic borders via Mexican state unions ────────
+  // Each Mexican state is assigned to exactly ONE 14 Nations territory, so
+  // the territory boundaries on the globe follow real Mexican state borders
+  // (Sierra Madre divides, river boundaries, etc.) instead of whole-degree
+  // grid lines. Mexican admin-1 data loaded from /geo/mexico_admin1.json
+  // (NE 10m subset, 33 features). No clip_bbox = natural state borders.
+
+  // NW Pacific: Baja peninsula + Sonora + Sinaloa
+  "na_tohono": {
+    admin1: ["MX-BCN", "MX-BCS", "MX-SON", "MX-SIN"],
+  },
+  // NE Mexico: Sierra Madre interior states
+  // Includes US-TX southern strip (the original 14N design tiled the lower
+  // Texas triangle with this territory, since Tamaulipas owns the Gulf side).
+  "na_coahuiltecos": {
+    admin1: ["MX-CHH", "MX-COA", "MX-NLE", "MX-DUR", "MX-ZAC", "MX-SLP", "US-TX"],
+    clip_bbox: [-107, 21, -98, 30],
+  },
+  // Gulf coast NE: Tamaulipas only (US-TX was claimed by na_coahuiltecos
+  // via clip_bbox — keep just the pure Mexican state for organic border).
+  "na_huastec": { admin1: ["MX-TAM"] },
+  // West Pacific: Nayarit/Jalisco/Colima/Michoacán/Aguascalientes/Guerrero
+  "na_purepecha": {
+    admin1: ["MX-NAY", "MX-JAL", "MX-COL", "MX-MIC", "MX-AGU", "MX-GRO"],
+  },
+  // Central highlands: Mexico City + surrounding states + Veracruz + Oaxaca
+  "na_mexica": {
+    admin1: [
+      "MX-DIF", "MX-MEX", "MX-MOR", "MX-PUE", "MX-TLA",
+      "MX-HID", "MX-QUE", "MX-GUA", "MX-VER", "MX-OAX",
+    ],
+  },
+  // SE Mexico: Yucatán peninsula + Chiapas highlands + Tabasco
+  "na_maya": {
+    admin1: ["MX-YUC", "MX-ROO", "MX-CAM", "MX-CHP", "MX-TAB"],
+  },
 };
 
 export function isCommunity14nTerritory(territoryId: string): boolean {

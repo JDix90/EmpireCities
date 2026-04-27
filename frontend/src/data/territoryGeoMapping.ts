@@ -537,11 +537,25 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // Oceania
   oc_australia: [{ iso: 'AU' }],
   oc_new_zealand: [{ iso: 'NZ' }],
-  // oc_micronesia + oc_polynesia removed from TERRITORY_GEO_CONFIG: NE 110m
-  // does not include FM/MH/PW/GU/MP/WS/TO/KI/TV/NU/CK/PF (small Pacific
-  // states), so the union returns nothing and falls back to the densified
-  // geo_polygon authored in era_space_age.json. Re-add when a higher-resolution
-  // admin-0 source is loaded.
+  // Now that GlobeMap loads NE 50m admin-0, all small Pacific island states
+  // are present and these territories render as proper island clusters.
+  oc_micronesia: [
+    { iso: 'FM' },
+    { iso: 'MH' },
+    { iso: 'PW' },
+    { iso: 'GU' },
+    { iso: 'MP' },
+  ],
+  oc_polynesia: [
+    { iso: 'WS' },
+    { iso: 'TO' },
+    { iso: 'FJ' },
+    { iso: 'KI' },
+    { iso: 'TV' },
+    { iso: 'NU' },
+    { iso: 'CK' },
+    { iso: 'PF' },
+  ],
 
   // Coastal Megacities (E China coast — Shanghai/Shandong corridor only;
   // Korean peninsula is owned by asia_korea_archipelago).
