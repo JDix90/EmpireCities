@@ -241,8 +241,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // North America
   na_arctic_dominion: [
     { iso: 'CA', clip_bbox: [-141, 60, -60, 83] },
-    { iso: 'US', clip_bbox: [-170, 60, -130, 72] }, // Alaska north slope
-    { iso: 'GL', clip_bbox: [-75, 60, -10, 84] }, // Greenland (if present in NE 110m)
+    // ALL of Alaska including the south coast + Aleutian chain (was lat 60+ only,
+    // leaving Anchorage/Juneau/Aleutians as a visible gap on the globe).
+    { iso: 'US', clip_bbox: [-180, 50, -130, 72] },
+    { iso: 'GL', clip_bbox: [-75, 60, -10, 84] }, // Greenland
   ],
   na_western_states: [
     { iso: 'US', clip_bbox: [-125, 32, -100, 50] },
@@ -266,7 +268,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'NI' },
     { iso: 'CR' },
     { iso: 'PA' },
-    { iso: 'US', clip_bbox: [-115, 25, -100, 32] }, // US-MX border strip (TX/AZ/NM south)
+    // Extended US strip to lng -85 (was -100). Now covers TX east + LA + MS +
+    // AL + AR south + N FL panhandle that were previously a brown gap on the
+    // globe between na_central_plains (lat 32+) and na_launch_base (lng -85+).
+    { iso: 'US', clip_bbox: [-115, 25, -85, 32] },
   ],
 
   // Latin America
@@ -490,23 +495,34 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'LK' },
   ],
 
-  // Asia
+  // Asia — China is partitioned into 4 territories. The four CN clip_bboxes
+  // tile cleanly (no overlap, no gap) across CN's full extent.
   asia_cosmodrome: [
-    { iso: 'CN', clip_bbox: [73, 36, 115, 50] }, // N China + Inner Mongolia
+    // North China + Inner Mongolia + Manchuria (was 73-115, 36-50; expanded
+    // east to lng 135 to absorb the Manchuria piece previously stuffed into
+    // asia_korea_archipelago, which produced a visible rectangular cut).
+    { iso: 'CN', clip_bbox: [73, 38, 135, 54] },
   ],
   asia_heartland: [
-    { iso: 'CN', clip_bbox: [100, 22, 115, 36] }, // inland central China (excludes E coast)
+    // Central China — Tibet, Yunnan, Sichuan, Hubei, Hunan, Henan inland.
+    // Was [100, 22, 115, 36] — left Tibet (73-100) and W Yunnan as gaps.
+    // Now covers full lng 73-115 from southern border up to lat 38.
+    { iso: 'CN', clip_bbox: [73, 22, 115, 38] },
   ],
   asia_coastal: [
-    { iso: 'CN', clip_bbox: [115, 18, 125, 24] }, // S China coast
+    // South China coast: Guangxi, Guangdong, Hainan, Fujian, plus HK/MO/TW.
+    // Was [115, 18, 125, 24] — too narrow. Extended west to lng 100 to
+    // capture Hainan and southern Guangxi.
+    { iso: 'CN', clip_bbox: [100, 18, 125, 24] },
     { iso: 'HK' },
     { iso: 'MO' },
     { iso: 'TW' },
   ],
   asia_korea_archipelago: [
+    // Korea peninsula only — dropped the CN [125-135, 38-45] (Manchuria) clip
+    // that produced an unnatural rectangular cut on the China mainland.
     { iso: 'KR' },
     { iso: 'KP' },
-    { iso: 'CN', clip_bbox: [125, 38, 135, 45] }, // NE China (Manchuria)
   ],
   asia_indochina: [
     { iso: 'TH' },
@@ -557,10 +573,12 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'PF' },
   ],
 
-  // Coastal Megacities (E China coast — Shanghai/Shandong corridor only;
-  // Korean peninsula is owned by asia_korea_archipelago).
+  // Coastal Megacities — E China coast: Shanghai + Shandong + Hebei + Tianjin
+  // + Beijing corridor. Extended north to lat 38 (was 32) to cover the
+  // Beijing/Hebei/Shandong gap that was visible on the globe between
+  // megacity_pacific_rim and asia_cosmodrome.
   megacity_pacific_rim: [
-    { iso: 'CN', clip_bbox: [115, 24, 125, 32] },
+    { iso: 'CN', clip_bbox: [115, 24, 125, 38] },
   ],
 };
 
