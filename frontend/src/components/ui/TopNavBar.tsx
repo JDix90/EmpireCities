@@ -4,6 +4,7 @@ import {
   HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
+import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
 
 type NavItem = {
   to: string;
@@ -29,6 +30,10 @@ const mainNav: NavItem[] = [
 
 export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () => void }) {
   const location = useLocation();
+  // Admin nav visibility is gated off the access-token claim, not the
+  // persisted user.is_admin field — see selectIsAdminFromToken docstring.
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const isAdmin = selectIsAdminFromToken(accessToken);
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to;
     return location.pathname.startsWith(to) && to !== '/';
@@ -43,7 +48,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       <div className={styles.mainNav}>
         <div className={styles.navLinks}>
           {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, exact }) =>
-            (!hideForGuest || !user?.is_guest) && (!hideForNonAdmin || user?.is_admin) && (
+            (!hideForGuest || !user?.is_guest) && (!hideForNonAdmin || isAdmin) && (
               <Link
                 key={to}
                 to={to}

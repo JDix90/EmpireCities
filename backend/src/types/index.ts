@@ -109,6 +109,10 @@ export interface PlayerState {
   temporary_modifiers?: TemporaryModifier[];
   /** Cumulative card sets redeemed this game (card_shark achievement). */
   cards_redeemed_count?: number;
+  /** Cumulative draft-unit bonus accrued from card redemptions this game. */
+  card_set_bonus_units?: number;
+  /** High-water mark of territory count (updated whenever territory_count changes). */
+  peak_territory_count?: number;
   /** Territories captured in the current turn; reset at turn start (blitzkrieg achievement). */
   territories_captured_this_turn?: number;
   /**
@@ -123,6 +127,13 @@ export interface PlayerState {
   truces_established?: string[];
   /** ID of the last opponent this player attacked (used for event card truce targeting). */
   last_attacked_player_id?: string;
+  /**
+   * Pending retaliation bonuses earned when an opponent broke a truce with this player.
+   * Each entry grants +dice_bonus attack dice on the player's NEXT land attack against
+   * `against_player_id`. The entry is consumed (removed) after the first such attack,
+   * regardless of combat outcome.
+   */
+  truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
   space_station_launched?: boolean;
 }
@@ -171,6 +182,13 @@ export interface GameSettings {
   stability_enabled?: boolean;
   /** Players take turns selecting starting territories instead of auto-assignment. */
   territory_selection?: boolean;
+  /**
+   * In-turn coaching opt-in. Surfaces a single advisory tip at the start of
+   * each human draft phase. Server-side eligibility (1 human + all AI + unranked)
+   * is enforced separately via `GameState.coaching_eligible`; this flag is the
+   * player's preference *within* an eligible game.
+   */
+  coaching_enabled?: boolean;
   /** True when this game is part of a campaign sequence. */
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
@@ -265,6 +283,59 @@ export interface WinProbabilitySnapshot {
   probabilities: Record<string, number>; // player_id → 0–1
 }
 
+/** Categorization of a logged player decision; powers post-match turning-point analysis. */
+export type ActionDecisionType =
+  | 'attack'
+  | 'naval_attack'
+  | 'fortify'
+  | 'naval_move'
+  | 'draft'
+  | 'redeem_cards'
+  | 'build'
+  | 'research'
+  | 'ability'
+  | 'influence'
+  | 'event_choice';
+
+/**
+ * Per-action win-probability attribution. The server captures a player's win
+ * probability immediately before and after each mutating action; the delta is
+ * the exact, observed contribution of that decision to the eventual outcome.
+ *
+ * Lives in-memory on the Room object during the game; persisted into
+ * match_insight_reports.insights_json at finalize time so post-game analysis
+ * can identify true turning points without inferring causation from outcomes.
+ */
+export interface ActionDecision {
+  step: number;
+  turn: number;
+  player_id: string;
+  action_type: ActionDecisionType;
+  summary: string;
+  prob_before: number;
+  prob_after: number;
+  prob_delta: number;
+}
+
+/** Categories of in-turn coaching tips, ranked by display priority (lower = higher priority). */
+export type CoachingTipCategory =
+  | 'probability_drop'      // Win prob dropped meaningfully last turn — diagnostic
+  | 'opponent_region_threat' // Opponent close to completing a region — defensive warning
+  | 'region_opportunity'     // Player close to completing a region — offensive opportunity
+  | 'thin_border';           // Owned border territory has 1 unit next to enemy
+
+/**
+ * A single coaching tip surfaced at the start of a human player's turn.
+ * Only one tip is emitted per turn (highest priority detector wins). Suppressed
+ * when no detector fires.
+ */
+export interface CoachingTip {
+  turn: number;
+  category: CoachingTipCategory;
+  title: string;
+  body: string;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -284,12 +355,20 @@ export interface GameState {
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
   draft_placements_this_turn?: Record<string, number>;
   turn_started_at: number;       // Unix timestamp ms
+  /** Unix ms timestamp when the game first transitioned to `in_progress`. Used for post-game duration. */
+  game_started_at?: number;
   winner_id?: string;
   /** All winner IDs — more than one when alliance_victory occurs. */
   winner_ids?: string[];
   /** Which victory condition triggered the win. */
   victory_condition?: VictoryConditionKey;
   win_probability_history?: WinProbabilitySnapshot[];
+  /**
+   * True when the game qualifies for in-turn coaching: exactly one human
+   * player, every other player is AI, and the game is not ranked. Locked at
+   * game start; the human can still opt in/out via `settings.coaching_enabled`.
+   */
+  coaching_eligible?: boolean;
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;
@@ -297,6 +376,18 @@ export interface GameState {
   influence_cooldown_remaining?: number;
   /** Whether a Blitzkrieg (WW2) bonus attack has been used this turn. */
   blitzkrieg_attacked?: boolean;
+  /**
+   * Blitzkrieg active flag — set when the player activates the ability. While
+   * true, the next territory the player captures unlocks a one-shot bonus
+   * attack originating from the same source territory. Cleared when the
+   * bonus is consumed or the turn ends.
+   */
+  blitzkrieg_active?: boolean;
+  /**
+   * Source territory id of the pending bonus attack. Non-null only between a
+   * Blitzkrieg-eligible capture and the first attack from that same source.
+   */
+  blitzkrieg_bonus_source_id?: string | null;
   /** Currently active event card awaiting resolution (events feature). */
   active_event?: EventCard;
   /** Transient: result of last instant event effect application (cleared after broadcast). */

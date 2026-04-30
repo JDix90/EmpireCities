@@ -2,6 +2,7 @@
 // Event Card Manager — draw, apply effects, resolve choices
 // ============================================================
 
+import { randomInt } from 'crypto';
 import type {
   GameState,
   EventCard,
@@ -44,7 +45,8 @@ export function getEraDeck(eraId: EraId): EventCard[] {
 /** Draw a random card from a deck. Returns undefined if deck is empty. */
 export function drawRandomCard(deck: EventCard[]): EventCard | undefined {
   if (deck.length === 0) return undefined;
-  return deck[Math.floor(Math.random() * deck.length)];
+  // CSPRNG so the next event card cannot be predicted by clients.
+  return deck[randomInt(0, deck.length)];
 }
 
 /**
@@ -121,7 +123,7 @@ export function applyEventEffect(
         (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id,
       );
       if (opponents.length > 0) {
-        const opponent = opponents[Math.floor(Math.random() * opponents.length)];
+        const opponent = opponents[randomInt(0, opponents.length)];
         const entries = Object.entries(state.territories)
           .filter(([, t]) => t.owner_id === opponent.player_id)
           .sort(([, a], [, b]) => b.unit_count - a.unit_count);
@@ -179,7 +181,7 @@ export function applyEventEffect(
           });
         }
         if (!opponent) {
-          opponent = opponents[Math.floor(Math.random() * opponents.length)];
+          opponent = opponents[randomInt(0, opponents.length)];
         }
         const entry = state.diplomacy.find(
           (d) =>

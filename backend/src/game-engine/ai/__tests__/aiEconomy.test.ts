@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectAiBuildingPlacement, selectAiTechResearch } from '../aiBot';
+import { selectAiBuildingPlacement, selectAiTechResearch, computeAiTurn } from '../aiBot';
 import type { GameState, PlayerState, TerritoryState, GameSettings, GameMap } from '../../../types';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -254,5 +254,177 @@ describe('selectAiTechResearch', () => {
       settings: makeSettings({ tech_trees_enabled: true }),
     });
     expect(selectAiTechResearch(state, 'p1', 'expert')).toBe('ancient_iron_weapons');
+  });
+});
+
+// ── Naval AI behavior ────────────────────────────────────────────────────────
+//
+// Coverage for the AI's port-building + sea-attack gating that the user
+// reported as missing: when `naval_enabled` is on, the AI must build ports
+// to accumulate fleets, and must not waste its attack budget on sea-lane
+// targets it can't actually traverse.
+
+/** Map with two coastal landmasses connected by a sea lane: t1 (mainland)
+ *  and t3 (island). t1—t2 land connection; t2—t3 sea connection. */
+function makeNavalMap(): GameMap {
+  return {
+    map_id: 'naval_map',
+    name: 'Naval',
+    territories: [
+      { territory_id: 't1', name: 'T1', center_x: 0,  center_y: 0, region_id: 'r1', svg_path: '' },
+      { territory_id: 't2', name: 'T2', center_x: 10, center_y: 0, region_id: 'r1', svg_path: '' },
+      { territory_id: 't3', name: 'T3', center_x: 30, center_y: 0, region_id: 'r2', svg_path: '' },
+    ],
+    connections: [
+      { from: 't1', to: 't2', type: 'land' },
+      { from: 't2', to: 't3', type: 'sea' },
+    ],
+    regions: [],
+    canvas_width: 800,
+    canvas_height: 600,
+  // @ts-expect-error — test helper uses simplified MapTerritory/MapConnection shape
+  } as GameMap;
+}
+
+describe('selectAiBuildingPlacement (naval)', () => {
+  it('builds a port on a coastal territory with sea-adjacent enemy when naval_enabled', () => {
+    // p1 owns t1 (interior) and t2 (coastal); p2 owns t3 (island, sea-adjacent to t2).
+    const state = makeState({
+      players: [makePlayer('p1', 0, { special_resource: 20 }), makePlayer('p2', 1)],
+      settings: makeSettings({ economy_enabled: true, naval_enabled: true }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 5),
+        t2: makeTerritory('t2', 'p1', 4, { naval_units: 0 }),
+        t3: makeTerritory('t3', 'p2', 3, { naval_units: 0 }),
+      },
+    });
+    const result = selectAiBuildingPlacement(state, makeNavalMap(), 'p1', 'medium');
+    expect(result).not.toBeNull();
+    expect(result!.buildingType).toBe('port');
+    expect(result!.territoryId).toBe('t2');
+  });
+
+  it('does not build a port when naval_enabled is off (regression: no behavior change)', () => {
+    const state = makeState({
+      players: [makePlayer('p1', 0, { special_resource: 20 }), makePlayer('p2', 1)],
+      settings: makeSettings({ economy_enabled: true, naval_enabled: false }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 5),
+        t2: makeTerritory('t2', 'p1', 4, { naval_units: 0 }),
+        t3: makeTerritory('t3', 'p2', 3, { naval_units: 0 }),
+      },
+    });
+    const result = selectAiBuildingPlacement(state, makeNavalMap(), 'p1', 'medium');
+    // Falls through to production_1 priority on t1/t2 — never picks 'port'.
+    expect(result?.buildingType).not.toBe('port');
+  });
+
+  it('does not build a port when no enemy is reachable by sea', () => {
+    // p1 owns all three territories; t3 is friendly so no sea-adjacent enemy.
+    const state = makeState({
+      players: [makePlayer('p1', 0, { special_resource: 20 }), makePlayer('p2', 1)],
+      settings: makeSettings({ economy_enabled: true, naval_enabled: true }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 5),
+        t2: makeTerritory('t2', 'p1', 4, { naval_units: 0 }),
+        t3: makeTerritory('t3', 'p1', 3, { naval_units: 0 }),
+      },
+    });
+    const result = selectAiBuildingPlacement(state, makeNavalMap(), 'p1', 'medium');
+    expect(result?.buildingType).not.toBe('port');
+  });
+
+  it('hard: upgrades existing port to naval_base before adding a second port', () => {
+    // p1 already has a port on t2; should upgrade to naval_base for double income.
+    const state = makeState({
+      players: [makePlayer('p1', 0, { special_resource: 30 }), makePlayer('p2', 1)],
+      settings: makeSettings({ economy_enabled: true, naval_enabled: true }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 5),
+        t2: makeTerritory('t2', 'p1', 4, { naval_units: 1, buildings: ['port'] }),
+        t3: makeTerritory('t3', 'p2', 3, { naval_units: 0 }),
+      },
+    });
+    const result = selectAiBuildingPlacement(state, makeNavalMap(), 'p1', 'hard');
+    expect(result?.buildingType).toBe('naval_base');
+    expect(result?.territoryId).toBe('t2');
+  });
+});
+
+describe('computeAiTurn (naval sea-attack gating)', () => {
+  it('does not plan sea-lane attacks when source has 0 fleets', () => {
+    // p1 owns t2 (coastal) with units but 0 fleets; p2 owns t3 (sea-adjacent).
+    // The AI must NOT plan an attack t2→t3 because the runtime would skip it
+    // and the AI would silently waste its attack budget.
+    const state = makeState({
+      players: [makePlayer('p1', 0), makePlayer('p2', 1)],
+      settings: makeSettings({ naval_enabled: true, economy_enabled: false }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 3),
+        t2: makeTerritory('t2', 'p1', 8, { naval_units: 0 }),
+        t3: makeTerritory('t3', 'p2', 2, { naval_units: 0 }),
+      },
+    });
+    const actions = computeAiTurn(state, makeNavalMap(), 'medium');
+    const seaAttackPlanned = actions.some(
+      (a) => a.type === 'attack' && a.from === 't2' && a.to === 't3',
+    );
+    expect(seaAttackPlanned).toBe(false);
+  });
+
+  it('plans a sea-lane attack when source has at least one fleet', () => {
+    const state = makeState({
+      players: [makePlayer('p1', 0), makePlayer('p2', 1)],
+      settings: makeSettings({ naval_enabled: true, economy_enabled: false }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 3),
+        t2: makeTerritory('t2', 'p1', 8, { naval_units: 1, buildings: ['port'] }),
+        t3: makeTerritory('t3', 'p2', 2, { naval_units: 0 }),
+      },
+    });
+    const actions = computeAiTurn(state, makeNavalMap(), 'medium');
+    const seaAttackPlanned = actions.some(
+      (a) => a.type === 'attack' && a.from === 't2' && a.to === 't3',
+    );
+    expect(seaAttackPlanned).toBe(true);
+  });
+
+  it('caps planned sea-lane attacks at the available fleet count from a single source', () => {
+    // Two enemy targets sea-connected to t2 but only 1 fleet available.
+    const map: GameMap = {
+      map_id: 'naval_dual',
+      name: 'NavalDual',
+      territories: [
+        { territory_id: 't1', name: 'T1', center_x: 0, center_y: 0, region_id: 'r1', svg_path: '' },
+        { territory_id: 't2', name: 'T2', center_x: 10, center_y: 0, region_id: 'r1', svg_path: '' },
+        { territory_id: 't3', name: 'T3', center_x: 30, center_y: 0, region_id: 'r2', svg_path: '' },
+        { territory_id: 't4', name: 'T4', center_x: 30, center_y: 20, region_id: 'r2', svg_path: '' },
+      ],
+      connections: [
+        { from: 't1', to: 't2', type: 'land' },
+        { from: 't2', to: 't3', type: 'sea' },
+        { from: 't2', to: 't4', type: 'sea' },
+      ],
+      regions: [],
+      canvas_width: 800,
+      canvas_height: 600,
+    // @ts-expect-error — test helper uses simplified MapTerritory shape
+    } as GameMap;
+
+    const state = makeState({
+      players: [makePlayer('p1', 0), makePlayer('p2', 1)],
+      settings: makeSettings({ naval_enabled: true, economy_enabled: false }),
+      territories: {
+        t1: makeTerritory('t1', 'p1', 3),
+        t2: makeTerritory('t2', 'p1', 12, { naval_units: 1, buildings: ['port'] }),
+        t3: makeTerritory('t3', 'p2', 1, { naval_units: 0 }),
+        t4: makeTerritory('t4', 'p2', 1, { naval_units: 0 }),
+      },
+    });
+    const actions = computeAiTurn(state, map, 'medium');
+    const seaAttacksFromT2 = actions.filter(
+      (a) => a.type === 'attack' && a.from === 't2' && (a.to === 't3' || a.to === 't4'),
+    );
+    expect(seaAttacksFromT2.length).toBeLessThanOrEqual(1);
   });
 });

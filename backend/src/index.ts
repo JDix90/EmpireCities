@@ -20,6 +20,8 @@ import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
 import { mapsRoutes } from './modules/maps/maps.routes';
 import { initGameSocket, shutdownGameSocket, getActiveGameMetrics, getGameIo, emitWaitingLobbySnapshotPublic } from './sockets/gameSocket';
+import { initRtsSocketNamespace } from './sockets/rtsSocket';
+import { rtsRoutes } from './modules/rts/rts.routes';
 import { runReadinessChecks } from './health/readiness';
 import { featureFlags } from './config/featureFlags';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
@@ -59,8 +61,37 @@ async function bootstrap(): Promise<void> {
 
   registerErrorHandler(app);
 
+  // CSP: defense-in-depth against XSS, on top of the input-validation and
+  // textContent rendering fixes. Tenor is whitelisted because chat embeds
+  // sourced GIFs from media1?.tenor.com (see GameChat.tsx). The Three.js
+  // globe textures live on jsdelivr; if you change the image CDN update
+  // imgSrc as well. `'unsafe-inline'` is currently required for Tailwind's
+  // JIT-injected style blocks; remove once we extract them to a stylesheet.
   await app.register(fastifyHelmet, {
-    contentSecurityPolicy: false,
+    contentSecurityPolicy:
+      config.nodeEnv === 'production'
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: [
+                "'self'",
+                'data:',
+                'blob:',
+                'https://media.tenor.com',
+                'https://media1.tenor.com',
+                'https://cdn.jsdelivr.net',
+              ],
+              fontSrc: ["'self'", 'data:'],
+              connectSrc: ["'self'", ...config.corsOrigins, 'wss:', 'https:'],
+              frameAncestors: ["'none'"],
+              objectSrc: ["'none'"],
+              baseUri: ["'self'"],
+              formAction: ["'self'"],
+            },
+          }
+        : false,
   });
 
   await app.register(fastifyCors, {
@@ -101,6 +132,7 @@ async function bootstrap(): Promise<void> {
 
   await app.register(usersRoutes, { prefix: '/api/users' });
   await app.register(gamesRoutes, { prefix: '/api/games' });
+  await app.register(rtsRoutes, { prefix: '/api/rts' });
   await app.register(mapsRoutes, { prefix: '/api/maps' });
   await app.register(matchmakingRoutes, { prefix: '/api/matchmaking' });
   await app.register(dailyRoutes, { prefix: '/api/daily' });
@@ -258,6 +290,7 @@ async function bootstrap(): Promise<void> {
 
   await app.ready();
   const io = initGameSocket(app.server);
+  initRtsSocketNamespace(io);
   setMatchmakingIo(io);
   startMatchmakingSweep();
   startAsyncDeadlineWorker();

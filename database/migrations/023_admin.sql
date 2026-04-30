@@ -1,9 +1,9 @@
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 
-UPDATE users
-SET is_admin = TRUE
-WHERE email = 'dicksonj90@gmail.com';
+-- Admin bootstrapping is intentionally NOT done here.
+-- Run: pnpm --filter backend run grant-admin -- your@email.com
+-- This avoids hardcoding credentials in version-controlled migration files.
 
 CREATE TABLE IF NOT EXISTS admin_config (
   config_key TEXT PRIMARY KEY,

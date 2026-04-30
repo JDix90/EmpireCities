@@ -9,6 +9,7 @@ import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
 import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
+import { REGION_CSS_COLORS } from '../../constants/regionColors';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -16,6 +17,7 @@ interface TerritoryPanelProps {
     name: string;
     region_id: string;
   }>;
+  mapRegions?: Array<{ region_id: string; name: string; bonus: number }>;
   onAttack: (fromId: string, toId: string) => void;
   onDraft: (territoryId: string, units: number) => void;
   onBuild?: (buildingType: string) => void;
@@ -29,6 +31,7 @@ interface TerritoryPanelProps {
 
 export default function TerritoryPanel({
   mapTerritories,
+  mapRegions,
   onAttack,
   onDraft,
   onBuild,
@@ -72,6 +75,18 @@ export default function TerritoryPanel({
   const isMobile = isMobileViewport();
   const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
+  // Pre-compute the truce relationship with this territory's owner so both the Combat and
+  // Diplomacy sections can share the result without redundant lookups.
+  const activeTruceEntry = myPlayer && owner
+    ? gameState.diplomacy?.find(
+        (e) =>
+          (e.player_index_a === myPlayer.player_index && e.player_index_b === owner.player_index) ||
+          (e.player_index_a === owner.player_index && e.player_index_b === myPlayer.player_index),
+      )
+    : undefined;
+  const hasActiveTruce =
+    activeTruceEntry?.status === 'truce' && (activeTruceEntry.truce_turns_remaining ?? 0) > 0;
+
   return (
     <div
       ref={isMobile ? sheetRef : undefined}
@@ -106,6 +121,48 @@ export default function TerritoryPanel({
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Region Badge */}
+      {(() => {
+        if (!mapRegions || !mapTerritory.region_id || mapTerritory.region_id === 'sea_routes') return null;
+        const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
+        if (!regionDef) return null;
+        const regionIdx = mapRegions.indexOf(regionDef);
+        const regionColor = REGION_CSS_COLORS[regionIdx % REGION_CSS_COLORS.length];
+        const regionTerritories = mapTerritories.filter((t) => t.region_id === mapTerritory.region_id);
+        const totalInRegion = regionTerritories.length;
+        const ownedInRegion = myPlayerId
+          ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
+          : 0;
+        const controlsRegion = !!myPlayerId && totalInRegion > 0 && ownedInRegion === totalInRegion;
+        return (
+          <div className="mb-3 px-3 py-2 rounded-lg bg-cc-dark border border-cc-border text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: regionColor }} />
+                <span className="font-semibold text-cc-text truncate">{regionDef.name}</span>
+              </div>
+              <span className="font-mono text-cc-gold font-semibold shrink-0 ml-2">+{regionDef.bonus}</span>
+            </div>
+            {myPlayerId && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${totalInRegion > 0 ? (ownedInRegion / totalInRegion) * 100 : 0}%`,
+                      backgroundColor: controlsRegion ? '#ffd700' : regionColor,
+                    }}
+                  />
+                </div>
+                <span className={clsx('font-mono tabular-nums shrink-0', controlsRegion ? 'text-cc-gold' : 'text-cc-muted')}>
+                  {ownedInRegion}/{totalInRegion}{controlsRegion && ' ✓'}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Unit Count */}
       <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
@@ -210,12 +267,21 @@ export default function TerritoryPanel({
                 </button>
               )}
               {attackSource && isEnemy && attackSource !== selectedTerritory && (
-                <button
-                  className="btn-danger w-full text-sm flex items-center justify-center gap-2"
-                  onClick={() => onAttack(attackSource, selectedTerritory)}
-                >
-                  <Sword className="w-4 h-4" /> Attack from {attackSource.slice(0, 8)}...
-                </button>
+                hasActiveTruce ? (
+                  <button
+                    className="btn-warning w-full text-sm flex items-center justify-center gap-2"
+                    onClick={() => onAttack(attackSource, selectedTerritory)}
+                  >
+                    ⚠ Break Truce &amp; Attack
+                  </button>
+                ) : (
+                  <button
+                    className="btn-danger w-full text-sm flex items-center justify-center gap-2"
+                    onClick={() => onAttack(attackSource, selectedTerritory)}
+                  >
+                    <Sword className="w-4 h-4" /> Attack from {attackSource.slice(0, 8)}...
+                  </button>
+                )
               )}
               {attackSource === selectedTerritory && (
                 <div>
@@ -255,78 +321,113 @@ export default function TerritoryPanel({
             </div>
           )}
 
-          {/* Diplomacy Section */}
-          {gameState.phase === 'attack' && (
-            (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network || gameState.settings.diplomacy_enabled) && (
-              <div className="mt-2 bg-cc-dark/30 border border-cc-border/50 rounded-lg p-2.5">
-                <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
-                {/* Influence Spread / Carbonari Network */}
-                {(isEnemy || isUnowned) && !attackSource && onInfluence &&
-                 (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) && (() => {
-                  const cooldown = (gameState as any).influence_cooldown_remaining ?? 0;
-                  const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
-                  const garibaldiUsed = (myPlayer?.ability_uses?.['riso_garibaldi'] ?? 0) >= 1;
-                  const isGaribaldiTarget =
-                    !!gameState.era_modifiers?.carbonari_network &&
-                    myPlayer?.unlocked_techs?.includes('riso_garibaldi') &&
-                    isUnowned &&
-                    !garibaldiUsed;
-                  if (cooldown > 0 && !isGaribaldiTarget) {
+          {/* Diplomacy Section — shown for any enemy/unowned territory on your turn */}
+          {(isEnemy || isUnowned) &&
+           (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network || gameState.settings.diplomacy_enabled) && (
+            <div className="mt-2 bg-cc-dark/30 border border-cc-border/50 rounded-lg p-2.5">
+              <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
+
+              {/* Outside attack phase: show a contextual hint so the section is never an empty puzzle */}
+              {gameState.phase !== 'attack' ? (
+                <p className="text-xs text-cc-muted/60 text-center py-1">
+                  Available during your attack phase
+                </p>
+              ) : attackSource ? (
+                /* Attack source is already locked in — diplomacy actions require a clean selection */
+                <p className="text-xs text-cc-muted/60 text-center py-1">
+                  Deselect your attacker to use diplomacy
+                </p>
+              ) : (
+                <>
+                  {/* Influence Spread / Carbonari Network */}
+                  {(isEnemy || isUnowned) && onInfluence &&
+                   (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) && (() => {
+                    const cooldown = (gameState as any).influence_cooldown_remaining ?? 0;
+                    const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
+                    const garibaldiUsed = (myPlayer?.ability_uses?.['riso_garibaldi'] ?? 0) >= 1;
+                    const isGaribaldiTarget =
+                      !!gameState.era_modifiers?.carbonari_network &&
+                      myPlayer?.unlocked_techs?.includes('riso_garibaldi') &&
+                      isUnowned &&
+                      !garibaldiUsed;
+                    if (cooldown > 0 && !isGaribaldiTarget) {
+                      return (
+                        <p className="text-xs text-purple-400/50 text-center py-1">
+                          📡 Influence on cooldown ({cooldown} turn{cooldown > 1 ? 's' : ''})
+                        </p>
+                      );
+                    }
+                    if (!isGaribaldiTarget && tState.unit_count > 3) {
+                      return (
+                        <p className="text-xs text-purple-400/50 text-center py-1">
+                          📡 Territory too well-defended (max 3 units)
+                        </p>
+                      );
+                    }
                     return (
-                      <p className="text-xs text-purple-400/50 text-center py-1">
-                        📡 Influence on cooldown ({cooldown} turn{cooldown > 1 ? 's' : ''})
-                      </p>
+                      <button
+                        className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                   border border-purple-600/50 bg-purple-900/30 text-purple-200
+                                   hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
+                        onClick={() => { onInfluence(selectedTerritory); onClose(); }}
+                      >
+                        📡 Seize via Influence{' '}
+                        <span className="text-purple-400 text-xs">
+                          {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
+                        </span>
+                      </button>
                     );
-                  }
-                  if (!isGaribaldiTarget && tState.unit_count > 3) {
+                  })()}
+
+                  {/* Propose Truce */}
+                  {isEnemy && onProposeTruce && gameState.settings.diplomacy_enabled && tState.owner_id && (() => {
+                    // activeTruceEntry and hasActiveTruce are computed at component scope above
+
+                    if (hasActiveTruce && activeTruceEntry) {
+                      return (
+                        <p className="text-xs text-green-400/70 text-center py-1">
+                          🤝 Truce with {owner?.username} ({activeTruceEntry.truce_turns_remaining} round{activeTruceEntry.truce_turns_remaining !== 1 ? 's' : ''} left)
+                        </p>
+                      );
+                    }
+
+                    // AI players never accept — surface this before the player wastes a click
+                    if (owner?.is_ai) {
+                      return (
+                        <p className="text-xs text-cc-muted/50 text-center py-1">
+                          🤖 AI players do not accept truces
+                        </p>
+                      );
+                    }
+
+                    // A proposal is already waiting for the target to respond
+                    const pendingTruce = gameState.pending_truces?.find(
+                      (pt) =>
+                        (pt.proposer_id === myPlayerId && pt.target_id === tState.owner_id) ||
+                        (pt.proposer_id === tState.owner_id && pt.target_id === myPlayerId),
+                    );
+                    if (pendingTruce) {
+                      return (
+                        <p className="text-xs text-yellow-400/70 text-center py-1">
+                          🕐 Truce offer pending — awaiting {owner?.username}
+                        </p>
+                      );
+                    }
+
                     return (
-                      <p className="text-xs text-purple-400/50 text-center py-1">
-                        📡 Territory too well-defended (max 3 units)
-                      </p>
+                      <button
+                        className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                   border border-green-600/40 bg-green-900/20 text-green-300
+                                   hover:bg-green-800/30 hover:border-green-500/60 transition-colors"
+                        onClick={() => { onProposeTruce(tState.owner_id!); onClose(); }}
+                      >
+                        🤝 Propose Truce <span className="text-green-400/60 text-xs">(3 rounds)</span>
+                      </button>
                     );
-                  }
-                  return (
-                    <button
-                      className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
-                                 border border-purple-600/50 bg-purple-900/30 text-purple-200
-                                 hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
-                      onClick={() => { onInfluence(selectedTerritory); onClose(); }}
-                    >
-                      📡 Seize via Influence{' '}
-                      <span className="text-purple-400 text-xs">
-                        {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
-                      </span>
-                    </button>
-                  );
-                })()}
-                {/* Propose Truce */}
-                {isEnemy && !attackSource && onProposeTruce && gameState.settings.diplomacy_enabled && tState.owner_id && (() => {
-                  const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
-                  const truceEntry = myPlayer && owner ? gameState.diplomacy?.find(
-                    (e) =>
-                      (e.player_index_a === myPlayer.player_index && e.player_index_b === owner.player_index) ||
-                      (e.player_index_a === owner.player_index && e.player_index_b === myPlayer.player_index),
-                  ) : undefined;
-                  if (truceEntry?.status === 'truce') {
-                    return (
-                      <p className="text-xs text-green-400/70 text-center py-1">
-                        🤝 Truce with {owner?.username} ({truceEntry.truce_turns_remaining} turns left)
-                      </p>
-                    );
-                  }
-                  return (
-                    <button
-                      className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
-                                 border border-green-600/40 bg-green-900/20 text-green-300
-                                 hover:bg-green-800/30 hover:border-green-500/60 transition-colors"
-                      onClick={() => { onProposeTruce(tState.owner_id!); onClose(); }}
-                    >
-                      🤝 Propose Truce <span className="text-green-400/60 text-xs">(3 turns)</span>
-                    </button>
-                  );
-                })()}
-              </div>
-            )
+                  })()}
+                </>
+              )}
+            </div>
           )}
 
           {/* Fortify Section */}

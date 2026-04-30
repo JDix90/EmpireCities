@@ -350,25 +350,54 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
   });
 }
 
-// Periodic sweep to match players whose wait time has widened the threshold
-let sweepInterval: ReturnType<typeof setInterval> | null = null;
+// Periodic sweep to match players whose wait time has widened the threshold.
+//
+// Self-rescheduling chain instead of `setInterval` so a slow `attemptMatch`
+// can never overlap with the next tick (the previous setInterval-based
+// implementation could stack multiple concurrent sweeps when DB queries got
+// slow, racing against itself and producing duplicate/orphaned games).
+const SWEEP_INTERVAL_MS = 5000;
+let sweepTimer: ReturnType<typeof setTimeout> | null = null;
+let sweepRunning = false;
+let sweepStopped = true;
+
+async function runSweepOnce(): Promise<void> {
+  if (matchmakingPaused) return;
+  try {
+    const distinct = await query<{ era_id: string; bucket: string }>(
+      'SELECT DISTINCT era_id, bucket FROM ranked_queue',
+    );
+    for (const { era_id, bucket } of distinct) {
+      try {
+        await attemptMatch(era_id, bucket);
+      } catch (err) {
+        console.error('[matchmaking] attemptMatch failed:', { era_id, bucket, err });
+      }
+    }
+  } catch (err) {
+    console.error('[matchmaking] sweep query failed:', err);
+  }
+}
+
+function scheduleNextSweep(): void {
+  if (sweepStopped) return;
+  sweepTimer = setTimeout(async () => {
+    sweepRunning = true;
+    try {
+      await runSweepOnce();
+    } finally {
+      sweepRunning = false;
+      scheduleNextSweep();
+    }
+  }, SWEEP_INTERVAL_MS);
+  // Don't keep the process alive just for this timer.
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+}
 
 export function startMatchmakingSweep(): void {
-  if (sweepInterval) return;
-  sweepInterval = setInterval(async () => {
-    if (matchmakingPaused) return;
-    try {
-      const distinct = await query<{ era_id: string; bucket: string }>(
-        'SELECT DISTINCT era_id, bucket FROM ranked_queue',
-      );
-      for (const { era_id, bucket } of distinct) {
-        await attemptMatch(era_id, bucket);
-      }
-    } catch {
-      // Silently fail sweep
-    }
-  }, 5000);
-  sweepInterval.unref();
+  if (!sweepStopped) return;
+  sweepStopped = false;
+  scheduleNextSweep();
 }
 
 export function setMatchmakingPaused(paused: boolean): void {
@@ -380,8 +409,12 @@ export function isMatchmakingPaused(): boolean {
 }
 
 export function stopMatchmakingSweep(): void {
-  if (sweepInterval) {
-    clearInterval(sweepInterval);
-    sweepInterval = null;
+  sweepStopped = true;
+  if (sweepTimer) {
+    clearTimeout(sweepTimer);
+    sweepTimer = null;
   }
+  // Note: any in-flight `runSweepOnce` will complete naturally without
+  // rescheduling because `sweepStopped` is now true.
+  void sweepRunning; // documents that we deliberately don't await it
 }

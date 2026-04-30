@@ -2,8 +2,20 @@
 // Stability Manager — territory stability & population mechanics
 // ============================================================
 
+import { randomInt } from 'crypto';
 import type { GameState } from '../../types';
 import { getFactionById } from '../eras';
+
+/**
+ * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
+ * outcomes affect game state (rebellions remove units; territories can flip
+ * to unowned), so we must not let clients predict the rolls.
+ */
+function cryptoFraction(): number {
+  // randomInt(0, 2**32) yields a uniform 32-bit integer; divide by the upper
+  // bound for the standard [0, 1) double.
+  return randomInt(0, 0x100000000) / 0x100000000;
+}
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -66,7 +78,7 @@ export function applyStabilityTick(
 
     // ── Rebellion check (before recovery) ──
     if (t.stability <= REBELLION_THRESHOLD && t.unit_count > 0) {
-      if (Math.random() < REBELLION_CHANCE) {
+      if (cryptoFraction() < REBELLION_CHANCE) {
         t.unit_count -= 1;
         rebellions.push(tid);
         if (t.unit_count <= 0) {
@@ -110,14 +122,14 @@ export function applyStabilityTick(
     if (t.stability >= POPULATION_GROWTH_STABILITY && t.population < MAX_POPULATION) {
       // Population grows +1 every POPULATION_GROWTH_INTERVAL turns of sustained stability.
       // We use a simple probabilistic approach: 1/INTERVAL chance per tick.
-      if (Math.random() < 1 / POPULATION_GROWTH_INTERVAL) {
+      if (cryptoFraction() < 1 / POPULATION_GROWTH_INTERVAL) {
         t.population = Math.min(MAX_POPULATION, t.population + 1);
       }
     }
     // Instability shrinks population slowly
     if (t.stability < 30 && t.population > 1) {
       // 10% chance to lose 1 population per tick when unstable
-      if (Math.random() < 0.1) {
+      if (cryptoFraction() < 0.1) {
         t.population -= 1;
       }
     }

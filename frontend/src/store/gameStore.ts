@@ -40,6 +40,8 @@ export interface PlayerState {
   ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
+  /** Pending retaliation bonuses: +dice_bonus attack dice on next land attack vs against_player_id. */
+  truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
 }
 
 export interface GameState {
@@ -58,6 +60,7 @@ export interface GameState {
     status: 'neutral' | 'truce' | 'nap' | 'war';
     truce_turns_remaining: number;
   }>;
+  pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
@@ -75,6 +78,7 @@ export interface GameState {
     events_enabled?: boolean;
     naval_enabled?: boolean;
     stability_enabled?: boolean;
+    coaching_enabled?: boolean;
     daily_challenge_date?: string;
     /** True when this game is an era of a solo campaign. Set server-side in campaign.routes.ts. */
     is_campaign?: boolean;
@@ -109,6 +113,7 @@ export interface GameState {
     turn: number;
     probabilities: Record<string, number>;
   }>;
+  coaching_eligible?: boolean;
 }
 
 export interface CombatResult {

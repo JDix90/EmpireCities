@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { api } from './services/api';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
@@ -43,12 +43,14 @@ function RouteLoadingFallback() {
   );
 }
 
-// Route guard — wait for persisted auth to rehydrate so we do not send users to /login on refresh
+// Route guard — wait for persisted auth to rehydrate AND for the silent-refresh
+// bootstrap to complete so we do not send users to /login on refresh.
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const hydrated = useAuthStoreHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const bootstrapped = useAuthStore((s) => s.bootstrapped);
   const location = useLocation();
-  if (!hydrated) {
+  if (!hydrated || !bootstrapped) {
     return <RouteLoadingFallback />;
   }
   if (!isAuthenticated) {
@@ -61,15 +63,24 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const hydrated = useAuthStoreHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  if (!hydrated) {
+  const bootstrapped = useAuthStore((s) => s.bootstrapped);
+  if (!hydrated || !bootstrapped) {
     return <RouteLoadingFallback />;
   }
   return !isAuthenticated ? <>{children}</> : <Navigate to="/lobby" replace />;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((s) => s.user);
-  if (!user?.is_admin) {
+  // Source of truth for "is the user allowed to see admin UI?" is the JWT
+  // claim, not the persisted user object. localStorage is attacker-mutable;
+  // a forged is_admin there should never light up admin scaffolds. The
+  // backend additionally enforces this for every /api/admin/* call.
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const bootstrapped = useAuthStore((s) => s.bootstrapped);
+  if (!bootstrapped) {
+    return <RouteLoadingFallback />;
+  }
+  if (!selectIsAdminFromToken(accessToken)) {
     return <Navigate to="/lobby" replace />;
   }
   return <>{children}</>;
@@ -79,26 +90,39 @@ export default function App() {
   const { isAuthenticated } = useAuthStore();
   const user = useAuthStore((s) => s.user);
   const attemptedInitialSilentRefreshRef = useRef(false);
+  const hydrated = useAuthStoreHydrated();
 
-  // Attempt silent token refresh only once on app boot for existing sessions.
-  // Running this immediately after a fresh login can fail on some mobile cookie policies
-  // and incorrectly bounce users back to the login screen.
+  // Bootstrap auth on app load. Because access tokens are no longer persisted
+  // to localStorage (they live in memory only — see authStore.ts), every page
+  // reload starts with `accessToken === null`. We attempt a silent refresh
+  // here using the HttpOnly refresh cookie so the user is back to a fully-
+  // authenticated state before any protected route renders.
   useEffect(() => {
+    if (!hydrated) return; // wait for the persisted slice to come back from storage
     if (attemptedInitialSilentRefreshRef.current) return;
     attemptedInitialSilentRefreshRef.current = true;
-    const state = useAuthStore.getState();
-    if (!state.isAuthenticated || !state.user || state.user.is_guest || !state.accessToken) return;
     void (async () => {
-      const ok = await state.refreshToken({ silent: true });
-      if (!ok) return;
+      const state = useAuthStore.getState();
+      // Logged-out, or a transient guest session that did not survive reload — nothing to do.
+      if (!state.isAuthenticated || !state.user || state.user.is_guest) {
+        useAuthStore.getState().setBootstrapped(true);
+        return;
+      }
       try {
-        const res = await api.get('/users/me');
-        useAuthStore.getState().setUser(res.data);
-      } catch {
-        /* ignore — profile fetch is best-effort for flags like is_admin */
+        const ok = await state.refreshToken({ silent: true });
+        if (ok) {
+          try {
+            const res = await api.get('/users/me');
+            useAuthStore.getState().setUser(res.data);
+          } catch {
+            /* best-effort profile re-fetch — flags like is_admin will reflect on next nav */
+          }
+        }
+      } finally {
+        useAuthStore.getState().setBootstrapped(true);
       }
     })();
-  }, []);
+  }, [hydrated]);
 
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {

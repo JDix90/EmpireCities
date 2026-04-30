@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { api } from '../services/api';
+import Modal from '../components/ui/Modal';
 
 type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'audit';
 
@@ -101,6 +102,16 @@ interface TimeseriesPayload {
   completed_by_type: Array<{ game_type: string; n: number }>;
 }
 
+interface SettingsToggleUsagePayload {
+  total_games: number;
+  rows: Array<{
+    setting_key: string;
+    setting_label: string;
+    enabled_count: number;
+    enabled_percent: number;
+  }>;
+}
+
 function Kpi({
   label,
   value,
@@ -120,6 +131,7 @@ function Kpi({
 }
 
 export default function AdminPage() {
+  type ResetScope = 'all' | 'era' | 'map' | 'era_map';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
@@ -141,6 +153,7 @@ export default function AdminPage() {
     Array<{ game_id: string; era_id: string; map_id: string; duration_seconds: number }>
   >([]);
   const [rankedDist, setRankedDist] = useState<Array<{ bucket: number; count: number }>>([]);
+  const [settingsToggleUsage, setSettingsToggleUsage] = useState<SettingsToggleUsagePayload | null>(null);
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
   const [users, setUsers] = useState<
     Array<{
@@ -148,6 +161,8 @@ export default function AdminPage() {
       username: string;
       email: string;
       level: number;
+      xp: number;
+      mmr: number;
       is_banned: boolean;
       is_admin: boolean;
       created_at: string;
@@ -166,6 +181,14 @@ export default function AdminPage() {
   const [patchKey, setPatchKey] = useState('xp');
   const [patchValue, setPatchValue] = useState('{}');
   const [error, setError] = useState<string | null>(null);
+  const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState<{ user_id: string; username: string } | null>(null);
+  const [resetScope, setResetScope] = useState<ResetScope>('all');
+  const [resetEraId, setResetEraId] = useState('');
+  const [resetMapId, setResetMapId] = useState('');
+  const [resetConfirmText, setResetConfirmText] = useState('');
 
   const overviewParams = useMemo(() => {
     const p: Record<string, string> = {};
@@ -205,16 +228,18 @@ export default function AdminPage() {
           setOverview(ovRes.data);
           setTimeseries(tsRes.data);
         } else if (tab === 'balance') {
-          const [factionRes, eraRes, mapRes, durationRes] = await Promise.all([
+          const [factionRes, eraRes, mapRes, durationRes, settingsTogglesRes] = await Promise.all([
             api.get('/admin/metrics/factions'),
             api.get('/admin/metrics/eras'),
             api.get('/admin/metrics/maps'),
             api.get('/admin/metrics/duration'),
+            api.get<SettingsToggleUsagePayload>('/admin/metrics/settings-toggles'),
           ]);
           setFactions(factionRes.data ?? []);
           setEras(eraRes.data ?? []);
           setMaps(mapRes.data ?? []);
           setDurations(durationRes.data ?? []);
+          setSettingsToggleUsage(settingsTogglesRes.data ?? null);
         } else if (tab === 'ranked') {
           const res = await api.get('/admin/metrics/ranked-distribution');
           setRankedDist(res.data ?? []);
@@ -222,8 +247,15 @@ export default function AdminPage() {
           const res = await api.get('/admin/config');
           setConfig(res.data ?? null);
         } else if (tab === 'users') {
-          const res = await api.get('/admin/users', { params: { search } });
-          setUsers(res.data ?? []);
+          const [usersRes, optionsRes] = await Promise.all([
+            api.get('/admin/users', { params: { search } }),
+            api.get<{ era_ids: string[]; map_ids: string[] }>('/admin/metrics/stat-options'),
+          ]);
+          setUsers(usersRes.data ?? []);
+          setStatOptions({
+            era_ids: optionsRes.data?.era_ids ?? [],
+            map_ids: optionsRes.data?.map_ids ?? [],
+          });
         } else if (tab === 'audit') {
           const res = await api.get('/admin/audit-log', { params: { limit: 100 } });
           setAudit(res.data ?? []);
@@ -283,6 +315,15 @@ export default function AdminPage() {
     return timeseries.completed_by_type.map((r) => ({ name: r.game_type, value: r.n }));
   }, [timeseries]);
 
+  const settingsToggleChartData = useMemo(() => {
+    if (!settingsToggleUsage?.rows) return [];
+    return settingsToggleUsage.rows.map((row) => ({
+      ...row,
+      display_count: row.enabled_count.toLocaleString(),
+      display_percent: `${row.enabled_percent.toFixed(1)}%`,
+    }));
+  }, [settingsToggleUsage]);
+
   async function submitConfigPatch() {
     try {
       const parsed = JSON.parse(patchValue);
@@ -311,6 +352,64 @@ export default function AdminPage() {
     if (!ok) return;
     await postAction(banned ? '/admin/actions/ban' : '/admin/actions/unban', { user_id: userId });
     await loadTab('users');
+  }
+
+  function openResetModal(userId: string, username: string): void {
+    setResetTargetUser({ user_id: userId, username });
+    setResetScope('all');
+    setResetEraId('');
+    setResetMapId('');
+    setResetConfirmText('');
+    setResetModalOpen(true);
+  }
+
+  function closeResetModal(): void {
+    if (resetSubmitting) return;
+    setResetModalOpen(false);
+    setResetTargetUser(null);
+  }
+
+  async function submitResetStats(): Promise<void> {
+    if (!resetTargetUser) return;
+    const eraRequired = resetScope === 'era' || resetScope === 'era_map';
+    const mapRequired = resetScope === 'map' || resetScope === 'era_map';
+    if (eraRequired && !resetEraId.trim()) {
+      toast.error('Please provide era_id for this scope');
+      return;
+    }
+    if (mapRequired && !resetMapId.trim()) {
+      toast.error('Please provide map_id for this scope');
+      return;
+    }
+    if (resetConfirmText.trim() !== resetTargetUser.username) {
+      toast.error(`Type "${resetTargetUser.username}" to confirm`);
+      return;
+    }
+
+    setResetSubmitting(true);
+    try {
+      const res = await api.post<{
+        games_affected: number;
+        xp_removed: number;
+        mmr_delta_removed: number;
+        wins_removed: number;
+      }>('/admin/actions/reset-user-stats', {
+        user_id: resetTargetUser.user_id,
+        scope: resetScope,
+        era_id: eraRequired ? resetEraId.trim() : undefined,
+        map_id: mapRequired ? resetMapId.trim() : undefined,
+      });
+      toast.success(
+        `Stats reset: ${res.data.games_affected} games, XP -${res.data.xp_removed}, MMR delta -${res.data.mmr_delta_removed}, wins -${res.data.wins_removed}`,
+      );
+      closeResetModal();
+      await loadTab('users');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error ?? 'Failed to reset stats');
+    } finally {
+      setResetSubmitting(false);
+    }
   }
 
   return (
@@ -594,6 +693,62 @@ export default function AdminPage() {
               Faction stats are from completed games with a recorded <code className="text-cc-gold/90">faction_id</code>.
               Era and map charts use completed games with known duration.
             </p>
+            <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">Toggle setting usage</p>
+                  <p className="text-xs text-cc-muted">
+                    Share of all created games where each toggle-able setting is enabled.
+                  </p>
+                </div>
+                <span className="rounded-full border border-cc-border px-2.5 py-1 text-xs text-cc-muted">
+                  Total games: {(settingsToggleUsage?.total_games ?? 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="h-80">
+                {settingsToggleChartData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-cc-muted">
+                    No game settings data yet.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={settingsToggleChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2d3448" horizontal={false} />
+                      <XAxis
+                        type="number"
+                        tick={{ fill: '#9aa3b5', fontSize: 11 }}
+                        allowDecimals={false}
+                        domain={[0, settingsToggleUsage ? Math.max(settingsToggleUsage.total_games, 1) : 1]}
+                      />
+                      <YAxis type="category" dataKey="setting_label" width={170} tick={{ fill: '#9aa3b5', fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ background: '#1a1f2e', border: '1px solid #2d3448', borderRadius: 8 }}
+                        formatter={(value, name, payload) => {
+                          if (name === 'enabled_count') {
+                            const p = payload?.payload as { enabled_percent?: number };
+                            return [`${Number(value).toLocaleString()} games (${Number(p?.enabled_percent ?? 0).toFixed(1)}%)`, 'Enabled'];
+                          }
+                          return [String(value ?? ''), String(name ?? '')];
+                        }}
+                      />
+                      <Bar dataKey="enabled_count" name="Enabled count" fill="#d5ad36" radius={[0, 6, 6, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              {settingsToggleChartData.length > 0 ? (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {settingsToggleChartData.slice(0, 6).map((row) => (
+                    <div key={row.setting_key} className="rounded-lg border border-cc-border/70 bg-cc-dark/30 px-3 py-2">
+                      <p className="text-xs text-cc-muted">{row.setting_label}</p>
+                      <p className="mt-1 text-sm font-semibold text-cc-text">
+                        {row.display_count} <span className="text-xs font-normal text-cc-muted">({row.display_percent})</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Faction win rate</p>
@@ -782,6 +937,7 @@ export default function AdminPage() {
                     <th className="px-3 py-2">User</th>
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">Level</th>
+                    <th className="px-3 py-2">XP / MMR</th>
                     <th className="px-3 py-2">Flags</th>
                     <th className="px-3 py-2">Joined</th>
                     <th className="px-3 py-2 text-right">Actions</th>
@@ -793,29 +949,41 @@ export default function AdminPage() {
                       <td className="px-3 py-2 font-medium text-cc-text">{u.username}</td>
                       <td className="px-3 py-2 text-cc-muted">{u.email}</td>
                       <td className="px-3 py-2 tabular-nums">{u.level}</td>
+                      <td className="px-3 py-2 text-xs tabular-nums text-cc-muted">
+                        {u.xp.toLocaleString()} / {u.mmr.toLocaleString()}
+                      </td>
                       <td className="px-3 py-2 text-xs">
                         {u.is_admin ? <span className="mr-1 text-cc-gold">admin</span> : null}
                         {u.is_banned ? <span className="text-red-300">banned</span> : <span className="text-cc-muted">ok</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-cc-muted">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="px-3 py-2 text-right">
-                        {u.is_banned ? (
+                        <div className="flex flex-wrap justify-end gap-2 text-xs">
+                          {u.is_banned ? (
+                            <button
+                              type="button"
+                              className="text-emerald-300 hover:underline"
+                              onClick={() => void setUserBanned(u.user_id, false)}
+                            >
+                              Unban
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-red-300 hover:underline"
+                              onClick={() => void setUserBanned(u.user_id, true)}
+                            >
+                              Ban
+                            </button>
+                          )}
                           <button
                             type="button"
-                            className="text-emerald-300 hover:underline"
-                            onClick={() => void setUserBanned(u.user_id, false)}
+                            className="text-amber-200 hover:underline"
+                            onClick={() => openResetModal(u.user_id, u.username)}
                           >
-                            Unban
+                            Reset stats…
                           </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="text-red-300 hover:underline"
-                            onClick={() => void setUserBanned(u.user_id, true)}
-                          >
-                            Ban
-                          </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -856,6 +1024,100 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      <Modal open={resetModalOpen} onClose={closeResetModal} title="Reset User Stats" className="max-w-xl">
+        {resetTargetUser ? (
+          <div className="space-y-4">
+            <p className="text-sm text-cc-muted">
+              Target user: <span className="font-semibold text-cc-text">{resetTargetUser.username}</span>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-cc-muted">
+                Scope
+                <select
+                  value={resetScope}
+                  onChange={(e) => setResetScope(e.target.value as ResetScope)}
+                  className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                  disabled={resetSubmitting}
+                >
+                  <option value="all">All stats</option>
+                  <option value="era">Specific era</option>
+                  <option value="map">Specific map</option>
+                  <option value="era_map">Specific era + map</option>
+                </select>
+              </label>
+              {(resetScope === 'era' || resetScope === 'era_map') ? (
+                <label className="text-xs text-cc-muted">
+                  era_id
+                  <input
+                    value={resetEraId}
+                    onChange={(e) => setResetEraId(e.target.value)}
+                    list="admin-reset-era-options"
+                    placeholder="ancient / medieval / modern …"
+                    className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                    disabled={resetSubmitting}
+                  />
+                </label>
+              ) : <div />}
+              {(resetScope === 'map' || resetScope === 'era_map') ? (
+                <label className="text-xs text-cc-muted sm:col-span-2">
+                  map_id
+                  <input
+                    value={resetMapId}
+                    onChange={(e) => setResetMapId(e.target.value)}
+                    list="admin-reset-map-options"
+                    placeholder="era_modern / rts_slice_v1 …"
+                    className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                    disabled={resetSubmitting}
+                  />
+                </label>
+              ) : null}
+            </div>
+
+            <datalist id="admin-reset-era-options">
+              {statOptions.era_ids.map((era) => (
+                <option key={era} value={era} />
+              ))}
+            </datalist>
+            <datalist id="admin-reset-map-options">
+              {statOptions.map_ids.map((mapId) => (
+                <option key={mapId} value={mapId} />
+              ))}
+            </datalist>
+
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
+              This action updates persistent player progression fields and cannot be undone.
+            </div>
+            <label className="block text-xs text-cc-muted">
+              Type <span className="font-semibold text-cc-text">{resetTargetUser.username}</span> to confirm
+              <input
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                disabled={resetSubmitting}
+              />
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeResetModal}
+                className="rounded border border-cc-border px-3 py-2 text-sm"
+                disabled={resetSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitResetStats()}
+                className="rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-60"
+                disabled={resetSubmitting}
+              >
+                {resetSubmitting ? 'Resetting…' : 'Reset stats'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

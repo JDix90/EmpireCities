@@ -60,6 +60,12 @@
     touch-action: manipulation;
   }
 
+  .btn-warning {
+    @apply bg-amber-700/30 border border-amber-500/40 text-amber-300 font-semibold px-6 py-2.5 rounded-lg
+           hover:bg-amber-700/40 hover:border-amber-400/50 active:bg-amber-800/40 transition-all duration-150;
+    touch-action: manipulation;
+  }
+
   .card {
     @apply bg-cc-surface border border-cc-border rounded-xl p-6;
   }

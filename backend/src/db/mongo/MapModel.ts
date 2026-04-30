@@ -61,6 +61,8 @@ export interface ICustomMap extends Document {
   /** Canvas polygon coordinates are authored in this WGS84 box (same as JSON `projection_bounds`). */
   projection_bounds?: IProjectionBounds;
   globe_view?: IGlobeView;
+  /** RTS-Fork: tactical graph; shape matches RtsMapTerrain. */
+  rts_terrain?: unknown;
   territories: ITerritory[];
   connections: IConnection[];
   regions: IRegion[];
@@ -136,6 +138,7 @@ const CustomMapSchema = new Schema<ICustomMap>(
       ),
       required: false,
     },
+    rts_terrain: { type: Schema.Types.Mixed, required: false },
     territories: { type: [TerritorySchema], required: true },
     connections: { type: [ConnectionSchema], required: true },
     regions: { type: [RegionSchema], required: true },

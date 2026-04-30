@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { randomInt } from 'crypto';
 import { query, queryOne } from '../../db/postgres';
 import { getTier } from '../rating/ratingService';
 import { ONBOARDING_QUESTS } from '@erasofempire/shared';
@@ -279,9 +280,12 @@ export async function claimDailyLogin(userId: string): Promise<boolean> {
 const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 
 export function generateReferralCode(): string {
+  // Referral codes must be unguessable to prevent harvest attacks against
+  // the lookup endpoint. CSPRNG over a 31-symbol Crockford-ish alphabet
+  // gives ~40 bits of entropy at length 8 — adequate for non-targeted use.
   let code = '';
   for (let i = 0; i < 8; i++) {
-    code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    code += ALPHABET[randomInt(0, ALPHABET.length)];
   }
   return code;
 }

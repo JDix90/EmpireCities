@@ -241,6 +241,11 @@ function selectAttacks(
   // Build list of viable attacks sorted by favorability
   const candidates: { from: string; to: string; score: number }[] = [];
 
+  // Track planned sea-attack count per source so we don't over-commit fleets.
+  // (Each sea attack consumes 1 fleet; the runtime aborts attacks beyond the
+  // available fleet count, which silently wastes the AI's attack budget.)
+  const plannedSeaAttacksFrom = new Map<string, number>();
+
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id !== playerId || tState.unit_count < 2) continue;
     const neighbors = adjacency[tid] || [];
@@ -258,7 +263,20 @@ function selectAttacks(
       const conn = map.connections.find(
         (c) => (c.from === tid && c.to === nid) || (c.from === nid && c.to === tid)
       );
-      const isSeaLane = state.era_modifiers?.sea_lanes && conn?.type === 'sea';
+      const isSeaConn = conn?.type === 'sea';
+
+      // Naval gating: when naval warfare is enabled, sea-lane attacks require
+      // the source territory to hold at least one fleet (one is consumed per
+      // attack). Skip candidates we can't actually launch — otherwise they
+      // pollute the score-sorted shortlist and starve land attacks of the
+      // AI's per-turn attack budget.
+      if (state.settings.naval_enabled && isSeaConn) {
+        const fleetsAvailable = tState.naval_units ?? 0;
+        const alreadyPlanned = plannedSeaAttacksFrom.get(tid) ?? 0;
+        if (fleetsAvailable - alreadyPlanned <= 0) continue;
+      }
+
+      const isSeaLane = state.era_modifiers?.sea_lanes && isSeaConn;
       const isPrecision = state.era_modifiers?.precision_strike && tState.unit_count >= 4;
       const attackDice = isPrecision ? 3 : isSeaLane ? Math.min(attackUnits, 2) : Math.min(attackUnits, 3);
       const defDice = Math.min(nState.unit_count, 2);
@@ -270,6 +288,9 @@ function selectAttacks(
       const score = (attackDice - defDice) + seaPenalty + objectiveBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score });
+        if (state.settings.naval_enabled && isSeaConn) {
+          plannedSeaAttacksFrom.set(tid, (plannedSeaAttacksFrom.get(tid) ?? 0) + 1);
+        }
       }
     }
   }
@@ -450,6 +471,53 @@ function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
 const AGGRESSIVE_ERAS = new Set(['ww2', 'ancient', 'acw', 'modern']);
 
 /**
+ * Score AI-owned coastal territories as port-build candidates. Higher score =
+ * better target. Returns territories ordered best-first; only territories
+ * with at least one enemy-owned sea neighbor are returned (no point building
+ * a port that can't be used to project force).
+ *
+ * Used by `selectAiBuildingPlacement` when `naval_enabled` is on so the AI
+ * actually builds the prerequisite for sea-lane invasions instead of letting
+ * its sea-locked frontiers go unchallenged forever.
+ */
+function rankPortCandidates(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+): { tid: string; score: number; existing: string[] }[] {
+  const ranked: { tid: string; score: number; existing: string[] }[] = [];
+  for (const t of map.territories) {
+    const tid = t.territory_id;
+    const tState = state.territories[tid];
+    if (!tState || tState.owner_id !== playerId) continue;
+    if (tState.naval_units == null) continue; // not coastal
+    const existing = tState.buildings ?? [];
+
+    // Score based on enemy territories reachable via sea connections.
+    let enemySeaTargets = 0;
+    let weakSeaTargets = 0;
+    for (const conn of map.connections) {
+      if (conn.type !== 'sea') continue;
+      const otherId = conn.from === tid ? conn.to : conn.to === tid ? conn.from : null;
+      if (!otherId) continue;
+      const other = state.territories[otherId];
+      if (!other || other.owner_id === playerId || other.owner_id == null) continue;
+      enemySeaTargets += 1;
+      if (other.unit_count <= 3) weakSeaTargets += 1;
+    }
+    if (enemySeaTargets === 0) continue;
+
+    // Score: number of viable sea-lane targets (heavily weighted), bonus for
+    // weak defenders, plus a small bias toward high-unit attacker territories
+    // so the fleets we produce end up where we have units to launch with.
+    const score = enemySeaTargets * 3 + weakSeaTargets * 2 + tState.unit_count * 0.1;
+    ranked.push({ tid, score, existing });
+  }
+  ranked.sort((a, b) => b.score - a.score);
+  return ranked;
+}
+
+/**
  * Choose a building to construct this AI turn, or null to skip.
  * Easy/tutorial difficulty never builds.
  * Hard/expert prioritises defense on the most-threatened border territory;
@@ -492,6 +560,50 @@ export function selectAiBuildingPlacement(
     }
     return null;
   };
+
+  // ── Naval priority ────────────────────────────────────────────────────────
+  // When naval warfare is enabled, the AI must build ports before it can
+  // attack via sea lanes (each sea attack consumes a fleet, and fleets only
+  // accrue from ports / naval bases). If the AI has any coastal territory
+  // adjacent to an enemy by sea but no port yet, building one is more
+  // valuable than another production tile because it unlocks an entire
+  // axis of attack the AI otherwise cannot use.
+  if (state.settings.naval_enabled) {
+    const portCandidates = rankPortCandidates(state, map, playerId);
+    const hasAnyPort = portCandidates.some(
+      (c) => c.existing.includes('port') || c.existing.includes('naval_base'),
+    );
+
+    // Step 1: build a fresh port on the highest-scoring candidate that lacks one.
+    const needPortAt = portCandidates.find(
+      (c) => !c.existing.includes('port') && !c.existing.includes('naval_base'),
+    );
+    if (needPortAt && !hasAnyPort) {
+      const result = tryBuild('port', [needPortAt.tid]);
+      if (result) return result;
+    }
+
+    // Step 2 (hard/expert): once the AI has at least one port, upgrade the
+    // best-positioned existing port to a naval_base for double fleet income,
+    // then start adding coastal_battery defense at fleet-producing tiles.
+    if (difficulty === 'hard' || difficulty === 'expert') {
+      const upgradeAt = portCandidates.find(
+        (c) => c.existing.includes('port') && !c.existing.includes('naval_base'),
+      );
+      if (upgradeAt) {
+        const result = tryBuild('naval_base', [upgradeAt.tid]);
+        if (result) return result;
+      }
+      const fortifyAt = portCandidates.find(
+        (c) => (c.existing.includes('port') || c.existing.includes('naval_base'))
+          && !c.existing.includes('coastal_battery'),
+      );
+      if (fortifyAt) {
+        const result = tryBuild('coastal_battery', [fortifyAt.tid]);
+        if (result) return result;
+      }
+    }
+  }
 
   if (difficulty === 'hard' || difficulty === 'expert') {
     const adjacency = buildAdjacencyMap(map);

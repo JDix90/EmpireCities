@@ -168,7 +168,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
               COUNT(*) AS game_count
        FROM game_players gp
        JOIN games g ON g.game_id = gp.game_id
-       WHERE gp.user_id = $1 AND g.status = 'completed'
+       WHERE gp.user_id = $1
+         AND g.status = 'completed'
+         AND gp.final_rank IS NOT NULL
        GROUP BY g.game_type, g.era_id, (gp.final_rank = 1)`,
       [request.userId],
     );
@@ -204,7 +206,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       `SELECT (gp.final_rank = 1) AS won, g.ended_at
        FROM game_players gp
        JOIN games g ON g.game_id = gp.game_id
-       WHERE gp.user_id = $1 AND g.status = 'completed'
+       WHERE gp.user_id = $1
+         AND g.status = 'completed'
+         AND gp.final_rank IS NOT NULL
        ORDER BY g.ended_at DESC
        LIMIT 100`,
       [request.userId],
@@ -645,11 +649,18 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   // ── GET /api/users/:userId (public profile) — must be after /achievements etc ─
+  // Banned and guest users return 404 (not 403) so we don't reveal the ban
+  // state to outsiders. The SELECT list explicitly enumerates safe public
+  // fields — never `email`, `password_hash`, `is_admin`, or `is_banned`.
   fastify.get<{ Params: { userId: string } }>('/:userId', async (request, reply) => {
     const user = await queryOne<{
       user_id: string; username: string; level: number; mmr: number; avatar_url: string | null;
     }>(
-      'SELECT user_id, username, level, mmr, avatar_url FROM users WHERE user_id = $1',
+      `SELECT user_id, username, level, mmr, avatar_url
+       FROM users
+       WHERE user_id = $1
+         AND COALESCE(is_banned, false) = false
+         AND COALESCE(is_guest, false) = false`,
       [request.params.userId],
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
@@ -682,7 +693,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.put('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    const body = UpdatePreferencesSchema.parse(request.body);
+    const parsed = UpdatePreferencesSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input' });
+    }
+    const body = parsed.data;
     const updates: string[] = [];
     const values: unknown[] = [];
     let idx = 2; // $1 = user_id
@@ -719,7 +734,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.post('/me/push-tokens', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    const body = RegisterPushTokenSchema.parse(request.body);
+    const parsed = RegisterPushTokenSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid input' });
+    }
+    const body = parsed.data;
     await query(
       `INSERT INTO push_tokens (user_id, token, platform)
        VALUES ($1, $2, $3)

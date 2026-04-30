@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
   GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
@@ -81,22 +81,21 @@ export function initializeGameState(
         players[indices[0]].faction_id = factionId;
         assignedFactions.add(factionId);
       } else {
-        // Dice roll: pick one at random
-        const winnerIdx = indices[Math.floor(Math.random() * indices.length)];
+        // CSPRNG tie-break — Math.random would be deterministic across the
+        // V8 instance and could be predicted by colluding observers.
+        const winnerIdx = indices[randomInt(0, indices.length)];
         players[winnerIdx].faction_id = factionId;
         assignedFactions.add(factionId);
-        // The rest go to unassigned pool
         indices.forEach((idx) => {
           if (idx !== winnerIdx) unassignedPlayers.push(idx);
         });
       }
     });
 
-    // Assign remaining players to random available factions
     const availableFactions = eraFactions.map(f => f.faction_id).filter(f => !assignedFactions.has(f));
-    // Shuffle for fairness
+    // Fisher–Yates with a CSPRNG so the faction order cannot be predicted.
     for (let i = availableFactions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = randomInt(0, i + 1);
       [availableFactions[i], availableFactions[j]] = [availableFactions[j], availableFactions[i]];
     }
     unassignedPlayers.forEach((idx, i) => {
@@ -105,19 +104,56 @@ export function initializeGameState(
     });
   }
 
+  // Moon territories (Space Age) always start NEUTRAL with a small garrison —
+  // even Lunar Pioneers must conquer them. The Pioneer faction's advantage is
+  // turn-1 orbit access (`space_station_launched: true`) and lunar defense
+  // bonuses, not free starting ownership. This makes the moon a fair race once
+  // any player satisfies the Lunar Expansion + Launch Pad + Space Station
+  // (or Space Elevator wonder) gate — so players who tech up are rewarded
+  // instead of being shut out of one third of the map by an opening RNG.
+  const lunarTerritoryIds = new Set(
+    map.territories.filter((t) => t.globe_id === 'moon').map((t) => t.territory_id),
+  );
+  const NEUTRAL_LUNAR_GARRISON = 2;
+
+  // Build a map view that excludes lunar territories AND any orbit/land
+  // connections touching them, so geographic distribution never seeds or
+  // grows into the moon via Earth-side launch bases.
+  const earthMap: GameMap =
+    lunarTerritoryIds.size === 0
+      ? map
+      : {
+          ...map,
+          territories: map.territories.filter((t) => !lunarTerritoryIds.has(t.territory_id)),
+          connections: map.connections.filter(
+            (c) => !lunarTerritoryIds.has(c.from) && !lunarTerritoryIds.has(c.to),
+          ),
+        };
+
   // Distribute territories — skip when territory_selection enabled (players pick manually)
-  const territoryIds = Object.keys(territories);
+  const earthTerritoryIds = Object.keys(territories).filter((tid) => !lunarTerritoryIds.has(tid));
   if (settingsNorm.territory_selection) {
     // All territories stay neutral; players will pick during 'territory_select' phase
   } else if (settingsNorm.factions_enabled) {
-    distributeTerritoriesGeographic(territories, map, players, era, settingsNorm.initial_unit_count);
+    distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
   } else {
-    const shuffled = shuffleArray([...territoryIds]);
+    const shuffled = shuffleArray([...earthTerritoryIds]);
     shuffled.forEach((tid, idx) => {
       const playerIndex = idx % players.length;
       territories[tid].owner_id = players[playerIndex].player_id;
       territories[tid].unit_count = settingsNorm.initial_unit_count;
     });
+  }
+
+  // Final pass: ensure lunar territories stay neutral with a defending
+  // garrison no matter which distribution path ran. Skipped in
+  // territory_selection mode because all territories remain neutral there
+  // and we don't want to pre-spawn neutral defenders before manual picks.
+  if (!settingsNorm.territory_selection) {
+    for (const tid of lunarTerritoryIds) {
+      territories[tid].owner_id = null;
+      territories[tid].unit_count = NEUTRAL_LUNAR_GARRISON;
+    }
   }
 
   // Build card deck
@@ -393,6 +429,9 @@ export function syncTerritoryCounts(state: GameState): void {
   }
   for (const player of state.players) {
     player.territory_count = counts[player.player_id] ?? 0;
+    if ((player.peak_territory_count ?? 0) < player.territory_count) {
+      player.peak_territory_count = player.territory_count;
+    }
   }
 }
 
@@ -460,6 +499,16 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   state.draft_placements_this_turn = {};
   state.turn_started_at = Date.now();
 
+  // Expire any pending truce proposals sent by the player whose turn is now starting.
+  // The target had until the proposer's next turn to respond; after that the proposal
+  // is silently discarded so it can never permanently block re-proposals.
+  if (state.pending_truces?.length) {
+    const nextPlayerId = state.players[next].player_id;
+    state.pending_truces = state.pending_truces.filter(
+      (pt) => pt.proposer_id !== nextPlayerId,
+    );
+  }
+
   const nextPlayer = state.players[next];
   if (map) {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
@@ -521,6 +570,8 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   state.fortify_moves_used = 0;
   if ((state.influence_cooldown_remaining ?? 0) > 0) state.influence_cooldown_remaining!--;
   state.blitzkrieg_attacked = false;
+  state.blitzkrieg_active = false;
+  state.blitzkrieg_bonus_source_id = null;
   // Reset per-player per-turn ability use counts
   for (const player of state.players) {
     player.ability_uses = {};
@@ -718,6 +769,11 @@ export function redeemCardSet(
 
   const bonus = getCardSetBonus(state.card_set_redemption_count);
   state.card_set_redemption_count++;
+  // Per-player redemption tracking — used by post-game stats and by the
+  // `card_shark` achievement. Centralised here so AI redemptions are counted
+  // identically to human ones.
+  player.cards_redeemed_count = (player.cards_redeemed_count ?? 0) + 1;
+  player.card_set_bonus_units = (player.card_set_bonus_units ?? 0) + bonus;
   return bonus;
 }
 
@@ -767,8 +823,10 @@ function buildCardDeck(territoryIds: string[]): TerritoryCard[] {
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
+  // Cards in the territory deck affect game outcomes (set bonuses), so the
+  // shuffle uses a CSPRNG to keep the order unpredictable to all clients.
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randomInt(0, i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -1110,7 +1168,10 @@ function distributeTerritoriesGeographic(
     });
 
     for (const territoryId of waveTerritories) {
-      const candidates = waveClaims.get(territoryId) ?? [];
+      const allCandidates = waveClaims.get(territoryId) ?? [];
+      // Re-filter mid-wave: skip players who already hit their target during this wave
+      const underQuota = allCandidates.filter((p) => ownedCounts[p] < targetCounts[p]);
+      const candidates = underQuota.length > 0 ? underQuota : allCandidates;
       const playerIndex = chooseBestPlayer(territoryId, candidates);
       assignTerritory(territoryId, playerIndex);
       unassigned.delete(territoryId);
@@ -1140,6 +1201,62 @@ function distributeTerritoriesGeographic(
   }
 
   rebalanceAssignedTerritories();
+
+  // Hard count-equalization: after all geographic logic, ensure no player has 2+ more
+  // territories than any other player. Transfer (not swap) territories from the most-
+  // over-quota player to the most-under-quota player until the gap is <= 1.
+  const equalizeTerritoryCounts = () => {
+    const actualCounts = players.map(() => 0);
+    for (const ownerId of assigned.values()) {
+      const idx = playerIndexById.get(ownerId);
+      if (idx != null) actualCounts[idx]++;
+    }
+
+    for (let pass = 0; pass < map.territories.length; pass++) {
+      let maxCount = -Infinity;
+      let minCount = Infinity;
+      let richest = 0;
+      let poorest = 0;
+      for (let i = 0; i < players.length; i++) {
+        if (actualCounts[i] > maxCount) { maxCount = actualCounts[i]; richest = i; }
+        if (actualCounts[i] < minCount) { minCount = actualCounts[i]; poorest = i; }
+      }
+      if (maxCount - minCount < 2) break;
+
+      const poorestOwnedSet = new Set(
+        [...assigned.entries()]
+          .filter(([, id]) => id === players[poorest].player_id)
+          .map(([tid]) => tid),
+      );
+
+      const richestOwned = [...assigned.entries()]
+        .filter(([, id]) => id === players[richest].player_id)
+        .map(([tid]) => tid);
+
+      // Prefer territories adjacent to the poorest player's holdings (promotes contiguity).
+      const adjacentToPoort = richestOwned.filter((tid) =>
+        (adjacency[tid] ?? []).some((adj) => poorestOwnedSet.has(adj)),
+      );
+      const pool = adjacentToPoort.length > 0 ? adjacentToPoort : richestOwned;
+
+      // Among candidates: non-home first, then lowest value.
+      pool.sort((a, b) => {
+        const aHome = playerHomeRegionSets[richest].has(territoryById.get(a)?.region_id ?? '') ? 1 : 0;
+        const bHome = playerHomeRegionSets[richest].has(territoryById.get(b)?.region_id ?? '') ? 1 : 0;
+        if (aHome !== bHome) return aHome - bHome;
+        return (territoryValues.get(a) ?? 1) - (territoryValues.get(b) ?? 1);
+      });
+
+      const transferId = pool[0];
+      if (!transferId) break;
+
+      assigned.set(transferId, players[poorest].player_id);
+      actualCounts[richest]--;
+      actualCounts[poorest]++;
+    }
+  };
+
+  equalizeTerritoryCounts();
 
   for (const [territoryId, playerId] of assigned.entries()) {
     territories[territoryId].owner_id = playerId;

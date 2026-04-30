@@ -3,11 +3,13 @@ import { randomUUID, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import zxcvbn from 'zxcvbn';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
+import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 
 function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -18,6 +20,37 @@ function compareRefreshToken(token: string, storedHash: string): boolean {
   const stored = Buffer.from(storedHash, 'hex');
   if (candidate.length !== stored.length) return false;
   return timingSafeEqual(candidate, stored);
+}
+
+/**
+ * Strip Zod field paths from validation errors in production. The original
+ * `error.flatten()` payload exposes the internal schema shape (which fields
+ * exist, which ones failed, etc.) — useful for dev, but a free credentials-
+ * stuffing aid in prod where we want a uniform "Invalid input" surface.
+ */
+function formatZodError(err: z.ZodError): { error: string; details?: unknown } {
+  if (config.nodeEnv === 'development') {
+    return { error: 'Invalid input', details: err.flatten() };
+  }
+  return { error: 'Invalid input' };
+}
+
+/**
+ * zxcvbn-driven password strength gate. Below score 2 (out of 4) the
+ * password is brute-forceable in tractable time on commodity hardware. We
+ * keep the legacy length floor as a defence-in-depth check for offline
+ * cracking scenarios where short passwords lose first.
+ */
+function passwordStrengthError(password: string, hints: string[] = []): string | null {
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  const result = zxcvbn(password, hints);
+  if (result.score < 2) {
+    const advice = result.feedback?.warning
+      || result.feedback?.suggestions?.[0]
+      || 'Password is too easy to guess';
+    return `Password is too weak: ${advice}`;
+  }
+  return null;
 }
 
 const ChangePasswordSchema = z.object({
@@ -52,18 +85,43 @@ function refreshCookieOpts(maxAgeSeconds: number) {
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
-  /** Short-lived session without refresh token; creates a minimal `users` row for FK integrity. */
+  /**
+   * Short-lived session without refresh token; creates a minimal `users` row
+   * for FK integrity. Guest username uses an 8-hex slice of the user id to
+   * keep the chance of a collision with another active guest astronomically
+   * small (16⁸ ≈ 4.3B values vs the ~9k of the previous Math.random scheme,
+   * which collided in production and broke registration).
+   *
+   * In the unlikely case of a collision, we retry with a fresh user id; the
+   * `users.username` column has a UNIQUE constraint that turns the race into
+   * a clean ON CONFLICT bail rather than a corrupted partial insert.
+   */
   fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (_request, reply) => {
-    const userId = uuidv4();
-    const username = `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
-    const email = `${userId}@guest.local`;
     const password_hash = await bcrypt.hash(randomUUID(), 8);
 
-    await query(
-      `INSERT INTO users (user_id, username, email, password_hash, is_guest)
-       VALUES ($1, $2, $3, $4, true)`,
-      [userId, username, email, password_hash]
-    );
+    let userId: string | null = null;
+    let username: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidateId = uuidv4();
+      const candidateUsername = `Guest_${candidateId.slice(0, 8)}`;
+      const email = `${candidateId}@guest.local`;
+      const inserted = await queryOne<{ user_id: string }>(
+        `INSERT INTO users (user_id, username, email, password_hash, is_guest)
+         VALUES ($1, $2, $3, $4, true)
+         ON CONFLICT (username) DO NOTHING
+         RETURNING user_id`,
+        [candidateId, candidateUsername, email, password_hash],
+      );
+      if (inserted) {
+        userId = candidateId;
+        username = candidateUsername;
+        break;
+      }
+    }
+    if (!userId || !username) {
+      // Astronomically unlikely; fail loudly so monitoring catches it.
+      return reply.status(500).send({ error: 'Could not allocate a unique guest username; try again' });
+    }
 
     const accessToken = signAccessToken({ sub: userId, username, guest: true, admin: false }, '4h');
 
@@ -73,11 +131,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       user: {
         user_id: userId,
         username,
+        // Defaults matching the `users` schema (level/xp/mmr columns).
+        // These values never get persisted differently for guests; we send
+        // them so the client bootstraps the lobby UI without a follow-up
+        // /me round-trip.
         level: 1,
         xp: 0,
         mmr: 1000,
         is_guest: true,
-          is_admin: false,
+        is_admin: false,
       },
     });
   });
@@ -86,9 +148,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/register', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = RegisterSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: body.error.flatten() });
+      return reply.status(400).send(formatZodError(body.error));
     }
     const { username, email, password } = body.data;
+
+    // Reject trivially-weak passwords. Username + email are passed in as
+    // user-specific signals so zxcvbn down-scores passwords like
+    // `username123`.
+    const strength = passwordStrengthError(password, [username, email]);
+    if (strength) {
+      return reply.status(400).send({ error: strength });
+    }
 
     // Check for existing user
     const existing = await queryOne(
@@ -140,7 +210,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [email]
     );
 
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    // Constant-time compare: when the email is unknown we still burn one
+    // bcrypt round against a dummy hash so request latency cannot be used
+    // to enumerate registered emails (timing oracle).
+    const passwordOk = await compareWithDummy(password, user?.password_hash ?? null);
+    if (!user || !passwordOk) {
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
     if (user.is_banned) {
@@ -262,20 +336,25 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/change-password', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const parsed = ChangePasswordSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const { current_password, new_password } = parsed.data;
     if (current_password === new_password) {
       return reply.status(400).send({ error: 'New password must differ from current password' });
     }
 
-    const user = await queryOne<{ password_hash: string }>(
-      'SELECT password_hash FROM users WHERE user_id = $1',
+    // Look up the user's username/email to seed zxcvbn so a password matching
+    // their identity is rejected as easily-guessable.
+    const userRow = await queryOne<{ username: string; email: string; password_hash: string }>(
+      'SELECT username, email, password_hash FROM users WHERE user_id = $1',
       [request.userId],
     );
-    if (!user) return reply.status(404).send({ error: 'User not found' });
+    if (!userRow) return reply.status(404).send({ error: 'User not found' });
 
-    const ok = await bcrypt.compare(current_password, user.password_hash);
+    const strength = passwordStrengthError(new_password, [userRow.username, userRow.email]);
+    if (strength) return reply.status(400).send({ error: strength });
+
+    const ok = await bcrypt.compare(current_password, userRow.password_hash);
     if (!ok) return reply.status(401).send({ error: 'Incorrect current password' });
 
     const newHash = await bcrypt.hash(new_password, config.bcryptRounds);

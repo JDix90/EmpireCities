@@ -31,4 +31,50 @@ export function validateProductionEnv(): void {
       '[config] Warning: POSTGRES_PASSWORD matches docker default. Use a unique password in production.',
     );
   }
+
+  // CORS hardening: in production we must not echo dev/loopback origins back
+  // to clients. Allowing http://localhost:* in prod CORS would let any local
+  // attacker on the same machine drive authenticated cross-origin requests
+  // against this server. We also forbid the `*` wildcard which would defeat
+  // the cookie/CORS isolation entirely.
+  const rawOrigins = process.env.CORS_ORIGINS ?? '';
+  const origins = rawOrigins
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const FORBIDDEN_HOST_PATTERNS: RegExp[] = [
+    /^https?:\/\/localhost(:\d+)?$/i,
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
+    /^https?:\/\/0\.0\.0\.0(:\d+)?$/i,
+    /^https?:\/\/\[?::1\]?(:\d+)?$/i,
+  ];
+
+  const offenders: string[] = [];
+  for (const origin of origins) {
+    if (origin === '*') {
+      offenders.push(origin);
+      continue;
+    }
+    if (FORBIDDEN_HOST_PATTERNS.some((re) => re.test(origin))) {
+      offenders.push(origin);
+    }
+  }
+
+  if (offenders.length > 0) {
+    throw new Error(
+      `[config] Production CORS_ORIGINS contains dev/wildcard origins which are not safe in production: ${offenders.join(
+        ', ',
+      )}. Set CORS_ORIGINS to your real public origins (e.g. https://app.example.com).`,
+    );
+  }
+
+  // Require an explicit allowlist in production. Accidentally launching with
+  // an empty CORS list in production is also dangerous because some libraries
+  // will fall back to permissive defaults.
+  if (origins.length === 0) {
+    throw new Error(
+      '[config] Production requires CORS_ORIGINS to be set to a non-empty, comma-separated list of public origins.',
+    );
+  }
 }
