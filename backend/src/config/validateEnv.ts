@@ -37,11 +37,15 @@ export function validateProductionEnv(): void {
   // attacker on the same machine drive authenticated cross-origin requests
   // against this server. We also forbid the `*` wildcard which would defeat
   // the cookie/CORS isolation entirely.
-  const rawOrigins = process.env.CORS_ORIGINS ?? '';
-  const origins = rawOrigins
+  const rawExtraOrigins = process.env.CORS_ORIGINS ?? '';
+  const extraOrigins = rawExtraOrigins
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+  const origins = [
+    process.env.FRONTEND_URL?.trim() || '',
+    ...extraOrigins,
+  ].filter((origin, index, list) => origin.length > 0 && list.indexOf(origin) === index);
 
   const FORBIDDEN_HOST_PATTERNS: RegExp[] = [
     /^https?:\/\/localhost(:\d+)?$/i,
@@ -63,18 +67,17 @@ export function validateProductionEnv(): void {
 
   if (offenders.length > 0) {
     throw new Error(
-      `[config] Production CORS_ORIGINS contains dev/wildcard origins which are not safe in production: ${offenders.join(
+      `[config] Production CORS allowlist contains dev/wildcard origins which are not safe in production: ${offenders.join(
         ', ',
-      )}. Set CORS_ORIGINS to your real public origins (e.g. https://app.example.com).`,
+      )}. Set FRONTEND_URL and CORS_ORIGINS to real public origins (e.g. https://app.example.com).`,
     );
   }
 
-  // Require an explicit allowlist in production. Accidentally launching with
-  // an empty CORS list in production is also dangerous because some libraries
-  // will fall back to permissive defaults.
+  // Require an explicit allowlist in production. FRONTEND_URL is the primary
+  // same-origin deploy value; CORS_ORIGINS is only for additional origins.
   if (origins.length === 0) {
     throw new Error(
-      '[config] Production requires CORS_ORIGINS to be set to a non-empty, comma-separated list of public origins.',
+      '[config] Production requires FRONTEND_URL or CORS_ORIGINS to be set to at least one public origin.',
     );
   }
 }
