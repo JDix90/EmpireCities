@@ -292,7 +292,6 @@ export default function GamePage() {
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
-  const [globeView, setGlobeView] = useState<'earth' | 'moon'>('earth');
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
@@ -344,6 +343,12 @@ export default function GamePage() {
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
   const [notifState, setNotifState] = useState<{ data: NotificationData; key: number } | null>(null);
   const notifCounter = useRef(0);
+  const [coachingTip, setCoachingTip] = useState<{
+    turn: number;
+    category: string;
+    title: string;
+    body: string;
+  } | null>(null);
   const prevPlayerIndexRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const draftSummaryShownRef = useRef(false);
@@ -384,6 +389,13 @@ export default function GamePage() {
     proposerColor: string;
   } | null>(null);
 
+  const [truceBreakerConfirm, setTruceBreakerConfirm] = useState<{
+    fromId: string;
+    toId: string;
+    defenderName: string;
+    defenderColor: string;
+  } | null>(null);
+
   const [wonderNotif, setWonderNotif] = useState<{
     wonderId: string;
     builderName: string;
@@ -391,6 +403,10 @@ export default function GamePage() {
     territoryId: string;
   } | null>(null);
   const wonderNotifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Prevents double-submission during territory draft (rapid double-click or both
+  // click-direct and panel-button firing before the server state update arrives).
+  const territorySelectPendingRef = useRef(false);
 
   const [puzzleFeedback, setPuzzleFeedback] = useState<{ tier: string; message: string } | null>(null);
   const puzzleFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -526,6 +542,16 @@ export default function GamePage() {
       setIsHost(playerIndex === 0);
     });
 
+    // The server embeds the resolved map in the game-join handshake and again
+    // on game:start so private/pending custom maps don't need to be fetched
+    // via the public REST endpoint (which now requires public+approved or
+    // creator-owned access).
+    socket.on('game:map', (payload: { mapId: string; map: MapData }) => {
+      if (!payload?.map) return;
+      setMapData(payload.map);
+      mapDataRef.current = payload.map;
+    });
+
     socket.on('game:lobby_updated', (payload: unknown) => {
       const next = normalizeLobbySnapshot(payload);
       if (next) setLobbySnapshot(next);
@@ -535,6 +561,8 @@ export default function GamePage() {
       // Reconnecting players only receive game:state, not game:started — keep UI in sync
       setGameStarted(true);
       setGameState(state);
+      // Clear territory-select pending flag so the next player's turn is interactive.
+      territorySelectPendingRef.current = false;
       const myId = userRef.current?.user_id;
       const myName = userRef.current?.username;
       const prevDraft = useGameStore.getState().draftUnitsRemaining;
@@ -789,7 +817,18 @@ export default function GamePage() {
       winner_ids?: string[];
       winner_name: string;
       turn_count: number;
-      players: Array<{ player_id: string; username: string; color: string; territory_count: number; is_eliminated: boolean; is_ai: boolean }>;
+      duration_ms?: number | null;
+      ai_difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial' | null;
+      players: Array<{
+        player_id: string; username: string; color: string;
+        territory_count: number;
+        peak_territory_count?: number;
+        cards_redeemed_count?: number;
+        card_set_bonus_units?: number;
+        unlocked_techs_count?: number;
+        buildings_built_count?: number;
+        is_eliminated: boolean; is_ai: boolean;
+      }>;
       win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
       rating_deltas?: Record<string, number>;
       is_ranked?: boolean;
@@ -798,7 +837,12 @@ export default function GamePage() {
       victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
-      combat_stats?: Record<string, { attacks: number; attack_wins: number; defenses: number; defense_wins: number; territories_captured: number }>;
+      combat_stats?: Record<string, {
+        attacks: number; attack_wins: number; defenses: number; defense_wins: number;
+        territories_captured: number;
+        units_lost?: number; units_destroyed?: number; sea_attacks?: number; eliminations_dealt?: number;
+      }>;
+      decision_summary?: GameOverModalData['decision_summary'];
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
@@ -827,6 +871,9 @@ export default function GamePage() {
         combat_stats: stats.combat_stats,
         xp_earned_by_player: stats.xp_earned_by_player,
         rating_deltas: stats.rating_deltas,
+        duration_ms: stats.duration_ms ?? null,
+        ai_difficulty: stats.ai_difficulty ?? null,
+        decision_summary: stats.decision_summary,
       };
       if (gameId) {
         api
@@ -926,13 +973,36 @@ export default function GamePage() {
       proposerId?: string;
       targetId?: string;
     }) => {
+      const myId = useAuthStore.getState().user?.user_id;
       if (result.pending) {
         toast(`Truce proposal sent to ${result.targetName ?? 'player'}`, { icon: '🤝', duration: 3000 });
       } else if (result.accepted) {
-        toast.success(`Truce accepted with ${result.targetName ?? result.proposerName ?? 'player'}!`, { duration: 4000 });
+        // result.targetId is the responder; if I'm the responder, show the proposer's name instead
+        const iAmResponder = result.targetId === myId;
+        const otherName = iAmResponder
+          ? (result.proposerName ?? 'player')
+          : (result.targetName ?? result.proposerName ?? 'player');
+        toast.success(`Truce accepted with ${otherName}!`, { duration: 4000 });
       } else {
-        toast(`Truce declined by ${result.targetName ?? result.proposerName ?? 'player'}`, { icon: '❌', duration: 3000 });
+        // result.targetId is the responder (who declined); if I'm the proposer, show targetName
+        const iAmProposer = result.proposerId === myId;
+        const declinerName = iAmProposer
+          ? (result.targetName ?? 'player')
+          : (result.proposerName ?? 'player');
+        toast(`Truce declined by ${declinerName}`, { icon: '❌', duration: 3000 });
       }
+    });
+
+    socket.on('game:truce_broken', (payload: {
+      breakerName: string;
+      breakerColor: string;
+      breakerId: string;
+    }) => {
+      toast(`${payload.breakerName} broke your truce! You have +1 attack die against them.`, {
+        icon: '⚔️',
+        duration: 6000,
+        style: { borderLeft: `3px solid ${payload.breakerColor}` },
+      });
     });
 
     socket.on('error', ({ message }: { message: string }) => {
@@ -1017,6 +1087,10 @@ export default function GamePage() {
       toast.success(`Era cleared — next: ${nextLabel}`, { duration: 4000 });
     });
 
+    socket.on('game:coaching_tip', (tip: { turn: number; category: string; title: string; body: string }) => {
+      setCoachingTip(tip);
+    });
+
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -1029,6 +1103,7 @@ export default function GamePage() {
       socket.off('game:cards_redeemed');
       socket.off('game:over');
       socket.off('game:campaign_advanced');
+      socket.off('game:coaching_tip');
       socket.off('game:chat_message');
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
@@ -1040,6 +1115,7 @@ export default function GamePage() {
       socket.off('game:event_card_resolved');
       socket.off('game:truce_proposal');
       socket.off('game:truce_result');
+      socket.off('game:truce_broken');
       socket.off('error');
       socket.off('game:wonder_built');
       socket.off('game:atom_bomb');
@@ -1231,14 +1307,26 @@ export default function GamePage() {
   }, [gameStarted, gameState, user?.user_id]);
 
   // ── Load map data ─────────────────────────────────────────────────────────
+  // Primary delivery path is the `game:map` socket event. This effect is a
+  // fallback that only triggers if (a) we have a map id but (b) the server
+  // hasn't pushed map data yet — most commonly the lobby preview before
+  // game:start fires. For private/pending custom maps owned by another
+  // player, this REST call will 404 (correct behaviour) and the user sees
+  // the lobby until the host starts the game and the map is broadcast.
   useEffect(() => {
     if (!gameState?.map_id) return;
+    if (mapDataRef.current?.map_id === gameState.map_id) return;
     api.get(`/maps/${gameState.map_id}`)
       .then((res) => {
+        if (mapDataRef.current?.map_id === gameState.map_id) return;
         setMapData(res.data.map);
         mapDataRef.current = res.data.map;
       })
-      .catch(() => toast.error('Failed to load map data'));
+      .catch(() => {
+        // Non-fatal: the server will deliver the map via `game:map` once
+        // the player is fully joined to the room. Stay quiet rather than
+        // toasting on every lobby preview for a private map.
+      });
   }, [gameState?.map_id]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -1277,7 +1365,9 @@ export default function GamePage() {
     if (gameState.phase === 'territory_select') {
       const isUnowned = tState && (tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral');
       if (isUnowned) {
-        socket.emit('game:select_territory', { gameId, territoryId });
+        if (territorySelectPendingRef.current) return;
+        territorySelectPendingRef.current = true;
+        socket.emit('game:select_territory', { gameId, territoryId, action_id: crypto.randomUUID() });
         setSelectedTerritory(null);
         return;
       }
@@ -1327,7 +1417,9 @@ export default function GamePage() {
   }, [gameState, attackSource, user, gameId, showNotification, setFortifyUnits, setNavalSource]);
 
   const handleClaimTerritory = (territoryId: string) => {
-    getSocket().emit('game:select_territory', { gameId, territoryId });
+    if (territorySelectPendingRef.current) return;
+    territorySelectPendingRef.current = true;
+    getSocket().emit('game:select_territory', { gameId, territoryId, action_id: crypto.randomUUID() });
     setSelectedTerritory(null);
   };
 
@@ -1341,6 +1433,31 @@ export default function GamePage() {
   };
 
   const handleAttack = (fromId: string, toId: string) => {
+    // If the target territory is owned by a player we have an active truce with, ask before breaking it
+    if (gameState && user?.user_id) {
+      const targetOwnerId = gameState.territories[toId]?.owner_id;
+      if (targetOwnerId) {
+        const myPlayer = gameState.players.find((p) => p.player_id === user.user_id);
+        const targetOwner = gameState.players.find((p) => p.player_id === targetOwnerId);
+        if (myPlayer && targetOwner) {
+          const truceEntry = gameState.diplomacy?.find(
+            (e) =>
+              (e.player_index_a === myPlayer.player_index && e.player_index_b === targetOwner.player_index) ||
+              (e.player_index_a === targetOwner.player_index && e.player_index_b === myPlayer.player_index),
+          );
+          if (truceEntry?.status === 'truce' && (truceEntry.truce_turns_remaining ?? 0) > 0) {
+            setTruceBreakerConfirm({
+              fromId,
+              toId,
+              defenderName: targetOwner.username,
+              defenderColor: targetOwner.color,
+            });
+            return;
+          }
+        }
+      }
+    }
+
     getSocket().emit('game:attack', { gameId, fromId, toId });
     setAttackSource(null);
     setNavalSource(null);
@@ -1569,11 +1686,14 @@ export default function GamePage() {
   }, [selectedTerritory]);
 
   const hasMoonTerritories = useMemo(
-    () => !!mapData?.territories.some((t) => t.globe_id === 'moon'),
+    () =>
+      !!mapData?.territories.some(
+        (t) => t.globe_id === 'moon' || t.region_id === 'lunar_surface' || t.territory_id.startsWith('moon_'),
+      ),
     [mapData],
   );
   const customGlobeSkin = useMemo(() => {
-    if (!mapData || globeView === 'moon') return null;
+    if (!mapData) return null;
     if (mapData.map_id !== FLOODED_NA_MAP_ID) return null;
     return {
       globeImageUrl: FLOODED_NA_GLOBE_TEXTURE,
@@ -1581,26 +1701,7 @@ export default function GamePage() {
       showAtmosphere: false,
       backgroundColor: 'rgba(6, 16, 34, 1)',
     };
-  }, [mapData, globeView]);
-
-  const playerHasMoonAccessLocal = useMemo(() => {
-    if (!gameState || !user) return false;
-    const me = gameState.players.find((p: { player_id: string }) => p.player_id === user.user_id);
-    if (!me) return false;
-    if ((me as { faction_id?: string }).faction_id === 'lunar_pioneers') return true;
-    const unlocked = (me as { unlocked_techs?: string[] }).unlocked_techs ?? [];
-    const hasTech = unlocked.includes('sa_lunar_expansion');
-    const myTerritories = Object.values((gameState as { territories: Record<string, { owner_id: string | null; buildings?: string[] }> }).territories ?? {})
-      .filter((t) => t.owner_id === user.user_id);
-    const hasLaunchPad = myTerritories.some((t) => t.buildings?.includes('launch_pad'));
-    const hasSpaceElevator = myTerritories.some((t) => t.buildings?.includes('wonder_space_elevator'));
-    const launched = (me as { space_station_launched?: boolean }).space_station_launched === true;
-    return hasTech && hasLaunchPad && (launched || hasSpaceElevator);
-  }, [gameState, user]);
-
-  useEffect(() => {
-    if (globeView === 'moon' && !playerHasMoonAccessLocal) setGlobeView('earth');
-  }, [globeView, playerHasMoonAccessLocal]);
+  }, [mapData]);
 
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
@@ -1962,26 +2063,9 @@ export default function GamePage() {
             </button>
           )}
           {mapView === 'globe' && hasMoonTerritories && (
-            <>
-              <button
-                type="button"
-                onClick={() => setGlobeView('earth')}
-                className={`min-h-[40px] px-2 py-1 text-xs rounded ${globeView === 'earth' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
-                aria-label="View Earth"
-              >
-                Earth
-              </button>
-              <button
-                type="button"
-                onClick={() => setGlobeView('moon')}
-                disabled={!playerHasMoonAccessLocal}
-                title={playerHasMoonAccessLocal ? 'View Moon' : 'Moon locked — research Lunar Expansion, build Launch Pad, launch a Space Station'}
-                className={`min-h-[40px] px-2 py-1 text-xs rounded ${globeView === 'moon' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'} ${!playerHasMoonAccessLocal ? 'opacity-50 cursor-not-allowed' : ''}`}
-                aria-label="View Moon"
-              >
-                Moon {!playerHasMoonAccessLocal ? '🔒' : ''}
-              </button>
-            </>
+            <span className="min-h-[40px] px-2 py-1 text-xs rounded text-cc-gold/90 bg-cc-gold/10 border border-cc-gold/25">
+              Earth + Moon
+            </span>
           )}
         </div>
       </div>
@@ -2036,35 +2120,51 @@ export default function GamePage() {
           {mapData ? (
             mapView === 'globe' ? (
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-cc-muted animate-pulse">Loading globe…</p></div>}>
-                <GlobeMap
-                  mapData={mapData}
-                  onTerritoryClick={handleTerritoryClick}
-                  width={mapCanvasSize.w}
-                  height={mapCanvasSize.h}
-                  events={globeEvents}
-                  onEventDone={handleGlobeEventDone}
-                  reducedEffects={reducedGlobe}
-                  autoSpin={globeSpinEnabled}
-                  highlightTerritoryId={tutorialHighlightId}
-                  globeView={globeView}
-                  globeImageUrl={
-                    globeView === 'moon'
-                      ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_surface.jpg'
-                      : customGlobeSkin?.globeImageUrl
-                  }
-                  bumpImageUrl={
-                    globeView === 'moon'
-                      ? 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/lunar_bumpmap.jpg'
-                      : customGlobeSkin?.bumpImageUrl
-                  }
-                  showAtmosphere={globeView === 'moon' ? false : (customGlobeSkin?.showAtmosphere ?? true)}
-                  atmosphereColor={globeView === 'moon' ? 'rgba(180,180,200,0.4)' : undefined}
-                  backgroundColor={
-                    globeView === 'moon'
-                      ? 'rgba(4, 6, 14, 1)'
-                      : customGlobeSkin?.backgroundColor
-                  }
-                />
+                <div className="relative w-full h-full">
+                  <GlobeMap
+                    mapData={mapData}
+                    onTerritoryClick={handleTerritoryClick}
+                    width={mapCanvasSize.w}
+                    height={mapCanvasSize.h}
+                    events={globeEvents}
+                    onEventDone={handleGlobeEventDone}
+                    reducedEffects={reducedGlobe}
+                    autoSpin={globeSpinEnabled}
+                    highlightTerritoryId={tutorialHighlightId}
+                    globeView="earth"
+                    globeImageUrl={customGlobeSkin?.globeImageUrl}
+                    bumpImageUrl={customGlobeSkin?.bumpImageUrl}
+                    showAtmosphere={customGlobeSkin?.showAtmosphere ?? true}
+                    backgroundColor={customGlobeSkin?.backgroundColor}
+                  />
+                  {hasMoonTerritories && (
+                    <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-cc-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
+                      <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-cc-border/70 text-cc-gold pointer-events-none">
+                        Moon
+                      </div>
+                      <GlobeMap
+                        mapData={mapData}
+                        onTerritoryClick={handleTerritoryClick}
+                        width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
+                        height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
+                        events={[]}
+                        reducedEffects={true}
+                        autoSpin={false}
+                        globeView="moon"
+                        // Three-globe doesn't ship a lunar texture; pull the
+                        // long-stable Three.js examples one (CSP whitelists
+                        // cdn.jsdelivr.net already).
+                        globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/moon_1024.jpg"
+                        // No reliable matching bumpmap on the same CDN path —
+                        // skipping it renders the moon flat-shaded which is
+                        // visually fine at this inset size.
+                        bumpImageUrl=""
+                        showAtmosphere={false}
+                        backgroundColor="rgb(20, 22, 32)"
+                      />
+                    </div>
+                  )}
+                </div>
               </Suspense>
             ) : (
               <GameMap
@@ -2109,6 +2209,7 @@ export default function GamePage() {
           {selectedTerritory && mapData && (
             <TerritoryPanel
               mapTerritories={mapData.territories}
+              mapRegions={mapData.regions}
               onAttack={handleAttack}
               onDraft={handleDraft}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
@@ -2335,7 +2436,7 @@ export default function GamePage() {
               <span className="font-medium" style={{ color: truceProposal.proposerColor }}>
                 {truceProposal.proposerName}
               </span>{' '}
-              wants to call a truce with you for 3 turns.
+              wants to call a truce with you for 3 rounds.
             </p>
             <div className="flex gap-3">
               <button
@@ -2371,6 +2472,67 @@ export default function GamePage() {
         </div>
       )}
 
+      {/* Break Truce Confirmation Modal */}
+      {truceBreakerConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+             style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="bg-[#1e2332] border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="text-3xl mb-3 text-center">⚠️</div>
+            <h3 className="font-display text-lg text-amber-400 text-center mb-1">Break Active Truce?</h3>
+            <p className="text-white/60 text-sm text-center mb-4">
+              You have an active truce with{' '}
+              <span className="font-semibold" style={{ color: truceBreakerConfirm.defenderColor }}>
+                {truceBreakerConfirm.defenderName}
+              </span>. Breaking it carries consequences:
+            </p>
+            <ul className="text-xs text-white/60 space-y-2 mb-5 pl-1">
+              <li className="flex items-start gap-2">
+                <span className="text-base mt-0.5">🛡</span>
+                <span>
+                  <span className="text-white/90 font-medium">{truceBreakerConfirm.defenderName}</span>{' '}
+                  gets <span className="text-amber-300 font-semibold">+1 defense die</span> for this attack
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-base mt-0.5">⚔️</span>
+                <span>
+                  <span className="text-white/90 font-medium">{truceBreakerConfirm.defenderName}</span>{' '}
+                  earns <span className="text-red-300 font-semibold">+1 attack die</span> for their next attack against you
+                </span>
+              </li>
+            </ul>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTruceBreakerConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                           text-white/60 font-medium text-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  getSocket().emit('game:attack', {
+                    gameId,
+                    fromId: truceBreakerConfirm.fromId,
+                    toId: truceBreakerConfirm.toId,
+                    breakTruce: true,
+                  });
+                  setAttackSource(null);
+                  setNavalSource(null);
+                  setFortifyUnits(1);
+                  setSelectedTerritory(null);
+                  setTruceBreakerConfirm(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600/25 hover:bg-amber-600/35
+                           border border-amber-500/40 text-amber-300 font-medium text-sm transition-all"
+              >
+                ⚔️ Break Truce &amp; Attack
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
       <ActionModal
         data={modalQueue[0] ?? null}
@@ -2382,6 +2544,28 @@ export default function GamePage() {
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
       <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />
+
+      {/* Coaching Tip — solo-vs-AI only, dismissible per turn */}
+      {coachingTip && coachingTip.turn === gameState?.turn_number && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 max-w-md px-3">
+          <div className="bg-amber-500/10 border border-amber-500/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-amber-200 text-xs font-semibold uppercase tracking-wider">Coaching</p>
+                <p className="text-sm text-white/90 font-medium mt-1">{coachingTip.title}</p>
+                <p className="text-xs text-white/70 mt-1">{coachingTip.body}</p>
+              </div>
+              <button
+                onClick={() => setCoachingTip(null)}
+                className="text-white/40 hover:text-white/80 text-lg leading-none px-1 -mt-1"
+                aria-label="Dismiss coaching tip"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tutorial Overlay */}
       {isTutorial && tutorialStep < TUTORIAL_STEPS.length && (

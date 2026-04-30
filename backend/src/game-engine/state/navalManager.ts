@@ -2,6 +2,7 @@
 // Naval Manager — fleets, ports, sea-lane combat
 // ============================================================
 
+import { randomInt } from 'crypto';
 import type { GameState, GameMap } from '../../types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,7 +108,10 @@ export interface NavalCombatResult {
 }
 
 function rollDice(count: number): number[] {
-  return Array.from({ length: Math.max(1, count) }, () => Math.floor(Math.random() * 6) + 1);
+  // Server-authoritative combat dice MUST come from a CSPRNG. Math.random
+  // is seeded from V8's xorshift state, which is not cryptographic and is
+  // potentially predictable across calls — unacceptable for game outcomes.
+  return Array.from({ length: Math.max(1, count) }, () => randomInt(1, 7));
 }
 
 /**

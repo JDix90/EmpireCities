@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "predev": "pnpm -C ../packages/shared run build",
+    "predev": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
     "dev": "tsx watch src/index.ts",
-    "prebuild": "pnpm -C ../packages/shared run build",
+    "prebuild": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
     "build": "tsc",
-    "prestart": "pnpm -C ../packages/shared run build",
+    "prestart": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/postgres/migrate.ts",
     "seed": "tsx src/db/postgres/seed.ts",
@@ -16,10 +16,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:maps": "tsx scripts/validateMaps.ts",
+    "validate:maps:rts": "tsx scripts/validateRtsMap.ts",
     "grant-admin": "tsx scripts/grantAdmin.ts",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
+    "@erasofempire/rts-shared": "workspace:*",
     "@erasofempire/shared": "workspace:*",
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",
@@ -27,6 +29,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/swagger": "^8.14.0",
     "@sentry/node": "^10.49.0",
+    "@types/zxcvbn": "^4.4.5",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.73.4",
     "dotenv": "^16.4.5",
@@ -42,7 +45,8 @@
     "postgres": "^3.4.4",
     "socket.io": "^4.7.5",
     "uuid": "^9.0.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

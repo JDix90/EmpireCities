@@ -76,6 +76,8 @@ const MapSchema = new mongoose.Schema({
   canvas_height:     { type: Number, default: 700 },
   projection_bounds: { type: ProjectionBoundsSchema, required: false },
   globe_view:        { type: GlobeViewSchema, required: false },
+  /** Optional RTS tactical graph (MVP0) */
+  rts_terrain:       { type: mongoose.Schema.Types.Mixed, required: false },
   territories:       { type: [TerritorySchema], required: true },
   connections:       { type: [ConnectionSchema], required: true },
   regions:           { type: [RegionSchema], required: true },
@@ -102,6 +104,7 @@ const MAP_FILES = [
   'era_acw.json',
   'era_risorgimento.json',
   'era_space_age.json',
+  'rts_slice_v1.json',
 ];
 
 /** Community maps: same schema as era JSON, but published under a user id for Map Hub. */
@@ -144,7 +147,7 @@ async function seedMaps(): Promise<void> {
     const data = JSON.parse(raw);
 
     // Build the document matching the Mongoose schema
-    const doc = {
+    const doc: Record<string, unknown> = {
       map_id:            data.map_id,
       creator_id:        'system',
       name:              data.name,
@@ -165,31 +168,32 @@ async function seedMaps(): Promise<void> {
       rating_count:      0,
       play_count:        0,
     };
+    if (data.rts_terrain) doc.rts_terrain = data.rts_terrain;
 
     try {
       const existing = await SeederMap.findOne({ map_id: doc.map_id });
 
       if (existing) {
         // Update map data but preserve play/rating stats
+        const $set: Record<string, unknown> = {
+          name:              doc.name,
+          description:       doc.description,
+          era_theme:         doc.era_theme,
+          canvas_width:      doc.canvas_width,
+          canvas_height:     doc.canvas_height,
+          projection_bounds: doc.projection_bounds,
+          globe_view:        doc.globe_view,
+          territories:       doc.territories,
+          connections:       doc.connections,
+          regions:           doc.regions,
+          is_public:         true,
+          is_moderated:      true,
+          moderation_status: 'approved',
+        };
+        if (data.rts_terrain) $set.rts_terrain = data.rts_terrain;
         await SeederMap.updateOne(
           { map_id: doc.map_id },
-          {
-            $set: {
-              name:              doc.name,
-              description:       doc.description,
-              era_theme:         doc.era_theme,
-              canvas_width:      doc.canvas_width,
-              canvas_height:     doc.canvas_height,
-              projection_bounds: doc.projection_bounds,
-              globe_view:        doc.globe_view,
-              territories:       doc.territories,
-              connections:       doc.connections,
-              regions:           doc.regions,
-              is_public:         true,
-              is_moderated:      true,
-              moderation_status: 'approved',
-            }
-          }
+          { $set }
         );
         console.log(`  ↻ UPDATED:  ${doc.name}`);
         updated++;

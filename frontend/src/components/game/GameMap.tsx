@@ -4,6 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
 import { hapticImpact } from '../../utils/haptics';
+import { REGION_PIXI_COLORS } from '../../constants/regionColors';
 
 interface MapTerritory {
   territory_id: string;
@@ -24,6 +25,7 @@ interface GameMapData {
   canvas_height?: number;
   territories: MapTerritory[];
   connections: MapConnection[];
+  regions?: Array<{ region_id: string; name: string; bonus: number }>;
 }
 
 interface GameMapProps {
@@ -127,6 +129,62 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
     stage.addChild(mapContainer);
     stage.addChild(labelContainer);
     stage.addChild(buildingLayer);
+
+    // ── Region tint layer (rendered below connections and territories) ────────
+    const regionTintLayer = new PIXI.Container();
+    mapContainer.addChild(regionTintLayer);
+
+    // Group territories by region and assign a stable color per region
+    const regionTerritoryMap = new Map<string, MapTerritory[]>();
+    for (const t of mapData.territories) {
+      const list = regionTerritoryMap.get(t.region_id) ?? [];
+      list.push(t);
+      regionTerritoryMap.set(t.region_id, list);
+    }
+    const orderedRegionIds = mapData.regions
+      ? mapData.regions.map((r) => r.region_id)
+      : [...regionTerritoryMap.keys()].sort();
+    const regionColorMap = new Map<string, number>();
+    orderedRegionIds.forEach((rid, i) => {
+      regionColorMap.set(rid, REGION_PIXI_COLORS[i % REGION_PIXI_COLORS.length]);
+    });
+
+    for (const [regionId, territories] of regionTerritoryMap.entries()) {
+      if (regionId === 'sea_routes') continue;
+      const color = regionColorMap.get(regionId) ?? 0x888888;
+
+      for (const territory of territories) {
+        const scaledPoly = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
+        if (scaledPoly.length < 3) continue;
+        const g = new PIXI.Graphics();
+        g.lineStyle(2.5, color, 0.55);
+        g.beginFill(color, 0.10);
+        g.moveTo(scaledPoly[0][0], scaledPoly[0][1]);
+        for (let i = 1; i < scaledPoly.length; i++) g.lineTo(scaledPoly[i][0], scaledPoly[i][1]);
+        g.closePath();
+        g.endFill();
+        regionTintLayer.addChild(g);
+      }
+
+      // Region centroid label (name + bonus) floats above the group
+      const region = mapData.regions?.find((r) => r.region_id === regionId);
+      if (region && territories.length >= 2) {
+        const cx = territories.reduce((s, t) => s + t.center_point[0], 0) / territories.length;
+        const cy = territories.reduce((s, t) => s + t.center_point[1], 0) / territories.length;
+        const [lcx, lcy] = scalePolygon([[cx, cy]], canvasW, canvasH, width, height)[0];
+        const fontSize = Math.min(13, Math.max(8, Math.round(canvasW / 85)));
+        const regionLabel = new PIXI.Text(`${region.name}  +${region.bonus}`, {
+          fontSize,
+          fill: color,
+          align: 'center',
+          fontWeight: 'bold',
+        });
+        regionLabel.alpha = 0.82;
+        regionLabel.anchor.set(0.5);
+        regionLabel.position.set(lcx, lcy - 30);
+        labelContainer.addChild(regionLabel);
+      }
+    }
 
     // Draw connections first (below territories)
     const connectionGraphics = new PIXI.Graphics();

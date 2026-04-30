@@ -498,6 +498,19 @@ export default function GameHUD({
             />
             Fast combat
           </label>
+          {gameState.coaching_eligible && gameId && (
+            <label className="flex items-center gap-2 px-1 py-1 text-xs text-cc-muted cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!gameState.settings.coaching_enabled}
+                onChange={(e) => {
+                  getSocket().emit('game:set_coaching', { gameId, enabled: e.target.checked });
+                }}
+                className="accent-cc-gold w-3 h-3"
+              />
+              In-turn coaching
+            </label>
+          )}
           {onResign && (
             <button
               onClick={onResign}

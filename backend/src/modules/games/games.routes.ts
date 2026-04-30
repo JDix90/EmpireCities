@@ -40,6 +40,7 @@ const CreateGameSchema = z.object({
       naval_enabled: z.boolean().optional(),
       stability_enabled: z.boolean().optional(),
       territory_selection: z.boolean().optional(),
+      coaching_enabled: z.boolean().optional(),
       async_mode: z.boolean().optional(),
       async_turn_deadline_seconds: z.number().int().optional(),
     })

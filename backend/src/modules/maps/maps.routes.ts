@@ -6,17 +6,28 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { CustomMap } from '../../db/mongo/MapModel';
-import { getMapById, getEraMapSummaries, getCommunityMaps, incrementPlayCount, rateMap } from './mapService';
+import { MapRating } from '../../db/mongo/MapRatingModel';
+import { getMapById, getEraMapSummaries, getCommunityMaps } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
 
 const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
+/**
+ * Map / region / territory display names are interpolated into HTML by the
+ * globe overlay layer. We refuse anything outside this allowlist to close the
+ * stored-XSS vector (letters in any script, digits, spaces, and a small set
+ * of common punctuation). If a creator wants exotic characters, the right
+ * place to handle that is a richer rendering layer, not raw HTML injection.
+ */
+const SAFE_NAME_REGEX = /^[\p{L}\p{N} '’._\-:()&,!?]+$/u;
+const SAFE_NAME_MESSAGE = 'Name contains disallowed characters';
+
 const TerritorySchema = z.object({
-  territory_id: z.string(),
-  name: z.string().min(1).max(64),
+  territory_id: z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid territory id').max(64),
+  name: z.string().min(1).max(64).regex(SAFE_NAME_REGEX, SAFE_NAME_MESSAGE),
   polygon: z.array(z.tuple([z.number(), z.number()])).min(3).max(500),
   center_point: z.tuple([z.number(), z.number()]),
-  region_id: z.string(),
+  region_id: z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid region id').max(64),
   /** ISO_A2 country codes for geographic boundaries */
   iso_codes: z.array(z.string().length(2)).optional(),
   /** Clip merged geometry to [minLng, minLat, maxLng, maxLat] */
@@ -39,14 +50,20 @@ const ConnectionSchema = z.object({
 });
 
 const RegionSchema = z.object({
-  region_id: z.string(),
-  name: z.string().min(1).max(64),
+  region_id: z.string().regex(/^[a-zA-Z0-9_-]+$/, 'Invalid region id').max(64),
+  name: z.string().min(1).max(64).regex(SAFE_NAME_REGEX, SAFE_NAME_MESSAGE),
   bonus: z.number().int().min(1).max(20),
 });
 
+const SAFE_DESCRIPTION_REGEX = /^[\p{L}\p{N} '’._\-:()&,!?\n\r"/]*$/u;
+
 const CreateMapSchema = z.object({
-  name: z.string().min(3).max(64),
-  description: z.string().max(512).default(''),
+  name: z.string().min(3).max(64).regex(SAFE_NAME_REGEX, SAFE_NAME_MESSAGE),
+  description: z
+    .string()
+    .max(512)
+    .regex(SAFE_DESCRIPTION_REGEX, 'Description contains disallowed characters')
+    .default(''),
   era_theme: z.string().optional(),
   background_image_url: z.string().url().optional(),
   territories: z.array(TerritorySchema).min(6).max(500),
@@ -166,11 +183,14 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/maps/:mapId ─────────────────────────────────────────────────
-  // Handles both era maps (era_*) and custom maps
-  fastify.get<{ Params: { mapId: string } }>('/:mapId', async (request, reply) => {
+  // Handles tutorial / era / curated-regional / custom maps. Custom maps are
+  // visible to (a) the creator, or (b) anyone if `is_public && approved`.
+  // In-game map data is delivered via the Socket.io broadcast (server-side
+  // resolveMap), so this REST endpoint is only used by the editor / browse
+  // flows where strict privacy gating matters.
+  fastify.get<{ Params: { mapId: string } }>('/:mapId', { preHandler: authenticate }, async (request, reply) => {
     const { mapId } = request.params;
 
-    // Hardcoded tutorial island (same geometry as gameSocket resolveMap('tutorial'))
     if (mapId === 'tutorial') {
       return reply.send({ map: getTutorialMap() });
     }
@@ -189,28 +209,25 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(404).send({ error: 'Map not found' });
     }
 
-    // Era maps are served from MongoDB via mapService (with Redis caching)
+    // Era maps are public by definition.
     if (mapId.startsWith('era_')) {
       const map = await getMapById(mapId);
       if (!map) return reply.status(404).send({ error: 'Era map not found' });
       return reply.send({ map });
     }
 
-    // Custom maps via Mongoose
-    const map = await CustomMap.findOne({ map_id: mapId }).lean();
+    // Custom maps: only the creator OR a public+approved viewer may read.
+    const map = await CustomMap.findOne({
+      map_id: mapId,
+      $or: [
+        { is_public: true, moderation_status: 'approved' },
+        { creator_id: request.userId },
+      ],
+    }).lean();
     if (map) return reply.send({ map });
 
-    // Fallback: load from static JSON files in database/maps/
-    const { isSafeMapId } = await import('../../utils/mapId');
-    if (!isSafeMapId(mapId)) {
-      return reply.status(400).send({ error: 'Invalid map ID format' });
-    }
-    const jsonPath = path.resolve(__dirname, '../../../../database/maps', `${mapId}.json`);
-    if (fs.existsSync(jsonPath)) {
-      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      return reply.send({ map: data });
-    }
-
+    // No leaky 403 — refuse to confirm/deny existence of pending or rejected
+    // private maps the requester does not own.
     return reply.status(404).send({ error: 'Map not found' });
   });
 
@@ -228,48 +245,69 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/maps/:mapId/rate ───────────────────────────────────────────
+  //
+  // One vote per (user, map). Repeated POSTs from the same user upsert
+  // their existing rating row (unique compound index) and recompute the
+  // cached aggregate atomically — no read-modify-write race, no spam loop
+  // multiplied by lookups.
+  //
+  // Era maps share the same MapRating collection; we use a synthetic
+  // "era:<map_id>" key so era ratings never get mistaken for custom ones.
   fastify.post<{ Params: { mapId: string }; Body: { rating: number } }>(
     '/:mapId/rate',
     { preHandler: [authenticate, rejectGuest] },
     async (request, reply) => {
       const { rating } = request.body;
-      if (!rating || rating < 1 || rating > 5) {
-        return reply.status(400).send({ error: 'Rating must be between 1 and 5' });
+      if (!rating || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return reply.status(400).send({ error: 'Rating must be an integer between 1 and 5' });
       }
 
-      // Era maps use mapService
-      if (request.params.mapId.startsWith('era_')) {
-        await rateMap(request.params.mapId, rating);
-        return reply.send({ message: 'Rating submitted' });
+      const mapId = request.params.mapId;
+      const userId = request.userId!;
+
+      const isEra = mapId.startsWith('era_');
+      // Custom maps must exist and be visible to the rater (public+approved
+      // OR owned by them) — otherwise rating becomes a private-existence
+      // probe. Era maps are always public.
+      if (!isEra) {
+        const visible = await CustomMap.findOne({
+          map_id: mapId,
+          $or: [
+            { is_public: true, moderation_status: 'approved' },
+            { creator_id: userId },
+          ],
+        }).select('_id').lean();
+        if (!visible) return reply.status(404).send({ error: 'Map not found' });
       }
 
-      // Custom maps use Mongoose
-      const map = await CustomMap.findOne({ map_id: request.params.mapId });
-      if (!map) return reply.status(404).send({ error: 'Map not found' });
+      // Upsert the per-user vote.
+      await MapRating.updateOne(
+        { map_id: mapId, user_id: userId },
+        { $set: { rating } },
+        { upsert: true },
+      );
 
-      const newCount = map.rating_count + 1;
-      const newRating = (map.rating * map.rating_count + rating) / newCount;
-      map.rating = Math.round(newRating * 10) / 10;
-      map.rating_count = newCount;
-      await map.save();
+      // Recompute the cached aggregate from the source of truth.
+      const agg = await MapRating.aggregate<{
+        _id: string;
+        avg: number;
+        count: number;
+      }>([
+        { $match: { map_id: mapId } },
+        { $group: { _id: '$map_id', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+      ]);
+      const avg = agg[0]?.avg ?? 0;
+      const count = agg[0]?.count ?? 0;
+      const cachedAvg = Math.round(avg * 10) / 10;
 
-      return reply.send({ rating: map.rating, rating_count: map.rating_count });
+      if (!isEra) {
+        await CustomMap.updateOne(
+          { map_id: mapId },
+          { $set: { rating: cachedAvg, rating_count: count } },
+        );
+      }
+
+      return reply.send({ rating: cachedAvg, rating_count: count });
     }
   );
-
-  // ── POST /api/maps/:mapId/play ───────────────────────────────────────────
-  // Called internally when a game starts to increment play count
-  fastify.post<{ Params: { mapId: string } }>('/:mapId/play', async (request, reply) => {
-    try {
-      if (request.params.mapId.startsWith('era_')) {
-        await incrementPlayCount(request.params.mapId);
-      } else {
-        await CustomMap.updateOne({ map_id: request.params.mapId }, { $inc: { play_count: 1 } });
-      }
-      return reply.send({ ok: true });
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to increment play count' });
-    }
-  });
 }

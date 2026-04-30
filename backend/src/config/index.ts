@@ -17,6 +17,11 @@ function parseCorsOrigins(): string[] {
     for (const o of devExtras) {
       if (!list.includes(o)) list.push(o);
     }
+    // Vite may fall back to 5174+ when 5173 is in use; allow all common local dev ports
+    for (const port of [5173, 5174, 5175, 5176, 5177]) {
+      const o = `http://localhost:${port}`;
+      if (!list.includes(o)) list.push(o);
+    }
   }
   return list;
 }

@@ -43,9 +43,23 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null;
+  /**
+   * Access token lives in MEMORY ONLY. Persisting it to localStorage would
+   * make any successful XSS into a session-takeover vulnerability — the
+   * refresh cookie is HttpOnly, but localStorage is wide open to scripts.
+   * On reload, we recover the token via the silent-refresh round-trip (see
+   * `bootstrapAuth` in App.tsx).
+   */
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /**
+   * True once the on-load silent-refresh attempt has finished (success or
+   * failure). PrivateRoute waits on this before redirecting unauthenticated
+   * users so a reload does not flash them to /login while the refresh is
+   * still in flight.
+   */
+  bootstrapped: boolean;
 
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
@@ -54,6 +68,7 @@ interface AuthState {
   refreshToken: (options?: { silent?: boolean }) => Promise<boolean>;
   setUser: (user: AuthUser) => void;
   setAccessToken: (token: string) => void;
+  setBootstrapped: (bootstrapped: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -63,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isLoading: false,
       isAuthenticated: false,
+      bootstrapped: false,
 
       login: async (email, password) => {
         set({ isLoading: true });
@@ -72,7 +88,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
-          set({ user, accessToken, isAuthenticated: true, isLoading: false });
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -87,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
-          set({ user, accessToken, isAuthenticated: true, isLoading: false });
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -99,7 +115,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await rawHttp.post('/auth/guest');
           const { accessToken, user } = res.data;
-          set({ user, accessToken, isAuthenticated: true, isLoading: false });
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -116,7 +132,8 @@ export const useAuthStore = create<AuthState>()(
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
-          set({ user: null, accessToken: null, isAuthenticated: false });
+          // Logout completes the bootstrap flow as well — no pending refresh in flight.
+          set({ user: null, accessToken: null, isAuthenticated: false, bootstrapped: true });
         }
       },
 
@@ -144,10 +161,44 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user) => set({ user }),
       setAccessToken: (token) => set({ accessToken: token }),
+      setBootstrapped: (bootstrapped) => set({ bootstrapped }),
     }),
     {
       name: 'cc-auth',
-      partialize: (state) => ({ user: state.user, accessToken: state.accessToken, isAuthenticated: state.isAuthenticated }),
+      // accessToken is intentionally OMITTED — see the field's docstring.
+      // We persist `user` so the first paint after reload can render the
+      // user's name/avatar without waiting for the silent refresh to land,
+      // and `isAuthenticated` so PrivateRoute knows to attempt a refresh
+      // rather than bouncing to /login.
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 );
+
+/**
+ * Decode the `admin` claim from the (memory-only) access token. We never trust
+ * the persisted `user.is_admin` field for gating admin UI: localStorage is
+ * client-controlled and an attacker can flip the bit there without forging a
+ * JWT. The backend always re-checks via `requireAdmin`, but routing the UI off
+ * the JWT keeps a tampered localStorage from briefly rendering admin scaffolds.
+ *
+ * Returns `false` for missing/invalid/expired tokens.
+ */
+export function selectIsAdminFromToken(token: string | null): boolean {
+  if (!token) return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  try {
+    const payloadJson = atob(parts[1]!.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadJson) as { admin?: unknown; exp?: unknown };
+    if (typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) {
+      return false;
+    }
+    return payload.admin === true;
+  } catch {
+    return false;
+  }
+}

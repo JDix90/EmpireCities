@@ -1,5 +1,5 @@
 import { query, queryOne } from '../db/postgres';
-import type { GameState } from '../types';
+import type { GameState, ActionDecision } from '../types';
 
 type ReplaySnapshotRow = { turn_number: number; state_json: GameState | string };
 
@@ -10,6 +10,17 @@ export interface InsightItem {
   explanation: string;
   alternative: string;
 }
+
+/**
+ * Selection threshold: any decision with |Δprob| at or above this magnitude is
+ * automatically promoted into the turning-points list, even if it pushes the
+ * total beyond the default top-N. Tuned to match the user's UX requirement
+ * that "any swing larger than 12%" should always be surfaced.
+ */
+const HIGH_IMPACT_DELTA = 0.12;
+
+/** Default number of top-ranked decisions when no high-impact ones exceed it. */
+const DEFAULT_TOP_N = 3;
 
 export interface ReplayHighlightItem {
   turn: number;
@@ -138,38 +149,74 @@ function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightItem[] {
     // Prefer probability-delta direction when we have chart data; otherwise
     // fall back to the territory count trend.
     const direction = s.probDelta !== 0 ? Math.sign(s.probDelta) : Math.sign(s.territoryDelta);
-    const territoryPhrase = s.territoryDelta === 0
-      ? null
-      : s.territoryDelta > 0
-        ? `gained ${s.territoryDelta} territor${s.territoryDelta === 1 ? 'y' : 'ies'}`
-        : `lost ${Math.abs(s.territoryDelta)} territor${Math.abs(s.territoryDelta) === 1 ? 'y' : 'ies'}`;
-    const probPct = Math.round(Math.abs(s.probDelta) * 100);
+    const tDelta = s.territoryDelta;
+    const pDelta = s.probDelta;
+    const probPct = Math.round(Math.abs(pDelta) * 100);
     const beforePct = Math.round(s.probBefore * 100);
     const afterPct = Math.round(s.probAfter * 100);
     const probPhrase = probPct > 0
       ? ` Win probability shifted from ${beforePct}% to ${afterPct}%.`
       : '';
-    const impactHigh = probPct >= 10 || Math.abs(s.territoryDelta) >= 3;
+    const impactHigh = probPct >= 10 || Math.abs(tDelta) >= 3;
+    const tWord = (n: number) => `territor${Math.abs(n) === 1 ? 'y' : 'ies'}`;
 
-    if (direction > 0) {
+    // Four distinct narrative cases based on whether territory and probability
+    // move in the same or opposite directions.
+    const isOverextension = tDelta > 0 && pDelta < 0;
+    const isConsolidation = tDelta < 0 && pDelta > 0;
+    const isStrongPush   = tDelta > 0 && direction > 0;
+
+    if (isOverextension) {
+      return {
+        turn: s.turn,
+        title: 'Overextension cost you ground',
+        impact: impactHigh ? 'high' : 'medium',
+        explanation:
+          `You gained ${tDelta} ${tWord(tDelta)} this turn but overextended your position.` + probPhrase,
+        alternative:
+          'Reinforce existing holdings before expanding — thin frontlines are easier for opponents to exploit.',
+      };
+    }
+
+    if (isConsolidation) {
+      return {
+        turn: s.turn,
+        title: 'Consolidation improved your outlook',
+        impact: impactHigh ? 'high' : 'medium',
+        explanation:
+          `You lost ${Math.abs(tDelta)} ${tWord(tDelta)} this turn, but consolidated into a stronger defensive position.` + probPhrase,
+        alternative:
+          'Hold the tighter perimeter and target region-completing territories to convert defense into bonus income.',
+      };
+    }
+
+    if (isStrongPush || direction > 0) {
+      const body = tDelta > 0
+        ? `You gained ${tDelta} ${tWord(tDelta)} this turn, building a tempo advantage.`
+        : tDelta < 0
+          ? `Your opponents lost ground this turn, shifting momentum in your favor.`
+          : 'Your position strengthened this turn, creating a tempo advantage.';
       return {
         turn: s.turn,
         title: 'Momentum swing captured',
         impact: impactHigh ? 'high' : 'medium',
-        explanation: (territoryPhrase
-          ? `You ${territoryPhrase} this turn, creating a tempo advantage.`
-          : 'Your position strengthened this turn, creating a tempo advantage.') + probPhrase,
+        explanation: body + probPhrase,
         alternative:
           'Pressure adjacent weak borders next turn to convert momentum into region bonus control.',
       };
     }
+
+    // isSetback or direction < 0 with no territory change
+    const body = tDelta < 0
+      ? `You lost ${Math.abs(tDelta)} ${tWord(tDelta)} this turn, weakening your position.`
+      : tDelta > 0
+        ? `Your gains this turn came at a strategic cost.`
+        : 'Your position weakened this turn.';
     return {
       turn: s.turn,
       title: 'Map control slipped',
       impact: impactHigh ? 'high' : 'medium',
-      explanation: (territoryPhrase
-        ? `You ${territoryPhrase} this turn, which reduced map control.`
-        : 'Your position weakened this turn, which reduced map control.') + probPhrase,
+      explanation: body + probPhrase,
       alternative:
         'Reinforce a connected defensive cluster before attacking to avoid overextension and chain losses.',
     };
@@ -184,14 +231,149 @@ function buildHighlightsFromInsights(insights: InsightItem[]): ReplayHighlightIt
   }));
 }
 
-export async function generateAndStorePostMatchAnalysis(gameId: string): Promise<void> {
+/**
+ * Convert a verb phrase from a decision summary into a human-readable title.
+ * Each summary follows the convention "<Verb> <object>" (e.g.
+ * "Attacked Ukraine → Afghanistan with 5 units; captured Afghanistan").
+ */
+function titleFromDecision(decision: ActionDecision): string {
+  switch (decision.action_type) {
+    case 'attack':       return decision.summary.includes('captured') ? 'Decisive attack' : 'Costly attack';
+    case 'naval_attack': return 'Naval engagement';
+    case 'fortify':      return 'Fortification move';
+    case 'naval_move':   return 'Fleet repositioning';
+    case 'draft':        return 'Reinforcement deployment';
+    case 'redeem_cards': return 'Card set redemption';
+    case 'build':        return 'Construction project';
+    case 'research':     return 'Research breakthrough';
+    case 'ability':      return 'Special ability';
+    case 'influence':    return 'Influence projection';
+    case 'event_choice': return 'Event card decision';
+    default:             return 'Pivotal decision';
+  }
+}
+
+/**
+ * Generates a structured insight from a single decision's probability swing.
+ * The narrative is grounded in the *exact* observed change in win probability
+ * caused by that specific player choice — no inference required.
+ */
+function insightFromDecision(decision: ActionDecision): InsightItem {
+  const before = Math.round(decision.prob_before * 100);
+  const after = Math.round(decision.prob_after * 100);
+  const deltaPct = Math.round(decision.prob_delta * 100);
+  const swung = decision.prob_delta > 0 ? 'rose' : 'fell';
+  const direction = decision.prob_delta > 0 ? 'gained ground' : 'lost ground';
+  const impactHigh = Math.abs(decision.prob_delta) >= HIGH_IMPACT_DELTA;
+  const explanation =
+    `${decision.summary}. Win probability ${swung} from ${before}% to ${after}% (${deltaPct >= 0 ? '+' : ''}${deltaPct} pts).`;
+
+  const alternative =
+    decision.prob_delta < 0
+      ? actionTypeAlternative(decision.action_type, false)
+      : actionTypeAlternative(decision.action_type, true);
+
+  return {
+    turn: decision.turn,
+    title: `${titleFromDecision(decision)} — ${direction}`,
+    impact: impactHigh ? 'high' : 'medium',
+    explanation,
+    alternative,
+  };
+}
+
+function actionTypeAlternative(type: ActionDecision['action_type'], wasPositive: boolean): string {
+  if (wasPositive) {
+    switch (type) {
+      case 'attack':
+      case 'naval_attack':
+        return 'Pressure adjacent weak borders next turn to convert momentum into region control.';
+      case 'build':
+      case 'research':
+        return 'Stack synergistic upgrades on the same theatre to compound this advantage.';
+      case 'draft':
+      case 'fortify':
+      case 'naval_move':
+        return 'Hold the strengthened position and look for a low-risk capture next turn.';
+      default:
+        return 'Maintain the current strategic momentum without overextending.';
+    }
+  }
+  switch (type) {
+    case 'attack':
+    case 'naval_attack':
+      return 'Wait for a higher dice advantage (≥2:1) before committing to attacks; thin frontlines compound losses.';
+    case 'build':
+    case 'research':
+      return 'Prioritise upgrades that defend or feed your current contested territories before speculative tech.';
+    case 'draft':
+    case 'fortify':
+    case 'naval_move':
+      return 'Concentrate units on a connected defensive cluster rather than spreading across the map.';
+    case 'redeem_cards':
+      return 'Time card redemption with an immediate offensive plan; idle bonus units invite counter-attacks.';
+    case 'event_choice':
+      return 'Re-read the event text carefully — many choices have a hidden cost paid over later turns.';
+    case 'influence':
+      return 'Influence works best on weakly-defended territories that complete a region; solo grabs rarely move probability.';
+    case 'ability':
+      return 'Powerful abilities are best saved for moments where they tip a fight you would otherwise lose.';
+    default:
+      return 'Reassess the strategic plan before committing to the next major action.';
+  }
+}
+
+/**
+ * Build insights from the per-action decision log captured during the game.
+ * Each row has an exact, observed win-probability delta — selection is just
+ * "sort by |delta| descending and take the top N, plus everything above the
+ * high-impact threshold". No inference, no aggregation, no guessing.
+ *
+ * Exported for testing.
+ */
+export function buildInsightsFromDecisionLog(decisions: ActionDecision[]): InsightItem[] {
+  if (decisions.length === 0) return [];
+
+  // Score by absolute probability impact; ignore decisions that didn't move
+  // the needle so we don't surface "deployed 1 unit, no change" as a turning point.
+  const ranked = decisions
+    .filter((d) => Math.abs(d.prob_delta) >= 0.01)
+    .map((d) => ({ decision: d, magnitude: Math.abs(d.prob_delta) }))
+    .sort((a, b) => b.magnitude - a.magnitude);
+
+  if (ranked.length === 0) return [];
+
+  // Always include any decision above the high-impact threshold, but
+  // guarantee at least DEFAULT_TOP_N entries even if none clear the bar.
+  const highImpact = ranked.filter((r) => r.magnitude >= HIGH_IMPACT_DELTA);
+  const selected = highImpact.length >= DEFAULT_TOP_N
+    ? highImpact
+    : ranked.slice(0, Math.max(DEFAULT_TOP_N, highImpact.length));
+
+  // Re-sort the surfaced subset chronologically so the modal reads like a
+  // narrative ("Turn 1 → Turn 4 → Turn 7") rather than by magnitude.
+  return selected
+    .sort((a, b) => a.decision.step - b.decision.step)
+    .map((r) => insightFromDecision(r.decision));
+}
+
+export async function generateAndStorePostMatchAnalysis(
+  gameId: string,
+  decisionLog?: ActionDecision[],
+): Promise<void> {
   const rows = await query<ReplaySnapshotRow>(
     'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number ASC LIMIT 300',
     [gameId],
   );
   if (rows.length === 0) return;
 
-  const insights = buildInsightsFromSnapshots(rows);
+  // Prefer the per-action decision log when available (precise, captured
+  // server-side as actions occur). Fall back to the snapshot-diff heuristic
+  // for legacy games or sessions where the in-memory log was lost (server
+  // restart, eviction, etc.).
+  const insights = decisionLog && decisionLog.length > 0
+    ? buildInsightsFromDecisionLog(decisionLog)
+    : buildInsightsFromSnapshots(rows);
   const highlights = buildHighlightsFromInsights(insights);
 
   await query(

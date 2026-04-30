@@ -250,6 +250,11 @@ export function calculateRegionBonuses(
 }
 
 // ─── Increment play count ─────────────────────────────────────────────────────
+//
+// Called server-side from the Socket.io game-start path. The previous public
+// REST route was unauthenticated and let any anon hit it to inflate counts;
+// it's been removed. Built-in maps (`tutorial`, etc.) and curated regional
+// JSON maps don't have CustomMap rows, so updateOne is a safe no-op for them.
 export async function incrementPlayCount(mapId: string): Promise<void> {
   const db = getDb();
   await db.collection('custommaps').updateOne(

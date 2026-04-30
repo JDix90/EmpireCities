@@ -50,6 +50,11 @@ export interface GameOverModalData {
     username: string;
     color: string;
     territory_count: number;
+    peak_territory_count?: number;
+    cards_redeemed_count?: number;
+    card_set_bonus_units?: number;
+    unlocked_techs_count?: number;
+    buildings_built_count?: number;
     is_eliminated: boolean;
     is_ai: boolean;
   }>;
@@ -94,11 +99,53 @@ export interface GameOverModalData {
     defenses: number;
     defense_wins: number;
     territories_captured: number;
+    units_lost?: number;
+    units_destroyed?: number;
+    sea_attacks?: number;
+    eliminations_dealt?: number;
   }>;
   /** Full per-player XP map (for MatchStatsTab table). */
   xp_earned_by_player?: Record<string, number>;
   /** Full per-player MMR delta map (for MatchStatsTab table). */
   rating_deltas?: Record<string, number>;
+  /** Wall-clock duration of the game in milliseconds. Null when start time unknown. */
+  duration_ms?: number | null;
+  /** Highest AI difficulty present (for header chip). Null if all-human game. */
+  ai_difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial' | null;
+  /** Snapshot of the human's best/worst single decision (used in Match Stats panel). */
+  decision_summary?: {
+    total_decisions: number;
+    best?: {
+      step: number;
+      turn: number;
+      player_id: string;
+      action_type: string;
+      summary: string;
+      prob_before: number;
+      prob_after: number;
+      prob_delta: number;
+    };
+    worst?: {
+      step: number;
+      turn: number;
+      player_id: string;
+      action_type: string;
+      summary: string;
+      prob_before: number;
+      prob_after: number;
+      prob_delta: number;
+    };
+    biggest_swing?: {
+      step: number;
+      turn: number;
+      player_id: string;
+      action_type: string;
+      summary: string;
+      prob_before: number;
+      prob_after: number;
+      prob_delta: number;
+    };
+  };
 }
 
 export interface EliminationModalData {
@@ -1075,7 +1122,7 @@ function GameOverView({ data, onDismiss, onRematch }: {
         )}>
           <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Coaching Turning Points</p>
           <div className="space-y-2">
-            {data.insights.slice(0, 3).map((insight, idx) => (
+            {data.insights.map((insight, idx) => (
               <div key={`${insight.turn}-${idx}`} className="text-left rounded-lg bg-white/[0.03] border border-white/10 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm text-white/80 font-medium">{insight.title}</p>

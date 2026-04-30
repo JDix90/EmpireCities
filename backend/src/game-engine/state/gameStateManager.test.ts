@@ -382,6 +382,96 @@ describe('initializeGameState faction distribution', () => {
     expect(state.draft_units_remaining).toBe(baseDraft + 2);
   });
 
+  describe('Space Age moon territory neutrality', () => {
+    const earthRegion = { region_id: 'na', name: 'North America', bonus: 1 };
+    const moonRegion = { region_id: 'lunar_surface', name: 'Lunar Surface', bonus: 8 };
+    const spaceAgeMap: GameMap = {
+      map_id: 'era_space_age',
+      name: 'Space Age',
+      territories: [
+        { territory_id: 'earth_a', name: 'Earth A', polygon: [], center_point: [0, 0], region_id: 'na' },
+        { territory_id: 'earth_b', name: 'Earth B', polygon: [], center_point: [0, 0], region_id: 'na' },
+        { territory_id: 'earth_c', name: 'Earth C', polygon: [], center_point: [0, 0], region_id: 'na' },
+        { territory_id: 'earth_d', name: 'Earth D', polygon: [], center_point: [0, 0], region_id: 'na' },
+        { territory_id: 'moon_a', name: 'Moon A', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+        { territory_id: 'moon_b', name: 'Moon B', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+        { territory_id: 'moon_c', name: 'Moon C', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+      ],
+      connections: [
+        { from: 'earth_a', to: 'earth_b', type: 'land' },
+        { from: 'earth_b', to: 'earth_c', type: 'land' },
+        { from: 'earth_c', to: 'earth_d', type: 'land' },
+        { from: 'earth_a', to: 'moon_a', type: 'orbit' },
+        { from: 'moon_a', to: 'moon_b', type: 'land' },
+        { from: 'moon_b', to: 'moon_c', type: 'land' },
+      ],
+      regions: [earthRegion, moonRegion],
+    };
+
+    it('leaves moon territories neutral with a defending garrison even when no Lunar Pioneer is in the game', () => {
+      const state = initializeGameState(
+        'space-age-no-pioneer',
+        'space_age',
+        spaceAgeMap,
+        [
+          { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000 },
+          { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: false, is_eliminated: false, mmr: 1000 },
+        ],
+        makeSettings({ factions_enabled: false }),
+      );
+
+      for (const moonId of ['moon_a', 'moon_b', 'moon_c']) {
+        const t = state.territories[moonId]!;
+        expect(t.owner_id, `${moonId} should be neutral`).toBeNull();
+        expect(t.unit_count).toBeGreaterThan(0); // neutral garrison
+      }
+      // All Earth territories must end up owned (no neutral Earth slots leak through).
+      for (const earthId of ['earth_a', 'earth_b', 'earth_c', 'earth_d']) {
+        expect(state.territories[earthId]!.owner_id).not.toBeNull();
+      }
+    });
+
+    it('keeps moon territories neutral even when a Lunar Pioneer faction is in play', () => {
+      const state = initializeGameState(
+        'space-age-with-pioneer',
+        'space_age',
+        spaceAgeMap,
+        [
+          {
+            player_id: 'p1',
+            player_index: 0,
+            username: 'Pioneer',
+            color: '#bdc3c7',
+            is_ai: false,
+            is_eliminated: false,
+            mmr: 1000,
+            faction_id: 'lunar_pioneers',
+          },
+          {
+            player_id: 'p2',
+            player_index: 1,
+            username: 'Earther',
+            color: '#3498db',
+            is_ai: false,
+            is_eliminated: false,
+            mmr: 1000,
+            faction_id: 'pacific_megacities',
+          },
+        ],
+        makeSettings({ factions_enabled: true }),
+      );
+
+      for (const moonId of ['moon_a', 'moon_b', 'moon_c']) {
+        const t = state.territories[moonId]!;
+        expect(t.owner_id, `${moonId} should not be pre-claimed by Lunar Pioneers`).toBeNull();
+        expect(t.unit_count).toBeGreaterThan(0);
+      }
+      // Lunar Pioneer player still gets their orbit-access perk so they can race for moon.
+      const pioneer = state.players.find((p) => p.faction_id === 'lunar_pioneers');
+      expect(pioneer?.space_station_launched).toBe(true);
+    });
+  });
+
   it('keeps draft_units_remaining at 0 during territory selection even with factions enabled', () => {
     const map: GameMap = {
       map_id: 'territory_select_faction_bonus_map',

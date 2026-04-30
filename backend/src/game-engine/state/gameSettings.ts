@@ -29,6 +29,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const navalEnabled = typeof raw.naval_enabled === 'boolean' ? raw.naval_enabled : false;
   const stabilityEnabled = typeof raw.stability_enabled === 'boolean' ? raw.stability_enabled : false;
   const territorySelection = typeof raw.territory_selection === 'boolean' ? raw.territory_selection : false;
+  const coachingEnabled = typeof raw.coaching_enabled === 'boolean' ? raw.coaching_enabled : false;
 
   // Async mode: auto-detect from long turn timers (≥12 hours)
   const VALID_ASYNC_DEADLINES = [43200, 86400, 259200]; // 12h, 24h, 72h
@@ -86,6 +87,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     naval_enabled: navalEnabled || undefined,
     stability_enabled: stabilityEnabled || undefined,
     territory_selection: territorySelection || undefined,
+    coaching_enabled: coachingEnabled || undefined,
   };
 
   // Preserve extensions not part of the normalized core (campaign, daily puzzle, lobby).

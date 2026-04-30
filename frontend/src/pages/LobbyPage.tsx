@@ -358,6 +358,7 @@ export default function LobbyPage() {
   const [navalEnabled, setNavalEnabled] = useState(false);
   const [stabilityEnabled, setStabilityEnabled] = useState(false);
   const [territorySelection, setTerritorySelection] = useState(false);
+  const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   // Factions selection state
   const [_availableFactions, setAvailableFactions] = useState<FactionInfo[]>([]);
@@ -624,6 +625,7 @@ export default function LobbyPage() {
         naval_enabled: navalEnabled || undefined,
         stability_enabled: stabilityEnabled || undefined,
         territory_selection: territorySelection || undefined,
+        coaching_enabled: coachingEnabled || undefined,
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
@@ -1496,6 +1498,15 @@ export default function LobbyPage() {
                             <span className="leading-snug min-w-0 select-none">Fog of War</span>
                           </label>
                         </div>
+                        {aiCount > 0 && (
+                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                            <FeatureTooltip text="Surfaces a single advisory tip at the start of each of your draft phases (probability swings, region threats, thin borders). Available only in solo-vs-AI casual games to avoid asymmetric advantages." />
+                            <label htmlFor="create-game-coaching" className="contents cursor-pointer">
+                              <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                              <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-cc-muted">(solo vs AI only)</span></span>
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </div>
                   <div className="md:col-span-2">

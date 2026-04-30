@@ -16,6 +16,13 @@ import {
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
+import { REGION_CSS_COLORS } from '../../constants/regionColors';
+import {
+  SPACE_AGE_WASTELANDS,
+  wastelandColorRgb,
+  wastelandColorRgba,
+  wastelandGlyph,
+} from '../../data/spaceAgeWastelands';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +108,7 @@ interface MapTerritory {
   polygon: number[][];
   center_point: [number, number];
   region_id: string;
+  globe_id?: 'earth' | 'moon';
   iso_codes?: string[];
   clip_bbox?: ClipBbox;
   geo_config?: TerritoryGeoConfig;
@@ -123,6 +131,25 @@ interface GameMapData {
   globe_view?: GlobeViewConfig;
   territories: MapTerritory[];
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
+  regions?: Array<{ region_id: string; name: string; bonus: number }>;
+}
+
+function inferTerritoryGlobeId(territory: MapTerritory): 'earth' | 'moon' {
+  if (territory.globe_id === 'moon' || territory.globe_id === 'earth') return territory.globe_id;
+  // Back-compat fallback for stale/custom map documents that predate
+  // `globe_id`. Space Age moon territories are consistently tagged either by
+  // region (`lunar_surface`) or by id prefix (`moon_*`); we also treat any
+  // territory whose id contains `lunar` as a moon territory so future
+  // hand-authored maps don't silently leak onto Earth.
+  const tid = territory.territory_id ?? '';
+  if (
+    territory.region_id === 'lunar_surface' ||
+    tid.startsWith('moon_') ||
+    tid.includes('lunar')
+  ) {
+    return 'moon';
+  }
+  return 'earth';
 }
 
 interface GlobeMapProps {
@@ -154,14 +181,84 @@ interface GlobeMapProps {
   globeView?: 'earth' | 'moon';
 }
 
-interface HtmlDatum {
+/**
+ * Discriminated union for everything we render through the globe's HTML
+ * overlay layer.  We deliberately do NOT accept arbitrary HTML strings here:
+ * any user-controlled string (territory / region names from custom maps)
+ * goes through `textContent`, never through `innerHTML`, which closes the
+ * stored-XSS vector that existed when this layer used `el.innerHTML = …`.
+ *
+ * If you need a new overlay shape, ADD a new variant rather than reaching
+ * for an `html: string` escape hatch.
+ */
+type HtmlDatumBase = {
   id: string;
   lat: number;
   lng: number;
   alt: number;
-  html: string;
+  /** Optional click-forward target — set on interactive markers (e.g. sea-route hubs). */
   onClickTerritoryId?: string;
-}
+};
+
+type HtmlDatum =
+  | (HtmlDatumBase & {
+      kind: 'region-label';
+      name: string;
+      bonus: number;
+      color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'building-icons';
+      icons: string;
+      tooltip: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'capital-marker';
+      color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'sea-route-marker';
+      territoryName: string;
+      color: string;
+      size: number;
+      glow: number;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-units-plus';
+      text: string;
+      color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-units-total';
+      text: string;
+      color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-explosion';
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-loss-banner';
+      text: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-captured';
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-source-units';
+      text: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-dest-units';
+      text: string;
+      color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'wasteland-zone';
+      name: string;
+      description: string;
+      glyph: string;
+      colorRgba: string;
+    });
 
 interface ArcDatum {
   id: string;
@@ -247,6 +344,230 @@ function uid(prefix: string): string {
   return `${prefix}-${++eventIdCounter}-${Date.now()}`;
 }
 
+/**
+ * Construct the DOM node for an HTML overlay datum.  All user-facing strings
+ * (region names, territory names) are written via `textContent` — never as
+ * `innerHTML` — so a malicious custom-map name like
+ *   `'<img src=x onerror=…>'`
+ * renders as literal text instead of executing in the player's session.
+ */
+function buildHtmlOverlayElement(
+  datum: HtmlDatum,
+  onTerritoryClick: (territoryId: string) => void,
+): HTMLElement {
+  const el = document.createElement('div');
+
+  switch (datum.kind) {
+    case 'region-label': {
+      el.style.cssText = [
+        `color:${datum.color}`,
+        'font-size:11px',
+        'font-weight:700',
+        'letter-spacing:0.04em',
+        'text-shadow:0 1px 4px rgba(0,0,0,0.95),0 0 10px rgba(0,0,0,0.8)',
+        'white-space:nowrap',
+        'pointer-events:none',
+        'user-select:none',
+      ].join(';');
+      el.appendChild(document.createTextNode(datum.name));
+      el.appendChild(document.createTextNode('\u2002'));
+      const bonusEl = document.createElement('span');
+      bonusEl.style.cssText = 'color:#ffd700;opacity:0.9';
+      bonusEl.textContent = `+${datum.bonus}`;
+      el.appendChild(bonusEl);
+      break;
+    }
+
+    case 'building-icons': {
+      el.style.cssText =
+        'font-size:10px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none';
+      el.title = datum.tooltip;
+      el.textContent = datum.icons;
+      break;
+    }
+
+    case 'capital-marker': {
+      el.style.cssText = [
+        'width:12px',
+        'height:12px',
+        'transform:rotate(45deg)',
+        'border:2px solid #ffd700',
+        `background:${datum.color}`,
+        'box-shadow:0 0 6px rgba(0,0,0,0.85)',
+        'pointer-events:none',
+      ].join(';');
+      el.title = 'Capital';
+      break;
+    }
+
+    case 'sea-route-marker': {
+      el.style.cssText = [
+        `width:${datum.size}px`,
+        `height:${datum.size}px`,
+        'border-radius:999px',
+        'border:2px solid rgba(255,255,255,0.92)',
+        `background:${hexToRgba(datum.color, 0.95)}`,
+        `box-shadow:0 0 ${datum.glow}px ${hexToRgba(datum.color, 0.7)}, 0 0 3px rgba(255,255,255,0.95)`,
+        'cursor:pointer',
+      ].join(';');
+      el.title = datum.territoryName;
+      break;
+    }
+
+    case 'animation-units-plus': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:900',
+        'font-size:24px',
+        `color:${datum.color}`,
+        'white-space:nowrap',
+        'text-align:center',
+        `text-shadow:0 0 14px ${datum.color}, 0 2px 6px rgba(0,0,0,0.7)`,
+        'animation:globeFloatUp 1.4s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.text;
+      break;
+    }
+
+    case 'animation-units-total': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:700',
+        'font-size:15px',
+        'color:#fff',
+        'white-space:nowrap',
+        'text-align:center',
+        'background:rgba(0,0,0,0.78)',
+        'padding:3px 12px',
+        'border-radius:6px',
+        `border:1px solid ${datum.color}55`,
+        'animation:globePulseIn 1.1s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.text;
+      break;
+    }
+
+    case 'animation-explosion': {
+      el.style.cssText = [
+        'font-size:36px',
+        'text-align:center',
+        'text-shadow:0 0 24px rgba(255,150,50,0.9), 0 0 48px rgba(255,100,0,0.5)',
+        'animation:globeExplosionPulse 0.9s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = '💥';
+      break;
+    }
+
+    case 'animation-loss-banner': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:900',
+        'font-size:20px',
+        'color:#f87171',
+        'white-space:nowrap',
+        'text-align:center',
+        'text-shadow:0 0 10px rgba(248,113,113,0.7), 0 2px 4px rgba(0,0,0,0.6)',
+        'animation:globeFadeInUp 1.4s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.text;
+      break;
+    }
+
+    case 'animation-captured': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:900',
+        'font-size:16px',
+        'color:#4ade80',
+        'white-space:nowrap',
+        'text-align:center',
+        'text-shadow:0 0 16px rgba(74,222,128,0.8)',
+        'animation:globeCaptured 1.6s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = '⚑ CAPTURED!';
+      break;
+    }
+
+    case 'animation-source-units': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:900',
+        'font-size:20px',
+        'color:#fbbf24',
+        'white-space:nowrap',
+        'text-align:center',
+        'text-shadow:0 0 10px rgba(251,191,36,0.6), 0 2px 4px rgba(0,0,0,0.6)',
+        'animation:globeArrowPulse 1.4s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.text;
+      break;
+    }
+
+    case 'animation-dest-units': {
+      el.style.cssText = [
+        "font-family:'Courier New', monospace",
+        'font-weight:900',
+        'font-size:20px',
+        `color:${datum.color}`,
+        'white-space:nowrap',
+        'text-align:center',
+        `text-shadow:0 0 10px ${datum.color}99, 0 2px 4px rgba(0,0,0,0.6)`,
+        'animation:globeArrowPulse 1.4s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.text;
+      break;
+    }
+
+    case 'wasteland-zone': {
+      // Small ambient crater glyph — no visible label, full name + flavor
+      // text appear on hover via the native title tooltip. The territories
+      // around it carry the gameplay; this is just world-building.
+      el.style.cssText = [
+        'width:20px',
+        'height:20px',
+        'border-radius:999px',
+        `background:radial-gradient(circle, ${datum.colorRgba} 0%, ${datum.colorRgba.replace(/[\d.]+\)$/, '0.25)')} 60%, rgba(0,0,0,0) 100%)`,
+        `border:1px solid ${datum.colorRgba}`,
+        `box-shadow:0 0 10px ${datum.colorRgba}, inset 0 0 4px rgba(0,0,0,0.5)`,
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'color:rgba(255,255,255,0.95)',
+        'font-size:11px',
+        'font-weight:700',
+        'text-shadow:0 0 3px rgba(0,0,0,0.9)',
+        'animation:globeWastelandPulse 3.6s ease-in-out infinite',
+        'pointer-events:auto',
+        'cursor:help',
+        'user-select:none',
+      ].join(';');
+      el.title = `${datum.name} — ${datum.description}`;
+      el.textContent = datum.glyph;
+      break;
+    }
+  }
+
+  if (datum.onClickTerritoryId) {
+    el.style.pointerEvents = 'auto';
+    el.style.cursor = 'pointer';
+    el.onclick = (event) => {
+      event.stopPropagation();
+      onTerritoryClick(datum.onClickTerritoryId!);
+    };
+  } else if (!el.style.pointerEvents) {
+    el.style.pointerEvents = 'none';
+  }
+
+  return el;
+}
+
 // ── Animation Keyframes (injected as <style>) ─────────────────────────────────
 
 const ANIMATION_STYLES = `
@@ -284,6 +605,10 @@ const ANIMATION_STYLES = `
   30%  { transform: scale(1.2); opacity: 1; text-shadow: 0 0 20px rgba(74,222,128,0.8); }
   60%  { transform: scale(1); opacity: 1; text-shadow: 0 0 12px rgba(74,222,128,0.5); }
   100% { transform: scale(0.95); opacity: 0; text-shadow: 0 0 0 transparent; }
+}
+@keyframes globeWastelandPulse {
+  0%, 100% { opacity: 0.75; transform: scale(0.94); }
+  50%      { opacity: 1;    transform: scale(1.06); }
 }
 `;
 
@@ -496,11 +821,16 @@ function GlobeMap({
       const territory = mapData.territories.find((t) => t.territory_id === p.territory_id);
       if (!territory) return false;
       if (territory.region_id === 'sea_routes') return false;
-      const tGlobe = (territory as { globe_id?: 'earth' | 'moon' }).globe_id ?? 'earth';
-      return tGlobe === globeView;
+      return inferTerritoryGlobeId(territory) === globeView;
     }),
     [polygonsData, mapData.territories, globeView],
   );
+
+  const territoryById = useMemo(() => {
+    const m = new Map<string, MapTerritory>();
+    for (const t of mapData.territories) m.set(t.territory_id, t);
+    return m;
+  }, [mapData.territories]);
 
   // ── Territory center lookup ────────────────────────────────────────────
 
@@ -608,13 +938,20 @@ function GlobeMap({
    * three-conic-polygon-geometry uses this as max segment length (degrees) before interpolating ring
    * vertices, and skips interior grid points only when min(lng span, lat span) < this value.
    * At the default 5°, large authored quads (14 Nations) get planar Delaunay + sphere lift → shard noise.
-   * Natural Earth regional maps need ~5° for smooth coastlines. Maps with `projection_bounds` use WGS84
-   * quads only → use 360° so we effectively keep the authored ring and earcut (no interior grid).
+   * Natural Earth regional maps need ~5° for smooth coastlines. Most regional maps with
+   * `projection_bounds` ship small WGS84 quads (a few degrees per side) → 360° keeps the authored ring
+   * and earcuts it (no interior grid).
+   *
+   * Space Age is an exception: the authored quads span 60°–80° of arc on Earth and the moon
+   * territories span 150°+ of lng. Without subdivision the flat earcut lifted to the sphere dips far
+   * below the surface, so only the strokes are visible. Force 5° subdivision for that map and for any
+   * moon-view render so caps actually hug the sphere.
    */
-  const polygonCapCurvatureResolution = useMemo(
-    () => (mapData.projection_bounds != null ? 360 : 5),
-    [mapData.projection_bounds],
-  );
+  const polygonCapCurvatureResolution = useMemo(() => {
+    if (globeView === 'moon') return 5;
+    if (mapData.map_id === 'era_space_age') return 5;
+    return mapData.projection_bounds != null ? 360 : 5;
+  }, [mapData.map_id, mapData.projection_bounds, globeView]);
 
   /** Keep WebGL backing store in sync when the game resizes the map pane (devtools, sidebar, etc.). */
   useEffect(() => {
@@ -633,6 +970,16 @@ function GlobeMap({
         const jitter = polygonAltitudeHash(id) * 0.001;
         return base + jitter;
       }
+      // Moon-view caps need a slightly higher base than other authored
+      // regionals: the lunar texture is contrasty (light highlands, very dark
+      // mare) and authored moon rings are very wide (~150° lng), so even with
+      // 5° curvature subdivision a thin cap sits visually flush with the
+      // surface and reads as outline-only. 0.014 puts the cap clearly above.
+      if (globeView === 'moon') {
+        const base = 0.014;
+        const jitter = polygonAltitudeHash(id) * 0.002;
+        return base + jitter;
+      }
       const base = authoredRegional
         ? tutorialIsland
           ? 0.014
@@ -644,7 +991,7 @@ function GlobeMap({
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
       return base + jitter;
     },
-    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds, isFloodedNorthAmerica],
+    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds, isFloodedNorthAmerica, globeView],
   );
 
   // ── Animation sequences ────────────────────────────────────────────────
@@ -667,18 +1014,13 @@ function GlobeMap({
     // Phase 1: "+N" floating up
     scheduleTimer(() => {
       addOverlay({
+        kind: 'animation-units-plus',
         id: plusId,
         lat: center.lat,
         lng: center.lng,
         alt: 0.04,
-        html: `<div style="
-          font-family: 'Courier New', monospace;
-          font-weight: 900; font-size: 24px;
-          color: ${color}; white-space: nowrap; text-align: center;
-          text-shadow: 0 0 14px ${color}, 0 2px 6px rgba(0,0,0,0.7);
-          animation: globeFloatUp 1.4s ease-out forwards;
-          pointer-events: none;
-        ">+${event.units ?? 1}</div>`,
+        text: `+${event.units ?? 1}`,
+        color,
       });
     }, 800);
 
@@ -686,19 +1028,13 @@ function GlobeMap({
     scheduleTimer(() => {
       removeOverlay(plusId);
       addOverlay({
+        kind: 'animation-units-total',
         id: totalId,
         lat: center.lat,
         lng: center.lng,
         alt: 0.04,
-        html: `<div style="
-          font-family: 'Courier New', monospace;
-          font-weight: 700; font-size: 15px;
-          color: #fff; white-space: nowrap; text-align: center;
-          background: rgba(0,0,0,0.78); padding: 3px 12px;
-          border-radius: 6px; border: 1px solid ${color}55;
-          animation: globePulseIn 1.1s ease-out forwards;
-          pointer-events: none;
-        ">Total: ${event.totalAfter ?? '?'}</div>`,
+        text: `Total: ${event.totalAfter ?? '?'}`,
+        color,
       });
     }, 2000);
 
@@ -772,16 +1108,11 @@ function GlobeMap({
     // Phase 3: Explosion emoji
     scheduleTimer(() => {
       addOverlay({
+        kind: 'animation-explosion',
         id: explosionId,
         lat: targetCenter.lat,
         lng: targetCenter.lng,
         alt: 0.06,
-        html: `<div style="
-          font-size: 36px; text-align: center;
-          text-shadow: 0 0 24px rgba(255,150,50,0.9), 0 0 48px rgba(255,100,0,0.5);
-          animation: globeExplosionPulse 0.9s ease-out forwards;
-          pointer-events: none;
-        ">💥</div>`,
       });
     }, 1100);
 
@@ -792,36 +1123,24 @@ function GlobeMap({
 
       if (sourceCenter && (event.attackerLosses ?? 0) > 0) {
         addOverlay({
+          kind: 'animation-loss-banner',
           id: atkLossId,
           lat: sourceCenter.lat,
           lng: sourceCenter.lng,
           alt: 0.04,
-          html: `<div style="
-            font-family: 'Courier New', monospace;
-            font-weight: 900; font-size: 20px;
-            color: #f87171; white-space: nowrap; text-align: center;
-            text-shadow: 0 0 10px rgba(248,113,113,0.7), 0 2px 4px rgba(0,0,0,0.6);
-            animation: globeFadeInUp 1.4s ease-out forwards;
-            pointer-events: none;
-          ">-${event.attackerLosses} ⚔️</div>`,
+          text: `-${event.attackerLosses} ⚔️`,
         });
       }
 
       const defLoss = event.defenderLosses ?? 0;
       if (defLoss > 0) {
         addOverlay({
+          kind: 'animation-loss-banner',
           id: defLossId,
           lat: targetCenter.lat,
           lng: targetCenter.lng,
           alt: 0.04,
-          html: `<div style="
-            font-family: 'Courier New', monospace;
-            font-weight: 900; font-size: 20px;
-            color: #f87171; white-space: nowrap; text-align: center;
-            text-shadow: 0 0 10px rgba(248,113,113,0.7), 0 2px 4px rgba(0,0,0,0.6);
-            animation: globeFadeInUp 1.4s ease-out forwards;
-            pointer-events: none;
-          ">-${defLoss} 🛡️</div>`,
+          text: `-${defLoss} 🛡️`,
         });
       }
     }, 1800);
@@ -830,18 +1149,11 @@ function GlobeMap({
     if (event.captured) {
       scheduleTimer(() => {
         addOverlay({
+          kind: 'animation-captured',
           id: capturedId,
           lat: targetCenter.lat,
           lng: targetCenter.lng,
           alt: 0.07,
-          html: `<div style="
-            font-family: 'Courier New', monospace;
-            font-weight: 900; font-size: 16px;
-            color: #4ade80; white-space: nowrap; text-align: center;
-            text-shadow: 0 0 16px rgba(74,222,128,0.8);
-            animation: globeCaptured 1.6s ease-out forwards;
-            pointer-events: none;
-          ">⚑ CAPTURED!</div>`,
         });
       }, 2200);
     }
@@ -905,33 +1217,22 @@ function GlobeMap({
     scheduleTimer(() => {
       if (srcCenter) {
         addOverlay({
+          kind: 'animation-source-units',
           id: srcLabelId,
           lat: srcCenter.lat,
           lng: srcCenter.lng,
           alt: 0.04,
-          html: `<div style="
-            font-family: 'Courier New', monospace;
-            font-weight: 900; font-size: 20px;
-            color: #fbbf24; white-space: nowrap; text-align: center;
-            text-shadow: 0 0 10px rgba(251,191,36,0.6), 0 2px 4px rgba(0,0,0,0.6);
-            animation: globeArrowPulse 1.4s ease-out forwards;
-            pointer-events: none;
-          ">-${event.units ?? 0} →</div>`,
+          text: `-${event.units ?? 0} →`,
         });
       }
       addOverlay({
+        kind: 'animation-dest-units',
         id: dstLabelId,
         lat: destCenter.lat,
         lng: destCenter.lng,
         alt: 0.04,
-        html: `<div style="
-          font-family: 'Courier New', monospace;
-          font-weight: 900; font-size: 20px;
-          color: ${color}; white-space: nowrap; text-align: center;
-          text-shadow: 0 0 10px ${color}99, 0 2px 4px rgba(0,0,0,0.6);
-          animation: globeArrowPulse 1.4s ease-out forwards;
-          pointer-events: none;
-        ">+${event.units ?? 0}</div>`,
+        text: `+${event.units ?? 0}`,
+        color,
       });
     }, 800);
 
@@ -1031,10 +1332,69 @@ function GlobeMap({
     return map;
   }, [polygonsData]);
 
+  /** Maps territory_id → region_id for fast lookups in polygon accessors. */
+  const territoryRegionMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of mapData.territories) m.set(t.territory_id, t.region_id);
+    return m;
+  }, [mapData.territories]);
+
+  /** Maps region_id → CSS color string (stable palette keyed by regions array order). */
+  const regionColorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    const orderedIds = mapData.regions
+      ? mapData.regions.map((r) => r.region_id)
+      : [...new Set(mapData.territories.map((t) => t.region_id))].sort();
+    orderedIds.forEach((rid, i) => m.set(rid, REGION_CSS_COLORS[i % REGION_CSS_COLORS.length]));
+    return m;
+  }, [mapData.regions, mapData.territories]);
+
+  /** Floating region-name labels — one per region, positioned at the geographic centroid
+   *  of its member territories. Non-interactive (pointer-events: none). */
+  const regionHtmlOverlays = useMemo((): HtmlDatum[] => {
+    if (!mapData.regions) return [];
+    const out: HtmlDatum[] = [];
+
+    for (const region of mapData.regions) {
+      if (region.region_id === 'sea_routes') continue;
+
+      const regionTerritories = mapData.territories.filter(
+        (t) =>
+          t.region_id === region.region_id &&
+          t.region_id !== 'sea_routes' &&
+          inferTerritoryGlobeId(t) === globeView,
+      );
+      if (regionTerritories.length < 2) continue;
+
+      let sumLat = 0, sumLng = 0, count = 0;
+      for (const t of regionTerritories) {
+        const c = territoryCentroids.get(t.territory_id);
+        if (c) { sumLat += c.lat; sumLng += c.lng; count++; }
+      }
+      if (count === 0) continue;
+
+      const color = regionColorMap.get(region.region_id) ?? '#aaaaaa';
+
+      out.push({
+        kind: 'region-label',
+        id: `region-label-${region.region_id}`,
+        lat: sumLat / count,
+        lng: sumLng / count,
+        alt: 0.07,
+        name: region.name,
+        bonus: region.bonus,
+        color,
+      });
+    }
+    return out;
+  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, globeView]);
+
   const buildingHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
     const out: HtmlDatum[] = [];
     for (const [tid, tState] of Object.entries(gameState.territories)) {
+      const terr = territoryById.get(tid);
+      if (!terr || inferTerritoryGlobeId(terr) !== globeView) continue;
       const buildings: string[] = (tState as { buildings?: string[] }).buildings ?? [];
       if (buildings.length === 0) continue;
       const c = territoryCentroids.get(tid);
@@ -1049,40 +1409,38 @@ function GlobeMap({
         })
         .join('');
       out.push({
+        kind: 'building-icons',
         id: `building-globe-${tid}`,
         lat: c.lat,
         lng: c.lng,
         alt: 0.055,
-        html: `<div style="font-size:10px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none;" title="${buildings.join(', ')}">${icons}</div>`,
+        icons,
+        tooltip: buildings.join(', '),
       });
     }
     return out;
-  }, [gameState, territoryCentroids]);
+  }, [gameState, territoryCentroids, territoryById, globeView]);
 
   const capitalHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
     const out: HtmlDatum[] = [];
     for (const pl of gameState.players) {
       if (!pl.capital_territory_id) continue;
+      const terr = territoryById.get(pl.capital_territory_id);
+      if (!terr || inferTerritoryGlobeId(terr) !== globeView) continue;
       const c = territoryCentroids.get(pl.capital_territory_id);
       if (!c) continue;
       out.push({
+        kind: 'capital-marker',
         id: `capital-globe-${pl.player_id}`,
         lat: c.lat,
         lng: c.lng,
         alt: 0.045,
-        html: `<div style="
-          width:12px;height:12px;
-          transform:rotate(45deg);
-          border:2px solid #ffd700;
-          background:${pl.color};
-          box-shadow:0 0 6px rgba(0,0,0,0.85);
-          pointer-events:none;
-        " title="Capital"></div>`,
+        color: pl.color,
       });
     }
     return out;
-  }, [gameState, territoryCentroids]);
+  }, [gameState, territoryCentroids, territoryById, globeView]);
 
   const adjacencyArcs = useMemo(() => {
     if (!gameState) return [];
@@ -1098,6 +1456,8 @@ function GlobeMap({
 
     const sourceCenter = territoryCentroids.get(source);
     if (!sourceCenter) return [];
+    const sourceTerr = territoryById.get(source);
+    if (!sourceTerr || inferTerritoryGlobeId(sourceTerr) !== globeView) return [];
 
     const result: ArcDatum[] = [];
     for (const conn of mapData.connections) {
@@ -1107,6 +1467,8 @@ function GlobeMap({
       const neighborOwner = gameState.territories[neighborId]?.owner_id;
       const neighborCenter = territoryCentroids.get(neighborId);
       if (!neighborCenter) continue;
+      const neighborTerr = territoryById.get(neighborId);
+      if (!neighborTerr || inferTerritoryGlobeId(neighborTerr) !== globeView) continue;
 
       if (phase === 'attack') {
         if (neighborOwner === myId || !neighborOwner) continue;
@@ -1146,7 +1508,7 @@ function GlobeMap({
       }
     }
     return result;
-  }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids]);
+  }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids, territoryById, globeView]);
 
   // ── Permanent sea lane arcs ────────────────────────────────────────────
   // Sea-route territories (region_id === 'sea_routes') are rendered as tiny
@@ -1154,8 +1516,13 @@ function GlobeMap({
   // spokes from each marker hub to every land territory it connects.
 
   const seaRouteTerritoryIds = useMemo(
-    () => new Set(mapData.territories.filter((t) => t.region_id === 'sea_routes').map((t) => t.territory_id)),
-    [mapData.territories],
+    () =>
+      new Set(
+        mapData.territories
+          .filter((t) => t.region_id === 'sea_routes' && inferTerritoryGlobeId(t) === globeView)
+          .map((t) => t.territory_id),
+      ),
+    [mapData.territories, globeView],
   );
 
   const seaLaneArcs = useMemo((): ArcDatum[] => {
@@ -1221,28 +1588,80 @@ function GlobeMap({
       const glow = selected ? 18 : 10;
 
       out.push({
+        kind: 'sea-route-marker',
         id: `sea-route-marker-${territory.territory_id}`,
         lat: center.lat,
         lng: center.lng,
         alt: 0.028,
         onClickTerritoryId: territory.territory_id,
-        html: `<div title="${territory.name}" style="
-          width:${size}px;
-          height:${size}px;
-          border-radius:999px;
-          border:2px solid rgba(255,255,255,0.92);
-          background:${hexToRgba(color, 0.95)};
-          box-shadow:0 0 ${glow}px ${hexToRgba(color, 0.7)}, 0 0 3px rgba(255,255,255,0.95);
-          cursor:pointer;
-        "></div>`,
+        territoryName: territory.name,
+        color,
+        size,
+        glow,
       });
     }
     return out;
   }, [seaRouteTerritoryIds, mapData.territories, territoryCentroids, gameState, selectedTerritory, attackSource]);
 
+  // Decorative Earth wasteland markers (Space Age) — shown only on Earth
+  // view of the era_space_age map. Each gets a pulsing radial-gradient
+  // glyph + name label and matching ring animation. Skipped on the moon
+  // inset and on every other map.
+  const wastelandHtmlOverlays = useMemo((): HtmlDatum[] => {
+    if (mapData.map_id !== 'era_space_age' || globeView !== 'earth') return [];
+    return SPACE_AGE_WASTELANDS.map((w) => ({
+      id: `wasteland-${w.id}`,
+      kind: 'wasteland-zone' as const,
+      lat: w.lat,
+      lng: w.lng,
+      // Sit clearly above polygon caps (which max ~0.009 on Earth) and
+      // above building/capital overlays so the icon never disappears
+      // behind a labeled territory.
+      alt: 0.025,
+      name: w.name,
+      description: w.description,
+      glyph: wastelandGlyph(w.kind),
+      colorRgba: wastelandColorRgba(w.kind, 0.9),
+    }));
+  }, [mapData.map_id, globeView]);
+
+  const wastelandRings = useMemo((): RingDatum[] => {
+    if (mapData.map_id !== 'era_space_age' || globeView !== 'earth') return [];
+    return SPACE_AGE_WASTELANDS.map((w) => {
+      const [r, g, b] = wastelandColorRgb(w.kind);
+      return {
+        id: `wasteland-ring-${w.id}`,
+        lat: w.lat,
+        lng: w.lng,
+        maxRadius: w.radius,
+        speed: 0.4,
+        repeatPeriod: w.periodMs,
+        // Slow outward pulse around the marker — visible but not loud.
+        // Peaks at ~0.4 alpha at the leading edge and fades to 0 as the
+        // ring expands, so it reads as a heartbeat halo instead of a
+        // combat ping.
+        colorFn: (t: number) => `rgba(${r}, ${g}, ${b}, ${Math.max(0, 0.4 * (1 - t))})`,
+      };
+    });
+  }, [mapData.map_id, globeView]);
+
   const combinedHtmlOverlays = useMemo(
-    () => [...seaRouteHtmlOverlays, ...capitalHtmlOverlays, ...buildingHtmlOverlays, ...overlays],
-    [seaRouteHtmlOverlays, capitalHtmlOverlays, buildingHtmlOverlays, overlays],
+    () => [
+      ...regionHtmlOverlays,
+      ...seaRouteHtmlOverlays,
+      ...capitalHtmlOverlays,
+      ...buildingHtmlOverlays,
+      ...wastelandHtmlOverlays,
+      ...overlays,
+    ],
+    [
+      regionHtmlOverlays,
+      seaRouteHtmlOverlays,
+      capitalHtmlOverlays,
+      buildingHtmlOverlays,
+      wastelandHtmlOverlays,
+      overlays,
+    ],
   );
 
   const combinedArcs = useMemo(
@@ -1285,9 +1704,11 @@ function GlobeMap({
     if (adjacencyTargets.has(p.territory_id)) {
       return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
     }
-    /** World: dark rim vs ocean. Regional solid-fill: light opaque outline so borders read clearly on player colors. */
+    const regionId = territoryRegionMap.get(p.territory_id);
+    const regionColor = regionId ? regionColorMap.get(regionId) : undefined;
+    if (regionColor) return regionColor;
     return useSolidPlayerCaps ? 'rgb(228, 234, 245)' : 'rgba(12, 18, 32, 0.92)';
-  }, [selectedTerritory, attackSource, adjacencyTargets, gameState?.phase, useSolidPlayerCaps]);
+  }, [selectedTerritory, attackSource, adjacencyTargets, gameState?.phase, useSolidPlayerCaps, territoryRegionMap, regionColorMap]);
 
   const getPolygonSideColor = useCallback(() => {
     return useSolidPlayerCaps ? 'rgb(14, 18, 30)' : 'rgba(6, 10, 18, 0.45)';
@@ -1299,22 +1720,7 @@ function GlobeMap({
     lat: (d: object) => (d as HtmlDatum).lat,
     lng: (d: object) => (d as HtmlDatum).lng,
     alt: (d: object) => (d as HtmlDatum).alt,
-    element: (d: object) => {
-      const datum = d as HtmlDatum;
-      const el = document.createElement('div');
-      el.innerHTML = datum.html;
-      if (datum.onClickTerritoryId) {
-        el.style.pointerEvents = 'auto';
-        el.style.cursor = 'pointer';
-        el.onclick = (event) => {
-          event.stopPropagation();
-          onTerritoryClick(datum.onClickTerritoryId!);
-        };
-      } else {
-        el.style.pointerEvents = 'none';
-      }
-      return el;
-    },
+    element: (d: object) => buildHtmlOverlayElement(d as HtmlDatum, onTerritoryClick),
   }), [onTerritoryClick]);
 
   const arcAccessors = useMemo(() => ({
@@ -1346,10 +1752,11 @@ function GlobeMap({
     };
   }, [highlightTerritoryId, territoryCenters]);
 
-  const combinedRings = useMemo(
-    () => (tutorialRing ? [...rings, tutorialRing] : rings),
-    [rings, tutorialRing],
-  );
+  const combinedRings = useMemo(() => {
+    const out = [...rings, ...wastelandRings];
+    if (tutorialRing) out.push(tutorialRing);
+    return out;
+  }, [rings, tutorialRing, wastelandRings]);
 
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,

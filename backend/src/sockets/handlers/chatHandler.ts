@@ -20,6 +20,12 @@ const EmotePayload = z.object({
 export function registerChatHandlers(ctx: SocketContext): void {
   const { io, socket, userId } = ctx;
 
+  // Note on chat sanitisation:
+  // Chat messages are rendered as TEXT by the React client (no
+  // dangerouslySetInnerHTML), which already escapes HTML entities for us. We
+  // intentionally do NOT pre-escape `<` / `>` server-side any more — that
+  // double-escaped real text (`<3`, `<rant>`, etc.) into `&lt;3`. The only
+  // remaining server-side discipline is length and the GIF embed pattern.
   socket.on('game:chat', (raw: unknown) => {
     const parsed = ChatPayload.safeParse(raw);
     if (!parsed.success) return;
@@ -33,9 +39,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!text) return;
 
     const gifMatch = text.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-    const clean = gifMatch
-      ? text
-      : text.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const clean = gifMatch ? text : text.slice(0, 200);
     if (!clean) return;
 
     const player = room.state.players.find((p) => p.player_id === userId);
@@ -62,7 +66,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (now - lastMessageAt < SPECTATOR_CHAT_COOLDOWN_MS) return;
     socket.data.spectatorChatLastAt = now;
 
-    const text = message.trim().slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const text = message.trim().slice(0, 200);
     if (!text) return;
 
     io.to(`${gameId}:spectators`).emit('game:spectator_chat_message', {
@@ -94,13 +98,17 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!parsed.success) return;
     const { gameId, message } = parsed.data;
 
+    // Membership check: the only path that adds a socket to the `gameId`
+    // Socket.io room is the `game:join` handler, which verifies the user
+    // exists in `game_players`. Without this guard, any authenticated user
+    // (including guests) could broadcast to any lobby just by knowing its id.
+    if (!socket.rooms.has(gameId)) return;
+
     const text = message.trim().slice(0, 500);
     if (!text) return;
 
     const gifMatch = text.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-    const clean = gifMatch
-      ? text
-      : text.slice(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const clean = gifMatch ? text : text.slice(0, 200);
     if (!clean) return;
 
     io.to(gameId).emit('game:lobby_chat_message', {
