@@ -98,7 +98,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
           {friends.length === 0 ? (
             <p className="text-cc-muted text-sm mb-2">Add friends from the Friends page first.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2 max-h-[40vh] overflow-y-auto overscroll-contain">
               {friends.map((f) => (
                 <li
                   key={f.user_id}
@@ -107,7 +107,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
                   <span className="text-cc-text text-sm">{f.username}</span>
                   <button
                     type="button"
-                    className="btn-secondary text-xs py-1 px-2"
+                    className="btn-secondary text-xs py-1.5 px-3 min-h-[36px]"
                     onClick={() => void notifyFriend(f.user_id)}
                   >
                     Send invite

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -36,6 +36,8 @@ import {
   isMobileViewport,
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
+  isLiteMode,
+  persistLiteMode,
 } from '../utils/device';
 
 const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
@@ -294,6 +296,7 @@ export default function GamePage() {
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const mapDataRef = useRef<MapData | null>(null);
   const resetViewRef = useRef<(() => void) | null>(null);
@@ -371,6 +374,8 @@ export default function GamePage() {
   const [tutorialAttackAutoTick, setTutorialAttackAutoTick] = useState(0);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   const [lobbySnapshot, setLobbySnapshot] = useState<GameLobbySnapshot | null>(null);
+  const [lobbyLoadError, setLobbyLoadError] = useState<string | null>(null);
+  const lobbyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track the user's requested faction from lobby selection
   const requestedFactionRef = useReactRef<string | null>(null);
   // Track if notification has been shown for faction assignment
@@ -519,7 +524,14 @@ export default function GamePage() {
     const socket = getSocket();
 
     const joinGame = () => {
+      setLobbyLoadError(null);
       socket.emit('game:join', { gameId });
+      // Start a 15-second timeout so the user gets an escape hatch if the
+      // server never sends game:lobby_updated (e.g. 500 on join, bad gameId).
+      if (lobbyTimeoutRef.current) clearTimeout(lobbyTimeoutRef.current);
+      lobbyTimeoutRef.current = setTimeout(() => {
+        setLobbyLoadError('Could not reach the game server. The game may no longer exist.');
+      }, 15_000);
     };
 
     joinGame();
@@ -554,11 +566,23 @@ export default function GamePage() {
 
     socket.on('game:lobby_updated', (payload: unknown) => {
       const next = normalizeLobbySnapshot(payload);
-      if (next) setLobbySnapshot(next);
+      if (next) {
+        setLobbySnapshot(next);
+        setLobbyLoadError(null);
+        if (lobbyTimeoutRef.current) {
+          clearTimeout(lobbyTimeoutRef.current);
+          lobbyTimeoutRef.current = null;
+        }
+      }
     });
 
     socket.on('game:state', (state: ClientGameState) => {
       // Reconnecting players only receive game:state, not game:started — keep UI in sync
+      if (lobbyTimeoutRef.current) {
+        clearTimeout(lobbyTimeoutRef.current);
+        lobbyTimeoutRef.current = null;
+      }
+      setLobbyLoadError(null);
       setGameStarted(true);
       setGameState(state);
       // Clear territory-select pending flag so the next player's turn is interactive.
@@ -1121,6 +1145,10 @@ export default function GamePage() {
       socket.off('game:atom_bomb');
       socket.off('game:space_station_launched');
       socket.off('game:puzzle_feedback');
+      if (lobbyTimeoutRef.current) {
+        clearTimeout(lobbyTimeoutRef.current);
+        lobbyTimeoutRef.current = null;
+      }
       // Notify server we left so it can schedule eviction / save state
       socket.emit('game:leave', { gameId });
       clearGame();
@@ -1705,6 +1733,41 @@ export default function GamePage() {
 
   // ── Waiting lobby ─────────────────────────────────────────────────────────
   if (!gameStarted || !gameState) {
+    if (lobbyLoadError) {
+      return (
+        <div className="min-h-screen bg-cc-dark flex items-center justify-center px-4 pt-safe pb-safe">
+          <div className="max-w-sm w-full text-center space-y-4">
+            <p className="text-2xl">⚠️</p>
+            <h2 className="font-display text-xl text-cc-gold">Game unavailable</h2>
+            <p className="text-cc-muted text-sm">{lobbyLoadError}</p>
+            <div className="flex flex-col gap-3 mt-6">
+              <button
+                className="btn-primary w-full"
+                onClick={() => {
+                  if (!gameId) return;
+                  setLobbyLoadError(null);
+                  const socket = getSocket();
+                  socket.emit('game:join', { gameId });
+                  if (lobbyTimeoutRef.current) clearTimeout(lobbyTimeoutRef.current);
+                  lobbyTimeoutRef.current = setTimeout(() => {
+                    setLobbyLoadError('Could not reach the game server. The game may no longer exist.');
+                  }, 15_000);
+                }}
+              >
+                Try again
+              </button>
+              <button
+                className="btn-secondary w-full"
+                onClick={() => navigate('/lobby')}
+              >
+                Back to lobby
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const shareUrl = gameId ? `${window.location.origin}/game/${gameId}` : '';
     const lobby = lobbySnapshot;
     const settings = lobby?.settings_json ?? {};
@@ -2012,7 +2075,7 @@ export default function GamePage() {
   }
 
   const reducedGlobe =
-    prefersReducedMotion() || (isMobileViewport() && mapView === 'globe');
+    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
 
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
@@ -2026,14 +2089,29 @@ export default function GamePage() {
         <span className="text-cc-muted text-xs">·</span>
         <span className="text-cc-muted text-xs">Turn {gameState.turn_number}</span>
         <div className="flex-1" />
+        {/* Globe/2D toggle — full buttons on desktop, icon-only on mobile */}
         <div className="flex gap-1">
+          {/* Mobile: compact icon-only toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = mapView === 'globe' ? '2d' : 'globe';
+              setMapView(next);
+              persistMapView(next);
+            }}
+            className="md:hidden min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-cc-muted hover:text-cc-text flex items-center gap-1"
+            aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+          >
+            {mapView === 'globe' ? <MapIcon className="w-4 h-4" /> : <GlobeIcon className="w-4 h-4" />}
+          </button>
+          {/* Desktop: full labeled buttons */}
           <button
             type="button"
             onClick={() => {
               setMapView('globe');
               persistMapView('globe');
             }}
-            className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
           >
             Globe
           </button>
@@ -2043,7 +2121,7 @@ export default function GamePage() {
               setMapView('2d');
               persistMapView('2d');
             }}
-            className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
           >
             2D Map
           </button>
@@ -2055,7 +2133,7 @@ export default function GamePage() {
                 setGlobeSpinEnabled(next);
                 persistGlobeSpinPreference(next);
               }}
-              className={`min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded flex items-center gap-1 ${globeSpinEnabled ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+              className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded items-center gap-1 ${globeSpinEnabled ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
               aria-label="Toggle globe spin"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -2063,7 +2141,7 @@ export default function GamePage() {
             </button>
           )}
           {mapView === 'globe' && hasMoonTerritories && (
-            <span className="min-h-[40px] px-2 py-1 text-xs rounded text-cc-gold/90 bg-cc-gold/10 border border-cc-gold/25">
+            <span className="hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded text-cc-gold/90 bg-cc-gold/10 border border-cc-gold/25 items-center">
               Earth + Moon
             </span>
           )}
@@ -2278,17 +2356,23 @@ export default function GamePage() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-cc-muted truncate">
-                  {myTurn ? 'Your turn' : cp?.username ?? '—'}
+                <div className="flex items-center gap-1.5 text-xs text-cc-muted truncate flex-wrap">
+                  <span className="truncate">{myTurn ? 'Your turn' : cp?.username ?? '—'}</span>
                   {gameState.settings.async_mode && (() => {
                     const dSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
                     const elapsed = (Date.now() - gameState.turn_started_at) / 1000;
                     const rem = Math.max(0, dSec - elapsed);
                     const h = Math.floor(rem / 3600);
                     const m = Math.floor((rem % 3600) / 60);
+                    const ratio = rem / dSec;
+                    const chipColor = ratio > 0.5
+                      ? 'text-green-400 border-green-700/40 bg-green-900/20'
+                      : ratio > 0.25
+                        ? 'text-yellow-400 border-yellow-700/40 bg-yellow-900/20'
+                        : 'text-red-400 border-red-700/40 bg-red-900/20 animate-pulse';
                     return (
-                      <span className="ml-1 text-cc-muted">
-                        · {h > 0 ? `${h}h ${m}m` : `${m}m`}
+                      <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border font-mono ${chipColor}`}>
+                        ⏱ {h > 0 ? `${h}h ${m}m` : `${m}m`}
                       </span>
                     );
                   })()}
@@ -2384,6 +2468,59 @@ export default function GamePage() {
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
             />
+            {/* Map view + spin controls — visible only in the mobile drawer */}
+            <div className="px-4 py-3 border-t border-cc-border shrink-0 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-2">Map View</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setMapView('globe'); persistMapView('globe'); }}
+                  className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/40' : 'border-cc-border text-cc-muted'}`}
+                >
+                  Globe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMapView('2d'); persistMapView('2d'); }}
+                  className={`flex-1 py-2 text-xs rounded border ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/40' : 'border-cc-border text-cc-muted'}`}
+                >
+                  2D Map
+                </button>
+              </div>
+              {mapView === 'globe' && (
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={globeSpinEnabled}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setGlobeSpinEnabled(next);
+                      persistGlobeSpinPreference(next);
+                    }}
+                    className="w-4 h-4 accent-cc-gold"
+                  />
+                  <span className="text-sm text-cc-muted">Auto-spin globe</span>
+                </label>
+              )}
+            </div>
+            {/* Lite-mode toggle — visible only in the mobile drawer */}
+            <div className="px-4 py-3 border-t border-cc-border shrink-0">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={liteModeEnabled}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setLiteModeEnabled(next);
+                    persistLiteMode(next);
+                  }}
+                  className="w-4 h-4 accent-cc-gold"
+                />
+                <span className="text-sm text-cc-muted">
+                  Lite mode <span className="text-xs">(fewer animations)</span>
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       )}

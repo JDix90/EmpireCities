@@ -380,7 +380,7 @@ function buildHtmlOverlayElement(
 
     case 'building-icons': {
       el.style.cssText =
-        'font-size:10px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none';
+        'font-size:11px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none';
       el.title = datum.tooltip;
       el.textContent = datum.icons;
       break;
@@ -1767,10 +1767,39 @@ function GlobeMap({
     color: (d: object) => (d as RingDatum).colorFn,
   }), []);
 
+  // ── Drag-threshold guard (mobile) ──────────────────────────────────────
+  // react-globe.gl's Three.js raycaster can fire polygon clicks even after a
+  // drag on touch devices. We track the pointer-down position and mark the
+  // interaction as a drag if movement exceeds 8 px so we can suppress clicks.
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isDragRef = useRef(false);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+    isDragRef.current = false;
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointerDownPosRef.current) return;
+    const dx = e.clientX - pointerDownPosRef.current.x;
+    const dy = e.clientY - pointerDownPosRef.current.y;
+    if (Math.hypot(dx, dy) > 8) isDragRef.current = true;
+  }, []);
+
+  const guardedTerritoryClick = useCallback((territoryId: string) => {
+    if (isDragRef.current) return;
+    onTerritoryClick(territoryId);
+  }, [onTerritoryClick]);
+
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative">
+    <div
+      className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative"
+      style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+    >
       <style dangerouslySetInnerHTML={{ __html: ANIMATION_STYLES }} />
       {showSkipAnimations && (
         <button
@@ -1809,7 +1838,7 @@ function GlobeMap({
         polygonLabel={(p) =>
           mapData.map_id === 'tutorial' ? '' : (p as PolygonData).name
         }
-        onPolygonClick={(polygon) => polygon && onTerritoryClick((polygon as PolygonData).territory_id)}
+        onPolygonClick={(polygon) => polygon && guardedTerritoryClick((polygon as PolygonData).territory_id)}
 
         /* HTML overlays (floating text) */
         htmlElementsData={combinedHtmlOverlays}
@@ -1841,7 +1870,7 @@ function GlobeMap({
          */
         onArcClick={(arc) => {
           const tid = (arc as ArcDatum).clickForwardTerritoryId;
-          if (tid) onTerritoryClick(tid);
+          if (tid) guardedTerritoryClick(tid);
         }}
 
         /* Rings (explosion effects + tutorial highlight) */

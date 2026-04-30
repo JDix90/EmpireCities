@@ -34,10 +34,25 @@ const WarRoomPage = lazy(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
   return (
-    <div className="min-h-screen bg-cc-dark flex items-center justify-center px-6">
-      <div className="text-center">
-        <p className="font-display text-xl tracking-widest text-cc-gold">Loading</p>
-        <p className="mt-2 text-sm text-cc-muted animate-pulse">Preparing the next front…</p>
+    <div className="min-h-screen bg-cc-dark px-4 py-6 pt-safe pb-safe">
+      {/* Nav skeleton */}
+      <div className="h-12 bg-cc-surface border-b border-cc-border mb-6 rounded-none -mx-4 px-4 flex items-center gap-3">
+        <div className="h-4 w-32 bg-cc-border/60 rounded animate-pulse" />
+        <div className="flex-1" />
+        <div className="h-8 w-20 bg-cc-border/40 rounded animate-pulse" />
+      </div>
+      <div className="max-w-4xl mx-auto space-y-4">
+        {/* Hero card skeleton */}
+        <div className="h-28 sm:h-32 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
+        {/* Two content cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="h-40 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
+          <div className="h-40 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
+        </div>
+        {/* Map area skeleton */}
+        <div className="h-48 sm:h-64 bg-cc-surface border border-cc-border rounded-xl animate-pulse flex items-center justify-center">
+          <p className="text-cc-muted/50 text-sm font-display tracking-widest animate-pulse">ERAS OF EMPIRE</p>
+        </div>
       </div>
     </div>
   );

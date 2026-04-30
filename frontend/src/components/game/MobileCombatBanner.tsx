@@ -55,7 +55,7 @@ function MobileCombatBanner({
                 e.stopPropagation();
                 setVisible(false);
               }}
-              className="text-cc-muted hover:text-cc-text ml-2 shrink-0"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text ml-1 shrink-0 -mr-2"
               aria-label="Dismiss"
             >
               <X className="w-3.5 h-3.5" />
@@ -135,7 +135,7 @@ function MobileCombatBanner({
               setVisible(false);
               onOpenFullLog();
             }}
-            className="text-[10px] text-cc-muted hover:text-cc-gold mt-1.5 transition-colors"
+            className="min-h-[36px] flex items-center text-xs text-cc-muted hover:text-cc-gold mt-1 transition-colors"
           >
             View full log →
           </button>

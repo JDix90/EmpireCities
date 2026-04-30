@@ -26,11 +26,11 @@ function Chip({ label }: { label: string }) {
 export default function FactionLoreModal({ faction, onClose }: { faction: FactionLoreInfo; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-3 py-4 pt-safe pb-safe sm:px-4 flex items-start justify-center sm:items-center"
       onClick={onClose}
     >
       <div
-        className="bg-cc-surface border border-cc-border rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto"
+        className="bg-cc-surface border border-cc-border rounded-xl p-5 sm:p-6 w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -39,7 +39,11 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
             <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: faction.color }} />
           )}
           <p className="font-display text-xl text-cc-gold">{faction.name}</p>
-          <button onClick={onClose} className="ml-auto text-cc-muted hover:text-cc-text transition-colors">
+          <button
+            onClick={onClose}
+            className="ml-auto min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2"
+            aria-label="Close"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>

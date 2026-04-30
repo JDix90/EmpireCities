@@ -188,7 +188,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-cc-muted hover:text-white transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-white transition-colors -mr-2"
             aria-label="Close bonuses panel"
           >
             <X className="w-5 h-5" />

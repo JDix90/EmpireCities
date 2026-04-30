@@ -94,7 +94,11 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
             </span>
           </div>
           {!hasChoices && (
-            <button onClick={onDismiss} className="text-gray-400 hover:text-white transition-colors" aria-label="Close">
+            <button
+              onClick={onDismiss}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white transition-colors -mr-2"
+              aria-label="Close"
+            >
               <X className="w-5 h-5" />
             </button>
           )}
@@ -146,7 +150,7 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
                   key={c.choice_id}
                   onClick={() => onChoice(c.choice_id)}
                   className={clsx(
-                    'w-full text-left px-4 py-2.5 rounded-lg border transition-colors',
+                    'w-full text-left px-4 py-3 rounded-lg border transition-colors min-h-[44px]',
                     'border-gray-600/50 bg-gray-800/60 hover:bg-gray-700/60 hover:border-gray-500',
                     'text-sm text-gray-200',
                   )}

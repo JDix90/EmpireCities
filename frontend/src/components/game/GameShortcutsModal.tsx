@@ -22,18 +22,18 @@ interface Props {
 export default function GameShortcutsModal({ onClose }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 pt-safe pb-safe"
       onClick={onClose}
     >
       <div
-        className="bg-cc-surface border border-cc-border rounded-xl p-6 w-full max-w-sm"
+        className="bg-cc-surface border border-cc-border rounded-xl p-5 sm:p-6 w-full max-w-sm max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <p className="font-display text-lg text-cc-gold tracking-wide">Keyboard Shortcuts</p>
           <button
             onClick={onClose}
-            className="text-cc-muted hover:text-cc-text transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
