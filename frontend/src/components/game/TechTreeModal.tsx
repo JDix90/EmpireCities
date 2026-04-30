@@ -90,7 +90,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white transition-colors -mr-2"
             aria-label="Close"
           >
             <X className="w-5 h-5" />

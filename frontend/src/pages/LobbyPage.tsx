@@ -271,6 +271,7 @@ export default function LobbyPage() {
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
   const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
   const [creating, setCreating] = useState(false);
+  const [quickSoloLoading, setQuickSoloLoading] = useState(false);
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
   const presetEra = searchParams.get('era');
@@ -828,8 +829,10 @@ export default function LobbyPage() {
           {refreshing ? 'Refreshing…' : pullDistance >= 80 ? 'Release to refresh' : '↓ Pull to refresh'}
         </div>
       )}
-      {/* Top Bar */}
-      <TopNavBar user={user} onLogout={handleLogout} />
+      {/* Top Bar — desktop only; phones use MobileTabBar at the bottom */}
+      <div className="hidden md:block">
+        <TopNavBar user={user} onLogout={handleLogout} />
+      </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
         {/* Onboarding Quest Banner */}
@@ -858,10 +861,10 @@ export default function LobbyPage() {
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             <button
               onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-2 flex-1 sm:flex-none justify-center"
+              className="btn-primary flex items-center gap-2 justify-center sm:flex-none"
               aria-haspopup="dialog"
               aria-controls="create-game-modal"
             >
@@ -869,12 +872,12 @@ export default function LobbyPage() {
             </button>
             <button
               onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
-              className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center"
+              className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
             >
-              Watch a Game
+              Watch
             </button>
             {!user?.is_guest && (
-              <Link to="/war-room" className="btn-secondary flex items-center gap-2 flex-1 sm:flex-none justify-center">
+              <Link to="/war-room" className="btn-secondary flex items-center gap-2 justify-center sm:flex-none">
                 War Room
               </Link>
             )}
@@ -1135,12 +1138,39 @@ export default function LobbyPage() {
                     <p className="text-cc-muted text-xs mt-1">One game per day, same map for everyone. Climb the leaderboard!</p>
                   </button>
                   <button
-                    onClick={() => { setShowCreate(true); setAiCount(3); setSelectedEra('ancient'); }}
+                    disabled={quickSoloLoading}
+                    onClick={async () => {
+                      setQuickSoloLoading(true);
+                      try {
+                        const res = await api.post('/games', {
+                          era_id: 'ancient',
+                          map_id: ERA_MAP_IDS['ancient'],
+                          max_players: 8,
+                          ai_count: 3,
+                          ai_difficulty: 'medium',
+                          settings: {
+                            turn_timer_seconds: 300,
+                            allowed_victory_conditions: ['domination'],
+                            initial_unit_count: 3,
+                            card_set_escalating: true,
+                            diplomacy_enabled: true,
+                          },
+                        });
+                        navigate(`/game/${res.data.game_id}`);
+                      } catch (err: unknown) {
+                        if (axios.isAxiosError(err)) {
+                          toast.error(err.response?.data?.error || 'Failed to start game');
+                        }
+                        setQuickSoloLoading(false);
+                      }
+                    }}
                     className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
-                               transition-colors text-left group"
+                               transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Bot className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">Quick Solo Match</p>
+                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">
+                      {quickSoloLoading ? 'Starting…' : 'Quick Solo Match'}
+                    </p>
                     <p className="text-cc-muted text-xs mt-1">1v3 AI in the Ancient World — a 20-min game.</p>
                   </button>
                 </div>
@@ -1455,7 +1485,7 @@ export default function LobbyPage() {
                           Hover each (i) for theater-specific lore layered on the normal rules — tuned for this map.
                         </p>
                       )}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">

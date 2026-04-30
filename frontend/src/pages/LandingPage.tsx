@@ -194,7 +194,7 @@ function EraDetailModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded text-cc-muted hover:text-cc-gold hover:bg-white/5 transition-colors"
+          className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-cc-muted hover:text-cc-gold hover:bg-white/5 transition-colors"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -259,64 +259,131 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
   );
 }
 
+/** Compact modal shown when the user clicks "Play Free" / "Play Free Now". */
+function GetStartedModal({
+  onClose,
+  onGuest,
+  guestLoading,
+}: {
+  onClose: () => void;
+  onGuest: () => void;
+  guestLoading: boolean;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 pt-safe pb-safe"
+      onClick={onClose}
+    >
+      <div
+        className="bg-cc-surface border border-cc-border rounded-2xl p-6 sm:p-8 w-full max-w-sm shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-display text-2xl text-cc-gold mb-1 text-center">Jump In</p>
+        <p className="text-cc-muted text-sm text-center mb-6">
+          Create a free account to save progress and climb the leaderboards, or jump straight in as a guest.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <Link
+            to="/register"
+            className="btn-primary py-3 text-base text-center"
+            onClick={onClose}
+          >
+            Create Free Account
+          </Link>
+          <button
+            type="button"
+            disabled={guestLoading}
+            onClick={onGuest}
+            className="btn-secondary py-3 text-base disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {guestLoading ? 'Starting…' : 'Play as Guest'}
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-cc-muted mt-4">
+          Already have an account?{' '}
+          <Link to="/login" className="text-cc-gold hover:underline" onClick={onClose}>
+            Sign In
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [modalEra, setModalEra] = useState<EraDefinition | null>(null);
+  const [showGetStarted, setShowGetStarted] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const navigate = useNavigate();
   const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
 
+  const handleGuest = async () => {
+    setGuestLoading(true);
+    try {
+      await loginAsGuest();
+      navigate('/lobby?quickstart=true');
+    } catch {
+      toast.error('Could not start guest session');
+      setGuestLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (modalEra) {
+    if (modalEra || showGetStarted) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = prev;
       };
     }
-  }, [modalEra]);
+  }, [modalEra, showGetStarted]);
 
   return (
     <div className="min-h-screen bg-cc-dark">
       {/* Navigation */}
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
-        <Link to="/" className="font-display text-2xl text-cc-gold tracking-widest hover:text-white transition-colors">ERAS OF EMPIRE</Link>
-        <div className="flex gap-2 flex-wrap justify-end">
+      <nav className="border-b border-cc-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
+        <Link to="/" className="font-display text-lg sm:text-2xl text-cc-gold tracking-widest hover:text-white transition-colors shrink-0">
+          <span className="hidden sm:inline">ERAS OF EMPIRE</span>
+          <span className="sm:hidden">ERAS</span>
+        </Link>
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
             Learn to play
           </Link>
+          <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
           <button
             type="button"
-            className="btn-secondary text-sm"
-            onClick={async () => {
-              try {
-                await loginAsGuest();
-                navigate('/lobby?quickstart=true');
-              } catch {
-                toast.error('Could not start guest session');
-              }
-            }}
+            className="btn-primary text-sm"
+            onClick={() => setShowGetStarted(true)}
           >
-            Play as Guest
+            Play Free
           </button>
-          <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
-          <Link to="/register" className="btn-primary text-sm">Play Free</Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="text-center py-24 px-6">
-        <h2 className="font-display text-5xl md:text-7xl text-cc-gold mb-6 leading-tight">
+      <section className="text-center py-16 sm:py-24 px-4 sm:px-6">
+        <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-cc-gold mb-4 sm:mb-6 leading-tight">
           Conquer History
         </h2>
-        <p className="text-cc-muted text-xl max-w-2xl mx-auto mb-10">
+        <p className="text-cc-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
           A browser-based grand strategy game spanning the ancient world to the modern day.
           Command armies, forge alliances, and rewrite history — one territory at a time.
         </p>
-        <div className="flex gap-4 justify-center flex-wrap">
-          <Link to="/register" className="btn-primary text-lg px-10 py-3">Play Free Now</Link>
-          <Link to="/tutorial" className="btn-secondary text-lg px-10 py-3">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
+          <button
+            type="button"
+            className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
+            onClick={() => setShowGetStarted(true)}
+          >
+            Play Free Now
+          </button>
+          <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
             Learn to play
           </Link>
-          <Link to="/login" className="btn-secondary text-lg px-10 py-3">Sign In</Link>
+          <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>
         </div>
       </section>
 
@@ -357,6 +424,14 @@ export default function LandingPage() {
         />
       )}
 
+      {showGetStarted && (
+        <GetStartedModal
+          onClose={() => setShowGetStarted(false)}
+          onGuest={handleGuest}
+          guestLoading={guestLoading}
+        />
+      )}
+
       {/* Features */}
       <section className="py-16 px-6 max-w-6xl mx-auto">
         <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Why Eras of Empire?</h3>
@@ -379,7 +454,13 @@ export default function LandingPage() {
       <section className="py-20 text-center px-6">
         <h3 className="font-display text-4xl text-cc-gold mb-4">Ready to Command?</h3>
         <p className="text-cc-muted mb-8">No download required. Play instantly in your browser.</p>
-        <Link to="/register" className="btn-primary text-lg px-12 py-3">Create Free Account</Link>
+        <button
+          type="button"
+          className="btn-primary text-lg px-12 py-3"
+          onClick={() => setShowGetStarted(true)}
+        >
+          Create Free Account
+        </button>
       </section>
 
       {/* Footer */}

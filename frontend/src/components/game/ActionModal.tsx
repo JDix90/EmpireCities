@@ -1457,25 +1457,35 @@ function DraftSummaryView({ data, onDismiss }: { data: DraftSummaryModalData; on
       </div>
 
       <div className="rounded-xl border border-white/10 overflow-hidden mb-5">
-        <div className="grid grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-3 px-4 py-2.5 bg-white/5 text-[11px] uppercase tracking-wider text-white/55">
+        {/* Header — 3 cols on mobile, 5 cols on sm+ */}
+        <div className="grid grid-cols-[1fr,auto,auto] sm:grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-x-3 px-4 py-2.5 bg-white/5 text-[11px] uppercase tracking-wider text-white/55">
           <span>Player</span>
           <span className="text-right">Grade</span>
-          <span className="text-right">Score</span>
-          <span className="text-right">Cohesion</span>
-          <span className="text-right">Leverage</span>
+          <span className="text-right sm:hidden">Stats</span>
+          <span className="hidden sm:block text-right">Score</span>
+          <span className="hidden sm:block text-right">Cohesion</span>
+          <span className="hidden sm:block text-right">Leverage</span>
         </div>
         <div className="divide-y divide-white/10">
           {data.ratings.map((r, idx) => (
-            <div key={r.playerId} className="grid grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-3 px-4 py-3 text-sm items-center">
-              <div className="min-w-0 flex items-center gap-2.5">
+            <div key={r.playerId} className="grid grid-cols-[1fr,auto,auto] sm:grid-cols-[1.4fr,0.65fr,0.7fr,0.8fr,0.8fr] gap-x-3 px-4 py-3 text-sm items-center">
+              <div className="min-w-0 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                <span className="truncate text-white font-medium">{idx + 1}. {r.playerName}</span>
-                <span className="text-white/45 text-xs">{r.territories}T</span>
+                <div className="min-w-0">
+                  <span className="truncate text-white font-medium block">{idx + 1}. {r.playerName}</span>
+                  {/* On mobile: show Score / Cohesion / Leverage compactly under name */}
+                  <span className="sm:hidden text-[11px] text-white/45 font-mono">
+                    {Math.round(r.score)} pts · {Math.round(r.cohesionPct)}% coh · {r.regionLeverage.toFixed(1)} lev
+                  </span>
+                </div>
+                <span className="hidden sm:inline text-white/45 text-xs shrink-0">{r.territories}T</span>
               </div>
               <div className="text-right font-display text-amber-200">{r.grade}</div>
-              <div className="text-right font-mono text-white/85">{Math.round(r.score)}</div>
-              <div className="text-right font-mono text-white/75">{Math.round(r.cohesionPct)}%</div>
-              <div className="text-right font-mono text-white/75">{r.regionLeverage.toFixed(1)}</div>
+              {/* Mobile: territory count replaces the collapsed stat columns */}
+              <div className="text-right font-mono text-white/55 text-xs sm:hidden">{r.territories}T</div>
+              <div className="hidden sm:block text-right font-mono text-white/85">{Math.round(r.score)}</div>
+              <div className="hidden sm:block text-right font-mono text-white/75">{Math.round(r.cohesionPct)}%</div>
+              <div className="hidden sm:block text-right font-mono text-white/75">{r.regionLeverage.toFixed(1)}</div>
             </div>
           ))}
         </div>

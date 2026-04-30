@@ -73,6 +73,15 @@ export default function TerritoryPanel({
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
   const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
   const isMobile = isMobileViewport();
+  // When the player already has an attacker selected and taps an enemy territory
+  // on mobile, strip non-essential info so the attack button is immediately visible
+  // without scrolling.
+  const isAttackConfirmMode =
+    isMobile &&
+    !!attackSource &&
+    isEnemy &&
+    attackSource !== selectedTerritory &&
+    gameState.phase === 'attack';
   const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
   // Pre-compute the truce relationship with this territory's owner so both the Combat and
@@ -117,13 +126,17 @@ export default function TerritoryPanel({
             ) : 'Unowned'}
           </p>
         </div>
-        <button onClick={onClose} className="text-cc-muted hover:text-cc-text transition-colors">
+        <button
+          onClick={onClose}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2 -mt-1 shrink-0"
+          aria-label="Close"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Region Badge */}
-      {(() => {
+      {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
+      {!isAttackConfirmMode && (() => {
         if (!mapRegions || !mapTerritory.region_id || mapTerritory.region_id === 'sea_routes') return null;
         const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
         if (!regionDef) return null;
@@ -165,52 +178,66 @@ export default function TerritoryPanel({
       })()}
 
       {/* Unit Count */}
-      <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
-        <Shield className="w-5 h-5 text-cc-muted" />
-        <span className="text-2xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-        <span className="text-cc-muted text-sm">units</span>
-      </div>
-
-      {/* Fleet Count (naval warfare) */}
-      {tState.naval_units != null && (
-        <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
-          <Anchor className="w-5 h-5 text-blue-400" />
-          <span className="text-2xl font-bold text-cc-text">{tState.naval_units}</span>
-          <span className="text-cc-muted text-sm">fleets</span>
+      {isAttackConfirmMode ? (
+        /* Compact inline unit display for attack-confirm mode */
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <Shield className="w-4 h-4 text-cc-muted shrink-0" />
+          <span className="text-xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+          <span className="text-cc-muted text-sm">defending units</span>
+          {tState.naval_units != null && tState.naval_units > 0 && (
+            <span className="ml-2 text-xs text-blue-300">· {tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''}</span>
+          )}
         </div>
-      )}
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
+            <Shield className="w-5 h-5 text-cc-muted" />
+            <span className="text-2xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+            <span className="text-cc-muted text-sm">units</span>
+          </div>
 
-      {/* Stability Bar */}
-      {gameState.settings.stability_enabled && tState.stability != null && (
-        <div className="mb-4 p-3 bg-cc-dark rounded-lg">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-cc-muted">Stability</span>
-            <span className="text-xs font-mono text-cc-text">{tState.stability}%</span>
-          </div>
-          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={clsx('h-full rounded-full transition-all', {
-                'bg-green-500': tState.stability >= 80,
-                'bg-yellow-500': tState.stability >= 50 && tState.stability < 80,
-                'bg-orange-500': tState.stability >= 30 && tState.stability < 50,
-                'bg-red-500': tState.stability < 30,
-              })}
-              style={{ width: `${tState.stability}%` }}
-            />
-          </div>
-          {tState.population != null && (
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-cc-muted">Population</span>
-              <span className="text-xs font-mono text-cc-text">{tState.population} / 10</span>
+          {/* Fleet Count (naval warfare) */}
+          {tState.naval_units != null && (
+            <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
+              <Anchor className="w-5 h-5 text-blue-400" />
+              <span className="text-2xl font-bold text-cc-text">{tState.naval_units}</span>
+              <span className="text-cc-muted text-sm">fleets</span>
             </div>
           )}
-          {tState.stability < 30 && (
-            <p className="text-xs text-red-400 mt-1">⚠ Low stability — deploy cap reduced</p>
+
+          {/* Stability Bar */}
+          {gameState.settings.stability_enabled && tState.stability != null && (
+            <div className="mb-4 p-3 bg-cc-dark rounded-lg">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-cc-muted">Stability</span>
+                <span className="text-xs font-mono text-cc-text">{tState.stability}%</span>
+              </div>
+              <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={clsx('h-full rounded-full transition-all', {
+                    'bg-green-500': tState.stability >= 80,
+                    'bg-yellow-500': tState.stability >= 50 && tState.stability < 80,
+                    'bg-orange-500': tState.stability >= 30 && tState.stability < 50,
+                    'bg-red-500': tState.stability < 30,
+                  })}
+                  style={{ width: `${tState.stability}%` }}
+                />
+              </div>
+              {tState.population != null && (
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-cc-muted">Population</span>
+                  <span className="text-xs font-mono text-cc-text">{tState.population} / 10</span>
+                </div>
+              )}
+              {tState.stability < 30 && (
+                <p className="text-xs text-red-400 mt-1">⚠ Low stability — deploy cap reduced</p>
+              )}
+              {tState.stability <= 10 && (
+                <p className="text-xs text-red-300 mt-0.5">⚠ Rebellion risk — territory may revolt</p>
+              )}
+            </div>
           )}
-          {tState.stability <= 10 && (
-            <p className="text-xs text-red-300 mt-0.5">⚠ Rebellion risk — territory may revolt</p>
-          )}
-        </div>
+        </>
       )}
 
       {/* Actions */}
@@ -235,13 +262,13 @@ export default function TerritoryPanel({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                   onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
                 >−</button>
                 <span className="w-8 text-center font-mono text-cc-text">{draftAmount}</span>
                 <button
                   type="button"
-                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                   onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
                 >+</button>
                 <button
@@ -438,13 +465,13 @@ export default function TerritoryPanel({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                   onClick={() => setFortifyAmount((a) => Math.max(1, a - 1))}
                 >−</button>
                 <span className="w-8 text-center font-mono text-cc-text">{fortifyAmount}</span>
                 <button
                   type="button"
-                  className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                   onClick={() => setFortifyAmount((a) => Math.min(tState.unit_count - 1, a + 1))}
                 >+</button>
                 <button
@@ -503,13 +530,13 @@ export default function TerritoryPanel({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                         onClick={() => setNavalMoveCount((a) => Math.max(1, a - 1))}
                       >−</button>
                       <span className="w-8 text-center font-mono text-cc-text">{navalMoveCount}</span>
                       <button
                         type="button"
-                        className="w-10 h-10 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
                         onClick={() => setNavalMoveCount((a) => Math.min(gameState.territories[navalSource]?.naval_units ?? 1, a + 1))}
                       >+</button>
                       <button

@@ -56,7 +56,7 @@ function MobileCardsTray({
           </h3>
           <button
             onClick={onClose}
-            className="text-cc-muted hover:text-cc-text transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2 -mt-1 shrink-0"
             aria-label="Close cards"
           >
             <X className="w-4 h-4" />
