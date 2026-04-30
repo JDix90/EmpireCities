@@ -5,10 +5,12 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/rts-shared/package.json ./packages/rts-shared/
 COPY database ./database
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
 COPY backend ./backend
 COPY packages/shared ./packages/shared
+COPY packages/rts-shared ./packages/rts-shared
 RUN cd backend && pnpm run build
 ENV NODE_ENV=production
 COPY docker/entrypoint-backend.sh /entrypoint-backend.sh
