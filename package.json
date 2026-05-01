@@ -6,26 +6,19 @@
   "workspaces": [
     "frontend",
     "backend",
-    "packages/shared",
-    "packages/rts-shared",
-    "RTS-Fork/frontend"
+    "packages/shared"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "dev:rts": "concurrently \"npm run dev:backend\" \"pnpm --filter rts-fork-frontend run dev\"",
-    "dev:rts-frontend": "pnpm --filter rts-fork-frontend run dev",
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
-    "build:rts": "pnpm -C packages/rts-shared run build && pnpm -C backend run build && pnpm -C \"RTS-Fork/frontend\" run build",
-    "test:rts": "pnpm -C packages/rts-shared run test && pnpm -C backend exec vitest run src/rts/rtsMapFlow.test.ts",
     "db:up": "docker-compose -f docker/docker-compose.yml up -d",
     "db:down": "docker-compose -f docker/docker-compose.yml down",
     "db:migrate": "npm run migrate --workspace=backend",
     "db:seed": "npm run seed --workspace=backend",
     "seed:maps": "pnpm -C backend run seed:maps",
     "validate:maps": "pnpm -C backend run validate:maps",
-    "validate:maps:rts": "pnpm -C backend run validate:maps:rts",
     "test:backend": "pnpm -C backend run test",
     "lint": "pnpm run lint:backend && pnpm run lint:frontend",
     "lint:backend": "pnpm exec eslint backend/src --max-warnings 0",

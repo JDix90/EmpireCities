@@ -16,7 +16,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:maps": "tsx scripts/validateMaps.ts",
-    "validate:maps:rts": "tsx scripts/validateRtsMap.ts",
     "grant-admin": "tsx scripts/grantAdmin.ts",
     "lint": "eslint src --ext .ts"
   },
