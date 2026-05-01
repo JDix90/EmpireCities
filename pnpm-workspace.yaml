@@ -2,4 +2,3 @@ packages:
   - 'frontend'
   - 'backend'
   - 'packages/*'
-  - 'RTS-Fork/frontend'

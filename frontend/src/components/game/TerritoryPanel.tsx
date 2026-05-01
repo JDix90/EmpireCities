@@ -73,15 +73,16 @@ export default function TerritoryPanel({
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
   const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
   const isMobile = isMobileViewport();
-  // When the player already has an attacker selected and taps an enemy territory
-  // on mobile, strip non-essential info so the attack button is immediately visible
-  // without scrolling.
+  // Once the player has locked in an attacker on mobile, the panel should stay
+  // compact whether they're viewing the attacker territory itself or sizing up
+  // an enemy target. We strip non-essential info (region progress, stability,
+  // fleet card, building panel) so the action button stays above the fold.
   const isAttackConfirmMode =
     isMobile &&
     !!attackSource &&
-    isEnemy &&
-    attackSource !== selectedTerritory &&
-    gameState.phase === 'attack';
+    gameState.phase === 'attack' &&
+    (isEnemy || attackSource === selectedTerritory);
+  const isViewingOwnAttacker = isAttackConfirmMode && attackSource === selectedTerritory;
   const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
   // Pre-compute the truce relationship with this territory's owner so both the Combat and
@@ -181,9 +182,11 @@ export default function TerritoryPanel({
       {isAttackConfirmMode ? (
         /* Compact inline unit display for attack-confirm mode */
         <div className="flex items-center gap-2 mb-3 px-1">
-          <Shield className="w-4 h-4 text-cc-muted shrink-0" />
+          <Shield className={clsx('w-4 h-4 shrink-0', isViewingOwnAttacker ? 'text-cc-gold' : 'text-cc-muted')} />
           <span className="text-xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-          <span className="text-cc-muted text-sm">defending units</span>
+          <span className="text-cc-muted text-sm">
+            {isViewingOwnAttacker ? 'units ready to attack' : 'defending units'}
+          </span>
           {tState.naval_units != null && tState.naval_units > 0 && (
             <span className="ml-2 text-xs text-blue-300">· {tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''}</span>
           )}
@@ -570,8 +573,8 @@ export default function TerritoryPanel({
         </div>
       )}
 
-      {/* Economy buildings */}
-      {gameState.settings.economy_enabled && onBuild && (() => {
+      {/* Economy buildings — hidden during attack-confirm to keep the attack flow distraction-free */}
+      {!isAttackConfirmMode && gameState.settings.economy_enabled && onBuild && (() => {
         // Compute era wonder state for this game
         const wonderMeta = gameState.era ? ERA_WONDERS[gameState.era] : undefined;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;

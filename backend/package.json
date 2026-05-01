@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "predev": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
+    "predev": "pnpm -C ../packages/shared run build",
     "dev": "tsx watch src/index.ts",
-    "prebuild": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
+    "prebuild": "pnpm -C ../packages/shared run build",
     "build": "tsc",
-    "prestart": "pnpm -C ../packages/shared run build && pnpm -C ../packages/rts-shared run build",
+    "prestart": "pnpm -C ../packages/shared run build",
     "start": "node dist/index.js",
     "migrate": "tsx src/db/postgres/migrate.ts",
     "seed": "tsx src/db/postgres/seed.ts",
@@ -21,7 +21,6 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@erasofempire/rts-shared": "workspace:*",
     "@erasofempire/shared": "workspace:*",
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",
