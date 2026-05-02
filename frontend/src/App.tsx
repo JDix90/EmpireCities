@@ -164,11 +164,11 @@ export default function App() {
         <Route path="/__modal-lab" element={<ModalLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
+        <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
 
         {/* Protected routes */}
-        <Route path="/tutorial" element={<PrivateRoute><TutorialPage /></PrivateRoute>} />
         <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />
         <Route path="/store" element={<PrivateRoute><StorePage /></PrivateRoute>} />
         <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />

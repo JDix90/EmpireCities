@@ -517,6 +517,7 @@ async function createEraGame({
   prestigePoints,
 }: CreateEraGameArgs): Promise<{ gameId: string; eraId: string; mapId: string }> {
   const eraId = CAMPAIGN_ERAS[eraIndex];
+  const pathConfig = pathId ? CAMPAIGN_PATHS[pathId] : null;
   const pathEra = pathId ? getPathEraConfig(pathId, eraIndex) : null;
 
   const mapId = pathEra?.map_id ?? ERA_MAP_IDS[eraId];
@@ -530,7 +531,20 @@ async function createEraGame({
     campaign_prestige_bonus: prestigePoints,
     player_count: aiCount + 1,
     factions_enabled: true,
+    // Display-only fields consumed by the in-game campaign intro modal so the
+    // client doesn't need a second round-trip to /api/campaign/list.
+    campaign_path_name: pathConfig?.name ?? 'Classic Campaign',
+    campaign_era_index: eraIndex,
+    campaign_era_count: CAMPAIGN_ERAS.length,
   };
+
+  if (pathConfig) {
+    settings.campaign_path_tagline = pathConfig.tagline;
+    settings.campaign_signature_carry_label = pathConfig.signature_carry_label;
+  }
+  if (pathEra?.intro_text) {
+    settings.campaign_intro_text = pathEra.intro_text;
+  }
 
   if (pathId) {
     settings.campaign_path_id = pathId;

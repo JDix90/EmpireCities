@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw } from 'lucide-react';
+import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film } from 'lucide-react';
 import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
@@ -110,6 +110,12 @@ export interface GameOverModalData {
   rating_deltas?: Record<string, number>;
   /** Wall-clock duration of the game in milliseconds. Null when start time unknown. */
   duration_ms?: number | null;
+  /**
+   * When the match ends as `abandoned`, we normally hide Watch Replay.
+   * True when the local human's last tracked win probability was very low so
+   * they can still review mistakes (early resign / quit-as-abandon UX).
+   */
+  allowReplayDespiteAbandon?: boolean;
   /** Highest AI difficulty present (for header chip). Null if all-human game. */
   ai_difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial' | null;
   /** Snapshot of the human's best/worst single decision (used in Match Stats panel). */
@@ -871,10 +877,11 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
   data: GameOverModalData;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
+  onWatchReplay?: (gameId: string) => void;
 }) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
@@ -1244,6 +1251,21 @@ function GameOverView({ data, onDismiss, onRematch }: {
           Return to Lobby
           <ChevronRight className="w-4 h-4" />
         </button>
+        {/* Watch Replay — completed games for all humans; abandoned games only
+            when allowReplayDespiteAbandon (last known win chance very low). */}
+        {data.gameId &&
+          onWatchReplay &&
+          (data.victory_condition !== 'abandoned' || data.allowReplayDespiteAbandon) && (
+          <button
+            onClick={() => onWatchReplay(data.gameId!)}
+            className="shrink-0 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10
+                       border border-white/10 text-white/80 font-medium transition-all
+                       flex items-center justify-center gap-2"
+          >
+            <Film className="w-4 h-4" />
+            Watch Replay
+          </button>
+        )}
         {data.rematchConfig && !data.rematchConfig.settings?.daily_challenge_date && !data.rematchConfig.settings?.tutorial && onRematch && (
           <button
             onClick={() => onRematch(data.rematchConfig!)}
@@ -1515,9 +1537,11 @@ interface ActionModalProps {
   /** Re-roll the same attack after a failed capture (attacker still has 2+ on source) */
   onRepeatCombat?: (fromId: string, toId: string) => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
+  /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
+  onWatchReplay?: (gameId: string) => void;
 }
 
-export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat, onRematch }: ActionModalProps) {
+export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat, onRematch, onWatchReplay }: ActionModalProps) {
   const isGameOver = data?.type === 'game_over';
   const isResign = data?.type === 'resign_confirm';
 
@@ -1575,7 +1599,7 @@ export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeat
             onDismiss={onDismiss}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} />}
         {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}

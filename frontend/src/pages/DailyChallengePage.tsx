@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
-import { Calendar, Trophy, Play, Crown, Clock, Sword, ChevronLeft } from 'lucide-react';
+import { Calendar, Trophy, Play, Crown, Clock, Sword, ChevronLeft, Film } from 'lucide-react';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -48,6 +48,8 @@ interface DailyResponse {
   challenge: DailyChallenge;
   my_entry: MyEntry | null;
   active_game_id: string | null;
+  /** Set when the user successfully completed today's daily; powers the "Watch Replay" CTA. */
+  completed_game_id?: string | null;
   leaderboard: LeaderboardRow[];
 }
 
@@ -176,8 +178,9 @@ export default function DailyChallengePage() {
     );
   }
 
-  const { challenge, my_entry, active_game_id, leaderboard } = data;
+  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard } = data;
   const alreadyPlayed = my_entry !== null;
+  const canWatchReplay = !!my_entry?.won && !!completed_game_id;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;
   const eraIcon = ERA_ICON[challenge.era_id] ?? '🏛';
   const weeklyTabRequested = searchParams.get('tab') === 'weekly';
@@ -246,7 +249,23 @@ export default function DailyChallengePage() {
 
           {/* Action button */}
           {alreadyPlayed ? (
-            <p className="text-center text-cc-muted text-sm">Come back tomorrow for a new challenge!</p>
+            canWatchReplay ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/replay/${completed_game_id}?source=daily`)}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  <Film className="w-4 h-4" />
+                  Watch Replay
+                </button>
+                <p className="text-center text-cc-muted text-xs">
+                  Time-lapse with coaching tips. Come back tomorrow for a new challenge!
+                </p>
+              </div>
+            ) : (
+              <p className="text-center text-cc-muted text-sm">Come back tomorrow for a new challenge!</p>
+            )
           ) : active_game_id ? (
             <button
               type="button"

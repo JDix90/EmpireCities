@@ -492,7 +492,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       [gameId],
     );
     if (!game) return reply.status(404).send({ error: 'Game not found' });
-    if (game.status !== 'completed') return reply.status(409).send({ error: 'Replay only available for completed games' });
+    // Completed matches plus abandoned sessions (e.g. early resign with no AI
+    // heir) — snapshots were persisted up to the abandon point so participants
+    // can review how the game unfolded.
+    if (game.status !== 'completed' && game.status !== 'abandoned') {
+      return reply.status(409).send({ error: 'Replay not available for this game status' });
+    }
 
     // Caller must be a participant in the game
     const participant = await queryOne<{ c: number }>(

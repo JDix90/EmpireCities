@@ -81,17 +81,40 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       [row.challenge_date, request.userId],
     );
 
-    // Check if there's an in-progress game for this user+challenge
+    // Check if there's an in-progress game for this user+challenge.
+    // The JSONB stored value is the JSON-stringified Date (e.g.
+    // '2026-05-01T06:00:00.000Z'), but `row.challenge_date` is a pg Date
+    // object that Postgres coerces to a different timestamp text — so we
+    // cast both sides to ::date to compare safely.
     const activeGame = await queryOne<{ game_id: string }>(
       `SELECT g.game_id
        FROM games g
        JOIN game_players gp ON gp.game_id = g.game_id
-       WHERE g.settings_json->>'daily_challenge_date' = $1
+       WHERE (g.settings_json->>'daily_challenge_date')::date = $1::date
          AND gp.user_id = $2
          AND g.status IN ('waiting', 'in_progress')
        LIMIT 1`,
       [row.challenge_date, request.userId],
     );
+
+    // Look up the user's completed game for today's challenge so the client
+    // can offer a "Watch replay" link without needing a second request. Only
+    // exposed when the user actually won — the replay/insights endpoints are
+    // also gated to participants, but presenting a replay button for a loss
+    // would conflict with the "successfully completed" framing.
+    const completedGame = myEntry?.won
+      ? await queryOne<{ game_id: string }>(
+          `SELECT g.game_id
+           FROM games g
+           JOIN game_players gp ON gp.game_id = g.game_id
+           WHERE (g.settings_json->>'daily_challenge_date')::date = $1::date
+             AND gp.user_id = $2
+             AND g.status = 'completed'
+           ORDER BY g.ended_at DESC NULLS LAST
+           LIMIT 1`,
+          [row.challenge_date, request.userId],
+        )
+      : null;
 
     // Top 10 leaderboard for today
     const leaderboard = await query<{
@@ -114,6 +137,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       challenge,
       my_entry: myEntry ?? null,
       active_game_id: activeGame?.game_id ?? null,
+      completed_game_id: completedGame?.game_id ?? null,
       leaderboard,
     });
   });
@@ -132,12 +156,12 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(409).send({ error: 'You have already played today\'s challenge' });
     }
 
-    // Resume if an in-progress game exists
+    // Resume if an in-progress game exists. (See /today for why we cast.)
     const activeGame = await queryOne<{ game_id: string }>(
       `SELECT g.game_id
        FROM games g
        JOIN game_players gp ON gp.game_id = g.game_id
-       WHERE g.settings_json->>'daily_challenge_date' = $1
+       WHERE (g.settings_json->>'daily_challenge_date')::date = $1::date
          AND gp.user_id = $2
          AND g.status IN ('waiting', 'in_progress')
        LIMIT 1`,
