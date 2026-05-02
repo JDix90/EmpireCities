@@ -1,6 +1,14 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { getApiBaseUrl } from '../config/env';
+
+/** Wrong-password responses must not trigger refresh-token rotation (side effects + confusing retries). */
+function isAuthCredentialPost(config: InternalAxiosRequestConfig): boolean {
+  const url = config.url ?? '';
+  const method = (config.method ?? 'get').toLowerCase();
+  if (method !== 'post') return false;
+  return url.includes('/auth/login') || url.includes('/auth/register');
+}
 
 export const api = axios.create({
   baseURL: getApiBaseUrl(),
@@ -33,9 +41,18 @@ function drainQueue(token: string | null, error?: unknown) {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      isAuthCredentialPost(originalRequest)
+    ) {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (useAuthStore.getState().user?.is_guest) {
         useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false });
         return Promise.reject(error);

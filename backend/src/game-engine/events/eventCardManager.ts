@@ -23,6 +23,7 @@ import { modernEvents } from './decks/modern';
 import { acwEvents } from './decks/acw';
 import { risorgimentoEvents } from './decks/risorgimento';
 import { spaceageEvents } from './decks/spaceage';
+import { galaxyageEvents } from './decks/galaxyage';
 import { applyStabilityChange, applyGlobalStabilityChange } from '../state/stabilityManager';
 
 const ERA_DECKS: Record<string, EventCard[]> = {
@@ -35,6 +36,7 @@ const ERA_DECKS: Record<string, EventCard[]> = {
   acw: acwEvents,
   risorgimento: risorgimentoEvents,
   space_age: spaceageEvents,
+  galaxy_age: galaxyageEvents,
 };
 
 /** Returns the full event card deck for an era. */
@@ -210,6 +212,16 @@ export function applyEventEffect(
         applyGlobalStabilityChange(state, effect.value);
       } else {
         applyStabilityChange(state, currentPlayer.player_id, effect.value);
+      }
+      return { global: affectsAllPlayers };
+    }
+    case 'tech_bonus': {
+      // Instant tech-point grant. Used by Galactic Age "Charted Vault".
+      const targetPlayers = affectsAllPlayers
+        ? state.players.filter((p) => !p.is_eliminated)
+        : [currentPlayer];
+      for (const player of targetPlayers) {
+        player.tech_points = (player.tech_points ?? 0) + Math.max(0, effect.value);
       }
       return { global: affectsAllPlayers };
     }

@@ -35,6 +35,10 @@ import LeaderboardWidget from '../components/lobby/LeaderboardWidget';
 import MobileTabBar from '../components/ui/MobileTabBar';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import Modal from '../components/ui/Modal';
+import {
+  canAccessGalacticAge,
+  GALACTIC_AGE_ERA_ID,
+} from '../constants/galacticAgeAccess';
 
 // ── Small tooltip component used in the game-creation form ─────────────────
 function FeatureTooltip({ text }: { text: string }) {
@@ -180,6 +184,7 @@ const ERAS = [
   { id: 'acw',       label: 'American Civil War' },
   { id: 'risorgimento', label: 'Italian Unification' },
   { id: 'space_age', label: 'Space Age' },
+  { id: 'galaxy_age', label: 'Galactic Age — Coming Soon' },
 ];
 
 const ERA_MAP_IDS: Record<string, string> = {
@@ -192,6 +197,7 @@ const ERA_MAP_IDS: Record<string, string> = {
   acw:       'era_acw',
   risorgimento: 'era_risorgimento',
   space_age: 'era_space_age',
+  galaxy_age: 'era_galaxy',
 };
 
 interface PublicGame {
@@ -393,6 +399,18 @@ export default function LobbyPage() {
       setAvailableFactions(res.data.factions ?? []);
     }).catch(() => setAvailableFactions([])).finally(() => setFactionsLoading(false));
   }, [factionsEnabled, selectedEra]);
+
+  useEffect(() => {
+    if (selectedEra !== GALACTIC_AGE_ERA_ID) return;
+    if (canAccessGalacticAge(user)) return;
+    setSelectedEra('ww2');
+  }, [user, selectedEra]);
+
+  useEffect(() => {
+    if (rankedEra !== GALACTIC_AGE_ERA_ID) return;
+    if (canAccessGalacticAge(user)) return;
+    setRankedEra('ww2');
+  }, [user, rankedEra]);
 
   // Bootstrap search params for era/map
   useEffect(() => {
@@ -605,6 +623,10 @@ export default function LobbyPage() {
 
   const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedEra === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)) {
+      toast.error('Galactic Age is coming soon.');
+      return;
+    }
     setCreating(true);
     try {
       const mapId = selectedCommunityMapId ?? ERA_MAP_IDS[selectedEra];
@@ -1270,7 +1292,13 @@ export default function LobbyPage() {
               <label className="label">Era</label>
               <select className="input max-w-xs" value={rankedEra} onChange={(e) => setRankedEra(e.target.value)} disabled={rankedQueued}>
                 {ERAS.map((era) => (
-                  <option key={era.id} value={era.id}>{era.label}</option>
+                  <option
+                    key={era.id}
+                    value={era.id}
+                    disabled={era.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)}
+                  >
+                    {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1406,7 +1434,11 @@ export default function LobbyPage() {
                       }}
                     >
                       {ERAS.map((era) => (
-                        <option key={era.id} value={era.id}>
+                        <option
+                          key={era.id}
+                          value={era.id}
+                          disabled={era.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)}
+                        >
                           {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
                         </option>
                       ))}

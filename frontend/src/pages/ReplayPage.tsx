@@ -27,10 +27,14 @@ import {
   prevTimeLapseIndex,
 } from '../utils/replayTimeLapse';
 import { isLiteMode, isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { inferWorldId } from '@erasofempire/shared';
+import { getGalaxyWorldLore } from '../constants/galaxyLore';
+import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 
 // Heavy three-globe bundle: lazy-load mirroring GamePage so the 2D fallback
 // path can render without paying for it.
 const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
+const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
 type Speed = (typeof SPEED_OPTIONS)[number];
@@ -51,6 +55,17 @@ interface MapData {
     center_lng?: number;
     altitude?: number;
   };
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+  }>;
   territories: Array<{
     territory_id: string;
     name: string;
@@ -59,6 +74,10 @@ interface MapData {
     region_id: string;
     geo_polygon?: [number, number][];
     globe_id?: 'earth' | 'moon';
+    world_id?: string;
+    galaxy_position?: [number, number];
+    globe_image_url?: string;
+    bump_image_url?: string;
   }>;
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
@@ -95,6 +114,12 @@ export default function ReplayPage() {
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [activeTip, setActiveTip] = useState<ReplayInsight | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
+  const [focusedWorldId, setFocusedWorldId] = useState('earth');
+  const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{
+    display_name: string;
+    tagline: string;
+  } | null>(null);
   const lastToastedTurnRef = useRef<number | null>(null);
   // Guards the "auto-start playback once the replay is fully loaded" effect
   // so it fires exactly once per game-id mount, not on every state change.
@@ -134,6 +159,52 @@ export default function ReplayPage() {
       window.visualViewport?.removeEventListener('resize', measure);
     };
   }, [loading, mapData, mapView]);
+
+  useEffect(() => {
+    const md = mapData;
+    if (!md) return;
+    if (md.map_kind === 'galaxy') {
+      setGalaxyOverviewMode(true);
+      const wid =
+        md.worlds?.[0]?.world_id ??
+        inferWorldId(md.territories[0] ?? { territory_id: '', region_id: '' });
+      setFocusedWorldId(wid);
+    } else {
+      setGalaxyOverviewMode(false);
+      setFocusedWorldId('earth');
+    }
+  }, [mapData?.map_id]);
+
+  const focusedWorldSkin = useMemo(() => {
+    if (!mapData?.worlds) return null;
+    return mapData.worlds.find((w) => w.world_id === focusedWorldId) ?? null;
+  }, [mapData?.worlds, focusedWorldId]);
+
+  const replayGalaxyGlobeSkin = useMemo(() => {
+    if (mapData?.map_kind !== 'galaxy') return null;
+    return resolveGalaxyDrillDownGlobeSkin({
+      worlds: mapData.worlds,
+      territories: mapData.territories,
+      focusedWorldId,
+      selectedTerritoryId: null,
+    });
+  }, [mapData?.map_kind, mapData?.worlds, mapData?.territories, focusedWorldId]);
+
+  useEffect(() => {
+    if (mapData?.map_kind !== 'galaxy') {
+      setGalaxyWorldBanner(null);
+      return;
+    }
+    if (galaxyOverviewMode) {
+      setGalaxyWorldBanner(null);
+      return;
+    }
+    const lore = getGalaxyWorldLore(focusedWorldId);
+    if (!lore) return;
+    setGalaxyWorldBanner({ display_name: lore.display_name, tagline: lore.tagline });
+    const t = window.setTimeout(() => setGalaxyWorldBanner(null), 1500);
+    return () => window.clearTimeout(t);
+  }, [mapData?.map_kind, galaxyOverviewMode, focusedWorldId]);
 
   // Load replay on mount — retry up to 3× with 2 s delay for spectators redirected
   // immediately after game:over (DB write may still be in flight).
@@ -466,6 +537,15 @@ export default function ReplayPage() {
           {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
           {mapView === 'globe' ? '2D' : 'Globe'}
         </button>
+        {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
+          <button
+            type="button"
+            onClick={() => setGalaxyOverviewMode(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${galaxyOverviewMode ? 'bg-cc-gold/15 border-cc-gold/30 text-cc-gold' : 'bg-white/5 border-cc-border text-cc-muted hover:text-cc-text'}`}
+          >
+            Galaxy chart
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setInsightsOpen((v) => !v)}
@@ -499,15 +579,82 @@ export default function ReplayPage() {
               </div>
             }
           >
-            <GlobeMap
-              mapData={mapData}
-              onTerritoryClick={() => {}}
-              width={mapCanvasSize.w}
-              height={mapCanvasSize.h}
-              reducedEffects={reducedGlobe}
-              autoSpin={!reducedGlobe}
-              globeView="earth"
-            />
+            {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+              <GalaxyStrategicView
+                mapData={mapData}
+                gameState={currentState}
+                selectedTerritoryId={null}
+                onTerritoryClick={(tid) => {
+                  const t = mapData.territories.find((x) => x.territory_id === tid);
+                  if (t) {
+                    setFocusedWorldId(inferWorldId(t));
+                    setGalaxyOverviewMode(false);
+                  }
+                }}
+                width={mapCanvasSize.w}
+                height={mapCanvasSize.h}
+                orbitAccessAllowed={true}
+              />
+            ) : (
+              <>
+                {galaxyWorldBanner && (
+                  <div
+                    className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-cc-border bg-black/60 text-center shadow-lg"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="font-display text-cc-gold text-sm sm:text-base">
+                      {galaxyWorldBanner.display_name}
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-cc-muted mt-0.5">
+                      {galaxyWorldBanner.tagline}
+                    </div>
+                  </div>
+                )}
+                <GlobeMap
+                mapData={mapData}
+                onTerritoryClick={() => {}}
+                width={mapCanvasSize.w}
+                height={mapCanvasSize.h}
+                reducedEffects={reducedGlobe}
+                autoSpin={!reducedGlobe}
+                activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
+                globeImageUrl={
+                  mapData.map_kind === 'galaxy'
+                    ? (replayGalaxyGlobeSkin?.globeImageUrl ?? focusedWorldSkin?.globe_image_url)
+                    : undefined
+                }
+                bumpImageUrl={
+                  mapData.map_kind === 'galaxy'
+                    ? replayGalaxyGlobeSkin?.bumpImageUrl !== undefined
+                      ? replayGalaxyGlobeSkin.bumpImageUrl
+                      : focusedWorldSkin?.bump_image_url !== undefined
+                        ? focusedWorldSkin.bump_image_url
+                        : undefined
+                    : undefined
+                }
+                showAtmosphere={
+                  mapData.map_kind === 'galaxy'
+                    ? (replayGalaxyGlobeSkin?.showAtmosphere ?? focusedWorldSkin?.show_atmosphere ?? true)
+                    : true
+                }
+                {...(mapData.map_kind === 'galaxy'
+                  ? {
+                      atmosphereColor:
+                        replayGalaxyGlobeSkin?.atmosphereColor ??
+                        focusedWorldSkin?.atmosphere_color ??
+                        'lightskyblue',
+                      atmosphereAltitude:
+                        replayGalaxyGlobeSkin?.atmosphereAltitude ??
+                        focusedWorldSkin?.atmosphere_altitude ??
+                        0.15,
+                      backgroundColor:
+                        replayGalaxyGlobeSkin?.backgroundColor ?? focusedWorldSkin?.background_color,
+                    }
+                  : {})}
+              />
+              </>
+            )}
           </Suspense>
         ) : (
           <GameMap

@@ -15,6 +15,11 @@ export interface Territory {
   region_id: string;
   /** WGS84 [lng, lat] ring when present; globe uses this instead of projecting canvas polygons. */
   geo_polygon?: [number, number][];
+  globe_id?: 'earth' | 'moon';
+  world_id?: string;
+  galaxy_position?: [number, number];
+  globe_image_url?: string;
+  bump_image_url?: string;
 }
 
 export interface Connection {
@@ -33,7 +38,7 @@ export interface GameMap {
   map_id: string;
   name: string;
   description: string;
-  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'custom';
+  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
   canvas_width: number;
   canvas_height: number;
   /**
@@ -53,6 +58,19 @@ export interface GameMap {
     center_lng?: number;
     altitude?: number;
   };
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+    requires_orbit_access?: boolean;
+  }>;
+  orbit_access?: 'none' | 'space_age_moon' | 'galaxy_hyperspace';
   territories: Territory[];
   connections: Connection[];
   regions: Region[];
@@ -146,6 +164,13 @@ export const ERA_METADATA: Record<string, {
     bgColor: '#0a0d1f',
     description: 'Projected 2100 Earth with lunar territories — research Lunar Expansion, build a Launch Pad, and launch a Space Station to claim the Moon.',
   },
+  galaxy_age: {
+    label: 'Galactic Age — Coming Soon',
+    year: 'Far Future',
+    color: '#9FA8DA',
+    bgColor: '#0d0818',
+    description: 'Multi-world theater with a galaxy strategic chart — research Hyperspace Chart to claim distant worlds.',
+  },
   custom: {
     label: 'Community map',
     year: 'Regional',
@@ -171,6 +196,7 @@ const STATIC_REGIONAL_MAP_IDS = new Set<string>([
   // geo_polygon stripped from Earth territories so they render via
   // TERRITORY_GEO_CONFIG (real Natural Earth country polygons).
   'era_space_age',
+  'era_galaxy',
 ]);
 
 // ─── API calls ────────────────────────────────────────────────────────────────

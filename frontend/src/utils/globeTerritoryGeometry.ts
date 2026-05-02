@@ -27,11 +27,18 @@ import { COMMUNITY_HORN_AFRICA_TERRITORY_GEO } from '../data/communityHornAfrica
 import { AUSTRALIA_1337_VORONOI_CLIP } from '../data/australia1337VoronoiClip';
 import { BRITAIN_925_VORONOI_CLIP } from '../data/britain925VoronoiClip';
 import { clipToPolygon } from './geoClipPolygon';
+import { inferWorldId } from '@erasofempire/shared';
+import { GALAXY_SOL_TERRITORY_GEO } from '../data/galaxySolGlobeGeo';
+import { GALAXY_EXO_VORONOI_GLOBE } from '../data/galaxyExoVoronoiGlobe';
+import { buildOrganicGalaxyCapRing } from './galaxyOrganicGlobeRing';
 
 /** Minimal territory shape for geometry building (matches GameMap + GlobeMap props). */
 export interface GlobeTerritoryInput {
   territory_id: string;
   name: string;
+  region_id?: string;
+  world_id?: string;
+  globe_id?: string;
   polygon: number[][];
   center_point: [number, number];
   geo_config?: TerritoryGeoConfig;
@@ -435,6 +442,18 @@ export function buildTerritoryGlobeGeometries(
   return mapData.territories.map((raw) => {
     const territory = raw as TerritoryRow;
 
+    const galaxyWorldId =
+      mapData.map_id === 'era_galaxy'
+        ? inferWorldId({
+            territory_id: territory.territory_id,
+            region_id: territory.region_id ?? '',
+            world_id: territory.world_id,
+            globe_id: territory.globe_id,
+          })
+        : null;
+    const galaxySolGeoConfig =
+      galaxyWorldId === 'sol' ? GALAXY_SOL_TERRITORY_GEO[territory.territory_id] : undefined;
+
     /** Strait of Hormuz: Natural Earth ne_10m admin-1 (bundled) + clip to grid cells — real coastlines on globe. */
     const shDef = COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO[territory.territory_id];
     if (
@@ -625,6 +644,71 @@ export function buildTerritoryGlobeGeometries(
       }
     }
 
+    /**
+     * Galactic Age exo-worlds: **UV-space Voronoi** rings (`GALAXY_EXO_VORONOI_GLOBE`)
+     * tile each world's authored cluster with organic internal borders.
+     *
+     * Sol III falls through to Natural Earth via `galaxySolGeoConfig` (see below).
+     *
+     * Organic rectangle fallback only if a Voronoi entry is missing.
+     */
+    if (
+      mapData.map_id === 'era_galaxy' &&
+      territory.polygon &&
+      territory.polygon.length >= 3 &&
+      regionalBounds &&
+      galaxyWorldId &&
+      galaxyWorldId !== 'sol'
+    ) {
+      const exoRing = GALAXY_EXO_VORONOI_GLOBE[territory.territory_id];
+      if (exoRing && exoRing.length >= 3) {
+        const ringClosed: [number, number][] =
+          exoRing.length > 1 &&
+          exoRing[0][0] === exoRing[exoRing.length - 1][0] &&
+          exoRing[0][1] === exoRing[exoRing.length - 1][1]
+            ? exoRing
+            : [...exoRing, [...exoRing[0]]];
+        return {
+          territory_id: territory.territory_id,
+          name: territory.name,
+          geometry: ringToPolygonGeometry(ringClosed, { reverse: true }),
+        };
+      }
+
+      const projected = canvasToGeoJSONRegional(
+        territory.polygon,
+        canvasW,
+        canvasH,
+        regionalBounds,
+      );
+      let ringOpen = projected as [number, number][];
+      if (
+        ringOpen.length > 1 &&
+        ringOpen[0][0] === ringOpen[ringOpen.length - 1][0] &&
+        ringOpen[0][1] === ringOpen[ringOpen.length - 1][1]
+      ) {
+        ringOpen = ringOpen.slice(0, -1) as [number, number][];
+      }
+      const organic =
+        ringOpen.length === 4
+          ? buildOrganicGalaxyCapRing(ringOpen, territory.territory_id, galaxyWorldId)
+          : ringOpen;
+      const ringClosed =
+        organic.length > 1 &&
+        organic[0][0] === organic[organic.length - 1][0] &&
+        organic[0][1] === organic[organic.length - 1][1]
+          ? organic
+          : [...organic, [...organic[0]] as [number, number]];
+      return {
+        territory_id: territory.territory_id,
+        name: territory.name,
+        geometry: ringToPolygonGeometry(
+          ringClosed as [number, number][],
+          { reverse: true },
+        ),
+      };
+    }
+
     // Explicit authored island groups for regional maps.
     if (territory.geo_multipolygon && territory.geo_multipolygon.length > 0) {
       return {
@@ -643,7 +727,7 @@ export function buildTerritoryGlobeGeometries(
     // shapes instead of stale rectangular geo_polygon data (e.g. Space Age Earth
     // territories whose MongoDB documents still carry old bbox rectangles).
     const eraConfigEntry =
-      territory.geo_config ?? TERRITORY_GEO_CONFIG[territory.territory_id];
+      territory.geo_config ?? galaxySolGeoConfig ?? TERRITORY_GEO_CONFIG[territory.territory_id];
     const eraIsoCodes =
       territory.iso_codes ?? TERRITORY_ISO_MAP[territory.territory_id];
     const hasEraConfig =
@@ -651,10 +735,20 @@ export function buildTerritoryGlobeGeometries(
       (eraIsoCodes && eraIsoCodes.length > 0);
     const eraConfigUsable = hasEraConfig && !!countriesGeo && isoToFeatures.size > 0;
 
+    /** Sol III expects Natural Earth merges — never fall back to legacy `geo_polygon` blobs. */
+    if (mapData.map_id === 'era_galaxy' && galaxySolGeoConfig && !eraConfigUsable) {
+      return {
+        territory_id: territory.territory_id,
+        name: territory.name,
+        geometry: centerPlaceholderGeometry(territory.center_point, canvasW, canvasH, regionalBounds),
+      };
+    }
+
     if (
       territory.geo_polygon &&
       territory.geo_polygon.length >= 3 &&
-      !eraConfigUsable
+      !eraConfigUsable &&
+      !(mapData.map_id === 'era_galaxy' && galaxySolGeoConfig)
     ) {
       const ring: [number, number][] = [...territory.geo_polygon];
       if (
@@ -736,7 +830,7 @@ export function buildTerritoryGlobeGeometries(
     }
 
     const geoConfig =
-      territory.geo_config ?? TERRITORY_GEO_CONFIG[territory.territory_id];
+      territory.geo_config ?? galaxySolGeoConfig ?? TERRITORY_GEO_CONFIG[territory.territory_id];
     const isoCodes = territory.iso_codes ?? TERRITORY_ISO_MAP[territory.territory_id];
     const useGeo = (geoConfig && geoConfig.length > 0) || (isoCodes && isoCodes.length > 0);
     const hasData = useGeo && countriesGeo && isoToFeatures.size > 0;

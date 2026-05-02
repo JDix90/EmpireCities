@@ -35,6 +35,7 @@ const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   wonder_arsenal:     18,
   wonder_unification: 20,
   wonder_space_elevator: 25,
+  wonder_hyperlane_anchor: 22,
   // Space Age buildings
   launch_pad: 8,
 };

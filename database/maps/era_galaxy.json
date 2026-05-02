@@ -1,0 +1,2084 @@
+{
+  "map_id": "era_galaxy",
+  "name": "Galactic Age",
+  "description": "Four contested worlds — Sol III, Verdan Reach, Rust Belt, and Nexus Station — linked only by Pathfinder hyperspace lanes. Research Hyperspace Chart to open the lanes between them.",
+  "era_theme": "galaxy_age",
+  "map_kind": "galaxy",
+  "canvas_width": 1200,
+  "canvas_height": 700,
+  "projection_bounds": {
+    "minLng": -180,
+    "maxLng": 180,
+    "minLat": -85,
+    "maxLat": 85
+  },
+  "globe_view": {
+    "lock_rotation": false
+  },
+  "worlds": [
+    {
+      "world_id": "sol",
+      "display_name": "Sol III",
+      "globe_image_url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg",
+      "bump_image_url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png",
+      "show_atmosphere": true,
+      "atmosphere_color": "lightskyblue",
+      "atmosphere_altitude": 0.18,
+      "background_color": "rgb(8, 12, 28)",
+      "requires_orbit_access": false
+    },
+    {
+      "world_id": "verdan",
+      "display_name": "Verdan Reach",
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iomap.jpg",
+      "bump_image_url": "",
+      "show_atmosphere": true,
+      "atmosphere_color": "#7fe7a3",
+      "atmosphere_altitude": 0.24,
+      "background_color": "rgb(8, 24, 18)",
+      "requires_orbit_access": true
+    },
+    {
+      "world_id": "rust",
+      "display_name": "Rust Belt",
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsmap.jpg",
+      "bump_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsbump.jpg",
+      "show_atmosphere": true,
+      "atmosphere_color": "#d97a3c",
+      "atmosphere_altitude": 0.16,
+      "background_color": "rgb(28, 14, 8)",
+      "requires_orbit_access": true
+    },
+    {
+      "world_id": "nexus_station",
+      "display_name": "Nexus Station",
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/callistomap.jpg",
+      "bump_image_url": "",
+      "show_atmosphere": true,
+      "atmosphere_color": "#a980ff",
+      "atmosphere_altitude": 0.18,
+      "background_color": "rgb(12, 14, 28)",
+      "requires_orbit_access": true
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "stellar_core",
+      "name": "Stellar Core",
+      "bonus": 5
+    },
+    {
+      "region_id": "verdant_expanse",
+      "name": "Verdant Expanse",
+      "bonus": 4
+    },
+    {
+      "region_id": "industrial_rim",
+      "name": "Industrial Rim",
+      "bonus": 4
+    },
+    {
+      "region_id": "station_corridor",
+      "name": "Station Corridor",
+      "bonus": 3
+    }
+  ],
+  "territories": [
+    {
+      "territory_id": "sol_atlantic",
+      "name": "Atlantic Reach",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.27,
+        0.47
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          60,
+          200
+        ],
+        [
+          220,
+          200
+        ],
+        [
+          220,
+          300
+        ],
+        [
+          60,
+          300
+        ]
+      ],
+      "center_point": [
+        140,
+        250
+      ],
+      "geo_polygon": [
+        [
+          -100,
+          30
+        ],
+        [
+          -88,
+          25
+        ],
+        [
+          -72,
+          26
+        ],
+        [
+          -60,
+          32
+        ],
+        [
+          -58,
+          42
+        ],
+        [
+          -68,
+          50
+        ],
+        [
+          -85,
+          52
+        ],
+        [
+          -95,
+          48
+        ],
+        [
+          -100,
+          40
+        ],
+        [
+          -100,
+          30
+        ]
+      ]
+    },
+    {
+      "territory_id": "sol_mediterranean",
+      "name": "Mediterranean Marches",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.3,
+        0.46
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          260,
+          200
+        ],
+        [
+          380,
+          200
+        ],
+        [
+          380,
+          300
+        ],
+        [
+          260,
+          300
+        ]
+      ],
+      "center_point": [
+        320,
+        250
+      ],
+      "geo_polygon": [
+        [
+          -8,
+          32
+        ],
+        [
+          5,
+          28
+        ],
+        [
+          22,
+          30
+        ],
+        [
+          38,
+          33
+        ],
+        [
+          42,
+          42
+        ],
+        [
+          32,
+          50
+        ],
+        [
+          12,
+          52
+        ],
+        [
+          -2,
+          48
+        ],
+        [
+          -10,
+          42
+        ],
+        [
+          -8,
+          32
+        ]
+      ]
+    },
+    {
+      "territory_id": "sol_panasian",
+      "name": "Pan-Asian Bastion",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.33,
+        0.48
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          420,
+          180
+        ],
+        [
+          620,
+          180
+        ],
+        [
+          620,
+          290
+        ],
+        [
+          420,
+          290
+        ]
+      ],
+      "center_point": [
+        520,
+        235
+      ],
+      "geo_polygon": [
+        [
+          70,
+          35
+        ],
+        [
+          85,
+          30
+        ],
+        [
+          108,
+          28
+        ],
+        [
+          128,
+          32
+        ],
+        [
+          135,
+          45
+        ],
+        [
+          128,
+          58
+        ],
+        [
+          105,
+          62
+        ],
+        [
+          82,
+          58
+        ],
+        [
+          70,
+          50
+        ],
+        [
+          70,
+          35
+        ]
+      ]
+    },
+    {
+      "territory_id": "sol_equatorial",
+      "name": "Equatorial Belt",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.3,
+        0.5
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          260,
+          320
+        ],
+        [
+          400,
+          320
+        ],
+        [
+          400,
+          440
+        ],
+        [
+          260,
+          440
+        ]
+      ],
+      "center_point": [
+        330,
+        380
+      ],
+      "geo_polygon": [
+        [
+          5,
+          -20
+        ],
+        [
+          22,
+          -25
+        ],
+        [
+          38,
+          -18
+        ],
+        [
+          42,
+          -2
+        ],
+        [
+          38,
+          12
+        ],
+        [
+          25,
+          18
+        ],
+        [
+          12,
+          17
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          0,
+          -8
+        ],
+        [
+          5,
+          -20
+        ]
+      ]
+    },
+    {
+      "territory_id": "sol_pacific",
+      "name": "Pacific Citadel",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.33,
+        0.52
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          640,
+          280
+        ],
+        [
+          840,
+          280
+        ],
+        [
+          840,
+          440
+        ],
+        [
+          640,
+          440
+        ]
+      ],
+      "center_point": [
+        740,
+        360
+      ],
+      "geo_polygon": [
+        [
+          105,
+          -8
+        ],
+        [
+          122,
+          -12
+        ],
+        [
+          142,
+          -8
+        ],
+        [
+          155,
+          5
+        ],
+        [
+          152,
+          22
+        ],
+        [
+          138,
+          30
+        ],
+        [
+          120,
+          28
+        ],
+        [
+          108,
+          18
+        ],
+        [
+          102,
+          5
+        ],
+        [
+          105,
+          -8
+        ]
+      ]
+    },
+    {
+      "territory_id": "sol_antarctic",
+      "name": "Andean Arcology",
+      "world_id": "sol",
+      "galaxy_position": [
+        0.27,
+        0.53
+      ],
+      "region_id": "stellar_core",
+      "polygon": [
+        [
+          100,
+          460
+        ],
+        [
+          260,
+          460
+        ],
+        [
+          260,
+          580
+        ],
+        [
+          100,
+          580
+        ]
+      ],
+      "center_point": [
+        180,
+        520
+      ],
+      "geo_polygon": [
+        [
+          -78,
+          -40
+        ],
+        [
+          -68,
+          -48
+        ],
+        [
+          -55,
+          -42
+        ],
+        [
+          -50,
+          -28
+        ],
+        [
+          -55,
+          -12
+        ],
+        [
+          -68,
+          -8
+        ],
+        [
+          -78,
+          -15
+        ],
+        [
+          -82,
+          -28
+        ],
+        [
+          -78,
+          -40
+        ]
+      ]
+    },
+    {
+      "territory_id": "verdan_aurora",
+      "name": "Aurora Mantle",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.67,
+        0.27
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          40,
+          60
+        ],
+        [
+          180,
+          60
+        ],
+        [
+          180,
+          140
+        ],
+        [
+          40,
+          140
+        ]
+      ],
+      "center_point": [
+        110,
+        100
+      ],
+      "geo_polygon": [
+        [
+          -78,
+          32
+        ],
+        [
+          -58,
+          28
+        ],
+        [
+          -32,
+          32
+        ],
+        [
+          -18,
+          42
+        ],
+        [
+          -22,
+          58
+        ],
+        [
+          -38,
+          65
+        ],
+        [
+          -62,
+          62
+        ],
+        [
+          -78,
+          52
+        ],
+        [
+          -82,
+          42
+        ],
+        [
+          -78,
+          32
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iomap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "verdan_stormwall",
+      "name": "Stormwall",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.7,
+        0.26
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          200,
+          60
+        ],
+        [
+          340,
+          60
+        ],
+        [
+          340,
+          140
+        ],
+        [
+          200,
+          140
+        ]
+      ],
+      "center_point": [
+        270,
+        100
+      ],
+      "geo_polygon": [
+        [
+          40,
+          32
+        ],
+        [
+          58,
+          28
+        ],
+        [
+          82,
+          32
+        ],
+        [
+          95,
+          42
+        ],
+        [
+          92,
+          58
+        ],
+        [
+          78,
+          65
+        ],
+        [
+          55,
+          62
+        ],
+        [
+          38,
+          52
+        ],
+        [
+          35,
+          42
+        ],
+        [
+          40,
+          32
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/ganymedemap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "verdan_canopy",
+      "name": "Canopy Sea",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.65,
+        0.3
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          40,
+          160
+        ],
+        [
+          200,
+          160
+        ],
+        [
+          200,
+          240
+        ],
+        [
+          40,
+          240
+        ]
+      ],
+      "center_point": [
+        120,
+        200
+      ],
+      "geo_polygon": [
+        [
+          -128,
+          -8
+        ],
+        [
+          -108,
+          -12
+        ],
+        [
+          -88,
+          -8
+        ],
+        [
+          -78,
+          5
+        ],
+        [
+          -82,
+          22
+        ],
+        [
+          -100,
+          28
+        ],
+        [
+          -118,
+          25
+        ],
+        [
+          -130,
+          15
+        ],
+        [
+          -130,
+          2
+        ],
+        [
+          -128,
+          -8
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/enceladusmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "verdan_marsh",
+      "name": "Glow-Marsh",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.7,
+        0.3
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          220,
+          160
+        ],
+        [
+          360,
+          160
+        ],
+        [
+          360,
+          240
+        ],
+        [
+          220,
+          240
+        ]
+      ],
+      "center_point": [
+        290,
+        200
+      ],
+      "geo_polygon": [
+        [
+          -25,
+          -12
+        ],
+        [
+          -5,
+          -18
+        ],
+        [
+          15,
+          -15
+        ],
+        [
+          28,
+          -2
+        ],
+        [
+          28,
+          15
+        ],
+        [
+          12,
+          25
+        ],
+        [
+          -5,
+          22
+        ],
+        [
+          -22,
+          15
+        ],
+        [
+          -30,
+          2
+        ],
+        [
+          -25,
+          -12
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/titanmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "verdan_drift",
+      "name": "Cloud-Drift",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.74,
+        0.32
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          380,
+          160
+        ],
+        [
+          520,
+          160
+        ],
+        [
+          520,
+          240
+        ],
+        [
+          380,
+          240
+        ]
+      ],
+      "center_point": [
+        450,
+        200
+      ],
+      "geo_polygon": [
+        [
+          88,
+          -10
+        ],
+        [
+          105,
+          -15
+        ],
+        [
+          128,
+          -10
+        ],
+        [
+          140,
+          2
+        ],
+        [
+          138,
+          18
+        ],
+        [
+          122,
+          25
+        ],
+        [
+          105,
+          22
+        ],
+        [
+          90,
+          12
+        ],
+        [
+          85,
+          0
+        ],
+        [
+          88,
+          -10
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/callistomap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "verdan_brilliance",
+      "name": "Brilliance Chasm",
+      "world_id": "verdan",
+      "galaxy_position": [
+        0.7,
+        0.34
+      ],
+      "region_id": "verdant_expanse",
+      "polygon": [
+        [
+          160,
+          260
+        ],
+        [
+          400,
+          260
+        ],
+        [
+          400,
+          340
+        ],
+        [
+          160,
+          340
+        ]
+      ],
+      "center_point": [
+        280,
+        300
+      ],
+      "geo_polygon": [
+        [
+          -72,
+          -55
+        ],
+        [
+          -52,
+          -62
+        ],
+        [
+          -28,
+          -58
+        ],
+        [
+          -15,
+          -48
+        ],
+        [
+          -18,
+          -32
+        ],
+        [
+          -32,
+          -28
+        ],
+        [
+          -55,
+          -32
+        ],
+        [
+          -72,
+          -42
+        ],
+        [
+          -78,
+          -50
+        ],
+        [
+          -72,
+          -55
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/tritonmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "rust_olympus",
+      "name": "Olympus Foundry",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.72,
+        0.69
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          60,
+          360
+        ],
+        [
+          200,
+          360
+        ],
+        [
+          200,
+          440
+        ],
+        [
+          60,
+          440
+        ]
+      ],
+      "center_point": [
+        130,
+        400
+      ],
+      "geo_polygon": [
+        [
+          -148,
+          8
+        ],
+        [
+          -138,
+          4
+        ],
+        [
+          -118,
+          6
+        ],
+        [
+          -108,
+          16
+        ],
+        [
+          -115,
+          30
+        ],
+        [
+          -130,
+          35
+        ],
+        [
+          -145,
+          28
+        ],
+        [
+          -152,
+          18
+        ],
+        [
+          -148,
+          8
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsmap.jpg",
+      "bump_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsbump.jpg"
+    },
+    {
+      "territory_id": "rust_tharsis",
+      "name": "Tharsis Forges",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.74,
+        0.68
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          220,
+          360
+        ],
+        [
+          340,
+          360
+        ],
+        [
+          340,
+          440
+        ],
+        [
+          220,
+          440
+        ]
+      ],
+      "center_point": [
+        280,
+        400
+      ],
+      "geo_polygon": [
+        [
+          -112,
+          -10
+        ],
+        [
+          -100,
+          -14
+        ],
+        [
+          -82,
+          -10
+        ],
+        [
+          -74,
+          2
+        ],
+        [
+          -78,
+          16
+        ],
+        [
+          -92,
+          22
+        ],
+        [
+          -108,
+          18
+        ],
+        [
+          -115,
+          8
+        ],
+        [
+          -112,
+          -10
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/ceresmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "rust_marineris",
+      "name": "Marineris Trench",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.75,
+        0.7
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          360,
+          380
+        ],
+        [
+          560,
+          380
+        ],
+        [
+          560,
+          440
+        ],
+        [
+          360,
+          440
+        ]
+      ],
+      "center_point": [
+        460,
+        410
+      ],
+      "geo_polygon": [
+        [
+          -85,
+          -20
+        ],
+        [
+          -72,
+          -22
+        ],
+        [
+          -50,
+          -20
+        ],
+        [
+          -32,
+          -15
+        ],
+        [
+          -22,
+          -8
+        ],
+        [
+          -32,
+          -2
+        ],
+        [
+          -55,
+          -2
+        ],
+        [
+          -72,
+          -8
+        ],
+        [
+          -85,
+          -15
+        ],
+        [
+          -85,
+          -20
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/plutomap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "rust_hellas",
+      "name": "Hellas Crucible",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.78,
+        0.72
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          580,
+          460
+        ],
+        [
+          740,
+          460
+        ],
+        [
+          740,
+          540
+        ],
+        [
+          580,
+          540
+        ]
+      ],
+      "center_point": [
+        660,
+        500
+      ],
+      "geo_polygon": [
+        [
+          55,
+          -52
+        ],
+        [
+          70,
+          -58
+        ],
+        [
+          88,
+          -55
+        ],
+        [
+          98,
+          -45
+        ],
+        [
+          95,
+          -32
+        ],
+        [
+          80,
+          -28
+        ],
+        [
+          62,
+          -32
+        ],
+        [
+          52,
+          -42
+        ],
+        [
+          55,
+          -52
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/saturnmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "rust_cydonia",
+      "name": "Cydonia Wastes",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.74,
+        0.65
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          260,
+          280
+        ],
+        [
+          440,
+          280
+        ],
+        [
+          440,
+          340
+        ],
+        [
+          260,
+          340
+        ]
+      ],
+      "center_point": [
+        350,
+        310
+      ],
+      "geo_polygon": [
+        [
+          -22,
+          38
+        ],
+        [
+          -8,
+          32
+        ],
+        [
+          12,
+          35
+        ],
+        [
+          25,
+          45
+        ],
+        [
+          22,
+          58
+        ],
+        [
+          8,
+          62
+        ],
+        [
+          -12,
+          60
+        ],
+        [
+          -25,
+          52
+        ],
+        [
+          -28,
+          45
+        ],
+        [
+          -22,
+          38
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/uranusmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "rust_argyre",
+      "name": "Argyre Yards",
+      "world_id": "rust",
+      "galaxy_position": [
+        0.71,
+        0.74
+      ],
+      "region_id": "industrial_rim",
+      "polygon": [
+        [
+          100,
+          480
+        ],
+        [
+          240,
+          480
+        ],
+        [
+          240,
+          560
+        ],
+        [
+          100,
+          560
+        ]
+      ],
+      "center_point": [
+        170,
+        520
+      ],
+      "geo_polygon": [
+        [
+          -58,
+          -55
+        ],
+        [
+          -48,
+          -60
+        ],
+        [
+          -32,
+          -55
+        ],
+        [
+          -25,
+          -45
+        ],
+        [
+          -30,
+          -35
+        ],
+        [
+          -42,
+          -32
+        ],
+        [
+          -55,
+          -38
+        ],
+        [
+          -62,
+          -48
+        ],
+        [
+          -58,
+          -55
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/neptunemap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_valhalla",
+      "name": "Valhalla Vault",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.5,
+        0.18
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          260,
+          60
+        ],
+        [
+          440,
+          60
+        ],
+        [
+          440,
+          160
+        ],
+        [
+          260,
+          160
+        ]
+      ],
+      "center_point": [
+        350,
+        110
+      ],
+      "geo_polygon": [
+        [
+          28,
+          5
+        ],
+        [
+          45,
+          -2
+        ],
+        [
+          68,
+          2
+        ],
+        [
+          82,
+          14
+        ],
+        [
+          82,
+          30
+        ],
+        [
+          68,
+          40
+        ],
+        [
+          45,
+          40
+        ],
+        [
+          28,
+          32
+        ],
+        [
+          22,
+          18
+        ],
+        [
+          28,
+          5
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/jupitermap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_asgard",
+      "name": "Asgard Echo",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.47,
+        0.2
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          80,
+          80
+        ],
+        [
+          240,
+          80
+        ],
+        [
+          240,
+          160
+        ],
+        [
+          80,
+          160
+        ]
+      ],
+      "center_point": [
+        160,
+        120
+      ],
+      "geo_polygon": [
+        [
+          -58,
+          22
+        ],
+        [
+          -45,
+          18
+        ],
+        [
+          -22,
+          22
+        ],
+        [
+          -12,
+          32
+        ],
+        [
+          -15,
+          45
+        ],
+        [
+          -32,
+          52
+        ],
+        [
+          -50,
+          48
+        ],
+        [
+          -60,
+          38
+        ],
+        [
+          -62,
+          28
+        ],
+        [
+          -58,
+          22
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/mimasmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_heimdall",
+      "name": "Heimdall Watch",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.53,
+        0.18
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          460,
+          80
+        ],
+        [
+          620,
+          80
+        ],
+        [
+          620,
+          160
+        ],
+        [
+          460,
+          160
+        ]
+      ],
+      "center_point": [
+        540,
+        120
+      ],
+      "geo_polygon": [
+        [
+          108,
+          18
+        ],
+        [
+          125,
+          12
+        ],
+        [
+          148,
+          15
+        ],
+        [
+          158,
+          28
+        ],
+        [
+          155,
+          42
+        ],
+        [
+          142,
+          50
+        ],
+        [
+          122,
+          48
+        ],
+        [
+          108,
+          38
+        ],
+        [
+          102,
+          28
+        ],
+        [
+          108,
+          18
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/rheamap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_adlinda",
+      "name": "Adlinda Bunker",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.47,
+        0.23
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          80,
+          200
+        ],
+        [
+          260,
+          200
+        ],
+        [
+          260,
+          280
+        ],
+        [
+          80,
+          280
+        ]
+      ],
+      "center_point": [
+        170,
+        240
+      ],
+      "geo_polygon": [
+        [
+          -85,
+          -55
+        ],
+        [
+          -72,
+          -60
+        ],
+        [
+          -50,
+          -55
+        ],
+        [
+          -40,
+          -45
+        ],
+        [
+          -45,
+          -32
+        ],
+        [
+          -58,
+          -28
+        ],
+        [
+          -78,
+          -32
+        ],
+        [
+          -88,
+          -42
+        ],
+        [
+          -85,
+          -55
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iapetusmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_tornarsuk",
+      "name": "Tornarsuk Crater",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.44,
+        0.2
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          40,
+          280
+        ],
+        [
+          220,
+          280
+        ],
+        [
+          220,
+          360
+        ],
+        [
+          40,
+          360
+        ]
+      ],
+      "center_point": [
+        130,
+        320
+      ],
+      "geo_polygon": [
+        [
+          -158,
+          -8
+        ],
+        [
+          -145,
+          -15
+        ],
+        [
+          -122,
+          -12
+        ],
+        [
+          -110,
+          -2
+        ],
+        [
+          -115,
+          12
+        ],
+        [
+          -130,
+          18
+        ],
+        [
+          -148,
+          15
+        ],
+        [
+          -160,
+          5
+        ],
+        [
+          -162,
+          -2
+        ],
+        [
+          -158,
+          -8
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/hyperionmap.jpg",
+      "bump_image_url": ""
+    },
+    {
+      "territory_id": "nexus_loni",
+      "name": "Loni Reach",
+      "world_id": "nexus_station",
+      "galaxy_position": [
+        0.53,
+        0.22
+      ],
+      "region_id": "station_corridor",
+      "polygon": [
+        [
+          280,
+          200
+        ],
+        [
+          460,
+          200
+        ],
+        [
+          460,
+          280
+        ],
+        [
+          280,
+          280
+        ]
+      ],
+      "center_point": [
+        370,
+        240
+      ],
+      "geo_polygon": [
+        [
+          -22,
+          -52
+        ],
+        [
+          -8,
+          -58
+        ],
+        [
+          15,
+          -55
+        ],
+        [
+          28,
+          -45
+        ],
+        [
+          25,
+          -32
+        ],
+        [
+          8,
+          -28
+        ],
+        [
+          -12,
+          -32
+        ],
+        [
+          -25,
+          -42
+        ],
+        [
+          -22,
+          -52
+        ]
+      ],
+      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/dionemap.jpg",
+      "bump_image_url": ""
+    }
+  ],
+  "connections": [
+    {
+      "from": "sol_atlantic",
+      "to": "sol_mediterranean",
+      "type": "land"
+    },
+    {
+      "from": "sol_mediterranean",
+      "to": "sol_panasian",
+      "type": "land"
+    },
+    {
+      "from": "sol_panasian",
+      "to": "sol_pacific",
+      "type": "land"
+    },
+    {
+      "from": "sol_pacific",
+      "to": "sol_antarctic",
+      "type": "sea"
+    },
+    {
+      "from": "sol_antarctic",
+      "to": "sol_equatorial",
+      "type": "sea"
+    },
+    {
+      "from": "sol_equatorial",
+      "to": "sol_atlantic",
+      "type": "sea"
+    },
+    {
+      "from": "sol_atlantic",
+      "to": "sol_panasian",
+      "type": "land"
+    },
+    {
+      "from": "sol_mediterranean",
+      "to": "sol_equatorial",
+      "type": "land"
+    },
+    {
+      "from": "verdan_aurora",
+      "to": "verdan_stormwall",
+      "type": "land"
+    },
+    {
+      "from": "verdan_stormwall",
+      "to": "verdan_drift",
+      "type": "land"
+    },
+    {
+      "from": "verdan_drift",
+      "to": "verdan_brilliance",
+      "type": "land"
+    },
+    {
+      "from": "verdan_brilliance",
+      "to": "verdan_canopy",
+      "type": "land"
+    },
+    {
+      "from": "verdan_canopy",
+      "to": "verdan_aurora",
+      "type": "land"
+    },
+    {
+      "from": "verdan_marsh",
+      "to": "verdan_aurora",
+      "type": "land"
+    },
+    {
+      "from": "verdan_marsh",
+      "to": "verdan_drift",
+      "type": "land"
+    },
+    {
+      "from": "verdan_marsh",
+      "to": "verdan_canopy",
+      "type": "land"
+    },
+    {
+      "from": "rust_olympus",
+      "to": "rust_tharsis",
+      "type": "land"
+    },
+    {
+      "from": "rust_olympus",
+      "to": "rust_cydonia",
+      "type": "land"
+    },
+    {
+      "from": "rust_tharsis",
+      "to": "rust_marineris",
+      "type": "land"
+    },
+    {
+      "from": "rust_marineris",
+      "to": "rust_hellas",
+      "type": "land"
+    },
+    {
+      "from": "rust_marineris",
+      "to": "rust_argyre",
+      "type": "land"
+    },
+    {
+      "from": "rust_hellas",
+      "to": "rust_argyre",
+      "type": "land"
+    },
+    {
+      "from": "rust_cydonia",
+      "to": "rust_marineris",
+      "type": "land"
+    },
+    {
+      "from": "rust_olympus",
+      "to": "rust_marineris",
+      "type": "land"
+    },
+    {
+      "from": "nexus_valhalla",
+      "to": "nexus_asgard",
+      "type": "land"
+    },
+    {
+      "from": "nexus_valhalla",
+      "to": "nexus_heimdall",
+      "type": "land"
+    },
+    {
+      "from": "nexus_asgard",
+      "to": "nexus_tornarsuk",
+      "type": "land"
+    },
+    {
+      "from": "nexus_heimdall",
+      "to": "nexus_loni",
+      "type": "land"
+    },
+    {
+      "from": "nexus_loni",
+      "to": "nexus_adlinda",
+      "type": "land"
+    },
+    {
+      "from": "nexus_adlinda",
+      "to": "nexus_tornarsuk",
+      "type": "land"
+    },
+    {
+      "from": "nexus_valhalla",
+      "to": "nexus_loni",
+      "type": "land"
+    },
+    {
+      "from": "nexus_asgard",
+      "to": "nexus_adlinda",
+      "type": "land"
+    },
+    {
+      "from": "sol_atlantic",
+      "to": "verdan_aurora",
+      "type": "orbit"
+    },
+    {
+      "from": "sol_pacific",
+      "to": "verdan_drift",
+      "type": "orbit"
+    },
+    {
+      "from": "sol_panasian",
+      "to": "rust_cydonia",
+      "type": "orbit"
+    },
+    {
+      "from": "sol_equatorial",
+      "to": "rust_marineris",
+      "type": "orbit"
+    },
+    {
+      "from": "sol_mediterranean",
+      "to": "nexus_valhalla",
+      "type": "orbit"
+    },
+    {
+      "from": "sol_antarctic",
+      "to": "nexus_adlinda",
+      "type": "orbit"
+    },
+    {
+      "from": "verdan_brilliance",
+      "to": "rust_argyre",
+      "type": "orbit"
+    },
+    {
+      "from": "nexus_heimdall",
+      "to": "rust_hellas",
+      "type": "orbit"
+    },
+    {
+      "from": "nexus_tornarsuk",
+      "to": "verdan_canopy",
+      "type": "orbit"
+    },
+    {
+      "from": "nexus_loni",
+      "to": "rust_olympus",
+      "type": "orbit"
+    }
+  ]
+}

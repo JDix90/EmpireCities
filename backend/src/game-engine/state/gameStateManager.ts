@@ -22,6 +22,8 @@ import {
   hashStringToSeed,
   isMissionComplete,
 } from '../victory/missions';
+import { inferWorldId } from '@erasofempire/shared';
+import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
@@ -33,6 +35,7 @@ const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   acw:          { rifle_doctrine: true },
   risorgimento: { carbonari_network: true, influence_range: 1 },
   space_age:    { space_program: true },
+  galaxy_age:   {},
 };
 
 /**
@@ -55,6 +58,7 @@ export function initializeGameState(
       owner_id: null,
       unit_count: 0,
       unit_type: 'infantry',
+      world_id: inferWorldId(t),
     };
   }
 
@@ -104,21 +108,20 @@ export function initializeGameState(
     });
   }
 
-  // Moon territories (Space Age) always start NEUTRAL with a small garrison —
-  // even Lunar Pioneers must conquer them. The Pioneer faction's advantage is
-  // turn-1 orbit access (`space_station_launched: true`) and lunar defense
-  // bonuses, not free starting ownership. This makes the moon a fair race once
-  // any player satisfies the Lunar Expansion + Launch Pad + Space Station
-  // (or Space Elevator wonder) gate — so players who tech up are rewarded
-  // instead of being shut out of one third of the map by an opening RNG.
-  const lunarTerritoryIds = new Set(
-    map.territories.filter((t) => t.globe_id === 'moon').map((t) => t.territory_id),
-  );
+  // Worlds explicitly flagged `initial_neutral_garrison: true` — and Space Age's
+  // legacy moon — start NEUTRAL with a small garrison instead of being distributed.
+  // For Space Age this preserves the original "tech up to claim the moon" race;
+  // even Lunar Pioneers must conquer their home (their advantage is turn-1 orbit
+  // access via `space_station_launched: true` and a passive lunar defense bonus).
+  // Galaxy era worlds intentionally do NOT set this flag so factions spawn on
+  // their lore home; the orbit-access gate then forces hyperspace tech before
+  // factions can engage across worlds.
+  const lunarTerritoryIds = offworldTerritoryIdsForInitialNeutral(map);
   const NEUTRAL_LUNAR_GARRISON = 2;
 
-  // Build a map view that excludes lunar territories AND any orbit/land
-  // connections touching them, so geographic distribution never seeds or
-  // grows into the moon via Earth-side launch bases.
+  // Build a map view that excludes neutral-garrison territories AND any orbit/land
+  // connections touching them, so geographic distribution never seeds or grows
+  // into them through Earth-side launch bases.
   const earthMap: GameMap =
     lunarTerritoryIds.size === 0
       ? map
@@ -135,7 +138,16 @@ export function initializeGameState(
   if (settingsNorm.territory_selection) {
     // All territories stay neutral; players will pick during 'territory_select' phase
   } else if (settingsNorm.factions_enabled) {
-    distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
+    const galaxyHomeworldsOk = tryDistributeGalaxyAgeFactionHomeworlds(
+      territories,
+      earthMap,
+      players,
+      era,
+      settingsNorm.initial_unit_count,
+    );
+    if (!galaxyHomeworldsOk) {
+      distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
+    }
   } else {
     const shuffled = shuffleArray([...earthTerritoryIds]);
     shuffled.forEach((tid, idx) => {
@@ -830,6 +842,67 @@ function shuffleArray<T>(arr: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/** The four `era_galaxy` region ids — each matches one lore faction home. */
+const GALAXY_HOME_REGION_IDS = new Set<string>([
+  'stellar_core',
+  'verdant_expanse',
+  'industrial_rim',
+  'station_corridor',
+]);
+
+/**
+ * When exactly four players each pick one of the four Galactic Age factions,
+ * assign every territory in each faction's home region to that player (no
+ * cross-world swaps from `distributeTerritoriesGeographic` rebalance).
+ * Returns false so callers fall back to geographic distribution.
+ */
+function tryDistributeGalaxyAgeFactionHomeworlds(
+  territories: Record<string, TerritoryState>,
+  map: GameMap,
+  players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
+  era: EraId,
+  initialUnitCount: number,
+): boolean {
+  if (era !== 'galaxy_age' || map.map_kind !== 'galaxy' || players.length !== 4) return false;
+
+  const factionDefs = getEraFactions(era);
+  const byFactionId = new Map(factionDefs.map((f) => [f.faction_id, f]));
+
+  const claimedRegions: { playerIndex: number; regionId: string }[] = [];
+
+  for (let i = 0; i < players.length; i++) {
+    const p = players[i];
+    if (!p.faction_id) return false;
+    const fac = byFactionId.get(p.faction_id);
+    if (!fac?.home_region_ids || fac.home_region_ids.length !== 1) return false;
+    const regionId = fac.home_region_ids[0]!;
+    if (!GALAXY_HOME_REGION_IDS.has(regionId)) return false;
+    claimedRegions.push({ playerIndex: i, regionId });
+  }
+
+  const uniqueRegions = new Set(claimedRegions.map((c) => c.regionId));
+  if (uniqueRegions.size !== 4) return false;
+  for (const required of GALAXY_HOME_REGION_IDS) {
+    if (!uniqueRegions.has(required)) return false;
+  }
+
+  for (const { playerIndex, regionId } of claimedRegions) {
+    const playerId = players[playerIndex]!.player_id;
+    let any = false;
+    for (const t of map.territories) {
+      if (t.region_id !== regionId) continue;
+      const st = territories[t.territory_id];
+      if (!st) return false;
+      st.owner_id = playerId;
+      st.unit_count = initialUnitCount;
+      any = true;
+    }
+    if (!any) return false;
+  }
+
+  return true;
 }
 
 /**

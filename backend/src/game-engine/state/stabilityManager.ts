@@ -211,6 +211,8 @@ function getEraDeployCapBonus(era: GameState['era'] | undefined): number {
       return 2;
     case 'space_age':
       return 3;
+    case 'galaxy_age':
+      return 4;
     default:
       return 0;
   }

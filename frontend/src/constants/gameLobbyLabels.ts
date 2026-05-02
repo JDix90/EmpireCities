@@ -19,6 +19,7 @@ export const ERA_LABELS: Record<string, string> = {
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
   space_age: 'Space Age',
+  galaxy_age: 'Galactic Age',
   custom: 'Community map',
 };
 

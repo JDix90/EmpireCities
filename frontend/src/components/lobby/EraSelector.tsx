@@ -124,4 +124,5 @@ const FALLBACK_ERA_SUMMARIES: MapSummary[] = [
   { map_id: 'era_acw',       name: 'American Civil War (1861–1865)', description: '', era_theme: 'acw', territory_count: 18, region_count: 6, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
   { map_id: 'era_risorgimento', name: 'Italian Unification (1859–1871)', description: '', era_theme: 'risorgimento', territory_count: 14, region_count: 6, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
   { map_id: 'era_space_age', name: 'Space Age (2100 AD)', description: 'Earth in 2100 + the Moon. Launch space stations to reach lunar territories.', era_theme: 'space_age', territory_count: 55, region_count: 10, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
+  { map_id: 'era_galaxy', name: 'Galactic Age — Coming Soon (Far Future)', description: 'Four contested star systems. Each faction begins on its lore home; research Hyperspace Chart to open the lanes.', era_theme: 'galaxy_age', territory_count: 22, region_count: 4, is_public: true, play_count: 0, avg_rating: 0, creator_id: 'system' },
 ];

@@ -2,11 +2,18 @@
 // Shared backend types for Eras of Empire
 // ============================================================
 
-import type { GamePhase, ConnectionType, MapConnectionEdge } from '@erasofempire/shared';
+import type {
+  GamePhase,
+  ConnectionType,
+  MapConnectionEdge,
+  MapKind,
+  OrbitAccessMode,
+  MapWorldDefinition,
+} from '@erasofempire/shared';
 
-export type { GamePhase, ConnectionType, MapConnectionEdge };
+export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccessMode, MapWorldDefinition };
 
-export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'custom';
+export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
@@ -74,8 +81,10 @@ export interface TerritoryState {
   stability?: number;
   /** Population level 1-10 (population/stability feature). Grows when stable, multiplies production. */
   population?: number;
-  /** Which globe this territory belongs to (Space Age multi-globe support). Defaults to 'earth' when omitted. */
+  /** Legacy globe discriminator (Space Age). Prefer `world_id` on maps that define it. */
   globe_id?: 'earth' | 'moon';
+  /** Canonical world id mirrored from map data for multi-world games. */
+  world_id?: string;
 }
 
 export interface PlayerState {
@@ -286,7 +295,8 @@ export type BuildingType =
   | 'wonder_arsenal'     // acw
   | 'wonder_unification' // risorgimento
   | 'launch_pad'         // space_age: orbital launch infrastructure
-  | 'wonder_space_elevator'; // space_age
+  | 'wonder_space_elevator' // space_age
+  | 'wonder_hyperlane_anchor'; // galaxy_age
 
 /** Snapshots for end-of-game win-probability chart (territory + army blend, renormalized). */
 export interface WinProbabilitySnapshot {
@@ -435,7 +445,8 @@ export type EventEffectType =
   | 'defense_modifier'
   | 'truce'
   | 'region_disaster'
-  | 'stability_change';
+  | 'stability_change'
+  | 'tech_bonus';
 
 export type EventCategory = 'global' | 'regional' | 'player_targeted' | 'natural_disaster';
 
@@ -526,6 +537,16 @@ export interface MapTerritory {
   geo_polygon?: [number, number][];
   /** Which globe this territory belongs to (Space Age multi-globe support). Defaults to 'earth' when omitted. */
   globe_id?: 'earth' | 'moon';
+  /** Canonical world id for multi-world / galaxy maps. */
+  world_id?: string;
+  /** Normalized disc coordinates [0–1, 0–1] for galaxy strategic view layout. */
+  galaxy_position?: [number, number];
+  /**
+   * Optional per-territory globe diffuse / bump (Galactic Age Option A: each chart
+   * node can show its own sphere skin while geo_polygons stay on the parent world).
+   */
+  globe_image_url?: string;
+  bump_image_url?: string;
   /** ISO_A2 country codes for geographic boundaries */
   iso_codes?: string[];
   /** Clip merged geometry to [minLng, minLat, maxLng, maxLat] */
@@ -555,6 +576,12 @@ export interface GameMap {
   regions: MapRegion[];
   canvas_width?: number;
   canvas_height?: number;
+  /** Strategic galaxy overview + per-world globes when `galaxy`. */
+  map_kind?: MapKind;
+  /** Authored globe skins / labels / orbit-access flags per world (galaxy maps). */
+  worlds?: MapWorldDefinition[];
+  /** Overrides era-based defaults for orbit / hyperspace gating. */
+  orbit_access?: OrbitAccessMode;
   projection_bounds?: {
     minLng: number;
     maxLng: number;

@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
@@ -28,7 +28,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(email, password);
+      await login(emailOrUsername, password);
       toast.success('Welcome back, Commander!');
       navigate(redirectTo);
     } catch (err: unknown) {
@@ -59,15 +59,15 @@ export default function LoginPage() {
           )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="label">Email Address</label>
+              <label className="label">Email or username</label>
               <input
-                type="email"
+                type="text"
                 className="input"
-                placeholder="commander@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="commander@example.com or username"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div>

@@ -10,12 +10,18 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
 import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
+import {
+  getGalaxyTerritoryLoreDetail,
+  getGalaxyWorldLore,
+} from '../../constants/galaxyLore';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
     territory_id: string;
     name: string;
     region_id: string;
+    /** Galaxy maps: which world this territory belongs to (sol / verdan / rust / nexus_station). */
+    world_id?: string;
   }>;
   mapRegions?: Array<{ region_id: string; name: string; bonus: number }>;
   onAttack: (fromId: string, toId: string) => void;
@@ -26,6 +32,15 @@ interface TerritoryPanelProps {
   onInfluence?: (targetId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
   onAtomBomb?: (targetId: string) => void;
+  /**
+   * Optional copy shown when the selected territory is offworld (Moon / non-Sol
+   * galaxy world) and the active player has not yet satisfied the orbit-access
+   * gate. Backend remains authoritative; this is purely a UX hint that prevents
+   * players from blindly clicking actions the server will reject.
+   */
+  orbitAccessHint?: string | null;
+  /** Stable socket viewer id from `game:joined` — fixes draft UI when auth.user loads late */
+  resolvedViewerPlayerId?: string | null;
   onClose: () => void;
 }
 
@@ -40,6 +55,8 @@ export default function TerritoryPanel({
   onInfluence,
   onProposeTruce,
   onAtomBomb,
+  orbitAccessHint,
+  resolvedViewerPlayerId,
   onClose,
   onClaimTerritory,
 }: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
@@ -51,7 +68,13 @@ export default function TerritoryPanel({
   const [navalMoveCount, setNavalMoveCount] = React.useState(1);
 
   const draftPool = gameState
-    ? computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining)
+    ? computeDraftPool(
+        gameState,
+        user?.user_id,
+        user?.username,
+        draftUnitsRemaining,
+        resolvedViewerPlayerId ?? null,
+      )
     : 0;
   React.useEffect(() => {
     setDraftAmount((a) => (draftPool <= 0 ? 1 : Math.min(draftPool, Math.max(1, a))));
@@ -64,11 +87,15 @@ export default function TerritoryPanel({
   if (!tState || !mapTerritory) return null;
 
   const owner = gameState.players.find((p) => p.player_id === tState.owner_id);
-  const myPlayer = gameState.players.find(
-    (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
-  );
+  const myPlayer = resolvedViewerPlayerId
+    ? gameState.players.find((p) => p.player_id === resolvedViewerPlayerId)
+    : gameState.players.find(
+        (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+      );
   const myPlayerId = myPlayer?.player_id;
-  const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myPlayerId;
+  const isMyTurn =
+    !!myPlayerId &&
+    gameState.players[gameState.current_player_index]?.player_id === myPlayerId;
   const isUnowned = tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral';
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
   const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
@@ -135,6 +162,42 @@ export default function TerritoryPanel({
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Galaxy lore — shown above the region badge for galaxy_age maps. Mirrors the
+          per-territory flavor strings in `constants/galaxyLore.ts` so non-galaxy maps
+          render nothing here (lookup returns null). */}
+      {!isAttackConfirmMode && (() => {
+        const territoryLore = getGalaxyTerritoryLoreDetail(mapTerritory.territory_id);
+        const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
+        if (!territoryLore && !worldLore) return null;
+        return (
+          <div className="mb-3 px-3 py-2 rounded-lg border border-cc-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
+            {worldLore && (
+              <>
+                <div className="text-[10px] uppercase tracking-wider font-display text-cc-muted/80">
+                  <span className="text-cc-gold">{worldLore.display_name}</span>
+                  <span className="text-cc-muted"> · {worldLore.tagline}</span>
+                </div>
+                {worldLore.stakes && (
+                  <p className="mt-1 text-[11px] text-cc-muted/90 leading-snug">{worldLore.stakes}</p>
+                )}
+              </>
+            )}
+            {territoryLore && (
+              <div className="mt-2 space-y-1.5 border-t border-cc-border/40 pt-2">
+                <p className="text-[11px] text-cc-text/88 leading-snug">
+                  <span className="font-display text-cc-gold/90 not-italic mr-1">Frontier</span>
+                  {territoryLore.frontier}
+                </p>
+                <p className="text-[11px] text-cc-text/85 leading-snug italic">
+                  <span className="font-display text-cc-muted not-italic mr-1">Hold</span>
+                  {territoryLore.hold}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
       {!isAttackConfirmMode && (() => {
@@ -241,6 +304,15 @@ export default function TerritoryPanel({
             </div>
           )}
         </>
+      )}
+
+      {orbitAccessHint && (
+        <div
+          role="status"
+          className="mx-3 mb-2 px-3 py-2 rounded-lg border border-amber-700/40 bg-amber-950/40 text-amber-200 text-xs leading-snug"
+        >
+          🌌 {orbitAccessHint}
+        </div>
       )}
 
       {/* Actions */}

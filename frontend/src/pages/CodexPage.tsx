@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import FactionLoreModal, { type FactionLoreInfo } from '../components/game/FactionLoreModal';
 
-const ERA_IDS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age'] as const;
+const ERA_IDS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age'] as const;
 
 export default function CodexPage() {
   const [eraFactions, setEraFactions] = useState<Record<string, FactionLoreInfo[]>>({});

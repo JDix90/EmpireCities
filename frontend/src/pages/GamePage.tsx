@@ -42,8 +42,18 @@ import {
   isLiteMode,
   persistLiteMode,
 } from '../utils/device';
+import { inferWorldId } from '@erasofempire/shared';
+import {
+  getOrbitAccessResult,
+  resolveOrbitAccessMode,
+  territoryRequiresOrbitAccessForClaim,
+  formatOrbitAccessError,
+} from '../utils/orbitAccess';
+import { getGalaxyWorldLore } from '../constants/galaxyLore';
+import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 
 const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
+const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
@@ -67,6 +77,18 @@ interface MapData {
     center_lng?: number;
     altitude?: number;
   };
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+    requires_orbit_access?: boolean;
+  }>;
   territories: Array<{
     territory_id: string;
     name: string;
@@ -75,6 +97,10 @@ interface MapData {
     region_id: string;
     geo_polygon?: [number, number][];
     globe_id?: 'earth' | 'moon';
+    world_id?: string;
+    galaxy_position?: [number, number];
+    globe_image_url?: string;
+    bump_image_url?: string;
   }>;
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
   regions: Array<{ region_id: string; name: string; bonus: number }>;
@@ -300,6 +326,16 @@ export default function GamePage() {
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
+  const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
+  /** Socket `game:joined` seat — resolves viewer player_id before auth.user hydrates */
+  const [joinPlayerIndex, setJoinPlayerIndex] = useState<number | null>(null);
+  const joinPlayerIndexRef = useRef<number | null>(null);
+  const [focusedWorldId, setFocusedWorldId] = useState<string>('earth');
+  /** Brief lore header when drilling into a galaxy world (or switching world tabs). */
+  const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{
+    display_name: string;
+    tagline: string;
+  } | null>(null);
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
@@ -331,6 +367,16 @@ export default function GamePage() {
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
   userRef.current = user;
+
+  useEffect(() => {
+    setJoinPlayerIndex(null);
+    joinPlayerIndexRef.current = null;
+  }, [gameId]);
+
+  const resolvedViewerPlayerId = useMemo(() => {
+    if (!gameState || joinPlayerIndex == null) return null;
+    return gameState.players[joinPlayerIndex]?.player_id ?? null;
+  }, [gameState, joinPlayerIndex]);
 
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
   // that dismissing the game-over modal routes back to the right campaign detail.
@@ -578,6 +624,8 @@ export default function GamePage() {
 
     socket.on('game:joined', ({ playerIndex }: { playerIndex: number }) => {
       setIsHost(playerIndex === 0);
+      setJoinPlayerIndex(playerIndex);
+      joinPlayerIndexRef.current = playerIndex;
     });
 
     // The server embeds the resolved map in the game-join handshake and again
@@ -616,7 +664,11 @@ export default function GamePage() {
       const myId = userRef.current?.user_id;
       const myName = userRef.current?.username;
       const prevDraft = useGameStore.getState().draftUnitsRemaining;
-      setDraftUnitsRemaining(computeDraftPool(state, myId, myName, prevDraft));
+      const seatPid =
+        joinPlayerIndexRef.current != null
+          ? state.players[joinPlayerIndexRef.current]?.player_id ?? null
+          : null;
+      setDraftUnitsRemaining(computeDraftPool(state, myId, myName, prevDraft, seatPid));
 
       // ── Turn change detection ────────────────────────────────────────
       const newIndex = state.current_player_index;
@@ -711,8 +763,12 @@ export default function GamePage() {
           state.phase === 'draft' &&
           !!me &&
           state.players[state.current_player_index]?.player_id === me.player_id;
+        const seatPidTut =
+          joinPlayerIndexRef.current != null
+            ? state.players[joinPlayerIndexRef.current]?.player_id ?? null
+            : null;
         const draftLeft = isMyDraftTurn
-          ? computeDraftPool(state, myId, myName, state.draft_units_remaining ?? 0)
+          ? computeDraftPool(state, myId, myName, state.draft_units_remaining ?? 0, seatPidTut)
           : -1;
 
         setTutorialStep((cur) => {
@@ -1198,10 +1254,20 @@ export default function GamePage() {
     const gs = useGameStore.getState().gameState;
     const uid = user?.user_id;
     const uname = user?.username;
-    if (!gs || (!uid && !uname)) return;
+    const seatPid =
+      joinPlayerIndex != null ? gs?.players[joinPlayerIndex]?.player_id ?? null : null;
+    if (!gs || (!uid && !uname && !seatPid)) return;
     const prev = useGameStore.getState().draftUnitsRemaining;
-    setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, prev));
-  }, [user?.user_id, gameState?.draft_units_remaining, gameState?.phase, gameState?.current_player_index, gameState?.turn_number]);
+    setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, prev, seatPid));
+  }, [
+    user?.user_id,
+    user?.username,
+    joinPlayerIndex,
+    gameState?.draft_units_remaining,
+    gameState?.phase,
+    gameState?.current_player_index,
+    gameState?.turn_number,
+  ]);
 
   // Tutorial: keep server phase aligned with the current card (draft→attack, attack→fortify)
   useEffect(() => {
@@ -1216,7 +1282,13 @@ export default function GamePage() {
     const sid = TUTORIAL_STEPS[tutorialStep]?.id;
     if (!sid) return;
 
-    const draftLeft = computeDraftPool(gameState, myId, user?.username, draftUnitsRemaining);
+    const draftLeft = computeDraftPool(
+      gameState,
+      myId,
+      user?.username,
+      draftUnitsRemaining,
+      resolvedViewerPlayerId,
+    );
     const socket = getSocket();
 
     if ((sid === 'attack_explain' || sid === 'attack_do') && gameState.phase === 'draft' && draftLeft === 0) {
@@ -1238,6 +1310,7 @@ export default function GamePage() {
     tutorialStep,
     user?.user_id,
     draftUnitsRemaining,
+    resolvedViewerPlayerId,
   ]);
 
   useEffect(() => {
@@ -1421,9 +1494,15 @@ export default function GamePage() {
     if (!gameState) return;
     const socket = getSocket();
     const currentTurnPlayer = gameState.players[gameState.current_player_index];
-    const isMyTurn =
-      currentTurnPlayer?.player_id === user?.user_id ||
-      (!!user?.username && currentTurnPlayer?.username === user.username);
+    const myPid =
+      resolvedViewerPlayerId ??
+      gameState.players.find(
+        (p) =>
+          p.player_id === user?.user_id ||
+          (!!user?.username && p.username === user.username),
+      )?.player_id ??
+      null;
+    const isMyTurn = !!myPid && currentTurnPlayer?.player_id === myPid;
     const tState = gameState.territories[territoryId];
 
     // Territory draft: attempt claim directly on click. Server remains authoritative
@@ -1444,7 +1523,7 @@ export default function GamePage() {
       return;
     }
 
-    if (gameState.phase === 'fortify' && attackSource && tState?.owner_id === user?.user_id && attackSource !== territoryId) {
+    if (gameState.phase === 'fortify' && attackSource && myPid && tState?.owner_id === myPid && attackSource !== territoryId) {
       const fromState = gameState.territories[attackSource];
       const maxMove = Math.max(0, (fromState?.unit_count ?? 1) - 1);
       const requested = useUiStore.getState().fortifyUnits;
@@ -1463,7 +1542,7 @@ export default function GamePage() {
         accentText: 'text-sky-400',
       });
 
-      const myColor = gameState.players.find(p => p.player_id === user?.user_id)?.color;
+      const myColor = gameState.players.find(p => p.player_id === myPid)?.color;
       pushGlobeEvent({
         type: 'fortify',
         territoryId,
@@ -1480,7 +1559,98 @@ export default function GamePage() {
     }
 
     setSelectedTerritory(territoryId);
-  }, [gameState, attackSource, user, gameId, showNotification, setFortifyUnits, setNavalSource]);
+  }, [
+    gameState,
+    attackSource,
+    user?.user_id,
+    user?.username,
+    resolvedViewerPlayerId,
+    gameId,
+    showNotification,
+    setFortifyUnits,
+    setNavalSource,
+  ]);
+
+  const handleGalaxyStrategicTerritoryClick = useCallback(
+    (territoryId: string) => {
+      const md = mapDataRef.current;
+      if (md?.map_kind === 'galaxy') {
+        const t = md.territories.find((x) => x.territory_id === territoryId);
+        if (t) {
+          setFocusedWorldId(inferWorldId(t));
+          // Stay in galaxy chart: selection + reinforcement use the side panel.
+          // Drill into the world globe only when the player picks a world tab (or 2D map).
+        }
+      }
+      handleTerritoryClick(territoryId);
+    },
+    [handleTerritoryClick],
+  );
+
+  const handleGalaxyStrategicTerritoryDoubleClick = useCallback(
+    (territoryId: string) => {
+      const md = mapDataRef.current;
+      if (md?.map_kind === 'galaxy') {
+        const t = md.territories.find((x) => x.territory_id === territoryId);
+        if (t) {
+          setFocusedWorldId(inferWorldId(t));
+          setGalaxyOverviewMode(false);
+        }
+      }
+      handleTerritoryClick(territoryId);
+    },
+    [handleTerritoryClick],
+  );
+
+  const focusedWorldSkin = useMemo(() => {
+    if (!mapData?.worlds) return null;
+    return mapData.worlds.find((w) => w.world_id === focusedWorldId) ?? null;
+  }, [mapData?.worlds, focusedWorldId]);
+
+  /** Per-territory globe diffuse/bump when a galaxy node/territory is selected (Option A). */
+  const galaxyDrillGlobeSkin = useMemo(() => {
+    if (mapData?.map_kind !== 'galaxy') return null;
+    return resolveGalaxyDrillDownGlobeSkin({
+      worlds: mapData.worlds,
+      territories: mapData.territories,
+      focusedWorldId,
+      selectedTerritoryId: selectedTerritory,
+    });
+  }, [mapData?.map_kind, mapData?.worlds, mapData?.territories, focusedWorldId, selectedTerritory]);
+
+  useEffect(() => {
+    if (mapData?.map_kind !== 'galaxy') {
+      setGalaxyWorldBanner(null);
+      return;
+    }
+    if (galaxyOverviewMode) {
+      setGalaxyWorldBanner(null);
+      return;
+    }
+    const lore = getGalaxyWorldLore(focusedWorldId);
+    if (!lore) return;
+    setGalaxyWorldBanner({ display_name: lore.display_name, tagline: lore.tagline });
+    const t = window.setTimeout(() => setGalaxyWorldBanner(null), 1500);
+    return () => window.clearTimeout(t);
+  }, [mapData?.map_kind, galaxyOverviewMode, focusedWorldId]);
+
+  /**
+   * Player-facing orbit-access summary. Backend stays authoritative; this is
+   * advisory copy so the TerritoryPanel and the GalaxyStrategicView lane color
+   * can pre-warn when an action would be blocked by the moon / hyperspace gate.
+   */
+  const orbitAccess = useMemo(
+    () => getOrbitAccessResult(mapData ?? null, gameState, user?.user_id ?? null, gameState?.era ?? ''),
+    [mapData, gameState, user?.user_id],
+  );
+
+  const orbitAccessHint = useMemo(() => {
+    if (!mapData || !selectedTerritory) return null;
+    if (!territoryRequiresOrbitAccessForClaim(mapData, selectedTerritory)) return null;
+    if (orbitAccess.allowed) return null;
+    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    return formatOrbitAccessError(orbitAccess, mode);
+  }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
 
   const handleClaimTerritory = (territoryId: string) => {
     if (territorySelectPendingRef.current) return;
@@ -1532,11 +1702,26 @@ export default function GamePage() {
   };
 
   const handleDraft = (territoryId: string, units: number) => {
-    getSocket().emit('game:draft', { gameId, territoryId, units });
+    getSocket().emit('game:draft', {
+      gameId,
+      territoryId,
+      units,
+      action_id: crypto.randomUUID(),
+    });
     const gs = useGameStore.getState().gameState;
     const uid = useAuthStore.getState().user?.user_id;
     const uname = useAuthStore.getState().user?.username;
-    const curr = computeDraftPool(gs, uid, uname, useGameStore.getState().draftUnitsRemaining);
+    const seatPid =
+      joinPlayerIndexRef.current != null && gs
+        ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
+        : null;
+    const curr = computeDraftPool(
+      gs,
+      uid,
+      uname,
+      useGameStore.getState().draftUnitsRemaining,
+      seatPid,
+    );
     const remaining = Math.max(0, curr - units);
     setDraftUnitsRemaining(remaining);
     setSelectedTerritory(null);
@@ -1553,8 +1738,9 @@ export default function GamePage() {
       accentText: 'text-emerald-400',
     });
 
-    const tState = gameState?.territories[territoryId];
-    const myColor = gameState?.players.find(p => p.player_id === user?.user_id)?.color;
+    const tState = gs?.territories[territoryId];
+    const draftPid = seatPid ?? uid ?? null;
+    const myColor = draftPid ? gs?.players.find((p) => p.player_id === draftPid)?.color : undefined;
     pushGlobeEvent({
       type: 'reinforce',
       territoryId,
@@ -1830,8 +2016,17 @@ export default function GamePage() {
   }, [gameId, lobbySnapshot, gameState]);
 
   // Hoisted for use in mobile bottom bar, cards tray, and combat banner
-  const mobileMyPlayer = gameState?.players.find((p) => p.player_id === user?.user_id);
-  const mobileIsMyTurn = gameState?.players[gameState.current_player_index]?.player_id === user?.user_id;
+  const mobileMyPlayer =
+    resolvedViewerPlayerId != null
+      ? gameState?.players.find((p) => p.player_id === resolvedViewerPlayerId)
+      : gameState?.players.find(
+          (p) =>
+            p.player_id === user?.user_id ||
+            (!!user?.username && p.username === user.username),
+        );
+  const mobileIsMyTurn =
+    !!mobileMyPlayer &&
+    gameState?.players[gameState.current_player_index]?.player_id === mobileMyPlayer.player_id;
 
   // Auto-open cards tray when forced redemption (5+ cards)
   useEffect(() => {
@@ -1856,11 +2051,30 @@ export default function GamePage() {
 
   const hasMoonTerritories = useMemo(
     () =>
+      mapData?.map_kind !== 'galaxy' &&
       !!mapData?.territories.some(
-        (t) => t.globe_id === 'moon' || t.region_id === 'lunar_surface' || t.territory_id.startsWith('moon_'),
+        (t) =>
+          t.globe_id === 'moon' ||
+          t.region_id === 'lunar_surface' ||
+          t.territory_id.startsWith('moon_'),
       ),
     [mapData],
   );
+
+  useEffect(() => {
+    const md = mapData;
+    if (!md) return;
+    if (md.map_kind === 'galaxy') {
+      setGalaxyOverviewMode(true);
+      const wid =
+        md.worlds?.[0]?.world_id ??
+        inferWorldId(md.territories[0] ?? { territory_id: '', region_id: '' });
+      setFocusedWorldId(wid);
+    } else {
+      setGalaxyOverviewMode(false);
+      setFocusedWorldId('earth');
+    }
+  }, [mapData?.map_id]);
 
   /**
    * Build the campaign intro modal payload from whichever source has loaded
@@ -2401,6 +2615,32 @@ export default function GamePage() {
               Earth + Moon
             </span>
           )}
+          {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setGalaxyOverviewMode(true)}
+                className={`hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+              >
+                Galaxy chart
+              </button>
+              <div className="hidden md:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
+                {(mapData.worlds ?? []).map((w) => (
+                  <button
+                    key={w.world_id}
+                    type="button"
+                    onClick={() => {
+                      setFocusedWorldId(w.world_id);
+                      setGalaxyOverviewMode(false);
+                    }}
+                    className={`min-h-[28px] px-2 py-0.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-cc-gold text-cc-gold bg-cc-gold/10' : 'border-cc-border text-cc-muted hover:text-cc-text'}`}
+                  >
+                    {w.display_name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -2455,48 +2695,109 @@ export default function GamePage() {
             mapView === 'globe' ? (
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-cc-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
-                  <GlobeMap
-                    mapData={mapData}
-                    onTerritoryClick={handleTerritoryClick}
-                    width={mapCanvasSize.w}
-                    height={mapCanvasSize.h}
-                    events={globeEvents}
-                    onEventDone={handleGlobeEventDone}
-                    reducedEffects={reducedGlobe}
-                    autoSpin={globeSpinEnabled}
-                    highlightTerritoryId={tutorialHighlightId}
-                    globeView="earth"
-                    globeImageUrl={customGlobeSkin?.globeImageUrl}
-                    bumpImageUrl={customGlobeSkin?.bumpImageUrl}
-                    showAtmosphere={customGlobeSkin?.showAtmosphere ?? true}
-                    backgroundColor={customGlobeSkin?.backgroundColor}
-                  />
-                  {hasMoonTerritories && (
-                    <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-cc-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
-                      <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-cc-border/70 text-cc-gold pointer-events-none">
-                        Moon
-                      </div>
+                  {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+                    <GalaxyStrategicView
+                      mapData={mapData}
+                      gameState={gameState}
+                      selectedTerritoryId={selectedTerritory}
+                      onTerritoryClick={handleGalaxyStrategicTerritoryClick}
+                      onTerritoryDoubleClick={handleGalaxyStrategicTerritoryDoubleClick}
+                      width={mapCanvasSize.w}
+                      height={mapCanvasSize.h}
+                      orbitAccessAllowed={orbitAccess.allowed}
+                    />
+                  ) : (
+                    <>
+                      {galaxyWorldBanner && (
+                        <div
+                          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-cc-border bg-black/60 text-center shadow-lg"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <div className="font-display text-cc-gold text-sm sm:text-base">
+                            {galaxyWorldBanner.display_name}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-cc-muted mt-0.5">
+                            {galaxyWorldBanner.tagline}
+                          </div>
+                        </div>
+                      )}
                       <GlobeMap
                         mapData={mapData}
                         onTerritoryClick={handleTerritoryClick}
-                        width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
-                        height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
-                        events={[]}
-                        reducedEffects={true}
-                        autoSpin={false}
-                        globeView="moon"
-                        // Three-globe doesn't ship a lunar texture; pull the
-                        // long-stable Three.js examples one (CSP whitelists
-                        // cdn.jsdelivr.net already).
-                        globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/moon_1024.jpg"
-                        // No reliable matching bumpmap on the same CDN path —
-                        // skipping it renders the moon flat-shaded which is
-                        // visually fine at this inset size.
-                        bumpImageUrl=""
-                        showAtmosphere={false}
-                        backgroundColor="rgb(20, 22, 32)"
+                        width={mapCanvasSize.w}
+                        height={mapCanvasSize.h}
+                        events={globeEvents}
+                        onEventDone={handleGlobeEventDone}
+                        reducedEffects={reducedGlobe}
+                        autoSpin={globeSpinEnabled}
+                        highlightTerritoryId={tutorialHighlightId}
+                        activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
+                        globeImageUrl={
+                          mapData.map_kind === 'galaxy'
+                            ? (galaxyDrillGlobeSkin?.globeImageUrl ??
+                                focusedWorldSkin?.globe_image_url ??
+                                customGlobeSkin?.globeImageUrl)
+                            : customGlobeSkin?.globeImageUrl
+                        }
+                        bumpImageUrl={
+                          mapData.map_kind === 'galaxy'
+                            ? (galaxyDrillGlobeSkin?.bumpImageUrl !== undefined
+                                ? galaxyDrillGlobeSkin.bumpImageUrl
+                                : focusedWorldSkin?.bump_image_url !== undefined
+                                  ? focusedWorldSkin.bump_image_url
+                                  : customGlobeSkin?.bumpImageUrl)
+                            : customGlobeSkin?.bumpImageUrl
+                        }
+                        showAtmosphere={
+                          mapData.map_kind === 'galaxy'
+                            ? (galaxyDrillGlobeSkin?.showAtmosphere ??
+                                focusedWorldSkin?.show_atmosphere ??
+                                true)
+                            : (customGlobeSkin?.showAtmosphere ?? true)
+                        }
+                        {...(mapData.map_kind === 'galaxy'
+                          ? {
+                              atmosphereColor:
+                                galaxyDrillGlobeSkin?.atmosphereColor ??
+                                focusedWorldSkin?.atmosphere_color ??
+                                'lightskyblue',
+                              atmosphereAltitude:
+                                galaxyDrillGlobeSkin?.atmosphereAltitude ??
+                                focusedWorldSkin?.atmosphere_altitude ??
+                                0.15,
+                            }
+                          : {})}
+                        backgroundColor={
+                          mapData.map_kind === 'galaxy'
+                            ? (galaxyDrillGlobeSkin?.backgroundColor ??
+                                focusedWorldSkin?.background_color ??
+                                customGlobeSkin?.backgroundColor)
+                            : customGlobeSkin?.backgroundColor
+                        }
                       />
-                    </div>
+                      {hasMoonTerritories && (
+                        <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-cc-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
+                          <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-cc-border/70 text-cc-gold pointer-events-none">
+                            Moon
+                          </div>
+                          <GlobeMap
+                            mapData={mapData}
+                            onTerritoryClick={handleTerritoryClick}
+                            width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
+                            height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
+                            events={[]}
+                            reducedEffects={true}
+                            autoSpin={false}
+                            activeWorldId="moon"
+                            globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/moon_1024.jpg"
+                            bumpImageUrl=""
+                            showAtmosphere={false}
+                            backgroundColor="rgb(20, 22, 32)"
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </Suspense>
@@ -2556,6 +2857,8 @@ export default function GamePage() {
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
               onAtomBomb={gameState?.players.find(p => p.player_id === user?.user_id)?.unlocked_techs?.includes('ww2_atom_bomb') ? handleAtomBomb : undefined}
+              orbitAccessHint={orbitAccessHint}
+              resolvedViewerPlayerId={resolvedViewerPlayerId}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
               onClose={() => {
                 setSelectedTerritory(null);
@@ -2580,21 +2883,30 @@ export default function GamePage() {
           lastCombatLog={combatLog}
           gameId={gameStarted && gameId ? gameId : undefined}
           activeInteractionLabel={activeInteractionLabel}
+          resolvedViewerPlayerId={resolvedViewerPlayerId}
         />
       </div>
 
       {/* ── Mobile Bottom Bar ──────────────────────────────────────────────── */}
       {gameState && (() => {
         const cp = gameState.players[gameState.current_player_index];
-        const me = gameState.players.find(
-          (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
-        );
+        const me = resolvedViewerPlayerId
+          ? gameState.players.find((p) => p.player_id === resolvedViewerPlayerId)
+          : gameState.players.find(
+              (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+            );
         const myTurn = !!cp && !!me && cp.player_id === me.player_id;
         const phaseLabel: Record<string, string> = {
           territory_select: 'Territory Draft', draft: 'Reinforcement', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
         };
         const mobileDraftPool = myTurn && gameState.phase === 'draft'
-          ? computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining)
+          ? computeDraftPool(
+              gameState,
+              user?.user_id,
+              user?.username,
+              draftUnitsRemaining,
+              resolvedViewerPlayerId,
+            )
           : 0;
         return (
           <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-cc-surface border-t border-cc-border pb-safe min-h-[56px]">
@@ -2723,6 +3035,7 @@ export default function GamePage() {
               lastCombatLog={combatLog}
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
+              resolvedViewerPlayerId={resolvedViewerPlayerId}
             />
             {/* Map view + spin controls — visible only in the mobile drawer */}
             <div className="px-4 py-3 border-t border-cc-border shrink-0 space-y-2">

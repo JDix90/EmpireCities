@@ -15,6 +15,8 @@ import {
   buildTerritoryGlobeGeometries,
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
+import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
+import { inferWorldId } from '@erasofempire/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
 import {
@@ -109,6 +111,11 @@ interface MapTerritory {
   center_point: [number, number];
   region_id: string;
   globe_id?: 'earth' | 'moon';
+  world_id?: string;
+  galaxy_position?: [number, number];
+  /** Galaxy Option A: per-territory diffuse / bump overrides on drill-down. */
+  globe_image_url?: string;
+  bump_image_url?: string;
   iso_codes?: string[];
   clip_bbox?: ClipBbox;
   geo_config?: TerritoryGeoConfig;
@@ -118,6 +125,18 @@ interface MapTerritory {
 
 interface GameMapData {
   map_id?: string;
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+    requires_orbit_access?: boolean;
+  }>;
   canvas_width?: number;
   canvas_height?: number;
   /** Matches `projection_bounds` in map JSON — used for canvas→globe when geo_polygon missing */
@@ -132,24 +151,6 @@ interface GameMapData {
   territories: MapTerritory[];
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
-}
-
-function inferTerritoryGlobeId(territory: MapTerritory): 'earth' | 'moon' {
-  if (territory.globe_id === 'moon' || territory.globe_id === 'earth') return territory.globe_id;
-  // Back-compat fallback for stale/custom map documents that predate
-  // `globe_id`. Space Age moon territories are consistently tagged either by
-  // region (`lunar_surface`) or by id prefix (`moon_*`); we also treat any
-  // territory whose id contains `lunar` as a moon territory so future
-  // hand-authored maps don't silently leak onto Earth.
-  const tid = territory.territory_id ?? '';
-  if (
-    territory.region_id === 'lunar_surface' ||
-    tid.startsWith('moon_') ||
-    tid.includes('lunar')
-  ) {
-    return 'moon';
-  }
-  return 'earth';
 }
 
 interface GlobeMapProps {
@@ -177,8 +178,8 @@ interface GlobeMapProps {
   showAtmosphere?: boolean;
   /** Override globe canvas background color. */
   backgroundColor?: string;
-  /** Which globe to render — filters territories by `globe_id` (defaults to 'earth'). */
-  globeView?: 'earth' | 'moon';
+  /** Filters territories by canonical world id (defaults to `earth`). */
+  activeWorldId?: string;
 }
 
 /**
@@ -630,7 +631,7 @@ function GlobeMap({
   atmosphereAltitude = 0.15,
   showAtmosphere = true,
   backgroundColor = 'rgba(10, 14, 26, 1)',
-  globeView = 'earth',
+  activeWorldId = 'earth',
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -821,9 +822,9 @@ function GlobeMap({
       const territory = mapData.territories.find((t) => t.territory_id === p.territory_id);
       if (!territory) return false;
       if (territory.region_id === 'sea_routes') return false;
-      return inferTerritoryGlobeId(territory) === globeView;
+      return inferWorldId(territory) === activeWorldId;
     }),
-    [polygonsData, mapData.territories, globeView],
+    [polygonsData, mapData.territories, activeWorldId],
   );
 
   const territoryById = useMemo(() => {
@@ -845,19 +846,51 @@ function GlobeMap({
   const territoryCentersRef = useRef(territoryCenters);
   territoryCentersRef.current = territoryCenters;
 
+  /**
+   * Camera framing must follow the active world on galaxy / multi-world maps —
+   * deriving from `territoryCenters` directly would average the bbox across all
+   * worlds (e.g. Sol's North America + Verdan's Indonesia + Nexus' North Atlantic),
+   * leaving the focused world off-center. Filter to the active world's polygons
+   * so each drill-down lands on a world-local frame.
+   */
+  const activeWorldCenters = useMemo(() => {
+    const centers = new Map<string, { lat: number; lng: number }>();
+    for (const p of polygonsData) {
+      const territory = territoryById.get(p.territory_id);
+      if (!territory) continue;
+      if (inferWorldId(territory) !== activeWorldId) continue;
+      centers.set(p.territory_id, computeCentroid(p.geometry));
+    }
+    // Fallback to all centers when the active world filter excludes everything
+    // (e.g. mis-typed world id in the props) so the globe never shows an empty
+    // bounding box.
+    return centers.size > 0 ? centers : territoryCenters;
+  }, [polygonsData, territoryById, activeWorldId, territoryCenters]);
+
   const regionalGlobe = useMemo(
-    () => deriveRegionalGlobeView(mapData.globe_view, territoryCenters),
-    [mapData.globe_view, territoryCenters],
+    () => deriveRegionalGlobeView(mapData.globe_view, activeWorldCenters),
+    [mapData.globe_view, activeWorldCenters],
   );
   /**
    * Regional / authored-bounds maps: every extruded polygon uses cap + side materials.
    * Semi-transparent sides (default in three-globe) overlap thousands of faces from neighbors
    * and sort unpredictably — same RGB “shard” noise as transparent caps. Opaque cap + side fixes it.
+   *
+   * Galactic Age (`map_kind === 'galaxy'`) must stay on this opaque path too: semi-transparent
+   * territory caps reintroduced whole-globe “color spill” (same class of bug as Space Age before
+   * we forced solid fills on authored `projection_bounds` maps).
    */
   const useSolidPlayerCaps =
     regionalGlobe.lockRotation === true || mapData.projection_bounds != null;
   const regionalGlobeRef = useRef(regionalGlobe);
   regionalGlobeRef.current = regionalGlobe;
+
+  /** Galaxy drill-down: prefer each world's authored void color (parent may already pass it). */
+  const effectiveBackgroundColor = useMemo(() => {
+    if (mapData.map_kind !== 'galaxy' || !mapData.worlds?.length) return backgroundColor;
+    const w = mapData.worlds.find((x) => x.world_id === activeWorldId);
+    return w?.background_color ?? backgroundColor;
+  }, [mapData.map_kind, mapData.worlds, activeWorldId, backgroundColor]);
 
   // ── Animation helpers ──────────────────────────────────────────────────
 
@@ -942,16 +975,29 @@ function GlobeMap({
    * `projection_bounds` ship small WGS84 quads (a few degrees per side) → 360° keeps the authored ring
    * and earcuts it (no interior grid).
    *
-   * Space Age is an exception: the authored quads span 60°–80° of arc on Earth and the moon
-   * territories span 150°+ of lng. Without subdivision the flat earcut lifted to the sphere dips far
-   * below the surface, so only the strokes are visible. Force 5° subdivision for that map and for any
-   * moon-view render so caps actually hug the sphere.
+   * Space Age and Galactic Age are exceptions: their authored quads span 50°–170° of arc per side.
+   * Without subdivision the flat earcut lifted to the sphere dips far below the surface and only the
+   * strokes show. Force 5° subdivision for those maps and for any moon-view render so caps actually
+   * hug the sphere.
+   *
+   * Galactic exo Voronoi: some worlds’ hulls exceed 180° planar lng — interior lattice + Turf PIP
+   * punches holes (`galaxyExoWideHullCapResolution`).
    */
-  const polygonCapCurvatureResolution = useMemo(() => {
-    if (globeView === 'moon') return 5;
-    if (mapData.map_id === 'era_space_age') return 5;
-    return mapData.projection_bounds != null ? 360 : 5;
-  }, [mapData.map_id, mapData.projection_bounds, globeView]);
+  const getPolygonCapCurvatureResolution = useCallback(
+    (polygon: object) => {
+      if (activeWorldId === 'moon') return 5;
+      if (mapData.map_id === 'era_space_age') return 5;
+      if (mapData.map_kind === 'galaxy') {
+        if (activeWorldId !== 'sol') {
+          const wide = galaxyExoWideHullCapResolution((polygon as PolygonData).geometry);
+          if (wide != null) return wide;
+        }
+        return 5;
+      }
+      return mapData.projection_bounds != null ? 360 : 5;
+    },
+    [activeWorldId, mapData.map_id, mapData.map_kind, mapData.projection_bounds],
+  );
 
   /** Keep WebGL backing store in sync when the game resizes the map pane (devtools, sidebar, etc.). */
   useEffect(() => {
@@ -975,9 +1021,20 @@ function GlobeMap({
       // mare) and authored moon rings are very wide (~150° lng), so even with
       // 5° curvature subdivision a thin cap sits visually flush with the
       // surface and reads as outline-only. 0.014 puts the cap clearly above.
-      if (globeView === 'moon') {
+      if (activeWorldId === 'moon') {
         const base = 0.014;
         const jitter = polygonAltitudeHash(id) * 0.002;
+        return base + jitter;
+      }
+      // Galaxy worlds (Mars / Io / Callisto / Earth-as-Sol III) ship the same
+      // wide authored quads as Space Age moon rings; they need the higher
+      // moon-style base so caps don't z-fight with the contrasty planet
+      // texture. Without this they read as outline-only on Mars + Io.
+      if (mapData.map_kind === 'galaxy') {
+        // Exo worlds use Voronoi meshes + procedural skins with strong bump/normal contrast;
+        // Sol III uses smoother Earth imagery — keep Sol slightly lower so caps stay snug on NE coastlines.
+        const base = activeWorldId === 'sol' ? 0.02 : 0.032;
+        const jitter = polygonAltitudeHash(id) * 0.0008;
         return base + jitter;
       }
       const base = authoredRegional
@@ -991,7 +1048,7 @@ function GlobeMap({
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
       return base + jitter;
     },
-    [regionalGlobe.lockRotation, mapData.map_id, mapData.projection_bounds, isFloodedNorthAmerica, globeView],
+    [regionalGlobe.lockRotation, mapData.map_id, mapData.map_kind, mapData.projection_bounds, isFloodedNorthAmerica, activeWorldId],
   );
 
   // ── Animation sequences ────────────────────────────────────────────────
@@ -1362,7 +1419,7 @@ function GlobeMap({
         (t) =>
           t.region_id === region.region_id &&
           t.region_id !== 'sea_routes' &&
-          inferTerritoryGlobeId(t) === globeView,
+          inferWorldId(t) === activeWorldId,
       );
       if (regionTerritories.length < 2) continue;
 
@@ -1387,14 +1444,14 @@ function GlobeMap({
       });
     }
     return out;
-  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, globeView]);
+  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId]);
 
   const buildingHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
     const out: HtmlDatum[] = [];
     for (const [tid, tState] of Object.entries(gameState.territories)) {
       const terr = territoryById.get(tid);
-      if (!terr || inferTerritoryGlobeId(terr) !== globeView) continue;
+      if (!terr || inferWorldId(terr) !== activeWorldId) continue;
       const buildings: string[] = (tState as { buildings?: string[] }).buildings ?? [];
       if (buildings.length === 0) continue;
       const c = territoryCentroids.get(tid);
@@ -1419,7 +1476,7 @@ function GlobeMap({
       });
     }
     return out;
-  }, [gameState, territoryCentroids, territoryById, globeView]);
+  }, [gameState, territoryCentroids, territoryById, activeWorldId]);
 
   const capitalHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
@@ -1427,7 +1484,7 @@ function GlobeMap({
     for (const pl of gameState.players) {
       if (!pl.capital_territory_id) continue;
       const terr = territoryById.get(pl.capital_territory_id);
-      if (!terr || inferTerritoryGlobeId(terr) !== globeView) continue;
+      if (!terr || inferWorldId(terr) !== activeWorldId) continue;
       const c = territoryCentroids.get(pl.capital_territory_id);
       if (!c) continue;
       out.push({
@@ -1440,7 +1497,7 @@ function GlobeMap({
       });
     }
     return out;
-  }, [gameState, territoryCentroids, territoryById, globeView]);
+  }, [gameState, territoryCentroids, territoryById, activeWorldId]);
 
   const adjacencyArcs = useMemo(() => {
     if (!gameState) return [];
@@ -1457,7 +1514,7 @@ function GlobeMap({
     const sourceCenter = territoryCentroids.get(source);
     if (!sourceCenter) return [];
     const sourceTerr = territoryById.get(source);
-    if (!sourceTerr || inferTerritoryGlobeId(sourceTerr) !== globeView) return [];
+    if (!sourceTerr || inferWorldId(sourceTerr) !== activeWorldId) return [];
 
     const result: ArcDatum[] = [];
     for (const conn of mapData.connections) {
@@ -1468,7 +1525,7 @@ function GlobeMap({
       const neighborCenter = territoryCentroids.get(neighborId);
       if (!neighborCenter) continue;
       const neighborTerr = territoryById.get(neighborId);
-      if (!neighborTerr || inferTerritoryGlobeId(neighborTerr) !== globeView) continue;
+      if (!neighborTerr || inferWorldId(neighborTerr) !== activeWorldId) continue;
 
       if (phase === 'attack') {
         if (neighborOwner === myId || !neighborOwner) continue;
@@ -1508,7 +1565,7 @@ function GlobeMap({
       }
     }
     return result;
-  }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids, territoryById, globeView]);
+  }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids, territoryById, activeWorldId]);
 
   // ── Permanent sea lane arcs ────────────────────────────────────────────
   // Sea-route territories (region_id === 'sea_routes') are rendered as tiny
@@ -1519,10 +1576,10 @@ function GlobeMap({
     () =>
       new Set(
         mapData.territories
-          .filter((t) => t.region_id === 'sea_routes' && inferTerritoryGlobeId(t) === globeView)
+          .filter((t) => t.region_id === 'sea_routes' && inferWorldId(t) === activeWorldId)
           .map((t) => t.territory_id),
       ),
-    [mapData.territories, globeView],
+    [mapData.territories, activeWorldId],
   );
 
   const seaLaneArcs = useMemo((): ArcDatum[] => {
@@ -1608,7 +1665,7 @@ function GlobeMap({
   // glyph + name label and matching ring animation. Skipped on the moon
   // inset and on every other map.
   const wastelandHtmlOverlays = useMemo((): HtmlDatum[] => {
-    if (mapData.map_id !== 'era_space_age' || globeView !== 'earth') return [];
+    if (mapData.map_id !== 'era_space_age' || activeWorldId !== 'earth') return [];
     return SPACE_AGE_WASTELANDS.map((w) => ({
       id: `wasteland-${w.id}`,
       kind: 'wasteland-zone' as const,
@@ -1623,10 +1680,10 @@ function GlobeMap({
       glyph: wastelandGlyph(w.kind),
       colorRgba: wastelandColorRgba(w.kind, 0.9),
     }));
-  }, [mapData.map_id, globeView]);
+  }, [mapData.map_id, activeWorldId]);
 
   const wastelandRings = useMemo((): RingDatum[] => {
-    if (mapData.map_id !== 'era_space_age' || globeView !== 'earth') return [];
+    if (mapData.map_id !== 'era_space_age' || activeWorldId !== 'earth') return [];
     return SPACE_AGE_WASTELANDS.map((w) => {
       const [r, g, b] = wastelandColorRgb(w.kind);
       return {
@@ -1643,7 +1700,7 @@ function GlobeMap({
         colorFn: (t: number) => `rgba(${r}, ${g}, ${b}, ${Math.max(0, 0.4 * (1 - t))})`,
       };
     });
-  }, [mapData.map_id, globeView]);
+  }, [mapData.map_id, activeWorldId]);
 
   const combinedHtmlOverlays = useMemo(
     () => [
@@ -1671,21 +1728,28 @@ function GlobeMap({
 
   // ── Polygon accessors ──────────────────────────────────────────────────
 
-  const getPolygonColor = useCallback((polygon: object) => {
-    const p = polygon as PolygonData;
-    const empty = isFloodedNorthAmerica
-      ? (useSolidPlayerCaps ? 'rgb(245, 242, 230)' : 'rgba(245, 242, 230, 0.98)')
-      : (useSolidPlayerCaps ? 'rgb(45, 52, 72)' : 'rgba(45, 52, 72, 0.92)');
-    if (!gameState) return empty;
-    const tState = gameState.territories[p.territory_id];
-    if (!tState?.owner_id) return empty;
-    const player = gameState.players.find((ply) => ply.player_id === tState.owner_id);
-    if (!player) return empty;
-    const table = useSolidPlayerCaps ? PLAYER_COLORS_SOLID : PLAYER_COLORS;
-    const raw = (player.color || '').trim();
-    const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
-    return table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
-  }, [gameState, useSolidPlayerCaps, isFloodedNorthAmerica]);
+  const getPolygonColor = useCallback(
+    (polygon: object) => {
+      const p = polygon as PolygonData;
+      const empty = isFloodedNorthAmerica
+        ? useSolidPlayerCaps
+          ? 'rgb(245, 242, 230)'
+          : 'rgba(245, 242, 230, 0.98)'
+        : useSolidPlayerCaps
+          ? 'rgb(45, 52, 72)'
+          : 'rgba(45, 52, 72, 0.92)';
+      if (!gameState) return empty;
+      const tState = gameState.territories[p.territory_id];
+      if (!tState?.owner_id) return empty;
+      const player = gameState.players.find((ply) => ply.player_id === tState.owner_id);
+      if (!player) return empty;
+      const raw = (player.color || '').trim();
+      const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
+      const table = useSolidPlayerCaps ? PLAYER_COLORS_SOLID : PLAYER_COLORS;
+      return table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
+    },
+    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica],
+  );
 
   const adjacencyTargets = useMemo(() => {
     const set = new Set<string>();
@@ -1696,23 +1760,45 @@ function GlobeMap({
     return set;
   }, [adjacencyArcs]);
 
-  const getPolygonStroke = useCallback((polygon: object) => {
-    const p = polygon as PolygonData;
-    if (p.territory_id === selectedTerritory || p.territory_id === attackSource) {
-      return '#ffd700';
-    }
-    if (adjacencyTargets.has(p.territory_id)) {
-      return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
-    }
-    const regionId = territoryRegionMap.get(p.territory_id);
-    const regionColor = regionId ? regionColorMap.get(regionId) : undefined;
-    if (regionColor) return regionColor;
-    return useSolidPlayerCaps ? 'rgb(228, 234, 245)' : 'rgba(12, 18, 32, 0.92)';
-  }, [selectedTerritory, attackSource, adjacencyTargets, gameState?.phase, useSolidPlayerCaps, territoryRegionMap, regionColorMap]);
+  const getPolygonStroke = useCallback(
+    (polygon: object) => {
+      const p = polygon as PolygonData;
+      if (p.territory_id === selectedTerritory || p.territory_id === attackSource) {
+        return '#ffd700';
+      }
+      if (adjacencyTargets.has(p.territory_id)) {
+        return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
+      }
+      // Galactic Age: every territory on a world often shares one region_id, and
+      // REGION_CSS_COLORS can sit close to player blues/greens — borders vanish and
+      // the cap reads as one solid player “shell”. Use a neutral rim so each cap
+      // stays readable on textured globes (Sol / Verdan / Rust / Nexus).
+      if (mapData.map_kind === 'galaxy') {
+        return '#ffffff';
+      }
+      const regionId = territoryRegionMap.get(p.territory_id);
+      const regionColor = regionId ? regionColorMap.get(regionId) : undefined;
+      if (regionColor) return regionColor;
+      return useSolidPlayerCaps ? 'rgb(228, 234, 245)' : 'rgba(12, 18, 32, 0.92)';
+    },
+    [
+      mapData.map_kind,
+      selectedTerritory,
+      attackSource,
+      adjacencyTargets,
+      gameState?.phase,
+      useSolidPlayerCaps,
+      territoryRegionMap,
+      regionColorMap,
+    ],
+  );
 
-  const getPolygonSideColor = useCallback(() => {
-    return useSolidPlayerCaps ? 'rgb(14, 18, 30)' : 'rgba(6, 10, 18, 0.45)';
-  }, [useSolidPlayerCaps]);
+  const getPolygonSideColor = useCallback(
+    (_polygon: object) => {
+      return useSolidPlayerCaps ? 'rgb(14, 18, 30)' : 'rgba(6, 10, 18, 0.45)';
+    },
+    [useSolidPlayerCaps],
+  );
 
   // ── Globe layer accessors (stable) ─────────────────────────────────────
 
@@ -1819,7 +1905,7 @@ function GlobeMap({
         ref={globeRef}
         width={width}
         height={height}
-        backgroundColor={backgroundColor}
+        backgroundColor={effectiveBackgroundColor}
         globeImageUrl={globeImageUrl}
         bumpImageUrl={bumpImageUrl}
         showAtmosphere={showAtmosphere}
@@ -1833,7 +1919,7 @@ function GlobeMap({
         polygonSideColor={getPolygonSideColor}
         polygonStrokeColor={getPolygonStroke}
         polygonAltitude={getPolygonAltitude}
-        polygonCapCurvatureResolution={polygonCapCurvatureResolution}
+        polygonCapCurvatureResolution={getPolygonCapCurvatureResolution}
         polygonsTransitionDuration={0}
         polygonLabel={(p) =>
           mapData.map_id === 'tutorial' ? '' : (p as PolygonData).name

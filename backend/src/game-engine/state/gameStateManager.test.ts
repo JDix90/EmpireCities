@@ -472,6 +472,94 @@ describe('initializeGameState faction distribution', () => {
     });
   });
 
+  it('assigns each Galactic Age faction its entire home world when four players pick the four lore factions', () => {
+    const regions = [
+      { region_id: 'stellar_core', name: 'Stellar Core', bonus: 5 },
+      { region_id: 'verdant_expanse', name: 'Verdant Expanse', bonus: 4 },
+      { region_id: 'industrial_rim', name: 'Industrial Rim', bonus: 4 },
+      { region_id: 'station_corridor', name: 'Station Corridor', bonus: 3 },
+    ];
+    const territories = [
+      { territory_id: 's1', name: 'S1', polygon: [], center_point: [0, 0], region_id: 'stellar_core', world_id: 'sol' },
+      { territory_id: 's2', name: 'S2', polygon: [], center_point: [0, 0], region_id: 'stellar_core', world_id: 'sol' },
+      { territory_id: 'v1', name: 'V1', polygon: [], center_point: [0, 0], region_id: 'verdant_expanse', world_id: 'verdan' },
+      { territory_id: 'v2', name: 'V2', polygon: [], center_point: [0, 0], region_id: 'verdant_expanse', world_id: 'verdan' },
+      { territory_id: 'r1', name: 'R1', polygon: [], center_point: [0, 0], region_id: 'industrial_rim', world_id: 'rust' },
+      { territory_id: 'r2', name: 'R2', polygon: [], center_point: [0, 0], region_id: 'industrial_rim', world_id: 'rust' },
+      { territory_id: 'n1', name: 'N1', polygon: [], center_point: [0, 0], region_id: 'station_corridor', world_id: 'nexus_station' },
+      { territory_id: 'n2', name: 'N2', polygon: [], center_point: [0, 0], region_id: 'station_corridor', world_id: 'nexus_station' },
+    ];
+    const map: GameMap = {
+      map_id: 'era_galaxy_test',
+      name: 'Galaxy test',
+      map_kind: 'galaxy',
+      territories,
+      connections: [],
+      regions,
+    };
+
+    const state = initializeGameState(
+      'galaxy-homeworld-test',
+      'galaxy_age',
+      map,
+      [
+        {
+          player_id: 'p_mandate',
+          player_index: 0,
+          username: 'Mandate',
+          color: '#e74c3c',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'stellar_mandate',
+        },
+        {
+          player_id: 'p_helion',
+          player_index: 1,
+          username: 'Helion',
+          color: '#3498db',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'helion_navigators',
+        },
+        {
+          player_id: 'p_forge',
+          player_index: 2,
+          username: 'Forge',
+          color: '#2ecc71',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'forge_syndicate',
+        },
+        {
+          player_id: 'p_void',
+          player_index: 3,
+          username: 'Void',
+          color: '#f39c12',
+          is_ai: false,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id: 'void_custodians',
+        },
+      ],
+      makeSettings({ factions_enabled: true, initial_unit_count: 3 }),
+    );
+
+    expect(state.territories.s1?.owner_id).toBe('p_mandate');
+    expect(state.territories.s2?.owner_id).toBe('p_mandate');
+    expect(state.territories.v1?.owner_id).toBe('p_helion');
+    expect(state.territories.v2?.owner_id).toBe('p_helion');
+    expect(state.territories.r1?.owner_id).toBe('p_forge');
+    expect(state.territories.r2?.owner_id).toBe('p_forge');
+    expect(state.territories.n1?.owner_id).toBe('p_void');
+    expect(state.territories.n2?.owner_id).toBe('p_void');
+    for (const tid of ['s1', 's2', 'v1', 'v2', 'r1', 'r2', 'n1', 'n2']) {
+      expect(state.territories[tid]?.unit_count).toBe(3);
+    }
+  });
+
   it('keeps draft_units_remaining at 0 during territory selection even with factions enabled', () => {
     const map: GameMap = {
       map_id: 'territory_select_faction_bonus_map',
