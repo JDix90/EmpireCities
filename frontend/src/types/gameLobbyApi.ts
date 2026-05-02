@@ -29,6 +29,29 @@ export interface GameLobbySettingsJson {
   events_enabled?: boolean;
   naval_enabled?: boolean;
   stability_enabled?: boolean;
+  // Daily challenge metadata (populated by /api/daily/start)
+  daily_challenge_date?: string;
+  daily_challenge_spec?: {
+    archetype: string;
+    title?: string;
+    intro?: string;
+    goal?: string;
+    max_turns?: number;
+    player_count?: number;
+    [k: string]: unknown;
+  };
+  // Campaign metadata (populated by /api/campaign/start and /api/campaign/continue)
+  is_campaign?: boolean;
+  campaign_path_id?: string;
+  campaign_locked_faction?: string;
+  campaign_path_name?: string;
+  campaign_path_tagline?: string;
+  campaign_signature_carry_label?: string;
+  campaign_era_index?: number;
+  campaign_era_count?: number;
+  campaign_intro_text?: string;
+  campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
+  campaign_prestige_bonus?: number;
   [key: string]: unknown;
 }
 

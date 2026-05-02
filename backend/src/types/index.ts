@@ -202,6 +202,18 @@ export interface GameSettings {
     survivor_bonus?: number;
     revolutionary_spirit?: number;
   };
+  /** Display: campaign path name (e.g. "Blood & Empire") or "Classic Campaign". */
+  campaign_path_name?: string;
+  /** Display: campaign path tagline shown in the era intro modal. */
+  campaign_path_tagline?: string;
+  /** Display: human-readable label for the active path's signature carry stat. */
+  campaign_signature_carry_label?: string;
+  /** Display: 0-based era index inside the campaign. */
+  campaign_era_index?: number;
+  /** Display: total era count for this campaign (typically 6). */
+  campaign_era_count?: number;
+  /** Display: narrative intro text for this era (path campaigns only). */
+  campaign_intro_text?: string;
   /** Daily challenge date (YYYY-MM-DD) when this session is the daily. */
   daily_challenge_date?: string;
   /** Serialized daily puzzle spec from `daily_challenges.spec_json`. */

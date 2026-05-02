@@ -83,6 +83,24 @@ export interface GameState {
     /** True when this game is an era of a solo campaign. Set server-side in campaign.routes.ts. */
     is_campaign?: boolean;
     campaign_path_id?: string;
+    /** Faction id that the human player is locked into for the current era. */
+    campaign_locked_faction?: string;
+    /** Display: campaign path name (e.g. "Blood & Empire") or "Classic Campaign". */
+    campaign_path_name?: string;
+    /** Display: campaign path tagline shown in the era intro modal. */
+    campaign_path_tagline?: string;
+    /** Display: human-readable label for the active path's signature carry stat. */
+    campaign_signature_carry_label?: string;
+    /** Display: 0-based era index inside the campaign. */
+    campaign_era_index?: number;
+    /** Display: total era count for this campaign (typically 6). */
+    campaign_era_count?: number;
+    /** Display: narrative intro text for this era (path campaigns only). */
+    campaign_intro_text?: string;
+    /** Numeric carry-forward stats for the campaign engine. */
+    campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
+    /** Attack bonus from prior-era prestige (applied for first 3 turns). */
+    campaign_prestige_bonus?: number;
     /** Daily puzzle metadata (when playing a daily challenge). */
     daily_challenge_spec?: {
       archetype?: string;
@@ -91,6 +109,7 @@ export interface GameState {
       goal?: string;
       hint?: string;
       max_turns?: number;
+      player_count?: number;
     };
   };
   era_modifiers?: {

@@ -20,6 +20,9 @@ import AtomBombAnimation from '../components/game/AtomBombAnimation';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
+import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
+import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
+import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import LobbyProposals from '../components/game/LobbyProposals';
@@ -43,6 +46,9 @@ import {
 const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
+
+/** Win probability (0–1) below which we still offer replay after an abandoned game. */
+const LOW_ODDS_ABANDON_REPLAY_THRESHOLD = 0.18;
 
 interface MapData {
   map_id: string;
@@ -415,6 +421,26 @@ export default function GamePage() {
 
   const [puzzleFeedback, setPuzzleFeedback] = useState<{ tier: string; message: string } | null>(null);
   const puzzleFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Tutorial-end account prompt state. We capture the next action (lobby vs.
+   * stay) so the modal's "Maybe later" path can complete the user's original
+   * intent without losing their place in the flow.
+   */
+  const [tutorialAccountPrompt, setTutorialAccountPrompt] = useState<null | {
+    onContinue: () => void;
+    outcomeLabel?: string;
+  }>(null);
+
+  /**
+   * Daily challenge / campaign intro modals — shown once per game (gated on
+   * sessionStorage). For daily we pull the spec out of the lobby snapshot or
+   * game state once it lands.
+   */
+  const [showDailyIntro, setShowDailyIntro] = useState(false);
+  const dailyIntroSeenRef = useRef(false);
+  const [showCampaignIntro, setShowCampaignIntro] = useState(false);
+  const campaignIntroSeenRef = useRef(false);
 
   /** Map area is flex-sized; measure it so Globe/PIXI get real pixels when the viewport changes (devtools, rotate, resize). */
   const mapAreaRef = useRef<HTMLDivElement>(null);
@@ -874,6 +900,17 @@ export default function GamePage() {
       const currentEra = useGameStore.getState().gameState?.era;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
       const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
+      const vc = stats.victory_condition;
+      const probHistory = stats.win_probability_history ?? [];
+      const lastProbSnap = probHistory.length > 0 ? probHistory[probHistory.length - 1] : null;
+      const myLastWinProb =
+        myId && lastProbSnap ? (lastProbSnap.probabilities[myId] ?? 1) : 1;
+      const mySeat = myId ? stats.players.find((p) => p.player_id === myId) : undefined;
+      const allowReplayDespiteAbandon =
+        vc === 'abandoned' &&
+        !!mySeat &&
+        !mySeat.is_ai &&
+        myLastWinProb < LOW_ODDS_ABANDON_REPLAY_THRESHOLD;
       const gameOverData: GameOverModalData = {
         type: 'game_over',
         gameId: gameId as string,
@@ -898,6 +935,7 @@ export default function GamePage() {
         duration_ms: stats.duration_ms ?? null,
         ai_difficulty: stats.ai_difficulty ?? null,
         decision_summary: stats.decision_summary,
+        allowReplayDespiteAbandon,
       };
       if (gameId) {
         api
@@ -1600,9 +1638,10 @@ export default function GamePage() {
 
   const handleGameOverDismiss = () => {
     dismissModal();
+    const settings = useGameStore.getState().gameState?.settings;
     // Campaign games route back to the campaign detail page so the player can
     // continue to the next era (or retry a loss) without a trip through /lobby.
-    const isCampaign = useGameStore.getState().gameState?.settings?.is_campaign === true;
+    const isCampaign = settings?.is_campaign === true;
     if (isCampaign) {
       const advanced = campaignAdvancedRef.current;
       if (advanced) {
@@ -1614,8 +1653,32 @@ export default function GamePage() {
       }
       return;
     }
+    // Tutorial games end → guests see the account-creation prompt before
+    // they're routed to /lobby so the call to action survives a natural finish
+    // (not just the wrap-up card).
+    if (settings?.tutorial === true) {
+      maybePromptTutorialAccount(
+        () => navigate('/lobby'),
+        'Great work, Commander. Lock in your hard-earned XP by creating a free account.',
+      );
+      return;
+    }
     navigate('/lobby');
   };
+
+  /**
+   * Navigate to the post-match replay. Wired to the "Watch Replay" CTA on
+   * GameOverView so winners and losers alike can review their match. The
+   * `source=match` query param tells ReplayPage to render a "Back to Lobby"
+   * header and use sensible defaults (2D map, 1x speed) instead of the daily
+   * challenge's globe + 4x time-lapse.
+   */
+  const handleWatchReplay = useCallback(
+    (id: string) => {
+      navigate(`/replay/${id}?source=match`);
+    },
+    [navigate],
+  );
 
   const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
     try {
@@ -1637,22 +1700,56 @@ export default function GamePage() {
     }
   }, [navigate, dismissModal]);
 
+  /**
+   * Trigger the tutorial-end account prompt for guests. We only nag once per
+   * tab via sessionStorage so a guest who chose "Maybe later" can finish or
+   * replay the tutorial without seeing the modal a second time.
+   */
+  const maybePromptTutorialAccount = useCallback(
+    (onContinue: () => void, outcomeLabel?: string) => {
+      if (!user?.is_guest) {
+        onContinue();
+        return;
+      }
+      try {
+        if (sessionStorage.getItem('cc-tutorial-prompt-shown') === '1') {
+          onContinue();
+          return;
+        }
+        sessionStorage.setItem('cc-tutorial-prompt-shown', '1');
+      } catch {
+        /* sessionStorage unavailable — still show the prompt once */
+      }
+      setTutorialAccountPrompt({ onContinue, outcomeLabel });
+    },
+    [user?.is_guest],
+  );
+
   const handleTutorialContinuePlaying = useCallback(() => {
-    setTutorialStep(TUTORIAL_STEPS.length);
-  }, []);
+    const continueInTutorial = () => setTutorialStep(TUTORIAL_STEPS.length);
+    maybePromptTutorialAccount(
+      continueInTutorial,
+      'Save your progress before you keep playing — create a free account so the next match counts.',
+    );
+  }, [maybePromptTutorialAccount]);
 
   const handleTutorialReturnToLobby = useCallback(async () => {
     if (!gameId) return;
-    try {
-      await api.delete(`/games/${gameId}/abandon`);
-      toast.success('Tutorial ended. Welcome back to the lobby.');
-    } catch {
-      toast.error('Could not end the tutorial game. You can remove it from the lobby if it appears.');
-    }
-    getSocket().emit('game:leave', { gameId });
-    clearGame();
-    navigate('/lobby');
-  }, [gameId, navigate, clearGame]);
+    const finish = async () => {
+      try {
+        await api.delete(`/games/${gameId}/abandon`);
+        toast.success('Tutorial ended. Welcome back to the lobby.');
+      } catch {
+        toast.error('Could not end the tutorial game. You can remove it from the lobby if it appears.');
+      }
+      getSocket().emit('game:leave', { gameId });
+      clearGame();
+      navigate('/lobby');
+    };
+    maybePromptTutorialAccount(() => {
+      void finish();
+    });
+  }, [gameId, navigate, clearGame, maybePromptTutorialAccount]);
 
   const copyGameUrl = () => {
     if (!gameId) return;
@@ -1674,19 +1771,63 @@ export default function GamePage() {
     toast.success('Join code copied');
   };
 
-  // ── Auto-start tutorial if host and not started ──
-  // Note: isTutorial requires gameState which isn't set yet in the lobby phase;
-  // use lobbySnapshot.settings_json.tutorial which is available from game:lobby_updated.
+  // ── Auto-start solo single-player flows (tutorial / daily / campaign) ──
+  // gameState isn't set yet in the lobby phase; we read settings off the
+  // lobby snapshot, which arrives from `game:lobby_updated` right after join.
   useEffect(() => {
-    if (
-      lobbySnapshot?.settings_json?.tutorial === true &&
-      isHost &&
-      lobbySnapshot?.status === 'waiting' &&
-      !gameStarted
-    ) {
+    if (!lobbySnapshot || !isHost || gameStarted) return;
+    if (lobbySnapshot.status !== 'waiting') return;
+    const s = lobbySnapshot.settings_json ?? {};
+    const isDaily = typeof s.daily_challenge_date === 'string' && s.daily_challenge_date.length > 0;
+    const isSoloAutoStart = s.tutorial === true || isDaily || s.is_campaign === true;
+    if (isSoloAutoStart) {
       handleStartGame();
     }
   }, [isHost, lobbySnapshot, gameStarted]);
+
+  // ── Daily challenge intro modal ─────────────────────────────────────────
+  // Show once per game_id (per tab), as soon as we have the spec from either
+  // the lobby snapshot or the live game state. "Begin Challenge" stamps a
+  // sessionStorage flag so reloading mid-game doesn't reopen the modal.
+  useEffect(() => {
+    if (!gameId || dailyIntroSeenRef.current) return;
+    const lobbySpec = lobbySnapshot?.settings_json?.daily_challenge_spec as
+      | DailyIntroSpec
+      | undefined;
+    const stateSpec = gameState?.settings?.daily_challenge_spec as
+      | DailyIntroSpec
+      | undefined;
+    const spec = stateSpec ?? lobbySpec;
+    if (!spec) return;
+    try {
+      if (sessionStorage.getItem(`cc-daily-intro-${gameId}`) === '1') {
+        dailyIntroSeenRef.current = true;
+        return;
+      }
+    } catch {
+      /* sessionStorage unavailable — show once anyway */
+    }
+    dailyIntroSeenRef.current = true;
+    setShowDailyIntro(true);
+  }, [gameId, lobbySnapshot, gameState]);
+
+  // ── Campaign intro modal ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!gameId || campaignIntroSeenRef.current) return;
+    const lobbyIsCampaign = lobbySnapshot?.settings_json?.is_campaign === true;
+    const stateIsCampaign = gameState?.settings?.is_campaign === true;
+    if (!lobbyIsCampaign && !stateIsCampaign) return;
+    try {
+      if (sessionStorage.getItem(`cc-campaign-intro-${gameId}`) === '1') {
+        campaignIntroSeenRef.current = true;
+        return;
+      }
+    } catch {
+      /* sessionStorage unavailable — show once anyway */
+    }
+    campaignIntroSeenRef.current = true;
+    setShowCampaignIntro(true);
+  }, [gameId, lobbySnapshot, gameState]);
 
   // Hoisted for use in mobile bottom bar, cards tray, and combat banner
   const mobileMyPlayer = gameState?.players.find((p) => p.player_id === user?.user_id);
@@ -1720,6 +1861,72 @@ export default function GamePage() {
       ),
     [mapData],
   );
+
+  /**
+   * Build the campaign intro modal payload from whichever source has loaded
+   * first (live game state preferred, lobby snapshot as fallback). Returns
+   * null when this is not a campaign game.
+   */
+  const campaignIntroData = useMemo<CampaignIntroData | null>(() => {
+    const lobbySettings = lobbySnapshot?.settings_json;
+    const stateSettings = gameState?.settings as Record<string, unknown> | undefined;
+    const isCampaign =
+      lobbySettings?.is_campaign === true || (stateSettings && stateSettings.is_campaign === true);
+    if (!isCampaign) return null;
+
+    const get = <T,>(key: string): T | undefined => {
+      const fromState = stateSettings?.[key] as T | undefined;
+      if (fromState !== undefined) return fromState;
+      const fromLobby = (lobbySettings as Record<string, unknown> | undefined)?.[key] as T | undefined;
+      return fromLobby;
+    };
+
+    const eraIdFromSettings =
+      (stateSettings?.era as string | undefined)
+      ?? get<string>('era')
+      ?? lobbySnapshot?.era_id
+      ?? gameState?.era
+      ?? '';
+    const eraLabel = ERA_LABELS[eraIdFromSettings] ?? eraIdFromSettings;
+
+    const lockedFaction = get<string>('campaign_locked_faction') ?? null;
+    const aiDifficulty = (() => {
+      const ai = lobbySnapshot?.players?.find((p) => p.is_ai);
+      return ai?.ai_difficulty ?? null;
+    })();
+    const aiCount = lobbySnapshot?.players?.filter((p) => p.is_ai).length ?? null;
+    const carry = get<{ survivor_bonus?: number; revolutionary_spirit?: number }>('campaign_carry');
+    const prestigeBonus = get<number>('campaign_prestige_bonus') ?? null;
+
+    return {
+      pathName: get<string>('campaign_path_name'),
+      pathTagline: get<string>('campaign_path_tagline'),
+      signatureCarryLabel: get<string>('campaign_signature_carry_label'),
+      eraIndex: get<number>('campaign_era_index'),
+      eraCount: get<number>('campaign_era_count'),
+      eraLabel,
+      introText: get<string>('campaign_intro_text'),
+      lockedFaction,
+      aiDifficulty,
+      aiCount,
+      prestigeBonus,
+      carry,
+    };
+  }, [lobbySnapshot, gameState]);
+
+  const dismissCampaignIntro = useCallback(() => {
+    setShowCampaignIntro(false);
+    if (gameId) {
+      try { sessionStorage.setItem(`cc-campaign-intro-${gameId}`, '1'); } catch { /* ignore */ }
+    }
+  }, [gameId]);
+
+  const dismissDailyIntro = useCallback(() => {
+    setShowDailyIntro(false);
+    if (gameId) {
+      try { sessionStorage.setItem(`cc-daily-intro-${gameId}`, '1'); } catch { /* ignore */ }
+    }
+  }, [gameId]);
   const customGlobeSkin = useMemo(() => {
     if (!mapData) return null;
     if (mapData.map_id !== FLOODED_NA_MAP_ID) return null;
@@ -1784,6 +1991,55 @@ export default function GamePage() {
         : '—';
     const victorySummary = formatVictorySummary(settings);
     const seatsRemaining = Math.max(0, maxPlayers - roster.length);
+
+    // Solo single-player flows (tutorial / daily / campaign) auto-start in
+    // a separate effect above. We hide the multiplayer-style lobby chrome for
+    // these so the user briefly sees a clean "preparing…" screen before the
+    // map (with its own intro modal) appears.
+    const isSoloPrep =
+      settings.tutorial === true ||
+      (typeof settings.daily_challenge_date === 'string' && settings.daily_challenge_date.length > 0) ||
+      settings.is_campaign === true;
+    if (isSoloPrep) {
+      const dailySpec = settings.daily_challenge_spec as DailyIntroSpec | undefined;
+      let prepLabel = 'Preparing your game…';
+      if (settings.tutorial === true) prepLabel = 'Starting tutorial…';
+      else if (dailySpec) prepLabel = 'Preparing today\u2019s challenge…';
+      else if (settings.is_campaign === true) prepLabel = 'Preparing the next era…';
+      return (
+        <div className="min-h-screen bg-cc-dark flex flex-col">
+          <nav className="border-b border-cc-border px-6 py-3 flex justify-between items-center">
+            <Link
+              to={settings.is_campaign ? '/campaign' : (dailySpec ? '/daily' : '/lobby')}
+              className="font-display text-cc-gold tracking-widest hover:text-white text-sm"
+            >
+              ERAS OF EMPIRE
+            </Link>
+            <button
+              type="button"
+              onClick={handleCancelGame}
+              className="text-cc-muted text-sm hover:text-cc-gold transition-colors"
+            >
+              Cancel
+            </button>
+          </nav>
+          <div className="flex-1 flex items-center justify-center px-4">
+            <p className="text-cc-muted text-sm animate-pulse">{prepLabel}</p>
+          </div>
+          {showDailyIntro && dailySpec && (
+            <DailyChallengeIntroModal
+              spec={dailySpec}
+              challengeDate={typeof settings.daily_challenge_date === 'string' ? settings.daily_challenge_date : undefined}
+              eraLabel={eraLabel}
+              onBegin={dismissDailyIntro}
+            />
+          )}
+          {showCampaignIntro && campaignIntroData && (
+            <CampaignIntroModal data={campaignIntroData} onBegin={dismissCampaignIntro} />
+          )}
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-cc-dark px-4 py-6 sm:px-6 lg:py-8">
@@ -2677,6 +2933,7 @@ export default function GamePage() {
         onResignConfirm={handleResignConfirm}
         onRepeatCombat={handleAttack}
         onRematch={handleRematch}
+        onWatchReplay={handleWatchReplay}
       />
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
@@ -2702,6 +2959,53 @@ export default function GamePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Daily challenge mission briefing (also visible over the live map for resumes). */}
+      {showDailyIntro && (gameState?.settings?.daily_challenge_spec || lobbySnapshot?.settings_json?.daily_challenge_spec) && (
+        <DailyChallengeIntroModal
+          spec={(gameState?.settings?.daily_challenge_spec ?? lobbySnapshot?.settings_json?.daily_challenge_spec) as DailyIntroSpec}
+          challengeDate={
+            typeof gameState?.settings?.daily_challenge_date === 'string'
+              ? gameState.settings.daily_challenge_date
+              : typeof lobbySnapshot?.settings_json?.daily_challenge_date === 'string'
+                ? lobbySnapshot.settings_json.daily_challenge_date
+                : undefined
+          }
+          eraLabel={ERA_LABELS[gameState?.era ?? lobbySnapshot?.era_id ?? ''] ?? undefined}
+          onBegin={dismissDailyIntro}
+        />
+      )}
+
+      {/* Campaign era briefing (also visible over the live map for resumes). */}
+      {showCampaignIntro && campaignIntroData && (
+        <CampaignIntroModal data={campaignIntroData} onBegin={dismissCampaignIntro} />
+      )}
+
+      {/* Tutorial-end account creation prompt (guests only) */}
+      {tutorialAccountPrompt && (
+        <TutorialAccountPromptModal
+          outcomeLabel={tutorialAccountPrompt.outcomeLabel}
+          onCreateAccount={() => {
+            const next = tutorialAccountPrompt;
+            setTutorialAccountPrompt(null);
+            navigate('/register?redirect=/lobby');
+            // Also run the original continuation so any cleanup
+            // (game abandon, socket leave) still happens.
+            try { next?.onContinue(); } catch { /* navigate already replaced */ }
+          }}
+          onSignIn={() => {
+            const next = tutorialAccountPrompt;
+            setTutorialAccountPrompt(null);
+            navigate('/login?redirect=/lobby');
+            try { next?.onContinue(); } catch { /* ignore */ }
+          }}
+          onSkip={() => {
+            const next = tutorialAccountPrompt;
+            setTutorialAccountPrompt(null);
+            try { next?.onContinue(); } catch { /* ignore */ }
+          }}
+        />
       )}
 
       {/* Tutorial Overlay */}
