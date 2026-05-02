@@ -37,9 +37,10 @@ import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } 
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import {
   connectionRequiresMoonAccess,
-  territoryIsLunar,
-  getMoonAccessState,
-  formatMoonAccessError,
+  fortifyEndpointsRequireOrbitAccess,
+  territoryRequiresOrbitAccessForClaim,
+  getOrbitAccessResult,
+  formatOrbitAccessError,
 } from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -95,6 +96,9 @@ function loadMapFromDoc(mapDoc: any): GameMap {
     canvas_height: mapDoc.canvas_height,
     projection_bounds: mapDoc.projection_bounds,
     globe_view: mapDoc.globe_view,
+    map_kind: mapDoc.map_kind,
+    worlds: mapDoc.worlds,
+    orbit_access: mapDoc.orbit_access,
   };
 }
 
@@ -103,6 +107,7 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_horn_africa',
   'community_australia_1337',
   'community_flooded_north_america',
+  'era_galaxy',
 ]);
 
 async function resolveMap(mapId: string): Promise<GameMap | null> {
@@ -1062,11 +1067,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!territory) return socket.emit('error', { message: 'Territory not found' });
       if (!isUnclaimedOwner(territory.owner_id)) return socket.emit('error', { message: 'Territory already claimed' });
 
-      // Space Age: block claiming Moon territories without Moon access
-      if (territoryIsLunar(map, territoryId)) {
-        const access = getMoonAccessState(state, currentPlayer);
+      if (territoryRequiresOrbitAccessForClaim(map, territoryId)) {
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatMoonAccessError(access) });
+          return socket.emit('error', { message: formatOrbitAccessError(access) });
         }
       }
 
@@ -1149,11 +1153,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
       );
       if (!isAdjacent) return socket.emit('error', { message: 'Territories not adjacent' });
 
-      // Space Age: Moon-gating on orbit connections
       if (connectionRequiresMoonAccess(map, fromId, toId)) {
-        const access = getMoonAccessState(state, currentPlayer);
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatMoonAccessError(access) });
+          return socket.emit('error', { message: formatOrbitAccessError(access) });
         }
       }
 
@@ -1563,16 +1566,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'No connected path between territories' });
       }
 
-      // Space Age: Moon-gating on orbit connections (direct adjacency; path uses same connections).
-      // If either territory is on the Moon OR the connection is orbital, require Moon access.
-      if (
-        territoryIsLunar(map, fromId) ||
-        territoryIsLunar(map, toId) ||
-        connectionRequiresMoonAccess(map, fromId, toId)
-      ) {
-        const access = getMoonAccessState(state, currentPlayer);
+      if (fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatMoonAccessError(access) });
+          return socket.emit('error', { message: formatOrbitAccessError(access) });
         }
       }
 

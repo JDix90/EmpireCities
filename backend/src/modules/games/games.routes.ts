@@ -19,7 +19,7 @@ const TutorialStartSchema = z.object({
 const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold']);
 
 const CreateGameSchema = z.object({
-  era_id: z.enum(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'custom']),
+  era_id: z.enum(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age', 'custom']),
   map_id: z.string().min(1).max(128),
   max_players: z.number().int().min(2).max(8),
   settings: z
@@ -78,6 +78,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Invalid input', details: body.error.flatten() });
     }
     const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty } = body.data;
+
+    const isGalacticAge = era_id === 'galaxy_age' || map_id === 'era_galaxy';
+    if (isGalacticAge && !request.isAdmin) {
+      return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
+    }
 
     const mergedList: VictoryType[] =
       rawSettings.allowed_victory_conditions && rawSettings.allowed_victory_conditions.length > 0

@@ -4,6 +4,10 @@ import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getFactionById, getEraTechTree } from '../eras';
 import { validateBuild } from '../state/economyManager';
+import {
+  connectionRequiresMoonAccess,
+  getOrbitAccessResult,
+} from '../state/moonAccess';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -238,6 +242,16 @@ function selectAttacks(
   const actions: AiAction[] = [];
   const maxAttacks = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 4 : 8;
 
+  const aiPlayer = state.players.find((p) => p.player_id === playerId);
+
+  // Compute orbit/hyperspace access once per turn — orbit-typed edges that the
+  // server would reject (Space Age moon, Galactic Age hyperspace) should never
+  // populate the candidate shortlist. Otherwise the AI silently wastes its
+  // per-turn attack budget on edges the runtime aborts before resolving combat.
+  const hasOrbitAccess = aiPlayer
+    ? getOrbitAccessResult(state, aiPlayer, map, state.era).allowed
+    : true;
+
   // Build list of viable attacks sorted by favorability
   const candidates: { from: string; to: string; score: number }[] = [];
 
@@ -264,6 +278,11 @@ function selectAttacks(
         (c) => (c.from === tid && c.to === nid) || (c.from === nid && c.to === tid)
       );
       const isSeaConn = conn?.type === 'sea';
+
+      // Orbit gating: skip orbit-typed connections when the AI lacks the
+      // era-appropriate access (Lunar Expansion + Launch Pad + Space Station,
+      // or Hyperspace Chart / Hyperlane Anchor / Helion Navigator faction).
+      if (!hasOrbitAccess && connectionRequiresMoonAccess(map, tid, nid)) continue;
 
       // Naval gating: when naval warfare is enabled, sea-lane attacks require
       // the source territory to hold at least one fleet (one is consumed per
@@ -693,6 +712,30 @@ export function selectAiTechResearch(
       (!node.prerequisite || unlocked.includes(node.prerequisite)),
   );
   if (available.length === 0) return null;
+
+  // Galactic Age priority hook: Hyperspace Chart has no raw combat numbers, so
+  // the score-based path below would never pick it; without it the AI is
+  // permanently locked out of orbit attacks. Jump it (and any prereq it still
+  // needs) to the front of the queue when the AI can't reach foreign worlds.
+  if (state.era === 'galaxy_age') {
+    const factionOpenLanes = player.faction_id === 'helion_navigators';
+    const hasAnchor = Object.values(state.territories ?? {}).some(
+      (t) =>
+        t.owner_id === playerId &&
+        (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),
+    );
+    const hasChart = unlocked.includes('ga_hyperspace_chart');
+    if (!hasChart && !factionOpenLanes && !hasAnchor) {
+      const chart = available.find((n) => n.tech_id === 'ga_hyperspace_chart');
+      if (chart) return chart.tech_id;
+      // Fall back to the prereq if Hyperspace Chart itself isn't yet affordable.
+      const chartNode = tree.find((n) => n.tech_id === 'ga_hyperspace_chart');
+      if (chartNode?.prerequisite) {
+        const prereq = available.find((n) => n.tech_id === chartNode.prerequisite);
+        if (prereq) return prereq.tech_id;
+      }
+    }
+  }
 
   if (difficulty === 'hard' || difficulty === 'expert') {
     const isAggressive = AGGRESSIVE_ERAS.has(state.era);

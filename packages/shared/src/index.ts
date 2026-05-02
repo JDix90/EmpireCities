@@ -12,6 +12,14 @@ export interface MapConnectionEdge {
   type?: ConnectionType;
 }
 
+export {
+  type MapKind,
+  type OrbitAccessMode,
+  type MapTerritoryWorldLike,
+  type MapWorldDefinition,
+  inferWorldId,
+} from './worldId';
+
 // ── Level / XP utilities ──────────────────────────────────────────────────
 
 /** Level from cumulative XP (matches backend computeLevel). */

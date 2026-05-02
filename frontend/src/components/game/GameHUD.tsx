@@ -30,6 +30,8 @@ interface GameHUDProps {
   activeInteractionLabel?: string | null;
   /** When true, renders as a full-height flex column for the mobile drawer (skips hidden/md breakpoint). */
   mobile?: boolean;
+  /** From `game:joined` playerIndex — matches TerritoryPanel when auth.user loads late */
+  resolvedViewerPlayerId?: string | null;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -72,6 +74,7 @@ export default function GameHUD({
   gameId,
   activeInteractionLabel,
   mobile = false,
+  resolvedViewerPlayerId,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
@@ -82,11 +85,19 @@ export default function GameHUD({
   const [fastCombat, setFastCombat] = useState(readFastCombat);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
-  const myPlayer = gameState?.players.find(
-    (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
-  );
+  const myPlayer = resolvedViewerPlayerId
+    ? gameState?.players.find((p) => p.player_id === resolvedViewerPlayerId)
+    : gameState?.players.find(
+        (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+      );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
-  const draftPool = computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining);
+  const draftPool = computeDraftPool(
+    gameState,
+    user?.user_id,
+    user?.username,
+    draftUnitsRemaining,
+    resolvedViewerPlayerId ?? null,
+  );
   const attackerFactionBonus = lastCombatResult?.attacker_bonus_breakdown?.faction ?? 0;
   const defenderFactionBonus = lastCombatResult?.defender_bonus_breakdown?.faction ?? 0;
   const myFactionTriggeredAsAttacker =

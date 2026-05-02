@@ -18,7 +18,8 @@ export interface EraWonder {
     | 'tech_point_per_territory'
     | 'tech_cost_half'
     | 'flat_reinforce'
-    | 'influence_range';
+    | 'influence_range'
+    | 'orbit_access';
   passive_effect_value: number;
 }
 

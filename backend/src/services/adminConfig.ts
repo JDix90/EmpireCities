@@ -59,6 +59,7 @@ const DEFAULTS: AdminConfigState = {
       wonder_colosseum: 18, wonder_cathedral: 20, wonder_lighthouse: 18,
       wonder_manhattan: 25, wonder_sputnik: 20, wonder_cern: 22,
       wonder_arsenal: 18, wonder_unification: 20, wonder_space_elevator: 25,
+      wonder_hyperlane_anchor: 22,
       launch_pad: 8,
     },
     production_income: {

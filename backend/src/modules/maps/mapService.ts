@@ -18,6 +18,8 @@ export interface Territory {
   geo_polygon?: [number, number][];
   /** Which globe surface (Earth or Moon). Defaults to 'earth'. */
   globe_id?: 'earth' | 'moon';
+  world_id?: string;
+  galaxy_position?: [number, number];
 }
 
 export interface Connection {
@@ -36,7 +38,7 @@ export interface GameMap {
   map_id: string;
   name: string;
   description: string;
-  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'custom';
+  era_theme: 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
   canvas_width: number;
   canvas_height: number;
   projection_bounds?: {
@@ -51,6 +53,19 @@ export interface GameMap {
     center_lng?: number;
     altitude?: number;
   };
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+    requires_orbit_access?: boolean;
+  }>;
+  orbit_access?: 'none' | 'space_age_moon' | 'galaxy_hyperspace';
   territories: Territory[];
   connections: Connection[];
   regions: Region[];

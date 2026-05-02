@@ -41,6 +41,8 @@ const TerritorySchema = z.object({
   geo_polygon: z.array(z.tuple([z.number(), z.number()])).min(3).max(500).optional(),
   /** Which globe surface (Earth or Moon). Defaults to 'earth' when omitted. */
   globe_id: z.enum(['earth', 'moon']).optional(),
+  world_id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(48).optional(),
+  galaxy_position: z.tuple([z.number(), z.number()]).optional(),
 });
 
 const ConnectionSchema = z.object({

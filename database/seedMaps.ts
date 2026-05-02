@@ -27,6 +27,22 @@ import Redis from 'ioredis';
 // We inline it here so the seeder can run standalone without importing the full
 // backend module graph (which requires all services to be available).
 
+const MapWorldSeedSchema = new mongoose.Schema(
+  {
+    world_id: { type: String, required: true },
+    display_name: { type: String, required: true },
+    globe_image_url: { type: String },
+    bump_image_url: { type: String },
+    show_atmosphere: { type: Boolean },
+    atmosphere_color: { type: String },
+    atmosphere_altitude: { type: Number },
+    background_color: { type: String },
+    requires_orbit_access: { type: Boolean },
+    initial_neutral_garrison: { type: Boolean },
+  },
+  { _id: false },
+);
+
 const TerritorySchema = new mongoose.Schema({
   territory_id:  { type: String, required: true },
   name:          { type: String, required: true },
@@ -35,8 +51,11 @@ const TerritorySchema = new mongoose.Schema({
   region_id:     { type: String, required: true },
   /** WGS84 rings — must match MapModel.ts or Mongoose strips them on seed (globe needs this). */
   geo_polygon:   { type: [[Number]], default: undefined },
-  /** Space Age multi-globe support. Defaults to 'earth' when omitted. */
-  globe_id:      { type: String, enum: ['earth', 'moon'], default: undefined },
+  globe_id:      { type: String, default: undefined },
+  world_id:      { type: String, default: undefined },
+  galaxy_position: { type: [Number], default: undefined },
+  globe_image_url: { type: String, default: undefined },
+  bump_image_url: { type: String, default: undefined },
 }, { _id: false });
 
 const ConnectionSchema = new mongoose.Schema({
@@ -76,6 +95,13 @@ const MapSchema = new mongoose.Schema({
   canvas_height:     { type: Number, default: 700 },
   projection_bounds: { type: ProjectionBoundsSchema, required: false },
   globe_view:        { type: GlobeViewSchema, required: false },
+  map_kind:          { type: String, enum: ['standard', 'galaxy'], required: false },
+  worlds:            { type: [MapWorldSeedSchema], required: false },
+  orbit_access:      {
+    type: String,
+    enum: ['none', 'space_age_moon', 'galaxy_hyperspace'],
+    required: false,
+  },
   /** Optional RTS tactical graph (MVP0) */
   rts_terrain:       { type: mongoose.Schema.Types.Mixed, required: false },
   territories:       { type: [TerritorySchema], required: true },
@@ -104,6 +130,7 @@ const MAP_FILES = [
   'era_acw.json',
   'era_risorgimento.json',
   'era_space_age.json',
+  'era_galaxy.json',
   'rts_slice_v1.json',
 ];
 
@@ -158,6 +185,9 @@ async function seedMaps(): Promise<void> {
       canvas_height:     data.canvas_height ?? 700,
       projection_bounds: data.projection_bounds ?? undefined,
       globe_view:        data.globe_view ?? undefined,
+      map_kind:          data.map_kind ?? undefined,
+      worlds:            data.worlds ?? undefined,
+      orbit_access:      data.orbit_access ?? undefined,
       territories:       data.territories,
       connections:       data.connections,
       regions:           data.regions,
@@ -183,6 +213,9 @@ async function seedMaps(): Promise<void> {
           canvas_height:     doc.canvas_height,
           projection_bounds: doc.projection_bounds,
           globe_view:        doc.globe_view,
+          map_kind:          doc.map_kind,
+          worlds:            doc.worlds,
+          orbit_access:      doc.orbit_access,
           territories:       doc.territories,
           connections:       doc.connections,
           regions:           doc.regions,

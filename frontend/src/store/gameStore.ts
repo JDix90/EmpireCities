@@ -42,6 +42,8 @@ export interface PlayerState {
   used_game_abilities?: string[];
   /** Pending retaliation bonuses: +dice_bonus attack dice on next land attack vs against_player_id. */
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
+  /** Space Age: true when the player has triggered launch_space_station ability (gates moon access). */
+  space_station_launched?: boolean;
 }
 
 export interface GameState {

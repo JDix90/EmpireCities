@@ -13,6 +13,7 @@ export { MODERN_FACTIONS, MODERN_TECH_TREE, MODERN_WONDER } from './modern';
 export { ACW_FACTIONS, ACW_TECH_TREE, ACW_WONDER } from './acw';
 export { RISORGIMENTO_FACTIONS, RISORGIMENTO_TECH_TREE, RISORGIMENTO_WONDER } from './risorgimento';
 export { SPACE_AGE_FACTIONS, SPACE_AGE_TECH_TREE, SPACE_AGE_WONDER } from './spaceage';
+export { GALAXY_AGE_FACTIONS, GALAXY_AGE_TECH_TREE, GALAXY_AGE_WONDER } from './galaxyage';
 
 import type { Faction, TechNode, EraWonder } from './types';
 import type { EraId } from '../../types';
@@ -25,6 +26,7 @@ import { MODERN_FACTIONS, MODERN_TECH_TREE, MODERN_WONDER } from './modern';
 import { ACW_FACTIONS, ACW_TECH_TREE, ACW_WONDER } from './acw';
 import { RISORGIMENTO_FACTIONS, RISORGIMENTO_TECH_TREE, RISORGIMENTO_WONDER } from './risorgimento';
 import { SPACE_AGE_FACTIONS, SPACE_AGE_TECH_TREE, SPACE_AGE_WONDER } from './spaceage';
+import { GALAXY_AGE_FACTIONS, GALAXY_AGE_TECH_TREE, GALAXY_AGE_WONDER } from './galaxyage';
 
 const ERA_FACTIONS: Partial<Record<EraId, Faction[]>> = {
   ancient:      ANCIENT_FACTIONS,
@@ -36,6 +38,7 @@ const ERA_FACTIONS: Partial<Record<EraId, Faction[]>> = {
   acw:          ACW_FACTIONS,
   risorgimento: RISORGIMENTO_FACTIONS,
   space_age:    SPACE_AGE_FACTIONS,
+  galaxy_age:   GALAXY_AGE_FACTIONS,
 };
 
 const ERA_TECH_TREES: Partial<Record<EraId, TechNode[]>> = {
@@ -48,6 +51,7 @@ const ERA_TECH_TREES: Partial<Record<EraId, TechNode[]>> = {
   acw:          ACW_TECH_TREE,
   risorgimento: RISORGIMENTO_TECH_TREE,
   space_age:    SPACE_AGE_TECH_TREE,
+  galaxy_age:   GALAXY_AGE_TECH_TREE,
 };
 
 const ERA_WONDERS: Partial<Record<EraId, EraWonder>> = {
@@ -60,6 +64,7 @@ const ERA_WONDERS: Partial<Record<EraId, EraWonder>> = {
   acw:          ACW_WONDER,
   risorgimento: RISORGIMENTO_WONDER,
   space_age:    SPACE_AGE_WONDER,
+  galaxy_age:   GALAXY_AGE_WONDER,
 };
 
 export function getEraFactions(era: EraId): Faction[] {

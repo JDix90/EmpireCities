@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
 import { Globe, Sword, Map, Users, X } from 'lucide-react';
 
@@ -144,6 +145,19 @@ const ERAS: EraDefinition[] = [
       + 'The Lunar Pioneers faction starts with Moon access; wonder builders may skip the station with a Space Elevator.',
     suggestedPlayers: '2–6 players',
   },
+  {
+    id: 'galaxy_age',
+    mapId: 'era_galaxy',
+    label: 'Galactic Age — Coming Soon',
+    years: 'Far Future',
+    color: '#9FA8DA',
+    scope: 'global',
+    territoryCount: 12,
+    summary:
+      'Chart hyperspace lanes across a compact multi-world theater: hold your cradle world, then expand along orbit routes. '
+      + 'Helion Navigators begin with open lanes; everyone else researches Hyperspace Chart.',
+    suggestedPlayers: '2–4 players',
+  },
 ];
 
 const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global');
@@ -160,10 +174,13 @@ function EraDetailModal({
   era,
   onClose,
   playHref,
+  playLocked,
 }: {
   era: EraDefinition;
   onClose: () => void;
   playHref: string;
+  /** Non-admins cannot start Galactic Age yet (marketing “coming soon”). */
+  playLocked: boolean;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -230,9 +247,15 @@ function EraDetailModal({
           <button type="button" onClick={onClose} className="btn-secondary order-2 sm:order-1">
             Close
           </button>
-          <Link to={playHref} className="btn-primary text-center order-1 sm:order-2">
-            Play this Map
-          </Link>
+          {playLocked ? (
+            <span className="btn-primary text-center order-1 sm:order-2 opacity-70 cursor-not-allowed select-none">
+              Coming Soon
+            </span>
+          ) : (
+            <Link to={playHref} className="btn-primary text-center order-1 sm:order-2">
+              Play this Map
+            </Link>
+          )}
         </div>
         </div>
       </div>
@@ -318,6 +341,7 @@ export default function LandingPage() {
   const [guestLoading, setGuestLoading] = useState(false);
   const navigate = useNavigate();
   const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
+  const user = useAuthStore((s) => s.user);
 
   const handleGuest = async () => {
     setGuestLoading(true);
@@ -421,6 +445,9 @@ export default function LandingPage() {
           era={modalEra}
           onClose={() => setModalEra(null)}
           playHref={`/lobby?map=${encodeURIComponent(modalEra.mapId)}`}
+          playLocked={
+            modalEra.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)
+          }
         />
       )}
 

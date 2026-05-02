@@ -19,8 +19,13 @@ export interface ITerritory {
   geo_config?: IGeoConfigItem[];
   /** Polygon exterior ring in geographic [lng, lat] coords (globe editor) */
   geo_polygon?: [number, number][];
-  /** Which globe surface (Earth or Moon) this territory belongs to. Defaults to 'earth'. */
-  globe_id?: 'earth' | 'moon';
+  /** Legacy globe discriminator (Space Age). */
+  globe_id?: string;
+  world_id?: string;
+  galaxy_position?: [number, number];
+  /** Per-territory globe skins (galaxy maps). */
+  globe_image_url?: string;
+  bump_image_url?: string;
 }
 
 export interface IConnection {
@@ -42,6 +47,19 @@ export interface IGlobeView {
   altitude?: number;
 }
 
+export interface IMapWorld {
+  world_id: string;
+  display_name: string;
+  globe_image_url?: string;
+  bump_image_url?: string;
+  show_atmosphere?: boolean;
+  atmosphere_color?: string;
+  atmosphere_altitude?: number;
+  background_color?: string;
+  requires_orbit_access?: boolean;
+  initial_neutral_garrison?: boolean;
+}
+
 export interface IProjectionBounds {
   minLng: number;
   maxLng: number;
@@ -61,6 +79,9 @@ export interface ICustomMap extends Document {
   /** Canvas polygon coordinates are authored in this WGS84 box (same as JSON `projection_bounds`). */
   projection_bounds?: IProjectionBounds;
   globe_view?: IGlobeView;
+  map_kind?: 'standard' | 'galaxy';
+  worlds?: IMapWorld[];
+  orbit_access?: 'none' | 'space_age_moon' | 'galaxy_hyperspace';
   /** RTS-Fork: tactical graph; shape matches RtsMapTerrain. */
   rts_terrain?: unknown;
   territories: ITerritory[];
@@ -89,8 +110,28 @@ const TerritorySchema = new Schema<ITerritory>({
     default: undefined,
   },
   geo_polygon: { type: [[Number]], default: undefined },
-  globe_id: { type: String, enum: ['earth', 'moon'], default: undefined },
+  globe_id: { type: String, default: undefined },
+  world_id: { type: String, default: undefined },
+  galaxy_position: { type: [Number], default: undefined },
+  globe_image_url: { type: String, default: undefined },
+  bump_image_url: { type: String, default: undefined },
 });
+
+const MapWorldSchema = new Schema<IMapWorld>(
+  {
+    world_id: { type: String, required: true },
+    display_name: { type: String, required: true },
+    globe_image_url: { type: String },
+    bump_image_url: { type: String },
+    show_atmosphere: { type: Boolean },
+    atmosphere_color: { type: String },
+    atmosphere_altitude: { type: Number },
+    background_color: { type: String },
+    requires_orbit_access: { type: Boolean },
+    initial_neutral_garrison: { type: Boolean },
+  },
+  { _id: false },
+);
 
 const ConnectionSchema = new Schema<IConnection>({
   from: { type: String, required: true },
@@ -136,6 +177,13 @@ const CustomMapSchema = new Schema<ICustomMap>(
         },
         { _id: false },
       ),
+      required: false,
+    },
+    map_kind: { type: String, enum: ['standard', 'galaxy'], required: false },
+    worlds: { type: [MapWorldSchema], required: false },
+    orbit_access: {
+      type: String,
+      enum: ['none', 'space_age_moon', 'galaxy_hyperspace'],
       required: false,
     },
     rts_terrain: { type: Schema.Types.Mixed, required: false },

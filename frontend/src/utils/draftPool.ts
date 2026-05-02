@@ -9,12 +9,16 @@ export function computeDraftPool(
   userId: string | undefined,
   username: string | undefined,
   storeFallback: number,
+  /** From `game:joined` playerIndex — stable before auth store hydrates user_id/username */
+  resolvedViewerPlayerId?: string | null,
 ): number {
   if (!gameState || gameState.phase !== 'draft') return 0;
 
-  const me = gameState.players.find(
-    (p) => p.player_id === userId || (!!username && p.username === username),
-  );
+  const me = resolvedViewerPlayerId
+    ? gameState.players.find((p) => p.player_id === resolvedViewerPlayerId)
+    : gameState.players.find(
+        (p) => p.player_id === userId || (!!username && p.username === username),
+      );
   if (!me) return 0;
   if (gameState.players[gameState.current_player_index]?.player_id !== me.player_id) return 0;
 
@@ -23,6 +27,5 @@ export function computeDraftPool(
     return raw;
   }
 
-  if (me) return Math.max(3, Math.floor(me.territory_count / 3));
-  return storeFallback;
+  return Math.max(storeFallback, Math.max(3, Math.floor(me.territory_count / 3)));
 }

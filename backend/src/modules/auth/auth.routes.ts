@@ -23,6 +23,32 @@ function compareRefreshToken(token: string, storedHash: string): boolean {
 }
 
 /**
+ * Gmail treats `.` in the local part as meaningless and aliases googlemail.com ↔ gmail.com.
+ * Users often register with one spelling and sign in with another; canonicalize for lookup only.
+ */
+function gmailDotlessLocal(loginIdentifier: string): string | null {
+  const s = loginIdentifier.toLowerCase().trim();
+  const at = s.lastIndexOf('@');
+  if (at <= 0) return null;
+  const local = s.slice(0, at);
+  const domain = s.slice(at + 1);
+  if (domain !== 'gmail.com' && domain !== 'googlemail.com') return null;
+  return local.replace(/\./g, '');
+}
+
+/** Try bcrypt variants (copy/paste whitespace around passwords is common). */
+async function verifyLoginPassword(plain: string, hash: string | null | undefined): Promise<boolean> {
+  if (!hash) {
+    return compareWithDummy(plain, null);
+  }
+  if (await bcrypt.compare(plain, hash)) return true;
+  const trimmed = plain.trim();
+  if (trimmed !== plain && (await bcrypt.compare(trimmed, hash))) return true;
+  await compareWithDummy(plain, null);
+  return false;
+}
+
+/**
  * Strip Zod field paths from validation errors in production. The original
  * `error.flatten()` payload exposes the internal schema shape (which fields
  * exist, which ones failed, etc.) — useful for dev, but a free credentials-
@@ -64,8 +90,9 @@ const RegisterSchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+/** Login body field remains `email` for API compatibility; value may be email or username. */
 const LoginSchema = z.object({
-  email: z.string().email().max(254),
+  email: z.string().trim().min(1).max(254),
   // Capped at 128: the registration schema enforces the same ceiling, and
   // bcrypt.compare on an attacker-controlled 10MB string is a cheap DoS.
   password: z.string().min(1).max(128),
@@ -200,20 +227,46 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (!body.success) {
       return reply.status(400).send({ error: 'Invalid input' });
     }
-    const { email, password } = body.data;
+    const loginIdentifier = body.data.email.normalize('NFC').trim();
+    const { password } = body.data;
+    const gmailLocal = gmailDotlessLocal(loginIdentifier);
 
-    const user = await queryOne<{
-      user_id: string; username: string; password_hash: string;
-      level: number; xp: number; mmr: number; is_banned: boolean; is_admin: boolean;
-    }>(
-      'SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin FROM users WHERE email = $1',
-      [email]
+    type LoginUserRow = {
+      user_id: string;
+      username: string;
+      password_hash: string;
+      level: number;
+      xp: number;
+      mmr: number;
+      is_banned: boolean;
+      is_admin: boolean;
+    };
+
+    // Prefer exact username / email match first so Gmail dot-aliases cannot pick an arbitrary row
+    // when `queryOne` would otherwise return `rows[0]` from an unordered multi-match set.
+    let user = await queryOne<LoginUserRow>(
+      `SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin
+       FROM users
+       WHERE LOWER(TRIM(BOTH FROM username)) = LOWER(TRIM(BOTH FROM $1::text))
+          OR LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))`,
+      [loginIdentifier],
     );
 
-    // Constant-time compare: when the email is unknown we still burn one
-    // bcrypt round against a dummy hash so request latency cannot be used
-    // to enumerate registered emails (timing oracle).
-    const passwordOk = await compareWithDummy(password, user?.password_hash ?? null);
+    if (!user && gmailLocal) {
+      user = await queryOne<LoginUserRow>(
+        `SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin
+         FROM users
+         WHERE LOWER(TRIM(BOTH FROM split_part(email, '@', 2))) IN ('gmail.com', 'googlemail.com')
+           AND replace(split_part(LOWER(TRIM(BOTH FROM email)), '@', 1), '.', '') = $1::text
+         ORDER BY
+           (LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $2::text))) DESC,
+           created_at ASC
+         LIMIT 1`,
+        [gmailLocal, loginIdentifier],
+      );
+    }
+
+    const passwordOk = await verifyLoginPassword(password, user?.password_hash ?? null);
     if (!user || !passwordOk) {
       return reply.status(401).send({ error: 'Invalid email or password' });
     }

@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "validate:maps": "tsx scripts/validateMaps.ts",
     "grant-admin": "tsx scripts/grantAdmin.ts",
+    "set-password": "tsx scripts/setUserPassword.ts",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
