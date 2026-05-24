@@ -111,6 +111,12 @@
   to   { transform: translateY(0); }
 }
 
+/* Bottom sheets (territory panel, cards tray): sit above the mobile nav bar
+   (min-h ~3.5rem) + home indicator — `bottom-16` was too short and overlapped taps. */
+.mobile-sheet-above-nav {
+  bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.25rem);
+}
+
 /* Landscape mobile: reduce bottom-sheet heights and hide tab bar */
 @media (max-width: 768px) and (orientation: landscape) {
   .mobile-bottom-sheet {

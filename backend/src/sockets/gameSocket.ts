@@ -2374,17 +2374,43 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Leave (Save & Leave) ────────────────────────────────────────────
+    //
+    // `game:leave` is a fire-and-forget cleanup signal that the GamePage
+    // useEffect cleanup emits whenever the user navigates away (back to the
+    // lobby, into another match, page refresh, React StrictMode double-mount,
+    // suspense fallback flip, etc.). It MUST be idempotent and never surface
+    // a user-facing error:
+    //
+    //   • Games in `'waiting'` status (the lobby that pops up right after
+    //     "Create Game") have no entry in `activeGames` — that map is only
+    //     populated when a game transitions to `'in_progress'`. Treating a
+    //     missing room as "Game not found" was producing spurious toast
+    //     errors right after creating a new game, especially in
+    //     StrictMode dev or whenever the new mount re-registers an `error`
+    //     listener before the server's reply arrives.
+    //   • Already-evicted games (5-min idle) and finished games likewise
+    //     have no in-memory state but still need the socket removed from
+    //     the Socket.IO room so the client stops receiving broadcasts.
     socket.on('game:leave', async ({ gameId }: { gameId: string }) => {
+      // Always detach from the room and acknowledge — even when there is no
+      // in-memory state — so the client stops receiving room broadcasts and
+      // any waiting `game:left` listener resolves.
+      socket.leave(gameId);
+      socket.emit('game:left', { gameId });
+
       const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      if (!room) {
+        // Waiting / evicted / never-loaded game: nothing more to do. Silent
+        // success (no error emit) so a routine navigation never shows a
+        // "Game not found" toast.
+        return;
+      }
       const { state } = room;
 
       if (state.phase === 'game_over') return;
 
       await saveGameState(gameId, state);
       room.connectedSockets.delete(socket.id);
-      socket.leave(gameId);
-      socket.emit('game:left', { gameId });
 
       // If no human sockets remain, keep game in memory for 5 min then evict
       const hasHumanConnections = [...room.connectedSockets.values()].some((pid) =>
@@ -2779,12 +2805,27 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
     const result = state.active_event_result;
     if (result.global) {
       card.result_summary = [{ territory_id: '__global__', name: 'All territories', delta: -1 }];
-    } else if (result.affected_territories && result.affected_territories.length > 0) {
-      card.result_summary = result.affected_territories.map(({ territory_id, delta }) => ({
-        territory_id,
-        name: map.territories.find((t) => t.territory_id === territory_id)?.name ?? territory_id,
-        delta,
-      }));
+    } else {
+      const lines: Array<{ territory_id: string; name: string; delta: number }> = [];
+      if (result.draft_units_granted && result.draft_units_granted > 0) {
+        lines.push({
+          territory_id: '__draft_pool__',
+          name: 'Your reinforcement pool',
+          delta: result.draft_units_granted,
+        });
+      }
+      if (result.affected_territories?.length) {
+        for (const row of result.affected_territories) {
+          lines.push({
+            territory_id: row.territory_id,
+            name: map.territories.find((t) => t.territory_id === row.territory_id)?.name ?? row.territory_id,
+            delta: row.delta,
+          });
+        }
+      }
+      if (lines.length > 0) {
+        card.result_summary = lines;
+      }
     }
     state.active_event_result = undefined;
   }
@@ -3047,13 +3088,19 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
     const pathEra = getPathEraConfig(campaignRow.path_id as any, eraIndex);
     if (pathEra) {
       const delta = won ? pathEra.carry_on_win : pathEra.carry_on_loss;
-      // Apply each delta key
+      // Path deltas may omit `prestige_bonus` entirely (e.g. a path whose
+      // signature carry is something else like revolutionary_spirit). When
+      // that happens we keep the standard +1 default for wins so the player
+      // still progresses; explicit `0` is honored to let paths intentionally
+      // award nothing (e.g. carry_on_loss commonly sets `{ prestige_bonus: 0 }`).
       if (delta.prestige_bonus != null) {
         prestigeDelta = delta.prestige_bonus;
         updatedCarry.prestige_bonus = (updatedCarry.prestige_bonus ?? 0) + delta.prestige_bonus;
-      } else {
+      } else if (!won) {
+        // Omitted on the loss branch — preserve historical "no prestige on loss" behavior.
         prestigeDelta = 0;
       }
+      // (Win + omitted prestige_bonus falls through to the +1 default set at declaration.)
       if (delta.survivor_bonus != null) {
         updatedCarry.survivor_bonus = Math.min(8, (updatedCarry.survivor_bonus ?? 0) + delta.survivor_bonus);
       }

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { randomUUID, createHash, timingSafeEqual } from 'crypto';
+import { randomUUID, randomBytes, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -10,6 +10,7 @@ import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
+import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 
 function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -34,6 +35,50 @@ function gmailDotlessLocal(loginIdentifier: string): string | null {
   const domain = s.slice(at + 1);
   if (domain !== 'gmail.com' && domain !== 'googlemail.com') return null;
   return local.replace(/\./g, '');
+}
+
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const FORGOT_PASSWORD_RESPONSE = {
+  message: 'If an account exists for that email, we sent password reset instructions.',
+} as const;
+const RESET_LINK_INVALID = 'Invalid or expired reset link. Request a new reset email.';
+
+type PasswordResetUserRow = { user_id: string; username: string; email: string };
+
+/** Same Gmail-aware email resolution as login; excludes guests, banned, and @guest.local. */
+async function resolveUserForPasswordReset(normalizedEmail: string): Promise<PasswordResetUserRow | null> {
+  const gmailLocal = gmailDotlessLocal(normalizedEmail);
+
+  let row = await queryOne<PasswordResetUserRow>(
+    `SELECT user_id, username, email FROM users
+     WHERE LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))
+       AND COALESCE(is_guest, false) = false
+       AND is_banned = false
+       AND LOWER(TRIM(BOTH FROM email)) NOT LIKE '%@guest.local'`,
+    [normalizedEmail],
+  );
+
+  if (!row && gmailLocal) {
+    row = await queryOne<PasswordResetUserRow>(
+      `SELECT user_id, username, email FROM users
+       WHERE LOWER(TRIM(BOTH FROM split_part(email, '@', 2))) IN ('gmail.com', 'googlemail.com')
+         AND replace(split_part(LOWER(TRIM(BOTH FROM email)), '@', 1), '.', '') = $1::text
+         AND COALESCE(is_guest, false) = false
+         AND is_banned = false
+         AND LOWER(TRIM(BOTH FROM email)) NOT LIKE '%@guest.local'
+       ORDER BY
+         (LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $2::text))) DESC,
+         created_at ASC
+       LIMIT 1`,
+      [gmailLocal, normalizedEmail],
+    );
+  }
+
+  return row;
+}
+
+function hashPasswordResetToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex');
 }
 
 /** Try bcrypt variants (copy/paste whitespace around passwords is common). */
@@ -98,6 +143,15 @@ const LoginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+const ForgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(254),
+});
+
+const ResetPasswordSchema = z.object({
+  token: z.string().trim().min(1).max(512),
+  new_password: z.string().min(8).max(128),
+});
+
 function refreshCookieOpts(maxAgeSeconds: number) {
   const sameSite = config.refreshCookieSameSite;
   const secure = sameSite === 'none' ? true : config.refreshCookieSecure;
@@ -124,7 +178,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
    * a clean ON CONFLICT bail rather than a corrupted partial insert.
    */
   fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (_request, reply) => {
-    const password_hash = await bcrypt.hash(randomUUID(), 8);
+    // Use the same cost factor as registered accounts so the row is
+    // indistinguishable by hash shape (defense in depth — the guest password
+    // is a never-exposed random UUID, but uniform parameters mean a future
+    // database leak can't be partitioned into guest vs. real users by cost).
+    const password_hash = await bcrypt.hash(randomUUID(), config.bcryptRounds);
 
     let userId: string | null = null;
     let username: string | null = null;
@@ -290,6 +348,119 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     return reply.send({ accessToken, user: safeUser });
+  });
+
+  // ── POST /api/auth/forgot-password ───────────────────────────────────────
+  fastify.post('/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    const body = ForgotPasswordSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.send(FORGOT_PASSWORD_RESPONSE);
+    }
+    const normalizedEmail = body.data.email.normalize('NFC').trim();
+
+    const resetUser = await resolveUserForPasswordReset(normalizedEmail);
+    if (!resetUser) {
+      return reply.send(FORGOT_PASSWORD_RESPONSE);
+    }
+
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL', [
+      resetUser.user_id,
+    ]);
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = hashPasswordResetToken(rawToken);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    await query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+      [resetUser.user_id, tokenHash, expiresAt],
+    );
+
+    const baseUrl = config.frontendUrl.replace(/\/+$/, '');
+    const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const htmlBody = `
+      <p>You requested a password reset for <strong>Eras of Empire</strong>.</p>
+      <p><a href="${resetUrl}">Set a new password</a></p>
+      <p>This link expires in one hour. If you did not request this, you can ignore this email.</p>
+    `.trim();
+
+    const sent = await sendTransactionalEmailToAddress(
+      resetUser.email,
+      'Reset your Eras of Empire password',
+      htmlBody,
+    );
+    if (
+      !sent &&
+      config.nodeEnv !== 'production' &&
+      process.env.PASSWORD_RESET_DEV_LOG === 'true'
+    ) {
+      request.log.warn({ resetUrl }, '[auth] PASSWORD_RESET_DEV_LOG: reset URL (SMTP not configured or send failed)');
+    }
+
+    return reply.send(FORGOT_PASSWORD_RESPONSE);
+  });
+
+  // ── POST /api/auth/reset-password ────────────────────────────────────────
+  fastify.post('/reset-password', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    const body = ResetPasswordSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: RESET_LINK_INVALID });
+    }
+    const { token: rawToken, new_password } = body.data;
+    const tokenHash = hashPasswordResetToken(rawToken);
+
+    const userForStrength = await queryOne<{ username: string; email: string }>(
+      `SELECT u.username, u.email
+       FROM password_reset_tokens t
+       JOIN users u ON u.user_id = t.user_id
+       WHERE t.token_hash = $1 AND t.used_at IS NULL AND t.expires_at > NOW()`,
+      [tokenHash],
+    );
+    if (!userForStrength) {
+      return reply.status(400).send({ error: RESET_LINK_INVALID });
+    }
+
+    const strength = passwordStrengthError(new_password, [
+      userForStrength.username,
+      userForStrength.email,
+    ]);
+    if (strength) {
+      return reply.status(400).send({ error: strength });
+    }
+
+    const newHash = await bcrypt.hash(new_password, config.bcryptRounds);
+
+    try {
+      await withTransaction(async (client) => {
+        const { rows } = await client.query<{ id: string; user_id: string }>(
+          `SELECT id, user_id FROM password_reset_tokens
+           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+           FOR UPDATE`,
+          [tokenHash],
+        );
+        const row = rows[0];
+        if (!row) {
+          throw new Error('TOKEN_GONE');
+        }
+
+        await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [
+          newHash,
+          row.user_id,
+        ]);
+        await client.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [row.id]);
+        await client.query(
+          'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+          [row.user_id],
+        );
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'TOKEN_GONE') {
+        return reply.status(400).send({ error: RESET_LINK_INVALID });
+      }
+      request.log.error({ err }, 'password reset failed');
+      return reply.status(500).send({ error: 'Password reset failed' });
+    }
+
+    return reply.send({ message: 'Password updated; you can sign in now.' });
   });
 
   // ── POST /api/auth/refresh ───────────────────────────────────────────────

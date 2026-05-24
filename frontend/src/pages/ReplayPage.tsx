@@ -367,11 +367,14 @@ export default function ReplayPage() {
     }, stepMs);
   }, [speed, stopPlayback, timeLapseMode, nextTimeLapseFrom]);
 
-  // Restart interval when speed or mode changes while playing
+  // Restart interval when speed or mode changes while playing. `playing` and
+  // `startPlayback` must be in the dep list because both are read from the
+  // effect body — missing deps previously meant a `setPlaying(true)` outside
+  // this effect (auto-start) wouldn't pick up later speed/mode toggles in
+  // the same render cycle.
   useEffect(() => {
     if (playing) startPlayback();
-     
-  }, [speed, timeLapseMode]);
+  }, [speed, timeLapseMode, playing, startPlayback]);
 
   // Auto-start playback once the replay is fully loaded. The ref guard makes
   // this fire exactly once per game-id mount; manual pause/play afterwards is

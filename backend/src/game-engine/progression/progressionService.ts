@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { randomInt } from 'crypto';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import { getTier } from '../rating/ratingService';
 import { ONBOARDING_QUESTS } from '@erasofempire/shared';
 
@@ -255,24 +255,47 @@ export async function checkOnboardingQuests(
 
 const DAILY_LOGIN_GOLD = 10;
 
+/**
+ * Claim the once-per-UTC-day login bonus. Previously this performed a
+ * read-then-write across three separate pooled queries, which meant a user
+ * tapping the daily-login button twice in quick succession (e.g. on a flaky
+ * mobile connection) could update `last_login_date` once but credit gold twice
+ * before the second request observed the update.
+ *
+ * Now the read-and-set is wrapped in a single transaction and the date update
+ * uses `WHERE last_login_date IS DISTINCT FROM $today RETURNING ...`, which
+ * gives us an atomic "claim slot or fail" guard. Only the request that
+ * actually flipped the date credits the gold + audit log.
+ *
+ * Returns true if this call claimed the bonus, false if it had already been
+ * claimed today (caller surfaces that as a no-op).
+ */
 export async function claimDailyLogin(userId: string): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
-  const row = await queryOne<{ last_login_date: string | null }>(
-    'SELECT last_login_date::text AS last_login_date FROM users WHERE user_id = $1',
-    [userId],
-  );
-  if (row?.last_login_date === today) return false;
 
-  await query('UPDATE users SET last_login_date = $1 WHERE user_id = $2', [today, userId]);
-  await query(
-    'UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2',
-    [DAILY_LOGIN_GOLD, userId],
-  );
-  await query(
-    'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
-    [userId, DAILY_LOGIN_GOLD, 'Daily login'],
-  );
-  return true;
+  return withTransaction(async (client) => {
+    const claim = await client.query<{ user_id: string }>(
+      `UPDATE users
+         SET last_login_date = $1
+       WHERE user_id = $2
+         AND (last_login_date IS DISTINCT FROM $1)
+       RETURNING user_id`,
+      [today, userId],
+    );
+    if (claim.rowCount === 0) {
+      return false;
+    }
+
+    await client.query(
+      'UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2',
+      [DAILY_LOGIN_GOLD, userId],
+    );
+    await client.query(
+      'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
+      [userId, DAILY_LOGIN_GOLD, 'Daily login'],
+    );
+    return true;
+  });
 }
 
 // ── Referral code generation ────────────────────────────────────────────

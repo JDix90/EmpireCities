@@ -110,6 +110,13 @@ export default function TerritoryPanel({
     gameState.phase === 'attack' &&
     (isEnemy || attackSource === selectedTerritory);
   const isViewingOwnAttacker = isAttackConfirmMode && attackSource === selectedTerritory;
+  /** Keep Place reinforcements above the fold + clear of the nav bar (see `mobile-sheet-above-nav`). */
+  const isMobileDraftPlacementMode =
+    isMobile &&
+    isMyTurn &&
+    isMine &&
+    gameState.phase === 'draft' &&
+    draftPool > 0;
   const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
 
   // Pre-compute the truce relationship with this territory's owner so both the Combat and
@@ -130,7 +137,7 @@ export default function TerritoryPanel({
       className={clsx(
       'bg-cc-surface animate-fade-in',
       isMobile
-        ? 'fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
+        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
         : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only (swipe-to-dismiss) */}
@@ -140,7 +147,7 @@ export default function TerritoryPanel({
         </div>
       )}
       {/* Content */}
-      <div className={isMobile ? 'px-4 pb-4' : 'p-4'}>
+      <div className={isMobile ? 'px-4 pb-4 pb-safe' : 'p-4'}>
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
@@ -163,10 +170,58 @@ export default function TerritoryPanel({
         </button>
       </div>
 
+      {/* Mobile draft: surface reinforcements first so Place is never buried under lore/stats. */}
+      {isMobileDraftPlacementMode && orbitAccessHint && (
+        <div
+          role="status"
+          className="mb-3 px-3 py-2 rounded-lg border border-amber-700/40 bg-amber-950/40 text-amber-200 text-xs leading-snug"
+        >
+          🌌 {orbitAccessHint}
+        </div>
+      )}
+      {isMobileDraftPlacementMode && (
+        <div className="mb-4 space-y-3">
+          <div className="flex items-center gap-2 p-3 bg-cc-dark rounded-lg">
+            <Shield className="w-5 h-5 text-cc-muted shrink-0" />
+            <span className="text-2xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+            <span className="text-cc-muted text-sm">units on this territory</span>
+          </div>
+          <div>
+            <label className="label text-xs">Place reinforcements ({draftPool} remaining)</label>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-cc-dark border border-cc-border text-cc-text text-lg font-bold hover:bg-cc-border transition-colors touch-manipulation shrink-0"
+                  onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
+                >
+                  −
+                </button>
+                <span className="w-10 text-center font-mono text-lg text-cc-text">{draftAmount}</span>
+                <button
+                  type="button"
+                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-cc-dark border border-cc-border text-cc-text text-lg font-bold hover:bg-cc-border transition-colors touch-manipulation shrink-0"
+                  onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
+                >
+                  +
+                </button>
+              </div>
+              <button
+                type="button"
+                className="btn-primary w-full min-h-[48px] py-3 text-base touch-manipulation font-semibold"
+                onClick={() => onDraft(selectedTerritory, draftAmount)}
+              >
+                Place {draftAmount} {draftAmount === 1 ? 'unit' : 'units'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Galaxy lore — shown above the region badge for galaxy_age maps. Mirrors the
           per-territory flavor strings in `constants/galaxyLore.ts` so non-galaxy maps
           render nothing here (lookup returns null). */}
-      {!isAttackConfirmMode && (() => {
+      {!isAttackConfirmMode && !isMobileDraftPlacementMode && (() => {
         const territoryLore = getGalaxyTerritoryLoreDetail(mapTerritory.territory_id);
         const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
         if (!territoryLore && !worldLore) return null;
@@ -200,7 +255,7 @@ export default function TerritoryPanel({
       })()}
 
       {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
-      {!isAttackConfirmMode && (() => {
+      {!isAttackConfirmMode && !isMobileDraftPlacementMode && (() => {
         if (!mapRegions || !mapTerritory.region_id || mapTerritory.region_id === 'sea_routes') return null;
         const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
         if (!regionDef) return null;
@@ -241,8 +296,9 @@ export default function TerritoryPanel({
         );
       })()}
 
-      {/* Unit Count */}
-      {isAttackConfirmMode ? (
+      {/* Unit Count — full detail; skipped in mobile draft placement (shown above). */}
+      {!isMobileDraftPlacementMode && (
+        isAttackConfirmMode ? (
         /* Compact inline unit display for attack-confirm mode */
         <div className="flex items-center gap-2 mb-3 px-1">
           <Shield className={clsx('w-4 h-4 shrink-0', isViewingOwnAttacker ? 'text-cc-gold' : 'text-cc-muted')} />
@@ -304,9 +360,9 @@ export default function TerritoryPanel({
             </div>
           )}
         </>
-      )}
+      ))}
 
-      {orbitAccessHint && (
+      {orbitAccessHint && !isMobileDraftPlacementMode && (
         <div
           role="status"
           className="mx-3 mb-2 px-3 py-2 rounded-lg border border-amber-700/40 bg-amber-950/40 text-amber-200 text-xs leading-snug"
@@ -331,7 +387,7 @@ export default function TerritoryPanel({
       {isMyTurn && (
         <div className="space-y-4">
           {/* Draft (always at top if available) */}
-          {isMine && gameState.phase === 'draft' && draftPool > 0 && (
+          {isMine && gameState.phase === 'draft' && draftPool > 0 && !isMobileDraftPlacementMode && (
             <div>
               <label className="label text-xs">Place Reinforcements ({draftPool} remaining)</label>
               <div className="flex items-center gap-2">

@@ -202,7 +202,12 @@ export function validateBuild(
   }
 
   return { valid: true };
-// Helper to get a readable label for a building type
+}
+
+// Human-readable label for a building type. Lifted out of validateBuild so the
+// helper isn't redeclared on every call (it was previously a nested function
+// declaration whose hoisting masked the fact that a duplicate prevTier check
+// after the early `return { valid: true }` was permanently dead code).
 function BUILDING_LABEL(buildingType: string): string {
   switch (buildingType) {
     case 'production_1': return 'Camp';
@@ -218,24 +223,6 @@ function BUILDING_LABEL(buildingType: string): string {
     case 'coastal_battery': return 'Coastal Battery';
     default: return buildingType;
   }
-}
-
-  // Upgrade check: if upgrading, the previous tier must exist and be removed
-  // (handled in applyBuild — here we just validate)
-  const prevTierMap: Partial<Record<BuildingType, BuildingType>> = {
-    production_2: 'production_1',
-    production_3: 'production_2',
-    defense_2: 'defense_1',
-    defense_3: 'defense_2',
-    tech_gen_2: 'tech_gen_1',
-    naval_base: 'port',
-  };
-  const prevTier = prevTierMap[buildingType];
-  if (prevTier !== undefined && !existingBuildings.includes(prevTier as BuildingType)) {
-    return { valid: false, error: `Must first build ${prevTier}` };
-  }
-
-  return { valid: true };
 }
 
 /**

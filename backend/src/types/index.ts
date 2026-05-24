@@ -85,6 +85,15 @@ export interface TerritoryState {
   globe_id?: 'earth' | 'moon';
   /** Canonical world id mirrored from map data for multi-world games. */
   world_id?: string;
+  /**
+   * Region/continent the territory belongs to (mirrored from `MapTerritory.region_id`
+   * at game-start). Some event effects target a region by id (e.g. "Plague hits
+   * Western Europe" removing units only from that area). Denormalizing the value
+   * avoids handing the heavy map document through every effect handler.
+   *
+   * Optional because pre-snapshot game state from older saves may not have it.
+   */
+  region_id?: string;
 }
 
 export interface PlayerState {
@@ -464,6 +473,8 @@ export interface EventEffect {
 export interface EventEffectResult {
   affected_territories?: Array<{ territory_id: string; delta: number }>;
   global?: boolean; // region_disaster touched all territories
+  /** Reinforcement bonus added to the current player's draft pool (not map auto-place). */
+  draft_units_granted?: number;
 }
 
 export interface EventChoice {

@@ -119,18 +119,43 @@ export default function StorePage() {
     setBuyingId(item.cosmetic_id);
     try {
       const res = await api.post('/store/buy', { cosmetic_id: item.cosmetic_id });
-      const newBalance = res.data.new_balance ?? gold;
-      setGold(newBalance);
-      if (user) setUser({ ...user, gold: newBalance });
+      // Only mutate local gold when the server actually returned a new
+      // authoritative balance. Free items (price_gems === 0) do not change
+      // the balance and the server response omits `new_balance`; previously
+      // we silently kept the stale value, which usually agreed with the
+      // server but would diverge after gold was earned in another tab. For
+      // paid items the server is authoritative; for free items we proactively
+      // refetch in case background activity changed it.
+      const serverNewBalance = res.data?.new_balance;
+      if (typeof serverNewBalance === 'number') {
+        setGold(serverNewBalance);
+        if (user) setUser({ ...user, gold: serverNewBalance });
+      } else {
+        void fetchGold();
+      }
       setCatalog((prev) =>
         prev.map((c) => (c.cosmetic_id === item.cosmetic_id ? { ...c, owned: true } : c)),
       );
       toast.success(`${item.name} added to your collection!`);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-        'Purchase failed';
-      toast.error(msg);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const data = (err as { response?: { data?: { error?: string; balance?: number } } })?.response?.data;
+      // 402 = insufficient gold — server returns the authoritative current
+      // balance. Sync the UI immediately so the player sees why "Buy" is
+      // failing and doesn't pile on retries.
+      if (status === 402 && typeof data?.balance === 'number') {
+        setGold(data.balance);
+        if (user) setUser({ ...user, gold: data.balance });
+      } else if (status === 409) {
+        // Already owned — the catalog list is stale; refetch so the row flips
+        // to "Collected" instead of leaving the "Buy" button hot.
+        void fetchCatalog();
+      } else {
+        // For any other failure resync gold defensively — a 500 may have
+        // committed the deduction even though the response failed.
+        void fetchGold();
+      }
+      toast.error(data?.error ?? 'Purchase failed');
     } finally {
       setBuyingId(null);
     }

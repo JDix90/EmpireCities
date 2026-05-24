@@ -160,12 +160,20 @@ export default function GameHUD({
         ? 'flex-1 overflow-y-auto'
         : 'hidden md:flex h-full border-l border-cc-border w-72 shrink-0',
     )}>
-      {/* Phase Indicator */}
-      <div className={clsx(
-        'p-4 border-b border-cc-border',
-        isMyTurn ? 'bg-cc-gold/10' : 'bg-cc-dark/50'
-      )}>
-        <div className="flex items-center gap-2 mb-1">
+      {/* Phase Indicator — exposed as a polite live region so screen-reader
+          users hear "Turn 4, attack phase, your turn" each time it changes,
+          not just on first focus. `aria-current="step"` flags the active
+          phase semantically (matches Risk-style turn step semantics). */}
+      <div
+        className={clsx(
+          'p-4 border-b border-cc-border',
+          isMyTurn ? 'bg-cc-gold/10' : 'bg-cc-dark/50',
+        )}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className="flex items-center gap-2 mb-1" aria-current="step">
           {PHASE_ICONS[gameState.phase]}
           <span className="font-display text-sm text-cc-gold">
             {PHASE_LABELS[gameState.phase] ?? gameState.phase}

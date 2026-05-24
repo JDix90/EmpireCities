@@ -7,6 +7,7 @@ import { query, queryOne, withTransaction } from '../../db/postgres';
 import type { Server } from 'socket.io';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { applyAdminSnapshotsToSettings, getMatchmakingConfig } from '../../services/adminConfig';
+import { formatZodError } from '../../utils/formatZodError';
 
 const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
@@ -210,10 +211,7 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
   fastify.post('/join', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = JoinSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        error: 'Invalid matchmaking parameters',
-        details: parsed.error.flatten().fieldErrors,
-      });
+      return reply.status(400).send(formatZodError(parsed.error, 'Invalid matchmaking parameters'));
     }
     const { era_id, bucket } = parsed.data;
 

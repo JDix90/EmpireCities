@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
+import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -27,13 +28,26 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Trim whitespace and lowercase if the user pasted an email — copy/paste
+    // from email clients routinely adds a trailing space or "Name <email>"
+    // wrappers; we can't fix the latter but the former silently produced a
+    // bcrypt mismatch with no useful error message.
+    const candidate = normalizeIdentifier(emailOrUsername);
+    const normalized = candidate.includes('@') ? normalizeEmail(candidate) : candidate;
     try {
-      await login(emailOrUsername, password);
+      await login(normalized, password);
       toast.success('Welcome back, Commander!');
       navigate(redirectTo);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        toast.error(err.response?.data?.error || 'Login failed');
+        const msg = err.response?.data?.error;
+        if (msg) {
+          toast.error(msg);
+        } else if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+          toast.error('Cannot reach the server. Check your connection and try again.');
+        } else {
+          toast.error('Login failed');
+        }
       } else {
         toast.error('An unexpected error occurred');
       }
@@ -71,9 +85,20 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="label">Password</label>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
+                <label htmlFor="login-password" className="text-sm font-medium text-cc-muted">
+                  Password
+                </label>
+                <Link
+                  to={redirectTo !== '/lobby' ? `/forgot-password?redirect=${encodeURIComponent(redirectTo)}` : '/forgot-password'}
+                  className="text-sm text-cc-muted hover:text-cc-gold hover:underline shrink-0 ml-auto"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="input pr-11"
                   placeholder="••••••••"

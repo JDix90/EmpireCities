@@ -158,26 +158,28 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
                 <button
                   type="button"
                   onClick={() => vote(p.id, true)}
+                  aria-label={`Vote yes (${p.yesVotes} so far)`}
                   className={clsx(
-                    'flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors',
+                    'flex items-center gap-1 text-xs px-3 py-2 min-h-[36px] min-w-[44px] rounded border transition-colors',
                     p.myVote === true
                       ? 'bg-green-500/20 border-green-500/40 text-green-400'
                       : 'border-cc-border text-cc-muted hover:text-green-400 hover:border-green-500/30',
                   )}
                 >
-                  <ThumbsUp className="w-3 h-3" /> {p.yesVotes}
+                  <ThumbsUp className="w-3.5 h-3.5" /> {p.yesVotes}
                 </button>
                 <button
                   type="button"
                   onClick={() => vote(p.id, false)}
+                  aria-label={`Vote no (${p.noVotes} so far)`}
                   className={clsx(
-                    'flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors',
+                    'flex items-center gap-1 text-xs px-3 py-2 min-h-[36px] min-w-[44px] rounded border transition-colors',
                     p.myVote === false
                       ? 'bg-red-500/20 border-red-500/40 text-red-400'
                       : 'border-cc-border text-cc-muted hover:text-red-400 hover:border-red-500/30',
                   )}
                 >
-                  <ThumbsDown className="w-3 h-3" /> {p.noVotes}
+                  <ThumbsDown className="w-3.5 h-3.5" /> {p.noVotes}
                 </button>
               </div>
             </div>
@@ -201,9 +203,10 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); setSelectedSetting(''); setSelectedValue(''); }}
-                  className="text-cc-muted hover:text-cc-text"
+                  aria-label="Cancel proposal"
+                  className="min-h-[36px] min-w-[36px] -mr-2 flex items-center justify-center text-cc-muted hover:text-cc-text"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
               <select

@@ -425,6 +425,11 @@ export default function GamePage() {
   /** Increments when player completes an attack during attack_do — triggers auto phase advance */
   const [tutorialAttackAutoTick, setTutorialAttackAutoTick] = useState(0);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
+  // Track the last disconnect reason so we can show different banner copy for
+  // "your network dropped" (transient) vs "the server forced us off" (likely
+  // permanent without a manual refresh). Socket.io's `disconnect` callback
+  // emits a small set of canonical reasons — see https://socket.io/docs/v4/client-api/#event-disconnect
+  const [disconnectReason, setDisconnectReason] = useState<string | null>(null);
   const [lobbySnapshot, setLobbySnapshot] = useState<GameLobbySnapshot | null>(null);
   const [lobbyLoadError, setLobbyLoadError] = useState<string | null>(null);
   const lobbyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -610,9 +615,13 @@ export default function GamePage() {
 
     const onConnect = () => {
       setSocketConnection('connected');
+      setDisconnectReason(null);
       joinGame();
     };
-    const onDisconnect = () => setSocketConnection('disconnected');
+    const onDisconnect = (reason: string) => {
+      setSocketConnection('disconnected');
+      setDisconnectReason(reason);
+    };
     const onReconnectAttempt = () => setSocketConnection('reconnecting');
 
     socket.on('connect', onConnect);
@@ -1132,6 +1141,13 @@ export default function GamePage() {
       ) {
         setIsStartingGame(false);
       }
+      // Many gameplay errors (invalid attack target, not enough units,
+      // territory not adjacent, build prereqs not met, etc.) come back here
+      // *after* the user already optimistically selected a territory in the
+      // UI. Leaving the selection highlighted made the next click feel like
+      // it had been queued up against the previous (now invalid) selection.
+      // Clearing it forces a clean re-pick.
+      setSelectedTerritory(null);
       toast.error(message);
     });
 
@@ -2633,7 +2649,7 @@ export default function GamePage() {
                       setFocusedWorldId(w.world_id);
                       setGalaxyOverviewMode(false);
                     }}
-                    className={`min-h-[28px] px-2 py-0.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-cc-gold text-cc-gold bg-cc-gold/10' : 'border-cc-border text-cc-muted hover:text-cc-text'}`}
+                    className={`min-h-[36px] px-2.5 py-1.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-cc-gold text-cc-gold bg-cc-gold/10' : 'border-cc-border text-cc-muted hover:text-cc-text'}`}
                   >
                     {w.display_name}
                   </button>
@@ -2644,20 +2660,49 @@ export default function GamePage() {
         </div>
       </div>
 
-      {socketConnection !== 'connected' && (
-        <div
-          role="status"
-          className={`shrink-0 px-4 py-2 text-center text-sm ${
-            socketConnection === 'reconnecting'
-              ? 'bg-amber-900/40 text-amber-200 border-b border-amber-700/50'
-              : 'bg-red-900/40 text-red-200 border-b border-red-700/50'
-          }`}
-        >
-          {socketConnection === 'reconnecting'
-            ? 'Reconnecting to game server…'
-            : 'Disconnected from game server. Attempting to reconnect…'}
-        </div>
-      )}
+      {socketConnection !== 'connected' && (() => {
+        // Translate the raw socket.io disconnect reason into something a
+        // player can act on. We deliberately use plain language and avoid
+        // jargon like "transport close" — when the connection is fine to
+        // them ("my wifi works") but the server-side push was the cause,
+        // the previous generic copy implied a bug on the user's end.
+        let message: string;
+        const isServerInitiated =
+          disconnectReason === 'io server disconnect' ||
+          disconnectReason === 'server namespace disconnect';
+        if (socketConnection === 'reconnecting') {
+          message = 'Reconnecting to game server…';
+        } else if (isServerInitiated) {
+          message = 'The server ended the connection. Reload to rejoin the game.';
+        } else if (disconnectReason === 'transport close' || disconnectReason === 'ping timeout') {
+          message = 'Connection lost. Reconnecting…';
+        } else if (disconnectReason === 'io client disconnect') {
+          message = 'Disconnected.';
+        } else {
+          message = 'Disconnected from game server. Attempting to reconnect…';
+        }
+        return (
+          <div
+            role="status"
+            className={`shrink-0 px-4 py-2 text-center text-sm ${
+              socketConnection === 'reconnecting'
+                ? 'bg-amber-900/40 text-amber-200 border-b border-amber-700/50'
+                : 'bg-red-900/40 text-red-200 border-b border-red-700/50'
+            }`}
+          >
+            {message}
+            {isServerInitiated && (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="ml-3 underline hover:no-underline"
+              >
+                Reload
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {gameState?.settings?.daily_challenge_spec?.title && (
         <div className="shrink-0 px-4 py-2 bg-amber-950/25 border-b border-amber-700/35 text-sm">

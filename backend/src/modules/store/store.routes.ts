@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
+import { formatZodError } from '../../utils/formatZodError';
 
 interface CosmeticRow {
   cosmetic_id: string;
@@ -42,7 +43,7 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/buy', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = BuySchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const { cosmetic_id } = parsed.data;
 

@@ -42,7 +42,7 @@ function MobileCardsTray({
   };
 
   return (
-    <div ref={sheetRef} className="fixed bottom-16 inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up bg-cc-surface pb-safe">
+    <div ref={sheetRef} className="fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up bg-cc-surface pb-safe">
       {/* Drag handle (swipe-to-dismiss) */}
       <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10 cursor-grab">
         <div className="w-8 h-1 rounded-full bg-cc-border" />

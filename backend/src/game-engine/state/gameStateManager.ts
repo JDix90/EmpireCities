@@ -51,7 +51,9 @@ export function initializeGameState(
   const settingsNorm = normalizeGameSettings(settings);
   const territories: Record<string, TerritoryState> = {};
 
-  // Build territory state — all unowned initially
+  // Build territory state — all unowned initially. Mirror the static
+  // `region_id` from map data into the runtime state so per-region event
+  // effects don't have to drag the heavy map document through every layer.
   for (const t of map.territories) {
     territories[t.territory_id] = {
       territory_id: t.territory_id,
@@ -59,6 +61,7 @@ export function initializeGameState(
       unit_count: 0,
       unit_type: 'infantry',
       world_id: inferWorldId(t),
+      region_id: t.region_id,
     };
   }
 

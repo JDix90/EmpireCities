@@ -9,6 +9,7 @@ import { CustomMap } from '../../db/mongo/MapModel';
 import { MapRating } from '../../db/mongo/MapRatingModel';
 import { getMapById, getEraMapSummaries, getCommunityMaps } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
+import { formatZodError } from '../../utils/formatZodError';
 
 const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
@@ -115,7 +116,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const body = CreateMapSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: 'Invalid map data', details: body.error.flatten() });
+      return reply.status(400).send(formatZodError(body.error, 'Invalid map data'));
     }
 
     // Validate: all territory IDs in connections exist

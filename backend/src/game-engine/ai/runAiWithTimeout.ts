@@ -43,12 +43,19 @@ export async function runAiWithTimeout(
   const timeBudgetMs = TIME_BUDGET_BY_DIFFICULTY[difficulty] ?? 2_000;
   const hardCapMs = timeBudgetMs + HARD_CAP_PADDING_MS;
 
+  // Hold onto the soft-fallback timer so the hard-cap branch can clear it on
+  // its way out — otherwise the timer keeps Node alive past the resolve and
+  // shows up as a lingering handle in process-monitoring tools.
+  let softFallbackTimer: NodeJS.Timeout | null = null;
+  let workerRef: Worker | null = null;
+
   const workerPromise = new Promise<AiAction[]>((resolve) => {
     let resolved = false;
     const settle = (actions: AiAction[]) => {
       if (resolved) return;
       resolved = true;
-      clearTimeout(fallback);
+      if (softFallbackTimer) clearTimeout(softFallbackTimer);
+      softFallbackTimer = null;
       void worker.terminate().catch(() => {});
       resolve(actions);
     };
@@ -56,8 +63,9 @@ export async function runAiWithTimeout(
     const worker = new Worker(workerPath, {
       workerData: { state, map, difficulty },
     });
+    workerRef = worker;
 
-    const fallback = setTimeout(() => {
+    softFallbackTimer = setTimeout(() => {
       if (!resolved) {
         console.warn(`[AI] Time budget exceeded for ${difficulty}, using easy fallback`);
         settle(computeAiTurn(state, map, 'easy'));
@@ -84,12 +92,28 @@ export async function runAiWithTimeout(
     });
   });
 
+  // Hard-cap is a tripwire: if `workerPromise` hasn't settled in time we treat
+  // the inner promise as leaked, force-clear its timers, and tear down the
+  // worker. Without this cleanup the soft-fallback setTimeout and the orphaned
+  // Worker could outlive their useful lifetime.
+  let hardCapTimer: NodeJS.Timeout | null = null;
   const hardCap = new Promise<AiAction[]>((resolve) => {
-    setTimeout(() => {
+    hardCapTimer = setTimeout(() => {
       console.error('[AI] Hard-cap safety net engaged — inner cleanup leaked. Running easy fallback.');
+      if (softFallbackTimer) {
+        clearTimeout(softFallbackTimer);
+        softFallbackTimer = null;
+      }
+      if (workerRef) {
+        void workerRef.terminate().catch(() => {});
+      }
       resolve(computeAiTurn(state, map, 'easy'));
     }, hardCapMs);
   });
 
-  return Promise.race([workerPromise, hardCap]);
+  try {
+    return await Promise.race([workerPromise, hardCap]);
+  } finally {
+    if (hardCapTimer) clearTimeout(hardCapTimer);
+  }
 }
