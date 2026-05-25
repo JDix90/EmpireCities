@@ -1,6 +1,10 @@
 import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
 
-/** Deterministic seed from UUID / game id string. */
+/**
+ * Deterministic 32-bit seed from an arbitrary string (FNV-1a). Used together
+ * with `mission_seed_salt` so the resulting PRNG sequence is reproducible
+ * within a game but unrecoverable from public information like `game_id`.
+ */
 export function hashStringToSeed(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -32,7 +36,14 @@ function pickManyUnique<T>(items: T[], count: number, rng: () => number): T[] {
 
 /**
  * Assign secret missions when `secret_mission` is an allowed victory mode.
- * Uses game_id-derived RNG for reproducibility.
+ * Caller must supply an RNG seeded from `game_id + mission_seed_salt` (see
+ * `gameStateManager.startGame`). Using just `game_id` would let any client
+ * regenerate every opponent's mission from the public game URL.
+ *
+ * Regions that contain zero territories on the resolved map are filtered out
+ * before being eligible for a `control_regions` mission — otherwise the
+ * mission was mathematically unwinnable (caller can never own a territory
+ * inside the empty region), permanently softlocking secret_mission victory.
  */
 export function assignSecretMissions(
   state: GameState,
@@ -40,7 +51,17 @@ export function assignSecretMissions(
   rng: () => number,
 ): void {
   const territoryIds = map.territories.map((t) => t.territory_id);
-  const regionIds = map.regions.map((r) => r.region_id);
+  const territoriesPerRegion = new Map<string, number>();
+  for (const t of map.territories) {
+    territoriesPerRegion.set(t.region_id, (territoriesPerRegion.get(t.region_id) ?? 0) + 1);
+  }
+  // Only regions that actually contain at least one territory can be a
+  // control_regions target. If every region on a map is empty (impossible on
+  // shipped maps, but possible in dev/editor) we fall back to other mission
+  // kinds rather than handing the player an automatically-failed objective.
+  const regionIds = map.regions
+    .map((r) => r.region_id)
+    .filter((id) => (territoriesPerRegion.get(id) ?? 0) > 0);
 
   for (const player of state.players) {
     const others = state.players.filter((p) => p.player_id !== player.player_id);

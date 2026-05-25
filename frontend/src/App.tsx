@@ -1,36 +1,43 @@
-import React, { Suspense, lazy, useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { api } from './services/api';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import ErrorBoundary from './components/ErrorBoundary';
+import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 
-// Pages
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const LobbyPage = lazy(() => import('./pages/LobbyPage'));
-const GamePage = lazy(() => import('./pages/GamePage'));
-const MapEditorPage = lazy(() => import('./pages/MapEditorPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const MapHubPage = lazy(() => import('./pages/MapHubPage'));
-const FriendsPage = lazy(() => import('./pages/FriendsPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
-const TutorialPage = lazy(() => import('./pages/TutorialPage'));
-const HowToPlayPage = lazy(() => import('./pages/HowToPlayPage'));
-const DailyChallengePage = lazy(() => import('./pages/DailyChallengePage'));
-const StorePage = lazy(() => import('./pages/StorePage'));
-const ReplayPage = lazy(() => import('./pages/ReplayPage'));
-const CampaignPage = lazy(() => import('./pages/CampaignPage'));
-const LeaderboardsPage = lazy(() => import('./pages/LeaderboardsPage'));
-const LiveGamesPage = lazy(() => import('./pages/LiveGamesPage'));
-const SpectatorPage = lazy(() => import('./pages/SpectatorPage'));
-const ModalLabPage = lazy(() => import('./pages/ModalLabPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
-const CodexPage = lazy(() => import('./pages/CodexPage'));
-const WarRoomPage = lazy(() => import('./pages/WarRoomPage'));
+// Pages — every route uses `lazyWithChunkRetry` so a stale tab that requests
+// a hashed chunk filename that no longer exists (post-deploy) retries once
+// and then force-reloads, instead of dumping the user into a blank error
+// screen. See utils/lazyWithChunkRetry.ts for the recovery policy.
+const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
+const LoginPage = lazyWithChunkRetry(() => import('./pages/LoginPage'));
+const RegisterPage = lazyWithChunkRetry(() => import('./pages/RegisterPage'));
+const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazyWithChunkRetry(() => import('./pages/ResetPasswordPage'));
+const LobbyPage = lazyWithChunkRetry(() => import('./pages/LobbyPage'));
+const GamePage = lazyWithChunkRetry(() => import('./pages/GamePage'));
+const MapEditorPage = lazyWithChunkRetry(() => import('./pages/MapEditorPage'));
+const ProfilePage = lazyWithChunkRetry(() => import('./pages/ProfilePage'));
+const MapHubPage = lazyWithChunkRetry(() => import('./pages/MapHubPage'));
+const FriendsPage = lazyWithChunkRetry(() => import('./pages/FriendsPage'));
+const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
+const PrivacyPage = lazyWithChunkRetry(() => import('./pages/PrivacyPage'));
+const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
+const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
+const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
+const StorePage = lazyWithChunkRetry(() => import('./pages/StorePage'));
+const ReplayPage = lazyWithChunkRetry(() => import('./pages/ReplayPage'));
+const CampaignPage = lazyWithChunkRetry(() => import('./pages/CampaignPage'));
+const LeaderboardsPage = lazyWithChunkRetry(() => import('./pages/LeaderboardsPage'));
+const LiveGamesPage = lazyWithChunkRetry(() => import('./pages/LiveGamesPage'));
+const SpectatorPage = lazyWithChunkRetry(() => import('./pages/SpectatorPage'));
+const ModalLabPage = lazyWithChunkRetry(() => import('./pages/ModalLabPage'));
+const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
+const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
+const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
   return (
@@ -79,10 +86,31 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   const hydrated = useAuthStoreHydrated();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const bootstrapped = useAuthStore((s) => s.bootstrapped);
+  const location = useLocation();
   if (!hydrated || !bootstrapped) {
     return <RouteLoadingFallback />;
   }
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/lobby" replace />;
+  if (!isAuthenticated) {
+    return <>{children}</>;
+  }
+  // Honor the `?redirect=` query param that `PrivateRoute` writes when a
+  // logged-out user follows a deep link (e.g. /game/<id>). Without this the
+  // user lands on /lobby and loses the URL they clicked. Same-origin check:
+  // we only accept paths that start with `/` so a hostile redirect=
+  // (https://attacker.com/) cannot be used as an open redirect.
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('redirect');
+  if (raw) {
+    try {
+      const decoded = decodeURIComponent(raw);
+      if (decoded.startsWith('/') && !decoded.startsWith('//')) {
+        return <Navigate to={decoded} replace />;
+      }
+    } catch {
+      /* malformed encoding — fall through to default redirect */
+    }
+  }
+  return <Navigate to="/lobby" replace />;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -150,6 +178,32 @@ export default function App() {
 
   const isOnline = useNetworkStatus();
 
+  // Track viewport width so the toaster position can flip to bottom-center on
+  // narrow screens — `top-right` is awkward on phones (the dismiss tap target
+  // overlaps the safe-area / status bar). Updates only on resize so it's not
+  // a re-render hot path.
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 640px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 640px)');
+    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  const toasterPosition = isNarrow ? 'bottom-center' : 'top-right';
+  // Push toasts below the offline banner (~32px) so they aren't visually
+  // stacked on top of it. On mobile the toaster sits at the bottom anyway,
+  // so the banner offset is moot — just respect the safe-area inset.
+  const toasterContainerStyle = useMemo<React.CSSProperties>(() => {
+    if (isNarrow) {
+      return { bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' };
+    }
+    return { top: `calc(env(safe-area-inset-top, 0px) + ${isOnline ? 16 : 48}px)` };
+  }, [isNarrow, isOnline]);
+
   return (
     <ErrorBoundary>
     <Suspense fallback={<RouteLoadingFallback />}>
@@ -158,6 +212,17 @@ export default function App() {
           You are offline — reconnecting…
         </div>
       )}
+      <Toaster
+        position={toasterPosition}
+        containerStyle={toasterContainerStyle}
+        toastOptions={{
+          style: {
+            background: '#1a1f2e',
+            color: '#e8e8e8',
+            border: '1px solid #2d3448',
+          },
+        }}
+      />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
@@ -167,6 +232,8 @@ export default function App() {
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+        <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
         <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />

@@ -35,7 +35,7 @@
 
 Eras of Empire is a full-stack web application where players command armies across historically accurate maps spanning nine distinct eras (plus custom and community maps). Each era features asymmetric factions with unique passive bonuses and once-per-turn abilities, a multi-tier technology tree, an optional territory economy with upgradeable buildings, a shuffled deck of era-specific event cards, and a unique wonder structure. Matches support 2–8 players (human or AI bot), real-time WebSocket gameplay, reconnection recovery, fog of war, and multiple configurable victory conditions.
 
-Beyond live multiplayer, the game includes a ranked matchmaking queue with Glicko-2 ratings, a daily challenge seeded from the date, a linear single-player campaign across six eras, a turn-by-turn replay viewer, a community map hub with ratings and moderation, a custom D3-based map editor, a 3D interactive globe view, an in-game cosmetics store, a friends system with game invites, an interactive tutorial, and guest play without registration.
+Beyond live multiplayer, the game includes a ranked matchmaking queue with Glicko-style ratings (μ/φ; see _Ratings_ below), a daily challenge seeded from the date, a linear single-player campaign across six eras, a turn-by-turn replay viewer, a community map hub with ratings and moderation, a custom D3-based map editor, a 3D interactive globe view, an in-game cosmetics store, a friends system with game invites, an interactive tutorial, and guest play without registration.
 
 ---
 
@@ -73,7 +73,7 @@ Two community maps (14 Nations and Strait of Hormuz) are also included. Addition
 | **Document DB** | MongoDB 7 (Mongoose — map documents) |
 | **Cache / Leaderboards** | Redis 7 |
 | **AI Bots** | Server-side heuristic Minimax with Alpha-Beta Pruning, timeout-guarded worker |
-| **Ratings** | Glicko-2 (per era, ranked queue) |
+| **Ratings** | Glicko-style μ (skill) + φ (uncertainty), per rating type; σ tracked at the schema level for forward compatibility |
 | **Dev Environment** | Docker Compose + VS Code |
 
 ---
@@ -107,7 +107,7 @@ eras-of-empire/
 │       │   ├── maps/             # Custom map CRUD, publish, rate, report
 │       │   ├── campaign/         # Era campaign start/progress/advance
 │       │   ├── daily/            # Daily challenge create/join/leaderboard
-│       │   ├── matchmaking/      # Ranked queue (Glicko-2, three time buckets)
+│       │   ├── matchmaking/      # Ranked queue (Glicko-style μ/φ, three time buckets)
 │       │   └── store/            # Cosmetics catalog, gold-based purchases, loadout
 │       ├── sockets/
 │       │   └── gameSocket.ts     # Socket.io real-time game server
@@ -119,7 +119,7 @@ eras-of-empire/
 │           ├── events/           # Event card decks + effect applicator
 │           ├── victory/          # Secret mission assignment + evaluation
 │           ├── achievements/     # Achievement unlock evaluator
-│           ├── rating/           # Glicko-2 update logic
+│           ├── rating/           # Glicko-style μ/φ update logic
 │           ├── tutorial/         # Tutorial game builder
 │           └── validation/       # Map graph + connection validator
 │
@@ -363,7 +363,7 @@ Twelve sequential migrations build the full schema:
 | `game_invites` | Per-game friend invitations (consumed on join) |
 | `cosmetics` | Cosmetic item catalog (banners, frames, unit skins, dice skins, map themes, markers) |
 | `user_cosmetics` | Player cosmetic ownership |
-| `user_ratings` | Glicko-2 `mu` / `phi` / `sigma` per player per rating type (solo, ranked) |
+| `user_ratings` | Glicko-style `mu` (skill) / `phi` (uncertainty) per player per rating type; a `sigma` (volatility) column is provisioned for forward compatibility but the current rating step focuses on μ and φ updates |
 | `ranked_queue` | Active matchmaking queue entries with era, bucket, and socket ID |
 | `daily_challenges` | One row per date — era, map, deterministic seed |
 | `daily_challenge_entries` | Per-player daily entries (won, turn count, territory count) |
@@ -493,7 +493,7 @@ Each territory now tracks two new stats:
 **Key mechanics:**
 
 - **Deploy cap (draft phase):** Low stability limits how many units you can place on a territory **per draft phase**, tracked cumulatively for that territory until your next draft (prevents bypassing by many small placements). The cap scales with stability tier, **turn number**, **era**, and (when Economy is enabled) your **Production Points** reserve — strict when unstable, more forgiving in long games. **≥50 stability** removes the cap for that territory. AI uses the same rules.
-- **Rebellion:** If stability ≤ 10%, each turn there is a 25% chance the territory loses a unit (or revolts if empty).
+- **Rebellion:** If stability ≤ 10% **and the territory has at least one unit**, each turn there is a 25% chance the territory loses a unit. If that loss empties the territory it becomes unowned (no garrison → no defenders → no controller). Empty territories never spawn a rebellion on their own; rebellion requires a garrison to revolt against.
 - **Stability Recovery:** Territories recover stability each turn, with bonuses for garrisoned units and select factions.
 - **Population Growth:** If stability ≥ 50%, population may grow (1-in-4 chance per turn); if < 30%, population may shrink (10% chance per turn).
 - **Faction Bonuses:** One faction per era (e.g., Rome, Byzantine, Ming, UK, USA, Western Bloc, Union, Papal States) gains +3 stability recovery per turn.
@@ -661,7 +661,7 @@ Browser (React + PixiJS / react-globe.gl)
 
 ### Ranked Matchmaking
 
-Three time buckets: **Blitz (2 min/turn)**, **Standard (5 min/turn)**, and **Long (20 min/turn)**. The queue uses Glicko-2 ratings — players are matched within a dynamic threshold that widens over wait time. Ratings update after each ranked game completes.
+Three time buckets: **Blitz (2 min/turn)**, **Standard (5 min/turn)**, and **Long (20 min/turn)**. The queue uses Glicko-style ratings — each player has a skill estimate (μ) and an uncertainty (φ), and they are matched within a threshold that widens over wait time. Ratings update after each ranked game completes; the schema reserves a `sigma` (volatility) field for a future full Glicko-2 update step.
 
 ### Async / Play-by-Email Mode
 

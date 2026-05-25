@@ -39,8 +39,7 @@ export default function TutorialPage() {
         navigate(isAuthenticated ? '/lobby' : '/', { replace: true });
       }
     })();
-     
-  }, [hydrated, bootstrapped]);
+  }, [hydrated, bootstrapped, isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen-safe bg-cc-dark flex flex-col">

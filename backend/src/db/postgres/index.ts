@@ -7,6 +7,19 @@ import { config } from '../../config';
 // when running behind PgBouncer or across multiple instances.
 const POOL_MAX = Math.max(10, parseInt(process.env.PG_POOL_MAX || '50', 10));
 
+/**
+ * Per-statement cap (ms) — a runaway query (bad admin filter, full-table
+ * recompute under cache miss, unindexed migration probe) won't pin a Postgres
+ * backend and starve the rest of the pool. Long-running ops (migrations,
+ * heavy admin reports) can `SET LOCAL statement_timeout` inside a transaction
+ * to bypass for that one query. Override at deploy time with
+ * `PG_STATEMENT_TIMEOUT_MS=…` if you need a different ceiling.
+ */
+const STATEMENT_TIMEOUT_MS = Math.max(
+  500,
+  parseInt(process.env.PG_STATEMENT_TIMEOUT_MS || '8000', 10),
+);
+
 export const pgPool = new Pool({
   host: config.postgres.host,
   port: config.postgres.port,
@@ -16,6 +29,11 @@ export const pgPool = new Pool({
   max: POOL_MAX,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  // Belt-and-suspenders cancellation: cap the time a TCP connection can sit
+  // mid-query without progress (defends against half-open NAT/proxy idle
+  // resets that leave the client thinking a query is still running).
+  statement_timeout: STATEMENT_TIMEOUT_MS,
+  query_timeout: STATEMENT_TIMEOUT_MS + 1_000,
 });
 
 pgPool.on('error', (err) => {
@@ -24,7 +42,7 @@ pgPool.on('error', (err) => {
 
 export async function connectPostgres(): Promise<void> {
   const client = await pgPool.connect();
-  console.log('[PostgreSQL] Connected successfully');
+  console.log(`[PostgreSQL] Connected successfully (statement_timeout=${STATEMENT_TIMEOUT_MS}ms)`);
   client.release();
 }
 

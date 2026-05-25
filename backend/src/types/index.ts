@@ -85,6 +85,15 @@ export interface TerritoryState {
   globe_id?: 'earth' | 'moon';
   /** Canonical world id mirrored from map data for multi-world games. */
   world_id?: string;
+  /**
+   * Region/continent the territory belongs to (mirrored from `MapTerritory.region_id`
+   * at game-start). Some event effects target a region by id (e.g. "Plague hits
+   * Western Europe" removing units only from that area). Denormalizing the value
+   * avoids handing the heavy map document through every effect handler.
+   *
+   * Optional because pre-snapshot game state from older saves may not have it.
+   */
+  region_id?: string;
 }
 
 export interface PlayerState {
@@ -145,6 +154,14 @@ export interface PlayerState {
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
   space_station_launched?: boolean;
+  /** Bonus defender losses applied before the next land attack resolves (air_strike). */
+  pending_pre_attack_damage?: number;
+  /** +1 attack die on the next land attack (knights_charge, bersaglieri_charge). */
+  pending_extra_attack_die?: boolean;
+  /** Next land attack ignores defense-building bonus (activated siege abilities). */
+  pending_ignore_defense_building?: boolean;
+  /** ACW Total War: chain attacks enabled for remainder of turn after activation. */
+  march_to_sea_active?: boolean;
 }
 
 export interface DiplomacyEntry {
@@ -464,6 +481,8 @@ export interface EventEffect {
 export interface EventEffectResult {
   affected_territories?: Array<{ territory_id: string; delta: number }>;
   global?: boolean; // region_disaster touched all territories
+  /** Reinforcement bonus added to the current player's draft pool (not map auto-place). */
+  draft_units_granted?: number;
 }
 
 export interface EventChoice {

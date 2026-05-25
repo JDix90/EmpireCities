@@ -7,8 +7,17 @@ import { getLevel } from '@erasofempire/shared';
 
 const CACHE_TTL = 300; // 5 minutes
 
+// Leaderboard queries are window-function joins across users/ratings and a
+// cache miss costs ~hundreds of ms on a hot day. The default rate limit (set
+// in `index.ts` at ~120 req/min) was originally written for cheap endpoints,
+// so a small group of users repeatedly opening the leaderboard tab can wedge
+// the Postgres pool. We cap each leaderboard route to ~30 req/min/user — well
+// above any realistic UI traffic but low enough that a hammered tab can't
+// starve gameplay queries.
+const LEADERBOARD_RATE_LIMIT = { max: 30, timeWindow: '1 minute' as const };
+
 export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/top', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/top', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const cacheKey = `lb:top:${request.userId}`;
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
@@ -65,7 +74,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     return reply.send(result);
   });
 
-  fastify.get('/my-rank', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/my-rank', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const cacheKey = `lb:my-rank:${request.userId}`;
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
@@ -136,7 +145,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   // ── GET /api/leaderboards/rating ─────────────────────────────────────────
-  fastify.get('/rating', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/rating', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const qs = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
@@ -177,7 +186,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     return reply.send(result);
   });
 
-  fastify.get('/weekly', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/weekly', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const qs = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
@@ -233,7 +242,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   // ── GET /api/leaderboards/level ──────────────────────────────────────────
-  fastify.get('/level', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/level', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const qs = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
@@ -269,7 +278,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   // ── GET /api/leaderboards/season ─────────────────────────────────────────
-  fastify.get('/season', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/season', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const qs = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
@@ -322,7 +331,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   // ── GET /api/leaderboards/streaks ────────────────────────────────────────
-  fastify.get('/streaks', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/streaks', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const qs = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;

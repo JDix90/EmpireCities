@@ -4,6 +4,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { recordActivity } from '../../services/activityService';
+import { formatZodError } from '../../utils/formatZodError';
 
 export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/share/:gameId ─────────────────────────────────────────────
@@ -18,7 +19,7 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
       });
       const parsed = schema.safeParse(request.body ?? {});
       if (!parsed.success) {
-        return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+        return reply.status(400).send(formatZodError(parsed.error));
       }
 
       // Verify game exists and user participated
@@ -91,9 +92,25 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   // ── GET /api/share/:gameId/public-replay ────────────────────────────────
-  // Public replay data — no auth required
-  fastify.get<{ Params: { gameId: string } }>('/:gameId/public-replay', async (request, reply) => {
+  // Public replay data — no auth required. Snapshots are paginated; the legacy
+  // behavior of "first 200 turns only" silently truncated long matches and
+  // caused the share link to render an incomplete game. Clients can scroll
+  // through the entire match by following `next_from`.
+  //
+  // Defaults:  from=1, limit=200
+  // Caps:      limit <= 500 (to bound payload size and serialization cost)
+  // Auth:      none (route is intentionally public — only enabled when the
+  //            owning participant flipped `is_replay_public`)
+  fastify.get<{
+    Params: { gameId: string };
+    Querystring: { from?: string; limit?: string };
+  }>('/:gameId/public-replay', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { gameId } = request.params;
+    const qs = request.query ?? {};
+    const fromRaw = parseInt(qs.from ?? '1', 10);
+    const limitRaw = parseInt(qs.limit ?? '200', 10);
+    const from = Number.isFinite(fromRaw) && fromRaw > 0 ? fromRaw : 1;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 500)) : 200;
 
     const game = await queryOne<{ game_id: string; status: string; is_replay_public: boolean; era_id: string; winner_id: string }>(
       'SELECT game_id, status, is_replay_public, era_id, winner_id FROM games WHERE game_id = $1',
@@ -110,9 +127,21 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
       [gameId],
     );
 
-    const rows = await query<{ turn_number: number; state_json: unknown }>(
-      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number ASC LIMIT 200',
+    const totalRow = await queryOne<{ total: string; max_turn: number | null }>(
+      `SELECT COUNT(*)::text AS total, MAX(turn_number) AS max_turn
+       FROM game_states WHERE game_id = $1`,
       [gameId],
+    );
+    const totalTurns = parseInt(totalRow?.total ?? '0', 10);
+    const maxTurn = totalRow?.max_turn ?? 0;
+
+    const rows = await query<{ turn_number: number; state_json: unknown }>(
+      `SELECT turn_number, state_json
+       FROM game_states
+       WHERE game_id = $1 AND turn_number >= $2
+       ORDER BY turn_number ASC
+       LIMIT $3`,
+      [gameId, from, limit],
     );
 
     const snapshots = rows.map((row) => {
@@ -131,12 +160,23 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
       return { turn_number: row.turn_number, state };
     });
 
+    const lastReturned = snapshots.length > 0 ? snapshots[snapshots.length - 1].turn_number : from - 1;
+    const hasMore = lastReturned < maxTurn;
+
     return reply.send({
       game_id: game.game_id,
       era_id: game.era_id,
       winner_id: game.winner_id,
       players,
       snapshots,
+      pagination: {
+        from,
+        limit,
+        returned: snapshots.length,
+        total_turns: totalTurns,
+        max_turn: maxTurn,
+        next_from: hasMore ? lastReturned + 1 : null,
+      },
     });
   });
 }

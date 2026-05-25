@@ -1,63 +1,4 @@
-import type { GameMap, GamePhase } from '../../types';
-
-export interface TutorialStep {
-  id: string;
-  phase: GamePhase;
-  title: string;
-  message: string;
-  hint?: string;
-  requireAction?: 'draft' | 'attack' | 'end_phase' | 'fortify';
-}
-
-export const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    id: 'welcome',
-    phase: 'draft',
-    title: 'Welcome, Commander!',
-    message: 'This quick tutorial teaches you the core mechanics of Eras of Empire. Each turn has three phases: Draft, Attack, and Fortify.',
-    hint: 'Click "Next" to continue.',
-  },
-  {
-    id: 'draft_explain',
-    phase: 'draft',
-    title: 'Reinforcement Phase',
-    message: 'You receive units based on how many territories you hold plus continent bonuses. Place them on your territories to strengthen your positions.',
-  },
-  {
-    id: 'draft_do',
-    phase: 'draft',
-    title: 'Place Your Units',
-    message: 'Click one of your territories on the map to place your reinforcements there.',
-    requireAction: 'draft',
-  },
-  {
-    id: 'attack_explain',
-    phase: 'attack',
-    title: 'Attack Phase',
-    message: 'Attack adjacent enemy territories by clicking your territory first, then the target. You need at least 2 units to attack. Dice determine the outcome.',
-  },
-  {
-    id: 'attack_do',
-    phase: 'attack',
-    title: 'Launch an Attack!',
-    message: 'Click your territory then an adjacent enemy territory to attack. When ready to move on, click "End Phase".',
-    hint: 'You can attack as many times as you want, or skip by ending the phase.',
-    requireAction: 'end_phase',
-  },
-  {
-    id: 'fortify_explain',
-    phase: 'fortify',
-    title: 'Fortify Phase',
-    message: 'Move units between your connected territories to shore up defenses. You can fortify once per turn by default (some games allow more via tech), or skip.',
-    requireAction: 'end_phase',
-  },
-  {
-    id: 'complete',
-    phase: 'draft',
-    title: "You're Ready!",
-    message: 'Great job! Keep playing — conquer all enemy territories to win. Good luck, Commander!',
-  },
-];
+import type { GameMap } from '../../types';
 
 /**
  * Tutorial map: all territory `polygon` coords live in a fixed 20×20 canvas.
@@ -65,6 +6,12 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
  * (Previously coords were ad-hoc negatives with no bounds; the globe used a full-world
  * fallback and produced broken / spiky caps — see `canvasToGeoJSONWorld` vs regional in
  * `globeTerritoryGeometry.ts`.)
+ *
+ * NOTE: the user-facing tutorial script (titles, hints, advance logic) lives in
+ * `frontend/src/components/game/TutorialOverlay.tsx`. There used to be a
+ * duplicate `TUTORIAL_STEPS` array here that nothing consumed, with stale
+ * `requireAction` values; it was removed in the go-live QA pass to avoid the
+ * trap of editing the wrong file.
  */
 const TUT_W = 20;
 const TUT_H = 20;

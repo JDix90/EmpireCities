@@ -19,9 +19,24 @@ export const featureFlags = {
     return overrideBool('analytics_events_enabled', process.env.ANALYTICS_EVENTS_ENABLED === 'true');
   },
 
-  /** When true, expose basic process metrics on GET /metrics/json (no secrets). */
+  /**
+   * When true, expose basic process metrics on GET /metrics/json (no secrets).
+   *
+   * Default: **on in development**, **off in production**. The endpoint reveals
+   * `active_game_rooms` and process memory which are useful internally but make
+   * a public deploy easier to fingerprint / size-attack. Set
+   * `METRICS_ENDPOINT_ENABLED=true` in prod (paired with reverse-proxy auth or
+   * an internal-only listener) when you want to scrape it.
+   */
   get metricsEndpointEnabled(): boolean {
-    return overrideBool('metrics_endpoint_enabled', process.env.METRICS_ENDPOINT_ENABLED !== 'false');
+    const envValue = process.env.METRICS_ENDPOINT_ENABLED;
+    let envDefault: boolean;
+    if (envValue == null || envValue === '') {
+      envDefault = config.nodeEnv !== 'production';
+    } else {
+      envDefault = envValue === 'true';
+    }
+    return overrideBool('metrics_endpoint_enabled', envDefault);
   },
 
   /** Verbose socket debug (development only — never enable in prod). */

@@ -7,6 +7,12 @@ import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import GameChat from '../components/game/GameChat';
+import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
+import {
+  getStrikeToastMessage,
+  type StrikeAnimationEvent,
+} from '../utils/strikeAnimationMessages';
+import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
 
 interface MapData {
@@ -32,6 +38,13 @@ export default function SpectatorPage() {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [emotes, setEmotes] = useState<Array<{ id: number; emote: string; username: string }>>([]);
+  const [strikeAnim, setStrikeAnim] = useState<{
+    abilityId: StrikeAnimationVariant;
+    targetName: string;
+    unitReduction?: number;
+    key: number;
+  } | null>(null);
+  const mapDataRef = useRef<MapData | null>(null);
   const cleanedUp = useRef(false);
 
   useEffect(() => {
@@ -48,6 +61,7 @@ export default function SpectatorPage() {
       // Load map data from the state's map_id
       if (state.map_id && !mapData) {
         api.get(`/maps/${state.map_id}`).then((res) => {
+          mapDataRef.current = res.data.map;
           setMapData(res.data.map);
         }).catch(() => {});
       }
@@ -73,6 +87,47 @@ export default function SpectatorPage() {
       }, 1800);
     });
 
+    const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
+      const abilityId = event.abilityId as StrikeAnimationVariant;
+      if (abilityId !== 'atom_bomb' && abilityId !== 'nuclear_strike') return;
+
+      const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
+        ?? event.territoryId;
+
+      setStrikeAnim((prev) => ({
+        abilityId,
+        targetName: tName,
+        unitReduction: event.unitReduction,
+        key: (prev?.key ?? 0) + 1,
+      }));
+
+      toast(getStrikeToastMessage(event, tName, {}), {
+        duration: 6000,
+        style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
+      });
+    };
+
+    socket.on('game:strike_animation', handleStrikeAnimationEvent);
+
+    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId, attackerId, targetOwnerId, targetOwnerName }: {
+      attackerId?: string;
+      attackerName: string;
+      attackerColor: string;
+      territoryId: string;
+      targetOwnerId?: string | null;
+      targetOwnerName?: string | null;
+    }) => {
+      handleStrikeAnimationEvent({
+        abilityId: 'atom_bomb',
+        attackerId: attackerId ?? '',
+        attackerName,
+        attackerColor,
+        territoryId,
+        targetOwnerId: targetOwnerId ?? null,
+        targetOwnerName: targetOwnerName ?? null,
+      });
+    });
+
     socket.on('error', ({ message }: { message: string }) => {
       setError(message);
     });
@@ -86,6 +141,8 @@ export default function SpectatorPage() {
         socket.off('game:spectator_count');
         socket.off('game:over');
         socket.off('game:spectator_emote');
+        socket.off('game:strike_animation');
+        socket.off('game:atom_bomb');
         socket.off('error');
         clearGame();
       }
@@ -208,6 +265,16 @@ export default function SpectatorPage() {
           </div>
         </aside>
       </div>
+
+      {strikeAnim && (
+        <AtomBombAnimation
+          key={strikeAnim.key}
+          abilityId={strikeAnim.abilityId}
+          targetName={strikeAnim.targetName}
+          unitReduction={strikeAnim.unitReduction}
+          onDone={() => setStrikeAnim(null)}
+        />
+      )}
     </div>
   );
 }

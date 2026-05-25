@@ -128,14 +128,14 @@ function MobileCombatBanner({
             </div>
           )}
 
-          {/* View full log link */}
+          {/* View full log link — min 44px hit target per Apple HIG / Material */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setVisible(false);
               onOpenFullLog();
             }}
-            className="min-h-[36px] flex items-center text-xs text-cc-muted hover:text-cc-gold mt-1 transition-colors"
+            className="min-h-[44px] flex items-center text-xs text-cc-muted hover:text-cc-gold mt-1 transition-colors"
           >
             View full log →
           </button>

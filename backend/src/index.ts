@@ -43,6 +43,45 @@ import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/g
 import { initSentry } from './services/sentry';
 import { refreshAdminConfigCache } from './services/adminConfig';
 
+/**
+ * Parse a comma-separated `https://host[:port]` / `wss://...` allowlist for the
+ * CSP `connect-src` directive. Invalid entries are ignored with a warning so a
+ * typo in ops config cannot break the page; the production schemes are
+ * restricted to https/wss so an attacker cannot register a plain `http:` host.
+ */
+function parseExtraConnectOrigins(raw: string | undefined): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const token of raw.split(',')) {
+    const t = token.trim();
+    if (!t) continue;
+    try {
+      const u = new URL(t);
+      if (u.protocol !== 'https:' && u.protocol !== 'wss:') {
+        console.warn(`[csp] Ignoring CSP_EXTRA_CONNECT_ORIGINS entry (must be https/wss): ${t}`);
+        continue;
+      }
+      out.push(`${u.protocol}//${u.host}`);
+    } catch {
+      console.warn(`[csp] Ignoring malformed CSP_EXTRA_CONNECT_ORIGINS entry: ${t}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * Derive Sentry ingest hosts from a DSN so CSP can permit the SDK's outbound
+ * `connect-src` traffic without opening the directive to all of `https:`.
+ */
+function sentryIngestHosts(dsn: string): string[] {
+  try {
+    const u = new URL(dsn);
+    return [`${u.protocol}//${u.host}`];
+  } catch {
+    return [];
+  }
+}
+
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
   initSentry();
@@ -65,6 +104,16 @@ async function bootstrap(): Promise<void> {
   // globe textures live on jsdelivr; if you change the image CDN update
   // imgSrc as well. `'unsafe-inline'` is currently required for Tailwind's
   // JIT-injected style blocks; remove once we extract them to a stylesheet.
+  //
+  // connectSrc was previously `'self' + corsOrigins + 'wss:' + 'https:'`, which
+  // effectively allowed any HTTPS/WSS host and defeated most of the protection.
+  // We now allowlist only the same-origin endpoints, optional Sentry ingest
+  // (if `SENTRY_DSN` is configured), and explicit `CSP_EXTRA_CONNECT_ORIGINS`
+  // for ops integrations (analytics, log forwarder, etc.).
+  const cspConnectExtras = [
+    ...(config.sentryDsn ? sentryIngestHosts(config.sentryDsn) : []),
+    ...parseExtraConnectOrigins(process.env.CSP_EXTRA_CONNECT_ORIGINS),
+  ];
   await app.register(fastifyHelmet, {
     contentSecurityPolicy:
       config.nodeEnv === 'production'
@@ -82,7 +131,7 @@ async function bootstrap(): Promise<void> {
                 'https://cdn.jsdelivr.net',
               ],
               fontSrc: ["'self'", 'data:'],
-              connectSrc: ["'self'", ...config.corsOrigins, 'wss:', 'https:'],
+              connectSrc: ["'self'", ...config.corsOrigins, ...cspConnectExtras],
               frameAncestors: ["'none'"],
               objectSrc: ["'none'"],
               baseUri: ["'self'"],

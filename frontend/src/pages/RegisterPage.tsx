@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
+import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -75,8 +76,10 @@ export default function RegisterPage() {
       toast.error('Passwords do not match');
       return;
     }
+    const cleanedUsername = normalizeIdentifier(username);
+    const cleanedEmail = normalizeEmail(email);
     try {
-      await register(username, email, password);
+      await register(cleanedUsername, cleanedEmail, password);
       toast.success('Account created! Welcome, Commander!');
       navigate(redirectTo);
     } catch (err: unknown) {
@@ -85,9 +88,13 @@ export default function RegisterPage() {
         if (msg) {
           toast.error(msg);
         } else if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
-          toast.error('Cannot reach server. Is the backend running? (cd backend && pnpm run dev)');
+          // Previously: "Cannot reach server. Is the backend running?
+          // (cd backend && pnpm run dev)" — that's a developer-only diagnostic
+          // we leaked into production toasts. Real users see a generic, calm
+          // message and a clear action (retry).
+          toast.error('Cannot reach the server. Check your connection and try again.');
         } else {
-          toast.error('Registration failed');
+          toast.error('Registration failed. Please try again.');
         }
       } else {
         toast.error('An unexpected error occurred');

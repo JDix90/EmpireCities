@@ -1066,7 +1066,7 @@ export default function AdminPage() {
                     value={resetMapId}
                     onChange={(e) => setResetMapId(e.target.value)}
                     list="admin-reset-map-options"
-                    placeholder="era_modern / rts_slice_v1 …"
+                    placeholder="era_modern / community_<id> …"
                     className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
                     disabled={resetSubmitting}
                   />

@@ -9,6 +9,7 @@ import { ONBOARDING_QUESTS } from '@erasofempire/shared';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';
 import { getSeasonHistory } from '../../game-engine/progression/seasonService';
 import { redeemReferralCode, getReferralStats, ensureReferralCode } from '../../game-engine/progression/referralService';
+import { formatZodError } from '../../utils/formatZodError';
 
 export async function progressionRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/progression/daily-login ────────────────────────────────────
@@ -224,7 +225,7 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
     const schema = z.object({ code: z.string().min(1).max(16) });
     const parsed = schema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const result = await redeemReferralCode(request.userId, parsed.data.code);
     if (!result.success) {

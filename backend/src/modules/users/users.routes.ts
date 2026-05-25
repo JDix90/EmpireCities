@@ -6,6 +6,7 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { getLeaderboard, removeFromAllLeaderboards } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
+import { formatZodError } from '../../utils/formatZodError';
 
 const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account').max(128),
@@ -104,7 +105,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.delete('/me', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = DeleteAccountSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const row = await queryOne<{ password_hash: string }>(
       'SELECT password_hash FROM users WHERE user_id = $1',
@@ -471,7 +472,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/me/friends/request', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = FriendUsernameSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const uname = parsed.data.username.trim();
     const target = await queryOne<{ user_id: string }>(
@@ -506,7 +507,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/me/friends/accept', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = FriendOtherSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const [a, b] = orderedPair(request.userId, parsed.data.other_user_id);
     const row = await queryOne<{ id: string; initiated_by: string | null }>(
@@ -527,7 +528,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/me/friends/decline', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = FriendOtherSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const [a, b] = orderedPair(request.userId, parsed.data.other_user_id);
     const row = await queryOne<{ id: string }>(

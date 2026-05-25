@@ -60,7 +60,8 @@ async function getFirebaseAdmin(): Promise<typeof import('firebase-admin') | nul
 let smtpTransporter: Transporter | null = null;
 let smtpInitAttempted = false;
 
-function getSmtpTransporter(): Transporter | null {
+/** Exported for auth password-reset and other transactional mail. */
+export function getSmtpTransporter(): Transporter | null {
   if (smtpInitAttempted) return smtpTransporter;
   smtpInitAttempted = true;
 
@@ -158,6 +159,31 @@ export async function sendEmailNotification(
     });
   } catch (err) {
     console.error('[Notifications] Email send failed:', err);
+  }
+}
+
+/**
+ * Send a transactional email to a raw address (password reset, etc.).
+ * @returns whether SMTP accepted the send; `false` if SMTP unavailable or send threw.
+ */
+export async function sendTransactionalEmailToAddress(
+  to: string,
+  subject: string,
+  htmlBody: string,
+): Promise<boolean> {
+  const transporter = getSmtpTransporter();
+  if (!transporter) return false;
+  try {
+    await transporter.sendMail({
+      from: config.smtp.from,
+      to,
+      subject,
+      html: htmlBody,
+    });
+    return true;
+  } catch (err) {
+    console.error('[Notifications] Transactional email send failed:', err);
+    return false;
   }
 }
 

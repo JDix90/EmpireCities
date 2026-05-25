@@ -21,10 +21,31 @@ interface ActiveGame {
 
 function formatTimeLeft(ms: number): string {
   if (ms <= 0) return 'Expired';
+  // Sub-minute granularity reads as "0m remaining" which players have
+  // misread as "the timer is broken". Round up to one minute at the floor
+  // and call it out explicitly when under a minute.
+  if (ms < 60_000) return 'Under 1m';
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Absolute deadline shown as a tooltip + a11y label so timezone is unambiguous. */
+function formatAbsoluteDeadline(deadline: Date | null): string {
+  if (!deadline) return '';
+  try {
+    return deadline.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+  } catch {
+    return deadline.toString();
+  }
 }
 
 export default function WarRoomPage() {
@@ -124,8 +145,16 @@ export default function WarRoomPage() {
               </p>
 
               {timeLeft !== null ? (
-                <p className={clsx('flex items-center gap-1 text-xs', isUrgent ? 'text-red-400' : 'text-green-400')}>
-                  <Timer className="w-3.5 h-3.5" />
+                <p
+                  className={clsx('flex items-center gap-1 text-xs', isUrgent ? 'text-red-400' : 'text-green-400')}
+                  title={deadline ? `Deadline: ${formatAbsoluteDeadline(deadline)}` : undefined}
+                  aria-label={
+                    deadline
+                      ? `${formatTimeLeft(timeLeft)} remaining; deadline ${formatAbsoluteDeadline(deadline)}`
+                      : `${formatTimeLeft(timeLeft)} remaining`
+                  }
+                >
+                  <Timer className="w-3.5 h-3.5" aria-hidden />
                   {formatTimeLeft(timeLeft)} remaining
                 </p>
               ) : (

@@ -44,6 +44,36 @@ export function getEraDeck(eraId: EraId): EventCard[] {
   return ERA_DECKS[eraId] ?? [];
 }
 
+/**
+ * Spread `count` +1 increments across a player's territories (round-robin, sorted id).
+ * Used when event reinforcements cannot go into the draft pool (non-draft phase or
+ * not the active player).
+ */
+function distributePlayerBonusUnitsOnTerritories(
+  state: GameState,
+  playerId: string,
+  count: number,
+  affected: Array<{ territory_id: string; delta: number }>,
+): void {
+  const ownedIds = Object.keys(state.territories)
+    .filter((tid) => state.territories[tid]?.owner_id === playerId)
+    .sort();
+  if (ownedIds.length === 0 || count <= 0) return;
+
+  let remaining = count;
+  let i = 0;
+  while (remaining > 0) {
+    const tid = ownedIds[i % ownedIds.length]!;
+    const t = state.territories[tid]!;
+    t.unit_count += 1;
+    const row = affected.find((a) => a.territory_id === tid);
+    if (row) row.delta += 1;
+    else affected.push({ territory_id: tid, delta: 1 });
+    remaining--;
+    i++;
+  }
+}
+
 /** Draw a random card from a deck. Returns undefined if deck is empty. */
 export function drawRandomCard(deck: EventCard[]): EventCard | undefined {
   if (deck.length === 0) return undefined;
@@ -67,16 +97,29 @@ export function applyEventEffect(
   switch (effect.type) {
     case 'units_added': {
       if (effect.target === 'player') {
-        // Add units spread across the player's territories (largest first)
-        const entries = Object.entries(state.territories)
-          .filter(([, t]) => t.owner_id === currentPlayer.player_id)
-          .sort(([, a], [, b]) => b.unit_count - a.unit_count);
-        let remaining = Math.max(0, effect.value);
-        for (const [id, t] of entries) {
-          if (remaining <= 0) break;
-          t.unit_count += 1;
-          affected.push({ territory_id: id, delta: 1 });
-          remaining--;
+        const add = Math.max(0, effect.value);
+        const targetPlayers = affectsAllPlayers
+          ? state.players.filter((p) => !p.is_eliminated)
+          : [currentPlayer];
+        const curId = state.players[state.current_player_index]?.player_id;
+        let draftGranted = 0;
+
+        for (const player of targetPlayers) {
+          // During draft, the active player's "reinforcement" events credit the pool so
+          // they place via the normal draft UI. Other players (affects_all) still get map units.
+          if (state.phase === 'draft' && curId === player.player_id) {
+            state.draft_units_remaining = (state.draft_units_remaining ?? 0) + add;
+            draftGranted += add;
+          } else {
+            distributePlayerBonusUnitsOnTerritories(state, player.player_id, add, affected);
+          }
+        }
+
+        if (draftGranted > 0 && affected.length > 0) {
+          return { affected_territories: affected, draft_units_granted: draftGranted };
+        }
+        if (draftGranted > 0) {
+          return { draft_units_granted: draftGranted };
         }
       } else if (effect.target === 'territory' && effect.target_id) {
         const t = state.territories[effect.target_id];
@@ -109,11 +152,22 @@ export function applyEventEffect(
           }
         }
       } else if (effect.target === 'region') {
-        // Remove units from all territories in the region
-        for (const t of Object.values(state.territories)) {
-          if (t.unit_count > 1) {
-            const remove = Math.min(t.unit_count - 1, effect.value);
-            t.unit_count -= remove;
+        // Remove units only from territories that belong to the named region.
+        // The previous implementation ignored `effect.target_id` and looped
+        // over EVERY territory on the map, which made a "Plague hits Western
+        // Europe" card silently wipe units worldwide. If the card omits a
+        // target_id we now no-op — failing closed is safer than fanning out.
+        const regionId = effect.target_id;
+        if (regionId) {
+          for (const [tid, t] of Object.entries(state.territories)) {
+            if (t.region_id !== regionId) continue;
+            if (t.unit_count > 1) {
+              const remove = Math.min(t.unit_count - 1, effect.value);
+              if (remove > 0) {
+                t.unit_count -= remove;
+                affected.push({ territory_id: tid, delta: -remove });
+              }
+            }
           }
         }
       }

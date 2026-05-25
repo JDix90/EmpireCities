@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types';
 import { calculateReinforcements } from '../combat/combatResolver';
 import { calculateContinentBonuses } from '../state/gameStateManager';
@@ -47,7 +48,12 @@ export function computeAiTurn(
       continentBonus,
       state.players.length,
     );
-    const target = owned[Math.floor(Math.random() * owned.length)] ?? owned[0];
+    // Tutorial AI uses the CSPRNG for parity with the rest of the engine.
+    // Cosmetic for tutorial outcomes, but lets us audit the codebase as
+    // "no Math.random in gameplay" — the only Math.random calls left in
+    // aiBot are heuristic jitter for non-tutorial difficulties, where
+    // determinism is intentionally absent.
+    const target = owned.length > 0 ? owned[randomInt(0, owned.length)] : undefined;
     return [
       ...(target ? [{ type: 'draft' as const, to: target, units: reinforcements }] : []),
       { type: 'end_phase' as const },

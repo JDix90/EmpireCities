@@ -91,10 +91,14 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_jwt_refresh}
       REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
     healthcheck:
+      # /ready exercises Postgres, Mongo, and Redis so the orchestrator only
+      # routes traffic once dependencies are actually reachable. /health stays
+      # as a cheap liveness probe (e.g. external uptime monitoring) and does
+      # not verify db connectivity.
       test:
         [
           'CMD-SHELL',
-          "node -e \"require('http').get('http://127.0.0.1:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\"",
+          "node -e \"require('http').get('http://127.0.0.1:3001/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\"",
         ]
       interval: 30s
       timeout: 10s

@@ -9,6 +9,7 @@ import {
   getOrCreateWeeklyChallenge,
   getReplayHighlights,
 } from '../../services/playerValueEnhancements';
+import { formatZodError } from '../../utils/formatZodError';
 
 const QolSettingsSchema = z.object({
   animation_speed_multiplier: z.number().min(0.5).max(3).optional(),
@@ -94,7 +95,7 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.put('/players/me/qol-settings', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = QolSettingsSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.code(400).send({ error: 'Invalid settings', details: parsed.error.flatten() });
+    if (!parsed.success) return reply.code(400).send(formatZodError(parsed.error, 'Invalid settings'));
 
     const incoming = parsed.data;
     const current = await queryOne<{
@@ -172,7 +173,7 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
 
   fastify.post<{ Params: { challengeId: string } }>('/weekly/:challengeId/submit', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = WeeklySubmitSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.code(400).send({ error: 'Invalid submission', details: parsed.error.flatten() });
+    if (!parsed.success) return reply.code(400).send(formatZodError(parsed.error, 'Invalid submission'));
     const { challengeId } = request.params;
     const payload = parsed.data;
 

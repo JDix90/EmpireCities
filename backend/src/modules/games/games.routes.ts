@@ -10,6 +10,7 @@ import { getGameIo } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
+import { formatZodError } from '../../utils/formatZodError';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -75,7 +76,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/', { preHandler: authenticate }, async (request, reply) => {
     const body = CreateGameSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: body.error.flatten() });
+      return reply.status(400).send(formatZodError(body.error));
     }
     const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty } = body.data;
 
@@ -145,7 +146,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/tutorial/start', { preHandler: authenticate }, async (request, reply) => {
     const parsed = TutorialStartSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+      return reply.status(400).send(formatZodError(parsed.error));
     }
     const useWw2 = parsed.data.era === 'ww2';
     const mapId = useWw2 ? 'era_ww2' : 'tutorial';
@@ -404,7 +405,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const parsed = InviteFriendSchema.safeParse(request.body ?? {});
       if (!parsed.success) {
-        return reply.status(400).send({ error: 'Invalid input', details: parsed.error.flatten() });
+        return reply.status(400).send(formatZodError(parsed.error));
       }
       const { friend_user_id: friendId } = parsed.data;
       const gameId = request.params.gameId;
