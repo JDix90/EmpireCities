@@ -50,7 +50,7 @@ export function checkAndRecordActionId(
     seen.set(k, ids);
   }
 
-  if (ids.has(actionId)) return false;
+  if (ids.has(actionId)) return false; // duplicate — caller should surface an error to the client
 
   // Maintain LRU window: Set preserves insertion order, so the oldest entry
   // is always the first one iterated.

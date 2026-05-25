@@ -27,5 +27,7 @@ export function computeDraftPool(
     return raw;
   }
 
-  return Math.max(storeFallback, Math.max(3, Math.floor(me.territory_count / 3)));
+  // Do not invent a pool from territory count — the server rejects placements
+  // when draft_units_remaining is 0, and a bogus estimate hides that.
+  return Math.max(0, storeFallback);
 }
