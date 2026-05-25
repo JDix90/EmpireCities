@@ -44,6 +44,10 @@ export interface PlayerState {
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true when the player has triggered launch_space_station ability (gates moon access). */
   space_station_launched?: boolean;
+  pending_pre_attack_damage?: number;
+  pending_extra_attack_die?: boolean;
+  pending_ignore_defense_building?: boolean;
+  march_to_sea_active?: boolean;
 }
 
 export interface GameState {

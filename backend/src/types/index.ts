@@ -154,6 +154,14 @@ export interface PlayerState {
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
   space_station_launched?: boolean;
+  /** Bonus defender losses applied before the next land attack resolves (air_strike). */
+  pending_pre_attack_damage?: number;
+  /** +1 attack die on the next land attack (knights_charge, bersaglieri_charge). */
+  pending_extra_attack_die?: boolean;
+  /** Next land attack ignores defense-building bonus (activated siege abilities). */
+  pending_ignore_defense_building?: boolean;
+  /** ACW Total War: chain attacks enabled for remainder of turn after activation. */
+  march_to_sea_active?: boolean;
 }
 
 export interface DiplomacyEntry {

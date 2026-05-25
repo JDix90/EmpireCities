@@ -84,6 +84,25 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
 import { createPuzzleDieRoll } from '../game-engine/daily/puzzleDice';
 import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleScenario';
 import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
+import {
+  attackerIgnoresDefenseBuilding,
+  expandFogVisibilityFromRecon,
+  getFortifyMoveLimit,
+  getInfluenceUnitCost,
+  getPrecisionStrikeMinUnits,
+  getUnderdefendedAttackDiceBonus,
+  playerHasUnlockedAbility,
+} from '../game-engine/abilities/techAbilities';
+import {
+  buildStrikeAnimationPayload,
+  emitStrikeAnimation,
+  shouldEmitStrikeAnimation,
+} from '../game-engine/abilities/strikeAnimation';
+import {
+  consumeAttackBuffs,
+  executeTechAbility,
+  isGameScopedAbility,
+} from '../game-engine/abilities/executeTechAbility';
 
 function loadMapFromDoc(mapDoc: any): GameMap {
   return {
@@ -1220,11 +1239,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       // Determine attack dice count
-      // Modern era precision strike: 3 dice when attacker has ≥3 units committed
+      // Modern era precision strike: 3 dice when attacker meets unit threshold
+      const precisionMinUnits = getPrecisionStrikeMinUnits(state, userId);
       const precisionDiceOverride =
-        state.era_modifiers?.precision_strike && fromTerritory.unit_count >= 4
+        state.era_modifiers?.precision_strike && fromTerritory.unit_count >= precisionMinUnits
           ? 3
           : undefined;
+
+      const attackBuffs = consumeAttackBuffs(currentPlayer);
 
       // Discovery era sea lanes: check if the connection is a sea lane — if so, attacker gets only 2 dice
       // (unless the attacker owns the Lighthouse wonder, which grants 3 sea-attack dice)
@@ -1268,7 +1290,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const attackerDiceOverride = precisionDiceOverride ?? seaLanesOverride;
 
       // Economy: building defense bonus + tech tree passive defense bonus + faction passive defense
-      const buildingDefenseBonus = getBuildingDefenseBonus(state, toId);
+      let buildingDefenseBonus = getBuildingDefenseBonus(state, toId);
+      if (attackBuffs.ignoreDefenseBuilding || attackerIgnoresDefenseBuilding(state, userId)) {
+        buildingDefenseBonus = 0;
+      }
       const techDefenseBonus = state.settings.tech_trees_enabled
         ? getPlayerDefenseBonus(state, toTerritory.owner_id ?? '')
         : 0;
@@ -1326,9 +1351,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         && !state.blitzkrieg_attacked
         && state.blitzkrieg_bonus_source_id === fromId;
       const blitzkriegBonus = isBlitzkriegBonusAttack ? 1 : 0;
+      const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, userId, toTerritory.unit_count);
+      const pendingAttackDieBonus = attackBuffs.extraAttackDie ? 1 : 0;
 
       const combinedAttackBonus =
-        techAttackBonus + factionAttackBonus + eventAttackBonus + truceRetaliationBonus + blitzkriegBonus;
+        techAttackBonus + factionAttackBonus + eventAttackBonus + truceRetaliationBonus
+        + blitzkriegBonus + underdefendedBonus + pendingAttackDieBonus;
       const attackerBonusBreakdown = {
         tech: techAttackBonus,
         faction: factionAttackBonus,
@@ -1352,6 +1380,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const attackProbBefore = captureProbBefore(state, userId);
       const attackerUnitsCommitted = fromTerritory.unit_count;
+
+      if (attackBuffs.preAttackDamage > 0) {
+        toTerritory.unit_count = Math.max(1, toTerritory.unit_count - attackBuffs.preAttackDamage);
+      }
 
       const result = resolveCombat(
       fromTerritory.unit_count,
@@ -1573,8 +1605,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      // Enforce fortify move limit (wartime_logistics allows 2 per turn, otherwise 1)
-      const fortifyMoveLimit = state.era_modifiers?.wartime_logistics ? 2 : 1;
+      const fortifyMoveLimit = getFortifyMoveLimit(state, userId);
       const movesUsed = state.fortify_moves_used ?? 0;
       if (movesUsed >= fortifyMoveLimit) {
         return socket.emit('error', { message: `Fortify limit reached (${fortifyMoveLimit} moves per turn)` });
@@ -1839,8 +1870,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       // Check ability cooldown (once per turn) — skip for once-per-game abilities
-      const GAME_SCOPED_ABILITIES = ['atom_bomb', 'launch_space_station'];
-      const isGameScoped = GAME_SCOPED_ABILITIES.includes(abilityId);
+      const isGameScoped = isGameScopedAbility(abilityId);
       const uses = currentPlayer.ability_uses ?? {};
       if (!isGameScoped && uses[abilityId]) {
         return socket.emit('error', { message: `Ability '${abilityId}' already used this turn` });
@@ -1870,20 +1900,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         commitActionDecision(gameId, state, userId, 'ability', summary, abilityProbBefore);
       };
 
-      // Record turn-scoped use now; game-scoped uses are recorded inside each handler
+      // Record turn-scoped use now; game-scoped uses are recorded inside executeTechAbility
       // only after all guards pass, so a failed validation doesn't consume the ability.
       if (!isGameScoped) {
         currentPlayer.ability_uses = { ...uses, [abilityId]: 1 };
       }
 
-      // ── Ability: blitzkrieg (WW2 Germany) ──────────────────────────────────
-      // Activate the doctrine. The next territory this player captures will
-      // unlock a one-shot bonus attack from that same source territory (see
-      // the `game:attack` handler for redemption + consumption logic). The
-      // `double_blitz` tech variant lets the bonus fire twice per turn — we
-      // model this by simply not consuming the active flag until two bonus
-      // attacks have fired (tracked via `blitzkrieg_attacked` boolean for
-      // the single case; double_blitz overrides that gate, see below).
+      // ── Faction abilities with bespoke handlers ───────────────────────────
       if (abilityId === 'blitzkrieg' || abilityId === 'double_blitz') {
         state.blitzkrieg_active = true;
         state.blitzkrieg_attacked = false;
@@ -1894,7 +1917,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      // ── Ability: guerrilla_warfare (China WW2) — place 1 free unit ─────────
       if (abilityId === 'guerrilla_warfare') {
         const territoryId = params?.territoryId as string;
         if (!territoryId) return socket.emit('error', { message: 'Provide territoryId' });
@@ -1909,58 +1931,28 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      // ── Ability: cyber_attack — remove 1 enemy unit ────────────────────────
-      if (abilityId === 'cyber_attack') {
-        const territoryId = params?.territoryId as string;
-        if (!territoryId) return socket.emit('error', { message: 'Provide territoryId' });
-        const t = state.territories[territoryId];
-        if (!t || t.owner_id === userId) return socket.emit('error', { message: 'Invalid enemy territory' });
-        // Verify adjacency
-        const isAdj = map.connections.some(
-          (c) => (c.from === territoryId && Object.keys(state.territories).some(
-            (tid) => tid === c.to && state.territories[tid]?.owner_id === userId
-          )) || (c.to === territoryId && Object.keys(state.territories).some(
-            (tid) => tid === c.from && state.territories[tid]?.owner_id === userId
-          ))
-        );
-        if (!isAdj) return socket.emit('error', { message: 'Territory not adjacent to any of your territories' });
-        t.unit_count = Math.max(1, t.unit_count - 1);
-        recordAbility(`Cyber attack: -1 unit on ${territoryName(map, territoryId)}`);
-        socket.emit('game:ability_result', { abilityId, success: true, territoryId });
-        broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
-        return;
+      // ── Tech abilities (centralized execution) ────────────────────────────
+      const territoryId = params?.territoryId as string | undefined;
+      const execResult = executeTechAbility({
+        state,
+        map,
+        playerId: userId,
+        abilityId,
+        territoryId,
+      });
+
+      if (!execResult.success) {
+        // Roll back turn-scoped consumption on failure
+        if (!isGameScoped) {
+          const rolledBack = { ...currentPlayer.ability_uses };
+          delete rolledBack[abilityId];
+          currentPlayer.ability_uses = rolledBack;
+        }
+        return socket.emit('error', { message: execResult.error ?? 'Ability failed' });
       }
 
-      // ── Ability: atom_bomb — once per game, devastate a territory ──────────
-      // Instantly eliminates all units in the target territory, leaving it
-      // unowned with 1 unit. Phase must be attack.
-      if (abilityId === 'atom_bomb') {
-        if (state.phase !== 'attack') {
-          return socket.emit('error', { message: 'Atom bomb can only be used during the attack phase' });
-        }
-        const targetId = params?.territoryId as string | undefined;
-        if (!targetId) return socket.emit('error', { message: 'Provide params.territoryId' });
-        const target = state.territories[targetId];
-        if (!target) return socket.emit('error', { message: 'Invalid territory' });
-        if (target.owner_id === userId) return socket.emit('error', { message: 'Cannot bomb your own territory' });
-
-        // Record the once-per-game use here — after all guards have passed
-        currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
-
-        const previousOwner = target.owner_id;
-        const previousUnits = target.unit_count;
-
-        // Devastate: leave neutral with 1 unit, destroy all buildings
-        target.owner_id = null;
-        target.unit_count = 1;
-        target.buildings = [];
-        target.naval_units = 0;
-        if (target.stability != null) target.stability = 0;
-
-        syncTerritoryCounts(state);
-
-        // Eliminate owner if they run out of territories
+      if (execResult.effect === 'atom_bomb_detonated' && execResult.territoryId) {
+        const previousOwner = execResult.previousOwner;
         if (previousOwner) {
           const prevPlayer = state.players.find((p) => p.player_id === previousOwner);
           if (prevPlayer && prevPlayer.territory_count === 0) {
@@ -1977,32 +1969,27 @@ export function initGameSocket(httpServer: HttpServer): Server {
             });
           }
         }
-
-        recordAbility(`Atom bomb on ${territoryName(map, targetId)}`);
-        socket.emit('game:ability_result', {
+        recordAbility(`Atom bomb on ${territoryName(map, execResult.territoryId)}`);
+        const targetOwner = execResult.previousOwner
+          ? state.players.find((p) => p.player_id === execResult.previousOwner)
+          : undefined;
+        emitStrikeAnimation(io, gameId, buildStrikeAnimationPayload({
           abilityId,
-          success: true,
-          effect: 'atom_bomb_detonated',
-          territoryId: targetId,
-          previousOwner,
-          previousUnits,
-        });
-        io.to(gameId).emit('game:atom_bomb', {
           attackerId: userId,
           attackerName: currentPlayer.username,
           attackerColor: currentPlayer.color,
-          territoryId: targetId,
-        });
-
+          territoryId: execResult.territoryId,
+          targetOwnerId: execResult.previousOwner ?? null,
+          targetOwnerName: targetOwner?.username ?? null,
+        }));
+        socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
-
         const atomBombVictoryResult = checkVictory(state, map);
         if (atomBombVictoryResult) {
           const { winnerIds, condition } = atomBombVictoryResult;
-          const winnerId = winnerIds[0]!;
           state.phase = 'game_over';
-          state.winner_id = winnerId;
+          state.winner_id = winnerIds[0]!;
           state.winner_ids = winnerIds;
           state.victory_condition = condition;
           finalizeGame(io, gameId, state, winnerIds);
@@ -2010,54 +1997,45 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      // ── Ability: launch_space_station (Space Age) — once per game ───────────
-      // Unlocks the final step of Moon access. Requires:
-      //   • Phase is draft or fortify (not attack)
-      //   • Player has researched sa_space_station
-      //   • Player owns at least one territory with a launch_pad building
-      // Effect: sets space_station_launched = true, triggers a globe arc animation.
-      if (abilityId === 'launch_space_station') {
-        if (state.phase === 'attack') {
-          return socket.emit('error', { message: 'Launch must be scheduled during draft or fortify phase' });
-        }
-        if (currentPlayer.space_station_launched) {
-          return socket.emit('error', { message: 'Your Space Station has already been launched' });
-        }
-        // Find the launch pad territory (needed for arc origin)
-        const launchPadTerritory = Object.values(state.territories).find(
-          (t) => t.owner_id === userId && (t.buildings?.includes('launch_pad') ?? false),
-        );
-        if (!launchPadTerritory) {
-          return socket.emit('error', { message: 'You need a Launch Pad building to launch a Space Station' });
-        }
-
-        // Record once-per-game use after all guards pass
-        currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
-        currentPlayer.space_station_launched = true;
-
+      if (execResult.effect === 'space_station_launched' && execResult.territoryId) {
         recordAbility('Launched Space Station');
-        socket.emit('game:ability_result', {
-          abilityId,
-          success: true,
-          effect: 'space_station_launched',
-          territoryId: launchPadTerritory.territory_id,
-        });
         io.to(gameId).emit('game:space_station_launched', {
           playerId: userId,
           playerName: currentPlayer.username,
           playerColor: currentPlayer.color,
-          launchTerritoryId: launchPadTerritory.territory_id,
+          launchTerritoryId: execResult.territoryId,
         });
-
+        socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
         return;
       }
 
-      // Default: acknowledge but take no mechanical action (client-side visual only)
-      recordAbility(`Used ability ${abilityId}`);
-      socket.emit('game:ability_result', { abilityId, success: true });
+      const abilityLabel = abilityId.replace(/_/g, ' ');
+      if (execResult.territoryId) {
+        recordAbility(`${abilityLabel} on ${territoryName(map, execResult.territoryId)}`);
+      } else {
+        recordAbility(`Activated ${abilityLabel}`);
+      }
+
+      if (shouldEmitStrikeAnimation(abilityId, execResult.effect) && execResult.territoryId) {
+        const targetOwner = execResult.previousOwner
+          ? state.players.find((p) => p.player_id === execResult.previousOwner)
+          : undefined;
+        emitStrikeAnimation(io, gameId, buildStrikeAnimationPayload({
+          abilityId,
+          attackerId: userId,
+          attackerName: currentPlayer.username,
+          attackerColor: currentPlayer.color,
+          territoryId: execResult.territoryId,
+          targetOwnerId: execResult.previousOwner ?? null,
+          targetOwnerName: targetOwner?.username ?? null,
+        }));
+      }
+
+      socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
       broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
     });
 
     // ── Influence (Cold War / Risorgimento era ability) ──────────────────────
@@ -2117,13 +2095,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'Target territory not within influence range' });
       }
 
-      // Garibaldi's Redshirts: free influence on neutral territories within 1 hop (exempt from cooldown & cost)
+      // Garibaldi's Redshirts / Détente: free influence on neutral territories within range
+      const isDetenteUse =
+        target.owner_id === null
+        && playerHasUnlockedAbility(state, userId, 'detente_protocol');
+
       const isGaribaldiUse =
         !!modifiers?.carbonari_network &&
         currentPlayer.unlocked_techs?.includes('riso_garibaldi') &&
         target.owner_id === null;
 
-      if (isGaribaldiUse) {
+      if (isDetenteUse) {
+        if ((currentPlayer.ability_uses?.detente_protocol ?? 0) >= 1) {
+          return socket.emit('error', { message: 'Détente influence already used this turn' });
+        }
+      } else if (isGaribaldiUse) {
         if ((currentPlayer.ability_uses?.['riso_garibaldi'] ?? 0) >= 1) {
           return socket.emit('error', { message: "Garibaldi's Redshirts already used this turn" });
         }
@@ -2133,15 +2119,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return socket.emit('error', { message: `Influence can only seize territories with ≤${INFLUENCE_MAX_TARGET_UNITS} defending units` });
         }
 
-        // Cost: player must have at least 3 total units to spare (1 in reserve)
+        // Cost: player must have enough spare units to pay the influence cost
+        const influenceCost = getInfluenceUnitCost(state, userId);
         const totalUnits = Object.values(state.territories)
           .filter((t) => t.owner_id === userId)
           .reduce((sum, t) => sum + t.unit_count, 0);
-        if (totalUnits < 4) {
-          return socket.emit('error', { message: 'Not enough units to pay influence cost (need 3 spare)' });
+        if (totalUnits < influenceCost + 1) {
+          return socket.emit('error', { message: `Not enough units to pay influence cost (need ${influenceCost} spare)` });
         }
 
-        // Deduct 3 units from the largest owned adjacent territory
+        // Deduct units from the largest owned adjacent territory
         const adjacentOwned = getAdjacentTerritoryIds(map, targetId)
           .filter((nid) => state.territories[nid]?.owner_id === userId)
           .sort((a, b) => (state.territories[b]?.unit_count ?? 0) - (state.territories[a]?.unit_count ?? 0));
@@ -2150,7 +2137,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return socket.emit('error', { message: 'No adjacent owned territory to project influence from' });
         }
 
-        let remaining = 3;
+        let remaining = influenceCost;
         for (const tid of adjacentOwned) {
           const t = state.territories[tid];
           if (!t) continue;
@@ -2171,6 +2158,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       target.unit_count = 1;
       if (isGaribaldiUse) {
         currentPlayer.ability_uses = { ...currentPlayer.ability_uses, riso_garibaldi: 1 };
+      } else if (isDetenteUse) {
+        currentPlayer.ability_uses = { ...currentPlayer.ability_uses, detente_protocol: 1 };
       } else {
         state.influence_cooldown_remaining = INFLUENCE_COOLDOWN_TURNS;
       }
@@ -2201,7 +2190,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       commitActionDecision(
         gameId, state, userId, 'influence',
-        `Influenced ${territoryName(map, targetId)}${isGaribaldiUse ? ' (Garibaldi)' : ''}`,
+        `Influenced ${territoryName(map, targetId)}${isGaribaldiUse ? ' (Garibaldi)' : isDetenteUse ? ' (Détente)' : ''}`,
         influenceProbBefore,
       );
 
@@ -2990,6 +2979,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
         visibleIds.add(neighbour);
       }
     }
+    expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
   }
 
   const filtered: GameState = { ...state, territories: { ...state.territories } };

@@ -11,6 +11,10 @@ import { isMobileViewport } from '../../utils/device';
 import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
 import {
+  getTerritoryPanelAbilities,
+  TERRITORY_ABILITY_UI,
+} from '../../utils/techAbilities';
+import {
   getGalaxyTerritoryLoreDetail,
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
@@ -31,7 +35,8 @@ interface TerritoryPanelProps {
   onNavalAttack?: (fromId: string, toId: string) => void;
   onInfluence?: (targetId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
-  onAtomBomb?: (targetId: string) => void;
+  onUseAbility?: (abilityId: string, targetId?: string) => void;
+  techTree?: Array<{ tech_id: string; unlocks_ability?: string }>;
   /**
    * Optional copy shown when the selected territory is offworld (Moon / non-Sol
    * galaxy world) and the active player has not yet satisfied the orbit-access
@@ -54,7 +59,8 @@ export default function TerritoryPanel({
   onNavalAttack,
   onInfluence,
   onProposeTruce,
-  onAtomBomb,
+  onUseAbility,
+  techTree = [],
   orbitAccessHint,
   resolvedViewerPlayerId,
   onClose,
@@ -452,29 +458,41 @@ export default function TerritoryPanel({
                   </button>
                 </div>
               )}
-              {/* Atom Bomb (WW2 era — once per game) */}
-              {isEnemy && !attackSource && onAtomBomb && gameState.phase === 'attack' && isMyTurn && (() => {
-                const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
-                const alreadyUsed = myPlayer?.used_game_abilities?.includes('atom_bomb');
-                return (
-                  <button
-                    disabled={!!alreadyUsed}
-                    className={clsx(
-                      'w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg mt-2 transition-colors',
-                      alreadyUsed
-                        ? 'border border-gray-700 bg-gray-900/30 text-gray-600 cursor-not-allowed'
-                        : 'border border-red-600/70 bg-red-950/50 text-red-300 hover:bg-red-900/50 hover:border-red-500',
-                    )}
-                    onClick={() => {
-                      if (!alreadyUsed) { onAtomBomb(selectedTerritory); onClose(); }
-                    }}
-                  >
-                    ☢️ Atom Bomb
-                    <span className={clsx('text-xs', alreadyUsed ? 'text-gray-600' : 'text-red-400/70')}>
-                      {alreadyUsed ? '(used)' : '(once per game)'}
-                    </span>
-                  </button>
-                );
+              {/* Tech / strike abilities */}
+              {onUseAbility && isMyTurn && !attackSource && myPlayer && (() => {
+                const abilities = getTerritoryPanelAbilities(gameState, myPlayer, techTree, {
+                  isEnemy,
+                  isMine,
+                });
+                if (abilities.length === 0) return null;
+                return abilities.map((abilityId) => {
+                  const def = TERRITORY_ABILITY_UI[abilityId];
+                  if (!def) return null;
+                  const styleClass =
+                    def.style === 'danger'
+                      ? 'border border-red-600/70 bg-red-950/50 text-red-300 hover:bg-red-900/50 hover:border-red-500'
+                      : def.style === 'warning'
+                        ? 'border border-amber-600/70 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50 hover:border-amber-500'
+                        : 'border border-blue-600/70 bg-blue-950/50 text-blue-300 hover:bg-blue-900/50 hover:border-blue-500';
+                  return (
+                    <button
+                      key={abilityId}
+                      className={clsx(
+                        'w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg mt-2 transition-colors',
+                        styleClass,
+                      )}
+                      onClick={() => {
+                        onUseAbility(abilityId, def.enemyTarget ? selectedTerritory : selectedTerritory);
+                        onClose();
+                      }}
+                    >
+                      {def.emoji} {def.label}
+                      <span className="text-xs opacity-70">
+                        {def.scope === 'game' ? '(once per game)' : '(once per turn)'}
+                      </span>
+                    </button>
+                  );
+                });
               })()}
             </div>
           )}

@@ -16,7 +16,12 @@ import MobileCombatBanner from '../components/game/MobileCombatBanner';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
 import BonusesModal from '../components/game/BonusesModal';
-import AtomBombAnimation from '../components/game/AtomBombAnimation';
+import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
+import {
+  getStrikeCombatLogLine,
+  getStrikeToastMessage,
+  type StrikeAnimationEvent,
+} from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
@@ -367,6 +372,7 @@ export default function GamePage() {
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
   userRef.current = user;
+  const resolvedViewerPlayerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setJoinPlayerIndex(null);
@@ -377,6 +383,7 @@ export default function GamePage() {
     if (!gameState || joinPlayerIndex == null) return null;
     return gameState.players[joinPlayerIndex]?.player_id ?? null;
   }, [gameState, joinPlayerIndex]);
+  resolvedViewerPlayerIdRef.current = resolvedViewerPlayerId;
 
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
   // that dismissing the game-over modal routes back to the right campaign detail.
@@ -442,7 +449,12 @@ export default function GamePage() {
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
   const [showBonuses, setShowBonuses] = useState(false);
-  const [atomBombAnim, setAtomBombAnim] = useState<{ targetName: string; key: number } | null>(null);
+  const [strikeAnim, setStrikeAnim] = useState<{
+    abilityId: StrikeAnimationVariant;
+    targetName: string;
+    unitReduction?: number;
+    key: number;
+  } | null>(null);
   const [activeEventCard, setActiveEventCard] = useState<EventCard | null>(null);
   const [truceProposal, setTruceProposal] = useState<{
     gameId: string;
@@ -1182,32 +1194,61 @@ export default function GamePage() {
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
     });
 
-    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId }: {
-      attackerId: string;
+    const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
+      const abilityId = event.abilityId as StrikeAnimationVariant;
+      if (abilityId !== 'atom_bomb' && abilityId !== 'nuclear_strike') return;
+
+      const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
+        ?? event.territoryId;
+
+      setStrikeAnim((prev) => ({
+        abilityId,
+        targetName: tName,
+        unitReduction: event.unitReduction,
+        key: (prev?.key ?? 0) + 1,
+      }));
+
+      const viewer = userRef.current;
+      toast(getStrikeToastMessage(event, tName, {
+        userId: viewer?.user_id,
+        username: viewer?.username,
+        resolvedPlayerId: resolvedViewerPlayerIdRef.current,
+      }), {
+        duration: 6000,
+        style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
+      });
+
+      setCombatLog((prev) => [...prev, getStrikeCombatLogLine(event, tName)]);
+
+      pushGlobeEvent({
+        type: 'combat',
+        territoryId: event.territoryId,
+        attackerLosses: 0,
+        defenderLosses: event.abilityId === 'atom_bomb' ? 99 : (event.unitReduction ?? 2),
+        captured: false,
+        attackerColor: event.attackerColor,
+      });
+    };
+
+    socket.on('game:strike_animation', handleStrikeAnimationEvent);
+
+    // Legacy event — kept so older server builds still trigger visuals during rollout
+    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId, attackerId, targetOwnerId, targetOwnerName }: {
+      attackerId?: string;
       attackerName: string;
       attackerColor: string;
       territoryId: string;
+      targetOwnerId?: string | null;
+      targetOwnerName?: string | null;
     }) => {
-      const tName = mapDataRef.current?.territories.find((t) => t.territory_id === territoryId)?.name ?? territoryId;
-      setAtomBombAnim((prev) => ({ targetName: tName, key: (prev?.key ?? 0) + 1 }));
-      const isMe = attackerName === user?.username;
-      toast(
-        isMe
-          ? `☢️ You dropped the Atom Bomb on ${tName}!`
-          : `☢️ ${attackerName} dropped the Atom Bomb on ${tName}!`,
-        {
-          duration: 6000,
-          style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
-        },
-      );
-      setCombatLog((prev) => [...prev, `☢️ ${attackerName} atom-bombed ${tName} — all units eliminated`]);
-      pushGlobeEvent({
-        type: 'combat',
-        territoryId,
-        attackerLosses: 0,
-        defenderLosses: 99,
-        captured: false,
+      handleStrikeAnimationEvent({
+        abilityId: 'atom_bomb',
+        attackerId: attackerId ?? '',
+        attackerName,
         attackerColor,
+        territoryId,
+        targetOwnerId: targetOwnerId ?? null,
+        targetOwnerName: targetOwnerName ?? null,
       });
     });
 
@@ -1252,6 +1293,7 @@ export default function GamePage() {
       socket.off('game:truce_broken');
       socket.off('error');
       socket.off('game:wonder_built');
+      socket.off('game:strike_animation');
       socket.off('game:atom_bomb');
       socket.off('game:space_station_launched');
       socket.off('game:puzzle_feedback');
@@ -1804,6 +1846,14 @@ export default function GamePage() {
     setShowBonuses(true);
   }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
 
+  // Pre-load tech tree so territory-panel ability buttons resolve unlocked abilities.
+  useEffect(() => {
+    if (!gameState?.era || !gameState.settings.tech_trees_enabled || techTree.length > 0) return;
+    api.get(`/eras/${gameState.era}/tech-tree`)
+      .then((res) => setTechTree(res.data.techTree ?? []))
+      .catch(() => {});
+  }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
+
   const handleNavalMove = useCallback((fromId: string, toId: string, count: number) => {
     getSocket().emit('game:naval_move', { gameId, fromId, toId, count });
   }, [gameId]);
@@ -1816,8 +1866,12 @@ export default function GamePage() {
     getSocket().emit('game:influence', { gameId, targetId });
   }, [gameId]);
 
-  const handleAtomBomb = useCallback((targetId: string) => {
-    getSocket().emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: targetId } });
+  const handleUseAbility = useCallback((abilityId: string, targetId?: string) => {
+    getSocket().emit('game:use_ability', {
+      gameId,
+      abilityId,
+      params: targetId ? { territoryId: targetId } : undefined,
+    });
   }, [gameId]);
 
   const handleProposeTruce = useCallback((targetPlayerId: string) => {
@@ -2901,7 +2955,8 @@ export default function GamePage() {
                   : undefined
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
-              onAtomBomb={gameState?.players.find(p => p.player_id === user?.user_id)?.unlocked_techs?.includes('ww2_atom_bomb') ? handleAtomBomb : undefined}
+              onUseAbility={gameState?.settings.tech_trees_enabled ? handleUseAbility : undefined}
+              techTree={techTree}
               orbitAccessHint={orbitAccessHint}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
@@ -3157,11 +3212,13 @@ export default function GamePage() {
         />
       )}
 
-      {atomBombAnim && (
+      {strikeAnim && (
         <AtomBombAnimation
-          key={atomBombAnim.key}
-          targetName={atomBombAnim.targetName}
-          onDone={() => setAtomBombAnim(null)}
+          key={strikeAnim.key}
+          abilityId={strikeAnim.abilityId}
+          targetName={strikeAnim.targetName}
+          unitReduction={strikeAnim.unitReduction}
+          onDone={() => setStrikeAnim(null)}
         />
       )}
 
