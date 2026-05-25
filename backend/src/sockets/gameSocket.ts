@@ -1022,19 +1022,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:draft', ({ gameId, territoryId, units, action_id }: { gameId: string; territoryId: string; units: number; action_id?: string }) => {
       const room = activeGames.get(gameId);
       if (!room) return socket.emit('error', { message: 'Game not found' });
-      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
+      if (!currentPlayer) return socket.emit('error', { message: 'Not your turn' });
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
 
-      if (units < 1 || units > state.draft_units_remaining) {
-        return socket.emit('error', { message: `Cannot place ${units} units (${state.draft_units_remaining} remaining)` });
+      repairDraftUnitsIfMissing(state, map);
+      const poolRemaining = state.draft_units_remaining ?? 0;
+      if (units < 1 || units > poolRemaining) {
+        return socket.emit('error', { message: `Cannot place ${units} units (${poolRemaining} remaining)` });
       }
 
+      // Use the seated player's id (not raw JWT subject) so draft placement stays
+      // consistent with isSocketUsersTurn when player_id strings were realigned.
+      const actingPlayerId = currentPlayer.player_id;
       const territory = state.territories[territoryId];
-      if (!territory || territory.owner_id !== userId) {
+      if (!territory || territory.owner_id !== actingPlayerId) {
         return socket.emit('error', { message: 'Invalid territory' });
       }
 
@@ -1055,7 +1060,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      const draftProbBefore = captureProbBefore(state, userId);
+      if (!checkAndRecordActionId(gameId, userId, action_id)) {
+        return socket.emit('error', { message: 'Action already processed — please wait' });
+      }
+
+      const draftProbBefore = captureProbBefore(state, actingPlayerId);
       territory.unit_count += units;
       state.draft_units_remaining -= units;
       if (state.settings.stability_enabled) {

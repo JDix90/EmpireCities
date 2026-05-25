@@ -143,7 +143,7 @@ export default function TerritoryPanel({
       className={clsx(
       'bg-cc-surface animate-fade-in',
       isMobile
-        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up'
+        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-40 animate-slide-up'
         : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only (swipe-to-dismiss) */}
@@ -409,7 +409,8 @@ export default function TerritoryPanel({
                   onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
                 >+</button>
                 <button
-                  className="btn-primary text-sm py-1.5 px-4 flex-1"
+                  type="button"
+                  className="btn-primary text-sm py-1.5 px-4 flex-1 touch-manipulation min-h-[44px]"
                   onClick={() => onDraft(selectedTerritory, draftAmount)}
                 >
                   Place
@@ -720,7 +721,7 @@ export default function TerritoryPanel({
       )}
 
       {/* Economy buildings — hidden during attack-confirm to keep the attack flow distraction-free */}
-      {!isAttackConfirmMode && gameState.settings.economy_enabled && onBuild && (() => {
+      {!isAttackConfirmMode && !isMobileDraftPlacementMode && gameState.settings.economy_enabled && onBuild && (() => {
         // Compute era wonder state for this game
         const wonderMeta = gameState.era ? ERA_WONDERS[gameState.era] : undefined;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;

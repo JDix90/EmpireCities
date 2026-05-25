@@ -33,6 +33,7 @@ import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import LobbyProposals from '../components/game/LobbyProposals';
 import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import { computeDraftPool } from '../utils/draftPool';
+import { generateActionId } from '../utils/actionId';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
@@ -1160,6 +1161,17 @@ export default function GamePage() {
       // it had been queued up against the previous (now invalid) selection.
       // Clearing it forces a clean re-pick.
       setSelectedTerritory(null);
+      const gs = useGameStore.getState().gameState;
+      const uid = userRef.current?.user_id;
+      const uname = userRef.current?.username;
+      const seatPid =
+        joinPlayerIndexRef.current != null && gs
+          ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
+          : null;
+      if (gs?.phase === 'draft') {
+        setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, 0, seatPid));
+        ownTurnReinforcementsRef.current.pop();
+      }
       toast.error(message);
     });
 
@@ -1570,7 +1582,7 @@ export default function GamePage() {
       if (isUnowned) {
         if (territorySelectPendingRef.current) return;
         territorySelectPendingRef.current = true;
-        socket.emit('game:select_territory', { gameId, territoryId, action_id: crypto.randomUUID() });
+        socket.emit('game:select_territory', { gameId, territoryId, action_id: generateActionId() });
         setSelectedTerritory(null);
         return;
       }
@@ -1713,7 +1725,7 @@ export default function GamePage() {
   const handleClaimTerritory = (territoryId: string) => {
     if (territorySelectPendingRef.current) return;
     territorySelectPendingRef.current = true;
-    getSocket().emit('game:select_territory', { gameId, territoryId, action_id: crypto.randomUUID() });
+    getSocket().emit('game:select_territory', { gameId, territoryId, action_id: generateActionId() });
     setSelectedTerritory(null);
   };
 
@@ -1760,11 +1772,21 @@ export default function GamePage() {
   };
 
   const handleDraft = (territoryId: string, units: number) => {
-    getSocket().emit('game:draft', {
+    if (!gameId) {
+      toast.error('Game session not ready — try reloading');
+      return;
+    }
+    const socket = getSocket();
+    if (!socket.connected) {
+      toast.error('Not connected to the game server');
+      return;
+    }
+
+    socket.emit('game:draft', {
       gameId,
       territoryId,
       units,
-      action_id: crypto.randomUUID(),
+      action_id: generateActionId(),
     });
     const gs = useGameStore.getState().gameState;
     const uid = useAuthStore.getState().user?.user_id;
