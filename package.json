@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Eras of Empire — browser-based historical strategy game",
+  "packageManager": "pnpm@10.9.0",
   "workspaces": [
     "frontend",
     "backend",

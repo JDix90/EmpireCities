@@ -1,12 +1,14 @@
 # Monorepo backend image — runs migrations then the API + Socket.io.
 # Build from repository root: docker build -f docker/Dockerfile.backend .
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
 COPY packages/shared/package.json ./packages/shared/
 COPY database ./database
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+# package.json `packageManager` pins pnpm@10.9.0 — do not rely on corepack's
+# default (pnpm 11.x requires Node ≥22.13 and breaks on node:20 images).
+RUN corepack enable && corepack prepare pnpm@10.9.0 --activate && pnpm install --frozen-lockfile
 COPY backend ./backend
 COPY packages/shared ./packages/shared
 RUN cd backend && pnpm run build
