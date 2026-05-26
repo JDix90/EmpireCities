@@ -91,6 +91,10 @@ export interface GalaxyStrategicViewProps {
    * authoritative for the actual claim/attack rejection.
    */
   orbitAccessAllowed?: boolean;
+  /** Pulse the world node when a map action occurs on that world. */
+  pulseWorldId?: string | null;
+  pulseKey?: number;
+  pulseLabel?: string | null;
 }
 
 interface PointDatum {
@@ -133,9 +137,13 @@ export default function GalaxyStrategicView({
   width,
   height,
   orbitAccessAllowed = true,
+  pulseWorldId = null,
+  pulseKey = 0,
+  pulseLabel = null,
 }: GalaxyStrategicViewProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [ready, setReady] = useState(false);
+  const [pulsePhase, setPulsePhase] = useState(0);
 
   const regions = mapData.regions ?? [];
 
@@ -243,6 +251,9 @@ export default function GalaxyStrategicView({
       const oc = ownerColor(p.territory_id);
       const base = regionColor(regionIndex, p.region_id);
       const isSelected = selectedTerritoryId === p.territory_id;
+      const isPulsing = pulseWorldId && p.world_id === pulseWorldId && pulsePhase > 0;
+      const pulseBoost = isPulsing ? 0.4 + 0.6 * Math.abs(Math.sin(pulsePhase * 0.25)) : 0;
+      const baseSize = isSelected ? 0.55 : 0.4;
       return {
         territory_id: p.territory_id,
         name: p.name,
@@ -251,11 +262,11 @@ export default function GalaxyStrategicView({
         lat: p.lat,
         lng: p.lng,
         color: oc ?? base,
-        size: isSelected ? 0.55 : 0.4,
-        altitude: isSelected ? 0.06 : 0.04,
+        size: baseSize * (1 + pulseBoost * 0.85),
+        altitude: isSelected ? 0.06 : 0.04 + pulseBoost * 0.03,
       };
     });
-  }, [layout, ownerColor, regionIndex, selectedTerritoryId]);
+  }, [layout, ownerColor, regionIndex, selectedTerritoryId, pulseWorldId, pulsePhase]);
 
   const arcs = useMemo<ArcDatum[]>(() => {
     const out: ArcDatum[] = [];
@@ -323,6 +334,20 @@ export default function GalaxyStrategicView({
     }
   }, [ready]);
 
+  useEffect(() => {
+    if (!pulseWorldId || !pulseKey) {
+      setPulsePhase(0);
+      return;
+    }
+    let frame = 0;
+    const iv = window.setInterval(() => {
+      frame += 1;
+      setPulsePhase(frame);
+      if (frame > 42) window.clearInterval(iv);
+    }, 48);
+    return () => window.clearInterval(iv);
+  }, [pulseWorldId, pulseKey]);
+
   const handlePointClick = useCallback(
     (pt: object, ev: MouseEvent) => {
       const p = pt as PointDatum;
@@ -341,6 +366,14 @@ export default function GalaxyStrategicView({
       className="relative"
       style={{ width, height, background: 'rgb(5, 7, 16)' }}
     >
+      {pulseLabel && pulsePhase > 0 && (
+        <div
+          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none px-3 py-1.5 rounded-lg border border-cc-gold/30 bg-black/55 text-cc-gold text-xs font-medium"
+          role="status"
+        >
+          {pulseLabel}
+        </div>
+      )}
       <Globe
         ref={globeRef}
         width={width}

@@ -6,14 +6,28 @@ import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
+import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
+import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import GameChat from '../components/game/GameChat';
 import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
 import {
   getStrikeToastMessage,
   type StrikeAnimationEvent,
 } from '../utils/strikeAnimationMessages';
+import {
+  getStrikeToastStyle,
+  isFullScreenStrikeAbility,
+  isMapStrikeAbility,
+  type MapStrikeAbilityId,
+  type MapStrikeFlashProps,
+} from '../utils/mapStrikeEffects';
 import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
+import { prefersReducedMotion } from '../utils/device';
+import {
+  computeContestedBorders,
+  phaseTintClass,
+} from '../utils/mapAmbientEffects';
 
 interface MapData {
   canvas_width?: number;
@@ -44,8 +58,15 @@ export default function SpectatorPage() {
     unitReduction?: number;
     key: number;
   } | null>(null);
+  const [mapStrikeFlash, setMapStrikeFlash] = useState<MapStrikeFlashProps | null>(null);
+  const mapStrikeFlashKeyRef = useRef(0);
   const mapDataRef = useRef<MapData | null>(null);
   const cleanedUp = useRef(false);
+  const {
+    mapVisualEvents,
+    handleMapVisualEvent,
+    onMapVisualDone,
+  } = useMapVisualEvents();
 
   useEffect(() => {
     if (!gameId || !accessToken) return;
@@ -88,26 +109,64 @@ export default function SpectatorPage() {
     });
 
     const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
-      const abilityId = event.abilityId as StrikeAnimationVariant;
-      if (abilityId !== 'atom_bomb' && abilityId !== 'nuclear_strike') return;
+      if (!isMapStrikeAbility(event.abilityId)) return;
 
+      const abilityId = event.abilityId as MapStrikeAbilityId;
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
-      setStrikeAnim((prev) => ({
+      if (isFullScreenStrikeAbility(abilityId)) {
+        setStrikeAnim((prev) => ({
+          abilityId: abilityId as StrikeAnimationVariant,
+          targetName: tName,
+          unitReduction: event.unitReduction,
+          key: (prev?.key ?? 0) + 1,
+        }));
+      }
+
+      mapStrikeFlashKeyRef.current += 1;
+      setMapStrikeFlash({
+        territoryId: event.territoryId,
         abilityId,
-        targetName: tName,
-        unitReduction: event.unitReduction,
-        key: (prev?.key ?? 0) + 1,
-      }));
+        key: mapStrikeFlashKeyRef.current,
+      });
 
       toast(getStrikeToastMessage(event, tName, {}), {
         duration: 6000,
-        style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
+        style: getStrikeToastStyle(abilityId),
       });
     };
 
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
+
+    socket.on('game:map_visual', (payload: MapVisualEvent) => {
+      handleMapVisualEvent(payload);
+    });
+
+    socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
+      fromId: string; toId: string;
+      result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
+    }) => {
+      const fromName = mapDataRef.current?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
+      const toName = mapDataRef.current?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
+      const outcome = result.attacker_won
+        ? `Fleet victory — ${fromName} → ${toName}`
+        : `Fleet repelled at ${toName}`;
+      toast(outcome, { icon: '⚓', duration: 3000 });
+    });
+
+    socket.on('game:influence_result', ({ success, targetId, variant }: {
+      success: boolean;
+      targetId?: string;
+      variant?: 'seize' | 'garibaldi' | 'detente';
+    }) => {
+      if (!success || !targetId) return;
+      const targetName = mapDataRef.current?.territories.find((t) => t.territory_id === targetId)?.name ?? targetId;
+      const label = variant === 'garibaldi' ? "Garibaldi's Redshirts"
+        : variant === 'detente' ? 'Détente'
+          : 'Influence';
+      toast(`📡 ${label} — ${targetName} seized`, { duration: 3000 });
+    });
 
     socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId, attackerId, targetOwnerId, targetOwnerName }: {
       attackerId?: string;
@@ -143,6 +202,9 @@ export default function SpectatorPage() {
         socket.off('game:spectator_emote');
         socket.off('game:strike_animation');
         socket.off('game:atom_bomb');
+        socket.off('game:map_visual');
+        socket.off('game:naval_combat_result');
+        socket.off('game:influence_result');
         socket.off('error');
         clearGame();
       }
@@ -169,6 +231,14 @@ export default function SpectatorPage() {
   }
 
   const currentPlayer = gameState.players[gameState.current_player_index];
+  const spectatorAmbientEnabled = gameState.phase !== 'game_over' && !prefersReducedMotion();
+  const contestedBorders = computeContestedBorders(
+    gameState.territories,
+    mapData.connections,
+    currentPlayer?.player_id,
+    gameState.phase,
+  );
+  const phaseTint = phaseTintClass(gameState.phase, spectatorAmbientEnabled);
 
   return (
     <div className="min-h-screen bg-cc-dark flex flex-col">
@@ -221,12 +291,19 @@ export default function SpectatorPage() {
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <div className="flex-1 relative min-h-[50vh]">
+        <div className={`flex-1 relative min-h-[50vh]${phaseTint ? ` ${phaseTint}` : ''}`}>
           <GameMap
             mapData={mapData}
             onTerritoryClick={() => {}}
             width={window.innerWidth}
             height={window.innerHeight - 130}
+            strikeFlash={mapStrikeFlash}
+            mapVisualEvents={mapVisualEvents}
+            onMapVisualDone={onMapVisualDone}
+            ambientEnabled={spectatorAmbientEnabled}
+            turnHolderPlayerId={currentPlayer?.player_id ?? null}
+            turnHolderColor={currentPlayer?.color}
+            contestedBorders={contestedBorders}
           />
 
           {emotes.length > 0 && (

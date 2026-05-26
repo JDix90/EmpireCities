@@ -1,0 +1,159 @@
+/** Shared strike visuals for 2D map + globe territory flash. */
+
+export type MapStrikeAbilityId =
+  | 'atom_bomb'
+  | 'nuclear_strike'
+  | 'orbital_strike'
+  | 'hypersonic_strike'
+  | 'cyber_attack'
+  | 'data_breach'
+  | 'swarm_strike'
+  | 'dyson_beam'
+  | 'river_blockade';
+
+export interface MapStrikeFlashProps {
+  territoryId: string;
+  abilityId: MapStrikeAbilityId;
+  key: number;
+}
+
+export interface StrikeMapStyle {
+  emoji: string;
+  /** PIXI fill hex for 2D map territory pulse */
+  fillHex: number;
+  /** PIXI ring / border hex for 2D map pulse */
+  ringHex: number;
+  /** RGB components for globe polygon flash overlay */
+  ringRgb: [number, number, number];
+  /** Full-screen + map-local animation length (ms) */
+  durationMs: number;
+  /** How long the territory polygon stays highlighted on the map (ms) */
+  mapFlashMs: number;
+  /** When true, triggers AtomBombAnimation full-screen overlay */
+  fullScreen: boolean;
+}
+
+export const STRIKE_MAP_STYLES: Record<MapStrikeAbilityId, StrikeMapStyle> = {
+  atom_bomb: {
+    emoji: '☢️',
+    fillHex: 0xff4500,
+    ringHex: 0xff2200,
+    ringRgb: [255, 80, 0],
+    durationMs: 5200,
+    mapFlashMs: 4200,
+    fullScreen: true,
+  },
+  nuclear_strike: {
+    emoji: '☢️',
+    fillHex: 0xffab40,
+    ringHex: 0xff7043,
+    ringRgb: [255, 171, 64],
+    durationMs: 4000,
+    mapFlashMs: 3200,
+    fullScreen: true,
+  },
+  orbital_strike: {
+    emoji: '🛰️',
+    fillHex: 0x67e8f9,
+    ringHex: 0x0891b2,
+    ringRgb: [103, 232, 249],
+    durationMs: 3600,
+    mapFlashMs: 3000,
+    fullScreen: true,
+  },
+  hypersonic_strike: {
+    emoji: '🚀',
+    fillHex: 0xfb923c,
+    ringHex: 0xea580c,
+    ringRgb: [251, 146, 60],
+    durationMs: 3200,
+    mapFlashMs: 2600,
+    fullScreen: true,
+  },
+  cyber_attack: {
+    emoji: '💻',
+    fillHex: 0x22c55e,
+    ringHex: 0x16a34a,
+    ringRgb: [34, 197, 94],
+    durationMs: 2400,
+    mapFlashMs: 2000,
+    fullScreen: false,
+  },
+  data_breach: {
+    emoji: '🖥️',
+    fillHex: 0x14532d,
+    ringHex: 0x052e16,
+    ringRgb: [20, 83, 45],
+    durationMs: 2400,
+    mapFlashMs: 2000,
+    fullScreen: false,
+  },
+  swarm_strike: {
+    emoji: '🐝',
+    fillHex: 0xfb923c,
+    ringHex: 0xea580c,
+    ringRgb: [251, 146, 60],
+    durationMs: 3800,
+    mapFlashMs: 3000,
+    fullScreen: true,
+  },
+  dyson_beam: {
+    emoji: '☀️',
+    fillHex: 0xfef08a,
+    ringHex: 0xfacc15,
+    ringRgb: [254, 240, 138],
+    durationMs: 5500,
+    mapFlashMs: 4500,
+    fullScreen: true,
+  },
+  river_blockade: {
+    emoji: '⚓',
+    fillHex: 0x38bdf8,
+    ringHex: 0x0284c7,
+    ringRgb: [56, 189, 248],
+    durationMs: 2600,
+    mapFlashMs: 2200,
+    fullScreen: false,
+  },
+};
+
+const STRIKE_ABILITY_IDS = new Set<string>(Object.keys(STRIKE_MAP_STYLES));
+
+export function isMapStrikeAbility(abilityId: string): abilityId is MapStrikeAbilityId {
+  return STRIKE_ABILITY_IDS.has(abilityId);
+}
+
+export function isFullScreenStrikeAbility(abilityId: string): boolean {
+  if (!isMapStrikeAbility(abilityId)) return false;
+  return STRIKE_MAP_STYLES[abilityId].fullScreen;
+}
+
+export function isMapOnlyStrikeAbility(abilityId: string): boolean {
+  return isMapStrikeAbility(abilityId) && !STRIKE_MAP_STYLES[abilityId].fullScreen;
+}
+
+export function getStrikeToastStyle(abilityId: MapStrikeAbilityId): {
+  background: string;
+  border: string;
+  color: string;
+} {
+  switch (abilityId) {
+    case 'orbital_strike':
+      return { background: '#021018', border: '1px solid #0891b2', color: '#a5f3fc' };
+    case 'hypersonic_strike':
+    case 'swarm_strike':
+      return { background: '#1a0a04', border: '1px solid #ea580c', color: '#fdba74' };
+    case 'cyber_attack':
+    case 'data_breach':
+      return { background: '#021408', border: '1px solid #16a34a', color: '#86efac' };
+    case 'dyson_beam':
+      return { background: '#1a1500', border: '1px solid #ca8a04', color: '#fef08a' };
+    case 'river_blockade':
+      return { background: '#021018', border: '1px solid #0284c7', color: '#7dd3fc' };
+    case 'nuclear_strike':
+      return { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' };
+    case 'atom_bomb':
+    default:
+      return { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' };
+  }
+}

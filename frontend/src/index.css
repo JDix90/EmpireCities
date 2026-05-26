@@ -143,3 +143,27 @@
     animation: none;
   }
 }
+
+/* Phase tint overlays on live map containers (GamePage / Replay / Spectator) */
+.map-phase-tint-draft::after,
+.map-phase-tint-attack::after,
+.map-phase-tint-fortify::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.6s ease;
+}
+
+.map-phase-tint-draft::after {
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.07) 0%, transparent 72%);
+}
+
+.map-phase-tint-attack::after {
+  background: radial-gradient(ellipse at center, rgba(248, 113, 113, 0.09) 0%, transparent 70%);
+}
+
+.map-phase-tint-fortify::after {
+  background: radial-gradient(ellipse at center, rgba(74, 222, 128, 0.06) 0%, transparent 72%);
+}

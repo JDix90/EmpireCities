@@ -595,31 +595,54 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
 }
 
+export interface AutoDraftPlacement {
+  territory_id: string;
+  units: number;
+  totalAfter: number;
+}
+
+export interface AutoDraftResult {
+  total: number;
+  placements: AutoDraftPlacement[];
+}
+
 /**
  * Auto-place remaining draft units when the turn timer expires.
  * Distributes units round-robin across the player's territories in sorted `territory_id` order.
- * Returns the number of units placed (0 if nothing to do).
  */
-export function autoPlaceDraftUnits(state: GameState): number {
-  if (state.phase !== 'draft' || state.draft_units_remaining <= 0) return 0;
+export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
+  const empty: AutoDraftResult = { total: 0, placements: [] };
+  if (state.phase !== 'draft' || state.draft_units_remaining <= 0) return empty;
 
   const playerId = state.players[state.current_player_index]?.player_id;
-  if (!playerId) return 0;
+  if (!playerId) return empty;
 
   const ownedIds = Object.keys(state.territories)
     .filter((tid) => state.territories[tid].owner_id === playerId)
     .sort();
-  if (ownedIds.length === 0) return 0;
+  if (ownedIds.length === 0) return empty;
 
+  const counts = new Map<string, number>();
   let placed = 0;
   let idx = 0;
   while (state.draft_units_remaining > 0) {
-    state.territories[ownedIds[idx % ownedIds.length]].unit_count += 1;
+    const tid = ownedIds[idx % ownedIds.length]!;
+    state.territories[tid].unit_count += 1;
     state.draft_units_remaining -= 1;
+    counts.set(tid, (counts.get(tid) ?? 0) + 1);
     placed++;
     idx++;
   }
-  return placed;
+
+  const placements: AutoDraftPlacement[] = [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([territory_id, units]) => ({
+      territory_id,
+      units,
+      totalAfter: state.territories[territory_id]!.unit_count,
+    }));
+
+  return { total: placed, placements };
 }
 
 /**

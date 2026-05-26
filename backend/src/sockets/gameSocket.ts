@@ -95,9 +95,18 @@ import {
 } from '../game-engine/abilities/techAbilities';
 import {
   buildStrikeAnimationPayload,
-  emitStrikeAnimation,
-  shouldEmitStrikeAnimation,
+  emitAbilityStrikeVisuals,
+  shouldEmitAbilityStrikeVisuals,
 } from '../game-engine/abilities/strikeAnimation';
+import {
+  buildCombatMapVisual,
+  buildFortifyMapVisual,
+  buildInfluenceMapVisual,
+  buildNavalMapVisual,
+  buildReinforceMapVisual,
+  emitEventCardMapVisuals,
+  emitMapVisual,
+} from '../game-engine/visuals/mapVisualEvents';
 import {
   consumeAttackBuffs,
   executeTechAbility,
@@ -558,10 +567,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
     if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
 
     // Auto-place draft units
-    const placed = autoPlaceDraftUnits(state);
-    if (placed > 0) {
+    const autoDraft = autoPlaceDraftUnits(state);
+    if (autoDraft.total > 0) {
+      emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
       broadcastState(io, gameId, state);
-      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: placed });
+      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
     }
 
     advanceToNextPlayer(state, map);
@@ -1076,6 +1086,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         `Deployed ${units} unit${units === 1 ? '' : 's'} to ${territoryName(map, territoryId)}`,
         draftProbBefore,
       );
+      emitMapVisual(io, gameId, buildReinforceMapVisual({
+        territoryId,
+        units,
+        totalAfter: territory.unit_count,
+        playerId: actingPlayerId,
+        state,
+      }));
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1285,6 +1302,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
             fromId, toId,
             result: navalResult,
           });
+          emitMapVisual(io, gameId, buildNavalMapVisual({
+            fromId,
+            toId,
+            attackerId: userId,
+            attackerLosses: navalResult.attacker_losses,
+            defenderLosses: navalResult.defender_losses,
+            attackerWon: navalResult.attacker_won,
+            state,
+          }));
           if (!navalResult.attacker_won) {
             // Naval defeat — abort land attack
             broadcastState(io, gameId, state);
@@ -1388,6 +1414,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const puzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
 
       const attackProbBefore = captureProbBefore(state, userId);
+      const defenderIdBeforeCombat = toTerritory.owner_id;
       const attackerUnitsCommitted = fromTerritory.unit_count;
 
       if (attackBuffs.preAttackDamage > 0) {
@@ -1495,6 +1522,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId, finalizeGame)) {
         commitActionDecision(gameId, state, userId, 'attack', attackSummary, attackProbBefore);
         io.to(gameId).emit('game:combat_result', { fromId, toId, result });
+        emitMapVisual(io, gameId, buildCombatMapVisual({
+          fromId,
+          toId,
+          attackerId: userId,
+          defenderId: defenderIdBeforeCombat,
+          attackerLosses: result.attacker_losses,
+          defenderLosses: result.defender_losses,
+          territoryCaptured: result.territory_captured,
+          state,
+        }));
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
         return;
@@ -1519,6 +1556,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
+      emitMapVisual(io, gameId, buildCombatMapVisual({
+        fromId,
+        toId,
+        attackerId: userId,
+        defenderId: defenderIdBeforeCombat,
+        attackerLosses: result.attacker_losses,
+        defenderLosses: result.defender_losses,
+        territoryCaptured: result.territory_captured,
+        state,
+      }));
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1541,7 +1588,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // and inconsistent with the turn-timer expiration path which
         // already auto-places via `autoPlaceDraftUnits`.
         if (state.draft_units_remaining > 0) {
-          autoPlaceDraftUnits(state);
+          const autoDraft = autoPlaceDraftUnits(state);
+          if (autoDraft.total > 0) {
+            emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
+          }
         }
         state.draft_units_remaining = 0;
         state.phase = 'attack';
@@ -1629,6 +1679,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
         fortifyProbBefore,
       );
+      emitMapVisual(io, gameId, buildFortifyMapVisual({
+        fromTerritoryId: fromId,
+        toTerritoryId: toId,
+        units,
+        playerId: currentPlayer.player_id,
+        state,
+      }));
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1815,6 +1872,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
         navalAttackProbBefore,
       );
       io.to(gameId).emit('game:naval_combat_result', { fromId, toId, result: navalResult });
+      emitMapVisual(io, gameId, buildNavalMapVisual({
+        fromId,
+        toId,
+        attackerId: userId,
+        attackerLosses: navalResult.attacker_losses,
+        defenderLosses: navalResult.defender_losses,
+        attackerWon: navalResult.attacker_won,
+        state,
+      }));
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
@@ -1982,7 +2048,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const targetOwner = execResult.previousOwner
           ? state.players.find((p) => p.player_id === execResult.previousOwner)
           : undefined;
-        emitStrikeAnimation(io, gameId, buildStrikeAnimationPayload({
+        emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
           abilityId,
           attackerId: userId,
           attackerName: currentPlayer.username,
@@ -1990,7 +2056,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           territoryId: execResult.territoryId,
           targetOwnerId: execResult.previousOwner ?? null,
           targetOwnerName: targetOwner?.username ?? null,
-        }));
+        }), { state, map });
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
         scheduleDebouncedSave(gameId);
@@ -2027,11 +2093,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         recordAbility(`Activated ${abilityLabel}`);
       }
 
-      if (shouldEmitStrikeAnimation(abilityId, execResult.effect) && execResult.territoryId) {
+      if (shouldEmitAbilityStrikeVisuals(abilityId, execResult.effect) && execResult.territoryId) {
         const targetOwner = execResult.previousOwner
           ? state.players.find((p) => p.player_id === execResult.previousOwner)
           : undefined;
-        emitStrikeAnimation(io, gameId, buildStrikeAnimationPayload({
+        emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
           abilityId,
           attackerId: userId,
           attackerName: currentPlayer.username,
@@ -2039,7 +2105,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           territoryId: execResult.territoryId,
           targetOwnerId: execResult.previousOwner ?? null,
           targetOwnerName: targetOwner?.username ?? null,
-        }));
+        }), { state, map });
       }
 
       socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
@@ -2216,7 +2282,28 @@ export function initGameSocket(httpServer: HttpServer): Server {
         scheduleDebouncedSave(gameId);
       }
 
-      socket.emit('game:influence_result', { success: true, targetId, previousOwner });
+      const influenceVariant = isGaribaldiUse ? 'garibaldi' as const
+        : isDetenteUse ? 'detente' as const
+          : 'seize' as const;
+
+      emitMapVisual(io, gameId, buildInfluenceMapVisual({
+        targetId,
+        actorId: userId,
+        previousOwnerId: previousOwner,
+        variant: influenceVariant,
+        state,
+      }));
+
+      const influenceResultPayload = {
+        success: true as const,
+        targetId,
+        previousOwner,
+        actorId: userId,
+        actorColor: currentPlayer.color,
+        variant: influenceVariant,
+      };
+      io.to(gameId).emit('game:influence_result', influenceResultPayload);
+      io.to(`${gameId}:spectators`).emit('game:influence_result', influenceResultPayload);
       broadcastState(io, gameId, state);
     });
 
@@ -2234,17 +2321,27 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!state.active_event.choices?.length) return socket.emit('error', { message: 'This event has no choices' });
 
       const eventChoiceProbBefore = captureProbBefore(state, userId);
-      const eventCardId = state.active_event.card_id;
-      const ok = resolveEventChoice(state, eventCardId, choiceId);
-      if (!ok) return socket.emit('error', { message: 'Invalid choice' });
+      const activeCard = state.active_event;
+      const eventCardId = activeCard.card_id;
+      const choice = activeCard.choices.find((c) => c.choice_id === choiceId);
+      if (!choice) return socket.emit('error', { message: 'Invalid choice' });
+
+      const eventResult = resolveEventChoice(state, eventCardId, choiceId);
+      if (!eventResult) return socket.emit('error', { message: 'Invalid choice' });
 
       commitActionDecision(
         gameId, state, userId, 'event_choice',
         `Event ${eventCardId}: chose ${choiceId}`,
         eventChoiceProbBefore,
       );
+      emitEventCardMapVisuals(io, gameId, {
+        cardId: eventCardId,
+        effect: choice.effect,
+        result: eventResult,
+      });
       scheduleDebouncedSave(gameId);
-      io.to(gameId).emit('game:event_card_resolved', { cardId: state.active_event?.card_id ?? '' });
+      io.to(gameId).emit('game:event_card_resolved', { cardId: eventCardId });
+      io.to(`${gameId}:spectators`).emit('game:event_card_resolved', { cardId: eventCardId });
       broadcastState(io, gameId, state);
       // Restart turn timer now that the blocking event choice is resolved (human players only)
       const roomAfterChoice = activeGames.get(gameId);
@@ -2797,10 +2894,12 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
 function broadcastEventCard(io: Server, gameId: string, state: GameState, map: GameMap): void {
   if (!state.active_event) return;
   const card = { ...state.active_event };
+  let resolvedResult: import('../types').EventEffectResult | undefined;
 
   // Attach result_summary when an instant effect was just applied
   if (state.active_event_result) {
     const result = state.active_event_result;
+    resolvedResult = result;
     if (result.global) {
       card.result_summary = [{ territory_id: '__global__', name: 'All territories', delta: -1 }];
     } else {
@@ -2829,9 +2928,38 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
   }
 
   io.to(gameId).emit('game:event_card', card);
+  io.to(`${gameId}:spectators`).emit('game:event_card', card);
+
+  if (resolvedResult) {
+    emitEventCardMapVisuals(io, gameId, {
+      cardId: card.card_id,
+      effect: card.effect,
+      result: resolvedResult,
+    });
+  }
+
   // If the card had no choices, the effect was already applied in advanceToNextPlayer — clear it
   if (!card.choices || card.choices.length === 0) {
     state.active_event = undefined;
+  }
+}
+
+function emitAutoDraftMapVisuals(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  placements: Array<{ territory_id: string; units: number; totalAfter: number }>,
+): void {
+  const playerId = state.players[state.current_player_index]?.player_id;
+  if (!playerId) return;
+  for (const row of placements) {
+    emitMapVisual(io, gameId, buildReinforceMapVisual({
+      territoryId: row.territory_id,
+      units: row.units,
+      totalAfter: row.totalAfter,
+      playerId,
+      state,
+    }));
   }
 }
 
@@ -3796,6 +3924,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
         state.draft_placements_this_turn[action.to] = (state.draft_placements_this_turn[action.to] ?? 0) + clamped;
       }
+      emitMapVisual(io, gameId, buildReinforceMapVisual({
+        territoryId: action.to,
+        units: clamped,
+        totalAfter: t.unit_count,
+        playerId: currentPlayer.player_id,
+        state,
+      }));
     }
     broadcastState(io, gameId, state);
   }
@@ -3973,6 +4108,15 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         from.naval_units = Math.max(0, from.naval_units - aiNavalResult.attacker_losses);
         to.naval_units = Math.max(0, defenderFleets - aiNavalResult.defender_losses);
         io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiNavalResult });
+        emitMapVisual(io, gameId, buildNavalMapVisual({
+          fromId: action.from,
+          toId: action.to,
+          attackerId: currentPlayer.player_id,
+          attackerLosses: aiNavalResult.attacker_losses,
+          defenderLosses: aiNavalResult.defender_losses,
+          attackerWon: aiNavalResult.attacker_won,
+          state,
+        }));
         if (!aiNavalResult.attacker_won) continue;
       }
       from.naval_units = Math.max(0, from.naval_units - 1);
@@ -4095,6 +4239,16 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
     syncTerritoryCounts(state);
     io.to(gameId).emit('game:combat_result', { fromId: action.from, toId: action.to, result });
+    emitMapVisual(io, gameId, buildCombatMapVisual({
+      fromId: action.from,
+      toId: action.to,
+      attackerId: currentPlayer.player_id,
+      defenderId: aiDefenderId,
+      attackerLosses: result.attacker_losses,
+      defenderLosses: result.defender_losses,
+      territoryCaptured: result.territory_captured,
+      state,
+    }));
     broadcastState(io, gameId, state);
 
     if (await doVictoryCheck()) return;
@@ -4116,6 +4270,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (from && to && from.owner_id === currentPlayer.player_id && to.owner_id === currentPlayer.player_id && from.unit_count > action.units) {
       from.unit_count -= action.units;
       to.unit_count += action.units;
+      emitMapVisual(io, gameId, buildFortifyMapVisual({
+        fromTerritoryId: action.from,
+        toTerritoryId: action.to,
+        units: action.units,
+        playerId: currentPlayer.player_id,
+        state,
+      }));
     }
     broadcastState(io, gameId, state);
   }
@@ -4133,9 +4294,18 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // If there's an active event with choices and next player is AI, auto-resolve
   if (state.active_event?.choices?.length && state.players[state.current_player_index].is_ai) {
-    const choice = state.active_event.choices[0];
-    resolveEventChoice(state, state.active_event.card_id, choice.choice_id);
+    const aiEvent = state.active_event;
+    const choice = aiEvent.choices[0]!;
+    const eventResult = resolveEventChoice(state, aiEvent.card_id, choice.choice_id);
+    if (eventResult) {
+      emitEventCardMapVisuals(io, gameId, {
+        cardId: aiEvent.card_id,
+        effect: choice.effect,
+        result: eventResult,
+      });
+    }
     io.to(gameId).emit('game:event_card_resolved', { cardId: '' });
+    io.to(`${gameId}:spectators`).emit('game:event_card_resolved', { cardId: '' });
     broadcastState(io, gameId, state);
   }
 
@@ -4181,10 +4351,11 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     if (!room || room.state.phase === 'game_over') return;
 
     // Auto-place any remaining draft units so reinforcements are never silently lost
-    const placed = autoPlaceDraftUnits(room.state);
-    if (placed > 0) {
+    const autoDraft = autoPlaceDraftUnits(room.state);
+    if (autoDraft.total > 0) {
+      emitAutoDraftMapVisuals(io, gameId, room.state, autoDraft.placements);
       broadcastState(io, gameId, room.state);
-      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: placed });
+      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
     }
 
     advanceToNextPlayer(room.state, room.map);
