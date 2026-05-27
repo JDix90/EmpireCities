@@ -16,6 +16,8 @@ import {
   FilmIcon,
   Globe as GlobeIcon,
   Map as MapIcon,
+  Info,
+  X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState } from '../store/gameStore';
@@ -30,6 +32,17 @@ import { isLiteMode, isMobileViewport, prefersReducedMotion } from '../utils/dev
 import { inferWorldId } from '@erasofempire/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
+import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
+import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
+import {
+  diffReplayMapVisuals,
+  REPLAY_MAP_FX_LIMITATIONS,
+  REPLAY_MAP_FX_NOT_INFERRED,
+} from '../utils/replayMapVisualDiff';
+import {
+  computeContestedBorders,
+  phaseTintClass,
+} from '../utils/mapAmbientEffects';
 
 // Heavy three-globe bundle: lazy-load mirroring GamePage so the 2D fallback
 // path can render without paying for it.
@@ -37,6 +50,7 @@ const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
 const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
+const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
 type Speed = (typeof SPEED_OPTIONS)[number];
 
 interface MapData {
@@ -124,6 +138,24 @@ export default function ReplayPage() {
   // Guards the "auto-start playback once the replay is fully loaded" effect
   // so it fires exactly once per game-id mount, not on every state change.
   const autoStartedRef = useRef(false);
+
+  const [showMapAnimations, setShowMapAnimations] = useState(true);
+  const [replayFxHintDismissed, setReplayFxHintDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(REPLAY_MAP_FX_HINT_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [replayFxHintExpanded, setReplayFxHintExpanded] = useState(false);
+  const lastDiffFrameRef = useRef<number | null>(null);
+  const {
+    mapVisualEvents,
+    globeEvents,
+    pushMapVisualLocal,
+    onMapVisualDone,
+    clearMapVisuals,
+  } = useMapVisualEvents();
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -398,11 +430,15 @@ export default function ReplayPage() {
 
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
     stopPlayback();
+    clearMapVisuals();
+    lastDiffFrameRef.current = null;
     setReplayFrame(Number(e.target.value));
   };
 
   const handleStepBack = () => {
     stopPlayback();
+    clearMapVisuals();
+    lastDiffFrameRef.current = null;
     if (timeLapseMode) {
       const prev = prevTimeLapseFrom(replayFrame);
       setReplayFrame(prev ?? 0);
@@ -413,6 +449,8 @@ export default function ReplayPage() {
 
   const handleStepForward = () => {
     stopPlayback();
+    clearMapVisuals();
+    lastDiffFrameRef.current = null;
     if (timeLapseMode) {
       const next = nextTimeLapseFrom(replayFrame);
       if (next !== null) setReplayFrame(next);
@@ -424,6 +462,8 @@ export default function ReplayPage() {
   const handleJumpToTurn = useCallback(
     (turn: number) => {
       stopPlayback();
+      clearMapVisuals();
+      lastDiffFrameRef.current = null;
       // Jump to the FIRST frame of the requested turn in the active track so
       // the user sees how that turn unfolded rather than its end-state.
       const indices = timeLapseMode ? timeLapseIndices : replaySnapshots.map((_, i) => i);
@@ -437,8 +477,51 @@ export default function ReplayPage() {
       if (target < 0) target = replaySnapshots.length - 1;
       setReplayFrame(target);
     },
-    [replaySnapshots, timeLapseMode, timeLapseIndices, setReplayFrame, stopPlayback],
+    [replaySnapshots, timeLapseMode, timeLapseIndices, setReplayFrame, stopPlayback, clearMapVisuals],
   );
+
+  // Infer map visuals from snapshot diffs when the playhead advances.
+  useEffect(() => {
+    if (!showMapAnimations || replayFrame <= 0) return;
+    if (lastDiffFrameRef.current === replayFrame) return;
+    lastDiffFrameRef.current = replayFrame;
+
+    const prev = replaySnapshots[replayFrame - 1];
+    const next = replaySnapshots[replayFrame];
+    if (!next) return;
+
+    const inferred = diffReplayMapVisuals(prev, next);
+    for (const [i, ev] of inferred.entries()) {
+      pushMapVisualLocal({
+        ...ev,
+        id: `replay-${replayFrame}-${i}-${ev.kind}-${ev.territoryId}`,
+      });
+    }
+  }, [replayFrame, replaySnapshots, showMapAnimations, pushMapVisualLocal]);
+
+  const activeReplayState = gameState ?? replaySnapshots[replayFrame] ?? null;
+
+  const replayAmbientEnabled = useMemo(() => {
+    if (!activeReplayState || activeReplayState.phase === 'game_over') return false;
+    return showMapAnimations && !prefersReducedMotion() && !isLiteMode();
+  }, [activeReplayState, showMapAnimations]);
+
+  const galaxyPulse = useGalaxyMapVisualPulse(
+    mapVisualEvents,
+    mapData,
+    showMapAnimations && mapData?.map_kind === 'galaxy',
+  );
+
+  const replayTurnHolder = activeReplayState?.players[activeReplayState.current_player_index ?? 0];
+  const replayContestedBorders = useMemo(() => {
+    if (!activeReplayState || !mapData || !replayAmbientEnabled) return [];
+    return computeContestedBorders(
+      activeReplayState.territories,
+      mapData.connections,
+      replayTurnHolder?.player_id,
+      activeReplayState.phase,
+    );
+  }, [activeReplayState, mapData, replayAmbientEnabled, replayTurnHolder?.player_id]);
 
   const handleShareReplay = async () => {
     if (!gameId) return;
@@ -498,7 +581,8 @@ export default function ReplayPage() {
   // Mirror GamePage's reduced-globe heuristic: low-power devices and motion-
   // averse users still get the globe, just without continuous spin/effects.
   const reducedGlobe =
-    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
+    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe') || !showMapAnimations || speed >= 4;
+  const replayPhaseTintClass = phaseTintClass(currentState?.phase, replayAmbientEnabled && !reducedGlobe);
 
   return (
     <div className="h-screen overflow-hidden bg-cc-dark flex flex-col">
@@ -573,7 +657,7 @@ export default function ReplayPage() {
       {/* Map area — flex-1 between the top bar and the controls. The canvas
           dimensions come from a ResizeObserver on this container so the
           playback chrome stays fully visible without any page scrolling. */}
-      <div ref={mapAreaRef} className="flex-1 relative overflow-hidden min-h-0">
+      <div ref={mapAreaRef} className={`flex-1 relative overflow-hidden min-h-0${replayPhaseTintClass ? ` ${replayPhaseTintClass}` : ''}`}>
         {mapView === 'globe' ? (
           <Suspense
             fallback={
@@ -597,6 +681,9 @@ export default function ReplayPage() {
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
                 orbitAccessAllowed={true}
+                pulseWorldId={galaxyPulse.worldId}
+                pulseKey={galaxyPulse.key}
+                pulseLabel={galaxyPulse.label}
               />
             ) : (
               <>
@@ -619,8 +706,13 @@ export default function ReplayPage() {
                 onTerritoryClick={() => {}}
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
+                events={globeEvents}
+                onEventDone={onMapVisualDone}
                 reducedEffects={reducedGlobe}
                 autoSpin={!reducedGlobe}
+                ambientEnabled={replayAmbientEnabled && !reducedGlobe}
+                turnHolderPlayerId={replayTurnHolder?.player_id ?? null}
+                contestedBorders={replayContestedBorders}
                 activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                 globeImageUrl={
                   mapData.map_kind === 'galaxy'
@@ -665,6 +757,13 @@ export default function ReplayPage() {
             onTerritoryClick={() => {}}
             width={mapCanvasSize.w}
             height={mapCanvasSize.h}
+            mapVisualEvents={mapVisualEvents}
+            onMapVisualDone={onMapVisualDone}
+            reducedEffects={reducedGlobe}
+            ambientEnabled={replayAmbientEnabled && !reducedGlobe}
+            turnHolderPlayerId={replayTurnHolder?.player_id ?? null}
+            turnHolderColor={replayTurnHolder?.color}
+            contestedBorders={replayContestedBorders}
           />
         )}
 
@@ -795,6 +894,24 @@ export default function ReplayPage() {
             Time-lapse
           </button>
 
+          <button
+            type="button"
+            onClick={() => {
+              setShowMapAnimations((v) => !v);
+              clearMapVisuals();
+              lastDiffFrameRef.current = null;
+            }}
+            aria-pressed={showMapAnimations}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
+              showMapAnimations
+                ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/30'
+                : 'bg-white/5 text-white/60 hover:text-white/80 border-cc-border',
+            )}
+          >
+            Map FX
+          </button>
+
           <div className="flex items-center gap-1 ml-auto">
             {SPEED_OPTIONS.map((s) => (
               <button
@@ -812,6 +929,56 @@ export default function ReplayPage() {
             ))}
           </div>
         </div>
+
+        {!replayFxHintDismissed && (
+          <div
+            className="mt-2 flex items-start gap-2 rounded-lg border border-cc-border bg-white/[0.03] px-3 py-2 text-xs text-white/70"
+            data-testid="replay-map-fx-disclaimer"
+          >
+            <Info className="w-4 h-4 shrink-0 text-cc-gold mt-0.5" aria-hidden />
+            <div className="flex-1 min-w-0">
+              {showMapAnimations ? (
+                <>
+                  <p>
+                    <span className="text-white/85 font-medium">Replay map animations are inferred</span>
+                    {' '}from turn snapshots. Captures and unit changes usually animate; strikes, event cards,
+                    naval battles, and fortify moves may not. Use 1×–2× speed for best results.
+                  </p>
+                  {replayFxHintExpanded && (
+                    <ul className="mt-2 space-y-1 list-disc pl-4 text-white/55">
+                      <li>Usually inferred: {REPLAY_MAP_FX_LIMITATIONS.join(', ')}</li>
+                      <li>Often missing: {REPLAY_MAP_FX_NOT_INFERRED.join(', ')}</li>
+                    </ul>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setReplayFxHintExpanded((v) => !v)}
+                    className="mt-1 text-cc-gold/90 hover:text-cc-gold underline-offset-2 hover:underline"
+                  >
+                    {replayFxHintExpanded ? 'Show less' : 'Learn more'}
+                  </button>
+                </>
+              ) : (
+                <p>Map FX off — enable to see inferred capture and unit-change animations.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss replay map FX note"
+              onClick={() => {
+                setReplayFxHintDismissed(true);
+                try {
+                  localStorage.setItem(REPLAY_MAP_FX_HINT_KEY, '1');
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="shrink-0 p-1 rounded hover:bg-white/10 text-white/40 hover:text-white/70"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

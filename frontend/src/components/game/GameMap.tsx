@@ -1,10 +1,18 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
 import { hapticImpact } from '../../utils/haptics';
 import { REGION_PIXI_COLORS } from '../../constants/regionColors';
+import {
+  STRIKE_MAP_STYLES,
+  type MapStrikeFlashProps,
+} from '../../utils/mapStrikeEffects';
+import type { MapVisualEvent } from '../../utils/mapVisualEvents';
+import { playMap2dVisualEffect, type TerritoryCentroid } from '../../utils/map2dVisualEffects';
+import type { ContestedBorder } from '../../utils/mapAmbientEffects';
+import { prefersReducedMotion } from '../../utils/device';
 
 interface MapTerritory {
   territory_id: string;
@@ -35,6 +43,19 @@ interface GameMapProps {
   height?: number;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
+  /** Brief territory flash when a strike ability hits (2D map). */
+  strikeFlash?: MapStrikeFlashProps | null;
+  /** Server-authoritative map visual events (reinforce, combat, fortify). */
+  mapVisualEvents?: MapVisualEvent[];
+  /** Called when GameMap consumes an event from the queue (mirrors GlobeMap). */
+  onMapVisualDone?: (eventId: string) => void;
+  /** Shorten animations on low-power devices / replay fast-forward. */
+  reducedEffects?: boolean;
+  /** Ambient turn-holder glow + contested border pulses. */
+  ambientEnabled?: boolean;
+  turnHolderPlayerId?: string | null;
+  turnHolderColor?: string;
+  contestedBorders?: ContestedBorder[];
   /** If provided, GameMap writes a reset-view callback into this ref. */
   resetViewRef?: React.MutableRefObject<(() => void) | null>;
 }
@@ -54,7 +75,22 @@ function hexToPixi(hex: string): number {
   return PLAYER_COLORS[hex] ?? 0x888888;
 }
 
-export default function GameMap({ mapData, onTerritoryClick, width = 900, height = 600, highlightTerritoryId, resetViewRef }: GameMapProps) {
+export default function GameMap({
+  mapData,
+  onTerritoryClick,
+  width = 900,
+  height = 600,
+  highlightTerritoryId,
+  strikeFlash,
+  mapVisualEvents = [],
+  onMapVisualDone,
+  reducedEffects = false,
+  resetViewRef,
+  ambientEnabled = false,
+  turnHolderPlayerId,
+  turnHolderColor,
+  contestedBorders = [],
+}: GameMapProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
@@ -65,7 +101,20 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
   const buildingTextMapRef = useRef<Map<string, PIXI.Text>>(new Map());
   const highlightRingRef = useRef<PIXI.Graphics | null>(null);
   const highlightLayerRef = useRef<PIXI.Container | null>(null);
+  const strikeLayerRef = useRef<PIXI.Container | null>(null);
+  const strikeFlashRef = useRef<PIXI.Graphics | null>(null);
   const pulseTickerRef = useRef<PIXI.Ticker | null>(null);
+  const strikeTickerRef = useRef<PIXI.Ticker | null>(null);
+  const effectsLayerRef = useRef<PIXI.Container | null>(null);
+  const borderLayerRef = useRef<PIXI.Container | null>(null);
+  const turnGlowLayerRef = useRef<PIXI.Container | null>(null);
+  const ambientTickerRef = useRef<PIXI.Ticker | null>(null);
+  const mapVisualQueueRef = useRef<MapVisualEvent[]>([]);
+  const mapVisualSeenRef = useRef(new Set<string>());
+  const mapVisualPlayingRef = useRef(false);
+  const [mapVisualDebug, setMapVisualDebug] = useState<{ active: boolean; kind?: string }>({ active: false });
+  const onMapVisualDoneRef = useRef(onMapVisualDone);
+  onMapVisualDoneRef.current = onMapVisualDone;
   /** Pixi pointer handlers are registered once; keep latest parent callback without re-initing the canvas. */
   const onTerritoryClickRef = useRef(onTerritoryClick);
   onTerritoryClickRef.current = onTerritoryClick;
@@ -126,6 +175,12 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
     const buildingLayer = new PIXI.Container();
     buildingLayerRef.current = buildingLayer;
     buildingTextMapRef.current.clear();
+    const effectsLayer = new PIXI.Container();
+    effectsLayerRef.current = effectsLayer;
+    const turnGlowLayer = new PIXI.Container();
+    turnGlowLayerRef.current = turnGlowLayer;
+    const borderLayer = new PIXI.Container();
+    borderLayerRef.current = borderLayer;
     stage.addChild(mapContainer);
     stage.addChild(labelContainer);
     stage.addChild(buildingLayer);
@@ -257,7 +312,10 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
       labelContainer.addChild(label);
     }
 
+    mapContainer.addChild(turnGlowLayer);
+    mapContainer.addChild(borderLayer);
     mapContainer.addChild(capitalLayer);
+    mapContainer.addChild(effectsLayer);
 
     // ── Pan & Zoom — Pointer Events (supports mouse, touch, and stylus) ──────
     const canvas = app.view as HTMLCanvasElement;
@@ -379,6 +437,7 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
       mapContainerRef.current = null;
       capitalLayerRef.current = null;
       buildingLayerRef.current = null;
+      effectsLayerRef.current = null;
       buildingTextMapRef.current.clear();
       territoryGraphicsRef.current.clear();
     };
@@ -432,6 +491,15 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
         }
       }
 
+      const isTurnHolder = Boolean(
+        ambientEnabled &&
+        turnHolderPlayerId &&
+        tState.owner_id === turnHolderPlayerId,
+      );
+      if (isTurnHolder && turnHolderColor) {
+        borderColor = hexToPixi(turnHolderColor);
+      }
+
       // Highlight selected territory
       if (territory.territory_id === selectedTerritory || territory.territory_id === attackSource) {
         borderColor = 0xffd700;
@@ -453,7 +521,7 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
         }
         borderColor = 0xffd700;
       }
-      drawTerritory(g, scaledPolygon, fillColor, borderColor);
+      drawTerritory(g, scaledPolygon, fillColor, borderColor, isTurnHolder ? 3 : hasWonder ? 4 : 1.5);
     }
 
     // ── Building icons ─────────────────────────────────────────────────────
@@ -494,7 +562,7 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
         }
       }
     }
-  }, [gameState, selectedTerritory, attackSource, mapData, canvasW, canvasH, width, height]);
+  }, [gameState, selectedTerritory, attackSource, mapData, canvasW, canvasH, width, height, ambientEnabled, turnHolderPlayerId, turnHolderColor]);
 
   // ── Tutorial highlight ring ────────────────────────────────────────────────
   useEffect(() => {
@@ -549,11 +617,196 @@ export default function GameMap({ mapData, onTerritoryClick, width = 900, height
     };
   }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height]);
 
+  // ── Strike ability territory flash (2D map) ───────────────────────────────
+  useEffect(() => {
+    const app = appRef.current;
+    const mapContainer = mapContainerRef.current;
+    if (!app || !mapContainer) return;
+
+    if (!strikeLayerRef.current) {
+      const layer = new PIXI.Container();
+      mapContainer.addChild(layer);
+      strikeLayerRef.current = layer;
+    }
+    const layer = strikeLayerRef.current;
+    layer.removeChildren();
+    strikeFlashRef.current = null;
+
+    if (strikeTickerRef.current) {
+      strikeTickerRef.current.destroy();
+      strikeTickerRef.current = null;
+    }
+
+    if (!strikeFlash) return;
+
+    const territory = mapData.territories.find((t) => t.territory_id === strikeFlash.territoryId);
+    if (!territory) return;
+
+    const style = STRIKE_MAP_STYLES[strikeFlash.abilityId];
+    const scaledPolygon = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
+    if (scaledPolygon.length < 3) return;
+
+    const g = new PIXI.Graphics();
+    layer.addChild(g);
+    strikeFlashRef.current = g;
+
+    const started = Date.now();
+    const ticker = new PIXI.Ticker();
+    strikeTickerRef.current = ticker;
+    ticker.add(() => {
+      const elapsed = Date.now() - started;
+      if (elapsed >= style.mapFlashMs) {
+        ticker.destroy();
+        strikeTickerRef.current = null;
+        layer.removeChildren();
+        strikeFlashRef.current = null;
+        return;
+      }
+      const pulse = 0.45 + 0.55 * Math.abs(Math.sin(elapsed * 0.014));
+      const fillAlpha = 0.35 + 0.4 * pulse;
+      const borderAlpha = 0.65 + 0.35 * pulse;
+      g.clear();
+      g.lineStyle(3, style.ringHex, borderAlpha);
+      g.beginFill(style.fillHex, fillAlpha);
+      g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
+      for (let i = 1; i < scaledPolygon.length; i++) {
+        g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
+      }
+      g.closePath();
+      g.endFill();
+    });
+    ticker.start();
+
+    return () => {
+      ticker.destroy();
+      strikeTickerRef.current = null;
+    };
+  }, [strikeFlash, mapData, canvasW, canvasH, width, height]);
+
+  // ── Map visual event queue (reinforce / combat / fortify) ─────────────────
+  const territoryCentroids = useMemo(() => {
+    const m = new Map<string, TerritoryCentroid>();
+    for (const t of mapData.territories) {
+      const scaledPolygon = scalePolygon(t.polygon as [number, number][], canvasW, canvasH, width, height);
+      const [x, y] = scalePolygon([t.center_point], canvasW, canvasH, width, height)[0]!;
+      m.set(t.territory_id, { territoryId: t.territory_id, regionId: t.region_id, x, y, polygon: scaledPolygon });
+    }
+    return m;
+  }, [mapData, canvasW, canvasH, width, height]);
+
+  // ── Ambient contested borders + turn-holder shimmer ───────────────────────
+  useEffect(() => {
+    const glowLayer = turnGlowLayerRef.current;
+    const borderLayer = borderLayerRef.current;
+    if (!glowLayer || !borderLayer) return;
+
+    if (ambientTickerRef.current) {
+      ambientTickerRef.current.destroy();
+      ambientTickerRef.current = null;
+    }
+    glowLayer.removeChildren();
+    borderLayer.removeChildren();
+
+    if (!ambientEnabled || prefersReducedMotion() || reducedEffects) return;
+
+    let phase = 0;
+    const ticker = new PIXI.Ticker();
+    ambientTickerRef.current = ticker;
+
+    ticker.add((delta) => {
+      phase += delta * 0.04;
+      const pulse = 0.35 + 0.65 * Math.abs(Math.sin(phase));
+
+      glowLayer.removeChildren();
+      if (turnHolderPlayerId && turnHolderColor && gameState) {
+        const glowColor = hexToPixi(turnHolderColor);
+        for (const territory of mapData.territories) {
+          const tState = gameState.territories[territory.territory_id];
+          if (tState?.owner_id !== turnHolderPlayerId) continue;
+          const c = territoryCentroids.get(territory.territory_id);
+          if (!c) continue;
+          const g = new PIXI.Graphics();
+          g.lineStyle(2.5, glowColor, pulse * 0.55);
+          g.drawCircle(c.x, c.y, 14 + pulse * 6);
+          glowLayer.addChild(g);
+        }
+      }
+
+      borderLayer.removeChildren();
+      for (const edge of contestedBorders) {
+        const from = territoryCentroids.get(edge.fromId);
+        const to = territoryCentroids.get(edge.toId);
+        if (!from || !to) continue;
+        const g = new PIXI.Graphics();
+        const color = edge.sea ? 0xfacc15 : 0xf87171;
+        g.lineStyle(2, color, pulse * 0.75);
+        g.moveTo(from.x, from.y);
+        g.lineTo(to.x, to.y);
+        borderLayer.addChild(g);
+      }
+    });
+    ticker.start();
+
+    return () => {
+      ticker.destroy();
+      ambientTickerRef.current = null;
+      glowLayer.removeChildren();
+      borderLayer.removeChildren();
+    };
+  }, [
+    ambientEnabled,
+    reducedEffects,
+    contestedBorders,
+    turnHolderPlayerId,
+    turnHolderColor,
+    gameState,
+    mapData.territories,
+    territoryCentroids,
+  ]);
+
+  useEffect(() => {
+    if (prefersReducedMotion() || reducedEffects) return;
+
+    for (const ev of mapVisualEvents) {
+      if (mapVisualSeenRef.current.has(ev.id)) continue;
+      mapVisualSeenRef.current.add(ev.id);
+      mapVisualQueueRef.current.push(ev);
+      onMapVisualDoneRef.current?.(ev.id);
+    }
+
+    const playNext = () => {
+      if (mapVisualPlayingRef.current) return;
+      const layer = effectsLayerRef.current;
+      if (!layer) {
+        window.setTimeout(playNext, 32);
+        return;
+      }
+      const next = mapVisualQueueRef.current.shift();
+      if (!next) {
+        setMapVisualDebug({ active: false });
+        return;
+      }
+      mapVisualPlayingRef.current = true;
+      setMapVisualDebug({ active: true, kind: next.kind });
+      playMap2dVisualEffect(layer, next, territoryCentroids, () => {
+        mapVisualPlayingRef.current = false;
+        setMapVisualDebug({ active: false });
+        playNext();
+      });
+    };
+
+    playNext();
+  }, [mapVisualEvents, territoryCentroids, reducedEffects]);
+
   return (
     <div
       ref={canvasRef}
       className="w-full h-full overflow-hidden rounded-lg border border-cc-border"
       style={{ cursor: 'grab' }}
+      data-testid="map-visual-canvas"
+      data-map-visual-active={mapVisualDebug.active ? 'true' : undefined}
+      data-last-kind={mapVisualDebug.kind}
+      data-map-strike-flash-active={strikeFlash ? 'true' : undefined}
     />
   );
 }
@@ -562,12 +815,13 @@ function drawTerritory(
   g: PIXI.Graphics,
   points: [number, number][],
   fillColor: number,
-  borderColor: number
+  borderColor: number,
+  borderWidth = 1.5,
 ): void {
   g.clear();
   if (points.length < 3) return;
 
-  g.lineStyle(1.5, borderColor, 1);
+  g.lineStyle(borderWidth, borderColor, 1);
   g.beginFill(fillColor, 0.85);
   g.moveTo(points[0][0], points[0][1]);
   for (let i = 1; i < points.length; i++) {

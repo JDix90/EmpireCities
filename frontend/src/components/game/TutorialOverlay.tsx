@@ -1,5 +1,7 @@
 import React from 'react';
 import { GraduationCap } from 'lucide-react';
+import clsx from 'clsx';
+import { isMobileViewport } from '../../utils/device';
 
 interface TutorialStep {
   id: string;
@@ -121,22 +123,31 @@ export default function TutorialOverlay({
   const step = TUTORIAL_STEPS[stepIndex];
   if (!step) return null;
 
+  // On mobile, steps that wait for map/panel actions must sit at the top so the
+  // territory sheet (Place / Attack) and bottom bar stay tappable.
+  const isMobile = isMobileViewport();
+  const anchorTop = isMobile && !centered && !!step.requireAction;
+
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
       <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
       <div
-        className={
+        className={clsx(
+          'pointer-events-auto w-full px-4',
           centered
-            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto w-full max-w-lg px-4'
-            : 'absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto max-w-md w-full mx-4'
-        }
+            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg'
+            : anchorTop
+              ? 'absolute left-1/2 -translate-x-1/2 max-w-md top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
+              : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
+        )}
       >
         <div
-          className={
+          className={clsx(
             centered
               ? 'rounded-2xl border-2 border-cc-gold/40 bg-[#1a1a2e]/95 backdrop-blur-lg p-8 shadow-2xl text-center'
-              : 'rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/95 backdrop-blur-sm p-5 shadow-2xl'
-          }
+              : 'rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/95 backdrop-blur-sm shadow-2xl',
+            anchorTop ? 'p-3 max-h-[30vh] overflow-y-auto' : 'p-5',
+          )}
         >
           {/* Step counter */}
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
@@ -158,12 +169,21 @@ export default function TutorialOverlay({
             <GraduationCap className={centered ? 'w-8 h-8 text-cc-gold' : 'w-5 h-5 text-cc-gold'} />
             <h3 className={centered ? 'font-display text-2xl text-cc-gold' : 'font-display text-lg text-cc-gold'}>{step.title}</h3>
           </div>
-          <p className={centered ? 'text-cc-muted text-lg leading-relaxed mb-2' : 'text-cc-muted text-sm leading-relaxed mb-2'}>{step.message}</p>
+          <p className={clsx(
+            'text-cc-muted leading-relaxed mb-2',
+            centered ? 'text-lg' : anchorTop ? 'text-xs' : 'text-sm',
+          )}>{step.message}</p>
           {step.detail && (
-            <p className={centered ? 'text-cc-muted/70 text-sm leading-relaxed mb-4' : 'text-cc-muted/60 text-xs leading-relaxed mb-3'}>{step.detail}</p>
+            <p className={clsx(
+              'text-cc-muted/60 leading-relaxed',
+              centered ? 'text-sm mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
+            )}>{step.detail}</p>
           )}
           {step.hint && (
-            <p className={centered ? 'text-cc-muted/70 text-base italic mb-4' : 'text-cc-muted/60 text-xs italic mb-3'}>{step.hint}</p>
+            <p className={clsx(
+              'text-cc-muted/60 italic',
+              centered ? 'text-base mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
+            )}>{step.hint}</p>
           )}
           {step.variant === 'wrapup' ? (
             <div className="flex flex-col gap-2 mt-2">
@@ -179,8 +199,11 @@ export default function TutorialOverlay({
               Next
             </button>
           ) : (
-            <p className="text-cc-gold/80 text-base text-center animate-pulse">
-              Perform the action above to continue…
+            <p className={clsx(
+              'text-cc-gold/80 text-center animate-pulse',
+              anchorTop ? 'text-xs mt-1' : 'text-base',
+            )}>
+              {anchorTop ? 'Use the panel below to continue…' : 'Perform the action above to continue…'}
             </p>
           )}
         </div>

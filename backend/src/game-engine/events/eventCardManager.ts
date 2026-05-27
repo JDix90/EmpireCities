@@ -253,13 +253,18 @@ export function applyEventEffect(
     }
     case 'region_disaster': {
       // Remove units from every territory (all players) — simulates plague, famine, etc.
-      for (const t of Object.values(state.territories)) {
+      for (const [tid, t] of Object.entries(state.territories)) {
         if (t.unit_count > 1) {
           const remove = Math.min(t.unit_count - 1, effect.value);
-          t.unit_count -= remove;
+          if (remove > 0) {
+            t.unit_count -= remove;
+            affected.push({ territory_id: tid, delta: -remove });
+          }
         }
       }
-      return { global: true };
+      return affected.length > 0
+        ? { affected_territories: affected, global: true }
+        : { global: true };
     }
     case 'stability_change': {
       if (affectsAllPlayers) {
@@ -292,16 +297,16 @@ export function resolveEventChoice(
   state: GameState,
   cardId: string,
   choiceId: string,
-): boolean {
+): EventEffectResult | null {
   const event = state.active_event;
-  if (!event || event.card_id !== cardId) return false;
+  if (!event || event.card_id !== cardId) return null;
 
   const choice = event.choices?.find((c) => c.choice_id === choiceId);
-  if (!choice) return false;
+  if (!choice) return null;
 
-  applyEventEffect(state, choice.effect, event.affects_all_players);
+  const result = applyEventEffect(state, choice.effect, event.affects_all_players);
   state.active_event = undefined;
-  return true;
+  return result;
 }
 
 /**

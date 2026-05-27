@@ -75,7 +75,8 @@ describe('autoPlaceDraftUnits', () => {
   it('distributes remaining draft units round-robin across owned territories (sorted by id)', () => {
     const state = makeState({ draft_units_remaining: 5 });
     const placed = autoPlaceDraftUnits(state);
-    expect(placed).toBe(5);
+    expect(placed.total).toBe(5);
+    expect(placed.placements).toHaveLength(2);
     expect(state.draft_units_remaining).toBe(0);
     // t1 and t2 owned by p1, sorted: t1, t2. 5 units → t1 gets 3, t2 gets 2
     expect(state.territories.t1.unit_count).toBe(3 + 3);
@@ -84,13 +85,13 @@ describe('autoPlaceDraftUnits', () => {
 
   it('returns 0 when not in draft phase', () => {
     const state = makeState({ phase: 'attack', draft_units_remaining: 5 });
-    expect(autoPlaceDraftUnits(state)).toBe(0);
+    expect(autoPlaceDraftUnits(state).total).toBe(0);
     expect(state.draft_units_remaining).toBe(5);
   });
 
   it('returns 0 when draft_units_remaining is 0', () => {
     const state = makeState({ draft_units_remaining: 0 });
-    expect(autoPlaceDraftUnits(state)).toBe(0);
+    expect(autoPlaceDraftUnits(state).total).toBe(0);
   });
 
   it('handles a single owned territory', () => {

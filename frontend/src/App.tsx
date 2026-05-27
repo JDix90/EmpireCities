@@ -35,6 +35,7 @@ const LeaderboardsPage = lazyWithChunkRetry(() => import('./pages/LeaderboardsPa
 const LiveGamesPage = lazyWithChunkRetry(() => import('./pages/LiveGamesPage'));
 const SpectatorPage = lazyWithChunkRetry(() => import('./pages/SpectatorPage'));
 const ModalLabPage = lazyWithChunkRetry(() => import('./pages/ModalLabPage'));
+const MapVisualLabPage = lazyWithChunkRetry(() => import('./pages/MapVisualLabPage'));
 const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
 const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
@@ -227,6 +228,7 @@ export default function App() {
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/__modal-lab" element={<ModalLabPage />} />
+        <Route path="/__map-visual-lab" element={<MapVisualLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />

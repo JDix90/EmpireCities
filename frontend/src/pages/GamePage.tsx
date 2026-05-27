@@ -8,7 +8,13 @@ import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from 
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
-import type { GlobeEvent } from '../components/game/GlobeMap';
+import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
+import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
+import type { MapVisualEvent } from '../utils/mapVisualEvents';
+import {
+  computeContestedBorders,
+  phaseTintClass,
+} from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
@@ -34,6 +40,17 @@ import LobbyProposals from '../components/game/LobbyProposals';
 import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import { computeDraftPool } from '../utils/draftPool';
 import { generateActionId } from '../utils/actionId';
+import {
+  getStrikeToastStyle,
+  isMapStrikeAbility,
+  type MapStrikeAbilityId,
+  type MapStrikeFlashProps,
+} from '../utils/mapStrikeEffects';
+import { shouldShowFullScreenStrike } from '../utils/strikePresentation';
+import {
+  markEventCardVisualSeen,
+  scheduleEventCardMapVisualBackup,
+} from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
@@ -391,16 +408,36 @@ export default function GamePage() {
   // (Also set on loss via looking at game settings — see handleGameOverDismiss.)
   const campaignAdvancedRef = useRef<{ campaign_id: string; next_era: string } | null>(null);
 
-  // ── Globe animation events ───────────────────────────────────────────────
-  const [globeEvents, setGlobeEvents] = useState<GlobeEvent[]>([]);
-  const globeEventCounter = useRef(0);
-  const pushGlobeEvent = useCallback((event: Omit<GlobeEvent, 'id'>) => {
-    const id = `ge-${++globeEventCounter.current}-${Date.now()}`;
-    setGlobeEvents(prev => [...prev, { ...event, id }]);
-  }, []);
-  const handleGlobeEventDone = useCallback((eventId: string) => {
-    setGlobeEvents(prev => prev.filter(e => e.id !== eventId));
-  }, []);
+  // ── Map visual events (globe + 2D) — server-authoritative ─────────────────
+  const {
+    mapVisualEvents,
+    globeEvents,
+    handleMapVisualEvent,
+    pushMapVisualLocal,
+    onMapVisualDone,
+  } = useMapVisualEvents();
+  const eventCardVisualSeenRef = useRef(new Set<string>());
+  const mapVisualEventsRef = useRef(mapVisualEvents);
+  mapVisualEventsRef.current = mapVisualEvents;
+
+  const mapAmbientEnabled = useMemo(() => {
+    if (!gameState || gameState.phase === 'game_over') return false;
+    return !prefersReducedMotion() && !liteModeEnabled;
+  }, [gameState, liteModeEnabled]);
+
+  const galaxyPulse = useGalaxyMapVisualPulse(mapVisualEvents, mapData, mapAmbientEnabled);
+
+  const turnHolderPlayer = gameState?.players[gameState.current_player_index ?? 0];
+
+  const contestedBorders = useMemo(() => {
+    if (!gameState || !mapData || !mapAmbientEnabled) return [];
+    return computeContestedBorders(
+      gameState.territories,
+      mapData.connections,
+      turnHolderPlayer?.player_id,
+      gameState.phase,
+    );
+  }, [gameState, mapData, mapAmbientEnabled, turnHolderPlayer?.player_id]);
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
@@ -456,6 +493,8 @@ export default function GamePage() {
     unitReduction?: number;
     key: number;
   } | null>(null);
+  const [mapStrikeFlash, setMapStrikeFlash] = useState<MapStrikeFlashProps | null>(null);
+  const mapStrikeFlashKeyRef = useRef(0);
   const [activeEventCard, setActiveEventCard] = useState<EventCard | null>(null);
   const [truceProposal, setTruceProposal] = useState<{
     gameId: string;
@@ -919,18 +958,12 @@ export default function GamePage() {
       }
       setCombatLog((prev) => [...prev, logEntry]);
 
-      const atkPlayerColor = state?.players.find(p => p.player_id === attackerOwner)?.color;
-      const defPlayerColor = state?.players.find(p => p.player_id === defenderOwner)?.color;
-      pushGlobeEvent({
-        type: 'combat',
-        territoryId: data.toId,
-        fromTerritoryId: data.fromId,
-        attackerLosses: attacker_losses,
-        defenderLosses: defender_losses,
-        captured: territory_captured,
-        attackerColor: atkPlayerColor,
-        defenderColor: defPlayerColor,
-      });
+      // Map visuals arrive via game:map_visual from the server (all clients).
+    });
+
+    socket.on('game:map_visual', (payload: MapVisualEvent) => {
+      markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
+      handleMapVisualEvent(payload);
     });
 
     socket.on('game:cards_redeemed', ({ bonus }: { bonus: number }) => {
@@ -1075,14 +1108,23 @@ export default function GamePage() {
         ...prev,
         `Naval: ${fromName} → ${toName}: ${result.attacker_won ? 'attacker won' : 'defender held'} (−${result.attacker_losses} / −${result.defender_losses} fleets)`,
       ]);
+      // Map animation via game:map_visual (all clients).
     });
 
-    socket.on('game:influence_result', ({ success, targetId, error }: { success: boolean; targetId?: string; error?: string }) => {
+    socket.on('game:influence_result', ({ success, targetId, error, variant }: {
+      success: boolean;
+      targetId?: string;
+      error?: string;
+      variant?: 'seize' | 'garibaldi' | 'detente';
+    }) => {
       const mapData = mapDataRef.current;
       const targetName = targetId ? (mapData?.territories.find((t) => t.territory_id === targetId)?.name ?? targetId) : 'territory';
       if (success) {
-        toast.success(`📡 Influence succeeded — ${targetName} seized!`, { duration: 3000 });
-        setCombatLog((prev) => [...prev, `Influence: ${targetName} seized via influence spread`]);
+        const label = variant === 'garibaldi' ? "Garibaldi's Redshirts"
+          : variant === 'detente' ? 'Détente influence'
+            : 'Influence';
+        toast.success(`📡 ${label} — ${targetName} seized!`, { duration: 3000 });
+        setCombatLog((prev) => [...prev, `Influence: ${targetName} seized via ${label.toLowerCase()}`]);
       } else {
         toast.error(error ?? 'Influence failed');
       }
@@ -1090,6 +1132,25 @@ export default function GamePage() {
 
     socket.on('game:event_card', (card: EventCard) => {
       setActiveEventCard(card);
+      scheduleEventCardMapVisualBackup(
+        card,
+        (cardId) => mapVisualEventsRef.current.some((e) => e.kind === 'event' && e.cardId === cardId),
+        pushMapVisualLocal,
+        eventCardVisualSeenRef.current,
+      );
+    });
+
+    socket.on('game:ability_result', (result: {
+      abilityId?: string;
+      success?: boolean;
+      effect?: string;
+    }) => {
+      if (result.effect === 'pre_attack_damage_ready' && result.abilityId === 'air_strike') {
+        toast('✈️ Air Strike armed — your next attack deals +1 damage before combat', {
+          duration: 4500,
+          style: { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' },
+        });
+      }
     });
 
     socket.on('game:event_card_resolved', () => {
@@ -1207,18 +1268,31 @@ export default function GamePage() {
     });
 
     const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
-      const abilityId = event.abilityId as StrikeAnimationVariant;
-      if (abilityId !== 'atom_bomb' && abilityId !== 'nuclear_strike') return;
+      if (!isMapStrikeAbility(event.abilityId)) return;
 
+      const abilityId = event.abilityId as MapStrikeAbilityId;
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
-      setStrikeAnim((prev) => ({
+      if (shouldShowFullScreenStrike({
         abilityId,
-        targetName: tName,
-        unitReduction: event.unitReduction,
-        key: (prev?.key ?? 0) + 1,
-      }));
+        prefersReducedMotion: prefersReducedMotion(),
+        liteMode: isLiteMode(),
+      })) {
+        setStrikeAnim((prev) => ({
+          abilityId: abilityId as StrikeAnimationVariant,
+          targetName: tName,
+          unitReduction: event.unitReduction,
+          key: (prev?.key ?? 0) + 1,
+        }));
+      }
+
+      mapStrikeFlashKeyRef.current += 1;
+      setMapStrikeFlash({
+        territoryId: event.territoryId,
+        abilityId,
+        key: mapStrikeFlashKeyRef.current,
+      });
 
       const viewer = userRef.current;
       toast(getStrikeToastMessage(event, tName, {
@@ -1227,19 +1301,12 @@ export default function GamePage() {
         resolvedPlayerId: resolvedViewerPlayerIdRef.current,
       }), {
         duration: 6000,
-        style: { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' },
+        style: getStrikeToastStyle(abilityId),
       });
 
       setCombatLog((prev) => [...prev, getStrikeCombatLogLine(event, tName)]);
 
-      pushGlobeEvent({
-        type: 'combat',
-        territoryId: event.territoryId,
-        attackerLosses: 0,
-        defenderLosses: event.abilityId === 'atom_bomb' ? 99 : (event.unitReduction ?? 2),
-        captured: false,
-        attackerColor: event.attackerColor,
-      });
+      // Globe + 2D strike visuals arrive via game:map_visual from emitStrikeAnimation.
     };
 
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
@@ -1299,6 +1366,7 @@ export default function GamePage() {
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
       socket.off('game:event_card');
+      socket.off('game:ability_result');
       socket.off('game:event_card_resolved');
       socket.off('game:truce_proposal');
       socket.off('game:truce_result');
@@ -1307,6 +1375,7 @@ export default function GamePage() {
       socket.off('game:wonder_built');
       socket.off('game:strike_animation');
       socket.off('game:atom_bomb');
+      socket.off('game:map_visual');
       socket.off('game:space_station_launched');
       socket.off('game:puzzle_feedback');
       if (lobbyTimeoutRef.current) {
@@ -1612,14 +1681,7 @@ export default function GamePage() {
         accentText: 'text-sky-400',
       });
 
-      const myColor = gameState.players.find(p => p.player_id === myPid)?.color;
-      pushGlobeEvent({
-        type: 'fortify',
-        territoryId,
-        fromTerritoryId: attackSource,
-        units,
-        playerColor: myColor,
-      });
+      // Map visual emitted by server on game:fortify success.
 
       setAttackSource(null);
       setFortifyUnits(1);
@@ -1818,16 +1880,7 @@ export default function GamePage() {
       accentText: 'text-emerald-400',
     });
 
-    const tState = gs?.territories[territoryId];
-    const draftPid = seatPid ?? uid ?? null;
-    const myColor = draftPid ? gs?.players.find((p) => p.player_id === draftPid)?.color : undefined;
-    pushGlobeEvent({
-      type: 'reinforce',
-      territoryId,
-      units,
-      totalAfter: (tState?.unit_count ?? 0) + units,
-      playerColor: myColor,
-    });
+    // Map visual emitted by server on game:draft success.
   };
 
   const handleRedeemCards = (cardIds: string[]) => {
@@ -2638,6 +2691,7 @@ export default function GamePage() {
 
   const reducedGlobe =
     prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
+  const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
 
   return (
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
@@ -2810,7 +2864,7 @@ export default function GamePage() {
         {/* Map Canvas */}
         <div
           ref={mapAreaRef}
-          className="flex-1 relative overflow-hidden min-h-0 min-w-0"
+          className={`flex-1 relative overflow-hidden min-h-0 min-w-0${mapPhaseTintClass ? ` ${mapPhaseTintClass}` : ''}`}
         >
           {mapData ? (
             mapView === 'globe' ? (
@@ -2826,6 +2880,9 @@ export default function GamePage() {
                       width={mapCanvasSize.w}
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
+                      pulseWorldId={galaxyPulse?.worldId ?? null}
+                      pulseKey={galaxyPulse?.key ?? 0}
+                      pulseLabel={galaxyPulse?.label ?? null}
                     />
                   ) : (
                     <>
@@ -2849,10 +2906,13 @@ export default function GamePage() {
                         width={mapCanvasSize.w}
                         height={mapCanvasSize.h}
                         events={globeEvents}
-                        onEventDone={handleGlobeEventDone}
+                        onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
                         autoSpin={globeSpinEnabled}
                         highlightTerritoryId={tutorialHighlightId}
+                        ambientEnabled={mapAmbientEnabled && !reducedGlobe}
+                        turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                        contestedBorders={contestedBorders}
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                         globeImageUrl={
                           mapData.map_kind === 'galaxy'
@@ -2929,6 +2989,14 @@ export default function GamePage() {
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
                 highlightTerritoryId={tutorialHighlightId}
+                strikeFlash={mapStrikeFlash}
+                mapVisualEvents={mapVisualEvents}
+                onMapVisualDone={onMapVisualDone}
+                reducedEffects={reducedGlobe}
+                ambientEnabled={mapAmbientEnabled && !reducedGlobe}
+                turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                turnHolderColor={turnHolderPlayer?.color}
+                contestedBorders={contestedBorders}
                 resetViewRef={resetViewRef}
               />
             )

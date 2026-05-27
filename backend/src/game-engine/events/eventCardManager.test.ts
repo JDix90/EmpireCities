@@ -91,3 +91,26 @@ describe('applyEventEffect units_added player', () => {
     expect(r.affected_territories?.length).toBeGreaterThan(0);
   });
 });
+
+describe('applyEventEffect region_disaster', () => {
+  it('returns per-territory deltas with global flag', () => {
+    const state = baseState({
+      phase: 'attack',
+      territories: {
+        a: makeTerritory('p1', 4),
+        b: makeTerritory('p2', 3),
+        c: makeTerritory('p2', 1),
+      },
+    });
+    const r = applyEventEffect(
+      state,
+      { type: 'region_disaster', target: 'region', value: 1 },
+      false,
+    );
+    expect(r.global).toBe(true);
+    expect(r.affected_territories?.length).toBe(2);
+    expect(state.territories.a.unit_count).toBe(3);
+    expect(state.territories.b.unit_count).toBe(2);
+    expect(state.territories.c.unit_count).toBe(1);
+  });
+});

@@ -43,7 +43,7 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   dyson_beam: { label: 'Dyson Beam', scope: 'turn', phase: 'attack', unitReduction: 4, minTargetUnits: 1 },
   hypersonic_strike: { label: 'Hypersonic Strike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, maxHopRange: 2 },
   river_blockade: { label: 'River Blockade', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true },
-  air_strike: { label: 'Air Strike', scope: 'turn', phase: 'attack', selfBuff: 'pre_attack_damage' },
+  air_strike: { label: 'Air Strike', scope: 'turn', phase: 'attack', selfBuff: 'pre_attack_damage', unitReduction: 1 },
   knights_charge: { label: 'Knights Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   bersaglieri_charge: { label: 'Bersaglieri Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   spy_network: { label: 'Spy Network', scope: 'turn', phase: 'attack' },

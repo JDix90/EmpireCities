@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.9.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.9.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -53,6 +53,9 @@ jobs:
       - name: Frontend type-check
         run: pnpm -C frontend exec tsc --noEmit
 
+      - name: Frontend unit tests
+        run: pnpm run test:frontend
+
       - name: Frontend build
         run: pnpm -C frontend run build
 
@@ -63,3 +66,8 @@ jobs:
         env:
           CI: true
         run: pnpm run test:e2e:smoke
+
+      - name: E2E map visual smokes (Chromium)
+        env:
+          CI: true
+        run: pnpm run test:e2e:map-visual

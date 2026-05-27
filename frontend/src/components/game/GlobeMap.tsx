@@ -25,6 +25,14 @@ import {
   wastelandColorRgba,
   wastelandGlyph,
 } from '../../data/spaceAgeWastelands';
+import {
+  isMapStrikeAbility,
+  STRIKE_MAP_STYLES,
+  type MapStrikeAbilityId,
+} from '../../utils/mapStrikeEffects';
+import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB } from '../../utils/mapVisualStyles';
+import { eventDurationMs, resolveEventVisualMode } from '../../utils/mapEventEffects';
+import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -91,7 +99,8 @@ function polygonAltitudeHash(territoryId: string): number {
 
 export interface GlobeEvent {
   id: string;
-  type: 'reinforce' | 'combat' | 'fortify';
+  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event';
+  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event';
   territoryId: string;
   fromTerritoryId?: string;
   units?: number;
@@ -102,6 +111,15 @@ export interface GlobeEvent {
   playerColor?: string;
   attackerColor?: string;
   defenderColor?: string;
+  newOwnerColor?: string;
+  /** Tech strike ability — drives map-local globe animation variant */
+  strikeAbilityId?: string;
+  variant?: string;
+  unitReduction?: number;
+  affectedTerritories?: Array<{ territory_id: string; delta: number }>;
+  regionId?: string;
+  global?: boolean;
+  cardId?: string;
 }
 
 interface MapTerritory {
@@ -180,6 +198,10 @@ interface GlobeMapProps {
   backgroundColor?: string;
   /** Filters territories by canonical world id (defaults to `earth`). */
   activeWorldId?: string;
+  /** Ambient turn-holder glow and contested frontier arcs. */
+  ambientEnabled?: boolean;
+  turnHolderPlayerId?: string | null;
+  contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
 }
 
 /**
@@ -252,6 +274,11 @@ type HtmlDatum =
       kind: 'animation-dest-units';
       text: string;
       color: string;
+    })
+  | (HtmlDatumBase & {
+      kind: 'animation-strike-flash';
+      emoji: string;
+      glowRgb: string;
     })
   | (HtmlDatumBase & {
       kind: 'wasteland-zone';
@@ -462,6 +489,18 @@ function buildHtmlOverlayElement(
       break;
     }
 
+    case 'animation-strike-flash': {
+      el.style.cssText = [
+        'font-size:42px',
+        'text-align:center',
+        `text-shadow:0 0 28px ${datum.glowRgb}, 0 0 56px ${datum.glowRgb}`,
+        'animation:globeStrikeFlash 1.1s ease-out forwards',
+        'pointer-events:none',
+      ].join(';');
+      el.textContent = datum.emoji;
+      break;
+    }
+
     case 'animation-loss-banner': {
       el.style.cssText = [
         "font-family:'Courier New', monospace",
@@ -611,6 +650,12 @@ const ANIMATION_STYLES = `
   0%, 100% { opacity: 0.75; transform: scale(0.94); }
   50%      { opacity: 1;    transform: scale(1.06); }
 }
+@keyframes globeStrikeFlash {
+  0%   { transform: scale(0.4); opacity: 0; filter: brightness(2); }
+  25%  { transform: scale(1.35); opacity: 1; filter: brightness(1.6); }
+  70%  { transform: scale(1.1); opacity: 0.95; filter: brightness(1.2); }
+  100% { transform: scale(0.9); opacity: 0; filter: brightness(1); }
+}
 `;
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -632,6 +677,9 @@ function GlobeMap({
   showAtmosphere = true,
   backgroundColor = 'rgba(10, 14, 26, 1)',
   activeWorldId = 'earth',
+  ambientEnabled = false,
+  turnHolderPlayerId,
+  contestedBorders = [],
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -662,6 +710,21 @@ function GlobeMap({
   const [overlays, setOverlays] = useState<HtmlDatum[]>([]);
   const [arcs, setArcs] = useState<ArcDatum[]>([]);
   const [rings, setRings] = useState<RingDatum[]>([]);
+  /** Brief territory polygon tint during strike abilities */
+  const [polygonStrikeFlash, setPolygonStrikeFlash] = useState<{
+    territoryId: string;
+    abilityId: MapStrikeAbilityId;
+    phase: number;
+  } | null>(null);
+  /** Ownership color wash after territory capture */
+  const [polygonCaptureFlash, setPolygonCaptureFlash] = useState<{
+    territoryId: string;
+    phase: number;
+    fromRgb: [number, number, number];
+    toRgb: [number, number, number];
+  } | null>(null);
+  const polygonFlashTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const polygonCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Event queue refs
   const eventQueueRef = useRef<GlobeEvent[]>([]);
@@ -845,6 +908,54 @@ function GlobeMap({
 
   const territoryCentersRef = useRef(territoryCenters);
   territoryCentersRef.current = territoryCenters;
+
+  const startPolygonStrikeFlash = useCallback((territoryId: string, abilityId: MapStrikeAbilityId) => {
+    const style = STRIKE_MAP_STYLES[abilityId];
+    if (polygonFlashTimerRef.current) clearInterval(polygonFlashTimerRef.current);
+    const started = Date.now();
+    setPolygonStrikeFlash({ territoryId, abilityId, phase: 0 });
+    polygonFlashTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - started;
+      if (elapsed >= style.mapFlashMs) {
+        if (polygonFlashTimerRef.current) clearInterval(polygonFlashTimerRef.current);
+        polygonFlashTimerRef.current = null;
+        setPolygonStrikeFlash(null);
+        return;
+      }
+      setPolygonStrikeFlash({
+        territoryId,
+        abilityId,
+        phase: 0.45 + 0.55 * Math.abs(Math.sin(elapsed * 0.014)),
+      });
+    }, 48);
+  }, []);
+
+  const startPolygonCaptureFlash = useCallback((
+    territoryId: string,
+    fromColor?: string,
+    toColor?: string,
+  ) => {
+    if (polygonCaptureTimerRef.current) clearInterval(polygonCaptureTimerRef.current);
+    const fromRgb = hexToRgb(fromColor ?? '#888888');
+    const toRgb = hexToRgb(toColor ?? '#ffffff');
+    const started = Date.now();
+    setPolygonCaptureFlash({ territoryId, phase: 0, fromRgb, toRgb });
+    polygonCaptureTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - started;
+      if (elapsed >= MAP_VISUAL_DURATIONS.captureFlash) {
+        if (polygonCaptureTimerRef.current) clearInterval(polygonCaptureTimerRef.current);
+        polygonCaptureTimerRef.current = null;
+        setPolygonCaptureFlash(null);
+        return;
+      }
+      setPolygonCaptureFlash({
+        territoryId,
+        phase: elapsed / MAP_VISUAL_DURATIONS.captureFlash,
+        fromRgb,
+        toRgb,
+      });
+    }, 48);
+  }, []);
 
   /**
    * Camera framing must follow the active world on galaxy / multi-world maps —
@@ -1205,6 +1316,11 @@ function GlobeMap({
     // Phase 5: Captured banner (if applicable)
     if (event.captured) {
       scheduleTimer(() => {
+        startPolygonCaptureFlash(
+          event.territoryId,
+          event.defenderColor,
+          event.newOwnerColor ?? event.attackerColor,
+        );
         addOverlay({
           kind: 'animation-captured',
           id: capturedId,
@@ -1226,7 +1342,7 @@ function GlobeMap({
       removeOverlay(capturedId);
       playNextRef.current();
     }, totalDuration);
-  }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addArc, removeArc, addRings, removeRings]);
+  }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addArc, removeArc, addRings, removeRings, startPolygonCaptureFlash]);
 
   const animateFortify = useCallback((event: GlobeEvent) => {
     const destCenter = territoryCentersRef.current.get(event.territoryId);
@@ -1302,6 +1418,725 @@ function GlobeMap({
     }, 2600);
   }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addArc, removeArc]);
 
+  const animateStrike = useCallback((event: GlobeEvent) => {
+    const abilityRaw = event.strikeAbilityId ?? event.variant ?? 'nuclear_strike';
+    if (!isMapStrikeAbility(abilityRaw)) {
+      playNextRef.current();
+      return;
+    }
+    const abilityId = abilityRaw;
+    const style = STRIKE_MAP_STYLES[abilityId];
+    const targetCenter = territoryCentersRef.current.get(event.territoryId);
+    if (!targetCenter) {
+      playNextRef.current();
+      return;
+    }
+
+    pauseAutoRotate();
+    if (!regionalGlobeRef.current.lockRotation) {
+      panCamera(targetCenter.lat, targetCenter.lng, abilityId === 'atom_bomb' ? 2.0 : 1.7);
+    }
+    startPolygonStrikeFlash(event.territoryId, abilityId);
+
+    const ringId = uid('strike-ring');
+    const ring2Id = uid('strike-ring2');
+    const flashId = uid('strike-flash');
+    const lossId = uid('strike-loss');
+    const explosionId = abilityId === 'atom_bomb' ? uid('strike-explosion') : null;
+    const arcIds: string[] = [];
+    const glowRgb = `rgba(${style.ringRgb.join(',')}, 0.85)`;
+    const lossUnits = abilityId === 'atom_bomb'
+      ? 99
+      : (event.unitReduction ?? event.defenderLosses ?? 2);
+
+    const ringColorFn = (t: number) =>
+      `rgba(${style.ringRgb[0]}, ${style.ringRgb[1]}, ${style.ringRgb[2]}, ${Math.pow(1 - t, 1.4) * 0.9})`;
+
+    if (abilityId === 'orbital_strike') {
+      for (const offset of [-4, 0, 4]) {
+        const arcId = uid('strike-beam');
+        arcIds.push(arcId);
+        scheduleTimer(() => {
+          addArc({
+            id: arcId,
+            startLat: Math.min(82, targetCenter.lat + 38),
+            startLng: targetCenter.lng + offset,
+            endLat: targetCenter.lat,
+            endLng: targetCenter.lng + offset * 0.15,
+            color: ['#e0f7fa', '#67e8f9', '#0891b2'],
+            stroke: 2.2,
+            dashLen: 0.15,
+            dashGap: 0.05,
+            animateTime: 280,
+            altitude: 0.25,
+            clickForwardTerritoryId: event.territoryId,
+          });
+        }, 180 + Math.abs(offset) * 20);
+      }
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 5,
+          speed: 5,
+          repeatPeriod: 280,
+          colorFn: ringColorFn,
+        });
+      }, 520);
+    } else if (abilityId === 'hypersonic_strike') {
+      const arcId = uid('strike-streak');
+      arcIds.push(arcId);
+      scheduleTimer(() => {
+        addArc({
+          id: arcId,
+          startLat: targetCenter.lat + 28,
+          startLng: targetCenter.lng - 32,
+          endLat: targetCenter.lat,
+          endLng: targetCenter.lng,
+          color: ['#fff', '#fed7aa', '#ea580c'],
+          stroke: 3,
+          dashLen: 0.55,
+          dashGap: 0.08,
+          animateTime: 160,
+          altitude: 0.12,
+          clickForwardTerritoryId: event.territoryId,
+        });
+      }, 120);
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 6,
+          speed: 9,
+          repeatPeriod: 220,
+          colorFn: ringColorFn,
+        });
+        addRings({
+          id: ring2Id,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 11,
+          repeatPeriod: 180,
+          colorFn: (t: number) => `rgba(255, 255, 255, ${Math.pow(1 - t, 2) * 0.75})`,
+        });
+      }, 340);
+    } else if (abilityId === 'cyber_attack' || abilityId === 'data_breach') {
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 7,
+          repeatPeriod: 180,
+          colorFn: ringColorFn,
+        });
+      }, 200);
+    } else if (abilityId === 'swarm_strike') {
+      const offsets = [
+        { lat: 14, lng: -16 },
+        { lat: 10, lng: -6 },
+        { lat: 18, lng: 4 },
+        { lat: 8, lng: 14 },
+        { lat: 16, lng: -22 },
+        { lat: 12, lng: 18 },
+      ];
+      for (const off of offsets) {
+        const arcId = uid('strike-swarm');
+        arcIds.push(arcId);
+        scheduleTimer(() => {
+          addArc({
+            id: arcId,
+            startLat: targetCenter.lat + off.lat,
+            startLng: targetCenter.lng + off.lng,
+            endLat: targetCenter.lat,
+            endLng: targetCenter.lng,
+            color: ['#fff', '#fed7aa', '#ea580c'],
+            stroke: 1.8,
+            dashLen: 0.4,
+            dashGap: 0.1,
+            animateTime: 140,
+            altitude: 0.1,
+            clickForwardTerritoryId: event.territoryId,
+          });
+        }, 100 + Math.abs(off.lng) * 8);
+      }
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 5,
+          speed: 6,
+          repeatPeriod: 220,
+          colorFn: ringColorFn,
+        });
+      }, 480);
+    } else if (abilityId === 'dyson_beam') {
+      const arcId = uid('strike-dyson');
+      arcIds.push(arcId);
+      scheduleTimer(() => {
+        addArc({
+          id: arcId,
+          startLat: Math.min(78, targetCenter.lat + 42),
+          startLng: targetCenter.lng,
+          endLat: targetCenter.lat,
+          endLng: targetCenter.lng,
+          color: ['#fffef0', '#fef08a', '#facc15', '#ca8a04'],
+          stroke: 4,
+          dashLen: 0.08,
+          dashGap: 0.02,
+          animateTime: 900,
+          altitude: 0.3,
+          clickForwardTerritoryId: event.territoryId,
+        });
+      }, 250);
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 7,
+          speed: 3,
+          repeatPeriod: 450,
+          colorFn: ringColorFn,
+        });
+        addRings({
+          id: ring2Id,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 5,
+          speed: 4,
+          repeatPeriod: 380,
+          colorFn: (t: number) => `rgba(255, 255, 220, ${Math.pow(1 - t, 1.5) * 0.75})`,
+        });
+      }, 1100);
+    } else if (abilityId === 'air_strike') {
+      const sourceCenter = event.fromTerritoryId
+        ? territoryCentersRef.current.get(event.fromTerritoryId)
+        : null;
+      if (sourceCenter) {
+        const arcId = uid('strike-air');
+        arcIds.push(arcId);
+        scheduleTimer(() => {
+          addArc({
+            id: arcId,
+            startLat: sourceCenter.lat + 6,
+            startLng: sourceCenter.lng - 4,
+            endLat: targetCenter.lat,
+            endLng: targetCenter.lng,
+            color: ['#f8fafc', '#cbd5e1', '#64748b'],
+            stroke: 2.4,
+            dashLen: 0.32,
+            dashGap: 0.07,
+            animateTime: 340,
+            altitude: 0.2,
+            clickForwardTerritoryId: event.territoryId,
+          });
+        }, 120);
+      }
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 6,
+          repeatPeriod: 240,
+          colorFn: ringColorFn,
+        });
+      }, 400);
+    } else if (abilityId === 'river_blockade') {
+      const sourceCenter = event.fromTerritoryId
+        ? territoryCentersRef.current.get(event.fromTerritoryId)
+        : null;
+      if (sourceCenter) {
+        const arcId = uid('strike-blockade');
+        arcIds.push(arcId);
+        scheduleTimer(() => {
+          addArc({
+            id: arcId,
+            startLat: sourceCenter.lat,
+            startLng: sourceCenter.lng,
+            endLat: targetCenter.lat,
+            endLng: targetCenter.lng,
+            color: ['#e0f2fe', '#38bdf8', '#0284c7'],
+            stroke: 3,
+            dashLen: 0.25,
+            dashGap: 0.08,
+            animateTime: 520,
+            altitude: null,
+            clickForwardTerritoryId: event.territoryId,
+          });
+        }, 350);
+      }
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4.5,
+          speed: 5,
+          repeatPeriod: 260,
+          colorFn: ringColorFn,
+        });
+      }, 700);
+    } else if (abilityId === 'nuclear_strike') {
+      const arcId = uid('strike-missile');
+      arcIds.push(arcId);
+      scheduleTimer(() => {
+        addArc({
+          id: arcId,
+          startLat: targetCenter.lat + 22,
+          startLng: targetCenter.lng - 18,
+          endLat: targetCenter.lat,
+          endLng: targetCenter.lng,
+          color: ['#fffde7', '#ffd54f', '#ff7043'],
+          stroke: 2.5,
+          dashLen: 0.35,
+          dashGap: 0.1,
+          animateTime: 420,
+          altitude: 0.15,
+          clickForwardTerritoryId: event.territoryId,
+        });
+      }, 200);
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4.5,
+          speed: 4.5,
+          repeatPeriod: 320,
+          colorFn: ringColorFn,
+        });
+      }, 650);
+    } else {
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 8,
+          speed: 3.5,
+          repeatPeriod: 400,
+          colorFn: (t: number) => `rgba(255, 60, 0, ${Math.pow(1 - t, 1.2) * 0.95})`,
+        });
+      }, 400);
+    }
+
+    const flashDelay = abilityId === 'hypersonic_strike' ? 380
+      : abilityId === 'swarm_strike' ? 520
+        : abilityId === 'orbital_strike' ? 680
+          : abilityId === 'nuclear_strike' ? 780
+            : abilityId === 'dyson_beam' ? 1400
+              : abilityId === 'air_strike' ? 480
+                : abilityId === 'river_blockade' ? 820
+                  : abilityId === 'cyber_attack' || abilityId === 'data_breach' ? 420
+                    : 900;
+
+    scheduleTimer(() => {
+      addOverlay({
+        kind: 'animation-strike-flash',
+        id: flashId,
+        lat: targetCenter.lat,
+        lng: targetCenter.lng,
+        alt: 0.07,
+        emoji: style.emoji,
+        glowRgb,
+      });
+      if (abilityId === 'atom_bomb' && explosionId) {
+        addOverlay({
+          kind: 'animation-explosion',
+          id: explosionId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          alt: 0.06,
+        });
+      }
+    }, flashDelay);
+
+    scheduleTimer(() => {
+      removeOverlay(flashId);
+      if (lossUnits > 0 && abilityId !== 'atom_bomb') {
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: lossId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          alt: 0.05,
+          text: `-${lossUnits} ${style.emoji}`,
+        });
+      } else if (abilityId === 'atom_bomb') {
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: lossId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          alt: 0.05,
+          text: '☢️ OBLITERATED',
+        });
+      }
+    }, flashDelay + 900);
+
+    scheduleTimer(() => {
+      for (const arcId of arcIds) removeArc(arcId);
+      removeRings(ringId);
+      removeRings(ring2Id);
+      removeOverlay(flashId);
+      removeOverlay(lossId);
+      if (explosionId) removeOverlay(explosionId);
+      playNextRef.current();
+    }, Math.min(style.mapFlashMs + 400, style.durationMs - 200));
+  }, [
+    pauseAutoRotate,
+    panCamera,
+    scheduleTimer,
+    addOverlay,
+    removeOverlay,
+    addArc,
+    removeArc,
+    addRings,
+    removeRings,
+    startPolygonStrikeFlash,
+  ]);
+
+  const animateNaval = useCallback((event: GlobeEvent) => {
+    const targetCenter = territoryCentersRef.current.get(event.territoryId);
+    const sourceCenter = event.fromTerritoryId
+      ? territoryCentersRef.current.get(event.fromTerritoryId)
+      : null;
+    if (!targetCenter) { playNextRef.current(); return; }
+
+    pauseAutoRotate();
+    if (!regionalGlobeRef.current.lockRotation) {
+      if (sourceCenter) {
+        const view = cameraViewForTwo(sourceCenter, targetCenter);
+        panCamera(view.lat, view.lng, view.altitude);
+      } else {
+        panCamera(targetCenter.lat, targetCenter.lng, 1.7);
+      }
+    }
+
+    const arcId = uid('naval-arc');
+    const ringId = uid('naval-ring');
+    const flashId = uid('naval-flash');
+    const atkLossId = uid('naval-atk-loss');
+    const defLossId = uid('naval-def-loss');
+    const navalRgb = NAVAL_RING_RGB;
+    const glowRgb = `rgba(${navalRgb.join(',')}, 0.85)`;
+    const ringColorFn = (t: number) =>
+      `rgba(${navalRgb[0]}, ${navalRgb[1]}, ${navalRgb[2]}, ${Math.pow(1 - t, 1.4) * 0.9})`;
+
+    if (sourceCenter) {
+      scheduleTimer(() => {
+        addArc({
+          id: arcId,
+          startLat: sourceCenter.lat,
+          startLng: sourceCenter.lng,
+          endLat: targetCenter.lat,
+          endLng: targetCenter.lng,
+          color: ['#e0f2fe', '#38bdf8', '#0284c7'],
+          stroke: 2.8,
+          dashLen: 0.35,
+          dashGap: 0.12,
+          animateTime: 480,
+          altitude: null,
+          clickForwardTerritoryId: event.territoryId,
+        });
+      }, 500);
+    }
+
+    scheduleTimer(() => {
+      addRings({
+        id: ringId,
+        lat: targetCenter.lat,
+        lng: targetCenter.lng,
+        maxRadius: 5,
+        speed: 5,
+        repeatPeriod: 300,
+        colorFn: ringColorFn,
+      });
+    }, 850);
+
+    scheduleTimer(() => {
+      addOverlay({
+        kind: 'animation-strike-flash',
+        id: flashId,
+        lat: targetCenter.lat,
+        lng: targetCenter.lng,
+        alt: 0.06,
+        emoji: '⚓',
+        glowRgb,
+      });
+    }, 1000);
+
+    scheduleTimer(() => {
+      removeRings(ringId);
+      if (sourceCenter && (event.attackerLosses ?? 0) > 0) {
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: atkLossId,
+          lat: sourceCenter.lat,
+          lng: sourceCenter.lng,
+          alt: 0.04,
+          text: `-${event.attackerLosses} ⚓`,
+        });
+      }
+      if ((event.defenderLosses ?? 0) > 0) {
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: defLossId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          alt: 0.04,
+          text: `-${event.defenderLosses} ⚓`,
+        });
+      }
+    }, 1700);
+
+    scheduleTimer(() => {
+      removeArc(arcId);
+      removeOverlay(flashId);
+      removeOverlay(atkLossId);
+      removeOverlay(defLossId);
+      playNextRef.current();
+    }, MAP_VISUAL_DURATIONS.naval);
+  }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addArc, removeArc, addRings, removeRings]);
+
+  const animateInfluence = useCallback((event: GlobeEvent) => {
+    const targetCenter = territoryCentersRef.current.get(event.territoryId);
+    if (!targetCenter) { playNextRef.current(); return; }
+
+    const blocked = event.variant === 'blocked';
+    pauseAutoRotate();
+    if (!regionalGlobeRef.current.lockRotation) {
+      panCamera(targetCenter.lat, targetCenter.lng, 1.6);
+    }
+
+    const ringId = uid('influence-ring');
+    const ring2Id = uid('influence-ring2');
+    const flashId = uid('influence-flash');
+    const infRgb = blocked ? INFLUENCE_BLOCKED_RGB : INFLUENCE_RING_RGB;
+    const glowRgb = `rgba(${infRgb.join(',')}, ${blocked ? 0.55 : 0.85})`;
+    const ringColorFn = (t: number) =>
+      `rgba(${infRgb[0]}, ${infRgb[1]}, ${infRgb[2]}, ${Math.pow(1 - t, 1.3) * (blocked ? 0.55 : 0.85)})`;
+    const duration = blocked ? MAP_VISUAL_DURATIONS.influenceBlocked : MAP_VISUAL_DURATIONS.influence;
+
+    scheduleTimer(() => {
+      addRings({
+        id: ringId,
+        lat: targetCenter.lat,
+        lng: targetCenter.lng,
+        maxRadius: blocked ? 4 : 6,
+        speed: blocked ? 3 : 4,
+        repeatPeriod: blocked ? 280 : 320,
+        colorFn: ringColorFn,
+      });
+      if (!blocked) {
+        addRings({
+          id: ring2Id,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 6,
+          repeatPeriod: 240,
+          colorFn: (t: number) => `rgba(255, 255, 255, ${Math.pow(1 - t, 2) * 0.5})`,
+        });
+      }
+    }, 300);
+
+    scheduleTimer(() => {
+      if (!blocked) {
+        startPolygonCaptureFlash(
+          event.territoryId,
+          event.defenderColor,
+          event.newOwnerColor ?? event.playerColor,
+        );
+      }
+      addOverlay({
+        kind: 'animation-strike-flash',
+        id: flashId,
+        lat: targetCenter.lat,
+        lng: targetCenter.lng,
+        alt: 0.07,
+        emoji: blocked ? '🚫' : '📡',
+        glowRgb,
+      });
+    }, blocked ? 600 : 1100);
+
+    scheduleTimer(() => {
+      removeRings(ringId);
+      if (!blocked) removeRings(ring2Id);
+      removeOverlay(flashId);
+      playNextRef.current();
+    }, duration);
+  }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addRings, removeRings, startPolygonCaptureFlash]);
+
+  const animateEvent = useCallback((event: GlobeEvent) => {
+    const mode = resolveEventVisualMode(event as MapVisualEvent);
+    const duration = eventDurationMs(mode);
+    pauseAutoRotate();
+
+    const regionMap = new Map<string, string>();
+    for (const t of mapData.territories) regionMap.set(t.territory_id, t.region_id);
+
+    const overlayIds: string[] = [];
+    const ringIds: string[] = [];
+    const affected = event.affectedTerritories ?? [];
+    const centers = territoryCentersRef.current;
+
+    const focusId = affected[0]?.territory_id ?? event.territoryId;
+    const focus = focusId && focusId !== '__global__' ? centers.get(focusId) : null;
+    if (focus && !regionalGlobeRef.current.lockRotation) {
+      panCamera(focus.lat, focus.lng, mode === 'global_disaster' ? 2.2 : 1.8);
+    }
+
+    if (mode === 'territory_deltas') {
+      affected.forEach((row, i) => {
+        const c = centers.get(row.territory_id);
+        if (!c) return;
+        const id = uid(`event-delta-${i}`);
+        overlayIds.push(id);
+        scheduleTimer(() => {
+          addOverlay({
+            kind: 'animation-loss-banner',
+            id,
+            lat: c.lat,
+            lng: c.lng,
+            alt: 0.05,
+            text: row.delta >= 0 ? `+${row.delta}` : `${row.delta}`,
+          });
+        }, 200 + i * 120);
+      });
+    } else if (mode === 'global_disaster') {
+      const rows = affected.length > 0
+        ? affected
+        : [...centers.keys()].map((territory_id) => ({ territory_id, delta: -1 }));
+      rows.slice(0, 24).forEach((row, i) => {
+        const c = centers.get(row.territory_id);
+        if (!c) return;
+        const ringId = uid(`event-disaster-${i}`);
+        ringIds.push(ringId);
+        scheduleTimer(() => {
+          addRings({
+            id: ringId,
+            lat: c.lat,
+            lng: c.lng,
+            maxRadius: 4,
+            speed: 5,
+            repeatPeriod: 280,
+            colorFn: (t: number) => `rgba(${EVENT_AMBER_RGB.join(',')}, ${Math.pow(1 - t, 1.4) * 0.85})`,
+          });
+          if (row.delta !== 0) {
+            const oid = uid(`event-disaster-txt-${i}`);
+            overlayIds.push(oid);
+            addOverlay({
+              kind: 'animation-loss-banner',
+              id: oid,
+              lat: c.lat,
+              lng: c.lng,
+              alt: 0.04,
+              text: `${row.delta}`,
+            });
+          }
+        }, 150 + i * 80);
+      });
+    } else if (mode === 'region_highlight') {
+      let idx = 0;
+      for (const [tid, c] of centers) {
+        if (event.regionId && regionMap.get(tid) !== event.regionId) continue;
+        if (idx >= 18) break;
+        const ringId = uid(`event-region-${idx}`);
+        ringIds.push(ringId);
+        const delay = 200 + idx * 60;
+        idx += 1;
+        scheduleTimer(() => {
+          addRings({
+            id: ringId,
+            lat: c.lat,
+            lng: c.lng,
+            maxRadius: 3.5,
+            speed: 4,
+            repeatPeriod: 350,
+            colorFn: (t: number) => `rgba(${EVENT_STABILITY_RGB.join(',')}, ${Math.pow(1 - t, 1.3) * 0.8})`,
+          });
+        }, delay);
+      }
+    } else if (mode === 'strike_hit') {
+      const rows = affected.length > 0 ? affected : [{ territory_id: event.territoryId, delta: -1 }];
+      rows.forEach((row, i) => {
+        const c = centers.get(row.territory_id);
+        if (!c) return;
+        scheduleTimer(() => {
+          startPolygonStrikeFlash(row.territory_id, 'cyber_attack');
+          const oid = uid(`event-strike-${i}`);
+          overlayIds.push(oid);
+          addOverlay({
+            kind: 'animation-strike-flash',
+            id: oid,
+            lat: c.lat,
+            lng: c.lng,
+            alt: 0.06,
+            emoji: '💥',
+            glowRgb: 'rgba(255, 120, 50, 0.85)',
+          });
+        }, 300 + i * 200);
+      });
+    } else if (mode === 'truce_pulse') {
+      [...centers.values()].slice(0, 6).forEach((c, i) => {
+        const ringId = uid(`event-truce-${i}`);
+        ringIds.push(ringId);
+        scheduleTimer(() => {
+          addRings({
+            id: ringId,
+            lat: c.lat,
+            lng: c.lng,
+            maxRadius: 5,
+            speed: 3,
+            repeatPeriod: 400,
+            colorFn: (t: number) => `rgba(${EVENT_TRUCE_RGB.join(',')}, ${Math.pow(1 - t, 1.5) * 0.75})`,
+          });
+        }, i * 150);
+      });
+    } else if (mode === 'draft_bonus') {
+      const bonus = event.units ?? 0;
+      [...centers.entries()].slice(0, 4).forEach(([, c], i) => {
+        const oid = uid(`event-draft-${i}`);
+        overlayIds.push(oid);
+        scheduleTimer(() => {
+          addOverlay({
+            kind: 'animation-loss-banner',
+            id: oid,
+            lat: c.lat,
+            lng: c.lng,
+            alt: 0.05,
+            text: `+${bonus}`,
+          });
+        }, i * 100);
+      });
+    }
+
+    scheduleTimer(() => {
+      for (const id of ringIds) removeRings(id);
+      for (const id of overlayIds) removeOverlay(id);
+      playNextRef.current();
+    }, duration);
+  }, [
+    pauseAutoRotate,
+    panCamera,
+    scheduleTimer,
+    addOverlay,
+    removeOverlay,
+    addRings,
+    removeRings,
+    startPolygonStrikeFlash,
+    mapData.territories,
+  ]);
+
   // ── Event queue engine ─────────────────────────────────────────────────
 
   playNextRef.current = () => {
@@ -1317,10 +2152,16 @@ function GlobeMap({
     currentEventIdRef.current = next.id;
     flushAnimationUi();
 
-    switch (next.type) {
+    switch (next.kind ?? next.type) {
       case 'reinforce': animateReinforce(next); break;
-      case 'combat': animateCombat(next); break;
+      case 'combat':
+      case 'capture':
+        animateCombat(next); break;
       case 'fortify': animateFortify(next); break;
+      case 'strike': animateStrike(next); break;
+      case 'naval': animateNaval(next); break;
+      case 'influence': animateInfluence(next); break;
+      case 'event': animateEvent(next); break;
       default: playNextRef.current(); break;
     }
   };
@@ -1373,6 +2214,7 @@ function GlobeMap({
     return () => {
       for (const t of cleanupTimersRef.current) clearTimeout(t);
       clearTimeout(autoRotateTimerRef.current);
+      if (polygonFlashTimerRef.current) clearInterval(polygonFlashTimerRef.current);
     };
   }, []);
 
@@ -1567,6 +2409,36 @@ function GlobeMap({
     return result;
   }, [gameState, attackSource, selectedTerritory, mapData.connections, territoryCentroids, territoryById, activeWorldId]);
 
+  const contestedFrontierArcs = useMemo((): ArcDatum[] => {
+    if (!ambientEnabled || reducedEffects || !gameState || gameState.phase !== 'attack') return [];
+    const result: ArcDatum[] = [];
+    for (const edge of contestedBorders) {
+      const fromCenter = territoryCentroids.get(edge.fromId);
+      const toCenter = territoryCentroids.get(edge.toId);
+      const fromTerr = territoryById.get(edge.fromId);
+      const toTerr = territoryById.get(edge.toId);
+      if (!fromCenter || !toCenter || !fromTerr || !toTerr) continue;
+      if (inferWorldId(fromTerr) !== activeWorldId || inferWorldId(toTerr) !== activeWorldId) continue;
+      result.push({
+        id: `contested-${edge.fromId}-${edge.toId}`,
+        startLat: fromCenter.lat,
+        startLng: fromCenter.lng,
+        endLat: toCenter.lat,
+        endLng: toCenter.lng,
+        color: edge.sea
+          ? ['rgba(250, 204, 21, 0.45)', 'rgba(250, 204, 21, 0.12)']
+          : ['rgba(248, 113, 113, 0.5)', 'rgba(248, 113, 113, 0.12)'],
+        stroke: edge.sea ? 1.1 : 1.4,
+        dashLen: edge.sea ? 5 : 7,
+        dashGap: edge.sea ? 4 : 3,
+        animateTime: 2400,
+        altitude: edge.sea ? 0.12 : 0.04,
+        clickForwardTerritoryId: edge.toId,
+      });
+    }
+    return result;
+  }, [ambientEnabled, reducedEffects, gameState, contestedBorders, territoryCentroids, territoryById, activeWorldId]);
+
   // ── Permanent sea lane arcs ────────────────────────────────────────────
   // Sea-route territories (region_id === 'sea_routes') are rendered as tiny
   // polygon markers on the ocean.  These arcs draw the actual trade-route
@@ -1722,8 +2594,8 @@ function GlobeMap({
   );
 
   const combinedArcs = useMemo(
-    () => [...seaLaneArcs, ...arcs, ...adjacencyArcs],
-    [seaLaneArcs, arcs, adjacencyArcs],
+    () => [...seaLaneArcs, ...arcs, ...adjacencyArcs, ...contestedFrontierArcs],
+    [seaLaneArcs, arcs, adjacencyArcs, contestedFrontierArcs],
   );
 
   // ── Polygon accessors ──────────────────────────────────────────────────
@@ -1739,16 +2611,44 @@ function GlobeMap({
           ? 'rgb(45, 52, 72)'
           : 'rgba(45, 52, 72, 0.92)';
       if (!gameState) return empty;
+
+      let base: string = empty;
       const tState = gameState.territories[p.territory_id];
-      if (!tState?.owner_id) return empty;
-      const player = gameState.players.find((ply) => ply.player_id === tState.owner_id);
-      if (!player) return empty;
-      const raw = (player.color || '').trim();
-      const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
-      const table = useSolidPlayerCaps ? PLAYER_COLORS_SOLID : PLAYER_COLORS;
-      return table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
+      if (tState?.owner_id) {
+        const player = gameState.players.find((ply) => ply.player_id === tState.owner_id);
+        if (player) {
+          const raw = (player.color || '').trim();
+          const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
+          const table = useSolidPlayerCaps ? PLAYER_COLORS_SOLID : PLAYER_COLORS;
+          base = table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
+        }
+      }
+
+      if (
+        polygonStrikeFlash &&
+        polygonStrikeFlash.territoryId === p.territory_id
+      ) {
+        const [r, g, b] = STRIKE_MAP_STYLES[polygonStrikeFlash.abilityId].ringRgb;
+        const alpha = 0.28 + 0.42 * polygonStrikeFlash.phase;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      if (
+        polygonCaptureFlash &&
+        polygonCaptureFlash.territoryId === p.territory_id
+      ) {
+        const [r, g, b] = lerpRgb(
+          polygonCaptureFlash.fromRgb,
+          polygonCaptureFlash.toRgb,
+          polygonCaptureFlash.phase,
+        );
+        const alpha = 0.32 + 0.48 * polygonCaptureFlash.phase;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      return base;
     },
-    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica],
+    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash],
   );
 
   const adjacencyTargets = useMemo(() => {
@@ -1769,6 +2669,14 @@ function GlobeMap({
       if (adjacencyTargets.has(p.territory_id)) {
         return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
       }
+      if (
+        ambientEnabled &&
+        turnHolderPlayerId &&
+        gameState?.territories[p.territory_id]?.owner_id === turnHolderPlayerId
+      ) {
+        const holder = gameState.players.find((pl) => pl.player_id === turnHolderPlayerId);
+        if (holder?.color) return holder.color;
+      }
       // Galactic Age: every territory on a world often shares one region_id, and
       // REGION_CSS_COLORS can sit close to player blues/greens — borders vanish and
       // the cap reads as one solid player “shell”. Use a neutral rim so each cap
@@ -1786,7 +2694,10 @@ function GlobeMap({
       selectedTerritory,
       attackSource,
       adjacencyTargets,
+      gameState,
       gameState?.phase,
+      ambientEnabled,
+      turnHolderPlayerId,
       useSolidPlayerCaps,
       territoryRegionMap,
       regionColorMap,
@@ -1883,6 +2794,9 @@ function GlobeMap({
     <div
       className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative"
       style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      data-testid="globe-map-root"
+      data-globe-queue-depth={animationUi.backlog}
+      data-globe-playing={animationUi.playing ? 'true' : undefined}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
     >
