@@ -1,5 +1,20 @@
 import type { MapVisualEvent } from './mapVisualEvents';
 
+/** Snapshot diff can usually infer these animation types. */
+export const REPLAY_MAP_FX_LIMITATIONS = [
+  'Captures and ownership changes',
+  'Reinforcement increases',
+  'Combat unit losses',
+] as const;
+
+/** Not inferred from turn snapshots — may not animate in replay. */
+export const REPLAY_MAP_FX_NOT_INFERRED = [
+  'Tech strikes',
+  'Event cards',
+  'Naval combat',
+  'Fortify transfers',
+] as const;
+
 interface ReplayTerritoryState {
   owner_id?: string | null;
   unit_count: number;

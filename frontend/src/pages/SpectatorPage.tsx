@@ -16,11 +16,16 @@ import {
 } from '../utils/strikeAnimationMessages';
 import {
   getStrikeToastStyle,
-  isFullScreenStrikeAbility,
   isMapStrikeAbility,
   type MapStrikeAbilityId,
   type MapStrikeFlashProps,
 } from '../utils/mapStrikeEffects';
+import { shouldShowFullScreenStrike } from '../utils/strikePresentation';
+import {
+  markEventCardVisualSeen,
+  scheduleEventCardMapVisualBackup,
+} from '../utils/eventCardMapVisual';
+import type { EventCard } from '../components/game/EventCardModal';
 import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
 import { prefersReducedMotion } from '../utils/device';
@@ -65,8 +70,12 @@ export default function SpectatorPage() {
   const {
     mapVisualEvents,
     handleMapVisualEvent,
+    pushMapVisualLocal,
     onMapVisualDone,
   } = useMapVisualEvents();
+  const eventCardVisualSeenRef = useRef(new Set<string>());
+  const mapVisualEventsRef = useRef(mapVisualEvents);
+  mapVisualEventsRef.current = mapVisualEvents;
 
   useEffect(() => {
     if (!gameId || !accessToken) return;
@@ -115,7 +124,10 @@ export default function SpectatorPage() {
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
-      if (isFullScreenStrikeAbility(abilityId)) {
+      if (shouldShowFullScreenStrike({
+        abilityId,
+        prefersReducedMotion: prefersReducedMotion(),
+      })) {
         setStrikeAnim((prev) => ({
           abilityId: abilityId as StrikeAnimationVariant,
           targetName: tName,
@@ -140,7 +152,17 @@ export default function SpectatorPage() {
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
 
     socket.on('game:map_visual', (payload: MapVisualEvent) => {
+      markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
       handleMapVisualEvent(payload);
+    });
+
+    socket.on('game:event_card', (card: EventCard) => {
+      scheduleEventCardMapVisualBackup(
+        card,
+        (cardId) => mapVisualEventsRef.current.some((e) => e.kind === 'event' && e.cardId === cardId),
+        pushMapVisualLocal,
+        eventCardVisualSeenRef.current,
+      );
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
@@ -203,6 +225,7 @@ export default function SpectatorPage() {
         socket.off('game:strike_animation');
         socket.off('game:atom_bomb');
         socket.off('game:map_visual');
+        socket.off('game:event_card');
         socket.off('game:naval_combat_result');
         socket.off('game:influence_result');
         socket.off('error');

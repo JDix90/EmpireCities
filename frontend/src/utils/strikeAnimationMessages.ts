@@ -83,6 +83,7 @@ export function getStrikeToastMessage(
     swarm_strike: { emoji: '🐝', label: 'swarm strike', defaultLoss: 2 },
     dyson_beam: { emoji: '☀️', label: 'Dyson beam', defaultLoss: 4 },
     river_blockade: { emoji: '⚓', label: 'river blockade', defaultLoss: 1 },
+    air_strike: { emoji: '✈️', label: 'air strike', defaultLoss: 1 },
   };
 
   const cfg = toastByAbility[event.abilityId];
@@ -107,6 +108,7 @@ export function getStrikeCombatLogLine(event: StrikeAnimationEvent, targetName: 
     swarm_strike: { emoji: '🐝', label: 'swarm strike', defaultLoss: 2 },
     dyson_beam: { emoji: '☀️', label: 'Dyson beam', defaultLoss: 4 },
     river_blockade: { emoji: '⚓', label: 'river blockade', defaultLoss: 1 },
+    air_strike: { emoji: '✈️', label: 'air strike', defaultLoss: 1 },
   };
 
   const cfg = logByAbility[event.abilityId];

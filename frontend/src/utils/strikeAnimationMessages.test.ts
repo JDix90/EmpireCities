@@ -58,4 +58,10 @@ describe('strikeAnimationMessages', () => {
     expect(getStrikeToastMessage(dyson, 'Nexus', { resolvedPlayerId: 'p1' }))
       .toContain('Your Dyson beam');
   });
+
+  it('uses air strike observer copy', () => {
+    const air = { ...baseEvent, abilityId: 'air_strike', unitReduction: 1 };
+    expect(getStrikeToastMessage(air, 'Normandy', { resolvedPlayerId: 'p3' }))
+      .toContain('Alice air strike on Normandy');
+  });
 });

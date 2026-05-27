@@ -152,10 +152,12 @@ export function buildInfluenceMapVisual(params: {
   targetId: string;
   actorId: string;
   previousOwnerId: string | null;
-  variant?: 'seize' | 'garibaldi' | 'detente';
+  /** `blocked` is infra-only until influence counterplay can fail in game rules. */
+  variant?: 'seize' | 'garibaldi' | 'detente' | 'blocked';
   state: GameState;
 }): Omit<MapVisualEventPayload, 'id'> {
   const actorColor = playerColor(params.state, params.actorId);
+  const blocked = params.variant === 'blocked';
   return {
     kind: 'influence',
     territoryId: params.targetId,
@@ -163,8 +165,8 @@ export function buildInfluenceMapVisual(params: {
     playerColor: actorColor,
     attackerColor: actorColor,
     defenderColor: playerColor(params.state, params.previousOwnerId),
-    newOwnerColor: actorColor,
-    captured: true,
+    newOwnerColor: blocked ? undefined : actorColor,
+    captured: !blocked,
     variant: params.variant ?? 'seize',
   };
 }

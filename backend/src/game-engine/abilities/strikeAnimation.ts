@@ -16,6 +16,7 @@ export const FULL_SCREEN_STRIKE_ABILITIES = new Set([
 
 /** Map/globe strike visuals only — no full-screen takeover. */
 export const MAP_ONLY_STRIKE_ABILITIES = new Set([
+  'air_strike',
   'cyber_attack',
   'data_breach',
   'river_blockade',
@@ -71,12 +72,49 @@ export function buildStrikeAnimationPayload(params: {
   territoryId: string;
   targetOwnerId: string | null;
   targetOwnerName: string | null;
+  unitReduction?: number;
 }): StrikeAnimationPayload {
   const def = TERRITORY_ABILITY_DEFS[params.abilityId];
   return {
     ...params,
-    unitReduction: def?.unitReduction,
+    unitReduction: params.unitReduction ?? def?.unitReduction,
   };
+}
+
+/** Pre-combat air strike when Tactical Air Support buff is consumed on attack. */
+export function emitPreAttackAirStrikeVisuals(
+  io: Server,
+  gameId: string,
+  params: {
+    preAttackDamage: number;
+    fromTerritoryId: string;
+    targetTerritoryId: string;
+    attacker: { player_id: string; username: string; color: string };
+    defenderId: string | null;
+    state: GameState;
+    map: GameMap;
+  },
+): void {
+  if (params.preAttackDamage <= 0) return;
+
+  const defender = params.defenderId
+    ? params.state.players.find((p) => p.player_id === params.defenderId)
+    : undefined;
+
+  emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
+    abilityId: 'air_strike',
+    attackerId: params.attacker.player_id,
+    attackerName: params.attacker.username,
+    attackerColor: params.attacker.color,
+    territoryId: params.targetTerritoryId,
+    targetOwnerId: params.defenderId,
+    targetOwnerName: defender?.username ?? null,
+    unitReduction: params.preAttackDamage,
+  }), {
+    fromTerritoryId: params.fromTerritoryId,
+    state: params.state,
+    map: params.map,
+  });
 }
 
 /**
@@ -98,12 +136,13 @@ export function emitAbilityStrikeVisuals(
   io.to(gameId).emit('game:strike_animation', payload);
   io.to(`${gameId}:spectators`).emit('game:strike_animation', payload);
 
+  const unitReduction = payload.unitReduction ?? def?.unitReduction;
   emitMapVisual(io, gameId, buildStrikeMapVisual({
     territoryId: payload.territoryId,
     abilityId: payload.abilityId,
     attackerColor: payload.attackerColor,
-    defenderLosses: def?.unitReduction,
-    unitReduction: def?.unitReduction,
+    defenderLosses: unitReduction,
+    unitReduction,
     fromTerritoryId,
   }));
 }

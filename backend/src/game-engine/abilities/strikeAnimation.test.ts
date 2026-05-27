@@ -26,16 +26,19 @@ describe('strikeAnimation', () => {
     expect(shouldEmitFullScreenStrike('dyson_beam', 'unit_reduction')).toBe(true);
   });
 
-  it('emits map-only for cyber, data breach, and river blockade', () => {
+  it('emits map-only for air strike, cyber, data breach, and river blockade', () => {
+    expect(shouldEmitMapOnlyStrike('air_strike', 'unit_reduction')).toBe(true);
     expect(shouldEmitMapOnlyStrike('cyber_attack', 'unit_reduction')).toBe(true);
     expect(shouldEmitMapOnlyStrike('data_breach', 'unit_reduction')).toBe(true);
     expect(shouldEmitMapOnlyStrike('river_blockade', 'unit_reduction')).toBe(true);
+    expect(shouldEmitFullScreenStrike('air_strike', 'unit_reduction')).toBe(false);
     expect(shouldEmitFullScreenStrike('cyber_attack', 'unit_reduction')).toBe(false);
   });
 
   it('shouldEmitAbilityStrikeVisuals covers full-screen and map-only', () => {
     expect(shouldEmitAbilityStrikeVisuals('swarm_strike', 'unit_reduction')).toBe(true);
     expect(shouldEmitAbilityStrikeVisuals('cyber_attack', 'unit_reduction')).toBe(true);
-    expect(shouldEmitAbilityStrikeVisuals('air_strike', 'unit_reduction')).toBe(false);
+    expect(shouldEmitAbilityStrikeVisuals('air_strike', 'unit_reduction')).toBe(true);
+    expect(shouldEmitAbilityStrikeVisuals('air_strike', 'pre_attack_damage_ready')).toBe(false);
   });
 });

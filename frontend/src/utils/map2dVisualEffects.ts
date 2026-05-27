@@ -8,6 +8,7 @@ import {
   EVENT_TRUCE_RGB,
   FORTIFY_COLOR,
   INFLUENCE_RING_RGB,
+  INFLUENCE_BLOCKED_RGB,
   MAP_VISUAL_DURATIONS,
   NAVAL_RING_RGB,
   REINFORCE_COLOR,
@@ -292,8 +293,12 @@ function runInfluenceEffect(
   target: TerritoryCentroid,
   onDone: () => void,
 ): void {
+  const blocked = event.variant === 'blocked';
+  const ringRgb = blocked ? INFLUENCE_BLOCKED_RGB : INFLUENCE_RING_RGB;
+  const duration = blocked ? MAP_VISUAL_DURATIONS.influenceBlocked : MAP_VISUAL_DURATIONS.influence;
+
   const ring = new PIXI.Graphics();
-  const icon = new PIXI.Text('📡', { fontSize: 26, fontWeight: 'bold' });
+  const icon = new PIXI.Text(blocked ? '🚫' : '📡', { fontSize: 26, fontWeight: 'bold' });
   icon.anchor.set(0.5);
   icon.position.set(target.x, target.y);
   icon.alpha = 0;
@@ -301,7 +306,7 @@ function runInfluenceEffect(
   layer.addChild(icon);
 
   let captureOverlay: PIXI.Graphics | null = null;
-  if (event.newOwnerColor) {
+  if (!blocked && event.newOwnerColor) {
     captureOverlay = new PIXI.Graphics();
     layer.addChild(captureOverlay);
   }
@@ -313,10 +318,10 @@ function runInfluenceEffect(
     const elapsed = Date.now() - started;
 
     if (elapsed >= 200) {
-      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(elapsed * 0.011));
-      const r = 10 + pulse * 28;
+      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(elapsed * (blocked ? 0.014 : 0.011)));
+      const r = 10 + pulse * (blocked ? 20 : 28);
       ring.clear();
-      ring.lineStyle(3, rgbToPixi(INFLUENCE_RING_RGB), pulse * 0.85);
+      ring.lineStyle(3, rgbToPixi(ringRgb), pulse * (blocked ? 0.65 : 0.85));
       ring.drawCircle(target.x, target.y, r);
       icon.alpha = Math.min(1, (elapsed - 200) / 350);
     }
@@ -330,7 +335,7 @@ function runInfluenceEffect(
       drawPolygon(captureOverlay, target.polygon, rgbToPixi(mix), 0.3 + capT * 0.5, rgbToPixi(mix));
     }
 
-    if (elapsed >= MAP_VISUAL_DURATIONS.influence) {
+    if (elapsed >= duration) {
       ticker.destroy();
       ring.destroy();
       icon.destroy();

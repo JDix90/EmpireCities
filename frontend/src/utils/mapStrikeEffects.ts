@@ -9,7 +9,8 @@ export type MapStrikeAbilityId =
   | 'data_breach'
   | 'swarm_strike'
   | 'dyson_beam'
-  | 'river_blockade';
+  | 'river_blockade'
+  | 'air_strike';
 
 export interface MapStrikeFlashProps {
   territoryId: string;
@@ -115,6 +116,15 @@ export const STRIKE_MAP_STYLES: Record<MapStrikeAbilityId, StrikeMapStyle> = {
     mapFlashMs: 2200,
     fullScreen: false,
   },
+  air_strike: {
+    emoji: '✈️',
+    fillHex: 0x94a3b8,
+    ringHex: 0x64748b,
+    ringRgb: [148, 163, 184],
+    durationMs: 2400,
+    mapFlashMs: 2000,
+    fullScreen: false,
+  },
 };
 
 const STRIKE_ABILITY_IDS = new Set<string>(Object.keys(STRIKE_MAP_STYLES));
@@ -150,6 +160,8 @@ export function getStrikeToastStyle(abilityId: MapStrikeAbilityId): {
       return { background: '#1a1500', border: '1px solid #ca8a04', color: '#fef08a' };
     case 'river_blockade':
       return { background: '#021018', border: '1px solid #0284c7', color: '#7dd3fc' };
+    case 'air_strike':
+      return { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' };
     case 'nuclear_strike':
       return { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' };
     case 'atom_bomb':

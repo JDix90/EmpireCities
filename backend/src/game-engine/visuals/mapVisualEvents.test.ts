@@ -126,6 +126,20 @@ describe('mapVisualEvents', () => {
     expect(evt.captured).toBe(true);
   });
 
+  it('buildInfluenceMapVisual blocked variant omits capture colors', () => {
+    const state = minimalState();
+    const evt = buildInfluenceMapVisual({
+      targetId: 't2',
+      actorId: 'p1',
+      previousOwnerId: 'p2',
+      variant: 'blocked',
+      state,
+    });
+    expect(evt.variant).toBe('blocked');
+    expect(evt.captured).toBe(false);
+    expect(evt.newOwnerColor).toBeUndefined();
+  });
+
   it('buildEventMapVisual filters pseudo territory ids and carries deltas', () => {
     const evt = buildEventMapVisual({
       cardId: 'plague',

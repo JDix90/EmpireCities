@@ -9,10 +9,10 @@ import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
+import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import {
   computeContestedBorders,
-  MAP_VISUAL_KIND_LABEL,
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
@@ -42,11 +42,15 @@ import { computeDraftPool } from '../utils/draftPool';
 import { generateActionId } from '../utils/actionId';
 import {
   getStrikeToastStyle,
-  isFullScreenStrikeAbility,
   isMapStrikeAbility,
   type MapStrikeAbilityId,
   type MapStrikeFlashProps,
 } from '../utils/mapStrikeEffects';
+import { shouldShowFullScreenStrike } from '../utils/strikePresentation';
+import {
+  markEventCardVisualSeen,
+  scheduleEventCardMapVisualBackup,
+} from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
@@ -409,19 +413,19 @@ export default function GamePage() {
     mapVisualEvents,
     globeEvents,
     handleMapVisualEvent,
+    pushMapVisualLocal,
     onMapVisualDone,
   } = useMapVisualEvents();
-  const galaxyPulseKeyRef = useRef(0);
-  const [galaxyPulse, setGalaxyPulse] = useState<{
-    worldId: string;
-    key: number;
-    label?: string;
-  } | null>(null);
+  const eventCardVisualSeenRef = useRef(new Set<string>());
+  const mapVisualEventsRef = useRef(mapVisualEvents);
+  mapVisualEventsRef.current = mapVisualEvents;
 
   const mapAmbientEnabled = useMemo(() => {
     if (!gameState || gameState.phase === 'game_over') return false;
     return !prefersReducedMotion() && !liteModeEnabled;
   }, [gameState, liteModeEnabled]);
+
+  const galaxyPulse = useGalaxyMapVisualPulse(mapVisualEvents, mapData, mapAmbientEnabled);
 
   const turnHolderPlayer = gameState?.players[gameState.current_player_index ?? 0];
 
@@ -434,21 +438,6 @@ export default function GamePage() {
       gameState.phase,
     );
   }, [gameState, mapData, mapAmbientEnabled, turnHolderPlayer?.player_id]);
-
-  useEffect(() => {
-    const latest = mapVisualEvents[mapVisualEvents.length - 1];
-    if (!latest || !mapData || mapData.map_kind !== 'galaxy') return;
-    const tid = latest.territoryId;
-    if (!tid || tid.startsWith('__')) return;
-    const terr = mapData.territories.find((t) => t.territory_id === tid);
-    if (!terr) return;
-    galaxyPulseKeyRef.current += 1;
-    setGalaxyPulse({
-      worldId: inferWorldId(terr),
-      key: galaxyPulseKeyRef.current,
-      label: MAP_VISUAL_KIND_LABEL[latest.kind] ?? latest.kind,
-    });
-  }, [mapVisualEvents, mapData]);
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
@@ -973,6 +962,7 @@ export default function GamePage() {
     });
 
     socket.on('game:map_visual', (payload: MapVisualEvent) => {
+      markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
       handleMapVisualEvent(payload);
     });
 
@@ -1142,6 +1132,25 @@ export default function GamePage() {
 
     socket.on('game:event_card', (card: EventCard) => {
       setActiveEventCard(card);
+      scheduleEventCardMapVisualBackup(
+        card,
+        (cardId) => mapVisualEventsRef.current.some((e) => e.kind === 'event' && e.cardId === cardId),
+        pushMapVisualLocal,
+        eventCardVisualSeenRef.current,
+      );
+    });
+
+    socket.on('game:ability_result', (result: {
+      abilityId?: string;
+      success?: boolean;
+      effect?: string;
+    }) => {
+      if (result.effect === 'pre_attack_damage_ready' && result.abilityId === 'air_strike') {
+        toast('✈️ Air Strike armed — your next attack deals +1 damage before combat', {
+          duration: 4500,
+          style: { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' },
+        });
+      }
     });
 
     socket.on('game:event_card_resolved', () => {
@@ -1265,7 +1274,11 @@ export default function GamePage() {
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
-      if (isFullScreenStrikeAbility(abilityId)) {
+      if (shouldShowFullScreenStrike({
+        abilityId,
+        prefersReducedMotion: prefersReducedMotion(),
+        liteMode: isLiteMode(),
+      })) {
         setStrikeAnim((prev) => ({
           abilityId: abilityId as StrikeAnimationVariant,
           targetName: tName,
@@ -1353,6 +1366,7 @@ export default function GamePage() {
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
       socket.off('game:event_card');
+      socket.off('game:ability_result');
       socket.off('game:event_card_resolved');
       socket.off('game:truce_proposal');
       socket.off('game:truce_result');

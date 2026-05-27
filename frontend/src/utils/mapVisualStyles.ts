@@ -9,6 +9,7 @@ export const MAP_VISUAL_DURATIONS = {
   strike: 3200,
   naval: 2800,
   influence: 3200,
+  influenceBlocked: 1200,
   event: 3400,
   eventGlobal: 3600,
 } as const;
@@ -21,6 +22,7 @@ export const EVENT_STABILITY_RGB: [number, number, number] = [196, 181, 253];
 export const COMBAT_RING_RGB: [number, number, number] = [255, 120, 50];
 export const NAVAL_RING_RGB: [number, number, number] = [56, 189, 248];
 export const INFLUENCE_RING_RGB: [number, number, number] = [167, 139, 250];
+export const INFLUENCE_BLOCKED_RGB: [number, number, number] = [120, 120, 130];
 export const CAPTURE_FLASH_RGB: [number, number, number] = [255, 255, 255];
 
 export function hexToRgb(hex: string): [number, number, number] {

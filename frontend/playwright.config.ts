@@ -19,6 +19,14 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
       },
+      testMatch: '**/smoke.spec.ts',
+    },
+    {
+      name: 'chromium-map-visual',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      testMatch: '**/map-visual-smoke.spec.ts',
     },
     {
       name: 'mobile-safari-size',

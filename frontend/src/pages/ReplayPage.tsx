@@ -16,6 +16,8 @@ import {
   FilmIcon,
   Globe as GlobeIcon,
   Map as MapIcon,
+  Info,
+  X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState } from '../store/gameStore';
@@ -31,7 +33,12 @@ import { inferWorldId } from '@erasofempire/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
-import { diffReplayMapVisuals } from '../utils/replayMapVisualDiff';
+import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
+import {
+  diffReplayMapVisuals,
+  REPLAY_MAP_FX_LIMITATIONS,
+  REPLAY_MAP_FX_NOT_INFERRED,
+} from '../utils/replayMapVisualDiff';
 import {
   computeContestedBorders,
   phaseTintClass,
@@ -43,6 +50,7 @@ const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
 const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
+const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
 type Speed = (typeof SPEED_OPTIONS)[number];
 
 interface MapData {
@@ -132,6 +140,14 @@ export default function ReplayPage() {
   const autoStartedRef = useRef(false);
 
   const [showMapAnimations, setShowMapAnimations] = useState(true);
+  const [replayFxHintDismissed, setReplayFxHintDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(REPLAY_MAP_FX_HINT_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [replayFxHintExpanded, setReplayFxHintExpanded] = useState(false);
   const lastDiffFrameRef = useRef<number | null>(null);
   const {
     mapVisualEvents,
@@ -490,6 +506,12 @@ export default function ReplayPage() {
     return showMapAnimations && !prefersReducedMotion() && !isLiteMode();
   }, [activeReplayState, showMapAnimations]);
 
+  const galaxyPulse = useGalaxyMapVisualPulse(
+    mapVisualEvents,
+    mapData,
+    showMapAnimations && mapData?.map_kind === 'galaxy',
+  );
+
   const replayTurnHolder = activeReplayState?.players[activeReplayState.current_player_index ?? 0];
   const replayContestedBorders = useMemo(() => {
     if (!activeReplayState || !mapData || !replayAmbientEnabled) return [];
@@ -659,6 +681,9 @@ export default function ReplayPage() {
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
                 orbitAccessAllowed={true}
+                pulseWorldId={galaxyPulse.worldId}
+                pulseKey={galaxyPulse.key}
+                pulseLabel={galaxyPulse.label}
               />
             ) : (
               <>
@@ -904,6 +929,56 @@ export default function ReplayPage() {
             ))}
           </div>
         </div>
+
+        {!replayFxHintDismissed && (
+          <div
+            className="mt-2 flex items-start gap-2 rounded-lg border border-cc-border bg-white/[0.03] px-3 py-2 text-xs text-white/70"
+            data-testid="replay-map-fx-disclaimer"
+          >
+            <Info className="w-4 h-4 shrink-0 text-cc-gold mt-0.5" aria-hidden />
+            <div className="flex-1 min-w-0">
+              {showMapAnimations ? (
+                <>
+                  <p>
+                    <span className="text-white/85 font-medium">Replay map animations are inferred</span>
+                    {' '}from turn snapshots. Captures and unit changes usually animate; strikes, event cards,
+                    naval battles, and fortify moves may not. Use 1×–2× speed for best results.
+                  </p>
+                  {replayFxHintExpanded && (
+                    <ul className="mt-2 space-y-1 list-disc pl-4 text-white/55">
+                      <li>Usually inferred: {REPLAY_MAP_FX_LIMITATIONS.join(', ')}</li>
+                      <li>Often missing: {REPLAY_MAP_FX_NOT_INFERRED.join(', ')}</li>
+                    </ul>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setReplayFxHintExpanded((v) => !v)}
+                    className="mt-1 text-cc-gold/90 hover:text-cc-gold underline-offset-2 hover:underline"
+                  >
+                    {replayFxHintExpanded ? 'Show less' : 'Learn more'}
+                  </button>
+                </>
+              ) : (
+                <p>Map FX off — enable to see inferred capture and unit-change animations.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss replay map FX note"
+              onClick={() => {
+                setReplayFxHintDismissed(true);
+                try {
+                  localStorage.setItem(REPLAY_MAP_FX_HINT_KEY, '1');
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="shrink-0 p-1 rounded hover:bg-white/10 text-white/40 hover:text-white/70"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

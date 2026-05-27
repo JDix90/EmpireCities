@@ -30,7 +30,7 @@ import {
   STRIKE_MAP_STYLES,
   type MapStrikeAbilityId,
 } from '../../utils/mapStrikeEffects';
-import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB } from '../../utils/mapVisualStyles';
+import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB } from '../../utils/mapVisualStyles';
 import { eventDurationMs, resolveEventVisualMode } from '../../utils/mapEventEffects';
 import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 
@@ -1614,6 +1614,41 @@ function GlobeMap({
           colorFn: (t: number) => `rgba(255, 255, 220, ${Math.pow(1 - t, 1.5) * 0.75})`,
         });
       }, 1100);
+    } else if (abilityId === 'air_strike') {
+      const sourceCenter = event.fromTerritoryId
+        ? territoryCentersRef.current.get(event.fromTerritoryId)
+        : null;
+      if (sourceCenter) {
+        const arcId = uid('strike-air');
+        arcIds.push(arcId);
+        scheduleTimer(() => {
+          addArc({
+            id: arcId,
+            startLat: sourceCenter.lat + 6,
+            startLng: sourceCenter.lng - 4,
+            endLat: targetCenter.lat,
+            endLng: targetCenter.lng,
+            color: ['#f8fafc', '#cbd5e1', '#64748b'],
+            stroke: 2.4,
+            dashLen: 0.32,
+            dashGap: 0.07,
+            animateTime: 340,
+            altitude: 0.2,
+            clickForwardTerritoryId: event.territoryId,
+          });
+        }, 120);
+      }
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 6,
+          repeatPeriod: 240,
+          colorFn: ringColorFn,
+        });
+      }, 400);
     } else if (abilityId === 'river_blockade') {
       const sourceCenter = event.fromTerritoryId
         ? territoryCentersRef.current.get(event.fromTerritoryId)
@@ -1698,9 +1733,10 @@ function GlobeMap({
         : abilityId === 'orbital_strike' ? 680
           : abilityId === 'nuclear_strike' ? 780
             : abilityId === 'dyson_beam' ? 1400
-              : abilityId === 'river_blockade' ? 820
-                : abilityId === 'cyber_attack' || abilityId === 'data_breach' ? 420
-                  : 900;
+              : abilityId === 'air_strike' ? 480
+                : abilityId === 'river_blockade' ? 820
+                  : abilityId === 'cyber_attack' || abilityId === 'data_breach' ? 420
+                    : 900;
 
     scheduleTimer(() => {
       addOverlay({
@@ -1875,6 +1911,7 @@ function GlobeMap({
     const targetCenter = territoryCentersRef.current.get(event.territoryId);
     if (!targetCenter) { playNextRef.current(); return; }
 
+    const blocked = event.variant === 'blocked';
     pauseAutoRotate();
     if (!regionalGlobeRef.current.lockRotation) {
       panCamera(targetCenter.lat, targetCenter.lng, 1.6);
@@ -1883,55 +1920,60 @@ function GlobeMap({
     const ringId = uid('influence-ring');
     const ring2Id = uid('influence-ring2');
     const flashId = uid('influence-flash');
-    const infRgb = INFLUENCE_RING_RGB;
-    const glowRgb = `rgba(${infRgb.join(',')}, 0.85)`;
+    const infRgb = blocked ? INFLUENCE_BLOCKED_RGB : INFLUENCE_RING_RGB;
+    const glowRgb = `rgba(${infRgb.join(',')}, ${blocked ? 0.55 : 0.85})`;
     const ringColorFn = (t: number) =>
-      `rgba(${infRgb[0]}, ${infRgb[1]}, ${infRgb[2]}, ${Math.pow(1 - t, 1.3) * 0.85})`;
+      `rgba(${infRgb[0]}, ${infRgb[1]}, ${infRgb[2]}, ${Math.pow(1 - t, 1.3) * (blocked ? 0.55 : 0.85)})`;
+    const duration = blocked ? MAP_VISUAL_DURATIONS.influenceBlocked : MAP_VISUAL_DURATIONS.influence;
 
     scheduleTimer(() => {
       addRings({
         id: ringId,
         lat: targetCenter.lat,
         lng: targetCenter.lng,
-        maxRadius: 6,
-        speed: 4,
-        repeatPeriod: 320,
+        maxRadius: blocked ? 4 : 6,
+        speed: blocked ? 3 : 4,
+        repeatPeriod: blocked ? 280 : 320,
         colorFn: ringColorFn,
       });
-      addRings({
-        id: ring2Id,
-        lat: targetCenter.lat,
-        lng: targetCenter.lng,
-        maxRadius: 4,
-        speed: 6,
-        repeatPeriod: 240,
-        colorFn: (t: number) => `rgba(255, 255, 255, ${Math.pow(1 - t, 2) * 0.5})`,
-      });
+      if (!blocked) {
+        addRings({
+          id: ring2Id,
+          lat: targetCenter.lat,
+          lng: targetCenter.lng,
+          maxRadius: 4,
+          speed: 6,
+          repeatPeriod: 240,
+          colorFn: (t: number) => `rgba(255, 255, 255, ${Math.pow(1 - t, 2) * 0.5})`,
+        });
+      }
     }, 300);
 
     scheduleTimer(() => {
-      startPolygonCaptureFlash(
-        event.territoryId,
-        event.defenderColor,
-        event.newOwnerColor ?? event.playerColor,
-      );
+      if (!blocked) {
+        startPolygonCaptureFlash(
+          event.territoryId,
+          event.defenderColor,
+          event.newOwnerColor ?? event.playerColor,
+        );
+      }
       addOverlay({
         kind: 'animation-strike-flash',
         id: flashId,
         lat: targetCenter.lat,
         lng: targetCenter.lng,
         alt: 0.07,
-        emoji: '📡',
+        emoji: blocked ? '🚫' : '📡',
         glowRgb,
       });
-    }, 1100);
+    }, blocked ? 600 : 1100);
 
     scheduleTimer(() => {
       removeRings(ringId);
-      removeRings(ring2Id);
+      if (!blocked) removeRings(ring2Id);
       removeOverlay(flashId);
       playNextRef.current();
-    }, MAP_VISUAL_DURATIONS.influence);
+    }, duration);
   }, [pauseAutoRotate, panCamera, scheduleTimer, addOverlay, removeOverlay, addRings, removeRings, startPolygonCaptureFlash]);
 
   const animateEvent = useCallback((event: GlobeEvent) => {
@@ -2752,6 +2794,9 @@ function GlobeMap({
     <div
       className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative"
       style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      data-testid="globe-map-root"
+      data-globe-queue-depth={animationUi.backlog}
+      data-globe-playing={animationUi.playing ? 'true' : undefined}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
     >

@@ -232,7 +232,7 @@ function StrikeAbilityAnimation({ abilityId, targetName, unitReduction, onDone }
   );
 
   return (
-    <>
+    <div data-testid="atom-bomb-overlay">
       <style>{STYLES}</style>
 
       <div style={{
@@ -501,7 +501,7 @@ function StrikeAbilityAnimation({ abilityId, targetName, unitReduction, onDone }
           {subtitle}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

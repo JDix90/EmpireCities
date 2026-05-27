@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
@@ -112,6 +112,7 @@ export default function GameMap({
   const mapVisualQueueRef = useRef<MapVisualEvent[]>([]);
   const mapVisualSeenRef = useRef(new Set<string>());
   const mapVisualPlayingRef = useRef(false);
+  const [mapVisualDebug, setMapVisualDebug] = useState<{ active: boolean; kind?: string }>({ active: false });
   const onMapVisualDoneRef = useRef(onMapVisualDone);
   onMapVisualDoneRef.current = onMapVisualDone;
   /** Pixi pointer handlers are registered once; keep latest parent callback without re-initing the canvas. */
@@ -781,10 +782,15 @@ export default function GameMap({
         return;
       }
       const next = mapVisualQueueRef.current.shift();
-      if (!next) return;
+      if (!next) {
+        setMapVisualDebug({ active: false });
+        return;
+      }
       mapVisualPlayingRef.current = true;
+      setMapVisualDebug({ active: true, kind: next.kind });
       playMap2dVisualEffect(layer, next, territoryCentroids, () => {
         mapVisualPlayingRef.current = false;
+        setMapVisualDebug({ active: false });
         playNext();
       });
     };
@@ -797,6 +803,10 @@ export default function GameMap({
       ref={canvasRef}
       className="w-full h-full overflow-hidden rounded-lg border border-cc-border"
       style={{ cursor: 'grab' }}
+      data-testid="map-visual-canvas"
+      data-map-visual-active={mapVisualDebug.active ? 'true' : undefined}
+      data-last-kind={mapVisualDebug.kind}
+      data-map-strike-flash-active={strikeFlash ? 'true' : undefined}
     />
   );
 }

@@ -96,6 +96,7 @@ import {
 import {
   buildStrikeAnimationPayload,
   emitAbilityStrikeVisuals,
+  emitPreAttackAirStrikeVisuals,
   shouldEmitAbilityStrikeVisuals,
 } from '../game-engine/abilities/strikeAnimation';
 import {
@@ -1419,6 +1420,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (attackBuffs.preAttackDamage > 0) {
         toTerritory.unit_count = Math.max(1, toTerritory.unit_count - attackBuffs.preAttackDamage);
+        emitPreAttackAirStrikeVisuals(io, gameId, {
+          preAttackDamage: attackBuffs.preAttackDamage,
+          fromTerritoryId: fromId,
+          targetTerritoryId: toId,
+          attacker: {
+            player_id: userId,
+            username: currentPlayer.username,
+            color: currentPlayer.color,
+          },
+          defenderId: defenderIdBeforeCombat,
+          state,
+          map,
+        });
       }
 
       const result = resolveCombat(
