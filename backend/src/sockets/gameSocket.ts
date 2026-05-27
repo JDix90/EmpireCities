@@ -2332,12 +2332,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       if (!state.active_event) return socket.emit('error', { message: 'No active event card' });
-      if (!state.active_event.choices?.length) return socket.emit('error', { message: 'This event has no choices' });
+
+      const activeCard = state.active_event;
+      const choices = activeCard.choices;
+      if (!choices?.length) return socket.emit('error', { message: 'This event has no choices' });
 
       const eventChoiceProbBefore = captureProbBefore(state, userId);
-      const activeCard = state.active_event;
       const eventCardId = activeCard.card_id;
-      const choice = activeCard.choices.find((c) => c.choice_id === choiceId);
+      const choice = choices.find((c) => c.choice_id === choiceId);
       if (!choice) return socket.emit('error', { message: 'Invalid choice' });
 
       const eventResult = resolveEventChoice(state, eventCardId, choiceId);
@@ -4309,7 +4311,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // If there's an active event with choices and next player is AI, auto-resolve
   if (state.active_event?.choices?.length && state.players[state.current_player_index].is_ai) {
     const aiEvent = state.active_event;
-    const choice = aiEvent.choices[0]!;
+    const choices = aiEvent?.choices;
+    if (!choices?.length) return;
+    const choice = choices[0]!;
     const eventResult = resolveEventChoice(state, aiEvent.card_id, choice.choice_id);
     if (eventResult) {
       emitEventCardMapVisuals(io, gameId, {
