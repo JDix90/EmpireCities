@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, ArrowLeft, Swords, Shield, Dices, CreditCard, Trophy, Settings2, Map, Users, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, Swords, Shield, Dices, CreditCard, Trophy, Settings2, Map, Users, Zap, BookOpen } from 'lucide-react';
+import { APP_NAME } from '../constants/brand';
+import SubpageShell from '../components/ui/SubpageShell';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {
@@ -29,25 +31,16 @@ function Section({ icon: Icon, title, children, defaultOpen = false }: {
 /* ─── Page ────────────────────────────────────────────────── */
 export default function HowToPlayPage() {
   return (
-    <div className="min-h-screen bg-cc-dark pt-safe pb-12">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        {/* Header */}
-        <div className="flex items-center gap-3 py-6">
-          <Link to="/lobby" className="text-cc-muted hover:text-cc-text transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="font-display text-2xl text-cc-gold tracking-wider">How to Play</h1>
-        </div>
-
-        <p className="text-cc-muted mb-6">
-          Everything you need to know to play Eras of Empire. Sections are collapsible — expand what you need.
+    <SubpageShell title="HOW TO PLAY" icon={BookOpen} maxWidth="2xl" contentClassName="space-y-6 pb-12">
+        <p className="text-cc-muted">
+          Everything you need to know to play {APP_NAME}. Sections are collapsible — expand what you need.
         </p>
 
         <div className="space-y-3">
           {/* ── Overview ────────────────────────────────────── */}
           <Section icon={Map} title="Game Overview" defaultOpen>
             <p>
-              Eras of Empire is a turn-based strategy game of territory conquest. Players take turns
+              {APP_NAME} is a turn-based strategy game of territory conquest. Players take turns
               reinforcing their armies, attacking neighbors, and repositioning troops. The goal depends
               on the chosen victory condition — typically, conquer the entire map.
             </p>
@@ -308,12 +301,14 @@ export default function HowToPlayPage() {
           </Section>
         </div>
 
-        <div className="mt-8 text-center">
-          <Link to="/lobby" className="btn-primary inline-block px-8 py-2.5">
-            Back to Lobby
+        <div className="card p-4 mt-6 text-center space-y-3">
+          <p className="text-cc-muted text-sm">
+            Want guided practice? The Training Academy has interactive lessons on advanced settings, factions, and tech.
+          </p>
+          <Link to="/tutorial" className="btn-primary inline-block px-6 py-2 text-sm">
+            Open Training Academy
           </Link>
         </div>
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

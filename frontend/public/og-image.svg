@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#101724"/>
+      <stop offset="55%" stop-color="#1b2335"/>
+      <stop offset="100%" stop-color="#0a0f18"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <path d="M200 420 L600 180 L1000 420 Z" fill="none" stroke="#c9a84c" stroke-width="6" stroke-linejoin="round" opacity="0.35"/>
+  <path d="M320 420 L600 260 L880 420" fill="none" stroke="#c9a84c" stroke-width="4" stroke-linejoin="round" opacity="0.55"/>
+  <text x="600" y="300" text-anchor="middle" font-family="Georgia, serif" font-size="96" font-weight="700" fill="#c9a84c">Borderfall</text>
+  <text x="600" y="380" text-anchor="middle" font-family="Georgia, serif" font-size="36" font-style="italic" fill="#8892a4">Every border is temporary.</text>
+  <text x="600" y="460" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#e8e8e8" opacity="0.75">Turn-based territory strategy across the ages</text>
+</svg>

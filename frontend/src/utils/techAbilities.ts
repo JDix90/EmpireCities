@@ -7,7 +7,8 @@ export interface TerritoryAbilityUiDef {
   phase: 'attack' | 'draft' | 'fortify';
   /** Show on enemy territories (true) or owned territories (false). */
   enemyTarget: boolean;
-  style: 'danger' | 'warning' | 'info';
+  style: 'danger' | 'warning' | 'info' | 'success';
+  hint?: string;
 }
 
 /** UI metadata for tech/faction abilities triggered from the territory panel. */

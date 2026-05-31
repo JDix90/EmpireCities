@@ -141,24 +141,24 @@ export default function MapVisualLabPage() {
   const mapHeight = useMemo(() => Math.max(360, window.innerHeight - 180), []);
 
   return (
-    <div className="min-h-screen bg-cc-dark text-white flex flex-col">
-      <header className="border-b border-cc-border px-4 py-3 flex flex-wrap items-center gap-3">
-        <Link to="/" className="text-cc-gold text-sm hover:text-white transition-colors">
-          ← Home
+    <div className="min-h-screen bg-cc-dark text-cc-text flex flex-col">
+      <header className="border-b border-cc-border px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 pt-safe px-safe">
+        <Link to="/lobby" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+          ← Lobby
         </Link>
-        <h1 className="font-display text-lg text-cc-gold">Map Visual Lab</h1>
+        <h1 className="font-display text-xl text-cc-gold tracking-widest">MAP VISUAL LAB</h1>
         <div className="flex gap-2 ml-auto">
           <button
             type="button"
             onClick={() => setView('2d')}
-            className={view === '2d' ? 'text-cc-gold' : 'text-white/60'}
+            className={view === '2d' ? 'text-cc-gold text-sm' : 'text-cc-muted hover:text-cc-text text-sm'}
           >
             2D
           </button>
           <button
             type="button"
             onClick={() => setView('globe')}
-            className={view === 'globe' ? 'text-cc-gold' : 'text-white/60'}
+            className={view === 'globe' ? 'text-cc-gold text-sm' : 'text-cc-muted hover:text-cc-text text-sm'}
           >
             Globe
           </button>

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Eras of Empire</string>
-    <string name="title_activity_main">Eras of Empire</string>
-    <string name="package_name">com.chronoconquest.app</string>
-    <string name="custom_url_scheme">com.chronoconquest.app</string>
+    <string name="app_name">Borderfall</string>
+    <string name="title_activity_main">Borderfall</string>
+    <string name="package_name">com.borderfall.app</string>
+    <string name="custom_url_scheme">com.borderfall.app</string>
 </resources>

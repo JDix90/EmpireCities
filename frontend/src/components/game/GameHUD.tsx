@@ -7,6 +7,7 @@ import { computeDraftPool } from '../../utils/draftPool';
 import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
 import { getSocket } from '../../services/socket';
+import { getFactionGlobalAbilities, FACTION_ABILITY_UI } from '../../utils/factionAbilities';
 
 const FAST_COMBAT_KEY = 'cc-fast-combat';
 function readFastCombat() {
@@ -22,8 +23,11 @@ interface GameHUDProps {
   onRedeemCards: (cardIds: string[]) => void;
   onResign?: () => void;
   onSaveAndLeave?: () => void;
+  onExitTutorial?: () => void;
+  isTutorial?: boolean;
   onOpenTechTree?: () => void;
   onOpenBonuses?: () => void;
+  onUseAbility?: (abilityId: string, targetId?: string) => void;
   lastCombatLog: string[];
   /** When set (in-progress game), chat renders at the bottom of this sidebar — never over the map. */
   gameId?: string;
@@ -32,6 +36,8 @@ interface GameHUDProps {
   mobile?: boolean;
   /** From `game:joined` playerIndex — matches TerritoryPanel when auth.user loads late */
   resolvedViewerPlayerId?: string | null;
+  /** Labels of optional rules enabled via the Advanced Settings tutorial lab. */
+  tutorialActiveSettings?: string[];
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -68,13 +74,17 @@ export default function GameHUD({
   onRedeemCards,
   onResign,
   onSaveAndLeave,
+  onExitTutorial,
+  isTutorial,
   onOpenTechTree,
   onOpenBonuses,
+  onUseAbility,
   lastCombatLog,
   gameId,
   activeInteractionLabel,
   mobile = false,
   resolvedViewerPlayerId,
+  tutorialActiveSettings,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
@@ -225,6 +235,26 @@ export default function GameHUD({
         })()}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
+        {tutorialActiveSettings && tutorialActiveSettings.length > 0 && (
+          <div
+            className="mt-3 rounded-lg border border-emerald-700/50 bg-emerald-950/40 px-3 py-2"
+            data-testid="tutorial-active-settings"
+          >
+            <p className="text-[10px] uppercase tracking-widest text-emerald-400/90 mb-1">
+              Tutorial settings active
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {tutorialActiveSettings.map((label) => (
+                <span
+                  key={label}
+                  className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-900/60 text-emerald-200 border border-emerald-700/40"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {activeInteractionLabel && (
           <div className="mt-2 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-900/40 border border-yellow-700/50 text-yellow-200 inline-flex items-center gap-1.5">
             {activeInteractionLabel}
@@ -458,6 +488,35 @@ export default function GameHUD({
       {/* Save & Leave / Resign */}
       {gameState.phase !== 'game_over' && myPlayer && !myPlayer.is_eliminated && (
         <div className="px-4 pb-3 flex flex-col gap-1.5">
+          {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff) */}
+          {onUseAbility && gameState && myPlayer && (() => {
+            const globalAbils = getFactionGlobalAbilities(gameState, myPlayer);
+            if (globalAbils.length === 0) return null;
+            return globalAbils.map((abilityId) => {
+              const def = FACTION_ABILITY_UI[abilityId];
+              if (!def) return null;
+              const styleClass =
+                def.style === 'warning'
+                  ? 'border border-amber-600/70 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50'
+                  : def.style === 'success'
+                    ? 'border border-emerald-600/70 bg-emerald-950/50 text-emerald-300 hover:bg-emerald-900/50'
+                    : 'border border-blue-600/70 bg-blue-950/50 text-blue-300 hover:bg-blue-900/50';
+              return (
+                <button
+                  key={abilityId}
+                  data-testid={`ability-btn-${abilityId}`}
+                  onClick={() => onUseAbility(abilityId)}
+                  className={clsx(
+                    'w-full py-1.5 text-xs transition-colors flex flex-col items-center justify-center gap-0.5 rounded',
+                    styleClass,
+                  )}
+                >
+                  <span>{def.emoji} {def.label} <span className="opacity-60">({def.scope === 'game' ? 'once/game' : 'once/turn'})</span></span>
+                  {def.hint && <span className="opacity-50 text-[10px]">{def.hint}</span>}
+                </button>
+              );
+            });
+          })()}
           {/* Tech tree shortcut */}
           {onOpenTechTree && (
             <button
@@ -530,7 +589,15 @@ export default function GameHUD({
               In-turn coaching
             </label>
           )}
-          {onResign && (
+          {isTutorial && onExitTutorial ? (
+            <button
+              onClick={onExitTutorial}
+              className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
+                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
+            >
+              <Flag className="w-3 h-3" /> Exit Tutorial
+            </button>
+          ) : onResign ? (
             <button
               onClick={onResign}
               className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
@@ -538,7 +605,7 @@ export default function GameHUD({
             >
               <Flag className="w-3 h-3" /> Resign
             </button>
-          )}
+          ) : null}
         </div>
       )}
 

@@ -19,6 +19,19 @@ describe('normalizeGameSettings', () => {
     expect(s.victory_threshold).toBe(55);
   });
 
+  it('preserves tutorial lesson module and tech point grant', () => {
+    const s = normalizeGameSettings({
+      fog_of_war: false,
+      victory_type: 'domination',
+      tutorial: true,
+      tutorial_lesson_module: 'tech_tree',
+      tutorial_grant_tech_points: 8,
+    });
+    expect(s.tutorial).toBe(true);
+    expect(s.tutorial_lesson_module).toBe('tech_tree');
+    expect(s.tutorial_grant_tech_points).toBe(8);
+  });
+
   it('prefers allowed_victory_conditions when present', () => {
     const s = normalizeGameSettings({
       fog_of_war: false,

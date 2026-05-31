@@ -1,17 +1,25 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Shield } from 'lucide-react';
+import BrandWordmark from '../components/ui/BrandWordmark';
+import SubpageShell from '../components/ui/SubpageShell';
+import { APP_NAME } from '../constants/brand';
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen-safe bg-cc-dark pt-safe pb-safe px-safe">
-      <nav className="border-b border-cc-border px-6 py-4">
-        <Link to="/" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors">
-          ERAS OF EMPIRE
-        </Link>
-      </nav>
-      <article className="max-w-2xl mx-auto px-6 py-10 text-cc-text space-y-6">
+    <SubpageShell
+      title="PRIVACY POLICY"
+      icon={Shield}
+      maxWidth="2xl"
+      headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
+      contentClassName="space-y-6 pb-safe"
+    >
+      <article className="text-cc-text space-y-6">
         <h1 className="font-display text-3xl text-cc-gold">Privacy Policy</h1>
         <p className="text-cc-muted text-sm">Last updated: March 31, 2026</p>
+        <p className="text-sm text-cc-muted leading-relaxed">
+          This policy describes how {APP_NAME} collects and uses information when you use our websites,
+          games, and related services.
+        </p>
 
         <section className="space-y-3">
           <h2 className="font-display text-lg text-cc-gold">What we collect</h2>
@@ -58,6 +66,6 @@ export default function PrivacyPage() {
           This is a template suitable for development and early release. Have legal counsel review before a wide public launch.
         </p>
       </article>
-    </div>
+    </SubpageShell>
   );
 }

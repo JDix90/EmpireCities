@@ -1,4 +1,4 @@
-package com.chronoconquest.app;
+package com.borderfall.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import { Timer, RefreshCw, Swords } from 'lucide-react';
 import clsx from 'clsx';
+import SubpageShell from '../components/ui/SubpageShell';
 
 interface ActiveGame {
   game_id: string;
@@ -79,22 +80,25 @@ export default function WarRoomPage() {
   }, [fetchGames]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-3xl text-cc-gold">War Room</h1>
-          <p className="text-cc-muted text-sm mt-1">All your active games in one place.</p>
-        </div>
+    <SubpageShell
+      title="WAR ROOM"
+      icon={Swords}
+      maxWidth="5xl"
+      contentClassName="space-y-6"
+      headerRight={(
         <button
+          type="button"
           onClick={() => fetchGames(true)}
           disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cc-surface border border-cc-border
-                     text-cc-muted hover:text-cc-text hover:border-cc-gold/40 text-sm transition-colors disabled:opacity-50"
+          className="text-cc-muted hover:text-cc-text transition-colors p-1 disabled:opacity-50"
+          title="Refresh"
+          aria-label="Refresh active games"
         >
           <RefreshCw className={clsx('w-4 h-4', refreshing && 'animate-spin')} />
-          Refresh
         </button>
-      </div>
+      )}
+    >
+      <p className="text-cc-muted text-sm -mt-2">All your active games in one place.</p>
 
       {loading && <p className="text-cc-muted text-sm">Loading games…</p>}
 
@@ -102,11 +106,7 @@ export default function WarRoomPage() {
         <div className="text-center py-16 space-y-4">
           <Swords className="w-10 h-10 text-cc-muted mx-auto" />
           <p className="text-cc-muted">No active games.</p>
-          <Link
-            to="/lobby"
-            className="inline-block px-4 py-2 rounded-lg bg-cc-gold/15 border border-cc-gold/30
-                       text-cc-gold hover:bg-cc-gold/25 text-sm transition-colors"
-          >
+          <Link to="/lobby" className="btn-primary text-sm">
             Find a Game
           </Link>
         </div>
@@ -164,6 +164,6 @@ export default function WarRoomPage() {
           );
         })}
       </div>
-    </div>
+    </SubpageShell>
   );
 }

@@ -1,5 +1,5 @@
 """
-Eras of Empire — Map Validation & JSON Export
+Borderfall — Map Validation & JSON Export
 Validates all 6 era maps and exports them to JSON files.
 """
 
@@ -95,7 +95,7 @@ def validate_map(m):
 
 
 print("=" * 60)
-print("Eras of Empire — Map Validation Report")
+print("Borderfall — Map Validation Report")
 print("=" * 60)
 
 for m in ALL_MAPS:

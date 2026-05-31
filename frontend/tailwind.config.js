@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Eras of Empire brand palette
+        // Borderfall brand palette (cc-* tokens retained for compatibility)
         'cc-gold':    '#c9a84c',
         'cc-dark':    '#0f1117',
         'cc-surface': '#1a1f2e',

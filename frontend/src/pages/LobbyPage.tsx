@@ -39,6 +39,9 @@ import {
   canAccessGalacticAge,
   GALACTIC_AGE_ERA_ID,
 } from '../constants/galacticAgeAccess';
+import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
+import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules } from '../tutorial';
+import { Settings2, FlaskConical } from 'lucide-react';
 
 // ── Small tooltip component used in the game-creation form ─────────────────
 function FeatureTooltip({ text }: { text: string }) {
@@ -373,6 +376,17 @@ export default function LobbyPage() {
   const [_factionsLoading, setFactionsLoading] = useState(false);
   const [topLiveGameId, setTopLiveGameId] = useState<string | null>(null);
   const joinFromUrlHandled = useRef(false);
+
+  // New-user welcome modal — shown once for users with no XP
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [completedModules, setCompletedModules] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCompletedModules(getCompletedTutorialModules());
+    if (user && (user.xp ?? 0) === 0 && !hasSeenWelcome()) {
+      setShowWelcomeModal(true);
+    }
+  }, [user?.user_id]);
 
   const mapImmersion = React.useMemo(
     () => getCustomMapImmersion(selectedCommunityMapId),
@@ -840,8 +854,55 @@ export default function LobbyPage() {
     };
   }, [user?.is_guest, joinGameFromInvite]);
 
+  const handleWelcomeTutorial = async () => {
+    markWelcomeSeen();
+    setShowWelcomeModal(false);
+    try {
+      const res = await api.post<{ game_id: string }>('/games/tutorial/start', { lesson_module: 'core' });
+      navigate(`/game/${res.data.game_id}`);
+    } catch {
+      toast.error('Could not start tutorial. Try again from the lobby.');
+      navigate('/tutorial');
+    }
+  };
+
+  const handleWelcomeQuickSolo = async () => {
+    markWelcomeSeen();
+    setShowWelcomeModal(false);
+    setQuickSoloLoading(true);
+    try {
+      const res = await api.post('/games', {
+        era_id: 'ancient',
+        map_id: ERA_MAP_IDS['ancient'],
+        max_players: 8,
+        ai_count: 3,
+        ai_difficulty: 'medium',
+        settings: {
+          turn_timer_seconds: 300,
+          allowed_victory_conditions: ['domination'],
+          initial_unit_count: 3,
+          card_set_escalating: true,
+          diplomacy_enabled: true,
+        },
+      });
+      navigate(`/game/${res.data.game_id}`);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Failed to start game');
+      }
+      setQuickSoloLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-cc-dark" {...pullHandlers}>
+      {showWelcomeModal && (
+        <NewUserWelcomeModal
+          onStartTutorial={() => void handleWelcomeTutorial()}
+          onJumpIn={() => void handleWelcomeQuickSolo()}
+          onDismiss={() => { markWelcomeSeen(); setShowWelcomeModal(false); }}
+        />
+      )}
       {/* Pull-to-refresh indicator */}
       {(pullDistance > 0 || refreshing) && (
         <div
@@ -1135,30 +1196,35 @@ export default function LobbyPage() {
                 <h3 className="font-display text-lg text-cc-gold mb-4 flex items-center gap-2">
                   Getting Started
                 </h3>
+
+                {/* Tutorial — full-width primary card */}
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await api.post<{ game_id: string }>('/games/tutorial/start', { lesson_module: 'core' });
+                      navigate(`/game/${res.data.game_id}`);
+                    } catch { toast.error('Failed to start tutorial'); }
+                  }}
+                  className="w-full flex items-start gap-4 p-4 rounded-xl bg-cc-gold/10 border border-cc-gold/30 hover:border-cc-gold hover:bg-cc-gold/15 transition-all text-left group mb-3"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-cc-gold/15 border border-cc-gold/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <GraduationCap className="w-5 h-5 text-cc-gold" aria-hidden />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">Interactive Tutorial</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-cc-gold/80 bg-cc-gold/15 border border-cc-gold/20 px-1.5 py-0.5 rounded">
+                        Start here
+                      </span>
+                    </div>
+                    <p className="text-cc-muted text-xs leading-relaxed">
+                      ~6 min. Learn draft, attack, fortify, and cards in an interactive practice match. No experience needed.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Quick Solo + Daily — equal secondary cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await api.post('/games/tutorial/start');
-                        navigate(`/game/${res.data.game_id}`);
-                      } catch { toast.error('Failed to start tutorial'); }
-                    }}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-gold/20 hover:border-cc-gold
-                               transition-colors text-left group"
-                  >
-                    <GraduationCap className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">Learn the Basics</p>
-                    <p className="text-cc-muted text-xs mt-1">Interactive tutorial match against a scripted AI.</p>
-                  </button>
-                  <button
-                    onClick={() => navigate('/daily')}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
-                               transition-colors text-left group"
-                  >
-                    <Calendar className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
-                    <p className="text-cc-muted text-xs mt-1">One game per day, same map for everyone. Climb the leaderboard!</p>
-                  </button>
                   <button
                     disabled={quickSoloLoading}
                     onClick={async () => {
@@ -1186,40 +1252,66 @@ export default function LobbyPage() {
                         setQuickSoloLoading(false);
                       }
                     }}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
-                               transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/50 transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Bot className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-cc-gold group-hover:text-white transition-colors">
                       {quickSoloLoading ? 'Starting…' : 'Quick Solo Match'}
                     </p>
-                    <p className="text-cc-muted text-xs mt-1">1v3 AI in the Ancient World — a 20-min game.</p>
+                    <p className="text-cc-muted text-xs mt-1">1v3 AI, Ancient World. Best if you know Risk.</p>
+                  </button>
+                  <button
+                    onClick={() => navigate('/daily')}
+                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/50 transition-colors text-left group"
+                  >
+                    <Calendar className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
+                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
+                    <p className="text-cc-muted text-xs mt-1">One puzzle per day, same map for everyone.</p>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* WW2 Advanced Tutorial — shown after completing the basic tutorial */}
-            {user && user.has_completed_tutorial && !user.is_guest && lobbyTab === 'casual' && (
-              <div className="card mb-6 animate-fade-in border-amber-700/30">
-                <h3 className="font-display text-lg text-amber-400 mb-4 flex items-center gap-2">
-                  Next Steps
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await api.post('/games/tutorial/start', { era: 'ww2' });
-                        navigate(`/game/${res.data.game_id}`);
-                      } catch { toast.error('Failed to start tutorial'); }
-                    }}
-                    className="p-4 rounded-lg bg-cc-dark border border-amber-700/30 hover:border-amber-500
-                               transition-colors text-left group"
-                  >
-                    <Sword className="w-5 h-5 text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-amber-400 group-hover:text-white transition-colors">WW2 Theatre</p>
-                    <p className="text-cc-muted text-xs mt-1">Apply your skills in the World War II era with tanks, bombers, and atom bombs.</p>
-                  </button>
+            {/* Deep-dive lessons — shown after core tutorial, or for any user who completed at least core */}
+            {user && user.has_completed_tutorial && !user.is_guest && lobbyTab === 'casual' && TUTORIAL_V2_ENABLED && (
+              <div className="card mb-6 animate-fade-in border-amber-700/25">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <h3 className="font-display text-lg text-amber-400">Training Academy</h3>
+                  <Link to="/tutorial" className="text-xs text-cc-gold hover:underline shrink-0">
+                    View all
+                  </Link>
+                </div>
+                <p className="text-cc-muted text-xs mb-4">
+                  Short deep-dive lessons on optional features. Pick any you haven&apos;t tried.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {TUTORIAL_MODULES.filter((m) => m.id !== 'core').map((mod) => {
+                    const done = completedModules.includes(mod.id);
+                    const Icon =
+                      mod.id === 'advanced_settings' ? Settings2 :
+                      mod.id === 'faction_ability' ? Sword :
+                      FlaskConical;
+                    return (
+                      <Link
+                        key={mod.id}
+                        to={`/tutorial?module=${mod.id}&start=1`}
+                        className="flex flex-col gap-2 p-3 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/40 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <Icon className="w-4 h-4 text-cc-gold shrink-0" aria-hidden />
+                          {done ? (
+                            <span className="text-[10px] text-green-400 font-medium">Done ✓</span>
+                          ) : (
+                            <span className="text-[10px] text-cc-muted">~{mod.estimatedMinutes} min</span>
+                          )}
+                        </div>
+                        <p className="font-display text-sm text-cc-gold group-hover:text-white transition-colors leading-tight">
+                          {mod.title}
+                        </p>
+                        <p className="text-cc-muted text-xs leading-relaxed">{mod.description}</p>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}

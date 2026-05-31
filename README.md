@@ -1,4 +1,4 @@
-# Eras of Empire
+# Borderfall
 
 > A browser-based historical world map strategy game inspired by Risk — featuring nine playable historical eras (plus custom/community maps), asymmetric factions, a tech tree, an economy system, event cards, secret missions, a 3D globe view, ranked matchmaking, a daily challenge, a campaign mode, game replays, an in-game cosmetics store, and a full JWT authentication system.
 
@@ -33,7 +33,7 @@
 
 ## Project Overview
 
-Eras of Empire is a full-stack web application where players command armies across historically accurate maps spanning nine distinct eras (plus custom and community maps). Each era features asymmetric factions with unique passive bonuses and once-per-turn abilities, a multi-tier technology tree, an optional territory economy with upgradeable buildings, a shuffled deck of era-specific event cards, and a unique wonder structure. Matches support 2–8 players (human or AI bot), real-time WebSocket gameplay, reconnection recovery, fog of war, and multiple configurable victory conditions.
+Borderfall is a full-stack web application where players command armies across historically accurate maps spanning nine distinct eras (plus custom and community maps). Each era features asymmetric factions with unique passive bonuses and once-per-turn abilities, a multi-tier technology tree, an optional territory economy with upgradeable buildings, a shuffled deck of era-specific event cards, and a unique wonder structure. Matches support 2–8 players (human or AI bot), real-time WebSocket gameplay, reconnection recovery, fog of war, and multiple configurable victory conditions.
 
 Beyond live multiplayer, the game includes a ranked matchmaking queue with Glicko-style ratings (μ/φ; see _Ratings_ below), a daily challenge seeded from the date, a linear single-player campaign across six eras, a turn-by-turn replay viewer, a community map hub with ratings and moderation, a custom D3-based map editor, a 3D interactive globe view, an in-game cosmetics store, a friends system with game invites, an interactive tutorial, and guest play without registration.
 
@@ -188,7 +188,7 @@ eras-of-empire/
 
 ## Prerequisites
 
-Before running Eras of Empire locally, ensure the following are installed:
+Before running Borderfall locally, ensure the following are installed:
 
 | Tool | Version | Install |
 |---|---|---|
@@ -301,7 +301,7 @@ pnpm run dev
 The backend starts on **http://localhost:3001**. You should see:
 
 ```
-🚀 Eras of Empire backend running on http://localhost:3001
+🚀 Borderfall backend running on http://localhost:3001
    Environment: development
    Frontend URL: http://localhost:5173
 ```
@@ -330,7 +330,7 @@ The frontend starts on **http://localhost:5173**. Open this URL in your browser.
 | `FRONTEND_URL` | `http://localhost:5173` | CORS allowed origin |
 | `POSTGRES_HOST` | `localhost` | PostgreSQL host |
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
-| `POSTGRES_DB` | `erasofempire` | Database name |
+| `POSTGRES_DB` | `borderfall` | Database name |
 | `POSTGRES_USER` | `chronouser` | Database user |
 | `POSTGRES_PASSWORD` | `chronopass` | Database password |
 | `MONGO_URI` | `mongodb://...` | MongoDB connection string |
@@ -386,13 +386,45 @@ Twelve sequential migrations build the full schema:
 | `leaderboard:{era}` | Sorted set of MMR scores per era |
 | `session:{userId}` | Active session metadata |
 
-### Migrating from legacy chronoconquest database names
+### Migrating from legacy database names
 
-Older setups used PostgreSQL database `chronoconquest` and MongoDB `chronoconquest_maps`. Defaults now use `erasofempire` and `erasofempire_maps`.
+Greenfield defaults use PostgreSQL `borderfall` and MongoDB `borderfall_maps`. Older deployments may still use previous names:
 
-- **Keep existing data without moving files:** In `backend/.env`, `.env.production`, and Docker env, set `POSTGRES_DB=chronoconquest` and point `MONGO_URI` at `.../chronoconquest_maps?...` so the app connects to your existing databases.
-- **Move to the new names:** Use `pg_dump` / `pg_restore` into `erasofempire`, and `mongodump` / `mongorestore` into `erasofempire_maps`, then update env vars. Docker-only: you can also start fresh volumes with the new names (loses old data unless you dump first).
-- **Container renames:** Compose `container_name` values were updated for consistency; data stays in named volumes. After changing env, run `docker compose down` / `up` as needed.
+| Legacy | Notes |
+|--------|--------|
+| `chronoconquest` / `chronoconquest_maps` | Original project databases |
+| `erasofempire` / `erasofempire_maps` | Intermediate rebrand defaults |
+
+- **Keep existing data without moving files:** In `backend/.env`, `.env.production`, and Docker env, set `POSTGRES_DB` and `MONGO_URI` to your existing database names so the app connects without a dump/restore.
+- **Move to Borderfall defaults:** Use `pg_dump` / `pg_restore` into `borderfall`, and `mongodump` / `mongorestore` into `borderfall_maps`, then update env vars. Docker-only: you can also start fresh volumes with the new names (loses old data unless you dump first).
+- **Container renames:** Compose `container_name` values use the `borderfall_*` prefix; data stays in named volumes. After changing env, run `docker compose down` / `up` as needed.
+
+### Borderfall rebrand — post-merge checklist
+
+After pulling the Borderfall rebrand, run these on each environment:
+
+1. **PostgreSQL migration** (updates in-app cosmetic copy such as the Pioneer Badge referral text):
+
+   ```bash
+   pnpm run db:migrate
+   ```
+
+   Confirms `026_rebrand_borderfall.sql` applied (check `_migrations` table).
+
+2. **Environment** — Greenfield dev uses `borderfall` / `borderfall_maps`. Existing prod can keep `erasofempire` or older names in `.env` until you dump/restore (see table above).
+
+3. **Mobile** — New store bundle `com.borderfall.app` (not an in-place rename of `com.chronoconquest.app`):
+
+   ```bash
+   cd frontend
+   pnpm run cap:sync
+   ```
+
+   Then open Xcode / Android Studio (`pnpm run cap:ios` / `cap:android`) and submit as a **new** App Store / Play listing. See [docs/STORE_RELEASE.md](docs/STORE_RELEASE.md).
+
+4. **Email** — Set `SMTP_FROM` to a domain you control (default example: `noreply@borderfall.com`).
+
+5. **Native icons** — Replace iOS `AppIcon.appiconset` and Android `ic_launcher_*` when final brand artwork is ready, then `cap sync` again.
 
 ---
 
@@ -732,4 +764,4 @@ This project is proprietary. All rights reserved.
 
 ---
 
-*Eras of Empire — April 2026*
+*Borderfall — April 2026*

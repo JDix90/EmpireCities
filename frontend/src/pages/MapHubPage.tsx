@@ -8,6 +8,8 @@ import MapPreview from '../components/lobby/MapPreview';
 import { REGIONAL_MAPS, fetchRegionalMap } from '../data/regionalMaps';
 import { getCustomMapImmersion } from '../data/customMapImmersion';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
+import BrandWordmark from '../components/ui/BrandWordmark';
+import SubpageShell from '../components/ui/SubpageShell';
 
 interface PublicMap {
   map_id: string;
@@ -74,24 +76,17 @@ export default function MapHubPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center justify-between pt-safe px-safe">
-        <div className="flex items-center gap-4">
-          <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors">
-            ERAS OF EMPIRE
-          </Link>
-          <span className="text-cc-border">|</span>
-          <h1 className="font-display text-lg text-cc-muted flex items-center gap-2">
-            <Globe className="w-5 h-5" /> Map Hub
-          </h1>
-        </div>
+    <SubpageShell
+      title="MAP HUB"
+      icon={Globe}
+      maxWidth="6xl"
+      headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
+      headerRight={(
         <Link to="/editor" className="btn-primary text-sm flex items-center gap-2 py-1.5">
-          <Plus className="w-4 h-4" /> Create Map
+          <Plus className="w-4 h-4" aria-hidden /> Create Map
         </Link>
-      </nav>
-
-      <div className="max-w-6xl mx-auto px-6 py-8">
-
+      )}
+    >
         {/* ── Built-in Era Maps ─────────────────────────────────────────── */}
         <section className="mb-12">
           <div className="flex items-center gap-2 mb-4">
@@ -382,7 +377,6 @@ export default function MapHubPage() {
             </div>
           )}
         </section>
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

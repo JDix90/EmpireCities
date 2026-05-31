@@ -3,8 +3,14 @@ import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
 
+const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree'] as const;
+
 function isVictoryType(v: unknown): v is VictoryType {
   return typeof v === 'string' && (VICTORY_TYPES as readonly string[]).includes(v);
+}
+
+function isTutorialLessonModule(v: unknown): v is (typeof TUTORIAL_LESSON_MODULES)[number] {
+  return typeof v === 'string' && (TUTORIAL_LESSON_MODULES as readonly string[]).includes(v);
 }
 
 /**
@@ -78,6 +84,17 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     diplomacy_enabled: dip,
     tutorial: typeof raw.tutorial === 'boolean' ? raw.tutorial : undefined,
     tutorial_step: typeof raw.tutorial_step === 'number' ? raw.tutorial_step : undefined,
+    tutorial_lesson_module: isTutorialLessonModule(raw.tutorial_lesson_module)
+      ? raw.tutorial_lesson_module
+      : undefined,
+    tutorial_grant_tech_points:
+      typeof raw.tutorial_grant_tech_points === 'number' && raw.tutorial_grant_tech_points > 0
+        ? raw.tutorial_grant_tech_points
+        : undefined,
+    tutorial_settings_lab_applied:
+      typeof raw.tutorial_settings_lab_applied === 'boolean'
+        ? raw.tutorial_settings_lab_applied
+        : undefined,
     async_mode: asyncMode || undefined,
     async_turn_deadline_seconds: asyncDeadlineSeconds,
     factions_enabled: factionsEnabled || undefined,

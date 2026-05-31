@@ -1,4 +1,4 @@
-# Map Creation Guide — Eras of Empire
+# Map Creation Guide — Borderfall
 
 ## Geographic boundaries on the globe
 

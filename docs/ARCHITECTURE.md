@@ -1,4 +1,4 @@
-# Architecture — Eras of Empire (overview)
+# Architecture — Borderfall (overview)
 
 ## High level
 

@@ -4,7 +4,8 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { UserPlus, Users, ArrowLeft, UserMinus, Check, X } from 'lucide-react';
+import { UserPlus, Users, UserMinus, Check, X } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
 
 interface Friend {
   user_id: string;
@@ -117,25 +118,17 @@ export default function FriendsPage() {
 
   if (user?.is_guest) {
     return (
-      <div className="min-h-screen bg-cc-dark flex flex-col items-center justify-center px-4">
-        <p className="text-cc-muted text-center mb-6">Register an account to use friends.</p>
-        <Link to="/lobby" className="btn-primary">Back to Lobby</Link>
-      </div>
+      <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg">
+        <div className="text-center py-12 space-y-4">
+          <p className="text-cc-muted">Register an account to use friends.</p>
+          <Link to="/register" className="btn-primary">Create Account</Link>
+        </div>
+      </SubpageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-4 py-4 flex items-center gap-4">
-        <Link to="/lobby" className="text-cc-muted hover:text-cc-gold flex items-center gap-1 text-sm">
-          <ArrowLeft className="w-4 h-4" /> Lobby
-        </Link>
-        <h1 className="font-display text-xl text-cc-gold flex items-center gap-2">
-          <Users className="w-6 h-6" /> Friends
-        </h1>
-      </nav>
-
-      <div className="max-w-lg mx-auto px-4 py-8 space-y-8">
+    <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg" contentClassName="space-y-8">
         <form onSubmit={sendRequest} className="card space-y-3">
           <h2 className="font-display text-cc-gold flex items-center gap-2">
             <UserPlus className="w-5 h-5" /> Add friend
@@ -230,7 +223,6 @@ export default function FriendsPage() {
             </div>
           </>
         )}
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

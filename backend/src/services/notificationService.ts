@@ -10,6 +10,7 @@ import type { Transporter } from 'nodemailer';
 import { config } from '../config';
 import { query, queryOne } from '../db/postgres';
 import type { GameState } from '../types';
+import { APP_NAME } from '../constants/brand';
 
 // ── Era labels for notification text ─────────────────────────────────────────
 
@@ -223,7 +224,7 @@ export async function notifyTurnChange(
   const pushEnabled = prefs?.push_enabled ?? true;
   const emailEnabled = prefs?.email_notifications ?? false;
 
-  const eraLabel = ERA_LABELS[gameState.era] ?? 'Eras of Empire';
+  const eraLabel = ERA_LABELS[gameState.era] ?? APP_NAME;
   const deadlineSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
   const deadlineHours = Math.round(deadlineSec / 3600);
   const deadlineLabel = deadlineHours >= 24

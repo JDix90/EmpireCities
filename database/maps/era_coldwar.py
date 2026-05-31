@@ -1,5 +1,5 @@
 """
-Eras of Empire — Cold War Era Map (1947–1991)
+Borderfall — Cold War Era Map (1947–1991)
 Canvas: 1200 x 700 px
 Blocs: NATO (USA/Western Europe), Warsaw Pact (USSR/Eastern Europe),
        Non-Aligned Movement, China, proxy war theatres

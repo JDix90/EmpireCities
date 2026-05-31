@@ -1,4 +1,4 @@
-# Eras of Empire — Player Guide & FAQ
+# Borderfall — Player Guide & FAQ
 
 A complete guide to the game — from core rules to advanced features. New players should start with the **Core Rules** section; experienced Risk players can skip ahead to the advanced features. The in-app **How to Play** page (`/how-to-play`) mirrors this at a shorter length for quick reference.
 

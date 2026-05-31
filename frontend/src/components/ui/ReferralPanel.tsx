@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Share2, Copy, Users, Coins, CheckCircle } from 'lucide-react';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
+import { APP_NAME } from '../../constants/brand';
 
 interface ReferralData {
   referral_code: string;
@@ -44,8 +45,8 @@ export default function ReferralPanel({ className }: ReferralPanelProps) {
     const url = `${window.location.origin}?ref=${data.referral_code}`;
     if (navigator.share) {
       navigator.share({
-        title: 'Join Eras of Empire!',
-        text: `Play Eras of Empire with me! Use my referral code: ${data.referral_code}`,
+        title: `Join ${APP_NAME}!`,
+        text: `Play ${APP_NAME} with me! Use my referral code: ${data.referral_code}`,
         url,
       }).catch(() => {});
     } else {

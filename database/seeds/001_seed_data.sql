@@ -1,4 +1,4 @@
--- Eras of Empire Seed Data
+-- Borderfall Seed Data
 -- Seed 001: Achievements and starter cosmetics
 
 -- ============================================================

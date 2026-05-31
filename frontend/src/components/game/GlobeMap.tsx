@@ -1,5 +1,5 @@
 /**
- * Eras of Empire — Interactive 3D Globe Map
+ * Borderfall — Interactive 3D Globe Map
  * Renders territories on a spin-able 3D globe using react-globe.gl.
  * Supports animated event overlays: reinforcements, combat, and fortification.
  */
@@ -1121,7 +1121,6 @@ function GlobeMap({
     (polygon: object) => {
       const id = (polygon as PolygonData).territory_id;
       const authoredRegional = mapData.projection_bounds != null;
-      const tutorialIsland = mapData.map_id === 'tutorial';
       if (isFloodedNorthAmerica) {
         const base = 0.022;
         const jitter = polygonAltitudeHash(id) * 0.001;
@@ -1149,9 +1148,7 @@ function GlobeMap({
         return base + jitter;
       }
       const base = authoredRegional
-        ? tutorialIsland
-          ? 0.014
-          : 0.0075
+        ? 0.0075
         : regionalGlobe.lockRotation
           ? 0.0045
           : 0.008;
@@ -1159,7 +1156,7 @@ function GlobeMap({
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
       return base + jitter;
     },
-    [regionalGlobe.lockRotation, mapData.map_id, mapData.map_kind, mapData.projection_bounds, isFloodedNorthAmerica, activeWorldId],
+    [regionalGlobe.lockRotation, mapData.map_kind, mapData.projection_bounds, isFloodedNorthAmerica, activeWorldId],
   );
 
   // ── Animation sequences ────────────────────────────────────────────────
@@ -2835,9 +2832,7 @@ function GlobeMap({
         polygonAltitude={getPolygonAltitude}
         polygonCapCurvatureResolution={getPolygonCapCurvatureResolution}
         polygonsTransitionDuration={0}
-        polygonLabel={(p) =>
-          mapData.map_id === 'tutorial' ? '' : (p as PolygonData).name
-        }
+        polygonLabel={(p) => (p as PolygonData).name}
         onPolygonClick={(polygon) => polygon && guardedTerritoryClick((polygon as PolygonData).territory_id)}
 
         /* HTML overlays (floating text) */

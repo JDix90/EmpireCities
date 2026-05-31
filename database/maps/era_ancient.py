@@ -1,5 +1,5 @@
 """
-Eras of Empire — Ancient World Era Map (circa 200 AD)
+Borderfall — Ancient World Era Map (circa 200 AD)
 Canvas: 1200 x 700 px
 Major powers: Roman Empire, Parthian Empire, Han China, Kushan Empire,
               Gupta India, Aksumite Ethiopia, Germanic Tribes, Nomadic Steppe

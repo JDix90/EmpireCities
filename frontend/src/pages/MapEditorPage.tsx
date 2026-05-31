@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft, Undo2, Redo2 } from 'lucide-react';
@@ -411,9 +412,7 @@ export default function MapEditorPage() {
 
       {/* Top Bar */}
       <div className="min-h-12 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
-        <RouterLink to="/lobby" className="font-display text-cc-gold text-sm tracking-widest hover:text-white transition-colors">
-          ERAS OF EMPIRE
-        </RouterLink>
+        <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-cc-border">|</span>
         <input
           className="bg-transparent border-none text-cc-gold font-display text-lg focus:outline-none w-64"

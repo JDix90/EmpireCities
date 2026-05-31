@@ -15,6 +15,9 @@ import { formatZodError } from '../../utils/formatZodError';
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
   era: z.enum(['ancient', 'ww2']).optional(),
+  lesson_module: z
+    .enum(['core', 'advanced_settings', 'faction_ability', 'tech_tree'])
+    .optional(),
 });
 
 const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold']);
@@ -148,12 +151,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (!parsed.success) {
       return reply.status(400).send(formatZodError(parsed.error));
     }
-    const useWw2 = parsed.data.era === 'ww2';
-    const mapId = useWw2 ? 'era_ww2' : 'tutorial';
-    const eraId = useWw2 ? 'ww2' : 'ancient';
+    const lessonModule = parsed.data.lesson_module ?? 'core';
+    // All tutorial modules use the WW2 globe — it provides a rich, realistic
+    // playing surface for every lesson and keeps the experience consistent.
+    const mapId = 'era_ww2';
+    const eraId = 'ww2';
 
     const gameId = uuidv4();
-    const tutorialSettings = {
+    const tutorialSettings: Record<string, unknown> = {
       fog_of_war: false,
       allowed_victory_conditions: ['domination'] as const,
       victory_type: 'domination' as const,
@@ -163,8 +168,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       diplomacy_enabled: false,
       tutorial: true,
       tutorial_step: 0,
+      tutorial_lesson_module: lessonModule,
       max_players: 2,
     };
+
+    if (lessonModule === 'faction_ability') {
+      tutorialSettings.factions_enabled = true;
+    }
+    if (lessonModule === 'tech_tree') {
+      tutorialSettings.tech_trees_enabled = true;
+      tutorialSettings.tutorial_grant_tech_points = 8;
+    }
+
+    // china_ww2 has "guerrilla_warfare" — a draft-phase ability the tutorial explicitly demos.
+    const humanFactionId = lessonModule === 'faction_ability' ? 'china_ww2' : null;
 
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
@@ -174,9 +191,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const colors = ['#3498db', '#e74c3c'];
     await query(
-      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
-       VALUES ($1, $2, 0, $3, false)`,
-      [gameId, request.userId, colors[0]],
+      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, faction_id)
+       VALUES ($1, $2, 0, $3, false, $4)`,
+      [gameId, request.userId, colors[0], humanFactionId],
     );
     await query(
       `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)

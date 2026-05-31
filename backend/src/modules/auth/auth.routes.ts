@@ -378,14 +378,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const baseUrl = config.frontendUrl.replace(/\/+$/, '');
     const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
     const htmlBody = `
-      <p>You requested a password reset for <strong>Eras of Empire</strong>.</p>
+      <p>You requested a password reset for <strong>Borderfall</strong>.</p>
       <p><a href="${resetUrl}">Set a new password</a></p>
       <p>This link expires in one hour. If you did not request this, you can ignore this email.</p>
     `.trim();
 
     const sent = await sendTransactionalEmailToAddress(
       resetUser.email,
-      'Reset your Eras of Empire password',
+      'Reset your Borderfall password',
       htmlBody,
     );
     if (

@@ -101,7 +101,7 @@ VALUES
   ('frame_immortal',   'profile_frame', 'Immortal Frame',   'Achieve a 25-game win streak',            0, true, 'legendary'),
   ('marker_emperor',   'map_marker',    'Emperor Marker',   'Complete all campaign eras without a loss',0, true, 'legendary'),
   ('frame_recruit',    'profile_frame', 'Recruit Frame',    'Enter your first ranked match',           0, true, 'uncommon'),
-  ('badge_pioneer',    'profile_banner','Pioneer Badge',    'Refer a friend to Eras of Empire',        0, true, 'uncommon'),
+  ('badge_pioneer',    'profile_banner','Pioneer Badge',    'Refer a friend to Borderfall',        0, true, 'uncommon'),
   ('badge_rival',      'profile_banner','Rival Badge',      'Play 5 games in a row with the same opponent', 0, true, 'rare'),
   ('badge_nemesis',    'profile_banner','Nemesis Badge',    'Play 10 games in a row with the same opponent',0, true, 'legendary'),
   ('frame_week_master','profile_frame', 'Week Master Frame','Maintain a 7-day daily streak',           0, true, 'rare'),

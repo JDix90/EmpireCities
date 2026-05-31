@@ -1,5 +1,5 @@
 """
-Eras of Empire — The Modern Day (2025)
+Borderfall — The Modern Day (2025)
 43 territories · 8 regions · comprehensive current-world geopolitical map
 """
 

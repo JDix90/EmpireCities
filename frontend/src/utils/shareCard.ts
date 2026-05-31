@@ -2,6 +2,8 @@
  * Generates a stylized PNG share card for post-game results.
  */
 
+import { APP_NAME, TAGLINE_PRIMARY } from '../constants/brand';
+
 export interface ShareCardOptions {
   eraName: string;
   factionColor: string;
@@ -85,7 +87,10 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
   ctx.textBaseline = 'alphabetic';
   ctx.font = '600 18px Georgia, serif';
   ctx.fillStyle = 'rgba(255,255,255,0.58)';
-  ctx.fillText('Eras of Empire', 168, 72);
+  ctx.fillText(APP_NAME, 168, 72);
+  ctx.font = 'italic 14px Georgia, serif';
+  ctx.fillStyle = 'rgba(201, 168, 76, 0.65)';
+  ctx.fillText(TAGLINE_PRIMARY, 168, 94);
 
   ctx.font = 'bold 34px Georgia, serif';
   ctx.fillStyle = '#ffffff';
@@ -163,5 +168,5 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
 export function buildShareText(opts: Pick<ShareCardOptions, 'username' | 'isWinner' | 'eraName' | 'victoryCondition' | 'turnCount' | 'shareUrl'>): string {
   const outcome = opts.isWinner ? 'won' : 'played';
   const cond = VICTORY_LABELS[opts.victoryCondition] ?? opts.victoryCondition;
-  return `${opts.username} just ${outcome} an ${opts.eraName} game via ${cond} in ${opts.turnCount} turns on Eras of Empire! ${opts.shareUrl}`;
+  return `${opts.username} just ${outcome} an ${opts.eraName} game via ${cond} in ${opts.turnCount} turns on ${APP_NAME}! ${opts.shareUrl}`;
 }

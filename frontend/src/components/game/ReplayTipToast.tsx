@@ -27,7 +27,7 @@ export default function ReplayTipToast({
       aria-live="polite"
       className="fixed bottom-28 left-1/2 -translate-x-1/2 z-40 max-w-md w-[calc(100%-2rem)] pointer-events-auto"
     >
-      <div className="rounded-xl border border-amber-500/40 bg-[#1a1a2e]/95 shadow-2xl backdrop-blur-sm p-4">
+      <div className="rounded-xl border border-amber-500/40 bg-cc-surface/95 shadow-2xl backdrop-blur-sm p-4">
         <div className="flex items-start gap-3">
           <div className="shrink-0 mt-0.5">
             <Lightbulb

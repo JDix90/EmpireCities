@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
+import { APP_NAME } from '../../constants/brand';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -905,7 +906,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
     setShareBusy(true);
     try {
       const blob = await generateShareCard({
-        eraName: data.eraName ?? 'Eras of Empire',
+        eraName: data.eraName ?? APP_NAME,
         factionColor: myPlayer?.color ?? data.winnerColor,
         victoryCondition: data.victory_condition ?? 'domination',
         territoryCount: myPlayer?.territory_count ?? 0,
@@ -946,7 +947,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
       const text = buildShareText({
         username: user?.username ?? data.winnerName,
         isWinner: data.isWinner,
-        eraName: data.eraName ?? 'Eras of Empire',
+        eraName: data.eraName ?? APP_NAME,
         victoryCondition: data.victory_condition ?? 'domination',
         turnCount: data.turnCount,
         shareUrl: window.location.origin,
@@ -1329,7 +1330,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
                   const text = buildShareText({
                     username: user?.username ?? data.winnerName,
                     isWinner: data.isWinner,
-                    eraName: data.eraName ?? 'Eras of Empire',
+                    eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
                     shareUrl: data.gameId ? `${window.location.origin}/replay/${data.gameId}` : window.location.origin,

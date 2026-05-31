@@ -1,5 +1,5 @@
 /**
- * Eras of Empire — MongoDB Map Seeder (Mongoose version)
+ * Borderfall — MongoDB Map Seeder (Mongoose version)
  * Seeds all 5 historical era maps into MongoDB using the same Mongoose
  * CustomMap model that the game server uses, ensuring perfect schema alignment.
  *
@@ -147,10 +147,10 @@ const MAPS_DIR = path.resolve(__dirname, 'maps');
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function seedMaps(): Promise<void> {
-  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://chronouser:chronopass@localhost:27017/erasofempire_maps?authSource=admin';
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://chronouser:chronopass@localhost:27017/borderfall_maps?authSource=admin';
 
   console.log('═'.repeat(60));
-  console.log('Eras of Empire — Map Seeder');
+  console.log('Borderfall — Map Seeder');
   console.log('═'.repeat(60));
   console.log(`Connecting to MongoDB...`);
 

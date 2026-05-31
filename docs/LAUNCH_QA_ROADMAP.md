@@ -1,4 +1,4 @@
-# Eras of Empire — Launch QA Remediation Roadmap
+# Borderfall — Launch QA Remediation Roadmap
 
 > **Status (2026):** Historical remediation companion from a pre-launch QA pass. Many items below may already be fixed in `main`; treat each bullet as a checklist to **verify in source**, not as guaranteed current bugs. Prefer the repo verify script (`bash .cursor/skills/feature-integration-playbook/scripts/verify.sh`) plus targeted gameplay smoke for release gating.
 

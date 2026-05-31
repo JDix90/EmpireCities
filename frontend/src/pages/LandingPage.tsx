@@ -4,6 +4,13 @@ import { useAuthStore } from '../store/authStore';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
 import { Globe, Sword, Map, Users, X } from 'lucide-react';
+import BrandWordmark from '../components/ui/BrandWordmark';
+import {
+  APP_NAME,
+  TAGLINE_PRIMARY,
+  TAGLINE_CINEMATIC,
+  STORE_DESCRIPTION,
+} from '../constants/brand';
 
 type EraScope = 'global' | 'regional';
 
@@ -164,10 +171,10 @@ const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global');
 const REGIONAL_ERAS = ERAS.filter((e) => e.scope === 'regional');
 
 const FEATURES = [
-  { icon: Globe,  title: 'Dynamic Historical Maps',  desc: 'Play across multiple meticulously crafted historical eras, each with accurate borders and era-specific mechanics.' },
-  { icon: Sword,  title: 'Deep Strategy',            desc: 'Master the classic Draft-Attack-Fortify loop with diplomacy, card sets, and continent bonuses.' },
+  { icon: Globe,  title: 'Eras Across Time',         desc: 'Fight from ancient kingdoms through world wars to galactic fronts — each era with its own map, factions, and rules.' },
+  { icon: Sword,  title: 'Territory Conquest',       desc: 'Master the classic Draft-Attack-Fortify loop. Break enemy lines and redraw the map — every border is temporary.' },
   { icon: Map,    title: 'Custom Map Editor',        desc: 'Build and publish your own maps. Share them with the community and watch your creations come to life.' },
-  { icon: Users,  title: 'Multiplayer & AI',         desc: 'Challenge friends in real-time or asynchronous games, or hone your skills against AI bots of varying difficulty.' },
+  { icon: Users,  title: 'Multiplayer & AI',         desc: 'Challenge friends in real-time or async games, or hone your skills against AI bots of varying difficulty.' },
 ];
 
 function EraDetailModal({
@@ -368,10 +375,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-cc-dark">
       {/* Navigation */}
       <nav className="border-b border-cc-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
-        <Link to="/" className="font-display text-lg sm:text-2xl text-cc-gold tracking-widest hover:text-white transition-colors shrink-0">
-          <span className="hidden sm:inline">ERAS OF EMPIRE</span>
-          <span className="sm:hidden">ERAS</span>
-        </Link>
+        <BrandWordmark className="text-lg sm:text-2xl" />
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
             Learn to play
@@ -390,11 +394,13 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="text-center py-16 sm:py-24 px-4 sm:px-6">
         <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-cc-gold mb-4 sm:mb-6 leading-tight">
-          Conquer History
+          {APP_NAME}
         </h2>
+        <p className="font-display text-lg sm:text-xl text-cc-gold/90 italic mb-4">
+          {TAGLINE_PRIMARY}
+        </p>
         <p className="text-cc-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
-          A browser-based grand strategy game spanning the ancient world to the modern day.
-          Command armies, forge alliances, and rewrite history — one territory at a time.
+          {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI — free in your browser.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
           <button
@@ -461,7 +467,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="py-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Why Eras of Empire?</h3>
+        <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Why {APP_NAME}?</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {FEATURES.map((f) => (
             <div key={f.title} className="card flex gap-4">
@@ -480,6 +486,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-20 text-center px-6">
         <h3 className="font-display text-4xl text-cc-gold mb-4">Ready to Command?</h3>
+        <p className="text-cc-muted italic mb-4">{TAGLINE_CINEMATIC}</p>
         <p className="text-cc-muted mb-8">No download required. Play instantly in your browser.</p>
         <button
           type="button"
@@ -492,7 +499,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-cc-border py-8 pb-safe text-center text-cc-muted text-sm space-y-2">
-        <p>© 2026 Eras of Empire. All rights reserved.</p>
+        <p>© 2026 {APP_NAME}. All rights reserved.</p>
         <Link to="/privacy" className="text-cc-gold/80 hover:text-cc-gold block">Privacy Policy</Link>
       </footer>
     </div>

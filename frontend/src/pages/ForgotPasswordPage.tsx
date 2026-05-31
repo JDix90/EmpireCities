@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 import { normalizeEmail } from '../utils/emailNormalize';
+import BrandWordmark from '../components/ui/BrandWordmark';
 
 export default function ForgotPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -41,7 +42,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
-          <Link to="/" className="font-display text-3xl text-cc-gold tracking-widest">ERAS OF EMPIRE</Link>
+          <BrandWordmark className="text-3xl block text-center" />
           <p className="text-cc-muted mt-2">Reset your password</p>
         </div>
 

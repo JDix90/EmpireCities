@@ -75,6 +75,9 @@ export interface GameState {
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;
     tutorial_step?: number;
+    tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree';
+    tutorial_grant_tech_points?: number;
+    tutorial_settings_lab_applied?: boolean;
     victory_type?: string;
     allowed_victory_conditions?: string[];
     victory_threshold?: number;

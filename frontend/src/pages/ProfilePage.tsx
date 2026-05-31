@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import BrandWordmark from '../components/ui/BrandWordmark';
+import SubpageShell from '../components/ui/SubpageShell';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
@@ -224,23 +226,33 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <p className="text-cc-muted">Loading profile...</p>
-      </div>
+      <SubpageShell
+        title="PROFILE"
+        maxWidth="4xl"
+        headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
+      >
+        <p className="text-cc-muted text-center py-16">Loading profile…</p>
+      </SubpageShell>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-cc-dark flex flex-col items-center justify-center gap-4 px-4">
-        <p className="text-cc-muted text-center">{loadError ?? 'User not found.'}</p>
-        {loadError && (
-          <p className="text-cc-muted/70 text-sm text-center max-w-md">
-            If the server was updated recently, apply pending database migrations so ratings and profile columns exist.
-          </p>
-        )}
-        <Link to="/lobby" className="btn-secondary text-sm">Back to Lobby</Link>
-      </div>
+      <SubpageShell
+        title="PROFILE"
+        maxWidth="4xl"
+        headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
+      >
+        <div className="text-center py-16 space-y-4">
+          <p className="text-cc-muted">{loadError ?? 'User not found.'}</p>
+          {loadError && (
+            <p className="text-cc-muted/70 text-sm max-w-md mx-auto">
+              If the server was updated recently, apply pending database migrations so ratings and profile columns exist.
+            </p>
+          )}
+          <Link to="/lobby" className="btn-secondary text-sm inline-block">Back to Lobby</Link>
+        </div>
+      </SubpageShell>
     );
   }
 
@@ -249,16 +261,12 @@ export default function ProfilePage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-6 py-4 flex items-center gap-4 pt-safe px-safe">
-        <Link to="/lobby" className="font-display text-xl text-cc-gold tracking-widest hover:text-white transition-colors">
-          ERAS OF EMPIRE
-        </Link>
-        <span className="text-cc-border">|</span>
-        <h1 className="font-display text-lg text-cc-muted">Commander Profile</h1>
-      </nav>
-
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+    <SubpageShell
+      title="COMMANDER PROFILE"
+      maxWidth="4xl"
+      contentClassName="space-y-6"
+      headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
+    >
         {/* Profile Card */}
         <div className="card flex flex-col sm:flex-row items-center gap-6">
           <div className={`p-1 rounded-full shrink-0 ${
@@ -630,7 +638,6 @@ export default function ProfilePage() {
 
         {/* Referral Panel (own profile only) */}
         {isOwnProfile && !currentUser?.is_guest && <ReferralPanel className="mt-6" />}
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

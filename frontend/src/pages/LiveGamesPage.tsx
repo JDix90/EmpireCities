@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Users, Clock, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, Users, Clock, RefreshCw, Radio } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 
@@ -56,18 +57,22 @@ export default function LiveGamesPage() {
   }, [eraFilter]);
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe">
-        <Link to="/lobby" className="flex items-center gap-2 text-cc-muted hover:text-cc-text text-sm transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Lobby
-        </Link>
-        <h1 className="font-display text-xl text-cc-gold tracking-widest">LIVE GAMES</h1>
-        <button onClick={fetchLiveGames} className="text-cc-muted hover:text-cc-text transition-colors" title="Refresh">
+    <SubpageShell
+      title="LIVE GAMES"
+      icon={Radio}
+      maxWidth="4xl"
+      headerRight={(
+        <button
+          type="button"
+          onClick={fetchLiveGames}
+          className="text-cc-muted hover:text-cc-text transition-colors p-1"
+          title="Refresh"
+          aria-label="Refresh live games"
+        >
           <RefreshCw className={clsx('w-4 h-4', loading && 'animate-spin')} />
         </button>
-      </nav>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      )}
+    >
         {/* Era filter chips */}
         <div className="flex flex-wrap gap-2 mb-6">
           <button
@@ -129,8 +134,7 @@ export default function LiveGamesPage() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </SubpageShell>
   );
 }
 

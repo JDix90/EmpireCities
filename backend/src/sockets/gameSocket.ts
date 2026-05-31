@@ -83,6 +83,8 @@ import { notifyTurnChange } from '../services/notificationService';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
 import { createPuzzleDieRoll } from '../game-engine/daily/puzzleDice';
 import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleScenario';
+import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
+import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
 import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
 import {
   attackerIgnoresDefenseBuilding,
@@ -959,6 +961,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
             applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanId, aiId);
           }
         }
+
+        applyTutorialModuleBoost(state);
 
         // Populate connectedSockets from sockets currently in the room
         const connectedSockets = new Map<string, string>();
@@ -1895,6 +1899,30 @@ export function initGameSocket(httpServer: HttpServer): Server {
         attackerWon: navalResult.attacker_won,
         state,
       }));
+      broadcastState(io, gameId, state);
+      scheduleDebouncedSave(gameId);
+    });
+
+    // ── Tutorial Settings Lab (advanced_settings lesson) ─────────────────────
+    socket.on('game:tutorial_apply_settings', ({
+      gameId,
+      settings,
+    }: {
+      gameId: string;
+      settings: Record<string, boolean>;
+    }) => {
+      const room = activeGames.get(gameId);
+      if (!room) return socket.emit('error', { message: 'Game not found' });
+      const { state } = room;
+      if (!state.settings.tutorial || state.settings.tutorial_lesson_module !== 'advanced_settings') {
+        return socket.emit('error', { message: 'Settings Lab is only available in the Advanced Settings tutorial' });
+      }
+      if (state.settings.tutorial_settings_lab_applied) {
+        return socket.emit('game:tutorial_settings_applied', { applied: [] });
+      }
+
+      const applied = applyTutorialSettingsLab(state, settings);
+      socket.emit('game:tutorial_settings_applied', { applied });
       broadcastState(io, gameId, state);
       scheduleDebouncedSave(gameId);
     });
