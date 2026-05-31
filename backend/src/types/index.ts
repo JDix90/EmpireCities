@@ -1,5 +1,5 @@
 // ============================================================
-// Shared backend types for Eras of Empire
+// Shared backend types for Borderfall
 // ============================================================
 
 import type {
@@ -190,6 +190,12 @@ export interface GameSettings {
   diplomacy_enabled: boolean;
   tutorial?: boolean;
   tutorial_step?: number;
+  /** Active lesson pack when `tutorial` is true (core, advanced_settings, faction_ability, tech_tree). */
+  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree';
+  /** Bonus TP granted at tutorial module start (tech_tree lesson). */
+  tutorial_grant_tech_points?: number;
+  /** True after Settings Lab choices are applied in the advanced_settings lesson. */
+  tutorial_settings_lab_applied?: boolean;
   /** When true, the game runs asynchronously with long turn deadlines and notifications. */
   async_mode?: boolean;
   /** Async turn deadline in seconds: 43200 (12h), 86400 (24h), or 259200 (72h). */

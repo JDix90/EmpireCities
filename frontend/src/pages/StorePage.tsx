@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, ChevronLeft, CheckCircle } from 'lucide-react';
+import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
 import { RARITY_COLORS } from '@erasofempire/shared';
 import type { CosmeticRarity } from '@erasofempire/shared';
 
@@ -191,26 +191,17 @@ export default function StorePage() {
   }, {});
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      {/* Header */}
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe">
-        <div className="flex items-center gap-3">
-          <Link to="/lobby" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
-            <ChevronLeft className="w-4 h-4" /> Lobby
-          </Link>
-          <span className="text-cc-border">|</span>
-          <span className="flex items-center gap-2 font-display text-cc-gold tracking-widest text-lg">
-            <ShoppingBag className="w-5 h-5" /> STORE
-          </span>
-        </div>
-        {/* Gold balance */}
+    <SubpageShell
+      title="STORE"
+      icon={ShoppingBag}
+      maxWidth="4xl"
+      headerRight={(
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cc-gold/10 border border-cc-gold/30 text-cc-gold text-sm font-medium">
-          <Coins className="w-4 h-4" />
-          {gold.toLocaleString()} Gold
+          <Coins className="w-4 h-4" aria-hidden />
+          <span className="tabular-nums">{gold.toLocaleString()}</span>
         </div>
-      </nav>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      )}
+    >
         {/* Tab bar */}
         <div className="flex gap-1 mb-6 p-1 bg-cc-dark rounded-lg w-fit border border-cc-border">
           {(['catalog', 'loadout'] as const).map((t) => (
@@ -399,7 +390,6 @@ export default function StorePage() {
             )}
           </>
         )}
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

@@ -15,6 +15,10 @@ import {
   TERRITORY_ABILITY_UI,
 } from '../../utils/techAbilities';
 import {
+  getFactionTerritoryAbilities,
+  FACTION_ABILITY_UI,
+} from '../../utils/factionAbilities';
+import {
   getGalaxyTerritoryLoreDetail,
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
@@ -459,44 +463,60 @@ export default function TerritoryPanel({
                   </button>
                 </div>
               )}
-              {/* Tech / strike abilities */}
-              {onUseAbility && isMyTurn && !attackSource && myPlayer && (() => {
-                const abilities = getTerritoryPanelAbilities(gameState, myPlayer, techTree, {
-                  isEnemy,
-                  isMine,
-                });
-                if (abilities.length === 0) return null;
-                return abilities.map((abilityId) => {
-                  const def = TERRITORY_ABILITY_UI[abilityId];
-                  if (!def) return null;
-                  const styleClass =
-                    def.style === 'danger'
-                      ? 'border border-red-600/70 bg-red-950/50 text-red-300 hover:bg-red-900/50 hover:border-red-500'
-                      : def.style === 'warning'
-                        ? 'border border-amber-600/70 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50 hover:border-amber-500'
-                        : 'border border-blue-600/70 bg-blue-950/50 text-blue-300 hover:bg-blue-900/50 hover:border-blue-500';
-                  return (
-                    <button
-                      key={abilityId}
-                      className={clsx(
-                        'w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg mt-2 transition-colors',
-                        styleClass,
-                      )}
-                      onClick={() => {
-                        onUseAbility(abilityId, def.enemyTarget ? selectedTerritory : selectedTerritory);
-                        onClose();
-                      }}
-                    >
-                      {def.emoji} {def.label}
-                      <span className="text-xs opacity-70">
-                        {def.scope === 'game' ? '(once per game)' : '(once per turn)'}
-                      </span>
-                    </button>
-                  );
-                });
-              })()}
             </div>
           )}
+
+          {/* Tech / faction ability buttons — phase-gated per each ability's own def.phase */}
+          {onUseAbility && !attackSource && myPlayer && (() => {
+            const techAbilities = getTerritoryPanelAbilities(gameState, myPlayer, techTree, {
+              isEnemy,
+              isMine,
+            });
+            const factionAbilities = getFactionTerritoryAbilities(gameState, myPlayer, {
+              isEnemy,
+              isMine,
+            });
+            const allAbilities = [...techAbilities, ...factionAbilities];
+            if (allAbilities.length === 0) return null;
+            return allAbilities.map((abilityId) => {
+              const def = TERRITORY_ABILITY_UI[abilityId] ?? FACTION_ABILITY_UI[abilityId];
+              if (!def) return null;
+              const styleClass =
+                def.style === 'danger'
+                  ? 'border border-red-600/70 bg-red-950/50 text-red-300 hover:bg-red-900/50 hover:border-red-500'
+                  : def.style === 'warning'
+                    ? 'border border-amber-600/70 bg-amber-950/50 text-amber-300 hover:bg-amber-900/50 hover:border-amber-500'
+                    : def.style === 'success'
+                      ? 'border border-emerald-600/70 bg-emerald-950/50 text-emerald-300 hover:bg-emerald-900/50 hover:border-emerald-500'
+                      : 'border border-blue-600/70 bg-blue-950/50 text-blue-300 hover:bg-blue-900/50 hover:border-blue-500';
+              const needsTarget = def.enemyTarget !== null;
+              const targetId = needsTarget ? selectedTerritory : undefined;
+              return (
+                <button
+                  key={abilityId}
+                  data-testid={`ability-btn-${abilityId}`}
+                  className={clsx(
+                    'w-full text-sm flex flex-col items-center justify-center gap-0.5 py-2 px-3 rounded-lg mt-2 transition-colors',
+                    styleClass,
+                  )}
+                  onClick={() => {
+                    onUseAbility(abilityId, targetId);
+                    onClose();
+                  }}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {def.emoji} {def.label}
+                    <span className="text-xs opacity-70">
+                      {def.scope === 'game' ? '(once per game)' : '(once per turn)'}
+                    </span>
+                  </span>
+                  {'hint' in def && def.hint && (
+                    <span className="text-[10px] opacity-60">{def.hint}</span>
+                  )}
+                </button>
+              );
+            });
+          })()}
 
           {/* Diplomacy Section — shown for any enemy/unowned territory on your turn */}
           {(isEnemy || isUnowned) &&

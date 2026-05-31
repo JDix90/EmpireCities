@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
@@ -30,7 +30,15 @@ import {
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
-import TutorialOverlay, { TUTORIAL_STEPS } from '../components/game/TutorialOverlay';
+import TutorialOverlay from '../components/game/TutorialOverlay';
+import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
+import {
+  getTutorialSteps,
+  isTutorialStepCentered,
+  markTutorialModuleComplete,
+  shouldAdvanceTutorialOnState,
+  type TutorialLessonModule,
+} from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
@@ -52,6 +60,7 @@ import {
   scheduleEventCardMapVisualBackup,
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
+import BrandWordmark from '../components/ui/BrandWordmark';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
@@ -380,12 +389,15 @@ export default function GamePage() {
     return null;
   }, [navalSource, attackSource, gameState]);
 
-  /** Once per game session: open tutorial island on 2D (readable Risk-style board); globe stays available. */
-  const tutorialSessionDefault2dRef = useRef(false);
-  /** Once per game session: non-tutorial-island games open in globe (overrides stale localStorage from tutorial). */
+  /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
   const nonTutorialIslandGlobeAppliedRef = useRef(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const isTutorial = gameState?.settings?.tutorial === true;
+  const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
+  const tutorialSteps = useMemo(
+    () => getTutorialSteps(tutorialLessonModule),
+    [tutorialLessonModule],
+  );
 
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
@@ -395,6 +407,11 @@ export default function GamePage() {
   useEffect(() => {
     setJoinPlayerIndex(null);
     joinPlayerIndexRef.current = null;
+  }, [gameId]);
+
+  useEffect(() => {
+    if (isTutorial) setTutorialStep(0);
+    setTutorialAppliedSettings([]);
   }, [gameId]);
 
   const resolvedViewerPlayerId = useMemo(() => {
@@ -457,18 +474,10 @@ export default function GamePage() {
   const ownTurnCombatsRef = useRef<CombatResult[]>([]);
   const ownTurnReinforcementsRef = useRef<ReinforcementEntry[]>([]);
   const ownTurnFortificationsRef = useRef<FortifyEntry[]>([]);
-  /** Prevent duplicate socket emits while waiting for game:state after auto phase advance */
-  const tutorialDraftToAttackPendingRef = useRef(false);
-  const tutorialAttackToFortifyPendingRef = useRef(false);
-  /** attack_do: only auto-emit attack→fortify once */
-  const tutorialAttackPhaseAutoEmittedRef = useRef(false);
-  /** fortify_explain: auto end turn once */
-  const tutorialFortifyEndEmittedRef = useRef(false);
-  const tutorialFortifyScheduleStartedRef = useRef(false);
   const tutorialStepRef = useRef(tutorialStep);
   tutorialStepRef.current = tutorialStep;
-  /** Increments when player completes an attack during attack_do — triggers auto phase advance */
-  const [tutorialAttackAutoTick, setTutorialAttackAutoTick] = useState(0);
+  const tutorialStepsRef = useRef(tutorialSteps);
+  tutorialStepsRef.current = tutorialSteps;
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   // Track the last disconnect reason so we can show different banner copy for
   // "your network dropped" (transient) vs "the server forced us off" (likely
@@ -487,6 +496,8 @@ export default function GamePage() {
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
   const [showBonuses, setShowBonuses] = useState(false);
+  const [showSettingsLab, setShowSettingsLab] = useState(false);
+  const [tutorialAppliedSettings, setTutorialAppliedSettings] = useState<string[]>([]);
   const [strikeAnim, setStrikeAnim] = useState<{
     abilityId: StrikeAnimationVariant;
     targetName: string;
@@ -584,7 +595,6 @@ export default function GamePage() {
   }, [gameStarted, gameState]);
 
   useEffect(() => {
-    tutorialSessionDefault2dRef.current = false;
     nonTutorialIslandGlobeAppliedRef.current = false;
     draftSummaryShownRef.current = false;
     pendingDraftSummaryRef.current = null;
@@ -611,26 +621,18 @@ export default function GamePage() {
     draftSummaryShownRef.current = true;
   }, [mapData]);
 
-  /** Learn the Basics (tutorial island only): default 2D. Uses gameState.map_id so we do not wait for map HTTP. */
-  const tutorialIsland =
-    isTutorial && gameState?.map_id === 'tutorial';
+  // All tutorial games now use era_ww2 (globe). The old 'tutorial' island map
+  // (flat 2D-only) is no longer created by the backend, so we always default
+  // to globe for every game — tutorials included.
 
-  useEffect(() => {
-    if (!tutorialIsland || !gameStarted) return;
-    if (tutorialSessionDefault2dRef.current) return;
-    tutorialSessionDefault2dRef.current = true;
-    setMapView('2d');
-  }, [tutorialIsland, gameStarted]);
-
-  /** All other games: default globe so era maps show as intended (not a stale 2D preference from tutorial). */
+  /** Default every game to globe on first load, clearing any stale 2D localStorage preference. */
   useEffect(() => {
     if (!gameStarted || !gameState) return;
-    if (tutorialIsland) return;
     if (nonTutorialIslandGlobeAppliedRef.current) return;
     nonTutorialIslandGlobeAppliedRef.current = true;
     setMapView('globe');
     persistMapView('globe');
-  }, [gameStarted, gameState, tutorialIsland]);
+  }, [gameStarted, gameState]);
 
   const pushModal = useCallback((data: ModalData) => {
     setModalQueue(prev => [...prev, data]);
@@ -833,30 +835,21 @@ export default function GamePage() {
           : -1;
 
         setTutorialStep((cur) => {
-          const step = TUTORIAL_STEPS[cur];
+          const step = tutorialStepsRef.current[cur];
           if (!step) return cur;
-          // Opponent finished → your turn again (watch AI / other players)
-          if (
-            step.requireAction === 'my_turn' &&
-            playerChanged &&
-            prevIndex !== null &&
-            me
-          ) {
-            const prevPid = state.players[prevIndex]?.player_id;
-            const nowPid = state.players[newIndex]?.player_id;
-            if (prevPid !== me.player_id && nowPid === me.player_id) {
-              return cur + 1;
-            }
-          }
-          // Advance after last reinforcement is placed (still in draft) or when attack phase begins
-          if (
-            step.requireAction === 'draft' &&
-            (state.phase === 'attack' || (isMyDraftTurn && draftLeft === 0))
-          ) {
-            return cur + 1;
-          }
-          if (step.requireAction === 'end_phase' && prevPhase && prevPhase !== state.phase) return cur + 1;
-          return cur;
+          const shouldAdvance = shouldAdvanceTutorialOnState({
+            step,
+            prevPhase,
+            nextPhase: state.phase,
+            playerChanged,
+            prevPlayerIndex: prevIndex,
+            newPlayerIndex: newIndex,
+            myPlayerId: me?.player_id ?? null,
+            players: state.players,
+            isMyDraftTurn,
+            draftLeft,
+          });
+          return shouldAdvance ? cur + 1 : cur;
         });
       }
     });
@@ -931,12 +924,6 @@ export default function GamePage() {
           },
         ]);
         ownTurnCombatsRef.current.push(enriched);
-        if (state?.settings?.tutorial && state.phase === 'attack') {
-          const stepId = TUTORIAL_STEPS[tutorialStepRef.current]?.id;
-          if (stepId === 'attack_do') {
-            setTutorialAttackAutoTick((n) => n + 1);
-          }
-        }
       } else if (isMyDefense) {
         setModalQueue(q => [...q, { type: 'combat' as const, result: enriched, perspective: 'defender' as const }]);
         otherTurnCombatsRef.current.push(enriched);
@@ -1088,9 +1075,25 @@ export default function GamePage() {
       else toast.success('Building constructed!', { duration: 2000 });
     });
 
+    socket.on('game:tutorial_settings_applied', ({ applied }: { applied: string[] }) => {
+      if (applied.length > 0) {
+        setTutorialAppliedSettings(applied);
+        toast.success(`Settings active: ${applied.join(', ')}`, { icon: '⚙️', duration: 4500 });
+      }
+    });
+
     socket.on('game:research_result', ({ success, error, node }: { success: boolean; error?: string; node?: TechNode }) => {
       if (!success) toast.error(error ?? 'Research failed');
-      else toast.success(`Researched: ${node?.name ?? 'technology'}`, { icon: '🔬', duration: 3000 });
+      else {
+        toast.success(`Researched: ${node?.name ?? 'technology'}`, { icon: '🔬', duration: 3000 });
+        const gs = useGameStore.getState().gameState;
+        if (gs?.settings?.tutorial) {
+          const step = tutorialStepsRef.current[tutorialStepRef.current];
+          if (step?.requireAction === 'tech_researched') {
+            setTutorialStep((s) => s + 1);
+          }
+        }
+      }
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
@@ -1144,12 +1147,40 @@ export default function GamePage() {
       abilityId?: string;
       success?: boolean;
       effect?: string;
+      territoryId?: string;
     }) => {
       if (result.effect === 'pre_attack_damage_ready' && result.abilityId === 'air_strike') {
         toast('✈️ Air Strike armed — your next attack deals +1 damage before combat', {
           duration: 4500,
           style: { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' },
         });
+      }
+
+      if (result.abilityId === 'guerrilla_warfare' && result.success !== false) {
+        const tName = result.territoryId
+          ? (mapDataRef.current?.territories.find(t => t.territory_id === result.territoryId)?.name ?? 'territory')
+          : 'territory';
+        showNotification({
+          type: 'reinforce',
+          text: `🌿 Guerrilla Warfare — +1 free unit on ${tName}`,
+          subtext: 'China\'s ability recharges each turn',
+          icon: 'shield',
+          accentBg: 'bg-emerald-500/20',
+          accentBorder: 'border-emerald-500/30',
+          accentText: 'text-emerald-400',
+        });
+      }
+
+      const gs = useGameStore.getState().gameState;
+      if (gs?.settings?.tutorial && result.success !== false) {
+        const step = tutorialStepsRef.current[tutorialStepRef.current];
+        if (step?.requireAction === 'ability_used') {
+          // Delay advancing so the player can see the result notification and
+          // the updated unit count on the globe before the overlay switches.
+          setTimeout(() => {
+            setTutorialStep((s) => s + 1);
+          }, 1500);
+        }
       }
     });
 
@@ -1362,6 +1393,7 @@ export default function GamePage() {
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
       socket.off('game:build_result');
+      socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
@@ -1408,107 +1440,10 @@ export default function GamePage() {
     gameState?.turn_number,
   ]);
 
-  // Tutorial: keep server phase aligned with the current card (draft→attack, attack→fortify)
-  useEffect(() => {
-    if (!isTutorial || !gameId || !gameState || !user?.user_id) return;
-    const myId = user.user_id;
-    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myId;
-    if (!isMyTurn) return;
-
-    if (gameState.phase === 'attack') tutorialDraftToAttackPendingRef.current = false;
-    if (gameState.phase === 'fortify') tutorialAttackToFortifyPendingRef.current = false;
-
-    const sid = TUTORIAL_STEPS[tutorialStep]?.id;
-    if (!sid) return;
-
-    const draftLeft = computeDraftPool(
-      gameState,
-      myId,
-      user?.username,
-      draftUnitsRemaining,
-      resolvedViewerPlayerId,
-    );
-    const socket = getSocket();
-
-    if ((sid === 'attack_explain' || sid === 'attack_do') && gameState.phase === 'draft' && draftLeft === 0) {
-      if (tutorialDraftToAttackPendingRef.current) return;
-      tutorialDraftToAttackPendingRef.current = true;
-      socket.emit('game:advance_phase', { gameId });
-      return;
-    }
-
-    if (sid === 'fortify_explain' && gameState.phase === 'attack') {
-      if (tutorialAttackToFortifyPendingRef.current) return;
-      tutorialAttackToFortifyPendingRef.current = true;
-      socket.emit('game:advance_phase', { gameId });
-    }
-  }, [
-    isTutorial,
-    gameId,
-    gameState,
-    tutorialStep,
-    user?.user_id,
-    draftUnitsRemaining,
-    resolvedViewerPlayerId,
-  ]);
-
-  useEffect(() => {
-    tutorialAttackPhaseAutoEmittedRef.current = false;
-    tutorialFortifyEndEmittedRef.current = false;
-    tutorialFortifyScheduleStartedRef.current = false;
-  }, [tutorialStep]);
-
-  // Tutorial attack_do: auto advance attack → fortify shortly after the player's first attack
-  useEffect(() => {
-    if (!isTutorial || !gameId || !user?.user_id) return;
-    if (tutorialAttackAutoTick === 0) return;
-    const gs = useGameStore.getState().gameState;
-    if (!gs || TUTORIAL_STEPS[tutorialStep]?.id !== 'attack_do') return;
-    if (gs.phase !== 'attack') return;
-    if (gs.players[gs.current_player_index]?.player_id !== user.user_id) return;
-    if (tutorialAttackPhaseAutoEmittedRef.current) return;
-
-    const t = window.setTimeout(() => {
-      const live = useGameStore.getState().gameState;
-      if (live?.phase !== 'attack') return;
-      if (tutorialAttackPhaseAutoEmittedRef.current) return;
-      tutorialAttackPhaseAutoEmittedRef.current = true;
-      getSocket().emit('game:advance_phase', { gameId });
-    }, 900);
-    return () => window.clearTimeout(t);
-  }, [tutorialAttackAutoTick, isTutorial, gameId, tutorialStep, user?.user_id]);
-
-  // If the player never attacks, still leave attack phase after 18s (deps avoid resetting on every game:state tick)
-  useEffect(() => {
-    if (!isTutorial || !gameId || !gameState || !user?.user_id) return;
-    if (TUTORIAL_STEPS[tutorialStep]?.id !== 'attack_do') return;
-    if (gameState.phase !== 'attack') return;
-    if (gameState.players[gameState.current_player_index]?.player_id !== user.user_id) return;
-
-    const t = window.setTimeout(() => {
-      if (tutorialAttackPhaseAutoEmittedRef.current) return;
-      tutorialAttackPhaseAutoEmittedRef.current = true;
-      getSocket().emit('game:advance_phase', { gameId });
-    }, 18000);
-    return () => window.clearTimeout(t);
-  }, [isTutorial, gameId, tutorialStep, gameState?.phase, user?.user_id]);
-
-  // Tutorial fortify_explain: auto end turn (fortify → next) so user is not stuck on "End Turn"
-  useEffect(() => {
-    if (!isTutorial || !gameId || !gameState || !user?.user_id) return;
-    if (TUTORIAL_STEPS[tutorialStep]?.id !== 'fortify_explain') return;
-    if (gameState.phase !== 'fortify') return;
-    if (gameState.players[gameState.current_player_index]?.player_id !== user.user_id) return;
-    if (tutorialFortifyScheduleStartedRef.current) return;
-    tutorialFortifyScheduleStartedRef.current = true;
-
-    const t = window.setTimeout(() => {
-      if (tutorialFortifyEndEmittedRef.current) return;
-      tutorialFortifyEndEmittedRef.current = true;
-      getSocket().emit('game:advance_phase', { gameId });
-    }, 2200);
-    return () => window.clearTimeout(t);
-  }, [isTutorial, gameId, tutorialStep, gameState?.phase, user?.user_id]);
+  // (Tutorial auto-phase-advance effects removed — the player now drives all phase
+  //  transitions by clicking Begin Attack Phase / Begin Fortify Phase / End Turn in the HUD.
+  //  The advance_draft step uses requireAction:'end_phase' to detect the Draft→Attack click.
+  //  The attack_do and fortify_explain steps do the same for subsequent transitions.)
 
   useEffect(() => {
     if (!isStartingGame) return;
@@ -1530,7 +1465,7 @@ export default function GamePage() {
   // ── Tutorial territory highlight ─────────────────────────────────────────
   const tutorialHighlightId = useMemo<string | undefined>(() => {
     if (!isTutorial || !gameState || !user?.user_id) return undefined;
-    const sid = TUTORIAL_STEPS[tutorialStep]?.id;
+    const sid = tutorialSteps[tutorialStep]?.id;
     if (!sid) return undefined;
     const myId = user.user_id;
     const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myId;
@@ -1551,7 +1486,7 @@ export default function GamePage() {
       return owned[0]?.[0];
     }
     return undefined;
-  }, [isTutorial, gameState, user?.user_id, tutorialStep]);
+  }, [isTutorial, gameState, user?.user_id, tutorialStep, tutorialSteps]);
 
   useEffect(() => {
     loadLobby();
@@ -1909,6 +1844,13 @@ export default function GamePage() {
       }
     }
     setShowTechTree(true);
+    const gs = useGameStore.getState().gameState;
+    if (gs?.settings?.tutorial) {
+      const step = tutorialStepsRef.current[tutorialStepRef.current];
+      if (step?.requireAction === 'tech_tree_opened') {
+        setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+      }
+    }
   }, [gameState?.era, techTree.length]);
 
   const handleOpenBonuses = useCallback(() => {
@@ -1919,6 +1861,13 @@ export default function GamePage() {
         .catch(() => {});
     }
     setShowBonuses(true);
+    const gs = useGameStore.getState().gameState;
+    if (gs?.settings?.tutorial) {
+      const step = tutorialStepsRef.current[tutorialStepRef.current];
+      if (step?.requireAction === 'bonuses_opened') {
+        setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+      }
+    }
   }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
 
   // Pre-load tech tree so territory-panel ability buttons resolve unlocked abilities.
@@ -2056,31 +2005,85 @@ export default function GamePage() {
     [user?.is_guest],
   );
 
+  const handleTutorialMarkModuleComplete = useCallback(() => {
+    markTutorialModuleComplete(tutorialLessonModule);
+  }, [tutorialLessonModule]);
+
+  const handleLaunchTutorialModule = useCallback(
+    async (module: TutorialLessonModule) => {
+      // Mark core complete before leaving if launching a deep-dive.
+      if (tutorialLessonModule === 'core' && module !== 'core') {
+        markTutorialModuleComplete('core');
+      }
+
+      // Abandon the current game best-effort so it does not linger as 'waiting'.
+      if (gameId) {
+        try {
+          await api.delete(`/games/${gameId}/abandon`);
+        } catch {
+          /* best effort — do not block navigation */
+        }
+        getSocket().emit('game:leave', { gameId });
+      }
+
+      // Navigate to TutorialPage with the module param instead of creating the game
+      // inline. This causes a full component unmount/remount which resets all local
+      // React state (gameStarted, isHost, lobbySnapshot, etc.).  Doing the game
+      // creation here and navigating directly to /game/:id keeps stale state from
+      // the previous game, causing the auto-start effect to bail out because
+      // gameStarted === true and the new game never calls handleStartGame().
+      navigate(`/tutorial?module=${module}&start=1`, { replace: true });
+    },
+    [gameId, navigate, tutorialLessonModule],
+  );
+
+  /**
+   * Called when the player reaches the wrapup card and chooses "Continue playing."
+   * Marks the module complete (they earned it) and dismisses the overlay.
+   */
   const handleTutorialContinuePlaying = useCallback(() => {
-    const continueInTutorial = () => setTutorialStep(TUTORIAL_STEPS.length);
+    const continueInTutorial = () => {
+      markTutorialModuleComplete(tutorialLessonModule);
+      setTutorialStep(tutorialSteps.length);
+    };
     maybePromptTutorialAccount(
       continueInTutorial,
       'Save your progress before you keep playing — create a free account so the next match counts.',
     );
-  }, [maybePromptTutorialAccount]);
+  }, [maybePromptTutorialAccount, tutorialLessonModule, tutorialSteps.length]);
 
-  const handleTutorialReturnToLobby = useCallback(async () => {
+  /**
+   * Abandon the current tutorial game and return to the lobby.
+   * `promptAccount` controls whether guests see the account-conversion prompt:
+   * we only show it on genuine *completion* paths (wrap-up / module complete),
+   * not when the player taps "Exit Tutorial" mid-lesson — showing a
+   * "Tutorial Complete!" modal on an early exit would be misleading.
+   */
+  const abandonTutorialToLobby = useCallback(async () => {
     if (!gameId) return;
-    const finish = async () => {
-      try {
-        await api.delete(`/games/${gameId}/abandon`);
-        toast.success('Tutorial ended. Welcome back to the lobby.');
-      } catch {
-        toast.error('Could not end the tutorial game. You can remove it from the lobby if it appears.');
-      }
-      getSocket().emit('game:leave', { gameId });
-      clearGame();
-      navigate('/lobby');
-    };
+    try {
+      await api.delete(`/games/${gameId}/abandon`);
+      toast.success('Tutorial ended. Welcome back to the lobby.');
+    } catch {
+      toast.error('Could not end the tutorial game. You can remove it from the lobby if it appears.');
+    }
+    getSocket().emit('game:leave', { gameId });
+    clearGame();
+    navigate('/lobby');
+  }, [gameId, navigate, clearGame]);
+
+  /** Completion path (wrap-up / module complete): offer the account prompt to guests first. */
+  const handleTutorialReturnToLobby = useCallback(() => {
+    if (!gameId) return;
     maybePromptTutorialAccount(() => {
-      void finish();
+      void abandonTutorialToLobby();
     });
-  }, [gameId, navigate, clearGame, maybePromptTutorialAccount]);
+  }, [gameId, maybePromptTutorialAccount, abandonTutorialToLobby]);
+
+  /** Exit path (mid-lesson "Exit Tutorial"): leave immediately, no completion prompt. */
+  const handleTutorialExit = useCallback(() => {
+    void abandonTutorialToLobby();
+  }, [abandonTutorialToLobby]);
 
   const copyGameUrl = () => {
     if (!gameId) return;
@@ -2368,12 +2371,10 @@ export default function GamePage() {
       return (
         <div className="min-h-screen bg-cc-dark flex flex-col">
           <nav className="border-b border-cc-border px-6 py-3 flex justify-between items-center">
-            <Link
+            <BrandWordmark
               to={settings.is_campaign ? '/campaign' : (dailySpec ? '/daily' : '/lobby')}
-              className="font-display text-cc-gold tracking-widest hover:text-white text-sm"
-            >
-              ERAS OF EMPIRE
-            </Link>
+              className="text-sm"
+            />
             <button
               type="button"
               onClick={handleCancelGame}
@@ -2697,7 +2698,7 @@ export default function GamePage() {
     <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
       {/* Top Bar */}
       <div className="min-h-10 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
-        <Link to="/lobby" className="font-display text-cc-gold text-sm tracking-widest hover:text-white transition-colors">ERAS OF EMPIRE</Link>
+        <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-cc-muted text-xs">·</span>
         <span className="text-cc-muted text-xs capitalize">
           {gameState.era === 'custom' ? 'Community map' : `${gameState.era} Era`}
@@ -3045,7 +3046,11 @@ export default function GamePage() {
                   : undefined
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
-              onUseAbility={gameState?.settings.tech_trees_enabled ? handleUseAbility : undefined}
+              onUseAbility={
+                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                  ? handleUseAbility
+                  : undefined
+              }
               techTree={techTree}
               orbitAccessHint={orbitAccessHint}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
@@ -3066,14 +3071,20 @@ export default function GamePage() {
         <GameHUD
           onAdvancePhase={handleAdvancePhase}
           onRedeemCards={handleRedeemCards}
-          onResign={handleResignRequest}
-          onSaveAndLeave={handleSaveAndLeave}
+          onResign={isTutorial ? undefined : handleResignRequest}
+          onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+          isTutorial={isTutorial}
+          onExitTutorial={isTutorial ? handleTutorialExit : undefined}
           onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
           onOpenBonuses={handleOpenBonuses}
+          onUseAbility={gameState?.settings.factions_enabled ? handleUseAbility : undefined}
           lastCombatLog={combatLog}
           gameId={gameStarted && gameId ? gameId : undefined}
           activeInteractionLabel={activeInteractionLabel}
           resolvedViewerPlayerId={resolvedViewerPlayerId}
+          tutorialActiveSettings={
+            tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
+          }
         />
       </div>
 
@@ -3218,16 +3229,21 @@ export default function GamePage() {
               mobile
               onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
               onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
-              onResign={handleResignRequest}
-              onSaveAndLeave={handleSaveAndLeave}
+              onResign={isTutorial ? undefined : handleResignRequest}
+              onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+              isTutorial={isTutorial}
+              onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
               onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
+              onUseAbility={gameState?.settings.factions_enabled ? (abilityId, targetId) => { handleUseAbility(abilityId, targetId); setMobileHudOpen(false); } : undefined}
               lastCombatLog={combatLog}
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
+              tutorialActiveSettings={
+                tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
+              }
             />
-            {/* Map view + spin controls — visible only in the mobile drawer */}
             <div className="px-4 py-3 border-t border-cc-border shrink-0 space-y-2">
               <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-2">Map View</p>
               <div className="flex gap-2">
@@ -3514,21 +3530,37 @@ export default function GamePage() {
       )}
 
       {/* Tutorial Overlay */}
-      {isTutorial && tutorialStep < TUTORIAL_STEPS.length && (
+      {isTutorial && tutorialStep < tutorialSteps.length && (
         <TutorialOverlay
+          steps={tutorialSteps}
+          lessonModule={tutorialLessonModule}
           stepIndex={tutorialStep}
-          onAdvance={() => setTutorialStep((s) => Math.min(s + 1, TUTORIAL_STEPS.length))}
+          onAdvance={() => setTutorialStep((s) => Math.min(s + 1, tutorialSteps.length))}
           onContinuePlaying={handleTutorialContinuePlaying}
           onReturnToLobby={handleTutorialReturnToLobby}
-          onSkipTutorial={handleTutorialContinuePlaying}
-          centered={
-            TUTORIAL_STEPS[tutorialStep]?.id === 'welcome' ||
-            TUTORIAL_STEPS[tutorialStep]?.id === 'draft_explain' ||
-            TUTORIAL_STEPS[tutorialStep]?.id === 'cards_explain' ||
-            TUTORIAL_STEPS[tutorialStep]?.id === 'victory_explain' ||
-            TUTORIAL_STEPS[tutorialStep]?.id === 'settings_overview' ||
-            TUTORIAL_STEPS[tutorialStep]?.variant === 'wrapup'
-          }
+          onExitTutorial={handleTutorialExit}
+          onLaunchModule={handleLaunchTutorialModule}
+          onOpenTechTree={handleOpenTechTree}
+          onOpenBonuses={handleOpenBonuses}
+          onOpenSettingsLab={() => setShowSettingsLab(true)}
+          onMarkModuleComplete={handleTutorialMarkModuleComplete}
+          centered={isTutorialStepCentered(tutorialSteps[tutorialStep])}
+        />
+      )}
+
+      {/* Tutorial Settings Lab — advanced settings lesson interactive beat */}
+      {showSettingsLab && (
+        <TutorialSettingsLab
+          onSettingsExplored={(values) => {
+            const currentStep = tutorialStepsRef.current[tutorialStepRef.current];
+            if (gameId) {
+              getSocket().emit('game:tutorial_apply_settings', { gameId, settings: values });
+            }
+            if (currentStep?.requireAction === 'settings_explored') {
+              setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+            }
+          }}
+          onClose={() => setShowSettingsLab(false)}
         />
       )}
 

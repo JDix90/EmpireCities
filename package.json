@@ -2,7 +2,7 @@
   "name": "eras-of-empire",
   "version": "1.0.0",
   "private": true,
-  "description": "Eras of Empire — browser-based historical strategy game",
+  "description": "Borderfall — turn-based territory strategy across historical and galactic eras",
   "packageManager": "pnpm@10.9.0",
   "workspaces": [
     "frontend",

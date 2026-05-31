@@ -1,4 +1,4 @@
-# Contributing to Eras of Empire
+# Contributing to Borderfall
 
 ## Workflow
 

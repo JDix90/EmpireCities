@@ -1,9 +1,9 @@
 ---
 name: feature-integration-playbook
-description: Six-phase 0→1 feature integration process for the Eras of Empire codebase. Use when the user asks to add a new gameplay feature, enhancement, capability, mechanic, building, tech, wonder, faction ability, event card, or any 0→1 change that touches combat, economy, map, or server-authoritative state. Guides discovery, requirements elaboration, design placement (building vs tech vs event vs faction), implementation with AI parity, verification via tsc + lint + vitest + tiered browser smoke test, and retrospective.
+description: Six-phase 0→1 feature integration process for the Borderfall codebase. Use when the user asks to add a new gameplay feature, enhancement, capability, mechanic, building, tech, wonder, faction ability, event card, or any 0→1 change that touches combat, economy, map, or server-authoritative state. Guides discovery, requirements elaboration, design placement (building vs tech vs event vs faction), implementation with AI parity, verification via tsc + lint + vitest + tiered browser smoke test, and retrospective.
 ---
 
-# Feature Integration Playbook (Eras of Empire)
+# Feature Integration Playbook (Borderfall)
 
 A safe, repeatable six-phase process for taking a new feature from an idea to shipped code without breaking gameplay, AI parity, or the verification gate. This playbook was distilled from the `coastal_battery` ("Fortify the Coast") integration.
 

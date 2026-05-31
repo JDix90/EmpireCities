@@ -1,4 +1,4 @@
-# Eras of Empire — Lore & Maps Catalog
+# Borderfall — Lore & Maps Catalog
 
 This document is a **player-facing and design-facing reference** for narrative framing, official map blurbs, and mechanical hooks that appear in the shipped application as of the repository state when the file was authored.
 

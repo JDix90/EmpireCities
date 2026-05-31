@@ -1,4 +1,4 @@
-# Deploying Eras of Empire for friends (web)
+# Deploying Borderfall for friends (web)
 
 This document implements the **staged release** plan: host the app on the internet so others can open a link, and keep it running without your Mac.
 
@@ -87,7 +87,7 @@ If the SPA is on a different origin than the API:
 
 ## Database names (rebrand)
 
-Default Postgres DB and Mongo database segment are now `erasofempire` / `erasofempire_maps`. If you already run production on the old `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `mongodump` as described in [README.md — Migrating from legacy chronoconquest database names](README.md#migrating-from-legacy-chronoconquest-database-names).
+Default Postgres DB and Mongo database segment are `borderfall` / `borderfall_maps`. If you already run production on `erasofempire` or `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `mongodump` as described in [README.md — Migrating from legacy database names](README.md#migrating-from-legacy-database-names).
 
 ## Troubleshooting
 

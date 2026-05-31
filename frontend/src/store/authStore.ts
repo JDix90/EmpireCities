@@ -31,6 +31,8 @@ export interface AuthUser {
   is_admin?: boolean;
   /** True once the basic tutorial has been completed. */
   has_completed_tutorial?: boolean;
+  /** Module IDs completed server-side (populated from /api/users/me). */
+  tutorial_modules_completed?: string[];
   /** Onboarding quest stage (0–5, null = completed) */
   onboarding_stage?: number | null;
   /** Current win streak */

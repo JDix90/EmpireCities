@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
+import BrandWordmark from '../components/ui/BrandWordmark';
 
 export default function NotFoundPage() {
   const hydrated = useAuthStoreHydrated();
@@ -32,9 +33,7 @@ export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-cc-dark flex items-center justify-center text-center px-4">
       <div>
-        <Link to={target} className="font-display text-2xl text-cc-gold tracking-widest hover:text-white transition-colors">
-          ERAS OF EMPIRE
-        </Link>
+        <BrandWordmark to={target} className="text-2xl" />
         <h1 className="font-display text-8xl text-cc-gold mb-4 mt-8">404</h1>
         <h2 className="font-display text-2xl text-cc-text mb-4">Territory Not Found</h2>
         <p className="text-cc-muted mb-8">This land has not yet been conquered. Return to your command.</p>

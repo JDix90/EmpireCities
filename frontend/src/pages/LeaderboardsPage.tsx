@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Trophy, Flame, Star, TrendingUp, ArrowLeft, ChevronLeft, ChevronRight, Crown, CalendarDays } from 'lucide-react';
+import { Trophy, Flame, Star, TrendingUp, ChevronLeft, ChevronRight, Crown, CalendarDays } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -131,16 +132,7 @@ export default function LeaderboardsPage() {
   }, [activeTab, page]);
 
   return (
-    <div className="min-h-screen bg-cc-dark">
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe">
-        <Link to="/lobby" className="flex items-center gap-2 text-cc-muted hover:text-cc-text text-sm transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Lobby
-        </Link>
-        <h1 className="font-display text-xl text-cc-gold tracking-widest">LEADERBOARDS</h1>
-        <div className="w-24" />
-      </nav>
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <SubpageShell title="LEADERBOARDS" icon={Trophy}>
         {/* Tabs */}
         <div className="flex gap-1 bg-cc-surface rounded-xl p-1 mb-6">
           {TABS.map(({ id, label, icon: Icon }) => (
@@ -308,7 +300,6 @@ export default function LeaderboardsPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

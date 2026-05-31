@@ -3,7 +3,8 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
-import { Calendar, Trophy, Play, Crown, Clock, Sword, ChevronLeft, Film } from 'lucide-react';
+import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -164,17 +165,20 @@ export default function DailyChallengePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <div className="text-cc-muted animate-pulse">Loading today's challenge…</div>
-      </div>
+      <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl">
+        <p className="text-cc-muted animate-pulse text-center py-12">Loading today&apos;s challenge…</p>
+      </SubpageShell>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <div className="text-red-400">Failed to load challenge. <Link to="/lobby" className="underline text-cc-gold">Return to lobby</Link></div>
-      </div>
+      <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl">
+        <p className="text-red-400 text-center py-12">
+          Failed to load challenge.{' '}
+          <Link to="/lobby" className="underline text-cc-gold">Return to lobby</Link>
+        </p>
+      </SubpageShell>
     );
   }
 
@@ -186,21 +190,9 @@ export default function DailyChallengePage() {
   const weeklyTabRequested = searchParams.get('tab') === 'weekly';
 
   return (
-    <div className="min-h-screen bg-cc-dark text-cc-text">
-      {/* Header */}
-      <div className="border-b border-cc-border bg-[#0d1117]/80 backdrop-blur-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Link to="/lobby" className="text-cc-muted hover:text-cc-gold transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <Calendar className="w-5 h-5 text-cc-gold" />
-          <h1 className="font-display text-xl text-cc-gold">Daily Challenge</h1>
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+    <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl" contentClassName="space-y-6">
         {/* Challenge card */}
-        <div className="rounded-xl border border-cc-gold/30 bg-[#1a1a2e]/80 p-6 shadow-xl">
+        <div className="card border-cc-gold/30 shadow-lg">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <p className="text-cc-muted text-sm mb-1">
@@ -209,7 +201,7 @@ export default function DailyChallengePage() {
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-2xl" role="img" aria-label={eraLabel}>{eraIcon}</span>
-                <h2 className="font-display text-2xl text-cc-gold">{eraLabel}</h2>
+                <h2 className="font-display text-xl text-cc-gold tracking-wide">{eraLabel}</h2>
               </div>
               <p className="text-cc-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
               {challenge.spec?.title && (
@@ -293,10 +285,10 @@ export default function DailyChallengePage() {
         </div>
 
         {/* Leaderboard */}
-        <div className="rounded-xl border border-cc-border bg-[#1a1a2e]/60 overflow-hidden">
+        <div className="card p-0 overflow-hidden">
           <div className="flex items-center gap-2 px-5 py-3 border-b border-cc-border">
             <Crown className="w-4 h-4 text-cc-gold" />
-            <h3 className="font-display text-sm text-cc-gold">Today's Leaderboard</h3>
+            <h3 className="font-display text-sm text-cc-gold tracking-widest">TODAY&apos;S LEADERBOARD</h3>
           </div>
           {leaderboard.length === 0 ? (
             <p className="text-center text-cc-muted text-sm py-6">No one has played today yet — be the first!</p>
@@ -330,14 +322,12 @@ export default function DailyChallengePage() {
 
         {/* Weekly seeded challenge entry point */}
         {weeklyChallenge && (
-          <div className={`rounded-xl border overflow-hidden ${
-            weeklyTabRequested
-              ? 'border-cc-gold/45 bg-cc-gold/5'
-              : 'border-cc-border bg-[#1a1a2e]/60'
+          <div className={`card p-0 overflow-hidden ${
+            weeklyTabRequested ? 'border-cc-gold/45 bg-cc-gold/5' : ''
           }`}>
             <div className="flex items-center gap-2 px-5 py-3 border-b border-cc-border">
               <Trophy className="w-4 h-4 text-cc-gold" />
-              <h3 className="font-display text-sm text-cc-gold">Weekly Seeded Challenge</h3>
+              <h3 className="font-display text-sm text-cc-gold tracking-widest">WEEKLY SEEDED CHALLENGE</h3>
             </div>
             <div className="p-5 space-y-3">
               <p className="text-cc-text text-sm">
@@ -374,7 +364,6 @@ export default function DailyChallengePage() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

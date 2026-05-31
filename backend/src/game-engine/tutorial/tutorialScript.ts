@@ -7,11 +7,8 @@ import type { GameMap } from '../../types';
  * fallback and produced broken / spiky caps — see `canvasToGeoJSONWorld` vs regional in
  * `globeTerritoryGeometry.ts`.)
  *
- * NOTE: the user-facing tutorial script (titles, hints, advance logic) lives in
- * `frontend/src/components/game/TutorialOverlay.tsx`. There used to be a
- * duplicate `TUTORIAL_STEPS` array here that nothing consumed, with stale
- * `requireAction` values; it was removed in the go-live QA pass to avoid the
- * trap of editing the wrong file.
+ * NOTE: user-facing tutorial steps live in `frontend/src/tutorial/` (modular
+ * lesson packs). GamePage drives progression; this file is map geometry only.
  */
 const TUT_W = 20;
 const TUT_H = 20;

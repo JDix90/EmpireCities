@@ -1,6 +1,6 @@
 # Mobile UX Requirements & Implementation Plan
 
-> Eras of Empire — Mobile-First Improvement Initiative  
+> Borderfall — Mobile-First Improvement Initiative  
 > Target: phones (375–430 px wide, iOS & Android), tablets handled as a bonus.  
 > Breakpoints in use: `sm` = 640 px · `md` = 768 px · `lg` = 1024 px.
 

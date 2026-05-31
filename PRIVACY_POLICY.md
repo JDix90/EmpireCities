@@ -1,10 +1,10 @@
-# Privacy Policy — Eras of Empire
+# Privacy Policy — Borderfall
 
 **Effective date:** March 31, 2026  
 
-This Privacy Policy describes how **Eras of Empire** (“**we**,” “**us**,” or “**our**”) collects, uses, stores, and shares information when you use our websites, games, and related services (collectively, the “**Services**”).  
+This Privacy Policy describes how **Borderfall** (“**we**,” “**us**,” or “**our**”) collects, uses, stores, and shares information when you use our websites, games, and related services (collectively, the “**Services**”).  
 
-If you deploy Eras of Empire yourself, the entity operating that deployment is responsible for privacy practices and should replace contact details and legal identifiers below accordingly.
+If you deploy Borderfall yourself, the entity operating that deployment is responsible for privacy practices and should replace contact details and legal identifiers below accordingly.
 
 ---
 
@@ -31,7 +31,7 @@ If you deploy Eras of Empire yourself, the entity operating that deployment is r
 
 ### 2.3 We do not intentionally collect
 
-We do not require you to provide sensitive categories of data (such as health information, government ID numbers, or precise geolocation from GPS) to play Eras of Empire.
+We do not require you to provide sensitive categories of data (such as health information, government ID numbers, or precise geolocation from GPS) to play Borderfall.
 
 ---
 

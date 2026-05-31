@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Database backup script — run as daily cron on the production VPS.
-# Usage: BACKUP_DIR=/var/backups/erasofempire ./scripts/backup-databases.sh
+# Usage: BACKUP_DIR=/var/backups/borderfall ./scripts/backup-databases.sh
 set -euo pipefail
 
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/erasofempire}"
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/borderfall}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 
@@ -12,19 +12,19 @@ mkdir -p "$BACKUP_DIR"
 echo "[backup] Starting at $TIMESTAMP"
 
 # PostgreSQL
-docker exec erasofempire_postgres pg_dump \
+docker exec borderfall_postgres pg_dump \
   -U "${POSTGRES_USER:-chronouser}" \
-  -d "${POSTGRES_DB:-erasofempire}" \
+  -d "${POSTGRES_DB:-borderfall}" \
   --format=custom \
   > "$BACKUP_DIR/postgres_${TIMESTAMP}.dump"
 echo "[backup] Postgres dump complete"
 
 # MongoDB
-docker exec erasofempire_mongo mongodump \
+docker exec borderfall_mongo mongodump \
   --username="${MONGO_USER:-chronouser}" \
   --password="${MONGO_PASSWORD:-chronopass}" \
   --authenticationDatabase=admin \
-  --db="${MONGO_DB:-erasofempire_maps}" \
+  --db="${MONGO_DB:-borderfall_maps}" \
   --archive \
   > "$BACKUP_DIR/mongo_${TIMESTAMP}.archive"
 echo "[backup] MongoDB dump complete"

@@ -1,12 +1,13 @@
 # Store release checklist (template)
 
-Use this when submitting Eras of Empire to Apple App Store and Google Play. Adjust for your legal entity and hosting.
+Use this when submitting Borderfall to Apple App Store and Google Play. Adjust for your legal entity and hosting.
 
 ## Before submission
 
 - [ ] Production API on HTTPS with valid TLS
 - [ ] `VITE_API_URL` / `VITE_SOCKET_URL` set for release builds
 - [ ] `CORS_ORIGINS` and cookie `REFRESH_COOKIE_SAME_SITE` verified on real devices
+- [ ] Database migrations applied through `026_rebrand_borderfall.sql` (run `pnpm run db:migrate` from repo root)
 - [ ] Database migration `003_user_delete_fk.sql` applied (required for account deletion)
 - [ ] Privacy Policy URL live (e.g. `/privacy` on your marketing site or in-app WebView)
 - [ ] Terms of Service (optional but recommended)
@@ -15,7 +16,7 @@ Use this when submitting Eras of Empire to Apple App Store and Google Play. Adju
 ## Apple App Store
 
 - [ ] Apple Developer Program enrollment
-- [ ] App Store Connect: display name **Eras of Empire**; bundle ID `com.chronoconquest.app` kept for continuity (changing `appId` creates a new store app)
+- [ ] App Store Connect: display name **Borderfall**; bundle ID `com.borderfall.app` (new listing — distinct from legacy `com.chronoconquest.app`)
 - [ ] Privacy nutrition labels (data collected: account, gameplay, identifiers if any)
 - [ ] Age rating (strategy / mild combat)
 - [ ] Screenshots for required device sizes

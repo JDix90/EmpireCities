@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import {
   Flame, Shield, Sword, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
+import SubpageShell from '../components/ui/SubpageShell';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
@@ -468,22 +469,16 @@ export default function CampaignPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <p className="text-cc-muted">Loading campaigns…</p>
-      </div>
+      <SubpageShell title="ERA CAMPAIGNS" icon={Trophy}>
+        <p className="text-cc-muted text-center py-12">Loading campaigns…</p>
+      </SubpageShell>
     );
   }
 
   // ── Path selection screen ─────────────────────────────────────────
   if (showPathSelection) {
     return (
-      <div className="min-h-screen bg-cc-dark text-cc-text">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-8">
-            <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
-            <span className="text-cc-muted">·</span>
-            <h1 className="font-display text-2xl text-cc-gold tracking-widest">NEW CAMPAIGN</h1>
-          </div>
+      <SubpageShell title="NEW CAMPAIGN" icon={Sword}>
           <PathSelectionScreen
             paths={availablePaths}
             activePathIds={activePathIds}
@@ -494,8 +489,7 @@ export default function CampaignPage() {
             starting={starting}
             canCancel={campaigns.length > 0}
           />
-        </div>
-      </div>
+      </SubpageShell>
     );
   }
 
@@ -503,21 +497,19 @@ export default function CampaignPage() {
   if (selectedCampaign) {
     const campaign = selectedCampaign;
     const isContinuing = continuing === campaign.campaign_id;
+    const pathSubtitle = campaign.path_config?.name ?? 'Classic';
     return (
-      <div className="min-h-screen bg-cc-dark text-cc-text">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-8 flex-wrap">
-            <button onClick={closeCampaign} className="text-cc-gold hover:text-white transition-colors text-sm">
+      <SubpageShell title="ERA CAMPAIGN" icon={Trophy}>
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={closeCampaign}
+              className="text-sm text-cc-muted hover:text-cc-text transition-colors"
+            >
               ← All Campaigns
             </button>
-            <span className="text-cc-muted">·</span>
-            <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGN</h1>
-            {campaign.path_config ? (
-              <span className="text-sm text-cc-muted">— {campaign.path_config.name}</span>
-            ) : (
-              <span className="text-sm text-cc-muted">— Classic</span>
-            )}
+            <span className="text-cc-muted text-sm">·</span>
+            <span className="text-sm text-cc-muted">{pathSubtitle}</span>
           </div>
 
           {/* Path tagline */}
@@ -578,17 +570,19 @@ export default function CampaignPage() {
                   <p className="text-green-400 font-semibold">🏆 Campaign Completed!</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowPathSelection(true)}
-                  className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
+                  className="btn-primary"
                 >
                   Start Another Campaign
                 </button>
               </>
             ) : (
               <button
+                type="button"
                 onClick={() => handleContinue(campaign)}
                 disabled={isContinuing}
-                className="px-6 py-3 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60"
+                className="btn-primary disabled:opacity-60"
               >
                 {isContinuing
                   ? 'Preparing era…'
@@ -596,28 +590,20 @@ export default function CampaignPage() {
               </button>
             )}
             <button
+              type="button"
               onClick={closeCampaign}
-              className="px-6 py-3 border border-cc-border text-cc-muted rounded-lg hover:border-cc-text hover:text-cc-text transition-colors"
+              className="btn-secondary"
             >
               All Campaigns
             </button>
           </div>
-        </div>
-      </div>
+      </SubpageShell>
     );
   }
 
   // ── Campaign list (multi-campaign picker) ─────────────────────────
   return (
-    <div className="min-h-screen bg-cc-dark text-cc-text">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <Link to="/lobby" className="text-cc-gold hover:text-white transition-colors text-sm">← Back</Link>
-          <span className="text-cc-muted">·</span>
-          <h1 className="font-display text-2xl text-cc-gold tracking-widest">ERA CAMPAIGNS</h1>
-        </div>
-
+    <SubpageShell title="ERA CAMPAIGNS" icon={Trophy}>
         {/* Active campaigns */}
         {activeCampaigns.length > 0 && (
           <div className="mb-8">
@@ -639,9 +625,10 @@ export default function CampaignPage() {
         {/* Start new */}
         <div className="mb-8">
           <button
+            type="button"
             onClick={() => setShowPathSelection(true)}
             disabled={starting}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-cc-gold text-cc-dark font-semibold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-60"
+            className="btn-primary w-full gap-2 disabled:opacity-60"
           >
             <Plus className="w-4 h-4" />
             {starting ? 'Starting…' : 'Start New Campaign'}
@@ -669,16 +656,6 @@ export default function CampaignPage() {
           </div>
         )}
 
-        {/* Back to lobby */}
-        <div className="flex">
-          <Link
-            to="/lobby"
-            className="px-6 py-3 border border-cc-border text-cc-muted rounded-lg hover:border-cc-text hover:text-cc-text transition-colors"
-          >
-            Back to Lobby
-          </Link>
-        </div>
-      </div>
-    </div>
+    </SubpageShell>
   );
 }

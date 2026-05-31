@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { api } from '../services/api';
+import SubpageShell from '../components/ui/SubpageShell';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import FactionLoreModal, { type FactionLoreInfo } from '../components/game/FactionLoreModal';
 
@@ -24,9 +26,8 @@ export default function CodexPage() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="font-display text-3xl text-cc-gold mb-2">Faction Codex</h1>
-      <p className="text-cc-muted text-sm mb-8">Browse all factions across every era.</p>
+    <SubpageShell title="FACTION CODEX" icon={BookOpen} maxWidth="4xl" contentClassName="space-y-8">
+      <p className="text-cc-muted text-sm -mt-2">Browse all factions across every era.</p>
 
       {loading && <p className="text-cc-muted">Loading factions…</p>}
 
@@ -61,6 +62,6 @@ export default function CodexPage() {
       })}
 
       {selected && <FactionLoreModal faction={selected} onClose={() => setSelected(null)} />}
-    </div>
+    </SubpageShell>
   );
 }

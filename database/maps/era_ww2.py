@@ -1,5 +1,5 @@
 """
-Eras of Empire — World War II Era Map (1939–1945)
+Borderfall — World War II Era Map (1939–1945)
 Canvas: 1200 x 700 px
 Theatres: Western Europe, Eastern Front, North Africa, Pacific, Atlantic
 Major factions: Germany, Italy, Japan, USA, UK, USSR, China

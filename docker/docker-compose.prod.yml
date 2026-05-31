@@ -17,12 +17,12 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: erasofempire_postgres_prod
+    container_name: borderfall_postgres_prod
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chronouser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronopass}
-      POSTGRES_DB: ${POSTGRES_DB:-erasofempire}
+      POSTGRES_DB: ${POSTGRES_DB:-borderfall}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,12 +33,12 @@ services:
 
   mongodb:
     image: mongo:7-jammy
-    container_name: erasofempire_mongo_prod
+    container_name: borderfall_mongo_prod
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-chronouser}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-chronopass}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-erasofempire_maps}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-borderfall_maps}
     volumes:
       - mongo_prod_data:/data/db
     healthcheck:
@@ -49,7 +49,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: erasofempire_redis_prod
+    container_name: borderfall_redis_prod
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-chronoredis}
     volumes:
@@ -64,7 +64,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.backend
-    container_name: erasofempire_backend_prod
+    container_name: borderfall_backend_prod
     restart: unless-stopped
     depends_on:
       postgres:
@@ -80,8 +80,8 @@ services:
       POSTGRES_PORT: '5432'
       POSTGRES_USER: ${POSTGRES_USER:-chronouser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronopass}
-      POSTGRES_DB: ${POSTGRES_DB:-erasofempire}
-      MONGO_URI: mongodb://${MONGO_USER:-chronouser}:${MONGO_PASSWORD:-chronopass}@mongodb:27017/${MONGO_DB:-erasofempire_maps}?authSource=admin
+      POSTGRES_DB: ${POSTGRES_DB:-borderfall}
+      MONGO_URI: mongodb://${MONGO_USER:-chronouser}:${MONGO_PASSWORD:-chronopass}@mongodb:27017/${MONGO_DB:-borderfall_maps}?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: '6379'
       REDIS_PASSWORD: ${REDIS_PASSWORD:-chronoredis}
@@ -112,7 +112,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
-    container_name: erasofempire_web_prod
+    container_name: borderfall_web_prod
     restart: unless-stopped
     depends_on:
       backend:

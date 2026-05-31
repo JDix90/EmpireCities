@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
+import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
   to: string;
@@ -42,7 +43,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
     <nav className={styles.navBar}>
       {/* Logo/Brand */}
       <Link to="/lobby" className={styles.logo}>
-        ERAS OF EMPIRE
+        {APP_NAME_NAV}
       </Link>
       {/* Main nav groups */}
       <div className={styles.mainNav}>

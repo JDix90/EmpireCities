@@ -1,4 +1,4 @@
-# Eras of Empire — Capacitor mobile workflow
+# Borderfall — Capacitor mobile workflow
 
 The web client lives in `frontend/`. Capacitor wraps the Vite `dist/` output as iOS and Android apps.
 
@@ -56,6 +56,21 @@ cd ios/App && pod install && cd ../..
 
 ## Repo layout
 
-- `frontend/capacitor.config.ts` — app id, `webDir: dist`, `androidScheme: https`
-- `frontend/android/` — Gradle project (sync copies `dist` into assets)
-- `frontend/ios/` — Xcode project (when present)
+- `frontend/capacitor.config.ts` — `appId: com.borderfall.app`, `appName: Borderfall`, `webDir: dist`, `androidScheme: https`
+- `frontend/android/` — Gradle project (`com.borderfall.app`; sync copies `dist` into assets)
+- `frontend/ios/` — Xcode project (`PRODUCT_BUNDLE_IDENTIFIER = com.borderfall.app`, when present)
+
+## Borderfall store migration
+
+The native apps ship as **Borderfall** with bundle ID `com.borderfall.app`. This is a **new** App Store / Google Play listing — not an update to the legacy `com.chronoconquest.app` package.
+
+After changing web branding or API URLs:
+
+```bash
+cd frontend
+export VITE_API_URL=https://api.yourdomain.com
+export VITE_SOCKET_URL=https://api.yourdomain.com
+pnpm run cap:sync
+```
+
+Verify the home-screen label reads **Borderfall** and deep links use the `com.borderfall.app` URL scheme from `strings.xml` (Android) / associated domains (if configured).

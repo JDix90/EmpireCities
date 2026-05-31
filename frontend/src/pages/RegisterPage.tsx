@@ -6,6 +6,7 @@ import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
+import BrandWordmark from '../components/ui/BrandWordmark';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -122,7 +123,7 @@ export default function RegisterPage() {
     <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
-          <Link to="/" className="font-display text-3xl text-cc-gold tracking-widest">ERAS OF EMPIRE</Link>
+          <BrandWordmark className="text-3xl block text-center" />
           <p className="text-cc-muted mt-2">Create your free account</p>
         </div>
 

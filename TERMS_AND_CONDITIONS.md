@@ -1,8 +1,8 @@
-# Terms & Conditions — Eras of Empire
+# Terms & Conditions — Borderfall
 
 **Effective date:** March 31, 2026  
 
-Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Eras of Empire** and related websites, applications, and services (collectively, the “**Services**”), operated by **[Your legal name or company name]** (“**we**,” “**us**,” or “**our**”).  
+Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **[Your legal name or company name]** (“**we**,” “**us**,” or “**our**”).  
 
 By creating an account, accessing, or using the Services, you agree to these Terms. If you do not agree, do not use the Services.
 

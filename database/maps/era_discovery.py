@@ -1,5 +1,5 @@
 """
-Eras of Empire — Age of Discovery Era Map (circa 1600 AD)
+Borderfall — Age of Discovery Era Map (circa 1600 AD)
 Canvas: 1200 x 700 px
 Major powers: Spanish Empire, Portuguese Empire, Ottoman Empire,
               Mughal India, Ming China, Aztec/Inca remnants, West Africa

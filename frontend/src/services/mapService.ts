@@ -1,5 +1,5 @@
 /**
- * Eras of Empire — Frontend Map Service
+ * Borderfall — Frontend Map Service
  * Fetches map data from the backend API and provides type-safe access.
  */
 

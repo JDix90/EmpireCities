@@ -11,7 +11,7 @@
     "test:e2e:map-visual": "playwright test --project=chromium-map-visual",
     "lint": "eslint src --ext .ts,.tsx",
     "compute-map-connections": "tsx scripts/computeMapConnections.ts",
-    "cap:sync": "npm run build && npx cap sync",
+    "cap:sync": "npm run build && pnpm exec cap sync",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"
   },

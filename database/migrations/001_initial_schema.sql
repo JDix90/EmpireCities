@@ -1,4 +1,4 @@
--- Eras of Empire Initial Database Schema
+-- Borderfall Initial Database Schema
 -- Migration 001: Core tables
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

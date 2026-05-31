@@ -6,9 +6,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * iOS: use HTTPS API only (ATS). Android: cleartext disabled by default for release.
  */
 const config: CapacitorConfig = {
-  /** Unchanged for App Store / Play continuity; a new id is a separate store listing. */
-  appId: 'com.chronoconquest.app',
-  appName: 'Eras of Empire',
+  appId: 'com.borderfall.app',
+  appName: 'Borderfall',
   webDir: 'dist',
   server: {
     // Use https scheme on Android so secure cookies / mixed content behave like production web

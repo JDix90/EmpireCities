@@ -3,10 +3,12 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { api } from './services/api';
+import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import ErrorBoundary from './components/ErrorBoundary';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
+import { APP_NAME_NAV } from './constants/brand';
 
 // Pages — every route uses `lazyWithChunkRetry` so a stale tab that requests
 // a hashed chunk filename that no longer exists (post-deploy) retries once
@@ -59,7 +61,7 @@ function RouteLoadingFallback() {
         </div>
         {/* Map area skeleton */}
         <div className="h-48 sm:h-64 bg-cc-surface border border-cc-border rounded-xl animate-pulse flex items-center justify-center">
-          <p className="text-cc-muted/50 text-sm font-display tracking-widest animate-pulse">ERAS OF EMPIRE</p>
+          <p className="text-cc-muted/50 text-sm font-display tracking-widest animate-pulse">{APP_NAME_NAV}</p>
         </div>
       </div>
     </div>
@@ -158,6 +160,11 @@ export default function App() {
           try {
             const res = await api.get('/users/me');
             useAuthStore.getState().setUser(res.data);
+            // Merge server-side tutorial module completions into localStorage so
+            // TutorialPage reflects accurate completion state on any device.
+            if (Array.isArray(res.data.tutorial_modules_completed)) {
+              mergeServerTutorialModules(res.data.tutorial_modules_completed);
+            }
           } catch {
             /* best-effort profile re-fetch — flags like is_admin will reflect on next nav */
           }

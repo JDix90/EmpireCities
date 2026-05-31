@@ -1,5 +1,5 @@
 /**
- * Eras of Empire — Map Service
+ * Borderfall — Map Service
  * Provides map data retrieval and caching for the game engine.
  * Maps are loaded from MongoDB and cached in Redis for fast access.
  */

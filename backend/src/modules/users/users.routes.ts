@@ -98,7 +98,54 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       [request.userId],
     );
     const has_completed_tutorial = parseInt(tutorialRow?.cnt ?? '0', 10) > 0;
-    return reply.send({ ...user, ratings, has_completed_tutorial });
+
+    // Fetch server-side tutorial module completions (migration 027).
+    let tutorial_modules_completed: string[] = [];
+    try {
+      const moduleRows = await query<{ module_id: string }>(
+        `SELECT module_id FROM user_tutorial_modules WHERE user_id = $1`,
+        [request.userId],
+      );
+      tutorial_modules_completed = moduleRows.map((r) => r.module_id);
+    } catch {
+      // Table may not exist yet on older deployments — degrade gracefully.
+    }
+
+    return reply.send({ ...user, ratings, has_completed_tutorial, tutorial_modules_completed });
+  });
+
+  // ── GET /api/users/me/tutorial-modules ──────────────────────────────────
+  fastify.get('/me/tutorial-modules', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    let rows: { module_id: string; completed_at: string }[] = [];
+    try {
+      rows = await query<{ module_id: string; completed_at: string }>(
+        `SELECT module_id, completed_at FROM user_tutorial_modules WHERE user_id = $1 ORDER BY completed_at`,
+        [request.userId],
+      );
+    } catch {
+      /* degrade gracefully if migration not yet run */
+    }
+    return reply.send({ completed: rows });
+  });
+
+  // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
+  const VALID_MODULES = new Set(['core', 'advanced_settings', 'faction_ability', 'tech_tree']);
+  fastify.post('/me/tutorial-modules/:moduleId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    const { moduleId } = request.params as { moduleId: string };
+    if (!VALID_MODULES.has(moduleId)) {
+      return reply.status(400).send({ error: `Unknown tutorial module: ${moduleId}` });
+    }
+    try {
+      await query(
+        `INSERT INTO user_tutorial_modules (user_id, module_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, module_id) DO NOTHING`,
+        [request.userId, moduleId],
+      );
+    } catch {
+      /* degrade gracefully if migration not yet run */
+    }
+    return reply.status(204).send();
   });
 
   // ── DELETE /api/users/me (account deletion — run migration 003 first) ───
@@ -636,7 +683,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (!profile) return reply.status(404).send({ error: 'User not found' });
 
-      reply.header('Content-Disposition', `attachment; filename="empire-cities-data-${userId}.json"`);
+      reply.header('Content-Disposition', `attachment; filename="borderfall-data-${userId}.json"`);
       return reply.send({
         exported_at: new Date().toISOString(),
         profile,
