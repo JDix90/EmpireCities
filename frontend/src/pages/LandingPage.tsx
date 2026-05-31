@@ -396,7 +396,7 @@ export default function LandingPage() {
         <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-cc-gold mb-4 sm:mb-6 leading-tight">
           {APP_NAME}
         </h2>
-        <p className="font-display text-lg sm:text-xl text-cc-gold/90 italic mb-4">
+        <p data-testid="hero-tagline" className="font-display text-lg sm:text-xl text-cc-gold/90 italic mb-4">
           {TAGLINE_PRIMARY}
         </p>
         <p className="text-cc-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
