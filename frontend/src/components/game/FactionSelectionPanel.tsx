@@ -74,13 +74,13 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
 
   return (
     <div className="card mb-6 animate-fade-in">
-      <h3 className="font-display text-xl text-cc-gold mb-4">Faction Selection</h3>
+      <h3 className="font-display text-xl text-bf-gold mb-4">Faction Selection</h3>
       {loading ? (
-        <p className="text-cc-muted">Loading factions…</p>
+        <p className="text-bf-muted">Loading factions…</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-cc-muted border-b border-cc-border">
+            <tr className="text-bf-muted border-b border-bf-border">
               <th className="text-left py-2">Player</th>
               <th className="text-left py-2">Faction</th>
               <th className="py-2" />
@@ -93,13 +93,13 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
               const isAI = p.is_ai;
               const canPick = (isMe && !isAI) || (isHost && isAI);
               return (
-                <tr key={playerKey} className="border-b border-cc-border last:border-0">
+                <tr key={playerKey} className="border-b border-bf-border last:border-0">
                   <td className="py-2 pr-4">
                     <span className="inline-flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: p.player_color }} />
                       {p.username || (isAI ? `AI Bot ${p.player_index}` : '—')}
-                      {isMe && !isAI && <span className="ml-1 text-cc-gold text-xs">(you)</span>}
-                      {isAI && isHost && <span className="ml-1 text-cc-muted text-xs">(host sets)</span>}
+                      {isMe && !isAI && <span className="ml-1 text-bf-gold text-xs">(you)</span>}
+                      {isAI && isHost && <span className="ml-1 text-bf-muted text-xs">(host sets)</span>}
                     </span>
                   </td>
                   <td className="py-2">
@@ -125,7 +125,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                       <span>
                         {(() => {
                           const f = factions.find(f => f.faction_id === playerFactions[playerKey]);
-                          return f ? f.name : <span className="text-cc-muted">—</span>;
+                          return f ? f.name : <span className="text-bf-muted">—</span>;
                         })()}
                       </span>
                     )}
@@ -138,7 +138,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                       return (
                         <button
                           onClick={() => setLoreFaction(f as FactionLoreInfo)}
-                          className="p-1 text-cc-muted hover:text-cc-gold transition-colors"
+                          className="p-1 text-bf-muted hover:text-bf-gold transition-colors"
                           title="Read faction lore"
                         >
                           <BookOpen className="w-4 h-4" />

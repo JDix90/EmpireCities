@@ -9,7 +9,7 @@ import type {
   MapKind,
   OrbitAccessMode,
   MapWorldDefinition,
-} from '@erasofempire/shared';
+} from '@borderfall/shared';
 
 export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccessMode, MapWorldDefinition };
 

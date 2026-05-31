@@ -64,19 +64,19 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
       aria-labelledby="invite-friends-title"
     >
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
-        <div className="card max-w-md w-full max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain border border-cc-gold/20 relative p-4 sm:p-6">
+        <div className="card max-w-md w-full max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain border border-bf-gold/20 relative p-4 sm:p-6">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 text-cc-muted hover:text-cc-text p-1"
+            className="absolute top-3 right-3 text-bf-muted hover:text-bf-text p-1"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
-          <h3 id="invite-friends-title" className="font-display text-xl text-cc-gold mb-2 pr-8 flex items-center gap-2">
+          <h3 id="invite-friends-title" className="font-display text-xl text-bf-gold mb-2 pr-8 flex items-center gap-2">
             <UserPlus className="w-6 h-6" /> Invite friends
           </h3>
-          <p className="text-cc-muted text-sm mb-4">
+          <p className="text-bf-muted text-sm mb-4">
             Copy a link or code, or notify an online friend (they will see a prompt if connected).
           </p>
 
@@ -94,17 +94,17 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
             </button>
           </div>
 
-          <h4 className="text-sm font-medium text-cc-text mb-2">Notify a friend</h4>
+          <h4 className="text-sm font-medium text-bf-text mb-2">Notify a friend</h4>
           {friends.length === 0 ? (
-            <p className="text-cc-muted text-sm mb-2">Add friends from the Friends page first.</p>
+            <p className="text-bf-muted text-sm mb-2">Add friends from the Friends page first.</p>
           ) : (
             <ul className="space-y-2 max-h-[40vh] overflow-y-auto overscroll-contain">
               {friends.map((f) => (
                 <li
                   key={f.user_id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-cc-dark border border-cc-border"
+                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-bf-dark border border-bf-border"
                 >
-                  <span className="text-cc-text text-sm">{f.username}</span>
+                  <span className="text-bf-text text-sm">{f.username}</span>
                   <button
                     type="button"
                     className="btn-secondary text-xs py-1.5 px-3 min-h-[36px]"

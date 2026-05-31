@@ -42,20 +42,20 @@ export default function SubpageShell({
   contentClassName,
 }: SubpageShellProps) {
   return (
-    <div className={clsx('min-h-screen bg-cc-dark text-cc-text', className)}>
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe gap-3">
+    <div className={clsx('min-h-screen bg-bf-dark text-bf-text', className)}>
+      <nav className="border-b border-bf-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe gap-3">
         <div className="shrink-0 min-w-[4.5rem] sm:min-w-[5.5rem]">
           {headerLeft ?? (
             <Link
               to={backHref}
-              className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors"
+              className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text text-sm transition-colors"
             >
               <ChevronLeft className="w-4 h-4" aria-hidden />
               {backLabel}
             </Link>
           )}
         </div>
-        <h1 className="font-display text-xl text-cc-gold tracking-widest flex items-center justify-center gap-2 text-center min-w-0">
+        <h1 className="font-display text-xl text-bf-gold tracking-widest flex items-center justify-center gap-2 text-center min-w-0">
           {Icon && <Icon className="w-5 h-5 shrink-0" aria-hidden />}
           <span className="truncate">{title}</span>
         </h1>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { MAP_VISUAL_KIND_LABEL } from '../utils/mapAmbientEffects';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 

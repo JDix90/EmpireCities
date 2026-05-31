@@ -24,7 +24,7 @@ export default function StreakMultiplierBadge({
       ? 'from-red-500/20 to-orange-500/20 border-red-500/40 text-red-400'
       : goldMultiplier >= 1.5
         ? 'from-orange-500/20 to-yellow-500/20 border-orange-500/40 text-orange-400'
-        : 'from-yellow-500/20 to-cc-gold/20 border-yellow-500/40 text-yellow-400';
+        : 'from-yellow-500/20 to-bf-gold/20 border-yellow-500/40 text-yellow-400';
 
   return (
     <div

@@ -120,7 +120,7 @@ export default function FriendsPage() {
     return (
       <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg">
         <div className="text-center py-12 space-y-4">
-          <p className="text-cc-muted">Register an account to use friends.</p>
+          <p className="text-bf-muted">Register an account to use friends.</p>
           <Link to="/register" className="btn-primary">Create Account</Link>
         </div>
       </SubpageShell>
@@ -130,10 +130,10 @@ export default function FriendsPage() {
   return (
     <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg" contentClassName="space-y-8">
         <form onSubmit={sendRequest} className="card space-y-3">
-          <h2 className="font-display text-cc-gold flex items-center gap-2">
+          <h2 className="font-display text-bf-gold flex items-center gap-2">
             <UserPlus className="w-5 h-5" /> Add friend
           </h2>
-          <p className="text-cc-muted text-sm">Send a request by exact username.</p>
+          <p className="text-bf-muted text-sm">Send a request by exact username.</p>
           <div className="flex gap-2">
             <input
               className="input flex-1"
@@ -147,19 +147,19 @@ export default function FriendsPage() {
         </form>
 
         {loading ? (
-          <p className="text-cc-muted text-center">Loading…</p>
+          <p className="text-bf-muted text-center">Loading…</p>
         ) : (
           <>
             {pending.length > 0 && (
               <div className="card space-y-3">
-                <h2 className="font-display text-cc-gold text-lg">Pending</h2>
+                <h2 className="font-display text-bf-gold text-lg">Pending</h2>
                 <ul className="space-y-2">
                   {pending.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 p-3 bg-cc-dark rounded-lg border border-cc-border"
+                      className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
                     >
-                      <span className="text-cc-text">{p.other_username}</span>
+                      <span className="text-bf-text">{p.other_username}</span>
                       {p.direction === 'incoming' ? (
                         <span className="flex gap-1 shrink-0">
                           <button
@@ -178,7 +178,7 @@ export default function FriendsPage() {
                           </button>
                         </span>
                       ) : (
-                        <span className="text-cc-muted text-xs">Waiting…</span>
+                        <span className="text-bf-muted text-xs">Waiting…</span>
                       )}
                     </li>
                   ))}
@@ -187,21 +187,21 @@ export default function FriendsPage() {
             )}
 
             <div className="card space-y-3">
-              <h2 className="font-display text-cc-gold text-lg">Your friends ({friends.length})</h2>
+              <h2 className="font-display text-bf-gold text-lg">Your friends ({friends.length})</h2>
               {friends.length === 0 ? (
-                <p className="text-cc-muted text-sm">No friends yet. Add someone above.</p>
+                <p className="text-bf-muted text-sm">No friends yet. Add someone above.</p>
               ) : (
                 <ul className="space-y-2">
                   {friends.map((f) => (
                     <li
                       key={f.user_id}
-                      className="flex items-center justify-between gap-2 p-3 bg-cc-dark rounded-lg border border-cc-border"
+                      className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
                     >
                       <div className="min-w-0 flex-1">
-                        <Link to={`/profile/${f.user_id}`} className="text-cc-text hover:text-cc-gold block truncate font-medium">
+                        <Link to={`/profile/${f.user_id}`} className="text-bf-text hover:text-bf-gold block truncate font-medium">
                           {f.username}
                         </Link>
-                        <div className="flex items-center gap-2 mt-1 text-[11px] text-cc-muted">
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-bf-muted">
                           {(f.friend_streak ?? 0) > 0 && <span className="text-orange-400">🔥 {f.friend_streak}</span>}
                           {getStreakRiskLabel(f.last_game_together) && (
                             <span className="text-amber-300">{getStreakRiskLabel(f.last_game_together)}</span>
@@ -210,7 +210,7 @@ export default function FriendsPage() {
                       </div>
                       <button
                         type="button"
-                        className="text-cc-muted hover:text-red-400 p-1"
+                        className="text-bf-muted hover:text-red-400 p-1"
                         title="Remove friend"
                         onClick={() => void unfriend(f.user_id)}
                       >

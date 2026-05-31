@@ -33,15 +33,15 @@ export default class ErrorBoundary extends React.Component<Props, State> {
       // pasteable signal for support / griefing screenshots.
       const showDetails = import.meta.env.DEV && this.state.error;
       return (
-        <div className="min-h-screen bg-cc-dark flex items-center justify-center px-6">
+        <div className="min-h-screen bg-bf-dark flex items-center justify-center px-6">
           <div className="text-center max-w-md">
-            <p className="font-display text-2xl text-cc-gold tracking-widest mb-4">Something went wrong</p>
-            <p className="text-cc-muted text-sm mb-6">
+            <p className="font-display text-2xl text-bf-gold tracking-widest mb-4">Something went wrong</p>
+            <p className="text-bf-muted text-sm mb-6">
               An unexpected error occurred. Refresh the page to continue. If the problem
               persists, try clearing your browser cache for this site.
             </p>
             {showDetails && (
-              <pre className="text-xs text-red-400 bg-cc-surface rounded-lg p-4 text-left overflow-auto mb-6">
+              <pre className="text-xs text-red-400 bg-bf-surface rounded-lg p-4 text-left overflow-auto mb-6">
                 {this.state.error?.message}
               </pre>
             )}

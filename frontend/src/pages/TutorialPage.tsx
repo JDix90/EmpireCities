@@ -94,12 +94,12 @@ export default function TutorialPage() {
 
   if (autoStart && !moduleParam) {
     return (
-      <div className="min-h-screen-safe bg-cc-dark flex flex-col">
-        <nav className="border-b border-cc-border px-6 py-4">
+      <div className="min-h-screen-safe bg-bf-dark flex flex-col">
+        <nav className="border-b border-bf-border px-6 py-4">
           <BrandWordmark className="text-sm" />
         </nav>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-cc-muted text-sm animate-pulse">Starting tutorial…</p>
+          <p className="text-bf-muted text-sm animate-pulse">Starting tutorial…</p>
         </div>
       </div>
     );
@@ -107,24 +107,24 @@ export default function TutorialPage() {
 
   if (moduleParam && autoStart) {
     return (
-      <div className="min-h-screen-safe bg-cc-dark flex flex-col">
-        <nav className="border-b border-cc-border px-6 py-4">
+      <div className="min-h-screen-safe bg-bf-dark flex flex-col">
+        <nav className="border-b border-bf-border px-6 py-4">
           <BrandWordmark className="text-sm" />
         </nav>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-cc-muted text-sm animate-pulse">Starting lesson…</p>
+          <p className="text-bf-muted text-sm animate-pulse">Starting lesson…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen-safe bg-cc-dark flex flex-col">
-      <nav className="border-b border-cc-border px-6 py-4 flex justify-between items-center">
+    <div className="min-h-screen-safe bg-bf-dark flex flex-col">
+      <nav className="border-b border-bf-border px-6 py-4 flex justify-between items-center">
         <BrandWordmark className="text-sm" />
         <Link
           to={isAuthenticated ? '/lobby' : '/'}
-          className="text-cc-muted text-sm hover:text-cc-gold"
+          className="text-bf-muted text-sm hover:text-bf-gold"
         >
           {isAuthenticated ? 'Back to lobby' : 'Home'}
         </Link>
@@ -132,17 +132,17 @@ export default function TutorialPage() {
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 w-full">
         <div className="text-center space-y-2">
-          <BookOpen className="w-10 h-10 text-cc-gold mx-auto" aria-hidden />
-          <h1 className="font-display text-2xl text-cc-gold tracking-wider">Training Academy</h1>
-          <p className="text-cc-muted text-sm">
+          <BookOpen className="w-10 h-10 text-bf-gold mx-auto" aria-hidden />
+          <h1 className="font-display text-2xl text-bf-gold tracking-wider">Training Academy</h1>
+          <p className="text-bf-muted text-sm">
             Start with the core tutorial, then try short deep dives on advanced settings, factions, and tech.
           </p>
         </div>
 
         {recommended && (
-          <div className="card border-cc-gold/30 bg-cc-gold/5 p-4">
-            <p className="text-xs uppercase tracking-widest text-cc-gold mb-1">Recommended next</p>
-            <p className="text-cc-text text-sm mb-3">
+          <div className="card border-bf-gold/30 bg-bf-gold/5 p-4">
+            <p className="text-xs uppercase tracking-widest text-bf-gold mb-1">Recommended next</p>
+            <p className="text-bf-text text-sm mb-3">
               {TUTORIAL_MODULES.find((m) => m.id === recommended)?.title}
               {' — '}
               {TUTORIAL_MODULES.find((m) => m.id === recommended)?.description}
@@ -166,18 +166,18 @@ export default function TutorialPage() {
               <div
                 key={mod.id}
                 data-testid={`module-card-${mod.id}`}
-                className="card w-full text-left p-4 hover:border-cc-gold/40 transition-colors"
+                className="card w-full text-left p-4 hover:border-bf-gold/40 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <Icon className="w-5 h-5 text-cc-gold shrink-0 mt-0.5" aria-hidden />
+                  <Icon className="w-5 h-5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-display text-cc-gold">{mod.title}</p>
-                      <span className="text-[10px] text-cc-muted shrink-0">
+                      <p className="font-display text-bf-gold">{mod.title}</p>
+                      <span className="text-[10px] text-bf-muted shrink-0">
                         {done ? 'Done ✓' : `~${mod.estimatedMinutes} min`}
                       </span>
                     </div>
-                    <p className="text-cc-muted text-xs mt-1">{mod.description}</p>
+                    <p className="text-bf-muted text-xs mt-1">{mod.description}</p>
                   </div>
                 </div>
                 <button
@@ -193,12 +193,12 @@ export default function TutorialPage() {
           })}
         </div>
 
-        <p className="text-center text-xs text-cc-muted">
-          <Link to="/how-to-play" className="text-cc-gold hover:underline">
+        <p className="text-center text-xs text-bf-muted">
+          <Link to="/how-to-play" className="text-bf-gold hover:underline">
             Full rules reference
           </Link>
           {' · '}
-          <Link to="/codex" className="text-cc-gold hover:underline">
+          <Link to="/codex" className="text-bf-gold hover:underline">
             Faction codex
           </Link>
         </p>

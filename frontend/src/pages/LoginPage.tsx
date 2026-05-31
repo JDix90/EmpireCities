@@ -56,11 +56,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
+    <div className="min-h-screen-safe bg-bf-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
-          <p className="text-cc-muted mt-2">Sign in to your account</p>
+          <p className="text-bf-muted mt-2">Sign in to your account</p>
         </div>
 
         <div className="card">
@@ -87,12 +87,12 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
-                <label htmlFor="login-password" className="text-sm font-medium text-cc-muted">
+                <label htmlFor="login-password" className="text-sm font-medium text-bf-muted">
                   Password
                 </label>
                 <Link
                   to={redirectTo !== '/lobby' ? `/forgot-password?redirect=${encodeURIComponent(redirectTo)}` : '/forgot-password'}
-                  className="text-sm text-cc-muted hover:text-cc-gold hover:underline shrink-0 ml-auto"
+                  className="text-sm text-bf-muted hover:text-bf-gold hover:underline shrink-0 ml-auto"
                 >
                   Forgot password?
                 </Link>
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-cc-muted hover:text-cc-text transition-colors"
+                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -123,11 +123,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-cc-muted text-sm mt-6">
+          <p className="text-center text-bf-muted text-sm mt-6">
             No account?{' '}
             <Link
               to={redirectTo !== '/lobby' ? `/register?redirect=${encodeURIComponent(redirectTo)}` : '/register'}
-              className="text-cc-gold hover:underline"
+              className="text-bf-gold hover:underline"
             >
               Create one free
             </Link>

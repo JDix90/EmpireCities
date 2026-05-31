@@ -88,7 +88,7 @@ function pathAccentColor(pathId: string | null): string {
   if (pathId === 'blood_empire') return 'border-amber-600/60 bg-amber-900/10';
   if (pathId === 'revolutionary_flame') return 'border-red-600/60 bg-red-900/10';
   if (pathId === 'last_defenders') return 'border-blue-600/60 bg-blue-900/10';
-  return 'border-cc-gold/60 bg-cc-gold/5';
+  return 'border-bf-gold/60 bg-bf-gold/5';
 }
 
 function campaignDisplayName(c: Campaign): string {
@@ -118,8 +118,8 @@ function PathSelectionScreen({
 }) {
   return (
     <div>
-      <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-2">Choose Your Campaign</h2>
-      <p className="text-cc-muted text-sm mb-6">
+      <h2 className="text-sm uppercase tracking-widest text-bf-muted mb-2">Choose Your Campaign</h2>
+      <p className="text-bf-muted text-sm mb-6">
         Each path puts you in a distinct historical narrative that builds across all six eras.
       </p>
       <div className="flex flex-col gap-4 mb-6">
@@ -131,51 +131,51 @@ function PathSelectionScreen({
               onClick={() => onSelect(path.path_id)}
               disabled={starting || alreadyActive}
               title={alreadyActive ? 'You already have an active campaign on this path' : undefined}
-              className={`text-left p-4 rounded-lg border transition-colors hover:border-cc-text disabled:opacity-40 disabled:cursor-not-allowed ${pathAccentColor(path.path_id)}`}
+              className={`text-left p-4 rounded-lg border transition-colors hover:border-bf-text disabled:opacity-40 disabled:cursor-not-allowed ${pathAccentColor(path.path_id)}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <CarryIcon carryKey={path.signature_carry_key} className={`w-4 h-4 ${carryColor(path.signature_carry_key)}`} />
-                    <span className="font-semibold text-cc-text">{path.name}</span>
+                    <span className="font-semibold text-bf-text">{path.name}</span>
                     {alreadyActive && (
-                      <span className="ml-1 text-[10px] uppercase tracking-widest text-cc-muted bg-cc-surface border border-cc-border rounded-full px-2 py-0.5">
+                      <span className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5">
                         In progress
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-cc-muted italic mb-2">{path.tagline}</p>
-                  <p className="text-sm text-cc-muted">{path.description}</p>
+                  <p className="text-xs text-bf-muted italic mb-2">{path.tagline}</p>
+                  <p className="text-sm text-bf-muted">{path.description}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-cc-muted flex-shrink-0 mt-1" />
+                <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
               </div>
             </button>
           );
         })}
       </div>
-      <div className="border-t border-cc-border pt-4 flex flex-col gap-3">
+      <div className="border-t border-bf-border pt-4 flex flex-col gap-3">
         <button
           onClick={onClassic}
           disabled={starting || hasActiveClassic}
           title={hasActiveClassic ? 'You already have an active classic campaign' : undefined}
-          className="w-full text-left p-4 rounded-lg border border-cc-border bg-cc-surface/50 hover:border-cc-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full text-left p-4 rounded-lg border border-bf-border bg-bf-surface/50 hover:border-bf-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <div className="flex items-center gap-2 mb-1">
-            <Sword className="w-4 h-4 text-cc-muted" />
-            <span className="font-semibold text-cc-text">Classic Campaign</span>
+            <Sword className="w-4 h-4 text-bf-muted" />
+            <span className="font-semibold text-bf-text">Classic Campaign</span>
             {hasActiveClassic && (
-              <span className="ml-1 text-[10px] uppercase tracking-widest text-cc-muted bg-cc-surface border border-cc-border rounded-full px-2 py-0.5">
+              <span className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5">
                 In progress
               </span>
             )}
           </div>
-          <p className="text-xs text-cc-muted">Free faction choice, standard progression — no narrative path.</p>
+          <p className="text-xs text-bf-muted">Free faction choice, standard progression — no narrative path.</p>
         </button>
         {canCancel && (
           <button
             onClick={onCancel}
             disabled={starting}
-            className="self-start text-sm text-cc-muted hover:text-cc-text transition-colors disabled:opacity-60"
+            className="self-start text-sm text-bf-muted hover:text-bf-text transition-colors disabled:opacity-60"
           >
             ← Back to campaigns
           </button>
@@ -235,12 +235,12 @@ function EraRow({
     <div
       className={`rounded-lg border transition-colors ${
         isCurrent
-          ? 'border-cc-gold/60 bg-cc-gold/5'
+          ? 'border-bf-gold/60 bg-bf-gold/5'
           : isDone
             ? 'border-green-600/40 bg-green-900/10'
             : isAttempted
               ? 'border-red-700/40 bg-red-900/10'
-              : 'border-cc-border bg-cc-surface/50'
+              : 'border-bf-border bg-bf-surface/50'
       }`}
     >
       <div className="flex items-center gap-4 p-3">
@@ -248,19 +248,19 @@ function EraRow({
           {isDone ? (
             <CheckCircle className="w-5 h-5 text-green-400" />
           ) : isLocked ? (
-            <Lock className="w-4 h-4 text-cc-muted" />
+            <Lock className="w-4 h-4 text-bf-muted" />
           ) : isCurrent ? (
-            <ChevronRight className="w-5 h-5 text-cc-gold" />
+            <ChevronRight className="w-5 h-5 text-bf-gold" />
           ) : (
-            <Circle className="w-4 h-4 text-cc-muted" />
+            <Circle className="w-4 h-4 text-bf-muted" />
           )}
         </div>
         <div className="flex-1">
-          <p className={`text-sm font-medium ${isCurrent ? 'text-cc-gold' : isDone ? 'text-green-300' : isLocked ? 'text-cc-muted' : 'text-cc-text'}`}>
+          <p className={`text-sm font-medium ${isCurrent ? 'text-bf-gold' : isDone ? 'text-green-300' : isLocked ? 'text-bf-muted' : 'text-bf-text'}`}>
             {ERA_LABELS[era.era_id] ?? era.era_id}
           </p>
           {era.faction_id && !isLocked && (
-            <p className="text-xs text-cc-muted mt-0.5 capitalize">{era.faction_id.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-bf-muted mt-0.5 capitalize">{era.faction_id.replace(/_/g, ' ')}</p>
           )}
           {isAttempted && !isDone && (
             <p className="text-xs text-red-400 mt-0.5">Failed — try again</p>
@@ -268,15 +268,15 @@ function EraRow({
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
           isDone ? 'bg-green-900/50 text-green-300' :
-          isCurrent ? 'bg-cc-gold/20 text-cc-gold' :
-          'bg-gray-800 text-cc-muted'
+          isCurrent ? 'bg-bf-gold/20 text-bf-gold' :
+          'bg-gray-800 text-bf-muted'
         }`}>
           {idx + 1} / {CAMPAIGN_ERAS.length}
         </span>
         {hasNarrative && (
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-cc-muted hover:text-cc-text transition-colors flex-shrink-0"
+            className="text-bf-muted hover:text-bf-text transition-colors flex-shrink-0"
             aria-label={expanded ? 'Collapse narrative' : 'Expand narrative'}
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -285,9 +285,9 @@ function EraRow({
       </div>
 
       {expanded && hasNarrative && (
-        <div className="px-4 pb-4 border-t border-cc-border/50 mt-0 pt-3 space-y-2">
+        <div className="px-4 pb-4 border-t border-bf-border/50 mt-0 pt-3 space-y-2">
           {!era.completed && era.intro_text && (
-            <p className="text-sm text-cc-muted italic">{era.intro_text}</p>
+            <p className="text-sm text-bf-muted italic">{era.intro_text}</p>
           )}
           {outroText && (
             <div className={`text-sm italic ${outcome === 'won' ? 'text-green-300' : 'text-red-300'}`}>
@@ -316,7 +316,7 @@ function CampaignListCard({
   return (
     <button
       onClick={onOpen}
-      className={`text-left p-4 rounded-lg border transition-colors hover:border-cc-text ${pathAccentColor(campaign.path_id)}`}
+      className={`text-left p-4 rounded-lg border transition-colors hover:border-bf-text ${pathAccentColor(campaign.path_id)}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -325,24 +325,24 @@ function CampaignListCard({
               carryKey={campaign.path_config?.signature_carry_key ?? 'prestige'}
               className={`w-4 h-4 ${carryColor(campaign.path_config?.signature_carry_key ?? 'prestige')}`}
             />
-            <span className="font-semibold text-cc-text">{campaignDisplayName(campaign)}</span>
+            <span className="font-semibold text-bf-text">{campaignDisplayName(campaign)}</span>
             {isCompleted ? (
               <span className="text-[10px] uppercase tracking-widest bg-green-900/50 text-green-300 rounded-full px-2 py-0.5">
                 Completed
               </span>
             ) : (
-              <span className="text-[10px] uppercase tracking-widest bg-cc-gold/20 text-cc-gold rounded-full px-2 py-0.5">
+              <span className="text-[10px] uppercase tracking-widest bg-bf-gold/20 text-bf-gold rounded-full px-2 py-0.5">
                 Active
               </span>
             )}
           </div>
           {campaign.path_config?.tagline && (
-            <p className="text-xs text-cc-muted italic mb-2">{campaign.path_config.tagline}</p>
+            <p className="text-xs text-bf-muted italic mb-2">{campaign.path_config.tagline}</p>
           )}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-cc-muted">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-bf-muted">
             <span>
               {isCompleted ? 'Final era cleared' : (
-                <>Next up: <span className="text-cc-text font-medium">{currentLabel}</span></>
+                <>Next up: <span className="text-bf-text font-medium">{currentLabel}</span></>
               )}
             </span>
             <span>· {wonCount} / {CAMPAIGN_ERAS.length} eras won</span>
@@ -353,7 +353,7 @@ function CampaignListCard({
             )}
           </div>
         </div>
-        <ChevronRight className="w-4 h-4 text-cc-muted flex-shrink-0 mt-1" />
+        <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
       </div>
     </button>
   );
@@ -470,7 +470,7 @@ export default function CampaignPage() {
   if (loading) {
     return (
       <SubpageShell title="ERA CAMPAIGNS" icon={Trophy}>
-        <p className="text-cc-muted text-center py-12">Loading campaigns…</p>
+        <p className="text-bf-muted text-center py-12">Loading campaigns…</p>
       </SubpageShell>
     );
   }
@@ -504,18 +504,18 @@ export default function CampaignPage() {
             <button
               type="button"
               onClick={closeCampaign}
-              className="text-sm text-cc-muted hover:text-cc-text transition-colors"
+              className="text-sm text-bf-muted hover:text-bf-text transition-colors"
             >
               ← All Campaigns
             </button>
-            <span className="text-cc-muted text-sm">·</span>
-            <span className="text-sm text-cc-muted">{pathSubtitle}</span>
+            <span className="text-bf-muted text-sm">·</span>
+            <span className="text-sm text-bf-muted">{pathSubtitle}</span>
           </div>
 
           {/* Path tagline */}
           {campaign.path_config && (
             <div className={`mb-4 p-3 rounded-lg border ${pathAccentColor(campaign.path_id)}`}>
-              <p className="text-sm text-cc-muted italic">{campaign.path_config.tagline}</p>
+              <p className="text-sm text-bf-muted italic">{campaign.path_config.tagline}</p>
             </div>
           )}
 
@@ -532,7 +532,7 @@ export default function CampaignPage() {
 
           {/* Timeline */}
           <div className="mb-8">
-            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">Campaign Progress</h2>
+            <h2 className="text-sm uppercase tracking-widest text-bf-muted mb-4">Campaign Progress</h2>
             <div className="flex flex-col gap-2">
               {CAMPAIGN_ERAS.map((era, idx) => {
                 const entry = campaign.eras.find((e) => e.era_id === era) ?? {
@@ -607,7 +607,7 @@ export default function CampaignPage() {
         {/* Active campaigns */}
         {activeCampaigns.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">
+            <h2 className="text-sm uppercase tracking-widest text-bf-muted mb-4">
               Active ({activeCampaigns.length})
             </h2>
             <div className="flex flex-col gap-3">
@@ -633,7 +633,7 @@ export default function CampaignPage() {
             <Plus className="w-4 h-4" />
             {starting ? 'Starting…' : 'Start New Campaign'}
           </button>
-          <p className="mt-2 text-xs text-cc-muted text-center">
+          <p className="mt-2 text-xs text-bf-muted text-center">
             Run multiple campaigns in parallel — each path tracks its own progression.
           </p>
         </div>
@@ -641,7 +641,7 @@ export default function CampaignPage() {
         {/* Completed */}
         {completedCampaigns.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-sm uppercase tracking-widest text-cc-muted mb-4">
+            <h2 className="text-sm uppercase tracking-widest text-bf-muted mb-4">
               Completed ({completedCampaigns.length})
             </h2>
             <div className="flex flex-col gap-3">

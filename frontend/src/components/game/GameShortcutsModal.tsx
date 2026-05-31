@@ -26,14 +26,14 @@ export default function GameShortcutsModal({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-cc-surface border border-cc-border rounded-xl p-5 sm:p-6 w-full max-w-sm max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
+        className="bg-bf-surface border border-bf-border rounded-xl p-5 sm:p-6 w-full max-w-sm max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <p className="font-display text-lg text-cc-gold tracking-wide">Keyboard Shortcuts</p>
+          <p className="font-display text-lg text-bf-gold tracking-wide">Keyboard Shortcuts</p>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text transition-colors -mr-2"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -43,13 +43,13 @@ export default function GameShortcutsModal({ onClose }: Props) {
         <table className="w-full text-sm">
           <tbody>
             {SHORTCUTS.map(({ key, label }) => (
-              <tr key={key} className="border-b border-cc-border last:border-0">
+              <tr key={key} className="border-b border-bf-border last:border-0">
                 <td className="py-2 pr-4">
-                  <kbd className="inline-block bg-cc-dark border border-cc-border rounded px-2 py-0.5 font-mono text-xs text-cc-gold">
+                  <kbd className="inline-block bg-bf-dark border border-bf-border rounded px-2 py-0.5 font-mono text-xs text-bf-gold">
                     {key}
                   </kbd>
                 </td>
-                <td className="py-2 text-cc-muted">{label}</td>
+                <td className="py-2 text-bf-muted">{label}</td>
               </tr>
             ))}
           </tbody>

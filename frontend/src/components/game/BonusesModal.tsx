@@ -48,7 +48,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
   return (
     <div className="flex items-center gap-2 mb-3">
       <span className="text-base leading-none">{icon}</span>
-      <h3 className="text-xs font-semibold text-cc-gold uppercase tracking-wider">{title}</h3>
+      <h3 className="text-xs font-semibold text-bf-gold uppercase tracking-wider">{title}</h3>
     </div>
   );
 }
@@ -67,20 +67,20 @@ function BonusTable({ rows }: { rows: BonusRow[] }) {
       {rows.map((row, i) => (
         <div
           key={i}
-          className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-cc-dark border border-cc-border/60"
+          className="flex items-start gap-2.5 px-3 py-2 rounded-lg bg-bf-dark border border-bf-border/60"
         >
           <span className="text-sm shrink-0 mt-0.5">{row.icon}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-medium text-cc-text leading-snug">{row.label}</span>
+              <span className="text-xs font-medium text-bf-text leading-snug">{row.label}</span>
               {row.value && (
-                <span className={clsx('text-xs font-mono font-semibold shrink-0', row.valueColor ?? 'text-cc-gold')}>
+                <span className={clsx('text-xs font-mono font-semibold shrink-0', row.valueColor ?? 'text-bf-gold')}>
                   {row.value}
                 </span>
               )}
             </div>
             {row.description && (
-              <p className="text-xs text-cc-muted mt-0.5 leading-relaxed whitespace-pre-line">{row.description}</p>
+              <p className="text-xs text-bf-muted mt-0.5 leading-relaxed whitespace-pre-line">{row.description}</p>
             )}
           </div>
         </div>
@@ -178,17 +178,17 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm overflow-auto pt-6 px-4 pb-8 pt-safe pb-safe"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-cc-surface border border-cc-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
+      <div className="bg-bf-surface border border-bf-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-cc-border shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-bf-border shrink-0">
           <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-cc-gold" />
-            <h2 className="text-base font-semibold text-cc-gold">Bonuses &amp; Active Rules</h2>
+            <Shield className="w-5 h-5 text-bf-gold" />
+            <h2 className="text-base font-semibold text-bf-gold">Bonuses &amp; Active Rules</h2>
           </div>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-white transition-colors -mr-2"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-bf-muted hover:text-white transition-colors -mr-2"
             aria-label="Close bonuses panel"
           >
             <X className="w-5 h-5" />
@@ -198,7 +198,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
         {/* Body */}
         <div className="overflow-y-auto p-4 space-y-6">
           {!hasSomething && (
-            <p className="text-cc-muted text-sm text-center py-10">
+            <p className="text-bf-muted text-sm text-center py-10">
               No active bonuses yet. Research techs, build structures, or wait for an event card.
             </p>
           )}
@@ -222,9 +222,9 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
           {/* ── Faction ────────────────────────────────────────────── */}
           {gameState.settings.factions_enabled && myPlayer.faction_id && (
             <section>
-              <SectionHeader icon={<Star className="w-3.5 h-3.5 text-cc-gold" />} title="Your Faction" />
+              <SectionHeader icon={<Star className="w-3.5 h-3.5 text-bf-gold" />} title="Your Faction" />
               {factionLoading && !factionData && (
-                <p className="text-xs text-cc-muted italic">Loading…</p>
+                <p className="text-xs text-bf-muted italic">Loading…</p>
               )}
               {factionData && (
                 <BonusTable
@@ -295,7 +295,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                 />
               )}
               {!factionLoading && !factionData && (
-                <p className="text-xs text-cc-muted italic">
+                <p className="text-xs text-bf-muted italic">
                   Faction: <span className="font-mono">{myPlayer.faction_id}</span>
                 </p>
               )}
@@ -332,7 +332,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                   label: eraWonder.name,
                   value: 'Owned',
                   description: eraWonder.description,
-                  valueColor: 'text-cc-gold',
+                  valueColor: 'text-bf-gold',
                 }]}
               />
             </section>
@@ -341,7 +341,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
           {/* ── Researched technologies ────────────────────────────── */}
           {gameState.settings.tech_trees_enabled && hasUnlocked && (
             <section>
-              <SectionHeader icon={<Zap className="w-3.5 h-3.5 text-cc-gold" />} title="Researched Technologies" />
+              <SectionHeader icon={<Zap className="w-3.5 h-3.5 text-bf-gold" />} title="Researched Technologies" />
               {unlockedTechs.length > 0 ? (
                 <BonusTable
                   rows={unlockedTechs.map((n) => {
@@ -362,8 +362,8 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                   })}
                 />
               ) : (
-                <div className="px-3 py-2 rounded-lg bg-cc-dark border border-cc-border/60">
-                  <p className="text-xs text-cc-muted">
+                <div className="px-3 py-2 rounded-lg bg-bf-dark border border-bf-border/60">
+                  <p className="text-xs text-bf-muted">
                     You have {myPlayer.unlocked_techs?.length} tech
                     {(myPlayer.unlocked_techs?.length ?? 0) !== 1 ? 's' : ''} researched.
                     Open the <span className="text-blue-300">Tech Tree</span> to load full details.
@@ -376,7 +376,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
           {/* ── Buildings ──────────────────────────────────────────── */}
           {gameState.settings.economy_enabled && Object.keys(buildingCounts).length > 0 && (
             <section>
-              <SectionHeader icon={<Building2 className="w-3.5 h-3.5 text-cc-gold" />} title="Your Buildings" />
+              <SectionHeader icon={<Building2 className="w-3.5 h-3.5 text-bf-gold" />} title="Your Buildings" />
               <BonusTable
                 rows={Object.entries(buildingCounts)
                   .sort(([a], [b]) => a.localeCompare(b))
@@ -389,7 +389,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                       description: meta
                         ? `${meta.effect}${count > 1 ? ` (across ${count} territories)` : ''}`
                         : undefined,
-                      valueColor: meta?.color ?? 'text-cc-text',
+                      valueColor: meta?.color ?? 'text-bf-text',
                     };
                   })}
               />
@@ -398,8 +398,8 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
         </div>
 
         {/* Footer note */}
-        <div className="px-4 py-3 border-t border-cc-border shrink-0">
-          <p className="text-xs text-cc-muted text-center">
+        <div className="px-4 py-3 border-t border-bf-border shrink-0">
+          <p className="text-xs text-bf-muted text-center">
             Bonuses stack unless otherwise noted. Era Rules apply to all players equally.
           </p>
         </div>

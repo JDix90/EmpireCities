@@ -433,8 +433,8 @@ function CombatResultView({
           <button
             type="button"
             onClick={onRepeatAttack}
-            className="w-full mb-3 py-3 rounded-xl bg-cc-gold/15 hover:bg-cc-gold/25 border border-cc-gold/40
-                       text-cc-gold font-medium transition-all duration-200
+            className="w-full mb-3 py-3 rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40
+                       text-bf-gold font-medium transition-all duration-200
                        flex items-center justify-center gap-2"
           >
             <Sword className="w-4 h-4" />
@@ -684,12 +684,12 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
       <div className="text-center mb-5">
         <div className={clsx(
           'inline-flex items-center gap-2.5 px-5 py-2 rounded-full border mb-3',
-          isOwnTurn ? 'bg-cc-gold/10 border-cc-gold/25' : 'bg-white/5 border-white/10'
+          isOwnTurn ? 'bg-bf-gold/10 border-bf-gold/25' : 'bg-white/5 border-white/10'
         )}>
           {!isOwnTurn && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: playerColor }} />}
           <span className={clsx(
             'text-xs font-bold tracking-[0.2em] uppercase',
-            isOwnTurn ? 'text-cc-gold' : 'text-white/60'
+            isOwnTurn ? 'text-bf-gold' : 'text-white/60'
           )}>
             {isOwnTurn ? 'Your Turn Complete' : 'Turn Complete'}
           </span>
@@ -1061,7 +1061,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
       )}
 
       {data.xpEarned != null && data.xpEarned > 0 && (
-        <p className="text-cc-gold/90 text-sm font-medium mb-2">+{data.xpEarned} XP</p>
+        <p className="text-bf-gold/90 text-sm font-medium mb-2">+{data.xpEarned} XP</p>
       )}
 
       {/* Progression rewards summary */}
@@ -1070,7 +1070,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
           'flex flex-wrap items-center justify-center gap-3 mb-4 transition-all duration-500 delay-350',
           showContent ? 'opacity-100' : 'opacity-0',
         )}>
-          <span className="inline-flex items-center gap-1 text-sm text-cc-gold font-medium">
+          <span className="inline-flex items-center gap-1 text-sm text-bf-gold font-medium">
             <Coins size={14} /> +{data.progression.gold_awarded} Gold
           </span>
           {data.progression.gold_multiplier > 1 && (
@@ -1164,7 +1164,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
             className={clsx(
               'flex-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-widest transition-colors',
               statsTab === tab
-                ? 'text-cc-gold border-b-2 border-cc-gold -mb-px'
+                ? 'text-bf-gold border-b-2 border-bf-gold -mb-px'
                 : 'text-white/30 hover:text-white/50',
             )}
           >
@@ -1270,8 +1270,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
         {data.rematchConfig && !data.rematchConfig.settings?.daily_challenge_date && !data.rematchConfig.settings?.tutorial && onRematch && (
           <button
             onClick={() => onRematch(data.rematchConfig!)}
-            className="shrink-0 py-3 px-4 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30
-                       border border-cc-gold/40 text-cc-gold font-medium transition-all
+            className="shrink-0 py-3 px-4 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30
+                       border border-bf-gold/40 text-bf-gold font-medium transition-all
                        flex items-center justify-center gap-2"
           >
             <RotateCcw className="w-4 h-4" />
@@ -1306,7 +1306,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
                       api.post(`/share/${data.gameId}`, { platform: 'link' }).catch(() => {});
                     }
                   }}
-                  className="text-cc-gold text-xs font-medium hover:text-white transition-colors shrink-0 flex items-center gap-1"
+                  className="text-bf-gold text-xs font-medium hover:text-white transition-colors shrink-0 flex items-center gap-1"
                 >
                   {copyStatus === 'copied' ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
                 </button>
@@ -1359,8 +1359,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
                     api.post(`/share/${data.gameId}`, { platform: 'native' }).catch(() => {});
                   }
                 }}
-                className="w-full py-2.5 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30 text-cc-gold text-sm font-medium
-                           flex items-center justify-center gap-2 transition-all border border-cc-gold/30"
+                className="w-full py-2.5 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30 text-bf-gold text-sm font-medium
+                           flex items-center justify-center gap-2 transition-all border border-bf-gold/30"
               >
                 <Share2 className="w-4 h-4" /> Share via Device
               </button>

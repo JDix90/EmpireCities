@@ -22,7 +22,7 @@ import {
   hashStringToSeed,
   isMissionComplete,
 } from '../victory/missions';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {

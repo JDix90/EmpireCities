@@ -43,34 +43,34 @@ export default function TutorialAccountPromptModal({
       aria-modal="true"
       aria-labelledby="tutorial-account-prompt-title"
     >
-      <div className="bg-cc-surface border border-cc-gold/30 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl">
+      <div className="bg-bf-surface border border-bf-gold/30 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl">
         <div className="flex flex-col items-center text-center mb-5">
-          <div className="w-14 h-14 rounded-full bg-cc-gold/15 border-2 border-cc-gold/40 flex items-center justify-center mb-3">
-            <GraduationCap className="w-7 h-7 text-cc-gold" />
+          <div className="w-14 h-14 rounded-full bg-bf-gold/15 border-2 border-bf-gold/40 flex items-center justify-center mb-3">
+            <GraduationCap className="w-7 h-7 text-bf-gold" />
           </div>
           <p
             id="tutorial-account-prompt-title"
-            className="font-display text-2xl text-cc-gold mb-1"
+            className="font-display text-2xl text-bf-gold mb-1"
           >
             Tutorial Complete!
           </p>
-          <p className="text-cc-muted text-sm leading-relaxed">
+          <p className="text-bf-muted text-sm leading-relaxed">
             {outcomeLabel
               ?? 'You know the basics. Save your progress and unlock the full game by creating a free account.'}
           </p>
         </div>
 
-        <ul className="text-sm text-cc-muted space-y-2 mb-6 px-1">
+        <ul className="text-sm text-bf-muted space-y-2 mb-6 px-1">
           <li className="flex items-start gap-2">
-            <Trophy className="w-4 h-4 text-cc-gold/80 mt-0.5 shrink-0" />
+            <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
             <span>Save XP, gold, ratings, and unlocks across sessions.</span>
           </li>
           <li className="flex items-start gap-2">
-            <Trophy className="w-4 h-4 text-cc-gold/80 mt-0.5 shrink-0" />
+            <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
             <span>Climb the leaderboards and chase daily challenges.</span>
           </li>
           <li className="flex items-start gap-2">
-            <Trophy className="w-4 h-4 text-cc-gold/80 mt-0.5 shrink-0" />
+            <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
             <span>Add friends and play multiplayer matches.</span>
           </li>
         </ul>
@@ -93,7 +93,7 @@ export default function TutorialAccountPromptModal({
           <button
             type="button"
             onClick={onSkip}
-            className="text-cc-muted hover:text-cc-text text-sm py-2 transition-colors"
+            className="text-bf-muted hover:text-bf-text text-sm py-2 transition-colors"
           >
             Maybe later
           </button>

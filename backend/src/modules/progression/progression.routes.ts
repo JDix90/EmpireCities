@@ -5,7 +5,7 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { claimDailyLogin } from '../../game-engine/progression/progressionService';
 import { getTier } from '../../game-engine/rating/ratingService';
-import { ONBOARDING_QUESTS } from '@erasofempire/shared';
+import { ONBOARDING_QUESTS } from '@borderfall/shared';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';
 import { getSeasonHistory } from '../../game-engine/progression/seasonService';
 import { redeemReferralCode, getReferralStats, ensureReferralCode } from '../../game-engine/progression/referralService';

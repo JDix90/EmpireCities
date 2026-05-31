@@ -90,9 +90,9 @@ export default function MapHubPage() {
         {/* ── Built-in Era Maps ─────────────────────────────────────────── */}
         <section className="mb-12">
           <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-5 h-5 text-cc-gold" />
-            <h2 className="font-display text-lg text-cc-gold">Historical Era Maps</h2>
-            <span className="text-cc-muted text-sm ml-1">— Official built-in maps</span>
+            <Zap className="w-5 h-5 text-bf-gold" />
+            <h2 className="font-display text-lg text-bf-gold">Historical Era Maps</h2>
+            <span className="text-bf-muted text-sm ml-1">— Official built-in maps</span>
           </div>
 
           {eraLoading ? (
@@ -108,28 +108,28 @@ export default function MapHubPage() {
                 return (
                   <div
                     key={map.map_id}
-                    className="card hover:border-cc-gold transition-all group cursor-pointer"
+                    className="card hover:border-bf-gold transition-all group cursor-pointer"
                     onClick={() => setPreviewMap(previewMap === map.map_id ? null : map.map_id)}
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="font-display text-base text-cc-gold group-hover:text-white transition-colors">
+                        <h3 className="font-display text-base text-bf-gold group-hover:text-white transition-colors">
                           {meta.label}
                         </h3>
                         <span className="text-xs font-mono" style={{ color: meta.color }}>
                           {meta.year}
                         </span>
                       </div>
-                      <span className="badge bg-cc-dark text-cc-muted border border-cc-border text-xs">
+                      <span className="badge bg-bf-dark text-bf-muted border border-bf-border text-xs">
                         Official
                       </span>
                     </div>
 
-                    <p className="text-cc-muted text-xs mb-3 line-clamp-2">{meta.description}</p>
+                    <p className="text-bf-muted text-xs mb-3 line-clamp-2">{meta.description}</p>
 
                     {/* Stats */}
-                    <div className="flex items-center gap-3 text-xs text-cc-muted mb-3">
+                    <div className="flex items-center gap-3 text-xs text-bf-muted mb-3">
                       <span className="flex items-center gap-1">
                         <Map className="w-3 h-3" />
                         {map.territory_count} territories
@@ -172,11 +172,11 @@ export default function MapHubPage() {
         {/* ── Regional Maps ─────────────────────────────────────────────── */}
         <section className="mb-12">
           <div className="flex items-center gap-2 mb-1">
-            <Compass className="w-5 h-5 text-cc-gold" />
-            <h2 className="font-display text-lg text-cc-gold">Regional Maps</h2>
-            <span className="text-cc-muted text-sm ml-1">— Curated theater &amp; alternate-history maps</span>
+            <Compass className="w-5 h-5 text-bf-gold" />
+            <h2 className="font-display text-lg text-bf-gold">Regional Maps</h2>
+            <span className="text-bf-muted text-sm ml-1">— Curated theater &amp; alternate-history maps</span>
           </div>
-          <p className="text-cc-muted text-xs mb-4 ml-7">
+          <p className="text-bf-muted text-xs mb-4 ml-7">
             Hand-crafted regional maps focusing on specific theaters, time periods, and alternate histories.
           </p>
 
@@ -184,7 +184,7 @@ export default function MapHubPage() {
             {REGIONAL_MAPS.map((rm) => (
               <div
                 key={rm.map_id}
-                className="card hover:border-cc-gold transition-all group cursor-pointer"
+                className="card hover:border-bf-gold transition-all group cursor-pointer"
                 onClick={async () => {
                   const opening = regionalPreview === rm.map_id ? null : rm.map_id;
                   setRegionalPreview(opening);
@@ -201,7 +201,7 @@ export default function MapHubPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-2xl">{rm.icon}</span>
                     <div>
-                      <h3 className="font-display text-base text-cc-gold group-hover:text-white transition-colors">
+                      <h3 className="font-display text-base text-bf-gold group-hover:text-white transition-colors">
                         {rm.name}
                       </h3>
                       <span className="text-xs font-mono" style={{ color: rm.color }}>
@@ -209,30 +209,30 @@ export default function MapHubPage() {
                       </span>
                     </div>
                   </div>
-                  <span className="badge bg-cc-dark text-cc-muted border border-cc-border text-xs">
+                  <span className="badge bg-bf-dark text-bf-muted border border-bf-border text-xs">
                     Regional
                   </span>
                 </div>
 
-                <p className="text-cc-muted text-xs mb-3 line-clamp-2">{rm.description}</p>
+                <p className="text-bf-muted text-xs mb-3 line-clamp-2">{rm.description}</p>
 
                 {(() => {
                   const imm = getCustomMapImmersion(rm.map_id);
                   if (!imm) return null;
                   return (
-                    <details className="mb-3 text-xs rounded-md border border-cc-border/80 bg-cc-dark/50 px-2 py-1.5">
-                      <summary className="cursor-pointer text-cc-gold/90 hover:text-cc-gold select-none">
+                    <details className="mb-3 text-xs rounded-md border border-bf-border/80 bg-bf-dark/50 px-2 py-1.5">
+                      <summary className="cursor-pointer text-bf-gold/90 hover:text-bf-gold select-none">
                         Theater guide &amp; suggested rules
                       </summary>
-                      <p className="text-cc-muted mt-2 leading-relaxed">{imm.backdrop}</p>
-                      <p className="text-cc-text mt-1.5 font-medium">{imm.tagline}</p>
-                      <p className="text-cc-muted mt-1">
+                      <p className="text-bf-muted mt-2 leading-relaxed">{imm.backdrop}</p>
+                      <p className="text-bf-text mt-1.5 font-medium">{imm.tagline}</p>
+                      <p className="text-bf-muted mt-1">
                         Suggested rules era:{' '}
-                        <span className="text-cc-gold">
+                        <span className="text-bf-gold">
                           {ERA_LABELS[imm.recommended_rules_era] ?? imm.recommended_rules_era}
                         </span>
                       </p>
-                      <ul className="mt-2 space-y-1 text-[11px] text-cc-muted list-disc pl-4">
+                      <ul className="mt-2 space-y-1 text-[11px] text-bf-muted list-disc pl-4">
                         <li>Economy: {imm.advanced.economy_buildings.lore}</li>
                         <li>Naval: {imm.advanced.naval_warfare.lore}</li>
                         <li>Events: {imm.advanced.historical_events.lore}</li>
@@ -242,7 +242,7 @@ export default function MapHubPage() {
                 })()}
 
                 {/* Stats */}
-                <div className="flex items-center gap-3 text-xs text-cc-muted mb-3">
+                <div className="flex items-center gap-3 text-xs text-bf-muted mb-3">
                   <span className="flex items-center gap-1">
                     <Map className="w-3 h-3" />
                     {rm.territory_count} territories
@@ -282,8 +282,8 @@ export default function MapHubPage() {
         {/* ── Community Maps ────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-cc-gold" />
-            <h2 className="font-display text-lg text-cc-gold">Community Maps</h2>
+            <Users className="w-5 h-5 text-bf-gold" />
+            <h2 className="font-display text-lg text-bf-gold">Community Maps</h2>
           </div>
 
           {/* Filters */}
@@ -314,23 +314,23 @@ export default function MapHubPage() {
 
           {/* Map Grid */}
           {loading ? (
-            <p className="text-cc-muted text-center py-12">Loading maps...</p>
+            <p className="text-bf-muted text-center py-12">Loading maps...</p>
           ) : maps.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-cc-muted mb-4">No community maps yet. Be the first to create one!</p>
+              <p className="text-bf-muted mb-4">No community maps yet. Be the first to create one!</p>
               <Link to="/editor" className="btn-primary">Create a Map</Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {maps.map((map) => (
-                <div key={map.map_id} className="card hover:border-cc-gold transition-colors group">
+                <div key={map.map_id} className="card hover:border-bf-gold transition-colors group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <h3 className="font-display text-lg text-cc-gold group-hover:text-white transition-colors truncate">
+                      <h3 className="font-display text-lg text-bf-gold group-hover:text-white transition-colors truncate">
                         {map.name}
                       </h3>
                       {map.era_theme && (
-                        <span className="badge bg-cc-dark text-cc-muted border border-cc-border text-xs mt-1 capitalize">
+                        <span className="badge bg-bf-dark text-bf-muted border border-bf-border text-xs mt-1 capitalize">
                           {map.era_theme === 'custom' ? 'Regional' : map.era_theme}
                         </span>
                       )}
@@ -338,16 +338,16 @@ export default function MapHubPage() {
                   </div>
 
                   {map.description && (
-                    <p className="text-cc-muted text-sm mb-3 line-clamp-2">{map.description}</p>
+                    <p className="text-bf-muted text-sm mb-3 line-clamp-2">{map.description}</p>
                   )}
 
-                  <p className="text-xs text-cc-muted/90 mb-3">
-                    Uploaded by <span className="text-cc-text">{formatCommunityUploader(map.creator_id)}</span>
+                  <p className="text-xs text-bf-muted/90 mb-3">
+                    Uploaded by <span className="text-bf-text">{formatCommunityUploader(map.creator_id)}</span>
                   </p>
 
-                  <div className="flex items-center justify-between text-xs text-cc-muted mb-4">
+                  <div className="flex items-center justify-between text-xs text-bf-muted mb-4">
                     <span className="flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 text-cc-gold" />
+                      <Star className="w-3.5 h-3.5 text-bf-gold" />
                       {map.rating.toFixed(1)} ({map.rating_count})
                     </span>
                     <span>{map.play_count} plays</span>
@@ -359,7 +359,7 @@ export default function MapHubPage() {
                       <button
                         key={star}
                         onClick={() => handleRate(map.map_id, star)}
-                        className={`text-lg transition-colors ${star <= map.rating ? 'text-cc-gold' : 'text-cc-border hover:text-cc-gold'}`}
+                        className={`text-lg transition-colors ${star <= map.rating ? 'text-bf-gold' : 'text-bf-border hover:text-bf-gold'}`}
                       >
                         ★
                       </button>

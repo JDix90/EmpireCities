@@ -801,7 +801,7 @@ export default function GameMap({
   return (
     <div
       ref={canvasRef}
-      className="w-full h-full overflow-hidden rounded-lg border border-cc-border"
+      className="w-full h-full overflow-hidden rounded-lg border border-bf-border"
       style={{ cursor: 'grab' }}
       data-testid="map-visual-canvas"
       data-map-visual-active={mapVisualDebug.active ? 'true' : undefined}

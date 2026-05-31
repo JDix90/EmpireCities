@@ -14,9 +14,9 @@ const MIN_AGE = 13;
 function AgeGateModal({ onConfirm, onDeny }: { onConfirm: () => void; onDeny: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-      <div className="bg-cc-surface border border-cc-border rounded-xl p-8 max-w-sm w-full text-center">
-        <p className="font-display text-xl text-cc-gold tracking-wide mb-2">Age Verification</p>
-        <p className="text-cc-muted text-sm mb-6">
+      <div className="bg-bf-surface border border-bf-border rounded-xl p-8 max-w-sm w-full text-center">
+        <p className="font-display text-xl text-bf-gold tracking-wide mb-2">Age Verification</p>
+        <p className="text-bf-muted text-sm mb-6">
           You must be at least {MIN_AGE} years old to create an account.
           Are you {MIN_AGE} or older?
         </p>
@@ -105,10 +105,10 @@ export default function RegisterPage() {
 
   if (ageDenied) {
     return (
-      <div className="min-h-screen-safe bg-cc-dark flex items-center justify-center px-4">
+      <div className="min-h-screen-safe bg-bf-dark flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <p className="font-display text-xl text-cc-gold tracking-wide mb-3">Not eligible</p>
-          <p className="text-cc-muted text-sm mb-6">
+          <p className="font-display text-xl text-bf-gold tracking-wide mb-3">Not eligible</p>
+          <p className="text-bf-muted text-sm mb-6">
             You must be at least {MIN_AGE} years old to create an account.
           </p>
           <Link to="/" className="btn-secondary">Back to home</Link>
@@ -120,11 +120,11 @@ export default function RegisterPage() {
   return (
     <>
     {ageGateVisible && <AgeGateModal onConfirm={handleAgeConfirm} onDeny={handleAgeDeny} />}
-    <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
+    <div className="min-h-screen-safe bg-bf-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
-          <p className="text-cc-muted mt-2">Create your free account</p>
+          <p className="text-bf-muted mt-2">Create your free account</p>
         </div>
 
         <div className="card">
@@ -152,7 +152,7 @@ export default function RegisterPage() {
                 title="Letters, numbers, and underscores only"
                 autoComplete="username"
               />
-              <p className="text-xs text-cc-muted mt-1">Letters, numbers, and underscores only (3–32 characters)</p>
+              <p className="text-xs text-bf-muted mt-1">Letters, numbers, and underscores only (3–32 characters)</p>
             </div>
             <div>
               <label className="label">Email Address</label>
@@ -182,7 +182,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-cc-muted hover:text-cc-text transition-colors"
+                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -204,7 +204,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-cc-muted hover:text-cc-text transition-colors"
+                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
                   aria-label={showConfirm ? 'Hide password' : 'Show password'}
                 >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -216,11 +216,11 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="text-center text-cc-muted text-sm mt-6">
+          <p className="text-center text-bf-muted text-sm mt-6">
             Already have an account?{' '}
             <Link
               to={redirectTo !== '/lobby' ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'}
-              className="text-cc-gold hover:underline"
+              className="text-bf-gold hover:underline"
             >
               Sign in
             </Link>

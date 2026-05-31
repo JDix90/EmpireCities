@@ -93,11 +93,11 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
   }
 
   return (
-    <div className={clsx('rounded-xl bg-cc-surface border border-cc-border p-4', className)}>
+    <div className={clsx('rounded-xl bg-bf-surface border border-bf-border p-4', className)}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Calendar size={16} className="text-cc-gold" />
-          <span className="font-display text-sm text-cc-gold">Daily Login — {monthName}</span>
+          <Calendar size={16} className="text-bf-gold" />
+          <span className="font-display text-sm text-bf-gold">Daily Login — {monthName}</span>
         </div>
         {data.daily_streak > 0 && (
           <div className="flex items-center gap-1 text-xs text-orange-400">
@@ -110,7 +110,7 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1 mb-3">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-          <div key={i} className="text-center text-[10px] text-cc-muted font-medium py-1">
+          <div key={i} className="text-center text-[10px] text-bf-muted font-medium py-1">
             {d}
           </div>
         ))}
@@ -123,15 +123,15 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
             key={d.day}
             className={clsx(
               'aspect-square rounded-md flex items-center justify-center text-xs relative',
-              d.isLogin && 'bg-cc-gold/20 text-cc-gold font-bold',
-              d.isToday && !d.isLogin && 'border border-cc-gold/40 text-cc-text',
-              d.isPast && !d.isLogin && 'text-cc-muted/40',
-              !d.isPast && !d.isToday && !d.isLogin && 'text-cc-muted',
+              d.isLogin && 'bg-bf-gold/20 text-bf-gold font-bold',
+              d.isToday && !d.isLogin && 'border border-bf-gold/40 text-bf-text',
+              d.isPast && !d.isLogin && 'text-bf-muted/40',
+              !d.isPast && !d.isToday && !d.isLogin && 'text-bf-muted',
             )}
           >
             {d.day}
             {d.isLogin && (
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cc-gold" />
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-bf-gold" />
             )}
           </div>
         ))}
@@ -142,20 +142,20 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
         <button
           onClick={handleClaim}
           disabled={claiming}
-          className="w-full py-2.5 rounded-lg bg-cc-gold/20 border border-cc-gold/30 text-cc-gold text-sm font-medium hover:bg-cc-gold/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-lg bg-bf-gold/20 border border-bf-gold/30 text-bf-gold text-sm font-medium hover:bg-bf-gold/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <Coins size={14} />
           {claiming ? 'Claiming...' : `Claim ${data.gold_per_day} gold`}
         </button>
       ) : (
-        <div className="text-center text-xs text-cc-muted py-2">
+        <div className="text-center text-xs text-bf-muted py-2">
           ✅ Today&apos;s reward claimed
         </div>
       )}
 
       {/* Streak milestones */}
-      <div className="mt-3 pt-3 border-t border-cc-border">
-        <p className="text-[10px] text-cc-muted uppercase tracking-wider mb-2">Streak Milestones</p>
+      <div className="mt-3 pt-3 border-t border-bf-border">
+        <p className="text-[10px] text-bf-muted uppercase tracking-wider mb-2">Streak Milestones</p>
         <div className="grid grid-cols-4 gap-1">
           {STREAK_MILESTONES.map((m) => (
             <div
@@ -163,19 +163,19 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
               className={clsx(
                 'rounded-md p-1.5 text-center border',
                 data.daily_streak >= m.days
-                  ? 'border-cc-gold/30 bg-cc-gold/10'
-                  : 'border-cc-border bg-cc-dark/50',
+                  ? 'border-bf-gold/30 bg-bf-gold/10'
+                  : 'border-bf-border bg-bf-dark/50',
               )}
             >
               <p
                 className={clsx(
                   'text-xs font-bold',
-                  data.daily_streak >= m.days ? 'text-cc-gold' : 'text-cc-muted',
+                  data.daily_streak >= m.days ? 'text-bf-gold' : 'text-bf-muted',
                 )}
               >
                 {m.days}d
               </p>
-              <p className="text-[9px] text-cc-muted mt-0.5">{m.reward}</p>
+              <p className="text-[9px] text-bf-muted mt-0.5">{m.reward}</p>
             </div>
           ))}
         </div>

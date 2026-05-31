@@ -40,24 +40,24 @@ export default function FeatureExplainerModal({
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div
           className={clsx(
-            'relative max-w-sm w-full rounded-2xl bg-cc-surface border border-cc-border p-4 sm:p-6 shadow-2xl animate-modal-in max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain',
+            'relative max-w-sm w-full rounded-2xl bg-bf-surface border border-bf-border p-4 sm:p-6 shadow-2xl animate-modal-in max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain',
             className,
           )}
         >
           <button
             onClick={dismiss}
-            className="absolute top-3 right-3 text-cc-muted hover:text-cc-text transition-colors"
+            className="absolute top-3 right-3 text-bf-muted hover:text-bf-text transition-colors"
           >
             <X size={18} />
           </button>
 
           <div className="text-3xl mb-3">{icon}</div>
-          <h3 className="text-lg font-display text-cc-gold mb-2 pr-8">{title}</h3>
-          <p className="text-sm text-cc-muted leading-relaxed">{description}</p>
+          <h3 className="text-lg font-display text-bf-gold mb-2 pr-8">{title}</h3>
+          <p className="text-sm text-bf-muted leading-relaxed">{description}</p>
 
           <button
             onClick={dismiss}
-            className="mt-4 w-full py-2 rounded-lg bg-cc-gold/20 border border-cc-gold/30 text-cc-gold text-sm font-medium hover:bg-cc-gold/30 transition-colors"
+            className="mt-4 w-full py-2 rounded-lg bg-bf-gold/20 border border-bf-gold/30 text-bf-gold text-sm font-medium hover:bg-bf-gold/30 transition-colors"
           >
             Got it
           </button>

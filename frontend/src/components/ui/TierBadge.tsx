@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { getTier } from '@erasofempire/shared';
+import { getTier } from '@borderfall/shared';
 
 interface TierBadgeProps {
   mu: number;

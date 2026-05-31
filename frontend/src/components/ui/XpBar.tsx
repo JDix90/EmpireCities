@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { getLevelProgress } from '@erasofempire/shared';
+import { getLevelProgress } from '@borderfall/shared';
 
 interface XpBarProps {
   xp: number;
@@ -14,14 +14,14 @@ export default function XpBar({ xp, className }: XpBarProps) {
   return (
     <div className={clsx('flex flex-col gap-1', className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="font-display text-cc-gold">Level {level}</span>
-        <span className="text-cc-muted">
+        <span className="font-display text-bf-gold">Level {level}</span>
+        <span className="text-bf-muted">
           {currentLevelXp} / {nextLevelXp} XP
         </span>
       </div>
-      <div className="h-2 rounded-full bg-cc-dark overflow-hidden border border-cc-border">
+      <div className="h-2 rounded-full bg-bf-dark overflow-hidden border border-bf-border">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cc-gold/70 to-cc-gold transition-all duration-500"
+          className="h-full rounded-full bg-gradient-to-r from-bf-gold/70 to-bf-gold transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>

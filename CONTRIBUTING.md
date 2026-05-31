@@ -14,4 +14,4 @@
 
 ## Shared types
 
-Domain types shared between frontend and backend live in `packages/shared` (`@erasofempire/shared`). Prefer adding new cross-boundary types there instead of duplicating.
+Domain types shared between frontend and backend live in `packages/shared` (`@borderfall/shared`). Prefer adding new cross-boundary types there instead of duplicating.

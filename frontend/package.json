@@ -1,5 +1,5 @@
 {
-  "name": "erasofempire-frontend",
+  "name": "borderfall-frontend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "@capacitor/push-notifications": "^6.0.5",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
-    "@erasofempire/shared": "workspace:*",
+    "@borderfall/shared": "workspace:*",
     "@pixi/react": "^7.1.2",
     "@sentry/react": "^10.49.0",
     "@turf/bbox-polygon": "^7.3.4",

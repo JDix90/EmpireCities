@@ -14,7 +14,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
 import type { GameState } from '../../store/gameStore';
 
@@ -368,7 +368,7 @@ export default function GalaxyStrategicView({
     >
       {pulseLabel && pulsePhase > 0 && (
         <div
-          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none px-3 py-1.5 rounded-lg border border-cc-gold/30 bg-black/55 text-cc-gold text-xs font-medium"
+          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none px-3 py-1.5 rounded-lg border border-bf-gold/30 bg-black/55 text-bf-gold text-xs font-medium"
           role="status"
         >
           {pulseLabel}
@@ -413,7 +413,7 @@ export default function GalaxyStrategicView({
         labelAltitude={0.07}
         onGlobeReady={() => setReady(true)}
       />
-      <div className="pointer-events-none absolute bottom-3 left-3 px-2 py-1 rounded bg-black/55 border border-cc-border/70 text-cc-muted text-[11px]">
+      <div className="pointer-events-none absolute bottom-3 left-3 px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-muted text-[11px]">
         Galaxy chart · drag to rotate · scroll to zoom · click to select · double-click to open globe · world tabs also drill in
         {!orbitAccessAllowed && (
           <span className="ml-2 text-amber-300">· red lanes locked (need Hyperspace Chart)</span>

@@ -78,27 +78,27 @@ export default function TutorialOverlay({
         <div
           className={clsx(
             centered
-              ? 'rounded-2xl border-2 border-cc-gold/40 bg-cc-surface/95 backdrop-blur-lg p-8 shadow-2xl text-center'
-              : 'rounded-xl border border-cc-gold/30 bg-cc-surface/95 backdrop-blur-sm shadow-2xl',
+              ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg p-8 shadow-2xl text-center'
+              : 'rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl',
             anchorTop ? 'p-3 max-h-[30vh] overflow-y-auto' : 'p-5',
           )}
         >
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
-            <span className="text-[10px] text-cc-muted/60 uppercase tracking-widest">
+            <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
               Step {stepIndex + 1} / {steps.length}
             </span>
           </div>
 
           <div className={centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3'}>
-            <GraduationCap className={centered ? 'w-8 h-8 text-cc-gold' : 'w-5 h-5 text-cc-gold'} />
-            <h3 className={centered ? 'font-display text-2xl text-cc-gold' : 'font-display text-lg text-cc-gold'}>
+            <GraduationCap className={centered ? 'w-8 h-8 text-bf-gold' : 'w-5 h-5 text-bf-gold'} />
+            <h3 className={centered ? 'font-display text-2xl text-bf-gold' : 'font-display text-lg text-bf-gold'}>
               {step.title}
             </h3>
           </div>
 
           <p
             className={clsx(
-              'text-cc-muted leading-relaxed mb-2',
+              'text-bf-muted leading-relaxed mb-2',
               centered ? 'text-lg' : anchorTop ? 'text-xs' : 'text-sm',
             )}
           >
@@ -107,7 +107,7 @@ export default function TutorialOverlay({
           {step.detail && (
             <p
               className={clsx(
-                'text-cc-muted/60 leading-relaxed',
+                'text-bf-muted/60 leading-relaxed',
                 centered ? 'text-sm mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
@@ -119,20 +119,20 @@ export default function TutorialOverlay({
               <button
                 type="button"
                 onClick={() => setWhyOpen((o) => !o)}
-                className="flex items-center gap-1 text-xs text-cc-gold/90 hover:text-cc-gold transition-colors"
+                className="flex items-center gap-1 text-xs text-bf-gold/90 hover:text-bf-gold transition-colors"
               >
                 {whyOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                 Why this matters
               </button>
               {whyOpen && (
-                <p className="text-cc-muted/70 text-xs mt-1 leading-relaxed">{step.whyItMatters}</p>
+                <p className="text-bf-muted/70 text-xs mt-1 leading-relaxed">{step.whyItMatters}</p>
               )}
             </div>
           )}
           {step.hint && (
             <p
               className={clsx(
-                'text-cc-muted/60 italic',
+                'text-bf-muted/60 italic',
                 centered ? 'text-base mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
@@ -172,8 +172,8 @@ export default function TutorialOverlay({
                 Continue playing
               </button>
               {lessonModule === 'core' && onLaunchModule && TUTORIAL_V2_ENABLED && (
-                <div className="pt-2 border-t border-cc-border/60 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-cc-muted">Optional deep dives</p>
+                <div className="pt-2 border-t border-bf-border/60 space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest text-bf-muted">Optional deep dives</p>
                   {OPTIONAL_MODULES.map((mod) => {
                     const meta = TUTORIAL_MODULES.find((m) => m.id === mod);
                     const done = completedModules.includes(mod);
@@ -185,7 +185,7 @@ export default function TutorialOverlay({
                         className="btn-secondary text-sm w-full text-left flex justify-between items-center gap-2"
                       >
                         <span>{meta?.title ?? mod}</span>
-                        <span className="text-[10px] text-cc-muted shrink-0">
+                        <span className="text-[10px] text-bf-muted shrink-0">
                           {done ? 'Done' : `~${meta?.estimatedMinutes ?? 5}m`}
                         </span>
                       </button>
@@ -208,7 +208,7 @@ export default function TutorialOverlay({
                 Back to lobby
               </button>
               {onLaunchModule && (
-                <p className="text-xs text-cc-muted">More lessons are available from the lobby or How to Play.</p>
+                <p className="text-xs text-bf-muted">More lessons are available from the lobby or How to Play.</p>
               )}
             </div>
           ) : !step.requireAction ? (
@@ -223,7 +223,7 @@ export default function TutorialOverlay({
           ) : (
             <p
               className={clsx(
-                'text-cc-gold/80 text-center animate-pulse',
+                'text-bf-gold/80 text-center animate-pulse',
                 anchorTop ? 'text-xs mt-1' : 'text-base',
               )}
             >
@@ -243,7 +243,7 @@ export default function TutorialOverlay({
 
           {/* Exit Tutorial — clearly separated from primary action by divider */}
           {onExitTutorial && step.variant !== 'wrapup' && step.variant !== 'module_complete' && (
-            <div className={clsx('border-t border-cc-border/50', anchorTop ? 'mt-3 pt-2' : 'mt-5 pt-3')}>
+            <div className={clsx('border-t border-bf-border/50', anchorTop ? 'mt-3 pt-2' : 'mt-5 pt-3')}>
               <button
                 type="button"
                 data-testid="tutorial-exit-btn"

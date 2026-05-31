@@ -41,7 +41,7 @@ function renderMessage(message: string) {
       />
     );
   }
-  return <span className="text-cc-text/90 break-words">{message}</span>;
+  return <span className="text-bf-text/90 break-words">{message}</span>;
 }
 
 export default function GameChat({ gameId, embedded = false, defaultOpen = false, lobbyMode = false, spectatorMode = false }: GameChatProps) {
@@ -138,17 +138,17 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
       className={clsx(
         'overflow-hidden',
         embedded
-          ? 'w-full shrink-0 border-t border-cc-border bg-cc-dark/50'
-          : 'fixed bottom-4 right-4 z-[80] w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-cc-border bg-cc-surface/95 shadow-xl backdrop-blur-sm',
+          ? 'w-full shrink-0 border-t border-bf-border bg-bf-dark/50'
+          : 'fixed bottom-4 right-4 z-[80] w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-bf-border bg-bf-surface/95 shadow-xl backdrop-blur-sm',
       )}
     >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm border-b border-cc-border/80 hover:bg-white/5"
+        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm border-b border-bf-border/80 hover:bg-white/5"
       >
-        <span className="font-display text-cc-gold">Chat</span>
-        <span className="text-cc-muted text-xs">{open ? '▾' : '▸'}</span>
+        <span className="font-display text-bf-gold">Chat</span>
+        <span className="text-bf-muted text-xs">{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <>
@@ -173,8 +173,8 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
 
           {/* Emoji Picker popover */}
           {emojiPickerOpen && emojiData.current && (
-            <div className="border-t border-cc-border">
-              <Suspense fallback={<div className="p-2 text-xs text-cc-muted">Loading...</div>}>
+            <div className="border-t border-bf-border">
+              <Suspense fallback={<div className="p-2 text-xs text-bf-muted">Loading...</div>}>
                 <EmojiPicker
                   data={emojiData.current}
                   onEmojiSelect={handleEmojiSelect}
@@ -191,15 +191,15 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
 
           {/* GIF Search panel */}
           {gifSearchOpen && (
-            <div className="border-t border-cc-border p-2 space-y-2">
+            <div className="border-t border-bf-border p-2 space-y-2">
               <input
                 value={gifQuery}
                 onChange={(e) => handleGifSearch(e.target.value)}
                 placeholder="Search GIFs…"
-                className="w-full bg-cc-dark border border-cc-border rounded px-2 py-1.5 text-xs text-cc-text"
+                className="w-full bg-bf-dark border border-bf-border rounded px-2 py-1.5 text-xs text-bf-text"
                 autoFocus
               />
-              {gifSearching && <p className="text-xs text-cc-muted">Searching…</p>}
+              {gifSearching && <p className="text-xs text-bf-muted">Searching…</p>}
               {gifResults.length > 0 && (
                 <div className="grid grid-cols-2 gap-1 max-h-[160px] overflow-y-auto">
                   {gifResults.map((gif) => (
@@ -207,7 +207,7 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
                       key={gif.id}
                       type="button"
                       onClick={() => handleGifSelect(gif)}
-                      className="rounded overflow-hidden hover:ring-1 hover:ring-cc-gold transition-all"
+                      className="rounded overflow-hidden hover:ring-1 hover:ring-bf-gold transition-all"
                     >
                       <img
                         src={gif.preview}
@@ -220,19 +220,19 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
                 </div>
               )}
               {!gifSearching && gifQuery && gifResults.length === 0 && (
-                <p className="text-xs text-cc-muted">No GIFs found</p>
+                <p className="text-xs text-bf-muted">No GIFs found</p>
               )}
             </div>
           )}
 
           {/* Input bar */}
-          <div className="flex items-center gap-1 p-2 border-t border-cc-border">
+          <div className="flex items-center gap-1 p-2 border-t border-bf-border">
             <button
               type="button"
               onClick={() => { setEmojiPickerOpen((o) => !o); setGifSearchOpen(false); }}
               className={clsx(
                 'w-7 h-7 flex items-center justify-center rounded transition-colors shrink-0',
-                emojiPickerOpen ? 'text-cc-gold' : 'text-cc-muted hover:text-cc-text',
+                emojiPickerOpen ? 'text-bf-gold' : 'text-bf-muted hover:text-bf-text',
               )}
               aria-label="Emoji"
             >
@@ -244,7 +244,7 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
                 onClick={() => { setGifSearchOpen((o) => !o); setEmojiPickerOpen(false); }}
                 className={clsx(
                   'w-7 h-7 flex items-center justify-center rounded transition-colors shrink-0',
-                  gifSearchOpen ? 'text-cc-gold' : 'text-cc-muted hover:text-cc-text',
+                  gifSearchOpen ? 'text-bf-gold' : 'text-bf-muted hover:text-bf-text',
                 )}
                 aria-label="GIF"
               >
@@ -259,7 +259,7 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
               }}
               placeholder="Message…"
               maxLength={500}
-              className="flex-1 min-w-0 bg-cc-dark border border-cc-border rounded px-2 py-1.5 text-xs text-cc-text"
+              className="flex-1 min-w-0 bg-bf-dark border border-bf-border rounded px-2 py-1.5 text-xs text-bf-text"
             />
             <button type="button" onClick={() => send()} className="btn-secondary text-xs px-2 py-1">
               Send

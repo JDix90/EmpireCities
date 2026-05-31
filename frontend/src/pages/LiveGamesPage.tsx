@@ -65,7 +65,7 @@ export default function LiveGamesPage() {
         <button
           type="button"
           onClick={fetchLiveGames}
-          className="text-cc-muted hover:text-cc-text transition-colors p-1"
+          className="text-bf-muted hover:text-bf-text transition-colors p-1"
           title="Refresh"
           aria-label="Refresh live games"
         >
@@ -80,8 +80,8 @@ export default function LiveGamesPage() {
             className={clsx(
               'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
               !eraFilter
-                ? 'bg-cc-gold/20 border-cc-gold/40 text-cc-gold'
-                : 'border-cc-border text-cc-muted hover:text-cc-text',
+                ? 'bg-bf-gold/20 border-bf-gold/40 text-bf-gold'
+                : 'border-bf-border text-bf-muted hover:text-bf-text',
             )}
           >
             All Eras
@@ -93,8 +93,8 @@ export default function LiveGamesPage() {
               className={clsx(
                 'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
                 eraFilter === id
-                  ? 'bg-cc-gold/20 border-cc-gold/40 text-cc-gold'
-                  : 'border-cc-border text-cc-muted hover:text-cc-text',
+                  ? 'bg-bf-gold/20 border-bf-gold/40 text-bf-gold'
+                  : 'border-bf-border text-bf-muted hover:text-bf-text',
               )}
             >
               {label}
@@ -104,18 +104,18 @@ export default function LiveGamesPage() {
 
         {/* Live games list */}
         {loading && games.length === 0 ? (
-          <div className="py-16 text-center text-cc-muted animate-pulse">Searching for live games…</div>
+          <div className="py-16 text-center text-bf-muted animate-pulse">Searching for live games…</div>
         ) : games.length === 0 ? (
           <div className="py-16 text-center">
-            <Eye className="w-12 h-12 text-cc-muted/30 mx-auto mb-4" />
-            <p className="text-cc-muted">No live games right now</p>
-            <p className="text-cc-muted/60 text-sm mt-1">Check back later or start your own game!</p>
+            <Eye className="w-12 h-12 text-bf-muted/30 mx-auto mb-4" />
+            <p className="text-bf-muted">No live games right now</p>
+            <p className="text-bf-muted/60 text-sm mt-1">Check back later or start your own game!</p>
           </div>
         ) : (
           <div className="space-y-6">
             {games.some((game) => game.featured) && (
               <div>
-                <p className="text-xs uppercase tracking-widest text-cc-gold mb-3">Featured</p>
+                <p className="text-xs uppercase tracking-widest text-bf-gold mb-3">Featured</p>
                 <div className="grid gap-3">
                   {games.filter((game) => game.featured).map((game) => (
                     <LiveGameCard key={`featured-${game.game_id}`} game={game} onOpen={() => navigate(`/spectate/${game.game_id}`)} />
@@ -125,7 +125,7 @@ export default function LiveGamesPage() {
             )}
 
             <div>
-              <p className="text-xs uppercase tracking-widest text-cc-muted mb-3">All Live Games</p>
+              <p className="text-xs uppercase tracking-widest text-bf-muted mb-3">All Live Games</p>
               <div className="grid gap-3">
                 {games.map((game) => (
                   <LiveGameCard key={game.game_id} game={game} onOpen={() => navigate(`/spectate/${game.game_id}`)} />
@@ -143,13 +143,13 @@ function LiveGameCard({ game, onOpen }: { game: LiveGame; onOpen: () => void }) 
     <button
       onClick={onOpen}
       className={clsx(
-        'card p-4 text-left hover:border-cc-gold/30 transition-all group',
-        game.featured && 'border-cc-gold/30 bg-gradient-to-r from-cc-gold/[0.06] to-transparent',
+        'card p-4 text-left hover:border-bf-gold/30 transition-all group',
+        game.featured && 'border-bf-gold/30 bg-gradient-to-r from-bf-gold/[0.06] to-transparent',
       )}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-2 py-0.5 rounded text-xs font-medium bg-cc-gold/10 text-cc-gold border border-cc-gold/20">
+          <span className="px-2 py-0.5 rounded text-xs font-medium bg-bf-gold/10 text-bf-gold border border-bf-gold/20">
             {ERA_LABELS[game.era_id] ?? game.era_id}
           </span>
           {game.featured && (
@@ -157,17 +157,17 @@ function LiveGameCard({ game, onOpen }: { game: LiveGame; onOpen: () => void }) 
               Featured
             </span>
           )}
-          <span className="text-cc-muted text-xs flex items-center gap-1">
+          <span className="text-bf-muted text-xs flex items-center gap-1">
             <Clock className="w-3 h-3" /> Turn {game.turn_count}
           </span>
         </div>
         <div className="flex items-center gap-3">
           {game.spectator_count > 0 && (
-            <span className="text-cc-muted text-xs flex items-center gap-1">
+            <span className="text-bf-muted text-xs flex items-center gap-1">
               <Eye className="w-3 h-3" /> {game.spectator_count}
             </span>
           )}
-          <span className="text-cc-gold text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          <span className="text-bf-gold text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <Eye className="w-3 h-3" /> Spectate
           </span>
         </div>
@@ -180,14 +180,14 @@ function LiveGameCard({ game, onOpen }: { game: LiveGame; onOpen: () => void }) 
             className="inline-flex items-center gap-1.5 text-sm"
           >
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.player_color }} />
-            <span className={clsx('text-cc-text', p.is_ai && 'text-cc-muted')}>
-              {p.username} {p.is_ai && <span className="text-cc-muted/60 text-xs">(AI)</span>}
+            <span className={clsx('text-bf-text', p.is_ai && 'text-bf-muted')}>
+              {p.username} {p.is_ai && <span className="text-bf-muted/60 text-xs">(AI)</span>}
             </span>
           </span>
         ))}
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-xs text-cc-muted">
+      <div className="mt-2 flex items-center gap-2 text-xs text-bf-muted">
         <Users className="w-3 h-3" /> {game.player_count} players · {game.human_count} human
       </div>
     </button>

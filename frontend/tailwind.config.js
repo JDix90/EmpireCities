@@ -4,13 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Borderfall brand palette (cc-* tokens retained for compatibility)
-        'cc-gold':    '#c9a84c',
-        'cc-dark':    '#0f1117',
-        'cc-surface': '#1a1f2e',
-        'cc-border':  '#2d3448',
-        'cc-text':    '#e8e8e8',
-        'cc-muted':   '#8892a4',
+        // Borderfall brand palette
+        'bf-gold':    '#c9a84c',
+        'bf-dark':    '#0f1117',
+        'bf-surface': '#1a1f2e',
+        'bf-border':  '#2d3448',
+        'bf-text':    '#e8e8e8',
+        'bf-muted':   '#8892a4',
       },
       fontFamily: {
         display: ['"Cinzel"', 'serif'],

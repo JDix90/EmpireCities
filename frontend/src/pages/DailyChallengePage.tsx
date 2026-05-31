@@ -166,7 +166,7 @@ export default function DailyChallengePage() {
   if (loading) {
     return (
       <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl">
-        <p className="text-cc-muted animate-pulse text-center py-12">Loading today&apos;s challenge…</p>
+        <p className="text-bf-muted animate-pulse text-center py-12">Loading today&apos;s challenge…</p>
       </SubpageShell>
     );
   }
@@ -176,7 +176,7 @@ export default function DailyChallengePage() {
       <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl">
         <p className="text-red-400 text-center py-12">
           Failed to load challenge.{' '}
-          <Link to="/lobby" className="underline text-cc-gold">Return to lobby</Link>
+          <Link to="/lobby" className="underline text-bf-gold">Return to lobby</Link>
         </p>
       </SubpageShell>
     );
@@ -192,23 +192,23 @@ export default function DailyChallengePage() {
   return (
     <SubpageShell title="DAILY CHALLENGE" icon={Calendar} maxWidth="2xl" contentClassName="space-y-6">
         {/* Challenge card */}
-        <div className="card border-cc-gold/30 shadow-lg">
+        <div className="card border-bf-gold/30 shadow-lg">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="text-cc-muted text-sm mb-1">
+              <p className="text-bf-muted text-sm mb-1">
                 {formatDate(challenge.challenge_date) ||
                   (typeof challenge.challenge_date === 'string' ? challenge.challenge_date.slice(0, 10) : '')}
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-2xl" role="img" aria-label={eraLabel}>{eraIcon}</span>
-                <h2 className="font-display text-xl text-cc-gold tracking-wide">{eraLabel}</h2>
+                <h2 className="font-display text-xl text-bf-gold tracking-wide">{eraLabel}</h2>
               </div>
-              <p className="text-cc-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
+              <p className="text-bf-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
               {challenge.spec?.title && (
-                <p className="text-cc-text font-medium mt-3">{challenge.spec.title}</p>
+                <p className="text-bf-text font-medium mt-3">{challenge.spec.title}</p>
               )}
               {challenge.spec?.goal && (
-                <p className="text-cc-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
+                <p className="text-bf-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
               )}
             </div>
             {alreadyPlayed && (
@@ -223,18 +223,18 @@ export default function DailyChallengePage() {
 
           {/* User result summary */}
           {alreadyPlayed && (
-            <div className="rounded-lg bg-cc-dark/60 border border-cc-border p-4 mb-4 grid grid-cols-3 gap-4 text-center">
+            <div className="rounded-lg bg-bf-dark/60 border border-bf-border p-4 mb-4 grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-cc-muted text-xs mb-1">Turns</p>
-                <p className="text-cc-gold font-bold text-lg">{my_entry!.turn_count ?? '—'}</p>
+                <p className="text-bf-muted text-xs mb-1">Turns</p>
+                <p className="text-bf-gold font-bold text-lg">{my_entry!.turn_count ?? '—'}</p>
               </div>
               <div>
-                <p className="text-cc-muted text-xs mb-1">Territories</p>
-                <p className="text-cc-gold font-bold text-lg">{my_entry!.territory_count ?? '—'}</p>
+                <p className="text-bf-muted text-xs mb-1">Territories</p>
+                <p className="text-bf-gold font-bold text-lg">{my_entry!.territory_count ?? '—'}</p>
               </div>
               <div>
-                <p className="text-cc-muted text-xs mb-1">Finished</p>
-                <p className="text-cc-text text-sm">{formatTime(my_entry!.completed_at)}</p>
+                <p className="text-bf-muted text-xs mb-1">Finished</p>
+                <p className="text-bf-text text-sm">{formatTime(my_entry!.completed_at)}</p>
               </div>
             </div>
           )}
@@ -251,12 +251,12 @@ export default function DailyChallengePage() {
                   <Film className="w-4 h-4" />
                   Watch Replay
                 </button>
-                <p className="text-center text-cc-muted text-xs">
+                <p className="text-center text-bf-muted text-xs">
                   Time-lapse with coaching tips. Come back tomorrow for a new challenge!
                 </p>
               </div>
             ) : (
-              <p className="text-center text-cc-muted text-sm">Come back tomorrow for a new challenge!</p>
+              <p className="text-center text-bf-muted text-sm">Come back tomorrow for a new challenge!</p>
             )
           ) : active_game_id ? (
             <button
@@ -286,23 +286,23 @@ export default function DailyChallengePage() {
 
         {/* Leaderboard */}
         <div className="card p-0 overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-cc-border">
-            <Crown className="w-4 h-4 text-cc-gold" />
-            <h3 className="font-display text-sm text-cc-gold tracking-widest">TODAY&apos;S LEADERBOARD</h3>
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-bf-border">
+            <Crown className="w-4 h-4 text-bf-gold" />
+            <h3 className="font-display text-sm text-bf-gold tracking-widest">TODAY&apos;S LEADERBOARD</h3>
           </div>
           {leaderboard.length === 0 ? (
-            <p className="text-center text-cc-muted text-sm py-6">No one has played today yet — be the first!</p>
+            <p className="text-center text-bf-muted text-sm py-6">No one has played today yet — be the first!</p>
           ) : (
-            <div className="divide-y divide-cc-border/50">
+            <div className="divide-y divide-bf-border/50">
               {leaderboard.map((row, i) => (
                 <div key={row.username + i} className="flex items-center gap-3 px-5 py-3">
-                  <span className={`w-6 text-center text-sm font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-cc-muted'}`}>
+                  <span className={`w-6 text-center text-sm font-bold ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-slate-300' : i === 2 ? 'text-amber-600' : 'text-bf-muted'}`}>
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-cc-text text-sm truncate">{row.username}</p>
+                    <p className="text-bf-text text-sm truncate">{row.username}</p>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-cc-muted shrink-0">
+                  <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
                     {row.turn_count !== null && (
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {row.turn_count}t
@@ -323,21 +323,21 @@ export default function DailyChallengePage() {
         {/* Weekly seeded challenge entry point */}
         {weeklyChallenge && (
           <div className={`card p-0 overflow-hidden ${
-            weeklyTabRequested ? 'border-cc-gold/45 bg-cc-gold/5' : ''
+            weeklyTabRequested ? 'border-bf-gold/45 bg-bf-gold/5' : ''
           }`}>
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-cc-border">
-              <Trophy className="w-4 h-4 text-cc-gold" />
-              <h3 className="font-display text-sm text-cc-gold tracking-widest">WEEKLY SEEDED CHALLENGE</h3>
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-bf-border">
+              <Trophy className="w-4 h-4 text-bf-gold" />
+              <h3 className="font-display text-sm text-bf-gold tracking-widest">WEEKLY SEEDED CHALLENGE</h3>
             </div>
             <div className="p-5 space-y-3">
-              <p className="text-cc-text text-sm">
-                Week of <span className="text-cc-gold font-medium">{weeklyChallenge.week_start_date}</span>
+              <p className="text-bf-text text-sm">
+                Week of <span className="text-bf-gold font-medium">{weeklyChallenge.week_start_date}</span>
               </p>
-              <p className="text-cc-muted text-sm">
+              <p className="text-bf-muted text-sm">
                 {weeklyChallenge.rules_json?.objective ?? 'Same seed and rules for every competitor.'}
               </p>
               {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
-                <p className="text-cc-muted text-xs">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
+                <p className="text-bf-muted text-xs">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
               )}
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
@@ -349,13 +349,13 @@ export default function DailyChallengePage() {
                 </button>
               </div>
               {weeklyLeaderboard.length > 0 && (
-                <div className="pt-3 border-t border-cc-border">
-                  <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Top weekly players</p>
+                <div className="pt-3 border-t border-bf-border">
+                  <p className="text-[11px] uppercase tracking-wider text-bf-muted mb-2">Top weekly players</p>
                   <div className="space-y-1.5">
                     {weeklyLeaderboard.slice(0, 5).map((row, idx) => (
                       <div key={`${row.username}-${idx}`} className="flex items-center justify-between text-xs">
-                        <span className="text-cc-text">#{idx + 1} {row.username}</span>
-                        <span className="text-cc-gold font-mono">{row.score}</span>
+                        <span className="text-bf-text">#{idx + 1} {row.username}</span>
+                        <span className="text-bf-gold font-mono">{row.score}</span>
                       </div>
                     ))}
                   </div>

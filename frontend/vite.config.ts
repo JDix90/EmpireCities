@@ -8,7 +8,7 @@ export default defineConfig({
     dedupe: ['three'],
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@erasofempire/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),
+      '@borderfall/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),
     },
   },
   server: {

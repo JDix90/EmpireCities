@@ -17,7 +17,7 @@ export interface FactionLoreInfo {
 
 function Chip({ label }: { label: string }) {
   return (
-    <span className="px-2 py-0.5 rounded-full bg-cc-gold/15 border border-cc-gold/25 text-cc-gold text-xs">
+    <span className="px-2 py-0.5 rounded-full bg-bf-gold/15 border border-bf-gold/25 text-bf-gold text-xs">
       {label}
     </span>
   );
@@ -30,7 +30,7 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
       onClick={onClose}
     >
       <div
-        className="bg-cc-surface border border-cc-border rounded-xl p-5 sm:p-6 w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
+        className="bg-bf-surface border border-bf-border rounded-xl p-5 sm:p-6 w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -38,10 +38,10 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
           {faction.color && (
             <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: faction.color }} />
           )}
-          <p className="font-display text-xl text-cc-gold">{faction.name}</p>
+          <p className="font-display text-xl text-bf-gold">{faction.name}</p>
           <button
             onClick={onClose}
-            className="ml-auto min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2"
+            className="ml-auto min-h-[44px] min-w-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text transition-colors -mr-2"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -50,16 +50,16 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
 
         {/* Flavor quote */}
         {faction.flavor_quote && (
-          <p className="italic text-cc-muted text-sm mb-4 border-l-2 border-cc-gold/40 pl-3">
+          <p className="italic text-bf-muted text-sm mb-4 border-l-2 border-bf-gold/40 pl-3">
             "{faction.flavor_quote}"
           </p>
         )}
 
         {/* Lore */}
         {faction.lore ? (
-          <p className="text-cc-text text-sm leading-relaxed mb-4">{faction.lore}</p>
+          <p className="text-bf-text text-sm leading-relaxed mb-4">{faction.lore}</p>
         ) : (
-          <p className="text-cc-muted text-sm leading-relaxed mb-4">{faction.description}</p>
+          <p className="text-bf-muted text-sm leading-relaxed mb-4">{faction.description}</p>
         )}
 
         {/* Stat chips */}
@@ -79,9 +79,9 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
 
         {/* Ability */}
         {faction.ability_description && (
-          <div className="bg-cc-dark/50 rounded-lg p-3 text-sm">
-            <p className="text-cc-gold text-xs uppercase tracking-wide mb-1">Special Ability</p>
-            <p className="text-cc-text">{faction.ability_description}</p>
+          <div className="bg-bf-dark/50 rounded-lg p-3 text-sm">
+            <p className="text-bf-gold text-xs uppercase tracking-wide mb-1">Special Ability</p>
+            <p className="text-bf-text">{faction.ability_description}</p>
           </div>
         )}
       </div>

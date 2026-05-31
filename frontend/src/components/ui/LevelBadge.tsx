@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { getLevel } from '@erasofempire/shared';
+import { getLevel } from '@borderfall/shared';
 
 interface LevelBadgeProps {
   xp: number;
@@ -19,7 +19,7 @@ export default function LevelBadge({ xp, size = 'md', className }: LevelBadgePro
   return (
     <div
       className={clsx(
-        'inline-flex items-center justify-center rounded-full bg-cc-gold/20 border border-cc-gold/40 text-cc-gold font-bold font-display',
+        'inline-flex items-center justify-center rounded-full bg-bf-gold/20 border border-bf-gold/40 text-bf-gold font-bold font-display',
         SIZE_CLASSES[size],
         className,
       )}

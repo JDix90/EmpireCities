@@ -122,10 +122,10 @@ function Kpi({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border border-cc-border bg-cc-panel/90 p-4 shadow-md backdrop-blur-sm">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-cc-muted">{label}</p>
-      <p className="mt-2 font-display text-2xl tabular-nums text-cc-gold">{value}</p>
-      {hint ? <p className="mt-1.5 text-xs leading-snug text-cc-muted">{hint}</p> : null}
+    <div className="rounded-xl border border-bf-border bg-cc-panel/90 p-4 shadow-md backdrop-blur-sm">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-bf-muted">{label}</p>
+      <p className="mt-2 font-display text-2xl tabular-nums text-bf-gold">{value}</p>
+      {hint ? <p className="mt-1.5 text-xs leading-snug text-bf-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -413,20 +413,20 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cc-dark text-cc-text">
-      <div className="border-b border-cc-border bg-cc-surface/80 backdrop-blur-sm">
+    <div className="min-h-screen bg-bf-dark text-bf-text">
+      <div className="border-b border-bf-border bg-bf-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cc-muted">Operations</p>
-            <h1 className="font-display text-2xl tracking-wide text-cc-gold md:text-3xl">Admin Dashboard</h1>
-            <p className="mt-1 max-w-2xl text-sm text-cc-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-bf-muted">Operations</p>
+            <h1 className="font-display text-2xl tracking-wide text-bf-gold md:text-3xl">Admin Dashboard</h1>
+            <p className="mt-1 max-w-2xl text-sm text-bf-muted">
               Live product health, balance signals, and runtime knobs. Charts use UTC day buckets for trends.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/lobby"
-              className="rounded-lg border border-cc-border px-3 py-2 text-sm text-cc-text hover:border-cc-gold hover:text-cc-gold"
+              className="rounded-lg border border-bf-border px-3 py-2 text-sm text-bf-text hover:border-bf-gold hover:text-bf-gold"
             >
               ← Lobby
             </Link>
@@ -434,7 +434,7 @@ export default function AdminPage() {
               type="button"
               disabled={loading}
               onClick={() => loadTab(activeTab)}
-              className="rounded-lg border border-cc-gold/60 bg-cc-gold/10 px-3 py-2 text-sm font-medium text-cc-gold hover:bg-cc-gold/20 disabled:opacity-50"
+              className="rounded-lg border border-bf-gold/60 bg-bf-gold/10 px-3 py-2 text-sm font-medium text-bf-gold hover:bg-bf-gold/20 disabled:opacity-50"
             >
               Refresh
             </button>
@@ -443,7 +443,7 @@ export default function AdminPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-        <div className="flex flex-wrap gap-2 border-b border-cc-border/80 pb-4">
+        <div className="flex flex-wrap gap-2 border-b border-bf-border/80 pb-4">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -451,12 +451,12 @@ export default function AdminPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
                 activeTab === tab.key
-                  ? 'border-cc-gold bg-cc-gold/10 text-cc-gold'
-                  : 'border-cc-border text-cc-text hover:border-cc-muted'
+                  ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
+                  : 'border-bf-border text-bf-text hover:border-bf-muted'
               }`}
             >
               <span className="font-semibold">{tab.label}</span>
-              <span className="mt-0.5 block text-[11px] font-normal text-cc-muted">{tab.description}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-bf-muted">{tab.description}</span>
             </button>
           ))}
         </div>
@@ -468,42 +468,42 @@ export default function AdminPage() {
         ) : null}
 
         {loading ? (
-          <div className="mt-10 flex flex-col items-center gap-2 text-cc-muted">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cc-border border-t-cc-gold" />
+          <div className="mt-10 flex flex-col items-center gap-2 text-bf-muted">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-bf-border border-t-bf-gold" />
             <p className="text-sm">Loading…</p>
           </div>
         ) : null}
 
         {!loading && activeTab === 'overview' && overview && (
           <div className="mt-6 space-y-8">
-            <div className="flex flex-col gap-3 rounded-xl border border-cc-border bg-cc-panel/40 p-4 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-3 rounded-xl border border-bf-border bg-cc-panel/40 p-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-sm font-medium text-cc-text">Game counts date filter</p>
-                <p className="text-xs text-cc-muted">Filters games by <code className="text-cc-gold/90">created_at</code> (UTC).</p>
+                <p className="text-sm font-medium text-bf-text">Game counts date filter</p>
+                <p className="text-xs text-bf-muted">Filters games by <code className="text-bf-gold/90">created_at</code> (UTC).</p>
               </div>
               <div className="flex flex-wrap items-end gap-2">
-                <label className="text-xs text-cc-muted">
+                <label className="text-xs text-bf-muted">
                   From
                   <input
                     type="date"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
-                    className="mt-1 block w-full rounded border border-cc-border bg-cc-surface px-2 py-1.5 text-sm"
+                    className="mt-1 block w-full rounded border border-bf-border bg-bf-surface px-2 py-1.5 text-sm"
                   />
                 </label>
-                <label className="text-xs text-cc-muted">
+                <label className="text-xs text-bf-muted">
                   To
                   <input
                     type="date"
                     value={to}
                     onChange={(e) => setTo(e.target.value)}
-                    className="mt-1 block w-full rounded border border-cc-border bg-cc-surface px-2 py-1.5 text-sm"
+                    className="mt-1 block w-full rounded border border-bf-border bg-bf-surface px-2 py-1.5 text-sm"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => loadTab('overview')}
-                  className="rounded-lg bg-cc-gold px-3 py-2 text-sm font-semibold text-black"
+                  className="rounded-lg bg-bf-gold px-3 py-2 text-sm font-semibold text-black"
                 >
                   Apply
                 </button>
@@ -514,7 +514,7 @@ export default function AdminPage() {
                     setTo('');
                     void reloadOverviewAllTime();
                   }}
-                  className="rounded-lg border border-cc-border px-3 py-2 text-sm"
+                  className="rounded-lg border border-bf-border px-3 py-2 text-sm"
                 >
                   Clear
                 </button>
@@ -555,16 +555,16 @@ export default function AdminPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4 lg:col-span-2">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4 lg:col-span-2">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-cc-text">Activity trend</p>
-                    <p className="text-xs text-cc-muted">Daily games completed vs created (UTC days)</p>
+                    <p className="text-sm font-semibold text-bf-text">Activity trend</p>
+                    <p className="text-xs text-bf-muted">Daily games completed vs created (UTC days)</p>
                   </div>
                   <select
                     value={trendDays}
                     onChange={(e) => setTrendDays(Number(e.target.value))}
-                    className="rounded border border-cc-border bg-cc-surface px-2 py-1 text-sm"
+                    className="rounded border border-bf-border bg-bf-surface px-2 py-1 text-sm"
                   >
                     <option value={14}>Last 14 days</option>
                     <option value={30}>Last 30 days</option>
@@ -600,12 +600,12 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
-                <p className="text-sm font-semibold text-cc-text">Games by status</p>
-                <p className="text-xs text-cc-muted">Same created_at filter as KPIs</p>
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+                <p className="text-sm font-semibold text-bf-text">Games by status</p>
+                <p className="text-xs text-bf-muted">Same created_at filter as KPIs</p>
                 <div className="mt-2 h-64">
                   {statusPie.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-sm text-cc-muted">No games in this filter.</div>
+                    <div className="flex h-full items-center justify-center text-sm text-bf-muted">No games in this filter.</div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -623,16 +623,16 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+            <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-cc-text">Completed games by type</p>
-                  <p className="text-xs text-cc-muted">Last {timeseries?.days ?? trendDays} days (by end time)</p>
+                  <p className="text-sm font-semibold text-bf-text">Completed games by type</p>
+                  <p className="text-xs text-bf-muted">Last {timeseries?.days ?? trendDays} days (by end time)</p>
                 </div>
               </div>
               <div className="h-56">
                 {typePie.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-cc-muted">No completed games in this window.</div>
+                  <div className="flex h-full items-center justify-center text-sm text-bf-muted">No completed games in this window.</div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={typePie} layout="vertical" margin={{ left: 8, right: 16 }}>
@@ -651,9 +651,9 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-cc-border bg-cc-panel/40 p-4">
-              <p className="text-sm font-semibold text-cc-text">Quick actions</p>
-              <p className="text-xs text-cc-muted">These write to the audit log.</p>
+            <div className="rounded-xl border border-bf-border bg-cc-panel/40 p-4">
+              <p className="text-sm font-semibold text-bf-text">Quick actions</p>
+              <p className="text-xs text-bf-muted">These write to the audit log.</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -675,7 +675,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg border border-cc-border px-3 py-2 text-sm"
+                  className="rounded-lg border border-bf-border px-3 py-2 text-sm"
                   onClick={() => {
                     if (window.confirm('Regenerate today’s daily challenge row?')) void postAction('/admin/actions/regen-daily');
                   }}
@@ -689,25 +689,25 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'balance' && (
           <div className="mt-6 space-y-6">
-            <p className="text-sm text-cc-muted">
-              Faction stats are from completed games with a recorded <code className="text-cc-gold/90">faction_id</code>.
+            <p className="text-sm text-bf-muted">
+              Faction stats are from completed games with a recorded <code className="text-bf-gold/90">faction_id</code>.
               Era and map charts use completed games with known duration.
             </p>
-            <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+            <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">Toggle setting usage</p>
-                  <p className="text-xs text-cc-muted">
+                  <p className="text-xs text-bf-muted">
                     Share of all created games where each toggle-able setting is enabled.
                   </p>
                 </div>
-                <span className="rounded-full border border-cc-border px-2.5 py-1 text-xs text-cc-muted">
+                <span className="rounded-full border border-bf-border px-2.5 py-1 text-xs text-bf-muted">
                   Total games: {(settingsToggleUsage?.total_games ?? 0).toLocaleString()}
                 </span>
               </div>
               <div className="h-80">
                 {settingsToggleChartData.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-cc-muted">
+                  <div className="flex h-full items-center justify-center text-sm text-bf-muted">
                     No game settings data yet.
                   </div>
                 ) : (
@@ -739,10 +739,10 @@ export default function AdminPage() {
               {settingsToggleChartData.length > 0 ? (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {settingsToggleChartData.slice(0, 6).map((row) => (
-                    <div key={row.setting_key} className="rounded-lg border border-cc-border/70 bg-cc-dark/30 px-3 py-2">
-                      <p className="text-xs text-cc-muted">{row.setting_label}</p>
-                      <p className="mt-1 text-sm font-semibold text-cc-text">
-                        {row.display_count} <span className="text-xs font-normal text-cc-muted">({row.display_percent})</span>
+                    <div key={row.setting_key} className="rounded-lg border border-bf-border/70 bg-bf-dark/30 px-3 py-2">
+                      <p className="text-xs text-bf-muted">{row.setting_label}</p>
+                      <p className="mt-1 text-sm font-semibold text-bf-text">
+                        {row.display_count} <span className="text-xs font-normal text-bf-muted">({row.display_percent})</span>
                       </p>
                     </div>
                   ))}
@@ -750,9 +750,9 @@ export default function AdminPage() {
               ) : null}
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Faction win rate</p>
-                <p className="text-xs text-cc-muted">% wins among games where that faction was picked</p>
+                <p className="text-xs text-bf-muted">% wins among games where that faction was picked</p>
                 <div className="mt-2 h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={factions} margin={{ bottom: 48 }}>
@@ -773,9 +773,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Recent game lengths</p>
-                <p className="text-xs text-cc-muted">Last 40 completed games — duration in minutes</p>
+                <p className="text-xs text-bf-muted">Last 40 completed games — duration in minutes</p>
                 <div className="mt-2 h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={durationSeries}>
@@ -795,7 +795,7 @@ export default function AdminPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Completed games by era</p>
                 <div className="mt-2 h-72">
                   <ResponsiveContainer width="100%" height="100%">
@@ -818,7 +818,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Top maps by completions</p>
                 <div className="mt-2 h-72">
                   <ResponsiveContainer width="100%" height="100%">
@@ -838,10 +838,10 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'ranked' && (
           <div className="mt-6 space-y-3">
-            <p className="text-sm text-cc-muted">
-              Buckets are <code className="text-cc-gold/90">WIDTH_BUCKET(mu, 800, 2400, 8)</code> on ranked Glicko μ.
+            <p className="text-sm text-bf-muted">
+              Buckets are <code className="text-bf-gold/90">WIDTH_BUCKET(mu, 800, 2400, 8)</code> on ranked Glicko μ.
             </p>
-            <div className="h-[420px] rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+            <div className="h-[420px] rounded-xl border border-bf-border bg-cc-panel/50 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={rankedChartData} margin={{ bottom: 56 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2d3448" />
@@ -857,10 +857,10 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'config' && (
           <div className="mt-6 space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cc-border bg-cc-panel/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bf-border bg-cc-panel/40 p-4">
               <div>
                 <p className="text-sm font-semibold">Runtime state</p>
-                <p className="text-xs text-cc-muted">
+                <p className="text-xs text-bf-muted">
                   Matchmaking paused flag is process memory (clears on server restart).
                 </p>
               </div>
@@ -876,22 +876,22 @@ export default function AdminPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Full snapshot</p>
-                <pre className="mt-2 max-h-[28rem] overflow-auto rounded-lg bg-cc-dark/60 p-3 text-[11px] leading-relaxed text-cc-muted">
+                <pre className="mt-2 max-h-[28rem] overflow-auto rounded-lg bg-bf-dark/60 p-3 text-[11px] leading-relaxed text-bf-muted">
                   {JSON.stringify(config, null, 2)}
                 </pre>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-cc-border bg-cc-panel/50 p-4">
+              <div className="space-y-3 rounded-xl border border-bf-border bg-cc-panel/50 p-4">
                 <p className="text-sm font-semibold">Patch config block</p>
-                <p className="text-xs text-cc-muted">
+                <p className="text-xs text-bf-muted">
                   Economy &amp; XP are snapshotted into new games. Glicko, matchmaking buckets, and feature flags apply live where noted in code.
                 </p>
                 <select
                   value={patchKey}
                   onChange={(e) => setPatchKey(e.target.value)}
-                  className="w-full rounded-lg border border-cc-border bg-cc-surface px-2 py-2 text-sm"
+                  className="w-full rounded-lg border border-bf-border bg-bf-surface px-2 py-2 text-sm"
                 >
                   <option value="economy">economy</option>
                   <option value="xp">xp</option>
@@ -903,12 +903,12 @@ export default function AdminPage() {
                 <textarea
                   value={patchValue}
                   onChange={(e) => setPatchValue(e.target.value)}
-                  className="h-72 w-full resize-y rounded-lg border border-cc-border bg-cc-dark/60 p-3 font-mono text-xs text-cc-text"
+                  className="h-72 w-full resize-y rounded-lg border border-bf-border bg-bf-dark/60 p-3 font-mono text-xs text-bf-text"
                 />
                 <button
                   type="button"
                   onClick={submitConfigPatch}
-                  className="w-full rounded-lg bg-cc-gold py-2.5 text-sm font-semibold text-black hover:brightness-110"
+                  className="w-full rounded-lg bg-bf-gold py-2.5 text-sm font-semibold text-black hover:brightness-110"
                 >
                   Save JSON block
                 </button>
@@ -924,15 +924,15 @@ export default function AdminPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search username or email"
-                className="min-w-[200px] flex-1 rounded-lg border border-cc-border bg-cc-panel px-3 py-2 text-sm"
+                className="min-w-[200px] flex-1 rounded-lg border border-bf-border bg-cc-panel px-3 py-2 text-sm"
               />
-              <button type="button" onClick={() => loadTab('users')} className="rounded-lg bg-cc-gold px-4 py-2 text-sm font-semibold text-black">
+              <button type="button" onClick={() => loadTab('users')} className="rounded-lg bg-bf-gold px-4 py-2 text-sm font-semibold text-black">
                 Search
               </button>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-cc-border">
-              <table className="min-w-full divide-y divide-cc-border text-sm">
-                <thead className="bg-cc-surface/80 text-left text-xs uppercase tracking-wide text-cc-muted">
+            <div className="overflow-x-auto rounded-xl border border-bf-border">
+              <table className="min-w-full divide-y divide-bf-border text-sm">
+                <thead className="bg-bf-surface/80 text-left text-xs uppercase tracking-wide text-bf-muted">
                   <tr>
                     <th className="px-3 py-2">User</th>
                     <th className="px-3 py-2">Email</th>
@@ -943,20 +943,20 @@ export default function AdminPage() {
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-cc-border bg-cc-panel/40">
+                <tbody className="divide-y divide-bf-border bg-cc-panel/40">
                   {users.map((u) => (
-                    <tr key={u.user_id} className="hover:bg-cc-surface/40">
-                      <td className="px-3 py-2 font-medium text-cc-text">{u.username}</td>
-                      <td className="px-3 py-2 text-cc-muted">{u.email}</td>
+                    <tr key={u.user_id} className="hover:bg-bf-surface/40">
+                      <td className="px-3 py-2 font-medium text-bf-text">{u.username}</td>
+                      <td className="px-3 py-2 text-bf-muted">{u.email}</td>
                       <td className="px-3 py-2 tabular-nums">{u.level}</td>
-                      <td className="px-3 py-2 text-xs tabular-nums text-cc-muted">
+                      <td className="px-3 py-2 text-xs tabular-nums text-bf-muted">
                         {u.xp.toLocaleString()} / {u.mmr.toLocaleString()}
                       </td>
                       <td className="px-3 py-2 text-xs">
-                        {u.is_admin ? <span className="mr-1 text-cc-gold">admin</span> : null}
-                        {u.is_banned ? <span className="text-red-300">banned</span> : <span className="text-cc-muted">ok</span>}
+                        {u.is_admin ? <span className="mr-1 text-bf-gold">admin</span> : null}
+                        {u.is_banned ? <span className="text-red-300">banned</span> : <span className="text-bf-muted">ok</span>}
                       </td>
-                      <td className="px-3 py-2 text-xs text-cc-muted">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 text-xs text-bf-muted">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex flex-wrap justify-end gap-2 text-xs">
                           {u.is_banned ? (
@@ -989,15 +989,15 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
-              {users.length === 0 ? <p className="p-4 text-center text-sm text-cc-muted">No users match.</p> : null}
+              {users.length === 0 ? <p className="p-4 text-center text-sm text-bf-muted">No users match.</p> : null}
             </div>
           </div>
         )}
 
         {!loading && activeTab === 'audit' && (
-          <div className="mt-6 overflow-x-auto rounded-xl border border-cc-border">
-            <table className="min-w-full divide-y divide-cc-border text-sm">
-              <thead className="bg-cc-surface/80 text-left text-xs uppercase tracking-wide text-cc-muted">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-bf-border">
+            <table className="min-w-full divide-y divide-bf-border text-sm">
+              <thead className="bg-bf-surface/80 text-left text-xs uppercase tracking-wide text-bf-muted">
                 <tr>
                   <th className="px-3 py-2">When</th>
                   <th className="px-3 py-2">Admin</th>
@@ -1005,22 +1005,22 @@ export default function AdminPage() {
                   <th className="px-3 py-2">Payload</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cc-border bg-cc-panel/40">
+              <tbody className="divide-y divide-bf-border bg-cc-panel/40">
                 {audit.map((row) => (
-                  <tr key={row.id} className="align-top hover:bg-cc-surface/40">
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-cc-muted">
+                  <tr key={row.id} className="align-top hover:bg-bf-surface/40">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-bf-muted">
                       {new Date(row.created_at).toLocaleString()}
                     </td>
                     <td className="px-3 py-2 text-xs">{row.admin_username}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-cc-gold">{row.action}</td>
-                    <td className="max-w-md px-3 py-2 font-mono text-[11px] text-cc-muted">
+                    <td className="px-3 py-2 font-mono text-xs text-bf-gold">{row.action}</td>
+                    <td className="max-w-md px-3 py-2 font-mono text-[11px] text-bf-muted">
                       <pre className="whitespace-pre-wrap break-all">{JSON.stringify(row.payload, null, 2)}</pre>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {audit.length === 0 ? <p className="p-4 text-center text-sm text-cc-muted">No audit entries yet.</p> : null}
+            {audit.length === 0 ? <p className="p-4 text-center text-sm text-bf-muted">No audit entries yet.</p> : null}
           </div>
         )}
       </div>
@@ -1028,16 +1028,16 @@ export default function AdminPage() {
       <Modal open={resetModalOpen} onClose={closeResetModal} title="Reset User Stats" className="max-w-xl">
         {resetTargetUser ? (
           <div className="space-y-4">
-            <p className="text-sm text-cc-muted">
-              Target user: <span className="font-semibold text-cc-text">{resetTargetUser.username}</span>
+            <p className="text-sm text-bf-muted">
+              Target user: <span className="font-semibold text-bf-text">{resetTargetUser.username}</span>
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-xs text-cc-muted">
+              <label className="text-xs text-bf-muted">
                 Scope
                 <select
                   value={resetScope}
                   onChange={(e) => setResetScope(e.target.value as ResetScope)}
-                  className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                  className="mt-1 w-full rounded border border-bf-border bg-bf-surface px-2 py-2 text-sm text-bf-text"
                   disabled={resetSubmitting}
                 >
                   <option value="all">All stats</option>
@@ -1047,27 +1047,27 @@ export default function AdminPage() {
                 </select>
               </label>
               {(resetScope === 'era' || resetScope === 'era_map') ? (
-                <label className="text-xs text-cc-muted">
+                <label className="text-xs text-bf-muted">
                   era_id
                   <input
                     value={resetEraId}
                     onChange={(e) => setResetEraId(e.target.value)}
                     list="admin-reset-era-options"
                     placeholder="ancient / medieval / modern …"
-                    className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                    className="mt-1 w-full rounded border border-bf-border bg-bf-surface px-2 py-2 text-sm text-bf-text"
                     disabled={resetSubmitting}
                   />
                 </label>
               ) : <div />}
               {(resetScope === 'map' || resetScope === 'era_map') ? (
-                <label className="text-xs text-cc-muted sm:col-span-2">
+                <label className="text-xs text-bf-muted sm:col-span-2">
                   map_id
                   <input
                     value={resetMapId}
                     onChange={(e) => setResetMapId(e.target.value)}
                     list="admin-reset-map-options"
                     placeholder="era_modern / community_<id> …"
-                    className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                    className="mt-1 w-full rounded border border-bf-border bg-bf-surface px-2 py-2 text-sm text-bf-text"
                     disabled={resetSubmitting}
                   />
                 </label>
@@ -1088,12 +1088,12 @@ export default function AdminPage() {
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
               This action updates persistent player progression fields and cannot be undone.
             </div>
-            <label className="block text-xs text-cc-muted">
-              Type <span className="font-semibold text-cc-text">{resetTargetUser.username}</span> to confirm
+            <label className="block text-xs text-bf-muted">
+              Type <span className="font-semibold text-bf-text">{resetTargetUser.username}</span> to confirm
               <input
                 value={resetConfirmText}
                 onChange={(e) => setResetConfirmText(e.target.value)}
-                className="mt-1 w-full rounded border border-cc-border bg-cc-surface px-2 py-2 text-sm text-cc-text"
+                className="mt-1 w-full rounded border border-bf-border bg-bf-surface px-2 py-2 text-sm text-bf-text"
                 disabled={resetSubmitting}
               />
             </label>
@@ -1101,7 +1101,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={closeResetModal}
-                className="rounded border border-cc-border px-3 py-2 text-sm"
+                className="rounded border border-bf-border px-3 py-2 text-sm"
                 disabled={resetSubmitting}
               >
                 Cancel

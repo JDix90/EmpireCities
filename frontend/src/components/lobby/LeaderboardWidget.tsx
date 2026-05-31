@@ -46,10 +46,10 @@ export default function LeaderboardWidget() {
   return (
     <div className="card h-full">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display text-sm text-cc-gold flex items-center gap-2">
+        <h3 className="font-display text-sm text-bf-gold flex items-center gap-2">
           <Trophy className="w-4 h-4" /> Top Commanders
         </h3>
-        <Link to="/leaderboards" className="text-xs text-cc-muted hover:text-cc-gold transition-colors">
+        <Link to="/leaderboards" className="text-xs text-bf-muted hover:text-bf-gold transition-colors">
           Full board
         </Link>
       </div>
@@ -59,31 +59,31 @@ export default function LeaderboardWidget() {
           <Link
             key={entry.user_id}
             to={`/profile/${entry.user_id}`}
-            className="flex items-center gap-3 rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-2 hover:border-cc-gold/30 transition-colors"
+            className="flex items-center gap-3 rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-2 hover:border-bf-gold/30 transition-colors"
           >
-            <span className={`w-8 h-8 rounded-full border flex items-center justify-center text-xs font-bold ${PODIUM_BG[entry.rank] ?? 'border-cc-border text-cc-muted'}`}>
+            <span className={`w-8 h-8 rounded-full border flex items-center justify-center text-xs font-bold ${PODIUM_BG[entry.rank] ?? 'border-bf-border text-bf-muted'}`}>
               #{entry.rank}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-cc-text truncate font-medium">{entry.username}</p>
+              <p className="text-sm text-bf-text truncate font-medium">{entry.username}</p>
               <p className="text-[11px] truncate" style={{ color: entry.tier.color }}>
                 {entry.tier.label}
               </p>
             </div>
-            <span className="text-sm font-bold text-cc-gold tabular-nums">{entry.rating}</span>
+            <span className="text-sm font-bold text-bf-gold tabular-nums">{entry.rating}</span>
           </Link>
         ))}
       </div>
 
       {data.my_rank && (
-        <div className="mt-3 rounded-lg border border-cc-gold/20 bg-cc-gold/5 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Your Rank</p>
+        <div className="mt-3 rounded-lg border border-bf-gold/20 bg-bf-gold/5 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Your Rank</p>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-cc-text font-medium">#{data.my_rank.rank}</p>
+              <p className="text-sm text-bf-text font-medium">#{data.my_rank.rank}</p>
               <p className="text-[11px]" style={{ color: data.my_rank.tier.color }}>{data.my_rank.tier.label}</p>
             </div>
-            <span className="text-sm font-bold text-cc-gold tabular-nums">{data.my_rank.rating}</span>
+            <span className="text-sm font-bold text-bf-gold tabular-nums">{data.my_rank.rating}</span>
           </div>
         </div>
       )}

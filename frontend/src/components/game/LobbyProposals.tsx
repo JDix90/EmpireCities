@@ -134,22 +134,22 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
           {proposals.map((p) => (
             <div
               key={p.id}
-              className="p-3 bg-cc-dark rounded-lg border border-cc-border text-sm"
+              className="p-3 bg-bf-dark rounded-lg border border-bf-border text-sm"
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex-1 min-w-0">
-                  <span className="text-cc-muted text-xs">{p.proposerName} proposes:</span>
-                  <p className="text-cc-text font-medium truncate">
-                    {p.label} → <span className="text-cc-gold">{p.displayValue}</span>
+                  <span className="text-bf-muted text-xs">{p.proposerName} proposes:</span>
+                  <p className="text-bf-text font-medium truncate">
+                    {p.label} → <span className="text-bf-gold">{p.displayValue}</span>
                   </p>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-cc-muted shrink-0">
+                <div className="flex items-center gap-1 text-xs text-bf-muted shrink-0">
                   <Clock className="w-3 h-3" />
                   {p.yesVotes}/{p.threshold}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-cc-border rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-bf-border rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-500/80 rounded-full transition-all"
                     style={{ width: `${(p.yesVotes / p.playerCount) * 100}%` }}
@@ -163,7 +163,7 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
                     'flex items-center gap-1 text-xs px-3 py-2 min-h-[36px] min-w-[44px] rounded border transition-colors',
                     p.myVote === true
                       ? 'bg-green-500/20 border-green-500/40 text-green-400'
-                      : 'border-cc-border text-cc-muted hover:text-green-400 hover:border-green-500/30',
+                      : 'border-bf-border text-bf-muted hover:text-green-400 hover:border-green-500/30',
                   )}
                 >
                   <ThumbsUp className="w-3.5 h-3.5" /> {p.yesVotes}
@@ -176,7 +176,7 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
                     'flex items-center gap-1 text-xs px-3 py-2 min-h-[36px] min-w-[44px] rounded border transition-colors',
                     p.myVote === false
                       ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                      : 'border-cc-border text-cc-muted hover:text-red-400 hover:border-red-500/30',
+                      : 'border-bf-border text-bf-muted hover:text-red-400 hover:border-red-500/30',
                   )}
                 >
                   <ThumbsDown className="w-3.5 h-3.5" /> {p.noVotes}
@@ -192,19 +192,19 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
             <button
               type="button"
               onClick={() => setShowForm(true)}
-              className="w-full flex items-center justify-center gap-1.5 text-xs text-cc-muted hover:text-cc-text py-2 border border-dashed border-cc-border rounded-lg hover:border-cc-gold/30 transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-bf-muted hover:text-bf-text py-2 border border-dashed border-bf-border rounded-lg hover:border-bf-gold/30 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" /> Propose setting change
             </button>
           ) : (
-            <div className="p-3 bg-cc-dark rounded-lg border border-cc-gold/20 space-y-3">
+            <div className="p-3 bg-bf-dark rounded-lg border border-bf-gold/20 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-cc-gold font-medium uppercase tracking-wide">New Proposal</span>
+                <span className="text-xs text-bf-gold font-medium uppercase tracking-wide">New Proposal</span>
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); setSelectedSetting(''); setSelectedValue(''); }}
                   aria-label="Cancel proposal"
-                  className="min-h-[36px] min-w-[36px] -mr-2 flex items-center justify-center text-cc-muted hover:text-cc-text"
+                  className="min-h-[36px] min-w-[36px] -mr-2 flex items-center justify-center text-bf-muted hover:text-bf-text"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -212,7 +212,7 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
               <select
                 value={selectedSetting}
                 onChange={(e) => { setSelectedSetting(e.target.value); setSelectedValue(''); }}
-                className="w-full bg-cc-surface border border-cc-border rounded px-2 py-1.5 text-sm text-cc-text"
+                className="w-full bg-bf-surface border border-bf-border rounded px-2 py-1.5 text-sm text-bf-text"
               >
                 <option value="">Select a setting…</option>
                 {PROPOSABLE_SETTINGS.map((s) => (
@@ -223,7 +223,7 @@ export default function LobbyProposals({ gameId, currentSettings }: LobbyProposa
                 <select
                   value={selectedValue}
                   onChange={(e) => setSelectedValue(e.target.value)}
-                  className="w-full bg-cc-surface border border-cc-border rounded px-2 py-1.5 text-sm text-cc-text"
+                  className="w-full bg-bf-surface border border-bf-border rounded px-2 py-1.5 text-sm text-bf-text"
                 >
                   <option value="">Select a value…</option>
                   {settingDef.options

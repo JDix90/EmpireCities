@@ -13,17 +13,17 @@ function Section({ icon: Icon, title, children, defaultOpen = false }: {
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-cc-border rounded-xl overflow-hidden">
+    <div className="border border-bf-border rounded-xl overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-5 py-4 bg-cc-surface hover:bg-cc-surface/80 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-5 py-4 bg-bf-surface hover:bg-bf-surface/80 transition-colors text-left"
       >
-        <Icon className="w-5 h-5 text-cc-gold shrink-0" />
-        <span className="font-display text-lg text-cc-text flex-1">{title}</span>
-        {open ? <ChevronDown className="w-4 h-4 text-cc-muted" /> : <ChevronRight className="w-4 h-4 text-cc-muted" />}
+        <Icon className="w-5 h-5 text-bf-gold shrink-0" />
+        <span className="font-display text-lg text-bf-text flex-1">{title}</span>
+        {open ? <ChevronDown className="w-4 h-4 text-bf-muted" /> : <ChevronRight className="w-4 h-4 text-bf-muted" />}
       </button>
-      {open && <div className="px-5 pb-5 pt-3 text-sm text-cc-muted leading-relaxed space-y-3">{children}</div>}
+      {open && <div className="px-5 pb-5 pt-3 text-sm text-bf-muted leading-relaxed space-y-3">{children}</div>}
     </div>
   );
 }
@@ -32,7 +32,7 @@ function Section({ icon: Icon, title, children, defaultOpen = false }: {
 export default function HowToPlayPage() {
   return (
     <SubpageShell title="HOW TO PLAY" icon={BookOpen} maxWidth="2xl" contentClassName="space-y-6 pb-12">
-        <p className="text-cc-muted">
+        <p className="text-bf-muted">
           Everything you need to know to play {APP_NAME}. Sections are collapsible — expand what you need.
         </p>
 
@@ -57,25 +57,25 @@ export default function HowToPlayPage() {
 
           {/* ── Turn Structure ──────────────────────────────── */}
           <Section icon={Zap} title="Turn Structure">
-            <p>Each turn has <strong className="text-cc-text">three phases</strong>:</p>
+            <p>Each turn has <strong className="text-bf-text">three phases</strong>:</p>
             <ol className="list-decimal list-inside space-y-2 ml-1">
               <li>
-                <strong className="text-cc-text">Draft (Reinforcement)</strong> — Receive new units and
-                place them on your territories. You get <strong className="text-cc-text">1 unit per 3
+                <strong className="text-bf-text">Draft (Reinforcement)</strong> — Receive new units and
+                place them on your territories. You get <strong className="text-bf-text">1 unit per 3
                 territories</strong> you hold (minimum 3), plus bonuses for controlling entire
                 continents. You may also trade in card sets for extra units.
               </li>
               <li>
-                <strong className="text-cc-text">Attack</strong> — Attack adjacent enemy territories.
+                <strong className="text-bf-text">Attack</strong> — Attack adjacent enemy territories.
                 You can make as many attacks as you like, or skip entirely.
               </li>
               <li>
-                <strong className="text-cc-text">Fortify</strong> — Move units from one of your
+                <strong className="text-bf-text">Fortify</strong> — Move units from one of your
                 territories to another connected friendly territory. By default you fortify once per turn;
                 some tech or era rules can allow an extra fortify move. You can always skip.
               </li>
             </ol>
-            <p className="text-cc-muted/70 text-xs">
+            <p className="text-bf-muted/70 text-xs">
               Some games enable a <strong>Territory Selection</strong> phase before the first draft,
               where players take turns picking starting territories instead of receiving random ones.
             </p>
@@ -84,21 +84,21 @@ export default function HowToPlayPage() {
           {/* ── Combat ──────────────────────────────────────── */}
           <Section icon={Dices} title="Combat & Dice">
             <p>
-              To attack, select your territory (must have <strong className="text-cc-text">2+ units</strong>),
+              To attack, select your territory (must have <strong className="text-bf-text">2+ units</strong>),
               then click an adjacent enemy territory. Combat is resolved with dice:
             </p>
-            <div className="bg-cc-dark/50 rounded-lg p-3 space-y-1.5 text-xs">
+            <div className="bg-bf-dark/50 rounded-lg p-3 space-y-1.5 text-xs">
               <p>
-                <strong className="text-cc-text">Attacker</strong> rolls up to <strong className="text-cc-gold">3 dice</strong>{' '}
+                <strong className="text-bf-text">Attacker</strong> rolls up to <strong className="text-bf-gold">3 dice</strong>{' '}
                 (one fewer than units committed, max 3).
               </p>
               <p>
-                <strong className="text-cc-text">Defender</strong> rolls up to <strong className="text-cc-gold">2 dice</strong>{' '}
+                <strong className="text-bf-text">Defender</strong> rolls up to <strong className="text-bf-gold">2 dice</strong>{' '}
                 (up to their unit count, max 2).
               </p>
               <p>
                 Dice are sorted highest → lowest and compared in pairs. The lower roll in each pair
-                loses a unit. <strong className="text-cc-text">Ties go to the defender.</strong>
+                loses a unit. <strong className="text-bf-text">Ties go to the defender.</strong>
               </p>
             </div>
             <p>
@@ -107,7 +107,7 @@ export default function HowToPlayPage() {
             </p>
             <p>
               When optional rules are on (factions, tech, buildings, wonders, events, sea lanes), attack and
-              defense can roll <strong className="text-cc-text">extra dice</strong>. The server sends a
+              defense can roll <strong className="text-bf-text">extra dice</strong>. The server sends a
               breakdown when relevant; the HUD, combat modal, and mobile banner highlight faction-based
               extra dice so you can see why a roll used more than the base 3/2 dice.
             </p>
@@ -116,21 +116,21 @@ export default function HowToPlayPage() {
           {/* ── Cards ───────────────────────────────────────── */}
           <Section icon={CreditCard} title="Territory Cards">
             <p>
-              If you capture <strong className="text-cc-text">at least one territory</strong> during
+              If you capture <strong className="text-bf-text">at least one territory</strong> during
               your attack phase, you draw a card at the end of your turn. Cards show one of three
-              symbols: <strong className="text-cc-text">Infantry</strong>,{' '}
-              <strong className="text-cc-text">Cavalry</strong>, or{' '}
-              <strong className="text-cc-text">Artillery</strong>. There are also 2{' '}
-              <strong className="text-cc-gold">Wild</strong> cards in the deck.
+              symbols: <strong className="text-bf-text">Infantry</strong>,{' '}
+              <strong className="text-bf-text">Cavalry</strong>, or{' '}
+              <strong className="text-bf-text">Artillery</strong>. There are also 2{' '}
+              <strong className="text-bf-gold">Wild</strong> cards in the deck.
             </p>
-            <p>During your Draft phase, you can trade a <strong className="text-cc-text">set of 3 cards</strong> for bonus units:</p>
-            <div className="bg-cc-dark/50 rounded-lg p-3 space-y-1 text-xs">
-              <p>• <strong className="text-cc-text">Three of a kind</strong> (e.g. 3 Infantry)</p>
-              <p>• <strong className="text-cc-text">One of each</strong> (Infantry + Cavalry + Artillery)</p>
-              <p>• <strong className="text-cc-text">Any 2 + 1 Wild</strong></p>
+            <p>During your Draft phase, you can trade a <strong className="text-bf-text">set of 3 cards</strong> for bonus units:</p>
+            <div className="bg-bf-dark/50 rounded-lg p-3 space-y-1 text-xs">
+              <p>• <strong className="text-bf-text">Three of a kind</strong> (e.g. 3 Infantry)</p>
+              <p>• <strong className="text-bf-text">One of each</strong> (Infantry + Cavalry + Artillery)</p>
+              <p>• <strong className="text-bf-text">Any 2 + 1 Wild</strong></p>
             </div>
             <p>
-              Each successive trade-in gives <strong className="text-cc-text">more units</strong>: 4 → 6 → 8 → 10 → 12 → 15 → 20 → … The
+              Each successive trade-in gives <strong className="text-bf-text">more units</strong>: 4 → 6 → 8 → 10 → 12 → 15 → 20 → … The
               count is global (shared across all players), so timing your trades strategically can be
               a big advantage.
             </p>
@@ -140,20 +140,20 @@ export default function HowToPlayPage() {
           <Section icon={Trophy} title="Victory Conditions">
             <p>The game host chooses one or more victory conditions when creating the game:</p>
             <div className="space-y-2">
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text mb-0.5">Domination (default)</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text mb-0.5">Domination (default)</p>
                 <p className="text-xs">Capture every territory on the map — or be the last player standing.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text mb-0.5">Threshold</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text mb-0.5">Threshold</p>
                 <p className="text-xs">Own a set percentage of all territories (e.g. 70%). Faster games.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text mb-0.5">Capital Conquest</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text mb-0.5">Capital Conquest</p>
                 <p className="text-xs">Each player starts with a capital. Capture yours + all opponents' capitals to win.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text mb-0.5">Secret Mission</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text mb-0.5">Secret Mission</p>
                 <p className="text-xs">
                   Each player gets a hidden objective — eliminate a specific player, control certain
                   continents, or capture key territories. Complete yours before anyone else. Some
@@ -161,7 +161,7 @@ export default function HowToPlayPage() {
                 </p>
               </div>
             </div>
-            <p className="text-cc-muted/70 text-xs">
+            <p className="text-bf-muted/70 text-xs">
               Multiple conditions can be enabled at once — the first player to satisfy <em>any</em> of
               them wins.
             </p>
@@ -172,28 +172,28 @@ export default function HowToPlayPage() {
             <p>When creating a game, you can customize:</p>
             <div className="space-y-1.5 text-xs">
               <p>
-                <strong className="text-cc-text">Era & Map</strong> — Choose from historical eras
+                <strong className="text-bf-text">Era & Map</strong> — Choose from historical eras
                 (Ancient, Medieval, etc.) or community-created maps. Each era may have unique combat
                 modifiers.
               </p>
               <p>
-                <strong className="text-cc-text">Players & AI</strong> — 2–8 players per lobby. Add AI bots
+                <strong className="text-bf-text">Players & AI</strong> — 2–8 players per lobby. Add AI bots
                 (Easy / Medium / Hard / Expert) to fill empty slots.
               </p>
               <p>
-                <strong className="text-cc-text">Turn Timer</strong> — Real-time (3–10 min per turn)
+                <strong className="text-bf-text">Turn Timer</strong> — Real-time (3–10 min per turn)
                 or async (12h / 24h / 72h). No timer for casual play.
               </p>
               <p>
-                <strong className="text-cc-text">Fog of War</strong> — When enabled, you only see
+                <strong className="text-bf-text">Fog of War</strong> — When enabled, you only see
                 territories you own and their immediate neighbors. Everything else is hidden.
               </p>
               <p>
-                <strong className="text-cc-text">Territory Draft</strong> — Instead of random starting
+                <strong className="text-bf-text">Territory Draft</strong> — Instead of random starting
                 positions, players take turns picking territories one at a time.
               </p>
               <p>
-                <strong className="text-cc-text">Ranked / Casual</strong> — Ranked games affect your
+                <strong className="text-bf-text">Ranked / Casual</strong> — Ranked games affect your
                 rating and appear on leaderboards. Casual games are for fun.
               </p>
             </div>
@@ -202,39 +202,39 @@ export default function HowToPlayPage() {
           {/* ── Advanced Features ────────────────────────────── */}
           <Section icon={Shield} title="Advanced Features (Opt-In)">
             <p>
-              These features are <strong className="text-cc-text">all optional</strong> — the host
+              These features are <strong className="text-bf-text">all optional</strong> — the host
               toggles each one independently. They're designed to add depth without changing the core
               game:
             </p>
             <div className="space-y-2 text-xs">
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Economy & Buildings</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Economy & Buildings</p>
                 <p>Earn Production Points from territories. Build structures (camps, barracks, forts, ports, wonders) that generate income, boost defense, or unlock new capabilities.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Technology Trees</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Technology Trees</p>
                 <p>Earn Tech Points each turn to research upgrades across multiple tiers — attack bonuses, defense bonuses, extra reinforcements, building unlocks, and special abilities.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Naval Warfare</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Naval Warfare</p>
                 <p>Build fleets at ports and naval bases. Required for attacking across sea lanes. Includes naval combat, fleet movement, and blockades.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Historical Events</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Historical Events</p>
                 <p>Random event cards drawn each round — global effects, regional bonuses, player-targeted events, and natural disasters. Some offer a choice, others are automatic.</p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Asymmetric Factions</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Asymmetric Factions</p>
                 <p>
                   Each player can be assigned a faction with passive bonuses (attack, defense, reinforcements,
                   stability recovery) and a once-per-turn ability. During combat, extra dice from your faction
                   (and other sources) are called out in the combat log, combat modal, and mobile banner when
-                  applicable. Open <strong className="text-cc-text">Bonuses &amp; Active Rules</strong> in-game
+                  applicable. Open <strong className="text-bf-text">Bonuses &amp; Active Rules</strong> in-game
                   for a full breakdown of your modifiers.
                 </p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Population & Stability</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Population & Stability</p>
                 <p>
                   Territories track stability (0–100) and population. Low stability reduces economy income and
                   limits how many units you can deploy to that territory <em>per draft phase</em> — the cap is
@@ -243,8 +243,8 @@ export default function HowToPlayPage() {
                   overly punishing. Very low stability can trigger rebellion checks.
                 </p>
               </div>
-              <div className="bg-cc-dark/50 rounded-lg p-3">
-                <p className="font-medium text-cc-text">Influence (Cold War / Risorgimento)</p>
+              <div className="bg-bf-dark/50 rounded-lg p-3">
+                <p className="font-medium text-bf-text">Influence (Cold War / Risorgimento)</p>
                 <p>
                   When the era allows it, you can spend units to flip a weak neighboring territory during the
                   attack phase, with a cooldown between uses. Certain technologies extend your influence reach
@@ -252,9 +252,9 @@ export default function HowToPlayPage() {
                 </p>
               </div>
             </div>
-            <p className="text-cc-muted/70 text-xs mt-2">
+            <p className="text-bf-muted/70 text-xs mt-2">
               This page summarizes core and advanced rules. For tables, building costs, and extended FAQs, see{' '}
-              <code className="text-cc-gold/90">docs/PLAYER_GUIDE.md</code> in the project repository.
+              <code className="text-bf-gold/90">docs/PLAYER_GUIDE.md</code> in the project repository.
             </p>
           </Section>
 
@@ -262,27 +262,27 @@ export default function HowToPlayPage() {
           <Section icon={Users} title="Other Modes & Features">
             <div className="space-y-1.5 text-xs">
               <p>
-                <strong className="text-cc-text">Daily Challenge</strong> — A new puzzle scenario
+                <strong className="text-bf-text">Daily Challenge</strong> — A new puzzle scenario
                 every day. Compete for the fastest completion time on the leaderboard.
               </p>
               <p>
-                <strong className="text-cc-text">Campaign</strong> — A series of linked scenarios
+                <strong className="text-bf-text">Campaign</strong> — A series of linked scenarios
                 with escalating difficulty and narrative.
               </p>
               <p>
-                <strong className="text-cc-text">Spectating</strong> — Watch live games in progress.
+                <strong className="text-bf-text">Spectating</strong> — Watch live games in progress.
                 Spectator view has a slight delay to prevent cheating.
               </p>
               <p>
-                <strong className="text-cc-text">Replays</strong> — Review completed games turn by
+                <strong className="text-bf-text">Replays</strong> — Review completed games turn by
                 turn. Share replays with friends.
               </p>
               <p>
-                <strong className="text-cc-text">Map Editor</strong> — Create your own custom maps
+                <strong className="text-bf-text">Map Editor</strong> — Create your own custom maps
                 with the built-in editor, then share them with the community.
               </p>
               <p>
-                <strong className="text-cc-text">Diplomacy</strong> — Propose truces with other
+                <strong className="text-bf-text">Diplomacy</strong> — Propose truces with other
                 players during a game. Both sides must agree.
               </p>
             </div>
@@ -291,18 +291,18 @@ export default function HowToPlayPage() {
           {/* ── Quick Tips ──────────────────────────────────── */}
           <Section icon={Swords} title="Strategy Tips">
             <ol className="list-decimal list-inside space-y-1.5">
-              <li>Focus on holding <strong className="text-cc-text">entire continents</strong> early — the bonus units compound quickly.</li>
+              <li>Focus on holding <strong className="text-bf-text">entire continents</strong> early — the bonus units compound quickly.</li>
               <li>Don't spread thin. A few strong positions beat many weak ones.</li>
               <li>Save card trade-ins for when you need them most — the escalating bonus rewards patience.</li>
-              <li>Leave at least <strong className="text-cc-text">2 units</strong> on border territories to avoid easy captures.</li>
+              <li>Leave at least <strong className="text-bf-text">2 units</strong> on border territories to avoid easy captures.</li>
               <li>Pay attention to who's growing fastest — sometimes the right play is attacking the leader, not your neighbor.</li>
-              <li>In <strong className="text-cc-text">Fog of War</strong>, scout by attacking lightly — information is power.</li>
+              <li>In <strong className="text-bf-text">Fog of War</strong>, scout by attacking lightly — information is power.</li>
             </ol>
           </Section>
         </div>
 
         <div className="card p-4 mt-6 text-center space-y-3">
-          <p className="text-cc-muted text-sm">
+          <p className="text-bf-muted text-sm">
             Want guided practice? The Training Academy has interactive lessons on advanced settings, factions, and tech.
           </p>
           <Link to="/tutorial" className="btn-primary inline-block px-6 py-2 text-sm">

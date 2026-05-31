@@ -39,17 +39,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
+    <div className="min-h-screen-safe bg-bf-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
-          <p className="text-cc-muted mt-2">Reset your password</p>
+          <p className="text-bf-muted mt-2">Reset your password</p>
         </div>
 
         <div className="card">
           {done ? (
             <div className="space-y-4 text-center">
-              <p className="text-cc-text">
+              <p className="text-bf-text">
                 If an account exists for that email, we sent password reset instructions. Check your inbox
                 (and spam) for a link that expires in one hour.
               </p>
@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              <p className="text-cc-muted text-sm">
+              <p className="text-bf-muted text-sm">
                 Enter the email address for your account. We will send a one-time link if an account exists.
               </p>
               <div>
@@ -81,8 +81,8 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          <p className="text-center text-cc-muted text-sm mt-6">
-            <Link to={loginHref} className="text-cc-gold hover:underline">Back to sign in</Link>
+          <p className="text-center text-bf-muted text-sm mt-6">
+            <Link to={loginHref} className="text-bf-gold hover:underline">Back to sign in</Link>
           </p>
         </div>
       </div>

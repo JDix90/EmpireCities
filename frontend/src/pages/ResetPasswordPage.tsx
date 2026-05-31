@@ -55,23 +55,23 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-cc-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
+    <div className="min-h-screen-safe bg-bf-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
-          <p className="text-cc-muted mt-2">Choose a new password</p>
+          <p className="text-bf-muted mt-2">Choose a new password</p>
         </div>
 
         <div className="card">
           {!token ? (
             <div className="space-y-4 text-center">
-              <p className="text-cc-muted text-sm">
+              <p className="text-bf-muted text-sm">
                 This page needs a valid reset link from your email. Links expire after one hour.
               </p>
               <Link to={forgotHref} className="btn-primary inline-block w-full text-center">
                 Request a new link
               </Link>
-              <Link to={loginHref} className="block text-cc-gold hover:underline text-sm">
+              <Link to={loginHref} className="block text-bf-gold hover:underline text-sm">
                 Back to sign in
               </Link>
             </div>
@@ -93,7 +93,7 @@ export default function ResetPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-cc-muted hover:text-cc-text transition-colors"
+                    className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -119,8 +119,8 @@ export default function ResetPasswordPage() {
             </form>
           )}
 
-          <p className="text-center text-cc-muted text-sm mt-6">
-            <Link to={loginHref} className="text-cc-gold hover:underline">Back to sign in</Link>
+          <p className="text-center text-bf-muted text-sm mt-6">
+            <Link to={loginHref} className="text-bf-gold hover:underline">Back to sign in</Link>
           </p>
         </div>
       </div>

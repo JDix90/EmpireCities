@@ -5,7 +5,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import type { TierInfo } from '@erasofempire/shared';
+import type { TierInfo } from '@borderfall/shared';
 
 type LeaderboardTab = 'rating' | 'level' | 'season' | 'weekly' | 'streaks';
 
@@ -134,7 +134,7 @@ export default function LeaderboardsPage() {
   return (
     <SubpageShell title="LEADERBOARDS" icon={Trophy}>
         {/* Tabs */}
-        <div className="flex gap-1 bg-cc-surface rounded-xl p-1 mb-6">
+        <div className="flex gap-1 bg-bf-surface rounded-xl p-1 mb-6">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -142,8 +142,8 @@ export default function LeaderboardsPage() {
               className={clsx(
                 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all',
                 activeTab === id
-                  ? 'bg-cc-gold/20 text-cc-gold border border-cc-gold/30'
-                  : 'text-cc-muted hover:text-cc-text',
+                  ? 'bg-bf-gold/20 text-bf-gold border border-bf-gold/30'
+                  : 'text-bf-muted hover:text-bf-text',
               )}
             >
               <Icon className="w-4 h-4" />
@@ -154,45 +154,45 @@ export default function LeaderboardsPage() {
 
         {/* Season banner */}
         {activeTab === 'season' && seasonInfo && (
-          <div className="mb-4 p-3 rounded-lg bg-cc-gold/5 border border-cc-gold/20 text-center">
-            <p className="text-cc-gold font-display text-sm">{seasonInfo.name}</p>
+          <div className="mb-4 p-3 rounded-lg bg-bf-gold/5 border border-bf-gold/20 text-center">
+            <p className="text-bf-gold font-display text-sm">{seasonInfo.name}</p>
           </div>
         )}
 
         {myRankCard && (
-          <div className="mb-4 rounded-xl border border-cc-gold/20 bg-cc-gold/5 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-cc-muted">{myRankCard.title}</p>
-              <p className="text-sm text-cc-text font-medium">#{myRankCard.rank}</p>
+              <p className="text-[10px] uppercase tracking-wider text-bf-muted">{myRankCard.title}</p>
+              <p className="text-sm text-bf-text font-medium">#{myRankCard.rank}</p>
             </div>
-            <p className="text-lg font-display text-cc-gold">{myRankCard.value}</p>
+            <p className="text-lg font-display text-bf-gold">{myRankCard.value}</p>
           </div>
         )}
 
         {/* Table */}
         <div className="card overflow-hidden">
           {loading ? (
-            <div className="py-16 text-center text-cc-muted animate-pulse">Loading leaderboard…</div>
+            <div className="py-16 text-center text-bf-muted animate-pulse">Loading leaderboard…</div>
           ) : data.length === 0 ? (
-            <div className="py-16 text-center text-cc-muted">No entries yet</div>
+            <div className="py-16 text-center text-bf-muted">No entries yet</div>
           ) : (
-            <div className="divide-y divide-cc-border">
+            <div className="divide-y divide-bf-border">
               {activeTab === 'rating' && (data as RatingEntry[]).map((entry) => (
                 <Link
                   key={entry.user_id}
                   to={`/profile/${entry.user_id}`}
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors',
-                    entry.rank <= 3 && 'bg-gradient-to-r from-cc-gold/[0.05] to-transparent',
-                    user?.user_id === entry.user_id && 'bg-cc-gold/5',
+                    entry.rank <= 3 && 'bg-gradient-to-r from-bf-gold/[0.05] to-transparent',
+                    user?.user_id === entry.user_id && 'bg-bf-gold/5',
                   )}
                 >
-                  <span className="text-cc-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
-                  <span className="flex-1 font-medium text-cc-text truncate">{entry.username}</span>
+                  <span className="text-bf-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
+                  <span className="flex-1 font-medium text-bf-text truncate">{entry.username}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: entry.tier.color, color: entry.tier.color }}>
                     {TIER_ICONS[entry.tier.tier]} {entry.tier.label}
                   </span>
-                  <span className="text-cc-gold font-bold tabular-nums w-16 text-right">{entry.rating}</span>
+                  <span className="text-bf-gold font-bold tabular-nums w-16 text-right">{entry.rating}</span>
                 </Link>
               ))}
 
@@ -202,13 +202,13 @@ export default function LeaderboardsPage() {
                   to={`/profile/${entry.user_id}`}
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors',
-                    user?.user_id === entry.user_id && 'bg-cc-gold/5',
+                    user?.user_id === entry.user_id && 'bg-bf-gold/5',
                   )}
                 >
-                  <span className="text-cc-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
-                  <span className="flex-1 font-medium text-cc-text truncate">{entry.username}</span>
-                  <span className="text-sm text-cc-muted tabular-nums">{entry.xp.toLocaleString()} XP</span>
-                  <span className="bg-cc-gold/20 text-cc-gold text-xs font-bold px-2 py-0.5 rounded-full w-14 text-center">
+                  <span className="text-bf-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
+                  <span className="flex-1 font-medium text-bf-text truncate">{entry.username}</span>
+                  <span className="text-sm text-bf-muted tabular-nums">{entry.xp.toLocaleString()} XP</span>
+                  <span className="bg-bf-gold/20 text-bf-gold text-xs font-bold px-2 py-0.5 rounded-full w-14 text-center">
                     Lv {entry.level}
                   </span>
                 </Link>
@@ -220,16 +220,16 @@ export default function LeaderboardsPage() {
                   to={`/profile/${entry.user_id}`}
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors',
-                    user?.user_id === entry.user_id && 'bg-cc-gold/5',
+                    user?.user_id === entry.user_id && 'bg-bf-gold/5',
                   )}
                 >
-                  <span className="text-cc-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
-                  <span className="flex-1 font-medium text-cc-text truncate">{entry.username}</span>
-                  <span className="text-xs text-cc-muted tabular-nums">{entry.games_played} games</span>
+                  <span className="text-bf-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
+                  <span className="flex-1 font-medium text-bf-text truncate">{entry.username}</span>
+                  <span className="text-xs text-bf-muted tabular-nums">{entry.games_played} games</span>
                   <span className="text-xs px-2 py-0.5 rounded-full border" style={{ borderColor: entry.tier_info.color, color: entry.tier_info.color }}>
                     {TIER_ICONS[entry.highest_tier]} {entry.tier_info.label}
                   </span>
-                  <span className="text-cc-gold font-bold tabular-nums w-16 text-right">{entry.rating}</span>
+                  <span className="text-bf-gold font-bold tabular-nums w-16 text-right">{entry.rating}</span>
                 </Link>
               ))}
 
@@ -240,14 +240,14 @@ export default function LeaderboardsPage() {
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors',
                     entry.rank <= 3 && 'bg-gradient-to-r from-sky-400/[0.06] to-transparent',
-                    user?.user_id === entry.user_id && 'bg-cc-gold/5',
+                    user?.user_id === entry.user_id && 'bg-bf-gold/5',
                   )}
                 >
-                  <span className="text-cc-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
-                  <span className="flex-1 font-medium text-cc-text truncate">{entry.username}</span>
+                  <span className="text-bf-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
+                  <span className="flex-1 font-medium text-bf-text truncate">{entry.username}</span>
                   <span className="text-xs" style={{ color: entry.tier.color }}>{entry.tier.label}</span>
-                  <span className="text-sm text-cc-muted tabular-nums">{entry.games_played}G</span>
-                  <span className="text-cc-gold font-bold tabular-nums w-12 text-right">{entry.wins}W</span>
+                  <span className="text-sm text-bf-muted tabular-nums">{entry.games_played}G</span>
+                  <span className="text-bf-gold font-bold tabular-nums w-12 text-right">{entry.wins}W</span>
                 </Link>
               ))}
 
@@ -257,11 +257,11 @@ export default function LeaderboardsPage() {
                   to={`/profile/${entry.user_id}`}
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors',
-                    user?.user_id === entry.user_id && 'bg-cc-gold/5',
+                    user?.user_id === entry.user_id && 'bg-bf-gold/5',
                   )}
                 >
-                  <span className="text-cc-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
-                  <span className="flex-1 font-medium text-cc-text truncate">{entry.username}</span>
+                  <span className="text-bf-muted text-sm w-8 text-right tabular-nums">#{entry.rank}</span>
+                  <span className="flex-1 font-medium text-bf-text truncate">{entry.username}</span>
                   {entry.win_streak > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs text-orange-400 bg-orange-400/10 border border-orange-400/20 rounded-full px-2 py-0.5">
                       <Flame className="w-3 h-3" /> {entry.win_streak}W
@@ -279,21 +279,21 @@ export default function LeaderboardsPage() {
 
           {/* Pagination */}
           {data.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-cc-border">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-bf-border">
               <button
                 onClick={() => setPage(Math.max(0, page - 1))}
                 disabled={page === 0}
-                className="flex items-center gap-1 text-sm text-cc-muted hover:text-cc-text disabled:opacity-30 transition-colors"
+                className="flex items-center gap-1 text-sm text-bf-muted hover:text-bf-text disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" /> Previous
               </button>
-              <span className="text-xs text-cc-muted">
+              <span className="text-xs text-bf-muted">
                 Page {page + 1}
               </span>
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={data.length < PAGE_SIZE}
-                className="flex items-center gap-1 text-sm text-cc-muted hover:text-cc-text disabled:opacity-30 transition-colors"
+                className="flex items-center gap-1 text-sm text-bf-muted hover:text-bf-text disabled:opacity-30 transition-colors"
               >
                 Next <ChevronRight className="w-4 h-4" />
               </button>

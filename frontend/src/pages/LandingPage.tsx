@@ -212,13 +212,13 @@ function EraDetailModal({
       />
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div
-          className="relative w-full max-w-lg rounded-xl border border-cc-border bg-[#0f1419] shadow-2xl shadow-black/50 p-4 sm:p-6 md:p-8 max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
+          className="relative w-full max-w-lg rounded-xl border border-bf-border bg-[#0f1419] shadow-2xl shadow-black/50 p-4 sm:p-6 md:p-8 max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain"
           style={{ boxShadow: `0 0 0 1px ${era.color}33, 0 25px 50px -12px rgba(0,0,0,0.5)` }}
         >
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-cc-muted hover:text-cc-gold hover:bg-white/5 transition-colors"
+          className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-bf-muted hover:text-bf-gold hover:bg-white/5 transition-colors"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -231,20 +231,20 @@ function EraDetailModal({
           🗺️
         </div>
 
-        <h4 id="era-modal-title" className="font-display text-2xl text-cc-gold text-center mb-1">
+        <h4 id="era-modal-title" className="font-display text-2xl text-bf-gold text-center mb-1">
           {era.label}
         </h4>
-        <p className="text-center text-cc-muted text-sm mb-6">{era.years}</p>
+        <p className="text-center text-bf-muted text-sm mb-6">{era.years}</p>
 
-        <div className="space-y-4 text-cc-muted text-sm leading-relaxed">
+        <div className="space-y-4 text-bf-muted text-sm leading-relaxed">
           <p>{era.summary}</p>
-          <div className="flex flex-wrap gap-4 pt-2 border-t border-cc-border text-xs">
+          <div className="flex flex-wrap gap-4 pt-2 border-t border-bf-border text-xs">
             <span>
-              <span className="text-cc-gold/90 font-medium">Suggested players:</span>{' '}
+              <span className="text-bf-gold/90 font-medium">Suggested players:</span>{' '}
               {era.suggestedPlayers}
             </span>
             <span>
-              <span className="text-cc-gold/90 font-medium">Territories:</span>{' '}
+              <span className="text-bf-gold/90 font-medium">Territories:</span>{' '}
               {era.territoryCount}
             </span>
           </div>
@@ -275,7 +275,7 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
     <button
       type="button"
       onClick={() => onOpen(era)}
-      className="card text-center hover:border-cc-gold transition-colors cursor-pointer group w-full"
+      className="card text-center hover:border-bf-gold transition-colors cursor-pointer group w-full"
     >
       <div
         className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl"
@@ -283,8 +283,8 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
       >
         🗺️
       </div>
-      <p className="font-display text-sm text-cc-gold group-hover:text-white transition-colors">{era.label}</p>
-      <p className="text-xs text-cc-muted mt-1">{era.years}</p>
+      <p className="font-display text-sm text-bf-gold group-hover:text-white transition-colors">{era.label}</p>
+      <p className="text-xs text-bf-muted mt-1">{era.years}</p>
     </button>
   );
 }
@@ -305,11 +305,11 @@ function GetStartedModal({
       onClick={onClose}
     >
       <div
-        className="bg-cc-surface border border-cc-border rounded-2xl p-6 sm:p-8 w-full max-w-sm shadow-2xl"
+        className="bg-bf-surface border border-bf-border rounded-2xl p-6 sm:p-8 w-full max-w-sm shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="font-display text-2xl text-cc-gold mb-1 text-center">Jump In</p>
-        <p className="text-cc-muted text-sm text-center mb-6">
+        <p className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
+        <p className="text-bf-muted text-sm text-center mb-6">
           Create a free account to save progress and climb the leaderboards, or jump straight in as a guest.
         </p>
 
@@ -331,9 +331,9 @@ function GetStartedModal({
           </button>
         </div>
 
-        <p className="text-center text-xs text-cc-muted mt-4">
+        <p className="text-center text-xs text-bf-muted mt-4">
           Already have an account?{' '}
-          <Link to="/login" className="text-cc-gold hover:underline" onClick={onClose}>
+          <Link to="/login" className="text-bf-gold hover:underline" onClick={onClose}>
             Sign In
           </Link>
         </p>
@@ -372,9 +372,9 @@ export default function LandingPage() {
   }, [modalEra, showGetStarted]);
 
   return (
-    <div className="min-h-screen bg-cc-dark">
+    <div className="min-h-screen bg-bf-dark">
       {/* Navigation */}
-      <nav className="border-b border-cc-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
+      <nav className="border-b border-bf-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
         <BrandWordmark className="text-lg sm:text-2xl" />
         <div className="flex items-center gap-1.5 sm:gap-2">
           <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
@@ -393,13 +393,13 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="text-center py-16 sm:py-24 px-4 sm:px-6">
-        <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-cc-gold mb-4 sm:mb-6 leading-tight">
+        <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-bf-gold mb-4 sm:mb-6 leading-tight">
           {APP_NAME}
         </h2>
-        <p data-testid="hero-tagline" className="font-display text-lg sm:text-xl text-cc-gold/90 italic mb-4">
+        <p data-testid="hero-tagline" className="font-display text-lg sm:text-xl text-bf-gold/90 italic mb-4">
           {TAGLINE_PRIMARY}
         </p>
-        <p className="text-cc-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
+        <p className="text-bf-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
           {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI — free in your browser.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
@@ -419,11 +419,11 @@ export default function LandingPage() {
 
       {/* Era Showcase */}
       <section className="py-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Choose Your Era</h3>
+        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Choose Your Era</h3>
 
         <div className="mb-12">
-          <h4 className="font-display text-lg text-cc-gold/95 mb-4 tracking-wide">Global</h4>
-          <p className="text-cc-muted text-sm mb-6 max-w-2xl">
+          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Global</h4>
+          <p className="text-bf-muted text-sm mb-6 max-w-2xl">
             Full-world maps spanning multiple continents and eras of history.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -434,8 +434,8 @@ export default function LandingPage() {
         </div>
 
         <div>
-          <h4 className="font-display text-lg text-cc-gold/95 mb-4 tracking-wide">Regional</h4>
-          <p className="text-cc-muted text-sm mb-6 max-w-2xl">
+          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Regional</h4>
+          <p className="text-bf-muted text-sm mb-6 max-w-2xl">
             Theater-scale maps focused on a single region for faster, more intimate campaigns.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
@@ -467,16 +467,16 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="py-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-cc-gold mb-10">Why {APP_NAME}?</h3>
+        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Why {APP_NAME}?</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {FEATURES.map((f) => (
             <div key={f.title} className="card flex gap-4">
               <div className="shrink-0">
-                <f.icon className="w-8 h-8 text-cc-gold" />
+                <f.icon className="w-8 h-8 text-bf-gold" />
               </div>
               <div>
-                <h4 className="font-display text-lg text-cc-gold mb-2">{f.title}</h4>
-                <p className="text-cc-muted text-sm leading-relaxed">{f.desc}</p>
+                <h4 className="font-display text-lg text-bf-gold mb-2">{f.title}</h4>
+                <p className="text-bf-muted text-sm leading-relaxed">{f.desc}</p>
               </div>
             </div>
           ))}
@@ -485,9 +485,9 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="py-20 text-center px-6">
-        <h3 className="font-display text-4xl text-cc-gold mb-4">Ready to Command?</h3>
-        <p className="text-cc-muted italic mb-4">{TAGLINE_CINEMATIC}</p>
-        <p className="text-cc-muted mb-8">No download required. Play instantly in your browser.</p>
+        <h3 className="font-display text-4xl text-bf-gold mb-4">Ready to Command?</h3>
+        <p className="text-bf-muted italic mb-4">{TAGLINE_CINEMATIC}</p>
+        <p className="text-bf-muted mb-8">No download required. Play instantly in your browser.</p>
         <button
           type="button"
           className="btn-primary text-lg px-12 py-3"
@@ -498,9 +498,9 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-cc-border py-8 pb-safe text-center text-cc-muted text-sm space-y-2">
+      <footer className="border-t border-bf-border py-8 pb-safe text-center text-bf-muted text-sm space-y-2">
         <p>© 2026 {APP_NAME}. All rights reserved.</p>
-        <Link to="/privacy" className="text-cc-gold/80 hover:text-cc-gold block">Privacy Policy</Link>
+        <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold block">Privacy Policy</Link>
       </footer>
     </div>
   );
