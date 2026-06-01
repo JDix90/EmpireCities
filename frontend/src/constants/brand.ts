@@ -12,3 +12,9 @@ export const META_DESCRIPTION =
 
 export const STORE_DESCRIPTION =
   'Borderfall is a turn-based territory strategy game where players command units, break enemy lines, and redraw the map across eras from ancient kingdoms to galactic fronts.';
+
+/** Public support / privacy contact — override via VITE_SUPPORT_EMAIL at build time if needed. */
+export const SUPPORT_EMAIL =
+  (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || 'support@borderfall.com';
+
+export const LEGAL_LAST_UPDATED = 'March 31, 2026';

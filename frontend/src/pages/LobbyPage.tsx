@@ -1802,6 +1802,8 @@ export default function LobbyPage() {
             <Link to="/friends" className="hover:text-bf-gold transition-colors">Friends</Link>
             <Link to="/profile" className="hover:text-bf-gold transition-colors">Profile</Link>
             <Link to="/privacy" className="hover:text-bf-gold transition-colors">Privacy Policy</Link>
+            <span className="text-bf-border">·</span>
+            <Link to="/terms" className="hover:text-bf-gold transition-colors">Terms of Service</Link>
             <Link to="/" className="hover:text-bf-gold transition-colors">Marketing Home</Link>
           </nav>
         </div>

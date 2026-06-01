@@ -27,6 +27,7 @@ const MapHubPage = lazyWithChunkRetry(() => import('./pages/MapHubPage'));
 const FriendsPage = lazyWithChunkRetry(() => import('./pages/FriendsPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const PrivacyPage = lazyWithChunkRetry(() => import('./pages/PrivacyPage'));
+const TermsPage = lazyWithChunkRetry(() => import('./pages/TermsPage'));
 const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
@@ -237,6 +238,7 @@ export default function App() {
         <Route path="/__modal-lab" element={<ModalLabPage />} />
         <Route path="/__map-visual-lab" element={<MapVisualLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />

@@ -7,4 +7,11 @@ test.describe('CI smoke', () => {
     await expect(page.getByTestId('hero-tagline')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Choose Your Era' })).toBeVisible();
   });
+
+  test('legal pages load', async ({ page }) => {
+    await page.goto('/privacy');
+    await expect(page.locator('article').getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
+    await page.goto('/terms');
+    await expect(page.locator('article').getByRole('heading', { name: 'Terms of Service' })).toBeVisible();
+  });
 });

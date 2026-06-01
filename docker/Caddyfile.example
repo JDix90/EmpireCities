@@ -1,0 +1,25 @@
+# Example Caddy reverse proxy for Borderfall production.
+# Terminates TLS and forwards to the Docker nginx container on localhost:80.
+#
+# 1. Install Caddy on the VPS (https://caddyserver.com/docs/install)
+# 2. Copy this file to /etc/caddy/Caddyfile (adjust domain)
+# 3. Set FRONTEND_URL=https://play.your-domain.com in .env.production
+# 4. docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d
+# 5. sudo systemctl reload caddy
+#
+# Replace play.your-domain.com with your public hostname.
+
+play.your-domain.com {
+	encode gzip
+
+	reverse_proxy localhost:80 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# Optional: redirect www to apex
+# www.your-domain.com {
+# 	redir https://play.your-domain.com{uri} permanent
+# }

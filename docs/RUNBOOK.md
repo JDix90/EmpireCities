@@ -2,14 +2,21 @@
 
 ## Deploy (production)
 
-1. **Backup** Postgres (and Mongo if map data is mutable in your process).
+1. **Backup** Postgres (and Mongo if map data is mutable in your process): `./scripts/backup-databases.sh`
 2. **Pull** the release tag / commit on the app host.
-3. **Install** dependencies: `pnpm install --frozen-lockfile` at repo root.
-4. **Build** shared + backend + frontend: `pnpm run build`.
-5. **Migrate** Postgres: `pnpm run db:migrate` (runs `backend` migrate script; records filenames in `_migrations`).
-6. **Restart** the Node process (Docker Compose, systemd, or your orchestrator).
-7. **Smoke:** `GET /health` → `200`; `GET /ready` → `200` when Postgres, MongoDB, and Redis are reachable.
-8. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
+3. **Configure** `.env.production` (see [DEPLOYMENT.md](../DEPLOYMENT.md) and `.env.production.example`).
+4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed`).
+5. **Smoke:** `./scripts/smoke-production.sh https://your-domain` — checks `/health` and `/ready`.
+6. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
+
+### Web launch sequence
+
+1. **Staging** — same stack on a subdomain; run [LAUNCH_QA_SIGNOFF.md](LAUNCH_QA_SIGNOFF.md) gates A–G.
+2. **Closed beta** — production domain, invite-only; monitor Sentry and `/ready`.
+3. **Soft launch** — open registration; watch load and mobile UX.
+4. **Public launch** — marketing; re-run Gate A before announce.
+
+See [DEPLOYMENT.md](../DEPLOYMENT.md) for HTTPS (Caddy example: [docker/Caddyfile.example](../docker/Caddyfile.example)).
 
 ## Health vs readiness
 

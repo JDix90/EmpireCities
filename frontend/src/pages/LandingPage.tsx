@@ -376,14 +376,22 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="border-b border-bf-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
         <BrandWordmark className="text-lg sm:text-2xl" />
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
             Learn to play
           </Link>
+          <button
+            type="button"
+            className="btn-secondary text-sm sm:hidden"
+            disabled={guestLoading}
+            onClick={() => void handleGuest()}
+          >
+            {guestLoading ? 'Starting…' : 'Play as Guest'}
+          </button>
           <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
           <button
             type="button"
-            className="btn-primary text-sm"
+            className="btn-primary text-sm hidden sm:inline-flex"
             onClick={() => setShowGetStarted(true)}
           >
             Play Free
@@ -500,7 +508,10 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-bf-border py-8 pb-safe text-center text-bf-muted text-sm space-y-2">
         <p>© 2026 {APP_NAME}. All rights reserved.</p>
-        <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold block">Privacy Policy</Link>
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">Privacy Policy</Link>
+          <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">Terms of Service</Link>
+        </div>
       </footer>
     </div>
   );

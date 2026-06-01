@@ -52,6 +52,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               <MoreLink to="/leaderboards" icon={Trophy} label="Leaders" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
+              <MoreLink to="/terms" icon={FileText} label="Terms" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />
               <button
                 type="button"

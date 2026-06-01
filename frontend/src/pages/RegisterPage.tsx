@@ -214,6 +214,12 @@ export default function RegisterPage() {
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>
               {isLoading ? 'Creating account...' : 'Create Account'}
             </button>
+            <p className="text-xs text-bf-muted text-center mt-3 leading-relaxed">
+              By creating an account, you agree to our{' '}
+              <Link to="/terms" className="text-bf-gold hover:underline">Terms of Service</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-bf-gold hover:underline">Privacy Policy</Link>.
+            </p>
           </form>
 
           <p className="text-center text-bf-muted text-sm mt-6">
