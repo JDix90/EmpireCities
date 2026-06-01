@@ -2,7 +2,7 @@
 // Orbit access — Space Age Moon ladder + Galactic hyperspace tech
 // ============================================================
 
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode } from '../../types';
 
 export interface MoonAccessState {

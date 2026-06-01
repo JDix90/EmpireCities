@@ -141,38 +141,38 @@ export default function MapVisualLabPage() {
   const mapHeight = useMemo(() => Math.max(360, window.innerHeight - 180), []);
 
   return (
-    <div className="min-h-screen bg-cc-dark text-cc-text flex flex-col">
-      <header className="border-b border-cc-border px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 pt-safe px-safe">
-        <Link to="/lobby" className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text text-sm transition-colors">
+    <div className="min-h-screen bg-bf-dark text-bf-text flex flex-col">
+      <header className="border-b border-bf-border px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 pt-safe px-safe">
+        <Link to="/lobby" className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text text-sm transition-colors">
           ← Lobby
         </Link>
-        <h1 className="font-display text-xl text-cc-gold tracking-widest">MAP VISUAL LAB</h1>
+        <h1 className="font-display text-xl text-bf-gold tracking-widest">MAP VISUAL LAB</h1>
         <div className="flex gap-2 ml-auto">
           <button
             type="button"
             onClick={() => setView('2d')}
-            className={view === '2d' ? 'text-cc-gold text-sm' : 'text-cc-muted hover:text-cc-text text-sm'}
+            className={view === '2d' ? 'text-bf-gold text-sm' : 'text-bf-muted hover:text-bf-text text-sm'}
           >
             2D
           </button>
           <button
             type="button"
             onClick={() => setView('globe')}
-            className={view === 'globe' ? 'text-cc-gold text-sm' : 'text-cc-muted hover:text-cc-text text-sm'}
+            className={view === 'globe' ? 'text-bf-gold text-sm' : 'text-bf-muted hover:text-bf-text text-sm'}
           >
             Globe
           </button>
         </div>
       </header>
 
-      <div className="px-4 py-2 flex flex-wrap gap-2 border-b border-cc-border">
+      <div className="px-4 py-2 flex flex-wrap gap-2 border-b border-bf-border">
         {TRIGGER_BUTTONS.map(({ id, label }) => (
           <button
             key={id}
             type="button"
             data-testid={`lab-trigger-${id}`}
             onClick={() => trigger(id)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-cc-border hover:border-cc-gold/50 hover:text-cc-gold transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-bf-border hover:border-bf-gold/50 hover:text-bf-gold transition-colors"
           >
             {label}
           </button>
@@ -192,7 +192,7 @@ export default function MapVisualLabPage() {
               strikeFlash={strikeFlash}
             />
           ) : (
-            <Suspense fallback={<div className="text-cc-muted animate-pulse p-8">Loading globe…</div>}>
+            <Suspense fallback={<div className="text-bf-muted animate-pulse p-8">Loading globe…</div>}>
               <GlobeMap
                 mapData={MAP_VISUAL_LAB_FIXTURE}
                 onTerritoryClick={() => {}}

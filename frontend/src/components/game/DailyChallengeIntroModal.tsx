@@ -90,31 +90,31 @@ export default function DailyChallengeIntroModal({
       aria-modal="true"
       aria-labelledby="daily-intro-title"
     >
-      <div className="bg-cc-surface border border-cc-gold/35 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl">
+      <div className="bg-bf-surface border border-bf-gold/35 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl">
         <div className="flex items-center justify-center gap-2 mb-1">
-          <Calendar className="w-4 h-4 text-cc-gold" />
-          <p className="text-xs uppercase tracking-[0.28em] text-cc-gold/85 font-display">Daily Challenge</p>
+          <Calendar className="w-4 h-4 text-bf-gold" />
+          <p className="text-xs uppercase tracking-[0.28em] text-bf-gold/85 font-display">Daily Challenge</p>
         </div>
         {dateLabel && (
-          <p className="text-cc-muted text-xs text-center mb-4">{dateLabel}</p>
+          <p className="text-bf-muted text-xs text-center mb-4">{dateLabel}</p>
         )}
 
         <h2
           id="daily-intro-title"
-          className="font-display text-2xl sm:text-3xl text-cc-gold text-center mb-2"
+          className="font-display text-2xl sm:text-3xl text-bf-gold text-center mb-2"
         >
           {spec.title ?? 'Today\u2019s Mission'}
         </h2>
         {eraLabel && (
-          <p className="text-center text-cc-muted text-sm mb-4">{eraLabel}</p>
+          <p className="text-center text-bf-muted text-sm mb-4">{eraLabel}</p>
         )}
 
         {(spec.intro || spec.goal) && (
-          <div className="space-y-3 text-cc-muted text-sm leading-relaxed mb-5">
+          <div className="space-y-3 text-bf-muted text-sm leading-relaxed mb-5">
             {spec.intro && <p>{spec.intro}</p>}
             {spec.goal && (
-              <p className="text-cc-text">
-                <span className="text-cc-gold/85 font-medium">Goal: </span>
+              <p className="text-bf-text">
+                <span className="text-bf-gold/85 font-medium">Goal: </span>
                 {spec.goal}
               </p>
             )}
@@ -122,33 +122,33 @@ export default function DailyChallengeIntroModal({
         )}
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Target className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">Mission</p>
-            <p className="text-sm text-cc-text font-medium leading-tight">{arche}</p>
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Target className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Mission</p>
+            <p className="text-sm text-bf-text font-medium leading-tight">{arche}</p>
           </div>
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Trophy className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">Difficulty</p>
-            <p className="text-sm text-cc-text font-medium leading-tight capitalize">{difficultyLabel}</p>
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Trophy className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Difficulty</p>
+            <p className="text-sm text-bf-text font-medium leading-tight capitalize">{difficultyLabel}</p>
           </div>
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Clock className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">Est. Time</p>
-            <p className="text-sm text-cc-text font-medium leading-tight">{time}</p>
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Clock className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Est. Time</p>
+            <p className="text-sm text-bf-text font-medium leading-tight">{time}</p>
           </div>
         </div>
 
         {(typeof spec.max_turns === 'number' || typeof spec.player_count === 'number') && (
-          <p className="text-cc-muted text-xs text-center mb-5">
+          <p className="text-bf-muted text-xs text-center mb-5">
             {typeof spec.max_turns === 'number' && (
-              <>Turn limit: <span className="text-cc-text">{spec.max_turns}</span></>
+              <>Turn limit: <span className="text-bf-text">{spec.max_turns}</span></>
             )}
             {typeof spec.max_turns === 'number' && typeof spec.player_count === 'number' && (
-              <span className="mx-2 text-cc-border">•</span>
+              <span className="mx-2 text-bf-border">•</span>
             )}
             {typeof spec.player_count === 'number' && (
-              <>Opponents: <span className="text-cc-text">{Math.max(0, spec.player_count - 1)} AI</span></>
+              <>Opponents: <span className="text-bf-text">{Math.max(0, spec.player_count - 1)} AI</span></>
             )}
           </p>
         )}

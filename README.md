@@ -81,7 +81,7 @@ Two community maps (14 Nations and Strait of Hormuz) are also included. Addition
 ## Project Structure
 
 ```
-eras-of-empire/
+borderfall/
 ├── README.md
 ├── package.json                  # Root monorepo workspace
 ├── .gitignore

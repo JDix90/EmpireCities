@@ -27,7 +27,7 @@ import { COMMUNITY_HORN_AFRICA_TERRITORY_GEO } from '../data/communityHornAfrica
 import { AUSTRALIA_1337_VORONOI_CLIP } from '../data/australia1337VoronoiClip';
 import { BRITAIN_925_VORONOI_CLIP } from '../data/britain925VoronoiClip';
 import { clipToPolygon } from './geoClipPolygon';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { GALAXY_SOL_TERRITORY_GEO } from '../data/galaxySolGlobeGeo';
 import { GALAXY_EXO_VORONOI_GLOBE } from '../data/galaxyExoVoronoiGlobe';
 import { buildOrganicGalaxyCapRing } from './galaxyOrganicGlobeRing';

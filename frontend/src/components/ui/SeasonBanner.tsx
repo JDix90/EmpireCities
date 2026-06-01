@@ -63,9 +63,9 @@ export default function SeasonBanner({ className }: SeasonBannerProps) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Trophy size={16} style={{ color: tierColor }} />
-          <span className="font-display text-sm text-cc-text">{season.name}</span>
+          <span className="font-display text-sm text-bf-text">{season.name}</span>
         </div>
-        <div className="flex items-center gap-1 text-xs text-cc-muted">
+        <div className="flex items-center gap-1 text-xs text-bf-muted">
           <Clock size={12} />
           <span>{season.days_remaining}d remaining</span>
         </div>
@@ -78,7 +78,7 @@ export default function SeasonBanner({ className }: SeasonBannerProps) {
             {season.current_tier}
           </p>
           {season.highest_tier !== season.current_tier && (
-            <p className="text-[10px] text-cc-muted">
+            <p className="text-[10px] text-bf-muted">
               Peak: <span className="capitalize">{season.highest_tier}</span>
             </p>
           )}
@@ -86,19 +86,19 @@ export default function SeasonBanner({ className }: SeasonBannerProps) {
       </div>
 
       {/* Season progress bar */}
-      <div className="h-1.5 rounded-full bg-cc-dark overflow-hidden">
+      <div className="h-1.5 rounded-full bg-bf-dark overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${progressPct}%`, backgroundColor: tierColor }}
         />
       </div>
 
-      <div className="flex items-center gap-1 mt-2 text-[10px] text-cc-muted">
+      <div className="flex items-center gap-1 mt-2 text-[10px] text-bf-muted">
         <span>Featured eras:</span>
         {season.featured_eras.map((era) => (
           <span
             key={era}
-            className="px-1.5 py-0.5 rounded bg-cc-dark border border-cc-border"
+            className="px-1.5 py-0.5 rounded bg-bf-dark border border-bf-border"
           >
             {era.replace('era_', '').replace(/_/g, ' ')}
           </span>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GamePhase } from '@erasofempire/shared';
+import type { GamePhase } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 export interface TerritoryState {

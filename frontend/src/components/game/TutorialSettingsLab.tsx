@@ -106,20 +106,20 @@ export default function TutorialSettingsLab({
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       data-testid="tutorial-settings-lab"
     >
-      <div className="w-full max-w-sm mx-4 rounded-2xl border border-cc-gold/30 bg-cc-surface shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-cc-border">
-          <span className="font-display text-lg text-cc-gold">Settings Lab</span>
+      <div className="w-full max-w-sm mx-4 rounded-2xl border border-bf-gold/30 bg-bf-surface shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-bf-border">
+          <span className="font-display text-lg text-bf-gold">Settings Lab</span>
           <button
             type="button"
             onClick={onClose}
-            className="text-cc-muted hover:text-cc-text transition-colors"
+            className="text-bf-muted hover:text-bf-text transition-colors"
             aria-label="Close Settings Lab"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="px-5 pt-4 pb-2 text-xs text-cc-muted/70">
+        <p className="px-5 pt-4 pb-2 text-xs text-bf-muted/70">
           Flip at least two toggles to preview how they change this match. Enabled options take effect
           when you close the lab.
         </p>
@@ -140,7 +140,7 @@ export default function TutorialSettingsLab({
                       role="switch"
                       aria-checked={isOn}
                       className={`relative w-9 h-5 rounded-full transition-colors ${
-                        isOn ? 'bg-cc-gold' : 'bg-cc-border'
+                        isOn ? 'bg-bf-gold' : 'bg-bf-border'
                       }`}
                     >
                       <div
@@ -151,14 +151,14 @@ export default function TutorialSettingsLab({
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm text-cc-text group-hover:text-cc-gold transition-colors">
+                    <p className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">
                       {setting.label}
                     </p>
-                    <p className="text-xs text-cc-muted/70 mt-0.5">{setting.description}</p>
+                    <p className="text-xs text-bf-muted/70 mt-0.5">{setting.description}</p>
                   </div>
                 </label>
                 {wasToggled && (
-                  <p className="ml-12 mt-1 text-xs text-cc-gold/80 italic">
+                  <p className="ml-12 mt-1 text-xs text-bf-gold/80 italic">
                     With this {isOn ? 'on' : 'off'}, {isOn ? setting.effectOn : setting.effectOff}
                   </p>
                 )}
@@ -175,7 +175,7 @@ export default function TutorialSettingsLab({
           </div>
         ) : toggledKeys.size === 1 ? (
           <div className="px-5 pb-5">
-            <div className="rounded-lg border border-cc-gold/30 bg-cc-gold/10 px-4 py-2.5 text-sm text-cc-gold/90">
+            <div className="rounded-lg border border-bf-gold/30 bg-bf-gold/10 px-4 py-2.5 text-sm text-bf-gold/90">
               1 of 2 explored — flip one more toggle to continue.
             </div>
           </div>

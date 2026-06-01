@@ -124,16 +124,16 @@ function NotificationPreferences() {
 
   return (
     <div className="card">
-      <h3 className="font-display text-lg text-cc-gold flex items-center gap-2 mb-3">
+      <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-3">
         <Bell className="w-5 h-5" /> Notification Settings
       </h3>
       <div className="space-y-3">
         <label className="flex items-center justify-between gap-3 cursor-pointer">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-cc-muted" />
+            <Bell className="w-4 h-4 text-bf-muted" />
             <div>
-              <span className="text-sm text-cc-text">Push Notifications</span>
-              <p className="text-xs text-cc-muted">Get notified when it's your turn in async games</p>
+              <span className="text-sm text-bf-text">Push Notifications</span>
+              <p className="text-xs text-bf-muted">Get notified when it's your turn in async games</p>
             </div>
           </div>
           <input
@@ -143,15 +143,15 @@ function NotificationPreferences() {
               setPushEnabled(e.target.checked);
               update('push_enabled', e.target.checked);
             }}
-            className="w-5 h-5 accent-cc-gold"
+            className="w-5 h-5 accent-bf-gold"
           />
         </label>
         <label className="flex items-center justify-between gap-3 cursor-pointer">
           <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-cc-muted" />
+            <Mail className="w-4 h-4 text-bf-muted" />
             <div>
-              <span className="text-sm text-cc-text">Email Notifications</span>
-              <p className="text-xs text-cc-muted">Receive an email when it's your turn in async games</p>
+              <span className="text-sm text-bf-text">Email Notifications</span>
+              <p className="text-xs text-bf-muted">Receive an email when it's your turn in async games</p>
             </div>
           </div>
           <input
@@ -161,7 +161,7 @@ function NotificationPreferences() {
               setEmailEnabled(e.target.checked);
               update('email_notifications', e.target.checked);
             }}
-            className="w-5 h-5 accent-cc-gold"
+            className="w-5 h-5 accent-bf-gold"
           />
         </label>
       </div>
@@ -231,7 +231,7 @@ export default function ProfilePage() {
         maxWidth="4xl"
         headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
       >
-        <p className="text-cc-muted text-center py-16">Loading profile…</p>
+        <p className="text-bf-muted text-center py-16">Loading profile…</p>
       </SubpageShell>
     );
   }
@@ -244,9 +244,9 @@ export default function ProfilePage() {
         headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
       >
         <div className="text-center py-16 space-y-4">
-          <p className="text-cc-muted">{loadError ?? 'User not found.'}</p>
+          <p className="text-bf-muted">{loadError ?? 'User not found.'}</p>
           {loadError && (
-            <p className="text-cc-muted/70 text-sm max-w-md mx-auto">
+            <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
               If the server was updated recently, apply pending database migrations so ratings and profile columns exist.
             </p>
           )}
@@ -274,7 +274,7 @@ export default function ProfilePage() {
               ? `bg-gradient-to-r ${FRAME_GRADIENTS[profile.equipped_frame]}`
               : ''
           }`}>
-            <div className="w-20 h-20 rounded-full bg-cc-border flex items-center justify-center text-3xl">
+            <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.username} className="w-full h-full rounded-full object-cover" />
               ) : (
@@ -283,26 +283,26 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="font-display text-2xl text-cc-gold">{profile.username}</h2>
-            <p className="text-cc-muted text-sm mt-1">
+            <h2 className="font-display text-2xl text-bf-gold">{profile.username}</h2>
+            <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-4 mt-1">
-              <span className="text-cc-muted text-xs flex items-center gap-1">
+              <span className="text-bf-muted text-xs flex items-center gap-1">
                 <Bot className="w-3 h-3" /> Solo {profile.ratings?.solo?.display ?? '—'}
-                {profile.ratings?.solo?.provisional && <span className="text-cc-gold/60">(P)</span>}
+                {profile.ratings?.solo?.provisional && <span className="text-bf-gold/60">(P)</span>}
               </span>
-              <span className="relative group text-cc-muted text-xs flex items-center gap-1 cursor-default">
+              <span className="relative group text-bf-muted text-xs flex items-center gap-1 cursor-default">
                 <Shield className="w-3 h-3" /> Ranked {profile.ratings?.ranked?.display ?? '—'}
-                {profile.ratings?.ranked?.provisional && <span className="text-cc-gold/60">(P)</span>}
+                {profile.ratings?.ranked?.provisional && <span className="text-bf-gold/60">(P)</span>}
                 {profile.ratings?.ranked && <TierBadge mu={profile.ratings.ranked.mu} className="ml-1" />}
                 {profile.ratings?.ranked && (
                   <span className="pointer-events-none absolute bottom-full left-0 mb-2 hidden group-hover:flex
-                                   flex-col gap-1 bg-cc-dark border border-cc-border rounded-lg p-3
-                                   w-52 text-xs text-cc-muted shadow-xl z-20 whitespace-normal">
-                    <span className="font-semibold text-cc-text">Rating Confidence (RD)</span>
+                                   flex-col gap-1 bg-bf-dark border border-bf-border rounded-lg p-3
+                                   w-52 text-xs text-bf-muted shadow-xl z-20 whitespace-normal">
+                    <span className="font-semibold text-bf-text">Rating Confidence (RD)</span>
                     <span>RD: {Math.round(profile.ratings.ranked.phi)}</span>
-                    <span className="text-cc-muted/80 leading-relaxed">
+                    <span className="text-bf-muted/80 leading-relaxed">
                       {profile.ratings.ranked.phi > 150
                         ? 'Provisional — play more ranked games to settle your rating.'
                         : profile.ratings.ranked.phi > 80
@@ -316,7 +316,7 @@ export default function ProfilePage() {
             <div className="mt-3">
               <XpBar xp={profile.xp} />
               {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
-                <p className="flex items-center gap-1 text-cc-gold text-xs mt-2">
+                <p className="flex items-center gap-1 text-bf-gold text-xs mt-2">
                   <Coins className="w-3.5 h-3.5" />
                   {profile.gold.toLocaleString()} Gold
                 </p>
@@ -326,13 +326,13 @@ export default function ProfilePage() {
         </div>
 
         {isOwnProfile && (
-          <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-cc-gold/20">
+          <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-bf-gold/20">
             <div>
-              <h3 className="font-display text-lg text-cc-gold flex items-center gap-2">
+              <h3 className="font-display text-lg text-bf-gold flex items-center gap-2">
                 <GraduationCap className="w-5 h-5" /> Learn to Play
               </h3>
-              <p className="text-cc-muted text-sm mt-1 max-w-xl">
-                Launch a guided tutorial match, or open <strong className="text-cc-text">Rules</strong> for the in-app guide (combat, cards, victory conditions, advanced features). Developers and power users can also read <code className="text-xs">docs/PLAYER_GUIDE.md</code> in the repository for the longest-form FAQ and tables.
+              <p className="text-bf-muted text-sm mt-1 max-w-xl">
+                Launch a guided tutorial match, or open <strong className="text-bf-text">Rules</strong> for the in-app guide (combat, cards, victory conditions, advanced features). Developers and power users can also read <code className="text-xs">docs/PLAYER_GUIDE.md</code> in the repository for the longest-form FAQ and tables.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -362,9 +362,9 @@ export default function ProfilePage() {
               { label: 'Best Streak', value: stats.streaks.best_win, icon: Sword },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="card text-center">
-                <Icon className="w-5 h-5 text-cc-gold mx-auto mb-2" />
-                <p className="font-display text-2xl text-cc-gold">{value}</p>
-                <p className="text-cc-muted text-xs mt-1">{label}</p>
+                <Icon className="w-5 h-5 text-bf-gold mx-auto mb-2" />
+                <p className="font-display text-2xl text-bf-gold">{value}</p>
+                <p className="text-bf-muted text-xs mt-1">{label}</p>
               </div>
             ))}
           </div>
@@ -373,15 +373,15 @@ export default function ProfilePage() {
         {/* Category Tabs */}
         {stats && (
           <div className="card">
-            <div className="flex gap-1 mb-6 p-1 bg-cc-dark rounded-lg w-fit">
+            <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit">
               {CATEGORY_TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all
                     ${activeTab === key
-                      ? 'bg-cc-gold/15 text-cc-gold border border-cc-gold/30'
-                      : 'text-cc-muted hover:text-cc-text border border-transparent'
+                      ? 'bg-bf-gold/15 text-bf-gold border border-bf-gold/30'
+                      : 'text-bf-muted hover:text-bf-text border border-transparent'
                     }`}
                 >
                   <Icon className="w-4 h-4" /> {label}
@@ -392,18 +392,18 @@ export default function ProfilePage() {
             {activeBucket && (
               <div className="grid grid-cols-3 gap-6">
                 <div className="text-center">
-                  <p className="text-3xl font-display text-cc-text">{activeBucket.played}</p>
-                  <p className="text-xs text-cc-muted mt-1">Games Played</p>
+                  <p className="text-3xl font-display text-bf-text">{activeBucket.played}</p>
+                  <p className="text-xs text-bf-muted mt-1">Games Played</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-display text-cc-text">{activeBucket.won}</p>
-                  <p className="text-xs text-cc-muted mt-1">Victories</p>
+                  <p className="text-3xl font-display text-bf-text">{activeBucket.won}</p>
+                  <p className="text-xs text-bf-muted mt-1">Victories</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-display text-cc-text">
+                  <p className="text-3xl font-display text-bf-text">
                     {activeBucket.played > 0 ? `${Math.round(activeBucket.win_rate * 100)}%` : '—'}
                   </p>
-                  <p className="text-xs text-cc-muted mt-1">Win Rate</p>
+                  <p className="text-xs text-bf-muted mt-1">Win Rate</p>
                 </div>
               </div>
             )}
@@ -413,22 +413,22 @@ export default function ProfilePage() {
         {/* Era Breakdown */}
         {stats && Object.keys(stats.by_era).length > 0 && (
           <div className="card">
-            <h3 className="font-display text-lg text-cc-gold mb-4 flex items-center gap-2">
+            <h3 className="font-display text-lg text-bf-gold mb-4 flex items-center gap-2">
               <Map className="w-5 h-5" /> Era Breakdown
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {Object.entries(stats.by_era).map(([era, data]) => {
                 const rate = data.played > 0 ? Math.round((data.won / data.played) * 100) : 0;
                 return (
-                  <div key={era} className="p-3 bg-cc-dark rounded-lg border border-cc-border">
-                    <p className="text-sm text-cc-text font-medium">{ERA_LABELS[era] ?? era}</p>
+                  <div key={era} className="p-3 bg-bf-dark rounded-lg border border-bf-border">
+                    <p className="text-sm text-bf-text font-medium">{ERA_LABELS[era] ?? era}</p>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-cc-muted">{data.played} games</span>
-                      <span className="text-xs font-medium text-cc-gold">{rate}% win</span>
+                      <span className="text-xs text-bf-muted">{data.played} games</span>
+                      <span className="text-xs font-medium text-bf-gold">{rate}% win</span>
                     </div>
-                    <div className="h-1.5 bg-cc-border rounded-full mt-2 overflow-hidden">
+                    <div className="h-1.5 bg-bf-border rounded-full mt-2 overflow-hidden">
                       <div
-                        className="h-full bg-cc-gold rounded-full transition-all duration-700"
+                        className="h-full bg-bf-gold rounded-full transition-all duration-700"
                         style={{ width: `${rate}%` }}
                       />
                     </div>
@@ -437,8 +437,8 @@ export default function ProfilePage() {
               })}
             </div>
             {stats.favorite_era && (
-              <p className="text-xs text-cc-muted mt-4 text-center">
-                Favorite era: <span className="text-cc-gold">{ERA_LABELS[stats.favorite_era] ?? stats.favorite_era}</span>
+              <p className="text-xs text-bf-muted mt-4 text-center">
+                Favorite era: <span className="text-bf-gold">{ERA_LABELS[stats.favorite_era] ?? stats.favorite_era}</span>
               </p>
             )}
           </div>
@@ -447,7 +447,7 @@ export default function ProfilePage() {
         {/* Achievements */}
         {isOwnProfile && allAchievements.length > 0 && (
           <div className="card">
-            <h3 className="font-display text-lg text-cc-gold mb-4 flex items-center gap-2">
+            <h3 className="font-display text-lg text-bf-gold mb-4 flex items-center gap-2">
               <Award className="w-5 h-5" /> Achievements
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -459,34 +459,34 @@ export default function ProfilePage() {
                     key={a.achievement_id}
                     className={`p-3 rounded-lg border ${
                       unlocked
-                        ? 'bg-cc-gold/5 border-cc-gold/20'
-                        : 'bg-cc-dark border-cc-border opacity-60'
+                        ? 'bg-bf-gold/5 border-bf-gold/20'
+                        : 'bg-bf-dark border-bf-border opacity-60'
                     }`}
                   >
-                    <p className={`text-sm font-medium ${unlocked ? 'text-cc-gold' : 'text-cc-muted'}`}>
+                    <p className={`text-sm font-medium ${unlocked ? 'text-bf-gold' : 'text-bf-muted'}`}>
                       {unlocked ? a.name : '???'}
                     </p>
-                    <p className="text-xs text-cc-muted mt-1 leading-relaxed">{a.description}</p>
+                    <p className="text-xs text-bf-muted mt-1 leading-relaxed">{a.description}</p>
                     {unlocked?.unlocked_at && (
-                      <p className="text-[10px] text-cc-muted/60 mt-1">
+                      <p className="text-[10px] text-bf-muted/60 mt-1">
                         {formatDate(unlocked.unlocked_at)}
                       </p>
                     )}
                     {prog && (
                       <div className="mt-2">
-                        <div className="flex justify-between text-[10px] text-cc-muted mb-1">
+                        <div className="flex justify-between text-[10px] text-bf-muted mb-1">
                           <span>Progress</span>
                           <span>{Math.min(prog.current, prog.target)} / {prog.target}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-cc-dark/80 overflow-hidden border border-cc-border">
+                        <div className="h-1.5 rounded-full bg-bf-dark/80 overflow-hidden border border-bf-border">
                           <div
-                            className="h-full rounded-full bg-cc-gold transition-all"
+                            className="h-full rounded-full bg-bf-gold transition-all"
                             style={{ width: `${Math.min(100, (prog.current / prog.target) * 100)}%` }}
                           />
                         </div>
                       </div>
                     )}
-                    <p className="text-[10px] text-cc-gold/50 mt-1">+{a.xp_reward} XP</p>
+                    <p className="text-[10px] text-bf-gold/50 mt-1">+{a.xp_reward} XP</p>
                   </div>
                 );
               })}
@@ -503,9 +503,9 @@ export default function ProfilePage() {
               { label: 'Total XP', value: profile.xp.toLocaleString(), icon: Map },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="card text-center">
-                <Icon className="w-6 h-6 text-cc-gold mx-auto mb-2" />
-                <p className="font-display text-2xl text-cc-gold">{value}</p>
-                <p className="text-cc-muted text-xs mt-1">{label}</p>
+                <Icon className="w-6 h-6 text-bf-gold mx-auto mb-2" />
+                <p className="font-display text-2xl text-bf-gold">{value}</p>
+                <p className="text-bf-muted text-xs mt-1">{label}</p>
               </div>
             ))}
           </div>
@@ -516,14 +516,14 @@ export default function ProfilePage() {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-display text-lg text-cc-gold flex items-center gap-2 mb-1">
+                <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-1">
                   <Trophy className="w-5 h-5" /> Era Campaign
                 </h3>
-                <p className="text-cc-muted text-sm">Journey through history — conquer all 6 eras.</p>
+                <p className="text-bf-muted text-sm">Journey through history — conquer all 6 eras.</p>
               </div>
               <Link
                 to="/campaign"
-                className="px-4 py-2 bg-cc-gold/15 border border-cc-gold/30 text-cc-gold rounded-lg text-sm font-medium hover:bg-cc-gold/25 transition-colors"
+                className="px-4 py-2 bg-bf-gold/15 border border-bf-gold/30 text-bf-gold rounded-lg text-sm font-medium hover:bg-bf-gold/25 transition-colors"
               >
                 View Campaign →
               </Link>
@@ -540,8 +540,8 @@ export default function ProfilePage() {
         {isOwnProfile && (
           <div className="card border-red-500/20">
             <h3 className="font-display text-lg text-red-400/90 mb-2">Delete account</h3>
-            <p className="text-cc-muted text-sm mb-4">
-              Permanently remove your account and sign out. Run database migration <code className="text-xs bg-cc-dark px-1 rounded">003_user_delete_fk.sql</code> if deletion fails due to foreign keys.
+            <p className="text-bf-muted text-sm mb-4">
+              Permanently remove your account and sign out. Run database migration <code className="text-xs bg-bf-dark px-1 rounded">003_user_delete_fk.sql</code> if deletion fails due to foreign keys.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
               <div className="flex-1">
@@ -586,20 +586,20 @@ export default function ProfilePage() {
 
         {isOwnProfile && (
           <div className="card">
-            <h3 className="font-display text-xl text-cc-gold mb-4">Recent Games</h3>
+            <h3 className="font-display text-xl text-bf-gold mb-4">Recent Games</h3>
             {games.length === 0 ? (
-              <p className="text-cc-muted text-center py-6">No games played yet. Start your conquest!</p>
+              <p className="text-bf-muted text-center py-6">No games played yet. Start your conquest!</p>
             ) : (
               <div className="space-y-2">
                 {games.map((game) => {
                   const isWin = game.final_rank === 1;
                   return (
-                    <div key={game.game_id} className="flex items-center justify-between p-3 bg-cc-dark rounded-lg border border-cc-border">
+                    <div key={game.game_id} className="flex items-center justify-between p-3 bg-bf-dark rounded-lg border border-bf-border">
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: game.player_color }} />
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm text-cc-text">{ERA_LABELS[game.era_id] ?? game.era_id}</p>
+                            <p className="text-sm text-bf-text">{ERA_LABELS[game.era_id] ?? game.era_id}</p>
                             {game.final_rank != null && (
                               <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                                 isWin ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'
@@ -608,12 +608,12 @@ export default function ProfilePage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-cc-muted">{formatDate(game.created_at)}</p>
+                          <p className="text-xs text-bf-muted">{formatDate(game.created_at)}</p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-4">
                         {game.xp_earned > 0 && (
-                          <span className="text-xs text-cc-gold">+{game.xp_earned} XP</span>
+                          <span className="text-xs text-bf-gold">+{game.xp_earned} XP</span>
                         )}
                         <p className={`text-xs font-medium ${game.mmr_change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {game.mmr_change >= 0 ? '+' : ''}{game.mmr_change} MMR
@@ -621,7 +621,7 @@ export default function ProfilePage() {
                         {game.status === 'completed' && (
                           <Link
                             to={`/replay/${game.game_id}`}
-                            className="flex items-center gap-1 text-xs text-cc-muted hover:text-cc-gold transition-colors"
+                            className="flex items-center gap-1 text-xs text-bf-muted hover:text-bf-gold transition-colors"
                             title="Watch replay"
                           >
                             <Play className="w-3 h-3" /> Replay

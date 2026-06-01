@@ -122,8 +122,8 @@ function FeatureTooltip({ text }: { text: string }) {
         <div
           ref={popoverRef}
           className={mobileLayout
-            ? 'fixed z-[80] rounded-xl bg-cc-dark border border-cc-border px-4 py-3 text-xs text-cc-text leading-relaxed shadow-2xl'
-            : 'fixed z-[80] rounded-lg bg-cc-dark border border-cc-border px-3 py-2 text-xs text-cc-text leading-relaxed shadow-xl pointer-events-none'}
+            ? 'fixed z-[80] rounded-xl bg-bf-dark border border-bf-border px-4 py-3 text-xs text-bf-text leading-relaxed shadow-2xl'
+            : 'fixed z-[80] rounded-lg bg-bf-dark border border-bf-border px-3 py-2 text-xs text-bf-text leading-relaxed shadow-xl pointer-events-none'}
           style={popoverStyle}
           role="tooltip"
         >
@@ -163,7 +163,7 @@ function FeatureTooltip({ text }: { text: string }) {
         onTouchStart={(event) => {
           event.stopPropagation();
         }}
-        className="text-cc-muted hover:text-cc-gold transition-colors focus:outline-none p-0 m-0 align-baseline"
+        className="text-bf-muted hover:text-bf-gold transition-colors focus:outline-none p-0 m-0 align-baseline"
         aria-label="More info"
         aria-expanded={show}
         tabIndex={0}
@@ -786,9 +786,9 @@ export default function LobbyPage() {
           (t) => (
             <div className="flex flex-col gap-2 text-sm">
               <p>
-                <span className="font-medium text-cc-text">{data.inviter_username}</span> invited you to a game
+                <span className="font-medium text-bf-text">{data.inviter_username}</span> invited you to a game
                 {data.join_code ? (
-                  <span className="text-cc-muted"> (code {data.join_code})</span>
+                  <span className="text-bf-muted"> (code {data.join_code})</span>
                 ) : null}
                 .
               </p>
@@ -828,7 +828,7 @@ export default function LobbyPage() {
             (t) => (
               <div className="flex flex-col gap-2 text-sm">
                 <p>
-                  <span className="font-medium text-cc-text">{inv.inviter_username}</span> invited you to a game.
+                  <span className="font-medium text-bf-text">{inv.inviter_username}</span> invited you to a game.
                 </p>
                 <button
                   type="button"
@@ -895,7 +895,7 @@ export default function LobbyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-cc-dark" {...pullHandlers}>
+    <div className="min-h-screen bg-bf-dark" {...pullHandlers}>
       {showWelcomeModal && (
         <NewUserWelcomeModal
           onStartTutorial={() => void handleWelcomeTutorial()}
@@ -906,7 +906,7 @@ export default function LobbyPage() {
       {/* Pull-to-refresh indicator */}
       {(pullDistance > 0 || refreshing) && (
         <div
-          className="flex justify-center items-center transition-all text-cc-muted text-xs"
+          className="flex justify-center items-center transition-all text-bf-muted text-xs"
           style={{ height: refreshing ? 32 : pullDistance * 0.4 }}
         >
           {refreshing ? 'Refreshing…' : pullDistance >= 80 ? 'Release to refresh' : '↓ Pull to refresh'}
@@ -937,9 +937,9 @@ export default function LobbyPage() {
         {/* Welcome Banner */}
         <div className="card mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl sm:text-2xl text-cc-gold">Welcome, {user?.username}</h2>
+            <h2 className="font-display text-xl sm:text-2xl text-bf-gold">Welcome, {user?.username}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-cc-muted text-sm">Level {user?.level} · Ranked {(user as any)?.ratings?.ranked?.display ?? user?.mmr ?? '—'} · {user?.xp} XP</p>
+              <p className="text-bf-muted text-sm">Level {user?.level} · Ranked {(user as any)?.ratings?.ranked?.display ?? user?.mmr ?? '—'} · {user?.xp} XP</p>
               {(user?.win_streak ?? 0) > 0 && <StreakBadge type="win" count={user!.win_streak!} />}
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>
@@ -974,13 +974,13 @@ export default function LobbyPage() {
 
         {/* Solo campaign — lobby CTA (context-aware) */}
         {user?.is_guest ? (
-          <div className="card mb-6 border border-cc-border/80 bg-cc-surface/40">
+          <div className="card mb-6 border border-bf-border/80 bg-bf-surface/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start gap-3 min-w-0">
-                <Sword className="w-6 h-6 text-cc-gold shrink-0 mt-0.5" aria-hidden />
+                <Sword className="w-6 h-6 text-bf-gold shrink-0 mt-0.5" aria-hidden />
                 <div>
-                  <h3 className="font-display text-lg text-cc-gold">Solo campaign</h3>
-                  <p className="text-cc-muted text-sm mt-1">
+                  <h3 className="font-display text-lg text-bf-gold">Solo campaign</h3>
+                  <p className="text-bf-muted text-sm mt-1">
                     Play the six-era narrative — create a free account to save progress and unlock paths.
                   </p>
                 </div>
@@ -995,17 +995,17 @@ export default function LobbyPage() {
           </div>
         ) : !campaignMeReady ? (
           <div
-            className="card mb-6 h-[108px] animate-pulse bg-cc-surface/40 border border-cc-border/60 rounded-xl"
+            className="card mb-6 h-[108px] animate-pulse bg-bf-surface/40 border border-bf-border/60 rounded-xl"
             aria-hidden
           />
         ) : !campaignMe ? (
-          <div className="card mb-6 border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.07] to-transparent">
+          <div className="card mb-6 border border-bf-gold/25 bg-gradient-to-br from-bf-gold/[0.07] to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
               <div className="flex items-start gap-3 min-w-0">
-                <Sword className="w-7 h-7 text-cc-gold shrink-0" aria-hidden />
+                <Sword className="w-7 h-7 text-bf-gold shrink-0" aria-hidden />
                 <div>
-                  <h3 className="font-display text-lg text-cc-gold">Campaign</h3>
-                  <p className="text-cc-muted text-sm mt-1 max-w-xl">
+                  <h3 className="font-display text-lg text-bf-gold">Campaign</h3>
+                  <p className="text-bf-muted text-sm mt-1 max-w-xl">
                     Six linked eras, narrative paths, and carry bonuses — open HQ to start a run or choose your path.
                   </p>
                 </div>
@@ -1023,7 +1023,7 @@ export default function LobbyPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="min-w-0">
                 <h3 className="font-display text-lg text-green-300">Campaign conquered</h3>
-                <p className="text-cc-muted text-sm mt-1">
+                <p className="text-bf-muted text-sm mt-1">
                   Prestige {campaignMe.prestige_points} · Start a fresh run with a new path anytime.
                 </p>
               </div>
@@ -1036,16 +1036,16 @@ export default function LobbyPage() {
             </div>
           </div>
         ) : (
-          <div className="card mb-6 border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.07] to-transparent">
+          <div className="card mb-6 border border-bf-gold/25 bg-gradient-to-br from-bf-gold/[0.07] to-transparent">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
               <div className="flex items-start gap-3 min-w-0 flex-1">
-                <Sword className="w-7 h-7 text-cc-gold shrink-0" aria-hidden />
+                <Sword className="w-7 h-7 text-bf-gold shrink-0" aria-hidden />
                 <div className="space-y-2 min-w-0">
                   <div>
-                    <h3 className="font-display text-lg text-cc-gold">
+                    <h3 className="font-display text-lg text-bf-gold">
                       {campaignMe.path_config?.name ?? 'Solo campaign'}
                     </h3>
-                    <p className="text-cc-muted text-sm mt-1">
+                    <p className="text-bf-muted text-sm mt-1">
                       Era {Math.min(campaignMe.current_era_index + 1, 6)} of 6
                       {campaignMe.current_era != null && (
                         <>
@@ -1059,7 +1059,7 @@ export default function LobbyPage() {
                   </div>
                   {campaignMe.path_config &&
                     (campaignMe.path_carry[campaignMe.path_config.signature_carry_key] ?? 0) > 0 && (
-                      <p className="text-xs text-cc-gold/90 inline-flex items-center gap-1.5 rounded-md border border-cc-gold/25 bg-cc-gold/5 px-2.5 py-1 w-fit">
+                      <p className="text-xs text-bf-gold/90 inline-flex items-center gap-1.5 rounded-md border border-bf-gold/25 bg-bf-gold/5 px-2.5 py-1 w-fit">
                         <Trophy className="w-3.5 h-3.5 shrink-0" aria-hidden />
                         <span>
                           {campaignMe.path_config.signature_carry_label ?? 'Path bonus'}:{' '}
@@ -1093,19 +1093,19 @@ export default function LobbyPage() {
             {/* Active / Saved Games — surfaced first so players can immediately resume */}
             {activeGames.length > 0 && (
               <div className="card mb-6 animate-fade-in">
-                <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
+                <h3 className="font-display text-xl text-bf-gold mb-6 flex items-center gap-2">
                   Your Active Games
                 </h3>
                 <div className="space-y-3">
                   {activeGames.map((game) => (
                     <div
                       key={game.game_id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-bf-dark rounded-lg border border-bf-border hover:border-bf-gold transition-colors"
                     >
                       <div className="flex flex-col gap-1.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-cc-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                          <span className="font-medium text-bf-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-bf-gold/15 text-bf-gold border border-bf-gold/30">
                             {GAME_TYPE_LABELS[game.game_type] ?? game.game_type}
                           </span>
                           {game.saved_at && (
@@ -1124,7 +1124,7 @@ export default function LobbyPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-cc-muted text-sm">
+                        <div className="flex items-center gap-3 text-bf-muted text-sm">
                           {game.turn_number != null && <span>Turn {game.turn_number}</span>}
                           {game.async_mode && game.async_turn_deadline && (() => {
                             const deadline = new Date(game.async_turn_deadline);
@@ -1153,7 +1153,7 @@ export default function LobbyPage() {
                       <div className="flex items-center gap-2">
                         {confirmAbandon === game.game_id ? (
                           <>
-                            <span className="text-xs text-cc-muted mr-1">Delete?</span>
+                            <span className="text-xs text-bf-muted mr-1">Delete?</span>
                             <button
                               onClick={() => handleAbandonGame(game.game_id)}
                               className="text-xs py-1.5 px-3 rounded border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
@@ -1162,7 +1162,7 @@ export default function LobbyPage() {
                             </button>
                             <button
                               onClick={() => setConfirmAbandon(null)}
-                              className="text-xs py-1.5 px-3 rounded border border-cc-border text-cc-muted hover:text-cc-text transition-colors"
+                              className="text-xs py-1.5 px-3 rounded border border-bf-border text-bf-muted hover:text-bf-text transition-colors"
                             >
                               No
                             </button>
@@ -1170,7 +1170,7 @@ export default function LobbyPage() {
                         ) : (
                           <button
                             onClick={() => setConfirmAbandon(game.game_id)}
-                            className="p-1.5 rounded text-cc-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            className="p-1.5 rounded text-bf-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             title="Delete game"
                             aria-label="Delete game"
                           >
@@ -1192,8 +1192,8 @@ export default function LobbyPage() {
 
             {/* Quick-start cards for new users */}
             {user && user.xp === 0 && lobbyTab === 'casual' && (
-              <div className="card mb-6 animate-fade-in border-cc-gold/20">
-                <h3 className="font-display text-lg text-cc-gold mb-4 flex items-center gap-2">
+              <div className="card mb-6 animate-fade-in border-bf-gold/20">
+                <h3 className="font-display text-lg text-bf-gold mb-4 flex items-center gap-2">
                   Getting Started
                 </h3>
 
@@ -1205,19 +1205,19 @@ export default function LobbyPage() {
                       navigate(`/game/${res.data.game_id}`);
                     } catch { toast.error('Failed to start tutorial'); }
                   }}
-                  className="w-full flex items-start gap-4 p-4 rounded-xl bg-cc-gold/10 border border-cc-gold/30 hover:border-cc-gold hover:bg-cc-gold/15 transition-all text-left group mb-3"
+                  className="w-full flex items-start gap-4 p-4 rounded-xl bg-bf-gold/10 border border-bf-gold/30 hover:border-bf-gold hover:bg-bf-gold/15 transition-all text-left group mb-3"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-cc-gold/15 border border-cc-gold/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <GraduationCap className="w-5 h-5 text-cc-gold" aria-hidden />
+                  <div className="w-10 h-10 rounded-lg bg-bf-gold/15 border border-bf-gold/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <GraduationCap className="w-5 h-5 text-bf-gold" aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">Interactive Tutorial</p>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-cc-gold/80 bg-cc-gold/15 border border-cc-gold/20 px-1.5 py-0.5 rounded">
+                      <p className="font-display text-bf-gold group-hover:text-white transition-colors">Interactive Tutorial</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-bf-gold/80 bg-bf-gold/15 border border-bf-gold/20 px-1.5 py-0.5 rounded">
                         Start here
                       </span>
                     </div>
-                    <p className="text-cc-muted text-xs leading-relaxed">
+                    <p className="text-bf-muted text-xs leading-relaxed">
                       ~6 min. Learn draft, attack, fortify, and cards in an interactive practice match. No experience needed.
                     </p>
                   </div>
@@ -1252,21 +1252,21 @@ export default function LobbyPage() {
                         setQuickSoloLoading(false);
                       }
                     }}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/50 transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold/50 transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <Bot className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">
+                    <Bot className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
+                    <p className="font-display text-bf-gold group-hover:text-white transition-colors">
                       {quickSoloLoading ? 'Starting…' : 'Quick Solo Match'}
                     </p>
-                    <p className="text-cc-muted text-xs mt-1">1v3 AI, Ancient World. Best if you know Risk.</p>
+                    <p className="text-bf-muted text-xs mt-1">1v3 AI, Ancient World. Best if you know Risk.</p>
                   </button>
                   <button
                     onClick={() => navigate('/daily')}
-                    className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/50 transition-colors text-left group"
+                    className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold/50 transition-colors text-left group"
                   >
-                    <Calendar className="w-5 h-5 text-cc-gold mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="font-display text-cc-gold group-hover:text-white transition-colors">Daily Challenge</p>
-                    <p className="text-cc-muted text-xs mt-1">One puzzle per day, same map for everyone.</p>
+                    <Calendar className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
+                    <p className="font-display text-bf-gold group-hover:text-white transition-colors">Daily Challenge</p>
+                    <p className="text-bf-muted text-xs mt-1">One puzzle per day, same map for everyone.</p>
                   </button>
                 </div>
               </div>
@@ -1277,11 +1277,11 @@ export default function LobbyPage() {
               <div className="card mb-6 animate-fade-in border-amber-700/25">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="font-display text-lg text-amber-400">Training Academy</h3>
-                  <Link to="/tutorial" className="text-xs text-cc-gold hover:underline shrink-0">
+                  <Link to="/tutorial" className="text-xs text-bf-gold hover:underline shrink-0">
                     View all
                   </Link>
                 </div>
-                <p className="text-cc-muted text-xs mb-4">
+                <p className="text-bf-muted text-xs mb-4">
                   Short deep-dive lessons on optional features. Pick any you haven&apos;t tried.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1295,20 +1295,20 @@ export default function LobbyPage() {
                       <Link
                         key={mod.id}
                         to={`/tutorial?module=${mod.id}&start=1`}
-                        className="flex flex-col gap-2 p-3 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold/40 transition-colors group"
+                        className="flex flex-col gap-2 p-3 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold/40 transition-colors group"
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <Icon className="w-4 h-4 text-cc-gold shrink-0" aria-hidden />
+                          <Icon className="w-4 h-4 text-bf-gold shrink-0" aria-hidden />
                           {done ? (
                             <span className="text-[10px] text-green-400 font-medium">Done ✓</span>
                           ) : (
-                            <span className="text-[10px] text-cc-muted">~{mod.estimatedMinutes} min</span>
+                            <span className="text-[10px] text-bf-muted">~{mod.estimatedMinutes} min</span>
                           )}
                         </div>
-                        <p className="font-display text-sm text-cc-gold group-hover:text-white transition-colors leading-tight">
+                        <p className="font-display text-sm text-bf-gold group-hover:text-white transition-colors leading-tight">
                           {mod.title}
                         </p>
-                        <p className="text-cc-muted text-xs leading-relaxed">{mod.description}</p>
+                        <p className="text-bf-muted text-xs leading-relaxed">{mod.description}</p>
                       </Link>
                     );
                   })}
@@ -1317,15 +1317,15 @@ export default function LobbyPage() {
             )}
 
             {/* Casual / Ranked Tab Strip */}
-            <div className="flex gap-1 mb-6 p-1 bg-cc-dark rounded-lg w-fit border border-cc-border">
+            <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit border border-bf-border">
               {(['casual', 'ranked'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => { setLobbyTab(tab); if (tab === 'casual' && rankedQueued) leaveRankedQueue(); }}
                   className={`flex items-center gap-1.5 px-5 py-2 rounded-md text-sm font-medium transition-all ${
                     lobbyTab === tab
-                      ? 'bg-cc-gold/15 text-cc-gold border border-cc-gold/30'
-                      : 'text-cc-muted hover:text-cc-text border border-transparent'
+                      ? 'bg-bf-gold/15 text-bf-gold border border-bf-gold/30'
+                      : 'text-bf-muted hover:text-bf-text border border-transparent'
                   }`}
                 >
                   {tab === 'casual' ? 'Casual' : 'Ranked'}
@@ -1336,24 +1336,24 @@ export default function LobbyPage() {
             {/* Ranked Matchmaking Panel */}
             {lobbyTab === 'ranked' && (
               <div className="card mb-8 animate-fade-in">
-            <h3 className="font-display text-xl text-cc-gold mb-2 flex items-center gap-2">
+            <h3 className="font-display text-xl text-bf-gold mb-2 flex items-center gap-2">
               Ranked 1v1 Matchmaking
             </h3>
-            <p className="text-cc-muted text-sm mb-6">
+            <p className="text-bf-muted text-sm mb-6">
               1v1 domination. No AI. No fog of war. Rating changes apply.
             </p>
 
             {weeklyChallenge && (
-              <div className="mb-6 rounded-lg border border-cc-gold/25 bg-cc-dark/70 p-4">
+              <div className="mb-6 rounded-lg border border-bf-gold/25 bg-bf-dark/70 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-wider text-cc-muted mb-1">Weekly seeded challenge</p>
-                    <p className="text-cc-gold font-medium">Week of {weeklyChallenge.week_start_date}</p>
-                    <p className="text-cc-muted text-xs mt-1">
+                    <p className="text-xs uppercase tracking-wider text-bf-muted mb-1">Weekly seeded challenge</p>
+                    <p className="text-bf-gold font-medium">Week of {weeklyChallenge.week_start_date}</p>
+                    <p className="text-bf-muted text-xs mt-1">
                       {weeklyChallenge.rules_json?.objective ?? 'Same seed, fair conditions for everyone.'}
                     </p>
                     {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
-                      <p className="text-cc-muted text-xs mt-1">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
+                      <p className="text-bf-muted text-xs mt-1">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
                     )}
                   </div>
                   <button
@@ -1365,13 +1365,13 @@ export default function LobbyPage() {
                   </button>
                 </div>
                 {weeklyPreviewLeaderboard.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-cc-border/70">
-                    <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Top this week</p>
+                  <div className="mt-3 pt-3 border-t border-bf-border/70">
+                    <p className="text-[11px] uppercase tracking-wider text-bf-muted mb-2">Top this week</p>
                     <div className="space-y-1.5">
                       {weeklyPreviewLeaderboard.map((row, idx) => (
                         <div key={`${row.username}-${idx}`} className="flex items-center justify-between text-xs">
-                          <span className="text-cc-text">#{idx + 1} {row.username}</span>
-                          <span className="text-cc-gold font-mono">{row.score}</span>
+                          <span className="text-bf-text">#{idx + 1} {row.username}</span>
+                          <span className="text-bf-gold font-mono">{row.score}</span>
                         </div>
                       ))}
                     </div>
@@ -1396,11 +1396,11 @@ export default function LobbyPage() {
             </div>
 
             {rankedQueued ? (
-              <div className="flex items-center gap-4 p-4 bg-cc-dark rounded-lg border border-cc-gold/20">
-                <div className="animate-pulse text-cc-gold"></div>
+              <div className="flex items-center gap-4 p-4 bg-bf-dark rounded-lg border border-bf-gold/20">
+                <div className="animate-pulse text-bf-gold"></div>
                 <div className="flex-1">
-                  <p className="text-cc-text text-sm font-medium">Searching for opponent...</p>
-                  <p className="text-cc-muted text-xs">
+                  <p className="text-bf-text text-sm font-medium">Searching for opponent...</p>
+                  <p className="text-bf-muted text-xs">
                     {{ blitz_120: 'Blitz 2m', standard_300: 'Standard 5m', long_1200: 'Long 20m',
                        async_43200: 'Async 12h', async_86400: 'Async 24h', async_259200: 'Async 3d',
                     }[rankedBucket] ?? rankedBucket.replace('_', ' ')} &middot; {queueElapsed}s elapsed
@@ -1411,8 +1411,8 @@ export default function LobbyPage() {
             ) : (
               <div>
                 {rankedIntegrity && (
-                  <div className="mb-4 rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                    <p className="text-[11px] uppercase tracking-wider text-cc-muted mb-2">Queue integrity</p>
+                  <div className="mb-4 rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                    <p className="text-[11px] uppercase tracking-wider text-bf-muted mb-2">Queue integrity</p>
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className={`px-2 py-1 rounded border ${
                         rankedIntegrity.smurf_risk_tier === 'high'
@@ -1427,14 +1427,14 @@ export default function LobbyPage() {
                         Stall penalties: {rankedIntegrity.stall_penalties}
                       </span>
                       {rankedIntegrity.provisional && (
-                        <span className="px-2 py-1 rounded border border-cc-gold/35 text-cc-gold bg-cc-gold/10">
+                        <span className="px-2 py-1 rounded border border-bf-gold/35 text-bf-gold bg-bf-gold/10">
                           Provisional placement
                         </span>
                       )}
                     </div>
                   </div>
                 )}
-                <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Real-Time</p>
+                <p className="text-bf-muted text-xs mb-2 uppercase tracking-wider font-medium">Real-Time</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                   {([
                     { bucket: 'blitz_120',    label: 'Blitz',    desc: '2 min per turn' },
@@ -1444,15 +1444,15 @@ export default function LobbyPage() {
                     <button
                       key={bucket}
                       onClick={() => joinRankedQueue(bucket)}
-                      className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
+                      className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold
                                  transition-colors text-left group"
                     >
-                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
-                      <p className="text-cc-muted text-xs mt-1">{desc}</p>
+                      <p className="font-display text-bf-gold group-hover:text-white transition-colors">{label}</p>
+                      <p className="text-bf-muted text-xs mt-1">{desc}</p>
                     </button>
                   ))}
                 </div>
-                <p className="text-cc-muted text-xs mb-2 uppercase tracking-wider font-medium">Async</p>
+                <p className="text-bf-muted text-xs mb-2 uppercase tracking-wider font-medium">Async</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {([
                     { bucket: 'async_43200',  label: '12 Hours', desc: '12h per turn' },
@@ -1462,15 +1462,15 @@ export default function LobbyPage() {
                     <button
                       key={bucket}
                       onClick={() => joinRankedQueue(bucket)}
-                      className="p-4 rounded-lg bg-cc-dark border border-cc-border hover:border-cc-gold
+                      className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold
                                  transition-colors text-left group"
                     >
-                      <p className="font-display text-cc-gold group-hover:text-white transition-colors">{label}</p>
-                      <p className="text-cc-muted text-xs mt-1">{desc}</p>
+                      <p className="font-display text-bf-gold group-hover:text-white transition-colors">{label}</p>
+                      <p className="text-bf-muted text-xs mt-1">{desc}</p>
                     </button>
                   ))}
                 </div>
-                <p className="text-cc-muted text-xs mt-3 italic">
+                <p className="text-bf-muted text-xs mt-3 italic">
                   Async matches notify you when it&apos;s your turn — play on your own schedule.
                 </p>
               </div>
@@ -1490,19 +1490,19 @@ export default function LobbyPage() {
                   {selectedCommunityMapId && (
                     <div className="md:col-span-2">
                       <label className="label">Map</label>
-                      <p className="input bg-cc-dark/50 border-cc-border text-cc-text cursor-default">
+                      <p className="input bg-bf-dark/50 border-bf-border text-bf-text cursor-default">
                         {COMMUNITY_MAP_TITLES[selectedCommunityMapId] ?? selectedCommunityMapId}
-                        <span className="text-cc-muted text-sm ml-2">(community)</span>
+                        <span className="text-bf-muted text-sm ml-2">(community)</span>
                       </p>
                     </div>
                   )}
                   {mapImmersion && (
-                    <div className="md:col-span-2 rounded-lg border border-cc-gold/25 bg-gradient-to-br from-cc-gold/[0.08] to-transparent px-3 py-3">
-                      <p className="text-cc-gold text-sm font-display tracking-wide">{mapImmersion.tagline}</p>
-                      <p className="text-cc-muted text-xs mt-1.5 leading-relaxed">{mapImmersion.backdrop}</p>
-                      <p className="text-cc-muted text-[11px] mt-2">
+                    <div className="md:col-span-2 rounded-lg border border-bf-gold/25 bg-gradient-to-br from-bf-gold/[0.08] to-transparent px-3 py-3">
+                      <p className="text-bf-gold text-sm font-display tracking-wide">{mapImmersion.tagline}</p>
+                      <p className="text-bf-muted text-xs mt-1.5 leading-relaxed">{mapImmersion.backdrop}</p>
+                      <p className="text-bf-muted text-[11px] mt-2">
                         Suggested rules era:{' '}
-                        <span className="text-cc-text font-medium">
+                        <span className="text-bf-text font-medium">
                           {ERA_LABELS[mapImmersion.recommended_rules_era] ?? mapImmersion.recommended_rules_era}
                         </span>
                         {' '}— matches era cards, tech, and faction roster. You can still change it above.
@@ -1565,12 +1565,12 @@ export default function LobbyPage() {
                       <option value={259200}>3 Days (Async)</option>
                     </select>
                     {turnTimer >= 43200 && (
-                      <p className="text-xs text-cc-gold mt-1">Players will be notified when it's their turn.</p>
+                      <p className="text-xs text-bf-gold mt-1">Players will be notified when it's their turn.</p>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
                     {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
-                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                       <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'territory_draft')} />
                       <label htmlFor="territory-draft-top" className="contents cursor-pointer">
                         <input
@@ -1579,12 +1579,12 @@ export default function LobbyPage() {
                           checked={territorySelection}
                           onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
                           disabled={factionsEnabled}
-                          className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                          className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                         />
                         <span className="leading-snug min-w-0 select-none">Territory Draft</span>
                       </label>
                     </div>
-                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                       <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'asymmetric_factions')} />
                       <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
                         <input
@@ -1596,68 +1596,68 @@ export default function LobbyPage() {
                             if (e.target.checked) setTerritorySelection(false);
                           }}
                           disabled={territorySelection}
-                          className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                          className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                         />
                         <span className="leading-snug min-w-0 select-none">Asymmetric Factions</span>
                       </label>
                     </div>
                   </div>
-                    <div className="md:col-span-2 border-t border-cc-border pt-4 mt-2">
+                    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
                       {mapImmersion && (
-                        <p className="text-[11px] text-cc-muted mb-3 leading-relaxed">
+                        <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                           Hover each (i) for theater-specific lore layered on the normal rules — tuned for this map.
                         </p>
                       )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
                           </label>
                         </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Technology Trees</span>
                           </label>
                         </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'historical_events')} />
                           <label htmlFor="create-game-events" className="contents cursor-pointer">
-                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Historical Events</span>
                           </label>
                         </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'naval_warfare')} />
                           <label htmlFor="create-game-naval" className="contents cursor-pointer">
-                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
                           </label>
                         </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'population_stability')} />
                           <label htmlFor="create-game-stability" className="contents cursor-pointer">
-                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                           </label>
                         </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'fog_of_war')} />
                           <label htmlFor="create-game-fog" className="contents cursor-pointer">
-                            <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
+                            <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Fog of War</span>
                           </label>
                         </div>
                         {aiCount > 0 && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                             <FeatureTooltip text="Surfaces a single advisory tip at the start of each of your draft phases (probability swings, region threats, thin borders). Available only in solo-vs-AI casual games to avoid asymmetric advantages." />
                             <label htmlFor="create-game-coaching" className="contents cursor-pointer">
-                              <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0" />
-                              <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-cc-muted">(solo vs AI only)</span></span>
+                              <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                              <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-bf-muted">(solo vs AI only)</span></span>
                             </label>
                           </div>
                         )}
@@ -1665,7 +1665,7 @@ export default function LobbyPage() {
                     </div>
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
-                    <p className="text-xs text-cc-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
+                    <p className="text-xs text-bf-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {([
                         ['domination', 'Domination — control every territory', 'Own every single territory on the map simultaneously. A difficult but decisive conquest victory.'],
@@ -1673,13 +1673,13 @@ export default function LobbyPage() {
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
                       ] as const).map(([id, label, tip]) => (
-                        <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-cc-text w-full">
+                        <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={tip} />
                           <label htmlFor={`create-game-victory-${id}`} className="contents cursor-pointer">
                             <input
                               id={`create-game-victory-${id}`}
                               type="checkbox"
-                              className="w-4 h-4 mt-0.5 accent-cc-gold shrink-0"
+                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                               checked={victoryModes.has(id)}
                               onChange={() => toggleVictoryMode(id)}
                             />
@@ -1690,7 +1690,7 @@ export default function LobbyPage() {
                     </div>
                     {victoryModes.has('threshold') && (
                       <div className="mt-3 flex items-center gap-3">
-                        <label htmlFor="vthr" className="text-sm text-cc-muted whitespace-nowrap">Threshold %</label>
+                        <label htmlFor="vthr" className="text-sm text-bf-muted whitespace-nowrap">Threshold %</label>
                         <input
                           id="vthr"
                           type="number"
@@ -1703,7 +1703,7 @@ export default function LobbyPage() {
                       </div>
                     )}
                   </div>
-                  <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-cc-border bg-cc-surface/95 backdrop-blur md:col-span-2">
+                  <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-bf-border bg-bf-surface/95 backdrop-blur md:col-span-2">
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-end">
                       <button
                         type="button"
@@ -1723,11 +1723,11 @@ export default function LobbyPage() {
             {/* Join with code / link */}
             {lobbyTab === 'casual' && (
               <div className="card mb-8 animate-fade-in">
-            <h3 className="font-display text-xl text-cc-gold mb-2 flex items-center gap-2">
+            <h3 className="font-display text-xl text-bf-gold mb-2 flex items-center gap-2">
               Join with code
             </h3>
-            <p className="text-cc-muted text-sm mb-4">
-              Paste the short join code, or the full game ID from your host. You can also use a lobby link with <code className="text-cc-gold/90">?join=</code>.
+            <p className="text-bf-muted text-sm mb-4">
+              Paste the short join code, or the full game ID from your host. You can also use a lobby link with <code className="text-bf-gold/90">?join=</code>.
             </p>
             <form onSubmit={handleJoinByCode} className="flex flex-col sm:flex-row gap-2 max-w-xl">
               <input
@@ -1746,18 +1746,18 @@ export default function LobbyPage() {
 
             {/* Public Games */}
             {lobbyTab === 'casual' && <div className="card">
-          <h3 className="font-display text-xl text-cc-gold mb-6 flex items-center gap-2">
+          <h3 className="font-display text-xl text-bf-gold mb-6 flex items-center gap-2">
             Open Games
           </h3>
           {publicGames.length === 0 ? (
-            <p className="text-cc-muted text-center py-8">No open games. Create one to get started!</p>
+            <p className="text-bf-muted text-center py-8">No open games. Create one to get started!</p>
           ) : (
             <div className="space-y-3">
               {publicGames.map((game) => (
-                <div key={game.game_id} className="flex items-center justify-between p-4 bg-cc-dark rounded-lg border border-cc-border hover:border-cc-gold transition-colors">
+                <div key={game.game_id} className="flex items-center justify-between p-4 bg-bf-dark rounded-lg border border-bf-border hover:border-bf-gold transition-colors">
                   <div>
-                    <span className="font-medium text-cc-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
-                    <span className="text-cc-muted text-sm ml-3">{game.player_count} / 8 players</span>
+                    <span className="font-medium text-bf-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
+                    <span className="text-bf-muted text-sm ml-3">{game.player_count} / 8 players</span>
                   </div>
                   <button onClick={() => handleJoinGame(game.game_id)} className="btn-primary text-sm py-1.5 px-4">
                     Join
@@ -1786,23 +1786,25 @@ export default function LobbyPage() {
         </div>
       </div>
 
-      <footer className="border-t border-cc-border mt-12 py-8 px-4 sm:px-6">
+      <footer className="border-t border-bf-border mt-12 py-8 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <p className="font-display text-cc-gold/90 text-sm tracking-wide">Dashboard</p>
-          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-cc-muted justify-center sm:justify-end" aria-label="Site">
-            <Link to="/lobby" className="hover:text-cc-gold transition-colors">Lobby</Link>
+          <p className="font-display text-bf-gold/90 text-sm tracking-wide">Dashboard</p>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-bf-muted justify-center sm:justify-end" aria-label="Site">
+            <Link to="/lobby" className="hover:text-bf-gold transition-colors">Lobby</Link>
             {!user?.is_guest && (
-              <Link to="/war-room" className="hover:text-cc-gold transition-colors">War Room</Link>
+              <Link to="/war-room" className="hover:text-bf-gold transition-colors">War Room</Link>
             )}
-            <Link to="/codex" className="hover:text-cc-gold transition-colors">Codex</Link>
-            <Link to="/maps" className="hover:text-cc-gold transition-colors">Map Hub</Link>
+            <Link to="/codex" className="hover:text-bf-gold transition-colors">Codex</Link>
+            <Link to="/maps" className="hover:text-bf-gold transition-colors">Map Hub</Link>
             {!user?.is_guest && (
-              <Link to="/editor" className="hover:text-cc-gold transition-colors">Map Editor</Link>
+              <Link to="/editor" className="hover:text-bf-gold transition-colors">Map Editor</Link>
             )}
-            <Link to="/friends" className="hover:text-cc-gold transition-colors">Friends</Link>
-            <Link to="/profile" className="hover:text-cc-gold transition-colors">Profile</Link>
-            <Link to="/privacy" className="hover:text-cc-gold transition-colors">Privacy Policy</Link>
-            <Link to="/" className="hover:text-cc-gold transition-colors">Marketing Home</Link>
+            <Link to="/friends" className="hover:text-bf-gold transition-colors">Friends</Link>
+            <Link to="/profile" className="hover:text-bf-gold transition-colors">Profile</Link>
+            <Link to="/privacy" className="hover:text-bf-gold transition-colors">Privacy Policy</Link>
+            <span className="text-bf-border">·</span>
+            <Link to="/terms" className="hover:text-bf-gold transition-colors">Terms of Service</Link>
+            <Link to="/" className="hover:text-bf-gold transition-colors">Marketing Home</Link>
           </nav>
         </div>
       </footer>

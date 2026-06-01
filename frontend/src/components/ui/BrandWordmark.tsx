@@ -9,7 +9,7 @@ type BrandWordmarkProps = {
 
 export default function BrandWordmark({ to = '/', className = '' }: BrandWordmarkProps) {
   const base =
-    'font-display text-cc-gold tracking-widest hover:text-white transition-colors shrink-0';
+    'font-display text-bf-gold tracking-widest hover:text-white transition-colors shrink-0';
   const merged = className ? `${base} ${className}` : base;
 
   return (

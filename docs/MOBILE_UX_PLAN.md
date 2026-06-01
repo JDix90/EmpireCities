@@ -38,14 +38,14 @@
 | R3 | The top bar on mobile is reduced to: logo (left) + gold/coins indicator (right, if applicable). |
 | R4 | On desktop (≥ 768 px) the current inline nav is preserved unchanged. |
 | R5 | Tab bar respects `pb-safe` for safe-area inset on notched devices. |
-| R6 | Active tab is visually highlighted with `cc-gold` color. |
-| R7 | Each tab icon uses a `lucide-react` icon with a text label beneath (≤ 10 px font, matching existing `text-cc-muted`/`text-cc-gold` patterns). |
+| R6 | Active tab is visually highlighted with `bf-gold` color. |
+| R7 | Each tab icon uses a `lucide-react` icon with a text label beneath (≤ 10 px font, matching existing `text-bf-muted`/`text-bf-gold` patterns). |
 
 ### Implementation Steps
 
 1. **Create `frontend/src/components/ui/MobileTabBar.tsx`.**
    - Accept a `currentPath: string` prop (from `useLocation()`).
-   - Render a `<nav>` fixed to the bottom with classes: `fixed bottom-0 inset-x-0 z-40 flex md:hidden items-center justify-around bg-cc-surface border-t border-cc-border pb-safe min-h-[56px]`.
+   - Render a `<nav>` fixed to the bottom with classes: `fixed bottom-0 inset-x-0 z-40 flex md:hidden items-center justify-around bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]`.
    - Tabs: `Home` (`/lobby`, `Home` icon), `Play` (opens create-game modal or navigates to `/lobby#create`), `Friends` (`/friends`, `Users` icon), `Profile` (`/profile`, `User` icon), `More` (toggles a state boolean).
    - "More" tab renders a bottom sheet (reuse the `mobile-bottom-sheet` CSS class from `index.css`) listing the remaining links with consistent `min-h-[44px]` touch targets and `text-sm` labels.
 
@@ -137,7 +137,7 @@
 
 ### Current State
 
-`TerritoryPanel.tsx` (line 82) and `MobileCardsTray.tsx` (line 42) both render a drag handle (`<div className="w-8 h-1 rounded-full bg-cc-border" />`) with no touch event handling. Users see the handle and attempt to swipe down to dismiss, but nothing happens.
+`TerritoryPanel.tsx` (line 82) and `MobileCardsTray.tsx` (line 42) both render a drag handle (`<div className="w-8 h-1 rounded-full bg-bf-border" />`) with no touch event handling. Users see the handle and attempt to swipe down to dismiss, but nothing happens.
 
 ### Requirements
 

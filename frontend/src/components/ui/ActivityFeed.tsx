@@ -20,7 +20,7 @@ interface ActivityFeedResponse {
 const EVENT_CONFIG: Record<string, { icon: typeof Trophy; color: string; label: (d: Record<string, unknown>) => string }> = {
   game_won: {
     icon: Trophy,
-    color: 'text-cc-gold',
+    color: 'text-bf-gold',
     label: (d) => `Won a game${d.era ? ` (${d.era})` : ''}`,
   },
   level_up: {
@@ -89,8 +89,8 @@ export default function ActivityFeed({ className = '' }: { className?: string })
   if (loading) {
     return (
       <div className={`card p-4 ${className}`}>
-        <h3 className="font-display text-sm text-cc-gold mb-3">Friend Activity</h3>
-        <div className="text-cc-muted text-xs animate-pulse">Loading…</div>
+        <h3 className="font-display text-sm text-bf-gold mb-3">Friend Activity</h3>
+        <div className="text-bf-muted text-xs animate-pulse">Loading…</div>
       </div>
     );
   }
@@ -98,20 +98,20 @@ export default function ActivityFeed({ className = '' }: { className?: string })
   if (events.length === 0) {
     return (
       <div className={`card p-4 ${className}`}>
-        <h3 className="font-display text-sm text-cc-gold mb-3">Friend Activity</h3>
-        <p className="text-cc-muted text-xs">No recent activity from friends.</p>
+        <h3 className="font-display text-sm text-bf-gold mb-3">Friend Activity</h3>
+        <p className="text-bf-muted text-xs">No recent activity from friends.</p>
       </div>
     );
   }
 
   return (
     <div className={`card p-4 ${className}`}>
-      <h3 className="font-display text-sm text-cc-gold mb-3">Friend Activity</h3>
+      <h3 className="font-display text-sm text-bf-gold mb-3">Friend Activity</h3>
       <div className="space-y-2.5 max-h-64 overflow-y-auto">
         {events.map((ev) => {
           const cfg = EVENT_CONFIG[ev.event_type] ?? {
             icon: Swords,
-            color: 'text-cc-muted',
+            color: 'text-bf-muted',
             label: (_d: Record<string, unknown>, _lookup: (d: Record<string, unknown>) => string) => ev.event_type.replace(/_/g, ' '),
           };
           const Icon = cfg.icon;
@@ -121,16 +121,16 @@ export default function ActivityFeed({ className = '' }: { className?: string })
             <div key={ev.id} className="flex items-start gap-2.5 text-xs">
               <Icon className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${cfg.color}`} />
               <div className="min-w-0 flex-1">
-                <span className="text-cc-text">
-                  <Link to={`/profile/${ev.user_id}`} className="font-medium hover:text-cc-gold transition-colors">
+                <span className="text-bf-text">
+                  <Link to={`/profile/${ev.user_id}`} className="font-medium hover:text-bf-gold transition-colors">
                     {ev.username}
                   </Link>{' '}
-                  <span className="text-cc-muted">
+                  <span className="text-bf-muted">
                     {cfg.label(ev.event_data)}
                     {location && ` (${location})`}
                   </span>
                 </span>
-                <div className="text-cc-muted/60 mt-0.5">{timeAgo(ev.created_at)}</div>
+                <div className="text-bf-muted/60 mt-0.5">{timeAgo(ev.created_at)}</div>
               </div>
             </div>
           );

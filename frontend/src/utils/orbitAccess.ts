@@ -14,7 +14,7 @@
  *     Hyperlane Anchor wonder, OR be the Helion Navigators faction.
  */
 
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
 
 export type OrbitAccessMode = 'none' | 'space_age_moon' | 'galaxy_hyperspace';

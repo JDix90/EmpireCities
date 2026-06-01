@@ -35,11 +35,11 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
         <div className="fixed inset-0 z-[55] md:hidden" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="absolute bottom-[56px] inset-x-0 bg-cc-surface border-t border-cc-border rounded-t-2xl animate-slide-up pb-safe"
+            className="absolute bottom-[56px] inset-x-0 bg-bf-surface border-t border-bf-border rounded-t-2xl animate-slide-up pb-safe"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center py-2">
-              <div className="w-8 h-1 rounded-full bg-cc-border" />
+              <div className="w-8 h-1 rounded-full bg-bf-border" />
             </div>
             <nav className="px-4 pb-4 grid grid-cols-3 gap-2">
               <MoreLink to="/how-to-play" icon={HelpCircle} label="How to Play" onClick={() => setMoreOpen(false)} />
@@ -52,11 +52,12 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               <MoreLink to="/leaderboards" icon={Trophy} label="Leaders" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
+              <MoreLink to="/terms" icon={FileText} label="Terms" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onLogout(); }}
-                className="flex flex-col items-center gap-1 py-3 rounded-lg bg-cc-dark text-cc-muted hover:text-red-400 transition-colors min-h-[44px]"
+                className="flex flex-col items-center gap-1 py-3 rounded-lg bg-bf-dark text-bf-muted hover:text-red-400 transition-colors min-h-[44px]"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="text-[10px]">Logout</span>
@@ -67,7 +68,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
       )}
 
       {/* Tab bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 flex md:hidden items-center justify-around bg-cc-surface border-t border-cc-border pb-safe min-h-[56px] gap-0.5 px-1">
+      <nav className="fixed bottom-0 inset-x-0 z-50 flex md:hidden items-center justify-around bg-bf-surface border-t border-bf-border pb-safe min-h-[56px] gap-0.5 px-1">
         {PRIMARY_TABS.map((tab) => {
           if (tab.guestHidden && isGuest) return null;
           const active = location.pathname === tab.path;
@@ -77,7 +78,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               to={tab.path}
               className={clsx(
                 'flex flex-col items-center gap-0.5 py-1.5 px-1.5 sm:px-2 min-h-[48px] min-w-0 flex-1 justify-center transition-colors touch-manipulation',
-                active ? 'text-cc-gold' : 'text-cc-muted hover:text-cc-text',
+                active ? 'text-bf-gold' : 'text-bf-muted hover:text-bf-text',
               )}
             >
               <tab.icon className="w-5 h-5" />
@@ -89,9 +90,9 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
         <button
           type="button"
           onClick={onCreateGame}
-          className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-h-[48px] min-w-[48px] justify-center text-cc-gold touch-manipulation"
+          className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-h-[48px] min-w-[48px] justify-center text-bf-gold touch-manipulation"
         >
-          <div className="w-9 h-9 rounded-full bg-cc-gold text-cc-dark flex items-center justify-center text-lg font-bold shadow-md">+</div>
+          <div className="w-9 h-9 rounded-full bg-bf-gold text-bf-dark flex items-center justify-center text-lg font-bold shadow-md">+</div>
           <span className="text-[10px] font-medium leading-tight">Play</span>
         </button>
         {/* More */}
@@ -100,7 +101,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
           onClick={() => setMoreOpen((o) => !o)}
           className={clsx(
             'flex flex-col items-center gap-0.5 py-1.5 px-2 min-h-[48px] min-w-[48px] justify-center transition-colors touch-manipulation',
-            moreOpen ? 'text-cc-gold' : 'text-cc-muted hover:text-cc-text',
+            moreOpen ? 'text-bf-gold' : 'text-bf-muted hover:text-bf-text',
           )}
         >
           {moreOpen ? <X className="w-5 h-5" /> : <MoreHorizontal className="w-5 h-5" />}
@@ -116,7 +117,7 @@ function MoreLink({ to, icon: Icon, label, onClick }: { to: string; icon: React.
     <Link
       to={to}
       onClick={onClick}
-      className="flex flex-col items-center gap-1 py-3 rounded-lg bg-cc-dark text-cc-muted hover:text-cc-text transition-colors min-h-[44px]"
+      className="flex flex-col items-center gap-1 py-3 rounded-lg bg-bf-dark text-bf-muted hover:text-bf-text transition-colors min-h-[44px]"
     >
       <Icon className="w-5 h-5" />
       <span className="text-[10px]">{label}</span>

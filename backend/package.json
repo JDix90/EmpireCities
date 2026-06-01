@@ -1,5 +1,5 @@
 {
-  "name": "erasofempire-backend",
+  "name": "borderfall-backend",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -21,7 +21,7 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@erasofempire/shared": "workspace:*",
+    "@borderfall/shared": "workspace:*",
     "@fastify/cookie": "^9.3.1",
     "@fastify/cors": "^9.0.1",
     "@fastify/helmet": "^11.1.1",

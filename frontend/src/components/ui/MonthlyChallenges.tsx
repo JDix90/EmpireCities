@@ -41,13 +41,13 @@ export default function MonthlyChallenges({ className }: MonthlyChallengesProps)
   const displayChallenges = expanded ? data.challenges : data.challenges.slice(0, 4);
 
   return (
-    <div className={clsx('rounded-xl bg-cc-surface border border-cc-border p-4', className)}>
+    <div className={clsx('rounded-xl bg-bf-surface border border-bf-border p-4', className)}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Target size={16} className="text-cc-gold" />
-          <span className="font-display text-sm text-cc-gold">Monthly Challenges</span>
+          <Target size={16} className="text-bf-gold" />
+          <span className="font-display text-sm text-bf-gold">Monthly Challenges</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-cc-muted">
+        <div className="flex items-center gap-2 text-xs text-bf-muted">
           <span>{completedCount}/{data.challenges.length} complete</span>
           <span>·</span>
           <span>{data.days_remaining}d left</span>
@@ -63,7 +63,7 @@ export default function MonthlyChallenges({ className }: MonthlyChallengesProps)
       {data.challenges.length > 4 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-3 text-xs text-cc-gold hover:text-cc-gold/80 transition-colors w-full text-center"
+          className="mt-3 text-xs text-bf-gold hover:text-bf-gold/80 transition-colors w-full text-center"
         >
           {expanded ? 'Show less' : `Show all ${data.challenges.length} challenges`}
         </button>
@@ -82,24 +82,24 @@ function ChallengeCard({ challenge }: { challenge: Challenge }) {
         'rounded-lg p-3 border transition-all',
         isComplete
           ? 'border-green-500/20 bg-green-500/5'
-          : 'border-cc-border bg-cc-dark/50',
+          : 'border-bf-border bg-bf-dark/50',
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             {isComplete && <CheckCircle size={12} className="text-green-400 shrink-0" />}
-            <p className={clsx('text-sm font-medium truncate', isComplete ? 'text-green-400' : 'text-cc-text')}>
+            <p className={clsx('text-sm font-medium truncate', isComplete ? 'text-green-400' : 'text-bf-text')}>
               {challenge.title}
             </p>
           </div>
           {challenge.description && (
-            <p className="text-xs text-cc-muted mt-0.5 truncate">{challenge.description}</p>
+            <p className="text-xs text-bf-muted mt-0.5 truncate">{challenge.description}</p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0 text-xs">
           {challenge.reward_gold > 0 && (
-            <span className="text-cc-gold">🪙 {challenge.reward_gold}</span>
+            <span className="text-bf-gold">🪙 {challenge.reward_gold}</span>
           )}
           {challenge.reward_xp > 0 && (
             <span className="text-blue-400">✨ {challenge.reward_xp} XP</span>
@@ -110,13 +110,13 @@ function ChallengeCard({ challenge }: { challenge: Challenge }) {
       {/* Progress bar */}
       {!isComplete && (
         <div className="mt-2">
-          <div className="flex justify-between text-[10px] text-cc-muted mb-0.5">
+          <div className="flex justify-between text-[10px] text-bf-muted mb-0.5">
             <span>{challenge.progress}/{challenge.target_count}</span>
             <span>{Math.round(progressPct)}%</span>
           </div>
-          <div className="h-1.5 rounded-full bg-cc-dark overflow-hidden">
+          <div className="h-1.5 rounded-full bg-bf-dark overflow-hidden">
             <div
-              className="h-full rounded-full bg-cc-gold transition-all duration-500"
+              className="h-full rounded-full bg-bf-gold transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>

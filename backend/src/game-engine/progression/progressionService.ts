@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { getTier } from '../rating/ratingService';
-import { ONBOARDING_QUESTS } from '@erasofempire/shared';
+import { ONBOARDING_QUESTS } from '@borderfall/shared';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 

@@ -1075,7 +1075,7 @@ const Picker = lazy(() => import('@emoji-mart/react'));
 const [showPicker, setShowPicker] = useState(false);
 
 {showPicker && (
-  <Suspense fallback={<div className="h-80 w-72 animate-pulse bg-cc-dark" />}>
+  <Suspense fallback={<div className="h-80 w-72 animate-pulse bg-bf-dark" />}>
     <Picker
       data={undefined}  // emoji-mart fetches data lazily when data prop is omitted
       onEmojiSelect={handleEmojiSelect}

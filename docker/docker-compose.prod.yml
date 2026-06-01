@@ -90,6 +90,12 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production_jwt_access}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_jwt_refresh}
       REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@borderfall.com}
     healthcheck:
       # /ready exercises Postgres, Mongo, and Redis so the orchestrator only
       # routes traffic once dependencies are actually reachable. /health stays
@@ -112,6 +118,8 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-}
     container_name: borderfall_web_prod
     restart: unless-stopped
     depends_on:

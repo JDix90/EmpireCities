@@ -42,21 +42,21 @@ function MobileCardsTray({
   };
 
   return (
-    <div ref={sheetRef} className="fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-30 animate-slide-up bg-cc-surface pb-safe">
+    <div ref={sheetRef} className="fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-bf-border z-30 animate-slide-up bg-bf-surface pb-safe">
       {/* Drag handle (swipe-to-dismiss) */}
-      <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10 cursor-grab">
-        <div className="w-8 h-1 rounded-full bg-cc-border" />
+      <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-bf-surface z-10 cursor-grab">
+        <div className="w-8 h-1 rounded-full bg-bf-border" />
       </div>
 
       <div className="px-4 pb-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-display text-sm text-cc-gold">
+          <h3 className="font-display text-sm text-bf-gold">
             Your Cards ({cards.length})
           </h3>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2 -mt-1 shrink-0"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text transition-colors -mr-2 -mt-1 shrink-0"
             aria-label="Close cards"
           >
             <X className="w-4 h-4" />
@@ -65,7 +65,7 @@ function MobileCardsTray({
 
         {/* Selection guidance */}
         {isDraftPhase && isMyTurn && (
-          <p className="text-xs text-cc-muted mb-3">
+          <p className="text-xs text-bf-muted mb-3">
             {selectedCards.length === 0
               ? 'Select 3 cards to redeem for bonus units'
               : selectedCards.length < 3
@@ -74,7 +74,7 @@ function MobileCardsTray({
           </p>
         )}
         {(!isDraftPhase || !isMyTurn) && (
-          <p className="text-xs text-cc-muted mb-3">
+          <p className="text-xs text-bf-muted mb-3">
             Cards can be redeemed during your reinforcement phase.
           </p>
         )}
@@ -90,8 +90,8 @@ function MobileCardsTray({
                 className={clsx(
                   'min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg border text-sm font-medium transition-colors',
                   isSelected
-                    ? 'border-cc-gold bg-cc-gold/10 text-cc-gold'
-                    : 'border-cc-border text-cc-text hover:border-cc-gold/50',
+                    ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
+                    : 'border-bf-border text-bf-text hover:border-bf-gold/50',
                 )}
               >
                 <span className="capitalize">{card.symbol}</span>

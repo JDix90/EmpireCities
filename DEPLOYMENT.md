@@ -29,10 +29,19 @@ Edit `.env.production`:
 - **`FRONTEND_URL`** — Must match the exact origin users use (`https://your.domain` or `http://ip:port`). CORS and Socket.io rely on this.
 - **`JWT_ACCESS_SECRET`** / **`JWT_REFRESH_SECRET`** — Use long random values (e.g. `openssl rand -hex 32`).
 - Database passwords — change defaults.
+- **`SENTRY_DSN`** / **`VITE_SENTRY_DSN`** — Optional but recommended for production error monitoring.
+- **`SMTP_*`** — Recommended for password reset and async turn emails (`SMTP_FROM` on your domain).
 
 ## 2. Build and start the stack
 
-From the **repository root**:
+From the **repository root** (helper script):
+
+```bash
+chmod +x scripts/deploy-production.sh scripts/seed-production.sh scripts/backup-databases.sh
+./scripts/deploy-production.sh --seed
+```
+
+Or manually:
 
 ```bash
 docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d --build
@@ -42,14 +51,8 @@ docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -
 - **First-time data** (after Postgres + Mongo are up):
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec backend \
-  sh -c "cd /app/backend && node dist/db/postgres/seed.js"
-
-docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec backend \
-  sh -c "cd /app && pnpm exec tsx database/seedMaps.ts"
+./scripts/seed-production.sh
 ```
-
-`seedMaps.ts` loads `MONGO_URI` from the environment (already set in Compose).
 
 ## 3. Verify
 
@@ -65,17 +68,24 @@ Open two browsers, register, create/join a game, confirm WebSocket connects (Dev
 
 Terminating TLS **in front of** nginx (recommended):
 
-- **Caddy** or **Traefik** with automatic Let’s Encrypt, reverse-proxy to `127.0.0.1:80` (or the `HTTP_PORT` you set).
-- Or **Certbot** + nginx on the host (not inside the `web` container) — proxy to the container.
+- **Caddy** — see [docker/Caddyfile.example](docker/Caddyfile.example) for a minimal reverse-proxy config.
+- **Traefik** or **Certbot** + nginx on the host — proxy to `127.0.0.1:80` (or the `HTTP_PORT` you set).
 
 Update **`FRONTEND_URL`** to `https://…` after HTTPS is live.
+
+### Staging before public launch
+
+1. Deploy to a subdomain (e.g. `staging.your-domain.com`) with the same Compose stack.
+2. Run the QA gates in [docs/LAUNCH_QA_SIGNOFF.md](docs/LAUNCH_QA_SIGNOFF.md).
+3. Closed beta on production domain (invite-only) → soft launch → public launch.
 
 ## 5. Always-on / operations (Stage 2)
 
 - **Restart policy:** Compose uses `restart: unless-stopped` so processes come back after reboot (with Docker enabled on boot).
-- **Backups:** Schedule dumps of Postgres (`pg_dump`) and Mongo (`mongodump`) volumes or use managed DB backups.
-- **Monitoring:** Poll `GET /health` (exposed via nginx at `/health`) from UptimeRobot, Better Stack, etc.
-- **Deploys:** Restarting the **backend** clears **in-memory games**. Schedule deploys when no active playtests, or accept brief resets during beta.
+- **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod` / `borderfall_mongo_prod`). Schedule with `./scripts/setup-backup-cron.sh`.
+- **Monitoring:** Poll `GET /health` and `GET /ready` from UptimeRobot, Better Stack, etc.
+- **Deploys:** `./scripts/deploy-production.sh` — restarting the **backend** clears **in-memory games**. Schedule deploys when no active playtests, or accept brief resets during beta.
+- **QA sign-off:** [docs/LAUNCH_QA_SIGNOFF.md](docs/LAUNCH_QA_SIGNOFF.md) before each go-live.
 
 ## 6. Split frontend / API (optional)
 

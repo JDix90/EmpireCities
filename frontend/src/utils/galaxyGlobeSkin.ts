@@ -1,4 +1,4 @@
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 
 export interface GalaxyWorldSkinRow {
   world_id: string;

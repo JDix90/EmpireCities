@@ -74,7 +74,7 @@ import {
   isLiteMode,
   persistLiteMode,
 } from '../utils/device';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import {
   getOrbitAccessResult,
   resolveOrbitAccessMode,
@@ -2304,11 +2304,11 @@ export default function GamePage() {
   if (!gameStarted || !gameState) {
     if (lobbyLoadError) {
       return (
-        <div className="min-h-screen bg-cc-dark flex items-center justify-center px-4 pt-safe pb-safe">
+        <div className="min-h-screen bg-bf-dark flex items-center justify-center px-4 pt-safe pb-safe">
           <div className="max-w-sm w-full text-center space-y-4">
             <p className="text-2xl">⚠️</p>
-            <h2 className="font-display text-xl text-cc-gold">Game unavailable</h2>
-            <p className="text-cc-muted text-sm">{lobbyLoadError}</p>
+            <h2 className="font-display text-xl text-bf-gold">Game unavailable</h2>
+            <p className="text-bf-muted text-sm">{lobbyLoadError}</p>
             <div className="flex flex-col gap-3 mt-6">
               <button
                 className="btn-primary w-full"
@@ -2369,8 +2369,8 @@ export default function GamePage() {
       else if (dailySpec) prepLabel = 'Preparing today\u2019s challenge…';
       else if (settings.is_campaign === true) prepLabel = 'Preparing the next era…';
       return (
-        <div className="min-h-screen bg-cc-dark flex flex-col">
-          <nav className="border-b border-cc-border px-6 py-3 flex justify-between items-center">
+        <div className="min-h-screen bg-bf-dark flex flex-col">
+          <nav className="border-b border-bf-border px-6 py-3 flex justify-between items-center">
             <BrandWordmark
               to={settings.is_campaign ? '/campaign' : (dailySpec ? '/daily' : '/lobby')}
               className="text-sm"
@@ -2378,13 +2378,13 @@ export default function GamePage() {
             <button
               type="button"
               onClick={handleCancelGame}
-              className="text-cc-muted text-sm hover:text-cc-gold transition-colors"
+              className="text-bf-muted text-sm hover:text-bf-gold transition-colors"
             >
               Cancel
             </button>
           </nav>
           <div className="flex-1 flex items-center justify-center px-4">
-            <p className="text-cc-muted text-sm animate-pulse">{prepLabel}</p>
+            <p className="text-bf-muted text-sm animate-pulse">{prepLabel}</p>
           </div>
           {showDailyIntro && dailySpec && (
             <DailyChallengeIntroModal
@@ -2402,14 +2402,14 @@ export default function GamePage() {
     }
 
     return (
-      <div className="min-h-screen bg-cc-dark px-4 py-6 sm:px-6 lg:py-8">
+      <div className="min-h-screen bg-bf-dark px-4 py-6 sm:px-6 lg:py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="card mb-6 overflow-hidden border-cc-gold/10 bg-gradient-to-br from-cc-surface to-cc-dark/90">
+          <div className="card mb-6 overflow-hidden border-bf-gold/10 bg-gradient-to-br from-bf-surface to-bf-dark/90">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.28em] text-cc-gold/70 mb-2">Pre-Game Room</p>
-                <h2 className="font-display text-3xl text-cc-gold mb-2">Game Lobby</h2>
-                <p className="text-cc-muted text-sm max-w-2xl">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-bf-gold/70 mb-2">Pre-Game Room</p>
+                <h2 className="font-display text-3xl text-bf-gold mb-2">Game Lobby</h2>
+                <p className="text-bf-muted text-sm max-w-2xl">
                   {!lobby
                     ? 'Loading lobby…'
                     : lobby.status === 'waiting'
@@ -2420,21 +2420,21 @@ export default function GamePage() {
 
               {lobby && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0 lg:min-w-[420px]">
-                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
-                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Era</p>
-                    <p className="text-sm text-cc-text font-medium truncate">{eraLabel}</p>
+                  <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Era</p>
+                    <p className="text-sm text-bf-text font-medium truncate">{eraLabel}</p>
                   </div>
-                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
-                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Seats</p>
-                    <p className="text-sm text-cc-text font-medium">{roster.length} / {maxPlayers}</p>
+                  <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Seats</p>
+                    <p className="text-sm text-bf-text font-medium">{roster.length} / {maxPlayers}</p>
                   </div>
-                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
-                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Host</p>
-                    <p className="text-sm text-cc-text font-medium truncate">{hostPlayer ? playerLobbyDisplayName(hostPlayer) : '—'}</p>
+                  <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Host</p>
+                    <p className="text-sm text-bf-text font-medium truncate">{hostPlayer ? playerLobbyDisplayName(hostPlayer) : '—'}</p>
                   </div>
-                  <div className="rounded-xl border border-cc-border bg-black/20 px-3 py-3">
-                    <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Status</p>
-                    <p className="text-sm font-medium text-cc-gold">{lobby.status === 'waiting' ? `${seatsRemaining} open` : 'Starting'}</p>
+                  <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
+                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Status</p>
+                    <p className="text-sm font-medium text-bf-gold">{lobby.status === 'waiting' ? `${seatsRemaining} open` : 'Starting'}</p>
                   </div>
                 </div>
               )}
@@ -2447,53 +2447,53 @@ export default function GamePage() {
                 <div className="card">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Configuration</p>
-                      <h3 className="font-display text-xl text-cc-gold">Game Settings</h3>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-bf-muted mb-1">Configuration</p>
+                      <h3 className="font-display text-xl text-bf-gold">Game Settings</h3>
                     </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full border border-cc-gold/20 bg-cc-gold/10 text-cc-gold">
+                    <span className="text-xs px-2.5 py-1 rounded-full border border-bf-gold/20 bg-bf-gold/10 text-bf-gold">
                       {mapLabel}
                     </span>
                   </div>
 
                   <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Era</dt>
-                      <dd className="text-cc-text font-medium">{eraLabel}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Era</dt>
+                      <dd className="text-bf-text font-medium">{eraLabel}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Map</dt>
-                      <dd className="text-cc-text font-medium">{mapLabel}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Map</dt>
+                      <dd className="text-bf-text font-medium">{mapLabel}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Players</dt>
-                      <dd className="text-cc-text font-medium">{roster.length} / {maxPlayers}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Players</dt>
+                      <dd className="text-bf-text font-medium">{roster.length} / {maxPlayers}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Turn Timer</dt>
-                      <dd className="text-cc-text font-medium">{formatTurnTimer(settings.turn_timer_seconds)}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Turn Timer</dt>
+                      <dd className="text-bf-text font-medium">{formatTurnTimer(settings.turn_timer_seconds)}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Fog of War</dt>
-                      <dd className="text-cc-text font-medium">{settings.fog_of_war ? 'On' : 'Off'}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Fog of War</dt>
+                      <dd className="text-bf-text font-medium">{settings.fog_of_war ? 'On' : 'Off'}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Diplomacy</dt>
-                      <dd className="text-cc-text font-medium">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Diplomacy</dt>
+                      <dd className="text-bf-text font-medium">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3 sm:col-span-2 xl:col-span-1">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Victory</dt>
-                      <dd className="text-cc-text font-medium">{victorySummary}</dd>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3 sm:col-span-2 xl:col-span-1">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Victory</dt>
+                      <dd className="text-bf-text font-medium">{victorySummary}</dd>
                     </div>
-                    <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Starting Units</dt>
-                      <dd className="text-cc-text font-medium">
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Starting Units</dt>
+                      <dd className="text-bf-text font-medium">
                         {typeof settings.initial_unit_count === 'number' ? settings.initial_unit_count : '—'}
                       </dd>
                     </div>
                     {aiCount > 0 && (
-                      <div className="rounded-lg border border-cc-border bg-cc-dark/60 p-3">
-                        <dt className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">AI Opponents</dt>
-                        <dd className="text-cc-text font-medium">
+                      <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
+                        <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">AI Opponents</dt>
+                        <dd className="text-bf-text font-medium">
                           {aiCount} · {firstAi?.ai_difficulty ? `${firstAi.ai_difficulty.charAt(0).toUpperCase()}${firstAi.ai_difficulty.slice(1)}` : 'Medium'}
                         </dd>
                       </div>
@@ -2504,10 +2504,10 @@ export default function GamePage() {
                 {gameId && (
                   <div className="card">
                     <div className="flex items-center gap-2 mb-4">
-                      <MessageSquare className="w-4 h-4 text-cc-gold" />
+                      <MessageSquare className="w-4 h-4 text-bf-gold" />
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Coordination</p>
-                        <h3 className="font-display text-lg text-cc-gold">Lobby Chat</h3>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-bf-muted mb-1">Coordination</p>
+                        <h3 className="font-display text-lg text-bf-gold">Lobby Chat</h3>
                       </div>
                     </div>
                     <GameChat gameId={gameId} embedded defaultOpen lobbyMode />
@@ -2518,10 +2518,10 @@ export default function GamePage() {
                   <div className="card">
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Consensus</p>
-                        <h3 className="font-display text-lg text-cc-gold">Vote on Settings</h3>
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-bf-muted mb-1">Consensus</p>
+                        <h3 className="font-display text-lg text-bf-gold">Vote on Settings</h3>
                       </div>
-                      <span className="text-xs text-cc-muted">Majority approval required</span>
+                      <span className="text-xs text-bf-muted">Majority approval required</span>
                     </div>
                     <LobbyProposals gameId={gameId} currentSettings={lobby.settings_json ?? null} />
                   </div>
@@ -2534,10 +2534,10 @@ export default function GamePage() {
                 <div className="card">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-cc-muted mb-1">Roster</p>
-                      <h3 className="font-display text-xl text-cc-gold">Players</h3>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-bf-muted mb-1">Roster</p>
+                      <h3 className="font-display text-xl text-bf-gold">Players</h3>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 text-sm text-cc-muted">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-bf-muted">
                       <Users className="w-4 h-4" /> {roster.length} connected seats
                     </span>
                   </div>
@@ -2550,7 +2550,7 @@ export default function GamePage() {
                       return (
                         <li
                           key={p.player_index}
-                          className="flex items-center gap-3 rounded-lg border border-cc-border bg-cc-dark/55 px-3 py-3"
+                          className="flex items-center gap-3 rounded-lg border border-bf-border bg-bf-dark/55 px-3 py-3"
                         >
                           <span
                             className="w-3 h-3 rounded-full shrink-0 border border-white/20"
@@ -2558,16 +2558,16 @@ export default function GamePage() {
                             title="Color"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-cc-text text-sm font-medium truncate">
+                            <p className="text-bf-text text-sm font-medium truncate">
                               {playerLobbyDisplayName(p)}
-                              {isYou && <span className="text-cc-muted text-xs ml-1">(you)</span>}
+                              {isYou && <span className="text-bf-muted text-xs ml-1">(you)</span>}
                               {assignedFaction && (
-                                <span className="ml-2 text-xs px-2 py-0.5 rounded bg-cc-gold/10 text-cc-gold border border-cc-gold/20">
+                                <span className="ml-2 text-xs px-2 py-0.5 rounded bg-bf-gold/10 text-bf-gold border border-bf-gold/20">
                                   Faction: {assignedFaction}
                                 </span>
                               )}
                             </p>
-                            <p className="text-xs text-cc-muted mt-0.5">
+                            <p className="text-xs text-bf-muted mt-0.5">
                               {p.is_ai
                                 ? `AI seat${p.ai_difficulty ? ` · ${p.ai_difficulty.charAt(0).toUpperCase()}${p.ai_difficulty.slice(1)}` : ''}`
                                 : p.player_index === 0
@@ -2576,12 +2576,12 @@ export default function GamePage() {
                             </p>
                           </div>
                           {p.player_index === 0 && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-cc-gold/15 text-cc-gold border border-cc-gold/30">
+                            <span className="text-xs px-2 py-0.5 rounded bg-bf-gold/15 text-bf-gold border border-bf-gold/30">
                               Host
                             </span>
                           )}
                           {p.is_ai && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-cc-surface text-cc-muted border border-cc-border">
+                            <span className="text-xs px-2 py-0.5 rounded bg-bf-surface text-bf-muted border border-bf-border">
                               AI
                             </span>
                           )}
@@ -2595,8 +2595,8 @@ export default function GamePage() {
               <aside className="space-y-6 xl:sticky xl:top-6">
                 <div className="card">
                   <div className="flex items-center gap-2 mb-4">
-                    <Play className="w-4 h-4 text-cc-gold" />
-                    <h3 className="font-display text-lg text-cc-gold">Ready Room</h3>
+                    <Play className="w-4 h-4 text-bf-gold" />
+                    <h3 className="font-display text-lg text-bf-gold">Ready Room</h3>
                   </div>
 
                   {isHost ? (
@@ -2624,19 +2624,19 @@ export default function GamePage() {
                       >
                         Cancel Game
                       </button>
-                      <p className="text-xs leading-relaxed text-cc-muted">
+                      <p className="text-xs leading-relaxed text-bf-muted">
                         Start immediately, or wait for more players to join and vote on any rule changes first.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-cc-muted leading-relaxed">
+                      <p className="text-sm text-bf-muted leading-relaxed">
                         Waiting for {hostPlayer ? playerLobbyDisplayName(hostPlayer) : 'the host'} to start the game.
                       </p>
                       <button
                         type="button"
                         onClick={handleLeaveGame}
-                        className="w-full text-sm min-h-[44px] py-2.5 rounded border border-cc-border text-cc-muted hover:text-cc-text hover:border-cc-muted transition-colors touch-manipulation"
+                        className="w-full text-sm min-h-[44px] py-2.5 rounded border border-bf-border text-bf-muted hover:text-bf-text hover:border-bf-muted transition-colors touch-manipulation"
                       >
                         Leave Game
                       </button>
@@ -2647,15 +2647,15 @@ export default function GamePage() {
                 {gameId && (
                   <div className="card">
                     <div className="flex items-center gap-2 mb-4">
-                      <Link2 className="w-4 h-4 text-cc-gold" />
-                      <h3 className="font-display text-lg text-cc-gold">Share This Game</h3>
+                      <Link2 className="w-4 h-4 text-bf-gold" />
+                      <h3 className="font-display text-lg text-bf-gold">Share This Game</h3>
                     </div>
 
                     {lobbySnapshot?.join_code && (
-                      <div className="rounded-lg border border-cc-gold/20 bg-cc-gold/5 px-3 py-3 mb-3">
-                        <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-1">Join Code</p>
+                      <div className="rounded-lg border border-bf-gold/20 bg-bf-gold/5 px-3 py-3 mb-3">
+                        <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Join Code</p>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-cc-gold font-mono text-2xl tracking-[0.18em]">{lobbySnapshot.join_code}</span>
+                          <span className="text-bf-gold font-mono text-2xl tracking-[0.18em]">{lobbySnapshot.join_code}</span>
                           <button type="button" onClick={copyJoinCode} className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1.5">
                             <Copy className="w-3.5 h-3.5" /> Copy
                           </button>
@@ -2663,7 +2663,7 @@ export default function GamePage() {
                       </div>
                     )}
 
-                    <p className="text-xs text-cc-muted break-all mb-3">{shareUrl}</p>
+                    <p className="text-xs text-bf-muted break-all mb-3">{shareUrl}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
                       <button type="button" onClick={copyGameUrl} className="btn-secondary text-sm py-2 px-3 flex items-center justify-center gap-1.5">
                         <Copy className="w-3.5 h-3.5" /> Copy link
@@ -2695,16 +2695,16 @@ export default function GamePage() {
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
 
   return (
-    <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
+    <div className="h-screen bg-bf-dark flex flex-col overflow-hidden">
       {/* Top Bar */}
-      <div className="min-h-10 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
+      <div className="min-h-10 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
         <BrandWordmark to="/lobby" className="text-sm" />
-        <span className="text-cc-muted text-xs">·</span>
-        <span className="text-cc-muted text-xs capitalize">
+        <span className="text-bf-muted text-xs">·</span>
+        <span className="text-bf-muted text-xs capitalize">
           {gameState.era === 'custom' ? 'Community map' : `${gameState.era} Era`}
         </span>
-        <span className="text-cc-muted text-xs">·</span>
-        <span className="text-cc-muted text-xs">Turn {gameState.turn_number}</span>
+        <span className="text-bf-muted text-xs">·</span>
+        <span className="text-bf-muted text-xs">Turn {gameState.turn_number}</span>
         <div className="flex-1" />
         {/* Globe/2D toggle — full buttons on desktop, icon-only on mobile */}
         <div className="flex gap-1">
@@ -2716,7 +2716,7 @@ export default function GamePage() {
               setMapView(next);
               persistMapView(next);
             }}
-            className="md:hidden min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-cc-muted hover:text-cc-text flex items-center gap-1"
+            className="md:hidden min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-bf-muted hover:text-bf-text flex items-center gap-1"
             aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
           >
             {mapView === 'globe' ? <MapIcon className="w-4 h-4" /> : <GlobeIcon className="w-4 h-4" />}
@@ -2728,7 +2728,7 @@ export default function GamePage() {
               setMapView('globe');
               persistMapView('globe');
             }}
-            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             Globe
           </button>
@@ -2738,7 +2738,7 @@ export default function GamePage() {
               setMapView('2d');
               persistMapView('2d');
             }}
-            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             2D Map
           </button>
@@ -2750,7 +2750,7 @@ export default function GamePage() {
                 setGlobeSpinEnabled(next);
                 persistGlobeSpinPreference(next);
               }}
-              className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded items-center gap-1 ${globeSpinEnabled ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+              className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded items-center gap-1 ${globeSpinEnabled ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
               aria-label="Toggle globe spin"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -2758,7 +2758,7 @@ export default function GamePage() {
             </button>
           )}
           {mapView === 'globe' && hasMoonTerritories && (
-            <span className="hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded text-cc-gold/90 bg-cc-gold/10 border border-cc-gold/25 items-center">
+            <span className="hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded text-bf-gold/90 bg-bf-gold/10 border border-bf-gold/25 items-center">
               Earth + Moon
             </span>
           )}
@@ -2767,7 +2767,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setGalaxyOverviewMode(true)}
-                className={`hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-cc-gold/20 text-cc-gold' : 'text-cc-muted hover:text-cc-text'}`}
+                className={`hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
               >
                 Galaxy chart
               </button>
@@ -2780,7 +2780,7 @@ export default function GamePage() {
                       setFocusedWorldId(w.world_id);
                       setGalaxyOverviewMode(false);
                     }}
-                    className={`min-h-[36px] px-2.5 py-1.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-cc-gold text-cc-gold bg-cc-gold/10' : 'border-cc-border text-cc-muted hover:text-cc-text'}`}
+                    className={`min-h-[36px] px-2.5 py-1.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted hover:text-bf-text'}`}
                   >
                     {w.display_name}
                   </button>
@@ -2838,10 +2838,10 @@ export default function GamePage() {
       {gameState?.settings?.daily_challenge_spec?.title && (
         <div className="shrink-0 px-4 py-2 bg-amber-950/25 border-b border-amber-700/35 text-sm">
           <span className="text-amber-400/90 font-display text-xs tracking-wide">Daily challenge</span>
-          <p className="text-cc-text mt-0.5 font-medium">{gameState.settings.daily_challenge_spec.title}</p>
+          <p className="text-bf-text mt-0.5 font-medium">{gameState.settings.daily_challenge_spec.title}</p>
           {gameState.settings.daily_challenge_spec.archetype !== 'domination' &&
             gameState.settings.daily_challenge_spec.goal && (
-              <p className="text-cc-muted text-xs mt-1 leading-snug">{gameState.settings.daily_challenge_spec.goal}</p>
+              <p className="text-bf-muted text-xs mt-1 leading-snug">{gameState.settings.daily_challenge_spec.goal}</p>
             )}
         </div>
       )}
@@ -2853,7 +2853,7 @@ export default function GamePage() {
               ? 'bg-emerald-950/35 border-emerald-700/45 text-emerald-100'
               : puzzleFeedback.tier === 'risky'
                 ? 'bg-red-950/35 border-red-700/40 text-red-100'
-                : 'bg-cc-dark border-cc-border text-cc-text'
+                : 'bg-bf-dark border-bf-border text-bf-text'
           }`}
         >
           {puzzleFeedback.message}
@@ -2869,7 +2869,7 @@ export default function GamePage() {
         >
           {mapData ? (
             mapView === 'globe' ? (
-              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-cc-muted animate-pulse">Loading globe…</p></div>}>
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
                   {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
                     <GalaxyStrategicView
@@ -2889,14 +2889,14 @@ export default function GamePage() {
                     <>
                       {galaxyWorldBanner && (
                         <div
-                          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-cc-border bg-black/60 text-center shadow-lg"
+                          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-bf-border bg-black/60 text-center shadow-lg"
                           role="status"
                           aria-live="polite"
                         >
-                          <div className="font-display text-cc-gold text-sm sm:text-base">
+                          <div className="font-display text-bf-gold text-sm sm:text-base">
                             {galaxyWorldBanner.display_name}
                           </div>
-                          <div className="text-[11px] sm:text-xs text-cc-muted mt-0.5">
+                          <div className="text-[11px] sm:text-xs text-bf-muted mt-0.5">
                             {galaxyWorldBanner.tagline}
                           </div>
                         </div>
@@ -2959,8 +2959,8 @@ export default function GamePage() {
                         }
                       />
                       {hasMoonTerritories && (
-                        <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-cc-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
-                          <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-cc-border/70 text-cc-gold pointer-events-none">
+                        <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-bf-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
+                          <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-gold pointer-events-none">
                             Moon
                           </div>
                           <GlobeMap
@@ -3003,7 +3003,7 @@ export default function GamePage() {
             )
           ) : (
             <div className="flex items-center justify-center h-full">
-              <p className="text-cc-muted">Loading map...</p>
+              <p className="text-bf-muted">Loading map...</p>
             </div>
           )}
 
@@ -3013,7 +3013,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => resetViewRef.current?.()}
-                className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
+                className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Reset map view"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -3021,7 +3021,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setShowShortcuts(true)}
-                className="hidden md:flex absolute bottom-3 right-3 z-20 w-9 h-9 items-center justify-center rounded-lg bg-cc-surface/80 border border-cc-border text-cc-muted hover:text-cc-text backdrop-blur-sm"
+                className="hidden md:flex absolute bottom-3 right-3 z-20 w-9 h-9 items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Keyboard shortcuts (?)"
                 title="Keyboard shortcuts (?)"
               >
@@ -3110,22 +3110,22 @@ export default function GamePage() {
             )
           : 0;
         return (
-          <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-cc-surface border-t border-cc-border pb-safe min-h-[56px]">
+          <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]">
             {/* Player + phase info */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {cp && (
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cp.color }} />
               )}
               <div className="min-w-0">
-                <div className="text-xs font-display text-cc-gold truncate">
+                <div className="text-xs font-display text-bf-gold truncate">
                   {phaseLabel[gameState.phase] ?? gameState.phase}
                   {mobileDraftPool > 0 && (
-                    <span className="ml-1.5 text-cc-text font-mono font-normal">
+                    <span className="ml-1.5 text-bf-text font-mono font-normal">
                       · {mobileDraftPool} units
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-cc-muted truncate flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs text-bf-muted truncate flex-wrap">
                   <span className="truncate">{myTurn ? 'Your turn' : cp?.username ?? '—'}</span>
                   {gameState.settings.async_mode && (() => {
                     const dSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
@@ -3162,11 +3162,11 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setMobileCardsTrayOpen((o) => !o)}
-                className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
+                className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border border-bf-border text-bf-muted hover:text-bf-text shrink-0"
                 aria-label="Show cards"
               >
                 <CreditCard className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-cc-gold text-cc-dark text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-bf-gold text-bf-dark text-[10px] font-bold rounded-full flex items-center justify-center">
                   {mobileMyPlayer.cards.length}
                 </span>
               </button>
@@ -3175,7 +3175,7 @@ export default function GamePage() {
             <button
               type="button"
               onClick={() => setMobileHudOpen(true)}
-              className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-cc-dark border border-cc-border text-cc-muted hover:text-cc-text shrink-0"
+              className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border border-bf-border text-bf-muted hover:text-bf-text shrink-0"
               aria-label="Open game menu"
             >
               <Menu className="w-5 h-5" />
@@ -3212,14 +3212,14 @@ export default function GamePage() {
             onClick={() => setMobileHudOpen(false)}
           />
           {/* Drawer panel */}
-          <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-50 flex flex-col bg-cc-surface">
+          <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-50 flex flex-col bg-bf-surface">
             {/* Drawer header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-cc-border pt-safe shrink-0">
-              <span className="font-display text-sm text-cc-gold">Game Info</span>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-bf-border pt-safe shrink-0">
+              <span className="font-display text-sm text-bf-gold">Game Info</span>
               <button
                 type="button"
                 onClick={() => setMobileHudOpen(false)}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-cc-dark text-cc-muted hover:text-cc-text"
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-bf-dark text-bf-muted hover:text-bf-text"
                 aria-label="Close menu"
               >
                 <X className="w-4 h-4" />
@@ -3244,20 +3244,20 @@ export default function GamePage() {
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
             />
-            <div className="px-4 py-3 border-t border-cc-border shrink-0 space-y-2">
-              <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-2">Map View</p>
+            <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-2">Map View</p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => { setMapView('globe'); persistMapView('globe'); }}
-                  className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/40' : 'border-cc-border text-cc-muted'}`}
+                  className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
                 >
                   Globe
                 </button>
                 <button
                   type="button"
                   onClick={() => { setMapView('2d'); persistMapView('2d'); }}
-                  className={`flex-1 py-2 text-xs rounded border ${mapView === '2d' ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/40' : 'border-cc-border text-cc-muted'}`}
+                  className={`flex-1 py-2 text-xs rounded border ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
                 >
                   2D Map
                 </button>
@@ -3272,14 +3272,14 @@ export default function GamePage() {
                       setGlobeSpinEnabled(next);
                       persistGlobeSpinPreference(next);
                     }}
-                    className="w-4 h-4 accent-cc-gold"
+                    className="w-4 h-4 accent-bf-gold"
                   />
-                  <span className="text-sm text-cc-muted">Auto-spin globe</span>
+                  <span className="text-sm text-bf-muted">Auto-spin globe</span>
                 </label>
               )}
             </div>
             {/* Lite-mode toggle — visible only in the mobile drawer */}
-            <div className="px-4 py-3 border-t border-cc-border shrink-0">
+            <div className="px-4 py-3 border-t border-bf-border shrink-0">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -3289,9 +3289,9 @@ export default function GamePage() {
                     setLiteModeEnabled(next);
                     persistLiteMode(next);
                   }}
-                  className="w-4 h-4 accent-cc-gold"
+                  className="w-4 h-4 accent-bf-gold"
                 />
-                <span className="text-sm text-cc-muted">
+                <span className="text-sm text-bf-muted">
                   Lite mode <span className="text-xs">(fewer animations)</span>
                 </span>
               </label>

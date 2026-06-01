@@ -1,5 +1,5 @@
 {
-  "name": "eras-of-empire",
+  "name": "borderfall",
   "version": "1.0.0",
   "private": true,
   "description": "Borderfall — turn-based territory strategy across historical and galactic eras",
@@ -32,7 +32,12 @@
     "docker:prod:up": "test -f .env.production || cp .env.production.example .env.production; docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d",
     "docker:prod:down": "docker compose -f docker/docker-compose.prod.yml --env-file .env.production down",
     "docker:prod:logs": "docker compose -f docker/docker-compose.prod.yml --env-file .env.production logs -f",
-    "smoke:production": "bash scripts/smoke-production.sh"
+    "smoke:production": "bash scripts/smoke-production.sh",
+    "deploy:production": "bash scripts/deploy-production.sh",
+    "seed:production": "bash scripts/seed-production.sh",
+    "backup:databases": "bash scripts/backup-databases.sh",
+    "build:android:release": "bash scripts/build-android-release.sh",
+    "build:ios:release": "bash scripts/build-ios-release.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

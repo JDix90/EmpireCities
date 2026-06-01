@@ -392,13 +392,13 @@ export default function MapEditorPage() {
   };
 
   return (
-    <div className="h-screen bg-cc-dark flex flex-col overflow-hidden">
+    <div className="h-screen bg-bf-dark flex flex-col overflow-hidden">
       {/* Mobile warning — map editing requires a pointer device */}
       {isMobileViewport() && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-cc-dark px-6 text-center">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bf-dark px-6 text-center">
           <div className="text-5xl mb-4">🗺️</div>
-          <h2 className="font-display text-xl text-cc-gold mb-2">Desktop Required</h2>
-          <p className="text-cc-muted text-sm max-w-xs">
+          <h2 className="font-display text-xl text-bf-gold mb-2">Desktop Required</h2>
+          <p className="text-bf-muted text-sm max-w-xs">
             Map editing requires a mouse or trackpad. Please open the editor on a laptop or desktop.
           </p>
           <RouterLink
@@ -411,11 +411,11 @@ export default function MapEditorPage() {
       )}
 
       {/* Top Bar */}
-      <div className="min-h-12 pt-safe bg-cc-surface border-b border-cc-border flex items-center px-4 gap-4 shrink-0 py-1">
+      <div className="min-h-12 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
         <BrandWordmark to="/lobby" className="text-sm" />
-        <span className="text-cc-border">|</span>
+        <span className="text-bf-border">|</span>
         <input
-          className="bg-transparent border-none text-cc-gold font-display text-lg focus:outline-none w-64"
+          className="bg-transparent border-none text-bf-gold font-display text-lg focus:outline-none w-64"
           value={mapName}
           onFocus={recordUndo}
           onChange={(e) => setMapName(e.target.value)}
@@ -429,25 +429,25 @@ export default function MapEditorPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Toolbar */}
-        <div className="w-14 bg-cc-surface border-r border-cc-border flex flex-col items-center py-4 gap-3 shrink-0">
+        <div className="w-14 bg-bf-surface border-r border-bf-border flex flex-col items-center py-4 gap-3 shrink-0">
           {TOOLS.map(({ tool, icon, title }) => (
             <button
               key={tool}
               title={title}
               onClick={() => switchTool(tool)}
               className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                activeTool === tool ? 'bg-cc-gold text-cc-dark' : 'bg-cc-dark text-cc-muted hover:bg-cc-border'
+                activeTool === tool ? 'bg-bf-gold text-bf-dark' : 'bg-bf-dark text-bf-muted hover:bg-bf-border'
               }`}
             >
               {icon}
             </button>
           ))}
-          <div className="mt-2 border-t border-cc-border w-full pt-2 flex flex-col items-center gap-2">
+          <div className="mt-2 border-t border-bf-border w-full pt-2 flex flex-col items-center gap-2">
             <button
               title="Undo (Ctrl+Z)"
               onClick={undo}
               disabled={!canUndo}
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-cc-dark text-cc-muted hover:bg-cc-border disabled:opacity-30"
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-bf-dark text-bf-muted hover:bg-bf-border disabled:opacity-30"
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -455,7 +455,7 @@ export default function MapEditorPage() {
               title="Redo (Ctrl+Shift+Z)"
               onClick={redo}
               disabled={!canRedo}
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-cc-dark text-cc-muted hover:bg-cc-border disabled:opacity-30"
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors bg-bf-dark text-bf-muted hover:bg-bf-border disabled:opacity-30"
             >
               <Redo2 className="w-4 h-4" />
             </button>
@@ -464,7 +464,7 @@ export default function MapEditorPage() {
 
         {/* Globe Canvas */}
         <div ref={containerRef} className="flex-1 overflow-hidden relative">
-          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-cc-muted animate-pulse">Loading editor globe…</div>}>
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-bf-muted animate-pulse">Loading editor globe…</div>}>
             <GlobeMapEditor
               territories={territories}
               connections={connections}
@@ -482,7 +482,7 @@ export default function MapEditorPage() {
           </Suspense>
 
           {/* Hint bar */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-cc-surface/90 backdrop-blur border border-cc-border rounded-lg px-4 py-2 text-sm text-cc-muted flex items-center gap-3">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-bf-surface/90 backdrop-blur border border-bf-border rounded-lg px-4 py-2 text-sm text-bf-muted flex items-center gap-3">
             <span>{toolHints[activeTool]}</span>
             {activeTool === 'draw' && drawingPoints.length >= 3 && (
               <button
@@ -496,15 +496,15 @@ export default function MapEditorPage() {
         </div>
 
         {/* Right Panel */}
-        <div className="w-64 bg-cc-surface border-l border-cc-border flex flex-col shrink-0 overflow-y-auto">
+        <div className="w-64 bg-bf-surface border-l border-bf-border flex flex-col shrink-0 overflow-y-auto">
           {/* Territory Properties */}
           {selectedTerritory && (
-            <div className="p-4 border-b border-cc-border">
+            <div className="p-4 border-b border-bf-border">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider">Territory</h3>
+                <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider">Territory</h3>
                 <button
                   onClick={() => setSelectedTerritoryId(null)}
-                  className="text-cc-muted hover:text-cc-text transition-colors text-xs"
+                  className="text-bf-muted hover:text-bf-text transition-colors text-xs"
                   title="Deselect"
                 >
                   ✕
@@ -540,7 +540,7 @@ export default function MapEditorPage() {
                   </select>
                 </div>
                 {selectedTerritory.iso_codes && (
-                  <div className="text-xs text-cc-muted">
+                  <div className="text-xs text-bf-muted">
                     ISO: {selectedTerritory.iso_codes.join(', ')}
                   </div>
                 )}
@@ -563,21 +563,21 @@ export default function MapEditorPage() {
           {/* Regions */}
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider">Regions</h3>
-              <button onClick={addRegion} className="text-cc-gold hover:text-white transition-colors">
+              <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider">Regions</h3>
+              <button onClick={addRegion} className="text-bf-gold hover:text-white transition-colors">
                 <Plus className="w-4 h-4" />
               </button>
             </div>
             <div className="space-y-3">
               {regions.map((region, idx) => (
-                <div key={region.region_id} className="p-2 bg-cc-dark rounded-lg border border-cc-border">
+                <div key={region.region_id} className="p-2 bg-bf-dark rounded-lg border border-bf-border">
                   <div className="flex items-center gap-2 mb-2">
                     <div
                       className="w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: REGION_COLORS[idx % REGION_COLORS.length] }}
                     />
                     <input
-                      className="bg-transparent text-sm text-cc-text flex-1 focus:outline-none"
+                      className="bg-transparent text-sm text-bf-text flex-1 focus:outline-none"
                       value={region.name}
                       onFocus={recordUndo}
                       onChange={(e) => setRegions((prev) =>
@@ -586,7 +586,7 @@ export default function MapEditorPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-cc-muted">Bonus:</label>
+                    <label className="text-xs text-bf-muted">Bonus:</label>
                     <input
                       type="number"
                       className="input text-xs py-0.5 w-16"
@@ -605,19 +605,19 @@ export default function MapEditorPage() {
           </div>
 
           {/* Stats */}
-          <div className="p-4 border-t border-cc-border mt-auto">
-            <div className="space-y-1 text-xs text-cc-muted">
+          <div className="p-4 border-t border-bf-border mt-auto">
+            <div className="space-y-1 text-xs text-bf-muted">
               <div className="flex justify-between">
                 <span>Territories:</span>
-                <span className="text-cc-text">{territories.length}</span>
+                <span className="text-bf-text">{territories.length}</span>
               </div>
               <div className="flex justify-between">
                 <span>Connections:</span>
-                <span className="text-cc-text">{connections.length}</span>
+                <span className="text-bf-text">{connections.length}</span>
               </div>
               <div className="flex justify-between">
                 <span>Regions:</span>
-                <span className="text-cc-text">{regions.length}</span>
+                <span className="text-bf-text">{regions.length}</span>
               </div>
             </div>
           </div>

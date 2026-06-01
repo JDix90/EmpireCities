@@ -27,6 +27,7 @@ const MapHubPage = lazyWithChunkRetry(() => import('./pages/MapHubPage'));
 const FriendsPage = lazyWithChunkRetry(() => import('./pages/FriendsPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const PrivacyPage = lazyWithChunkRetry(() => import('./pages/PrivacyPage'));
+const TermsPage = lazyWithChunkRetry(() => import('./pages/TermsPage'));
 const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
@@ -44,24 +45,24 @@ const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
   return (
-    <div className="min-h-screen bg-cc-dark px-4 py-6 pt-safe pb-safe">
+    <div className="min-h-screen bg-bf-dark px-4 py-6 pt-safe pb-safe">
       {/* Nav skeleton */}
-      <div className="h-12 bg-cc-surface border-b border-cc-border mb-6 rounded-none -mx-4 px-4 flex items-center gap-3">
-        <div className="h-4 w-32 bg-cc-border/60 rounded animate-pulse" />
+      <div className="h-12 bg-bf-surface border-b border-bf-border mb-6 rounded-none -mx-4 px-4 flex items-center gap-3">
+        <div className="h-4 w-32 bg-bf-border/60 rounded animate-pulse" />
         <div className="flex-1" />
-        <div className="h-8 w-20 bg-cc-border/40 rounded animate-pulse" />
+        <div className="h-8 w-20 bg-bf-border/40 rounded animate-pulse" />
       </div>
       <div className="max-w-4xl mx-auto space-y-4">
         {/* Hero card skeleton */}
-        <div className="h-28 sm:h-32 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
+        <div className="h-28 sm:h-32 bg-bf-surface border border-bf-border rounded-xl animate-pulse" />
         {/* Two content cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="h-40 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
-          <div className="h-40 bg-cc-surface border border-cc-border rounded-xl animate-pulse" />
+          <div className="h-40 bg-bf-surface border border-bf-border rounded-xl animate-pulse" />
+          <div className="h-40 bg-bf-surface border border-bf-border rounded-xl animate-pulse" />
         </div>
         {/* Map area skeleton */}
-        <div className="h-48 sm:h-64 bg-cc-surface border border-cc-border rounded-xl animate-pulse flex items-center justify-center">
-          <p className="text-cc-muted/50 text-sm font-display tracking-widest animate-pulse">{APP_NAME_NAV}</p>
+        <div className="h-48 sm:h-64 bg-bf-surface border border-bf-border rounded-xl animate-pulse flex items-center justify-center">
+          <p className="text-bf-muted/50 text-sm font-display tracking-widest animate-pulse">{APP_NAME_NAV}</p>
         </div>
       </div>
     </div>
@@ -237,6 +238,7 @@ export default function App() {
         <Route path="/__modal-lab" element={<ModalLabPage />} />
         <Route path="/__map-visual-lab" element={<MapVisualLabPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />

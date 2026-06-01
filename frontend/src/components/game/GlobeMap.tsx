@@ -16,7 +16,7 @@ import {
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
 import {
@@ -2789,7 +2789,7 @@ function GlobeMap({
 
   return (
     <div
-      className="w-full h-full rounded-lg overflow-hidden bg-cc-dark relative"
+      className="w-full h-full rounded-lg overflow-hidden bg-bf-dark relative"
       style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       data-testid="globe-map-root"
       data-globe-queue-depth={animationUi.backlog}
@@ -2804,8 +2804,8 @@ function GlobeMap({
           onClick={skipRemainingAnimations}
           title="Skip queued globe animations (current one ends immediately)"
           className="absolute top-4 right-4 z-30 pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg
-            bg-[rgba(18,22,35,0.92)] border border-cc-gold/45 text-cc-gold text-sm font-medium shadow-lg
-            hover:bg-cc-gold/10 hover:border-cc-gold/70 transition-colors backdrop-blur-sm"
+            bg-[rgba(18,22,35,0.92)] border border-bf-gold/45 text-bf-gold text-sm font-medium shadow-lg
+            hover:bg-bf-gold/10 hover:border-bf-gold/70 transition-colors backdrop-blur-sm"
         >
           <FastForward className="w-4 h-4 shrink-0" aria-hidden />
           <span>Skip animations</span>

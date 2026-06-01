@@ -4,8 +4,8 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
-import { RARITY_COLORS } from '@erasofempire/shared';
-import type { CosmeticRarity } from '@erasofempire/shared';
+import { RARITY_COLORS } from '@borderfall/shared';
+import type { CosmeticRarity } from '@borderfall/shared';
 
 interface CosmeticItem {
   cosmetic_id: string;
@@ -196,22 +196,22 @@ export default function StorePage() {
       icon={ShoppingBag}
       maxWidth="4xl"
       headerRight={(
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cc-gold/10 border border-cc-gold/30 text-cc-gold text-sm font-medium">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium">
           <Coins className="w-4 h-4" aria-hidden />
           <span className="tabular-nums">{gold.toLocaleString()}</span>
         </div>
       )}
     >
         {/* Tab bar */}
-        <div className="flex gap-1 mb-6 p-1 bg-cc-dark rounded-lg w-fit border border-cc-border">
+        <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit border border-bf-border">
           {(['catalog', 'loadout'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
                 tab === t
-                  ? 'bg-cc-gold/15 text-cc-gold border border-cc-gold/30'
-                  : 'text-cc-muted hover:text-cc-text border border-transparent'
+                  ? 'bg-bf-gold/15 text-bf-gold border border-bf-gold/30'
+                  : 'text-bf-muted hover:text-bf-text border border-transparent'
               }`}
             >
               {t === 'catalog' ? 'Catalog' : 'My Loadout'}
@@ -230,8 +230,8 @@ export default function StorePage() {
                   onClick={() => setFilter(key)}
                   className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                     filter === key
-                      ? 'bg-cc-gold/20 border-cc-gold/50 text-cc-gold'
-                      : 'border-cc-border text-cc-muted hover:text-cc-text hover:border-cc-muted'
+                      ? 'bg-bf-gold/20 border-bf-gold/50 text-bf-gold'
+                      : 'border-bf-border text-bf-muted hover:text-bf-text hover:border-bf-muted'
                   }`}
                 >
                   {label}
@@ -240,26 +240,26 @@ export default function StorePage() {
             </div>
 
             {loadingCatalog ? (
-              <div className="text-center py-16 text-cc-muted">Loading store…</div>
+              <div className="text-center py-16 text-bf-muted">Loading store…</div>
             ) : displayed.length === 0 ? (
-              <div className="text-center py-16 text-cc-muted">No items in this category.</div>
+              <div className="text-center py-16 text-bf-muted">No items in this category.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {displayed.map((item) => (
                   <div
                     key={item.cosmetic_id}
                     className={`card flex flex-col gap-3 ${
-                      item.owned ? 'border-cc-gold/20 bg-cc-gold/5' : ''
+                      item.owned ? 'border-bf-gold/20 bg-bf-gold/5' : ''
                     }`}
                   >
                     {/* Type badge */}
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1 text-xs text-cc-muted border border-cc-border rounded-full px-2 py-0.5">
+                      <span className="flex items-center gap-1 text-xs text-bf-muted border border-bf-border rounded-full px-2 py-0.5">
                         {TYPE_ICON[item.type]}
                         {TYPE_LABELS[item.type] ?? item.type}
                       </span>
                       {item.owned && (
-                        <span className="flex items-center gap-1 text-xs text-cc-gold">
+                        <span className="flex items-center gap-1 text-xs text-bf-gold">
                           <CheckCircle className="w-3.5 h-3.5" /> Owned
                         </span>
                       )}
@@ -268,7 +268,7 @@ export default function StorePage() {
                     {/* Name & description */}
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-display text-cc-text">{item.name}</p>
+                        <p className="font-display text-bf-text">{item.name}</p>
                         {item.rarity && item.rarity !== 'common' && (
                           <span
                             className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
@@ -283,7 +283,7 @@ export default function StorePage() {
                         )}
                       </div>
                       {item.description && (
-                        <p className="text-cc-muted text-xs mt-0.5">{item.description}</p>
+                        <p className="text-bf-muted text-xs mt-0.5">{item.description}</p>
                       )}
                     </div>
 
@@ -292,14 +292,14 @@ export default function StorePage() {
                       {item.price_gems === 0 ? (
                         <span className="text-xs text-green-400 font-medium">Free</span>
                       ) : (
-                        <span className="flex items-center gap-1 text-cc-gold text-sm font-medium">
+                        <span className="flex items-center gap-1 text-bf-gold text-sm font-medium">
                           <Coins className="w-3.5 h-3.5" />
                           {item.price_gems.toLocaleString()}
                         </span>
                       )}
 
                       {item.owned ? (
-                        <span className="text-xs text-cc-muted px-3 py-1 rounded border border-cc-border">
+                        <span className="text-xs text-bf-muted px-3 py-1 rounded border border-bf-border">
                           Collected
                         </span>
                       ) : (
@@ -327,12 +327,12 @@ export default function StorePage() {
         {tab === 'loadout' && (
           <>
             {loadingOwned ? (
-              <div className="text-center py-16 text-cc-muted">Loading loadout…</div>
+              <div className="text-center py-16 text-bf-muted">Loading loadout…</div>
             ) : owned.length === 0 ? (
-              <div className="text-center py-16 text-cc-muted">
+              <div className="text-center py-16 text-bf-muted">
                 You don&apos;t own any cosmetics yet.{' '}
                 <button
-                  className="text-cc-gold underline"
+                  className="text-bf-gold underline"
                   onClick={() => setTab('catalog')}
                 >
                   Browse the catalog
@@ -342,7 +342,7 @@ export default function StorePage() {
               <div className="space-y-8">
                 {Object.entries(groupedOwned).map(([type, items]) => (
                   <div key={type}>
-                    <h3 className="flex items-center gap-2 font-display text-cc-gold mb-3">
+                    <h3 className="flex items-center gap-2 font-display text-bf-gold mb-3">
                       {TYPE_ICON[type]}
                       {TYPE_LABELS[type] ?? type}
                     </h3>
@@ -356,16 +356,16 @@ export default function StorePage() {
                           <div
                             key={item.cosmetic_id}
                             className={`card flex flex-col gap-2 ${
-                              isEquipped ? 'border-cc-gold/40 bg-cc-gold/5' : ''
+                              isEquipped ? 'border-bf-gold/40 bg-bf-gold/5' : ''
                             }`}
                           >
-                            <p className="font-display text-cc-text text-sm">{item.name}</p>
+                            <p className="font-display text-bf-text text-sm">{item.name}</p>
                             {item.description && (
-                              <p className="text-cc-muted text-xs">{item.description}</p>
+                              <p className="text-bf-muted text-xs">{item.description}</p>
                             )}
                             <div className="mt-auto pt-2">
                               {isEquipped ? (
-                                <span className="flex items-center gap-1 text-xs text-cc-gold">
+                                <span className="flex items-center gap-1 text-xs text-bf-gold">
                                   <CheckCircle className="w-3.5 h-3.5" /> Equipped
                                 </span>
                               ) : canEquip ? (
@@ -377,7 +377,7 @@ export default function StorePage() {
                                   {equippingId === item.cosmetic_id ? 'Equipping…' : 'Equip'}
                                 </button>
                               ) : (
-                                <span className="text-xs text-cc-muted">In collection</span>
+                                <span className="text-xs text-bf-muted">In collection</span>
                               )}
                             </div>
                           </div>

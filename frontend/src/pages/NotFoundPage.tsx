@@ -17,13 +17,13 @@ export default function NotFoundPage() {
   if (!hydrated || !bootstrapped) {
     return (
       <div
-        className="min-h-screen bg-cc-dark flex items-center justify-center text-center px-4"
+        className="min-h-screen bg-bf-dark flex items-center justify-center text-center px-4"
         role="status"
         aria-label="Loading"
       >
         <div className="space-y-3">
-          <div className="h-12 w-44 bg-cc-border/50 rounded animate-pulse mx-auto" />
-          <div className="h-4 w-72 bg-cc-border/30 rounded animate-pulse mx-auto" />
+          <div className="h-12 w-44 bg-bf-border/50 rounded animate-pulse mx-auto" />
+          <div className="h-4 w-72 bg-bf-border/30 rounded animate-pulse mx-auto" />
         </div>
       </div>
     );
@@ -31,12 +31,12 @@ export default function NotFoundPage() {
 
   const target = isAuthenticated ? '/lobby' : '/';
   return (
-    <div className="min-h-screen bg-cc-dark flex items-center justify-center text-center px-4">
+    <div className="min-h-screen bg-bf-dark flex items-center justify-center text-center px-4">
       <div>
         <BrandWordmark to={target} className="text-2xl" />
-        <h1 className="font-display text-8xl text-cc-gold mb-4 mt-8">404</h1>
-        <h2 className="font-display text-2xl text-cc-text mb-4">Territory Not Found</h2>
-        <p className="text-cc-muted mb-8">This land has not yet been conquered. Return to your command.</p>
+        <h1 className="font-display text-8xl text-bf-gold mb-4 mt-8">404</h1>
+        <h2 className="font-display text-2xl text-bf-text mb-4">Territory Not Found</h2>
+        <p className="text-bf-muted mb-8">This land has not yet been conquered. Return to your command.</p>
         <Link to={target} className="btn-primary">Return to Base</Link>
       </div>
     </div>

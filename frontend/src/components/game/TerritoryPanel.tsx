@@ -145,15 +145,15 @@ export default function TerritoryPanel({
     <div
       ref={isMobile ? sheetRef : undefined}
       className={clsx(
-      'bg-cc-surface animate-fade-in',
+      'bg-bf-surface animate-fade-in',
       isMobile
-        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-cc-border z-40 animate-slide-up'
-        : 'absolute bottom-4 left-4 w-72 border border-cc-border rounded-xl shadow-2xl',
+        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up'
+        : 'absolute bottom-4 left-4 w-72 border border-bf-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only (swipe-to-dismiss) */}
       {isMobile && (
-        <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-cc-surface z-10 cursor-grab">
-          <div className="w-8 h-1 rounded-full bg-cc-border" />
+        <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-bf-surface z-10 cursor-grab">
+          <div className="w-8 h-1 rounded-full bg-bf-border" />
         </div>
       )}
       {/* Content */}
@@ -161,8 +161,8 @@ export default function TerritoryPanel({
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-display text-lg text-cc-gold">{mapTerritory.name}</h3>
-          <p className="text-xs text-cc-muted mt-0.5">
+          <h3 className="font-display text-lg text-bf-gold">{mapTerritory.name}</h3>
+          <p className="text-xs text-bf-muted mt-0.5">
             {owner ? (
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: owner.color }} />
@@ -173,7 +173,7 @@ export default function TerritoryPanel({
         </div>
         <button
           onClick={onClose}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-cc-muted hover:text-cc-text transition-colors -mr-2 -mt-1 shrink-0"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text transition-colors -mr-2 -mt-1 shrink-0"
           aria-label="Close"
         >
           <X className="w-4 h-4" />
@@ -191,10 +191,10 @@ export default function TerritoryPanel({
       )}
       {isMobileDraftPlacementMode && (
         <div className="mb-4 space-y-3">
-          <div className="flex items-center gap-2 p-3 bg-cc-dark rounded-lg">
-            <Shield className="w-5 h-5 text-cc-muted shrink-0" />
-            <span className="text-2xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-            <span className="text-cc-muted text-sm">units on this territory</span>
+          <div className="flex items-center gap-2 p-3 bg-bf-dark rounded-lg">
+            <Shield className="w-5 h-5 text-bf-muted shrink-0" />
+            <span className="text-2xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+            <span className="text-bf-muted text-sm">units on this territory</span>
           </div>
           <div>
             <label className="label text-xs">Place reinforcements ({draftPool} remaining)</label>
@@ -202,15 +202,15 @@ export default function TerritoryPanel({
               <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
-                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-cc-dark border border-cc-border text-cc-text text-lg font-bold hover:bg-cc-border transition-colors touch-manipulation shrink-0"
+                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-bf-dark border border-bf-border text-bf-text text-lg font-bold hover:bg-bf-border transition-colors touch-manipulation shrink-0"
                   onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
                 >
                   −
                 </button>
-                <span className="w-10 text-center font-mono text-lg text-cc-text">{draftAmount}</span>
+                <span className="w-10 text-center font-mono text-lg text-bf-text">{draftAmount}</span>
                 <button
                   type="button"
-                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-cc-dark border border-cc-border text-cc-text text-lg font-bold hover:bg-cc-border transition-colors touch-manipulation shrink-0"
+                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-bf-dark border border-bf-border text-bf-text text-lg font-bold hover:bg-bf-border transition-colors touch-manipulation shrink-0"
                   onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
                 >
                   +
@@ -236,26 +236,26 @@ export default function TerritoryPanel({
         const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
         if (!territoryLore && !worldLore) return null;
         return (
-          <div className="mb-3 px-3 py-2 rounded-lg border border-cc-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
+          <div className="mb-3 px-3 py-2 rounded-lg border border-bf-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
             {worldLore && (
               <>
-                <div className="text-[10px] uppercase tracking-wider font-display text-cc-muted/80">
-                  <span className="text-cc-gold">{worldLore.display_name}</span>
-                  <span className="text-cc-muted"> · {worldLore.tagline}</span>
+                <div className="text-[10px] uppercase tracking-wider font-display text-bf-muted/80">
+                  <span className="text-bf-gold">{worldLore.display_name}</span>
+                  <span className="text-bf-muted"> · {worldLore.tagline}</span>
                 </div>
                 {worldLore.stakes && (
-                  <p className="mt-1 text-[11px] text-cc-muted/90 leading-snug">{worldLore.stakes}</p>
+                  <p className="mt-1 text-[11px] text-bf-muted/90 leading-snug">{worldLore.stakes}</p>
                 )}
               </>
             )}
             {territoryLore && (
-              <div className="mt-2 space-y-1.5 border-t border-cc-border/40 pt-2">
-                <p className="text-[11px] text-cc-text/88 leading-snug">
-                  <span className="font-display text-cc-gold/90 not-italic mr-1">Frontier</span>
+              <div className="mt-2 space-y-1.5 border-t border-bf-border/40 pt-2">
+                <p className="text-[11px] text-bf-text/88 leading-snug">
+                  <span className="font-display text-bf-gold/90 not-italic mr-1">Frontier</span>
                   {territoryLore.frontier}
                 </p>
-                <p className="text-[11px] text-cc-text/85 leading-snug italic">
-                  <span className="font-display text-cc-muted not-italic mr-1">Hold</span>
+                <p className="text-[11px] text-bf-text/85 leading-snug italic">
+                  <span className="font-display text-bf-muted not-italic mr-1">Hold</span>
                   {territoryLore.hold}
                 </p>
               </div>
@@ -278,13 +278,13 @@ export default function TerritoryPanel({
           : 0;
         const controlsRegion = !!myPlayerId && totalInRegion > 0 && ownedInRegion === totalInRegion;
         return (
-          <div className="mb-3 px-3 py-2 rounded-lg bg-cc-dark border border-cc-border text-xs">
+          <div className="mb-3 px-3 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: regionColor }} />
-                <span className="font-semibold text-cc-text truncate">{regionDef.name}</span>
+                <span className="font-semibold text-bf-text truncate">{regionDef.name}</span>
               </div>
-              <span className="font-mono text-cc-gold font-semibold shrink-0 ml-2">+{regionDef.bonus}</span>
+              <span className="font-mono text-bf-gold font-semibold shrink-0 ml-2">+{regionDef.bonus}</span>
             </div>
             {myPlayerId && (
               <div className="flex items-center gap-2 mt-1.5">
@@ -297,7 +297,7 @@ export default function TerritoryPanel({
                     }}
                   />
                 </div>
-                <span className={clsx('font-mono tabular-nums shrink-0', controlsRegion ? 'text-cc-gold' : 'text-cc-muted')}>
+                <span className={clsx('font-mono tabular-nums shrink-0', controlsRegion ? 'text-bf-gold' : 'text-bf-muted')}>
                   {ownedInRegion}/{totalInRegion}{controlsRegion && ' ✓'}
                 </span>
               </div>
@@ -311,9 +311,9 @@ export default function TerritoryPanel({
         isAttackConfirmMode ? (
         /* Compact inline unit display for attack-confirm mode */
         <div className="flex items-center gap-2 mb-3 px-1">
-          <Shield className={clsx('w-4 h-4 shrink-0', isViewingOwnAttacker ? 'text-cc-gold' : 'text-cc-muted')} />
-          <span className="text-xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-          <span className="text-cc-muted text-sm">
+          <Shield className={clsx('w-4 h-4 shrink-0', isViewingOwnAttacker ? 'text-bf-gold' : 'text-bf-muted')} />
+          <span className="text-xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+          <span className="text-bf-muted text-sm">
             {isViewingOwnAttacker ? 'units ready to attack' : 'defending units'}
           </span>
           {tState.naval_units != null && tState.naval_units > 0 && (
@@ -322,27 +322,27 @@ export default function TerritoryPanel({
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
-            <Shield className="w-5 h-5 text-cc-muted" />
-            <span className="text-2xl font-bold text-cc-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-            <span className="text-cc-muted text-sm">units</span>
+          <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
+            <Shield className="w-5 h-5 text-bf-muted" />
+            <span className="text-2xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
+            <span className="text-bf-muted text-sm">units</span>
           </div>
 
           {/* Fleet Count (naval warfare) */}
           {tState.naval_units != null && (
-            <div className="flex items-center gap-2 mb-4 p-3 bg-cc-dark rounded-lg">
+            <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
               <Anchor className="w-5 h-5 text-blue-400" />
-              <span className="text-2xl font-bold text-cc-text">{tState.naval_units}</span>
-              <span className="text-cc-muted text-sm">fleets</span>
+              <span className="text-2xl font-bold text-bf-text">{tState.naval_units}</span>
+              <span className="text-bf-muted text-sm">fleets</span>
             </div>
           )}
 
           {/* Stability Bar */}
           {gameState.settings.stability_enabled && tState.stability != null && (
-            <div className="mb-4 p-3 bg-cc-dark rounded-lg">
+            <div className="mb-4 p-3 bg-bf-dark rounded-lg">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-cc-muted">Stability</span>
-                <span className="text-xs font-mono text-cc-text">{tState.stability}%</span>
+                <span className="text-xs text-bf-muted">Stability</span>
+                <span className="text-xs font-mono text-bf-text">{tState.stability}%</span>
               </div>
               <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
                 <div
@@ -357,8 +357,8 @@ export default function TerritoryPanel({
               </div>
               {tState.population != null && (
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-cc-muted">Population</span>
-                  <span className="text-xs font-mono text-cc-text">{tState.population} / 10</span>
+                  <span className="text-xs text-bf-muted">Population</span>
+                  <span className="text-xs font-mono text-bf-text">{tState.population} / 10</span>
                 </div>
               )}
               {tState.stability < 30 && (
@@ -384,7 +384,7 @@ export default function TerritoryPanel({
       {/* Actions */}
       {/* Territory Selection Claim */}
       {gameState.phase === 'territory_select' && isUnowned && onClaimTerritory && (
-        <div className="p-3 border-t border-cc-border">
+        <div className="p-3 border-t border-bf-border">
           <button
             className="btn-primary w-full text-sm flex items-center justify-center gap-2"
             onClick={() => onClaimTerritory(selectedTerritory)}
@@ -403,13 +403,13 @@ export default function TerritoryPanel({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                   onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
                 >−</button>
-                <span className="w-8 text-center font-mono text-cc-text">{draftAmount}</span>
+                <span className="w-8 text-center font-mono text-bf-text">{draftAmount}</span>
                 <button
                   type="button"
-                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                   onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
                 >+</button>
                 <button
@@ -426,7 +426,7 @@ export default function TerritoryPanel({
           {/* Combat Section */}
           {gameState.phase === 'attack' && (
             <div>
-              <div className="text-xs font-bold text-cc-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
+              <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
               {isMine && tState.unit_count >= 2 && !attackSource && (
                 <button
                   className="btn-primary w-full text-sm flex items-center justify-center gap-2"
@@ -454,7 +454,7 @@ export default function TerritoryPanel({
               )}
               {attackSource === selectedTerritory && (
                 <div>
-                  <p className="text-cc-gold text-xs mb-2">Attacking from this territory. Select an enemy territory to attack.</p>
+                  <p className="text-bf-gold text-xs mb-2">Attacking from this territory. Select an enemy territory to attack.</p>
                   <button
                     className="btn-secondary w-full text-sm"
                     onClick={() => setAttackSource(null)}
@@ -521,17 +521,17 @@ export default function TerritoryPanel({
           {/* Diplomacy Section — shown for any enemy/unowned territory on your turn */}
           {(isEnemy || isUnowned) &&
            (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network || gameState.settings.diplomacy_enabled) && (
-            <div className="mt-2 bg-cc-dark/30 border border-cc-border/50 rounded-lg p-2.5">
+            <div className="mt-2 bg-bf-dark/30 border border-bf-border/50 rounded-lg p-2.5">
               <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
 
               {/* Outside attack phase: show a contextual hint so the section is never an empty puzzle */}
               {gameState.phase !== 'attack' ? (
-                <p className="text-xs text-cc-muted/60 text-center py-1">
+                <p className="text-xs text-bf-muted/60 text-center py-1">
                   Available during your attack phase
                 </p>
               ) : attackSource ? (
                 /* Attack source is already locked in — diplomacy actions require a clean selection */
-                <p className="text-xs text-cc-muted/60 text-center py-1">
+                <p className="text-xs text-bf-muted/60 text-center py-1">
                   Deselect your attacker to use diplomacy
                 </p>
               ) : (
@@ -591,7 +591,7 @@ export default function TerritoryPanel({
                     // AI players never accept — surface this before the player wastes a click
                     if (owner?.is_ai) {
                       return (
-                        <p className="text-xs text-cc-muted/50 text-center py-1">
+                        <p className="text-xs text-bf-muted/50 text-center py-1">
                           🤖 AI players do not accept truces
                         </p>
                       );
@@ -630,18 +630,18 @@ export default function TerritoryPanel({
           {/* Fortify Section */}
           {isMine && gameState.phase === 'fortify' && tState.unit_count > 1 && (
             <div>
-              <div className="text-xs font-bold text-cc-muted uppercase mb-2 tracking-wide">→ Fortify</div>
+              <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">→ Fortify</div>
               <label className="label text-xs">Move Units to Adjacent Territory</label>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                   onClick={() => setFortifyAmount((a) => Math.max(1, a - 1))}
                 >−</button>
-                <span className="w-8 text-center font-mono text-cc-text">{fortifyAmount}</span>
+                <span className="w-8 text-center font-mono text-bf-text">{fortifyAmount}</span>
                 <button
                   type="button"
-                  className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                   onClick={() => setFortifyAmount((a) => Math.min(tState.unit_count - 1, a + 1))}
                 >+</button>
                 <button
@@ -654,7 +654,7 @@ export default function TerritoryPanel({
                   Move
                 </button>
               </div>
-              <p className="text-xs text-cc-muted mt-1">Then click the destination territory.</p>
+              <p className="text-xs text-bf-muted mt-1">Then click the destination territory.</p>
             </div>
           )}
 
@@ -700,13 +700,13 @@ export default function TerritoryPanel({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                         onClick={() => setNavalMoveCount((a) => Math.max(1, a - 1))}
                       >−</button>
-                      <span className="w-8 text-center font-mono text-cc-text">{navalMoveCount}</span>
+                      <span className="w-8 text-center font-mono text-bf-text">{navalMoveCount}</span>
                       <button
                         type="button"
-                        className="w-11 h-11 rounded-lg bg-cc-dark border border-cc-border text-cc-text font-bold hover:bg-cc-border transition-colors shrink-0"
+                        className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
                         onClick={() => setNavalMoveCount((a) => Math.min(gameState.territories[navalSource]?.naval_units ?? 1, a + 1))}
                       >+</button>
                       <button

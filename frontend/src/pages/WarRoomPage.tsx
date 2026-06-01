@@ -90,7 +90,7 @@ export default function WarRoomPage() {
           type="button"
           onClick={() => fetchGames(true)}
           disabled={refreshing}
-          className="text-cc-muted hover:text-cc-text transition-colors p-1 disabled:opacity-50"
+          className="text-bf-muted hover:text-bf-text transition-colors p-1 disabled:opacity-50"
           title="Refresh"
           aria-label="Refresh active games"
         >
@@ -98,14 +98,14 @@ export default function WarRoomPage() {
         </button>
       )}
     >
-      <p className="text-cc-muted text-sm -mt-2">All your active games in one place.</p>
+      <p className="text-bf-muted text-sm -mt-2">All your active games in one place.</p>
 
-      {loading && <p className="text-cc-muted text-sm">Loading games…</p>}
+      {loading && <p className="text-bf-muted text-sm">Loading games…</p>}
 
       {!loading && games.length === 0 && (
         <div className="text-center py-16 space-y-4">
-          <Swords className="w-10 h-10 text-cc-muted mx-auto" />
-          <p className="text-cc-muted">No active games.</p>
+          <Swords className="w-10 h-10 text-bf-muted mx-auto" />
+          <p className="text-bf-muted">No active games.</p>
           <Link to="/lobby" className="btn-primary text-sm">
             Find a Game
           </Link>
@@ -126,20 +126,20 @@ export default function WarRoomPage() {
               className={clsx(
                 'text-left p-4 rounded-xl border transition-all',
                 isMyTurn
-                  ? 'bg-cc-gold/10 border-cc-gold/50 shadow-lg shadow-cc-gold/10'
-                  : 'bg-cc-surface border-cc-border hover:border-cc-gold/30',
+                  ? 'bg-bf-gold/10 border-bf-gold/50 shadow-lg shadow-bf-gold/10'
+                  : 'bg-bf-surface border-bf-border hover:border-bf-gold/30',
               )}
             >
               {isMyTurn && (
-                <p className="text-cc-gold text-xs font-semibold uppercase tracking-wide mb-2 animate-pulse">
+                <p className="text-bf-gold text-xs font-semibold uppercase tracking-wide mb-2 animate-pulse">
                   ● Your Turn
                 </p>
               )}
 
-              <p className="font-display text-cc-text mb-0.5">
+              <p className="font-display text-bf-text mb-0.5">
                 {ERA_LABELS[game.era_id] ?? game.era_id}
               </p>
-              <p className="text-cc-muted text-xs mb-3">
+              <p className="text-bf-muted text-xs mb-3">
                 {game.game_type}{game.async_mode ? ' · Async' : ' · Live'}
                 {game.turn_number != null && ` · Turn ${game.turn_number}`}
               </p>
@@ -158,7 +158,7 @@ export default function WarRoomPage() {
                   {formatTimeLeft(timeLeft)} remaining
                 </p>
               ) : (
-                <p className="text-xs text-cc-muted">● Live game</p>
+                <p className="text-xs text-bf-muted">● Live game</p>
               )}
             </button>
           );

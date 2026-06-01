@@ -187,7 +187,7 @@ export default function MatchStatsTab({
                   key={p.player_id}
                   className={clsx(
                     'border-t border-white/5',
-                    isMe ? 'text-cc-gold' : i === 0 ? 'text-yellow-300' : 'text-white/60',
+                    isMe ? 'text-bf-gold' : i === 0 ? 'text-yellow-300' : 'text-white/60',
                     p.is_eliminated && 'opacity-40',
                   )}
                 >
@@ -196,7 +196,7 @@ export default function MatchStatsTab({
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                       <span className="truncate">{p.username}</span>
                       {p.is_ai && <span className="text-white/25 text-[10px] shrink-0">(AI)</span>}
-                      {isMe && <span className="text-cc-gold/60 text-[10px] shrink-0">you</span>}
+                      {isMe && <span className="text-bf-gold/60 text-[10px] shrink-0">you</span>}
                     </div>
                   </td>
                   {anySparkline && (

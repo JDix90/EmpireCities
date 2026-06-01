@@ -29,7 +29,7 @@ import {
   prevTimeLapseIndex,
 } from '../utils/replayTimeLapse';
 import { isLiteMode, isMobileViewport, prefersReducedMotion } from '../utils/device';
-import { inferWorldId } from '@erasofempire/shared';
+import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
@@ -553,16 +553,16 @@ export default function ReplayPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-cc-dark flex items-center justify-center">
-        <p className="text-cc-muted">Loading replay…</p>
+      <div className="min-h-screen bg-bf-dark flex items-center justify-center">
+        <p className="text-bf-muted">Loading replay…</p>
       </div>
     );
   }
 
   if (error || !mapData || replaySnapshots.length === 0) {
     return (
-      <div className="min-h-screen bg-cc-dark flex flex-col items-center justify-center gap-4">
-        <p className="text-cc-muted">{error ?? 'Replay unavailable.'}</p>
+      <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4">
+        <p className="text-bf-muted">{error ?? 'Replay unavailable.'}</p>
         <button className="btn-secondary text-sm" onClick={() => navigate(-1)}>
           Go Back
         </button>
@@ -585,9 +585,9 @@ export default function ReplayPage() {
   const replayPhaseTintClass = phaseTintClass(currentState?.phase, replayAmbientEnabled && !reducedGlobe);
 
   return (
-    <div className="h-screen overflow-hidden bg-cc-dark flex flex-col">
+    <div className="h-screen overflow-hidden bg-bf-dark flex flex-col">
       {/* Top bar */}
-      <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-cc-border bg-cc-surface">
+      <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bf-border bg-bf-surface">
         <button
           onClick={() => {
             // Daily and match replays both have well-defined return targets.
@@ -603,14 +603,14 @@ export default function ReplayPage() {
             }
             navigate(-1);
           }}
-          className="flex items-center gap-1.5 text-cc-muted hover:text-cc-text transition-colors text-sm"
+          className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm"
         >
           <ChevronLeft className="w-4 h-4" />{' '}
           {fromDaily ? 'Back to Daily' : fromMatch ? 'Back to Lobby' : 'Back'}
         </button>
-        <div className="h-4 w-px bg-cc-border" />
-        <span className="text-cc-gold font-display text-sm tracking-wide">{headerLabel}</span>
-        <span className="text-cc-muted text-xs ml-auto">
+        <div className="h-4 w-px bg-bf-border" />
+        <span className="text-bf-gold font-display text-sm tracking-wide">{headerLabel}</span>
+        <span className="text-bf-muted text-xs ml-auto">
           Turn {currentTurn} of {replaySnapshots[totalFrames - 1]?.turn_number ?? totalFrames}
         </span>
         <button
@@ -619,7 +619,7 @@ export default function ReplayPage() {
           aria-pressed={mapView === 'globe'}
           aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
           title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-cc-border text-cc-muted hover:text-cc-text hover:bg-white/10 text-xs font-medium transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
           {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
           {mapView === 'globe' ? '2D' : 'Globe'}
@@ -628,7 +628,7 @@ export default function ReplayPage() {
           <button
             type="button"
             onClick={() => setGalaxyOverviewMode(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${galaxyOverviewMode ? 'bg-cc-gold/15 border-cc-gold/30 text-cc-gold' : 'bg-white/5 border-cc-border text-cc-muted hover:text-cc-text'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${galaxyOverviewMode ? 'bg-bf-gold/15 border-bf-gold/30 text-bf-gold' : 'bg-white/5 border-bf-border text-bf-muted hover:text-bf-text'}`}
           >
             Galaxy chart
           </button>
@@ -636,18 +636,18 @@ export default function ReplayPage() {
         <button
           type="button"
           onClick={() => setInsightsOpen((v) => !v)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-cc-border text-cc-muted hover:text-cc-text hover:bg-white/10 text-xs font-medium transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
           <FilmIcon className="w-3.5 h-3.5" />
           {insightsOpen ? 'Hide Tips' : 'Show Tips'}
           {insights.length > 0 && (
-            <span className="ml-1 text-cc-gold">{insights.length}</span>
+            <span className="ml-1 text-bf-gold">{insights.length}</span>
           )}
         </button>
         <button
           onClick={handleShareReplay}
           disabled={sharing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cc-gold/10 border border-cc-gold/20 text-cc-gold hover:bg-cc-gold/20 text-xs font-medium transition-all disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
         >
           {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
           {isPublic ? 'Copy Link' : 'Share Replay'}
@@ -662,7 +662,7 @@ export default function ReplayPage() {
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-full">
-                <p className="text-cc-muted animate-pulse">Loading globe…</p>
+                <p className="text-bf-muted animate-pulse">Loading globe…</p>
               </div>
             }
           >
@@ -689,14 +689,14 @@ export default function ReplayPage() {
               <>
                 {galaxyWorldBanner && (
                   <div
-                    className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-cc-border bg-black/60 text-center shadow-lg"
+                    className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-bf-border bg-black/60 text-center shadow-lg"
                     role="status"
                     aria-live="polite"
                   >
-                    <div className="font-display text-cc-gold text-sm sm:text-base">
+                    <div className="font-display text-bf-gold text-sm sm:text-base">
                       {galaxyWorldBanner.display_name}
                     </div>
-                    <div className="text-[11px] sm:text-xs text-cc-muted mt-0.5">
+                    <div className="text-[11px] sm:text-xs text-bf-muted mt-0.5">
                       {galaxyWorldBanner.tagline}
                     </div>
                   </div>
@@ -769,7 +769,7 @@ export default function ReplayPage() {
 
         {/* Player list overlay */}
         {currentState && (
-          <div className="absolute top-3 right-3 bg-cc-surface/90 border border-cc-border rounded-xl p-3 text-xs space-y-1 max-w-[160px]">
+          <div className="absolute top-3 right-3 bg-bf-surface/90 border border-bf-border rounded-xl p-3 text-xs space-y-1 max-w-[160px]">
             {currentState.players.map((p) => (
               <div key={p.player_id} className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
@@ -784,7 +784,7 @@ export default function ReplayPage() {
 
         {/* Phase indicator */}
         {currentState && (
-          <div className="absolute top-3 left-3 bg-cc-surface/90 border border-cc-border rounded-lg px-3 py-1.5 text-xs text-cc-gold capitalize">
+          <div className="absolute top-3 left-3 bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold capitalize">
             {currentState.players[currentState.current_player_index]?.username}'s {currentState.phase} phase
           </div>
         )}
@@ -816,14 +816,14 @@ export default function ReplayPage() {
 
       {/* Playback controls — pinned to the bottom of the viewport via shrink-0
           so they're always visible without scrolling. */}
-      <div className="shrink-0 border-t border-cc-border bg-cc-surface px-4 py-3 flex flex-col gap-2">
+      <div className="shrink-0 border-t border-bf-border bg-bf-surface px-4 py-3 flex flex-col gap-2">
         {highlights.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-1">
             {highlights.slice(0, 5).map((h, idx) => (
               <button
                 key={`${h.turn}-${idx}`}
                 onClick={() => handleJumpToTurn(h.turn)}
-                className="px-2 py-1 rounded-md text-xs border border-cc-gold/25 bg-cc-gold/10 text-cc-gold hover:bg-cc-gold/20 transition-colors"
+                className="px-2 py-1 rounded-md text-xs border border-bf-gold/25 bg-bf-gold/10 text-bf-gold hover:bg-bf-gold/20 transition-colors"
               >
                 T{h.turn}: {h.label}
               </button>
@@ -839,7 +839,7 @@ export default function ReplayPage() {
             aria-label={playing ? 'Pause replay' : 'Play replay'}
             aria-pressed={playing}
             title={playing ? 'Pause' : 'Play'}
-            className="shrink-0 p-2 rounded-xl bg-cc-gold/20 hover:bg-cc-gold/30 text-cc-gold border border-cc-gold/30 transition-all focus:outline-none focus:ring-2 focus:ring-cc-gold/50"
+            className="shrink-0 p-2 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30 text-bf-gold border border-bf-gold/30 transition-all focus:outline-none focus:ring-2 focus:ring-bf-gold/50"
           >
             {playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
           </button>
@@ -850,9 +850,9 @@ export default function ReplayPage() {
             value={replayFrame}
             onChange={handleScrub}
             aria-label="Replay scrubber"
-            className="flex-1 accent-cc-gold cursor-pointer h-1"
+            className="flex-1 accent-bf-gold cursor-pointer h-1"
           />
-          <span className="text-cc-muted text-xs tabular-nums shrink-0">
+          <span className="text-bf-muted text-xs tabular-nums shrink-0">
             {replayFrame + 1} / {totalFrames}
           </span>
         </div>
@@ -886,8 +886,8 @@ export default function ReplayPage() {
             className={clsx(
               'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
               timeLapseMode
-                ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/30'
-                : 'bg-white/5 text-white/60 hover:text-white/80 border-cc-border',
+                ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
+                : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
             )}
           >
             <Film className="w-3.5 h-3.5" />
@@ -905,8 +905,8 @@ export default function ReplayPage() {
             className={clsx(
               'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
               showMapAnimations
-                ? 'bg-cc-gold/20 text-cc-gold border-cc-gold/30'
-                : 'bg-white/5 text-white/60 hover:text-white/80 border-cc-border',
+                ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
+                : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
             )}
           >
             Map FX
@@ -920,7 +920,7 @@ export default function ReplayPage() {
                 className={clsx(
                   'px-2.5 py-1 rounded-lg text-xs font-medium transition-all',
                   speed === s
-                    ? 'bg-cc-gold/20 text-cc-gold border border-cc-gold/30'
+                    ? 'bg-bf-gold/20 text-bf-gold border border-bf-gold/30'
                     : 'text-white/40 hover:text-white/60 hover:bg-white/5',
                 )}
               >
@@ -932,10 +932,10 @@ export default function ReplayPage() {
 
         {!replayFxHintDismissed && (
           <div
-            className="mt-2 flex items-start gap-2 rounded-lg border border-cc-border bg-white/[0.03] px-3 py-2 text-xs text-white/70"
+            className="mt-2 flex items-start gap-2 rounded-lg border border-bf-border bg-white/[0.03] px-3 py-2 text-xs text-white/70"
             data-testid="replay-map-fx-disclaimer"
           >
-            <Info className="w-4 h-4 shrink-0 text-cc-gold mt-0.5" aria-hidden />
+            <Info className="w-4 h-4 shrink-0 text-bf-gold mt-0.5" aria-hidden />
             <div className="flex-1 min-w-0">
               {showMapAnimations ? (
                 <>
@@ -953,7 +953,7 @@ export default function ReplayPage() {
                   <button
                     type="button"
                     onClick={() => setReplayFxHintExpanded((v) => !v)}
-                    className="mt-1 text-cc-gold/90 hover:text-cc-gold underline-offset-2 hover:underline"
+                    className="mt-1 text-bf-gold/90 hover:text-bf-gold underline-offset-2 hover:underline"
                   >
                     {replayFxHintExpanded ? 'Show less' : 'Learn more'}
                   </button>

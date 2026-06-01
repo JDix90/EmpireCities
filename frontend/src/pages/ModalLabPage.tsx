@@ -113,12 +113,12 @@ export default function ModalLabPage() {
   const mockState = useMemo(() => buildMockGameState(), []);
 
   return (
-    <div className="min-h-screen bg-cc-dark text-cc-text px-4 py-8 sm:px-6">
+    <div className="min-h-screen bg-bf-dark text-bf-text px-4 py-8 sm:px-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="font-display text-3xl text-cc-gold">Modal Lab</h1>
-            <p className="text-sm text-cc-muted mt-2">Hidden QA route for mobile viewport checks. Use an iPhone-sized viewport to verify scroll and action reachability.</p>
+            <h1 className="font-display text-3xl text-bf-gold">Modal Lab</h1>
+            <p className="text-sm text-bf-muted mt-2">Hidden QA route for mobile viewport checks. Use an iPhone-sized viewport to verify scroll and action reachability.</p>
           </div>
           <Link to="/" className="btn-secondary">Back to app</Link>
         </div>
@@ -130,11 +130,11 @@ export default function ModalLabPage() {
         </div>
 
         <div className="card space-y-3">
-          <p className="text-sm text-cc-muted">Direct test URLs:</p>
+          <p className="text-sm text-bf-muted">Direct test URLs:</p>
           <ul className="space-y-2 text-sm">
-            <li><a className="text-cc-gold underline" href="/__modal-lab?modal=create">/__modal-lab?modal=create</a></li>
-            <li><a className="text-cc-gold underline" href="/__modal-lab?modal=event">/__modal-lab?modal=event</a></li>
-            <li><a className="text-cc-gold underline" href="/__modal-lab?modal=tech">/__modal-lab?modal=tech</a></li>
+            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=create">/__modal-lab?modal=create</a></li>
+            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=event">/__modal-lab?modal=event</a></li>
+            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=tech">/__modal-lab?modal=tech</a></li>
           </ul>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function ModalLabPage() {
               <div className="input">Sample control content</div>
             </div>
           ))}
-          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-cc-border bg-cc-surface/95 backdrop-blur md:col-span-2">
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-bf-border bg-bf-surface/95 backdrop-blur md:col-span-2">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-end">
               <button type="button" className="btn-secondary w-full sm:w-auto" onClick={() => setActiveModal(null)}>Cancel</button>
               <button type="button" className="btn-primary w-full sm:flex-1">Create &amp; Enter Lobby</button>

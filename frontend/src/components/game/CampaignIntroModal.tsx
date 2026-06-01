@@ -62,60 +62,60 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
       aria-modal="true"
       aria-labelledby="campaign-intro-title"
     >
-      <div className="bg-cc-surface border border-cc-gold/35 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl">
+      <div className="bg-bf-surface border border-bf-gold/35 rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl">
         <div className="flex items-center justify-center gap-2 mb-1">
-          <Crown className="w-4 h-4 text-cc-gold" />
-          <p className="text-xs uppercase tracking-[0.28em] text-cc-gold/85 font-display">
+          <Crown className="w-4 h-4 text-bf-gold" />
+          <p className="text-xs uppercase tracking-[0.28em] text-bf-gold/85 font-display">
             Era Campaign
           </p>
         </div>
-        <p className="text-cc-muted text-xs text-center mb-4">{eraSubtitle}</p>
+        <p className="text-bf-muted text-xs text-center mb-4">{eraSubtitle}</p>
 
         <h2
           id="campaign-intro-title"
-          className="font-display text-2xl sm:text-3xl text-cc-gold text-center mb-1"
+          className="font-display text-2xl sm:text-3xl text-bf-gold text-center mb-1"
         >
           {data.pathName ?? 'Classic Campaign'}
         </h2>
         {data.pathTagline && (
-          <p className="text-center text-cc-muted text-sm italic mb-5">{data.pathTagline}</p>
+          <p className="text-center text-bf-muted text-sm italic mb-5">{data.pathTagline}</p>
         )}
 
         {data.introText && (
           <div className="mb-5">
-            <p className="text-cc-text text-sm leading-relaxed">{data.introText}</p>
+            <p className="text-bf-text text-sm leading-relaxed">{data.introText}</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Flag className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">Faction</p>
-            <p className="text-sm text-cc-text font-medium leading-tight">
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Flag className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Faction</p>
+            <p className="text-sm text-bf-text font-medium leading-tight">
               {data.lockedFaction ? titleCase(data.lockedFaction) : 'Free choice'}
             </p>
           </div>
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Shield className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">Opposition</p>
-            <p className="text-sm text-cc-text font-medium leading-tight capitalize">
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Shield className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Opposition</p>
+            <p className="text-sm text-bf-text font-medium leading-tight capitalize">
               {data.aiCount ? `${data.aiCount} AI` : 'AI'}
               {data.aiDifficulty ? ` \u00b7 ${data.aiDifficulty}` : ''}
             </p>
           </div>
-          <div className="rounded-lg border border-cc-border bg-cc-dark/50 px-3 py-3 text-center">
-            <Trophy className="w-4 h-4 text-cc-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-cc-muted mb-0.5">
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
+            <Trophy className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
+            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">
               {carryShown && data.signatureCarryLabel ? data.signatureCarryLabel : 'Carry'}
             </p>
-            <p className="text-sm text-cc-text font-medium leading-tight">
+            <p className="text-sm text-bf-text font-medium leading-tight">
               {carryShown ? `+${carryValue}` : '\u2014'}
             </p>
           </div>
         </div>
 
         {data.lockedFaction && (
-          <p className="text-cc-muted text-xs text-center mb-4">
+          <p className="text-bf-muted text-xs text-center mb-4">
             Your faction is fixed for this era of the campaign.
           </p>
         )}

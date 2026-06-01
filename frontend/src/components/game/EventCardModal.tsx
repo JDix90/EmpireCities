@@ -127,7 +127,7 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
               <p className="text-xs font-semibold text-gray-400 mb-1">What happened:</p>
               {card.result_summary.map(({ territory_id, name, delta }) => (
                 <p key={territory_id} className="text-xs text-gray-300">
-                  <span className="text-cc-gold">{name}</span>
+                  <span className="text-bf-gold">{name}</span>
                   <span className={delta < 0 ? ' text-red-400' : ' text-green-400'}>
                     {' '}{delta > 0 ? `+${delta}` : delta} unit{Math.abs(delta) !== 1 ? 's' : ''}
                   </span>

@@ -3,7 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { query, queryOne } from '../../db/postgres';
 import { redis } from '../../db/redis';
 import { getTier } from '../../game-engine/rating/ratingService';
-import { getLevel } from '@erasofempire/shared';
+import { getLevel } from '@borderfall/shared';
 
 const CACHE_TTL = 300; // 5 minutes
 

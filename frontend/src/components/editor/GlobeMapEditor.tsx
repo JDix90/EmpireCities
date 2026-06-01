@@ -354,7 +354,7 @@ export default function GlobeMapEditor({
   }, []);
 
   return (
-    <div className="w-full h-full overflow-hidden bg-cc-dark">
+    <div className="w-full h-full overflow-hidden bg-bf-dark">
       <Globe
         ref={globeRef}
         width={width}

@@ -236,9 +236,9 @@ export default function SpectatorPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-cc-dark flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4">
         <p className="text-red-400 text-lg">{error}</p>
-        <Link to="/live-games" className="text-cc-gold hover:text-white transition-colors text-sm">
+        <Link to="/live-games" className="text-bf-gold hover:text-white transition-colors text-sm">
           ← Browse Live Games
         </Link>
       </div>
@@ -247,8 +247,8 @@ export default function SpectatorPage() {
 
   if (!connected || !gameState || !mapData) {
     return (
-      <div className="min-h-screen bg-cc-dark flex flex-col items-center justify-center gap-4">
-        <div className="animate-pulse text-cc-muted">Connecting to game…</div>
+      <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4">
+        <div className="animate-pulse text-bf-muted">Connecting to game…</div>
       </div>
     );
   }
@@ -264,10 +264,10 @@ export default function SpectatorPage() {
   const phaseTint = phaseTintClass(gameState.phase, spectatorAmbientEnabled);
 
   return (
-    <div className="min-h-screen bg-cc-dark flex flex-col">
+    <div className="min-h-screen bg-bf-dark flex flex-col">
       {/* Spectator top bar */}
-      <div className="border-b border-cc-border px-4 py-3 flex items-center justify-between bg-cc-surface/50">
-        <Link to="/live-games" className="flex items-center gap-2 text-cc-muted hover:text-cc-text text-sm transition-colors">
+      <div className="border-b border-bf-border px-4 py-3 flex items-center justify-between bg-bf-surface/50">
+        <Link to="/live-games" className="flex items-center gap-2 text-bf-muted hover:text-bf-text text-sm transition-colors">
           <ArrowLeft className="w-4 h-4" /> Leave
         </Link>
 
@@ -277,27 +277,27 @@ export default function SpectatorPage() {
           </span>
 
           {currentPlayer && (
-            <span className="text-sm text-cc-text flex items-center gap-1.5">
+            <span className="text-sm text-bf-text flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: currentPlayer.color }} />
               {currentPlayer.username}'s turn
             </span>
           )}
 
-          <span className="text-xs text-cc-muted">Turn {gameState.turn_number}</span>
+          <span className="text-xs text-bf-muted">Turn {gameState.turn_number}</span>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-cc-muted flex items-center gap-1">
+          <span className="text-xs text-bf-muted flex items-center gap-1">
             <Eye className="w-3 h-3" /> {spectatorCount} watching
           </span>
-          <span className="text-xs text-cc-muted flex items-center gap-1">
+          <span className="text-xs text-bf-muted flex items-center gap-1">
             <Users className="w-3 h-3" /> {gameState.players.filter(p => !p.is_eliminated).length} alive
           </span>
         </div>
       </div>
 
       {/* Player bar */}
-      <div className="border-b border-cc-border px-4 py-2 flex flex-wrap gap-2 bg-cc-dark/50">
+      <div className="border-b border-bf-border px-4 py-2 flex flex-wrap gap-2 bg-bf-dark/50">
         {gameState.players.map((p) => (
           <span
             key={p.player_id}
@@ -306,9 +306,9 @@ export default function SpectatorPage() {
             } ${p.player_index === gameState.current_player_index ? 'bg-white/10 border border-white/20' : ''}`}
           >
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-            <span className="text-cc-text">{p.username}</span>
-            <span className="text-cc-muted">{p.territory_count}T</span>
-            {p.is_ai && <span className="text-cc-muted/50">(AI)</span>}
+            <span className="text-bf-text">{p.username}</span>
+            <span className="text-bf-muted">{p.territory_count}T</span>
+            {p.is_ai && <span className="text-bf-muted/50">(AI)</span>}
           </span>
         ))}
       </div>
@@ -343,20 +343,20 @@ export default function SpectatorPage() {
           )}
         </div>
 
-        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-cc-border bg-cc-surface/70 p-4 flex flex-col gap-4">
+        <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-bf-border bg-bf-surface/70 p-4 flex flex-col gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-cc-gold mb-2">Spectator Chat</p>
+            <p className="text-xs uppercase tracking-widest text-bf-gold mb-2">Spectator Chat</p>
             <GameChat gameId={gameId!} embedded spectatorMode />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-widest text-cc-gold mb-2">Reactions</p>
+            <p className="text-xs uppercase tracking-widest text-bf-gold mb-2">Reactions</p>
             <div className="grid grid-cols-4 gap-2">
               {['👏', '⚔️', '💀', '🏆'].map((emote) => (
                 <button
                   key={emote}
                   type="button"
                   onClick={() => getSocket().emit('game:spectator_emote', { gameId: gameId!, emote })}
-                  className="rounded-lg border border-cc-border bg-cc-dark/60 py-2 text-lg hover:border-cc-gold/30 transition-colors"
+                  className="rounded-lg border border-bf-border bg-bf-dark/60 py-2 text-lg hover:border-bf-gold/30 transition-colors"
                 >
                   {emote}
                 </button>

@@ -165,10 +165,10 @@ export default function GameHUD({
 
   return (
     <div className={clsx(
-      'flex flex-col min-h-0 bg-cc-surface',
+      'flex flex-col min-h-0 bg-bf-surface',
       mobile
         ? 'flex-1 overflow-y-auto'
-        : 'hidden md:flex h-full border-l border-cc-border w-72 shrink-0',
+        : 'hidden md:flex h-full border-l border-bf-border w-72 shrink-0',
     )}>
       {/* Phase Indicator — exposed as a polite live region so screen-reader
           users hear "Turn 4, attack phase, your turn" each time it changes,
@@ -176,8 +176,8 @@ export default function GameHUD({
           phase semantically (matches Risk-style turn step semantics). */}
       <div
         className={clsx(
-          'p-4 border-b border-cc-border',
-          isMyTurn ? 'bg-cc-gold/10' : 'bg-cc-dark/50',
+          'p-4 border-b border-bf-border',
+          isMyTurn ? 'bg-bf-gold/10' : 'bg-bf-dark/50',
         )}
         role="status"
         aria-live="polite"
@@ -185,17 +185,17 @@ export default function GameHUD({
       >
         <div className="flex items-center gap-2 mb-1" aria-current="step">
           {PHASE_ICONS[gameState.phase]}
-          <span className="font-display text-sm text-cc-gold">
+          <span className="font-display text-sm text-bf-gold">
             {PHASE_LABELS[gameState.phase] ?? gameState.phase}
           </span>
         </div>
-        <p className="text-xs text-cc-muted">
+        <p className="text-xs text-bf-muted">
           Turn {gameState.turn_number} · {isMyTurn ? 'Your turn' : `${currentPlayer?.username}'s turn`}
         </p>
         {timeLeft !== null && !gameState.settings.async_mode && (
           <div className={clsx(
             'flex items-center gap-1 mt-2 text-sm font-mono',
-            timeLeft < 30 ? 'text-red-400' : 'text-cc-muted'
+            timeLeft < 30 ? 'text-red-400' : 'text-bf-muted'
           )}>
             <Clock className="w-3.5 h-3.5" />
             {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
@@ -213,12 +213,12 @@ export default function GameHUD({
             <div className={clsx('flex items-center gap-1 mt-2 text-sm font-mono', color)}>
               <Clock className="w-3.5 h-3.5" />
               {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} remaining
-              {!isMyTurn && <span className="text-cc-muted ml-1">· Waiting for {currentPlayer?.username}</span>}
+              {!isMyTurn && <span className="text-bf-muted ml-1">· Waiting for {currentPlayer?.username}</span>}
             </div>
           );
         })()}
         {gameState.phase === 'draft' && isMyTurn && (
-          <p className="text-cc-gold text-sm mt-2 font-medium">
+          <p className="text-bf-gold text-sm mt-2 font-medium">
             {draftPool} units to place
           </p>
         )}
@@ -228,7 +228,7 @@ export default function GameHUD({
         {gameState.phase === 'territory_select' && (() => {
           const unclaimed = Object.values(gameState.territories).filter((t) => t.owner_id === null).length;
           return (
-            <p className="text-cc-gold text-sm mt-2 font-medium">
+            <p className="text-bf-gold text-sm mt-2 font-medium">
               {unclaimed} territories remaining · {isMyTurn ? 'Pick a territory' : 'Waiting...'}
             </p>
           );
@@ -266,17 +266,17 @@ export default function GameHUD({
       <div className="flex-1 overflow-y-auto min-h-0">
 
       {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission) && (
-        <div className="px-4 py-3 border-b border-cc-border bg-cc-dark/40">
-          <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-2">Objectives</h3>
+        <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
+          <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Objectives</h3>
           {myPlayer.capital_territory_id && (
-            <p className="text-xs text-cc-text">
-              <span className="text-cc-muted">Your capital: </span>
+            <p className="text-xs text-bf-text">
+              <span className="text-bf-muted">Your capital: </span>
               <span className="font-mono">{myPlayer.capital_territory_id}</span>
             </p>
           )}
           {myPlayer.secret_mission && (
-            <p className="text-xs text-cc-text mt-1">
-              <span className="text-cc-muted">Mission: </span>
+            <p className="text-xs text-bf-text mt-1">
+              <span className="text-bf-muted">Mission: </span>
               {describeSecretMission(myPlayer.secret_mission, gameState.players)}
             </p>
           )}
@@ -285,17 +285,17 @@ export default function GameHUD({
 
       {/* Resources */}
       {myPlayer && (gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled) && (
-        <div className="px-4 py-3 border-b border-cc-border bg-cc-dark/40">
-          <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-2">Resources</h3>
+        <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
+          <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Resources</h3>
           <div className="flex gap-3">
             {gameState.settings.economy_enabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cc-dark border border-amber-800/40 text-amber-300 text-xs font-mono">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-amber-800/40 text-amber-300 text-xs font-mono">
                 <span>⚙</span>
                 <span>{myPlayer.special_resource ?? 0} PP</span>
               </div>
             )}
             {gameState.settings.tech_trees_enabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cc-dark border border-blue-800/40 text-blue-300 text-xs font-mono">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-blue-800/40 text-blue-300 text-xs font-mono">
                 <span>⚡</span>
                 <span>{myPlayer.tech_points ?? 0} TP</span>
               </div>
@@ -304,7 +304,7 @@ export default function GameHUD({
           {myPlayer.temporary_modifiers && myPlayer.temporary_modifiers.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {myPlayer.temporary_modifiers.map((mod, i) => (
-                <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-cc-dark border border-cc-border text-cc-muted">
+                <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-bf-dark border border-bf-border text-bf-muted">
                   {mod.type === 'attack_modifier' && `+${mod.value} ATK`}
                   {mod.type === 'defense_modifier' && `+${mod.value} DEF`}
                   {mod.type === 'production_bonus' && `+${mod.value} PP`}
@@ -317,8 +317,8 @@ export default function GameHUD({
       )}
 
       {/* Players List */}
-      <div className="p-4 border-b border-cc-border">
-        <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+      <div className="p-4 border-b border-bf-border">
+        <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
           <Users className="w-3.5 h-3.5" /> Players
         </h3>
         <div className="space-y-2">
@@ -327,7 +327,7 @@ export default function GameHUD({
               key={player.player_id}
               className={clsx(
                 'flex items-center gap-2 p-2 rounded-lg text-sm transition-colors',
-                idx === gameState.current_player_index && 'bg-cc-dark ring-1 ring-cc-gold/40',
+                idx === gameState.current_player_index && 'bg-bf-dark ring-1 ring-bf-gold/40',
                 player.is_eliminated && 'opacity-40'
               )}
             >
@@ -337,12 +337,12 @@ export default function GameHUD({
               />
               <span className={clsx(
                 'flex-1 truncate',
-                player.player_id === user?.user_id ? 'text-cc-gold font-medium' : 'text-cc-text'
+                player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
               )}>
                 {player.username}
-                {player.is_ai && <span className="text-cc-muted text-xs ml-1">(AI)</span>}
+                {player.is_ai && <span className="text-bf-muted text-xs ml-1">(AI)</span>}
               </span>
-              <span className="text-cc-muted text-xs">{player.territory_count}T</span>
+              <span className="text-bf-muted text-xs">{player.territory_count}T</span>
               {player.is_eliminated && (
                 <span className="text-red-500 text-xs">✗</span>
               )}
@@ -353,9 +353,9 @@ export default function GameHUD({
 
       {/* My Cards */}
       {myPlayer && myPlayer.cards.length > 0 && (
-        <div className="p-4 border-b border-cc-border">
+        <div className="p-4 border-b border-bf-border">
           <button
-            className="w-full flex items-center justify-between text-xs font-medium text-cc-muted uppercase tracking-wider hover:text-cc-gold transition-colors"
+            className="w-full flex items-center justify-between text-xs font-medium text-bf-muted uppercase tracking-wider hover:text-bf-gold transition-colors"
             onClick={() => setShowCards(!showCards)}
           >
             <span className="flex items-center gap-1.5">
@@ -373,8 +373,8 @@ export default function GameHUD({
                   className={clsx(
                     'w-full text-left p-2 rounded border text-sm transition-colors',
                     selectedCards.includes(card.card_id)
-                      ? 'border-cc-gold bg-cc-gold/10 text-cc-gold'
-                      : 'border-cc-border text-cc-text hover:border-cc-gold/50'
+                      ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
+                      : 'border-bf-border text-bf-text hover:border-bf-gold/50'
                   )}
                 >
                   <span className="capitalize">{card.symbol}</span>
@@ -386,7 +386,7 @@ export default function GameHUD({
                 </button>
               )}
               {selectedCards.length > 0 && selectedCards.length < 3 && (
-                <p className="text-xs text-cc-muted">Select {3 - selectedCards.length} more</p>
+                <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
               )}
             </div>
           )}
@@ -395,20 +395,20 @@ export default function GameHUD({
 
       {/* Combat Log */}
       <div className="p-4">
-        <h3 className="text-xs font-medium text-cc-muted uppercase tracking-wider mb-3">Combat Log</h3>
+        <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3">Combat Log</h3>
         {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
-          <p className="text-xs text-cc-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
+          <p className="text-xs text-bf-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
         )}
         {lastCombatResult && (
-          <div className="mb-3 p-3 bg-cc-dark rounded-lg border border-cc-border text-xs space-y-2">
+          <div className="mb-3 p-3 bg-bf-dark rounded-lg border border-bf-border text-xs space-y-2">
             {lastCombatResult.fromName && lastCombatResult.toName && (
-              <p className="text-cc-text font-medium">
+              <p className="text-bf-text font-medium">
                 {lastCombatResult.fromName} → {lastCombatResult.toName}
               </p>
             )}
             <div className="flex gap-3">
               <div className="flex-1">
-                <p className="text-cc-muted mb-0.5">{lastCombatResult.attackerName ?? 'Attacker'}</p>
+                <p className="text-bf-muted mb-0.5">{lastCombatResult.attackerName ?? 'Attacker'}</p>
                 <div className="flex gap-1">
                   {lastCombatResult.attacker_rolls.map((roll, i) => (
                     <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold">{roll}</span>
@@ -418,9 +418,9 @@ export default function GameHUD({
                   <p className="text-red-400 mt-1">Lost {lastCombatResult.attacker_losses} troop{lastCombatResult.attacker_losses > 1 ? 's' : ''}</p>
                 )}
               </div>
-              <div className="w-px bg-cc-border" />
+              <div className="w-px bg-bf-border" />
               <div className="flex-1">
-                <p className="text-cc-muted mb-0.5">{lastCombatResult.defenderName ?? 'Defender'}</p>
+                <p className="text-bf-muted mb-0.5">{lastCombatResult.defenderName ?? 'Defender'}</p>
                 <div className="flex gap-1">
                   {lastCombatResult.defender_rolls.map((roll, i) => (
                     <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold">{roll}</span>
@@ -432,12 +432,12 @@ export default function GameHUD({
               </div>
             </div>
             {lastCombatResult.territory_captured && (
-              <p className="text-cc-gold font-medium pt-1 border-t border-cc-border">
+              <p className="text-bf-gold font-medium pt-1 border-t border-bf-border">
                 Territory Captured!
               </p>
             )}
             {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
-              <div className="pt-1.5 border-t border-cc-border/80 space-y-1">
+              <div className="pt-1.5 border-t border-bf-border/80 space-y-1">
                 {attackerFactionBonus > 0 && (
                   <p className={clsx(
                     'text-xs px-2 py-1 rounded-md border animate-pulse',
@@ -466,7 +466,7 @@ export default function GameHUD({
           {lastCombatLog.slice(-8).reverse().map((entry, i) => (
             <p key={i} className={clsx(
               'text-xs leading-relaxed',
-              i === 0 ? 'text-cc-text' : 'text-cc-muted'
+              i === 0 ? 'text-bf-text' : 'text-bf-muted'
             )}>{entry}</p>
           ))}
         </div>
@@ -476,7 +476,7 @@ export default function GameHUD({
 
       {/* Phase Advance Button */}
       {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
-        <div className="p-4 border-t border-cc-border">
+        <div className="p-4 border-t border-bf-border">
           <button onClick={onAdvancePhase} className="btn-primary w-full">
             {gameState.phase === 'draft' && 'Begin Attack Phase →'}
             {gameState.phase === 'attack' && 'Begin Fortify Phase →'}
@@ -558,13 +558,13 @@ export default function GameHUD({
           {onSaveAndLeave && (
             <button
               onClick={onSaveAndLeave}
-              className="w-full py-1.5 text-xs text-cc-muted hover:text-cc-gold transition-colors
-                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-cc-gold/20"
+              className="w-full py-1.5 text-xs text-bf-muted hover:text-bf-gold transition-colors
+                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-bf-gold/20"
             >
               <Save className="w-3 h-3" /> Save & Leave
             </button>
           )}
-          <label className="flex items-center gap-2 px-1 py-1 text-xs text-cc-muted cursor-pointer select-none">
+          <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
             <input
               type="checkbox"
               checked={fastCombat}
@@ -572,19 +572,19 @@ export default function GameHUD({
                 setFastCombat(e.target.checked);
                 try { localStorage.setItem(FAST_COMBAT_KEY, String(e.target.checked)); } catch { /* noop */ }
               }}
-              className="accent-cc-gold w-3 h-3"
+              className="accent-bf-gold w-3 h-3"
             />
             Fast combat
           </label>
           {gameState.coaching_eligible && gameId && (
-            <label className="flex items-center gap-2 px-1 py-1 text-xs text-cc-muted cursor-pointer select-none">
+            <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={!!gameState.settings.coaching_enabled}
                 onChange={(e) => {
                   getSocket().emit('game:set_coaching', { gameId, enabled: e.target.checked });
                 }}
-                className="accent-cc-gold w-3 h-3"
+                className="accent-bf-gold w-3 h-3"
               />
               In-turn coaching
             </label>
@@ -592,7 +592,7 @@ export default function GameHUD({
           {isTutorial && onExitTutorial ? (
             <button
               onClick={onExitTutorial}
-              className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
+              className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
                          flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
             >
               <Flag className="w-3 h-3" /> Exit Tutorial
@@ -600,7 +600,7 @@ export default function GameHUD({
           ) : onResign ? (
             <button
               onClick={onResign}
-              className="w-full py-1.5 text-xs text-cc-muted hover:text-red-400 transition-colors
+              className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
                          flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
             >
               <Flag className="w-3 h-3" /> Resign
