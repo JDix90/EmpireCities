@@ -5,7 +5,7 @@
 # Usage:
 #   ./scripts/deploy-production.sh              # build + up
 #   ./scripts/deploy-production.sh --no-build   # restart only (no image rebuild)
-#   ./scripts/deploy-production.sh --seed       # also seed Postgres + Mongo (first deploy)
+#   ./scripts/deploy-production.sh --seed       # also seed Postgres + maps (first deploy)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,7 +54,7 @@ for i in $(seq 1 30); do
 done
 
 if [ "${RUN_SEED}" = true ]; then
-  echo "[deploy] Seeding Postgres + Mongo (first-time)..."
+  echo "[deploy] Seeding Postgres + maps (first-time)..."
   "${SCRIPT_DIR}/seed-production.sh"
 fi
 

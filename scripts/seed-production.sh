@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First-time production seed: achievements/cosmetics (Postgres) + era maps (Mongo).
+# First-time production seed: achievements/cosmetics (Postgres) + era/community maps (Postgres JSONB).
 # Safe to re-run — seed scripts upsert without wiping play counts.
 #
 # Usage (from repo root):
@@ -22,7 +22,7 @@ echo "[seed] Postgres achievements + cosmetics..."
 docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" exec -T backend \
   sh -c "cd /app/backend && node dist/db/postgres/seed.js"
 
-echo "[seed] Mongo era + community maps..."
+echo "[seed] PostgreSQL era + community maps..."
 docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" exec -T backend \
   sh -c "cd /app && pnpm exec tsx database/seedMaps.ts"
 

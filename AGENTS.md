@@ -1,6 +1,6 @@
 # Agent instructions (Borderfall)
 
-This repo is **Borderfall**: a browser-based historical Risk-style game — React + Vite + TypeScript frontend (PixiJS 2D map, react-globe.gl globe, Zustand), **Fastify** + **Socket.io** backend, **PostgreSQL** (Drizzle) for users/games/snapshots, **MongoDB** for map documents, **Redis**, **JWT** access/refresh. Gameplay is **server-authoritative**; live state is **in memory** with **Postgres snapshots**.
+This repo is **Borderfall**: a browser-based historical Risk-style game — React + Vite + TypeScript frontend (PixiJS 2D map, react-globe.gl globe, Zustand), **Fastify** + **Socket.io** backend, **PostgreSQL** (Drizzle) for users/games/snapshots/**maps (JSONB)**, **Redis**, **JWT** access/refresh. Gameplay is **server-authoritative**; live state is **in memory** with **Postgres snapshots**.
 
 ## Where to read first
 
@@ -27,7 +27,7 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 ## Rules of thumb
 
 - Small, focused changes; match existing style; do not swap the stack without explicit user request.
-- Maps live in **MongoDB**; game sessions in **PostgreSQL** — keep them distinct when debugging.
+- Maps and games both live in **PostgreSQL** — map geometry in the `maps` table (JSONB); game sessions in `games` / `game_states`. When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
 - Globe: respect **GeoJSON winding** and **`projection_bounds` / `geo_polygon`**; map data changes may affect **both** 2D and globe.
 - Do not add new markdown docs unless the user asks.
 - **0→1 feature work:** when the user asks to add a new building, tech, wonder, event card, faction ability, combat/economy rule, or any new gameplay capability, load and follow `.cursor/skills/feature-integration-playbook/SKILL.md` before touching code.

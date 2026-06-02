@@ -40,7 +40,7 @@ Before touching code, create a TodoWrite with these exact phases:
 Deliver a short written summary covering:
 
 1. **Reference implementation** — the closest existing feature that touches the same subsystems. Read it. Name the file paths.
-2. **Data layer impact** — which of these are affected: `GameState`, `TerritoryState`, `BuildingType` union, Postgres schema, MongoDB map documents, Zustand client store, Socket.io event payloads.
+2. **Data layer impact** — which of these are affected: `GameState`, `TerritoryState`, `BuildingType` union, Postgres schema (including `maps` JSONB), Zustand client store, Socket.io event payloads.
 3. **Gating flags** — which `state.settings.*_enabled` toggles gate the feature (e.g. `economy_enabled`, `naval_enabled`, `tech_trees_enabled`). The feature must no-op cleanly when its gating flag is off.
 4. **Server authority** — confirm the new rule is calculated server-side in `backend/src/sockets/gameSocket.ts` or `backend/src/game-engine/**`. Never trust client-supplied bonus math.
 
@@ -163,7 +163,7 @@ After the verifier passes and the user confirms it works, post a short retrospec
 
 ## Repo-specific gotchas (read every time)
 
-- **Dual DB.** Maps = MongoDB, game sessions = Postgres. Keep distinct when debugging.
+- **Maps in Postgres.** Map documents (`maps` table) and game sessions (`games`) share PostgreSQL — distinguish `map_id` vs `game_id` when debugging.
 - **Server-authoritative.** Combat math runs in `gameSocket.ts` and emits results. Clients display only.
 - **AI parity gap risk.** The AI attack loop is a separate code path from the human `game:attack` handler. Grep for both `aiAttackerId` and `attackerId` paths when adding combat bonuses.
 - **Connection types.** `IConnection.type` is `'land' | 'sea' | 'orbit'`. Sea-conditional logic must check this explicitly.

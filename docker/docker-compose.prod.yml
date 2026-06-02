@@ -1,16 +1,12 @@
-# Production-style stack: Postgres + Mongo + Redis + Node backend + nginx (static SPA).
+# Production-style stack: Postgres + Redis + Node backend + nginx (static SPA).
 # Same-origin: browser uses one URL; nginx proxies /api and /socket.io to the backend.
 #
 # Usage (from repo root):
 #   cp .env.production.example .env.production
-#   # Edit secrets and FRONTEND_URL (must match the URL users type in the browser, e.g. https://play.example.com)
 #   docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d --build
 #
-# First-time DB: migrations run on backend startup. Then seed Postgres + Mongo maps:
-#   docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec backend \
-#     sh -c "cd /app/backend && node dist/db/postgres/seed.js"
-#   docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec backend \
-#     sh -c "cd /app && npx tsx database/seedMaps.ts"
+# First-time DB: migrations run on backend startup. Then seed maps into Postgres:
+#   ./scripts/seed-production.sh
 #
 # HTTP_PORT maps host port to nginx (default 80).
 
@@ -30,22 +26,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
-
-  mongodb:
-    image: mongo:7-jammy
-    container_name: borderfall_mongo_prod
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-chronouser}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-chronopass}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-borderfall_maps}
-    volumes:
-      - mongo_prod_data:/data/db
-    healthcheck:
-      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ ping: 1 })']
-      interval: 10s
-      timeout: 5s
-      retries: 8
 
   redis:
     image: redis:7-alpine
@@ -69,8 +49,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mongodb:
-        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
@@ -81,7 +59,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-chronouser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronopass}
       POSTGRES_DB: ${POSTGRES_DB:-borderfall}
-      MONGO_URI: mongodb://${MONGO_USER:-chronouser}:${MONGO_PASSWORD:-chronopass}@mongodb:27017/${MONGO_DB:-borderfall_maps}?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: '6379'
       REDIS_PASSWORD: ${REDIS_PASSWORD:-chronoredis}
@@ -97,10 +74,6 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@borderfall.com}
     healthcheck:
-      # /ready exercises Postgres, Mongo, and Redis so the orchestrator only
-      # routes traffic once dependencies are actually reachable. /health stays
-      # as a cheap liveness probe (e.g. external uptime monitoring) and does
-      # not verify db connectivity.
       test:
         [
           'CMD-SHELL',
@@ -130,5 +103,4 @@ services:
 
 volumes:
   postgres_prod_data:
-  mongo_prod_data:
   redis_prod_data:

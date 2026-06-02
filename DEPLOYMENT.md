@@ -8,7 +8,7 @@ This document implements the **staged release** plan: host the app on the intern
 
 - **nginx** serves the Vite SPA and proxies `/api/*` and `/socket.io/*` to the Node backend (same browser origin — no `VITE_*` build args required).
 - **Backend** (Fastify + Socket.io) — **one instance** only; game state is in-memory ([backend/src/sockets/gameSocket.ts](backend/src/sockets/gameSocket.ts)).
-- **Postgres, MongoDB, Redis** as containers with named volumes (data survives container restarts).
+- **Postgres, Redis** as containers with named volumes (data survives container restarts).
 
 **Alternative:** Managed databases (Neon, Atlas, Upstash) + backend on Railway/Render/Fly + static frontend on Netlify/Vercel. Set `VITE_API_URL` and `VITE_SOCKET_URL` at frontend build time ([frontend/src/config/env.ts](frontend/src/config/env.ts)) and set `FRONTEND_URL` / `CORS_ORIGINS` on the backend ([backend/src/config/index.ts](backend/src/config/index.ts)).
 
@@ -48,7 +48,7 @@ docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -
 ```
 
 - **Migrations** run automatically when the backend container starts (`docker/entrypoint-backend.sh`).
-- **First-time data** (after Postgres + Mongo are up):
+- **First-time data** (after Postgres is up):
 
 ```bash
 ./scripts/seed-production.sh
@@ -82,7 +82,7 @@ Update **`FRONTEND_URL`** to `https://…` after HTTPS is live.
 ## 5. Always-on / operations (Stage 2)
 
 - **Restart policy:** Compose uses `restart: unless-stopped` so processes come back after reboot (with Docker enabled on boot).
-- **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod` / `borderfall_mongo_prod`). Schedule with `./scripts/setup-backup-cron.sh`.
+- **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod`). Schedule with `./scripts/setup-backup-cron.sh`.
 - **Monitoring:** Poll `GET /health` and `GET /ready` from UptimeRobot, Better Stack, etc.
 - **Deploys:** `./scripts/deploy-production.sh` — restarting the **backend** clears **in-memory games**. Schedule deploys when no active playtests, or accept brief resets during beta.
 - **QA sign-off:** [docs/LAUNCH_QA_SIGNOFF.md](docs/LAUNCH_QA_SIGNOFF.md) before each go-live.
@@ -97,10 +97,10 @@ If the SPA is on a different origin than the API:
 
 ## Database names (rebrand)
 
-Default Postgres DB and Mongo database segment are `borderfall` / `borderfall_maps`. If you already run production on `erasofempire` or `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `mongodump` as described in [README.md — Migrating from legacy database names](README.md#migrating-from-legacy-database-names).
+Default Postgres DB is `borderfall`. If you already run production on `erasofempire` or `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `pg_restore` as described in [README.md — Migrating from legacy database names](README.md#migrating-from-legacy-database-names). Maps that lived in MongoDB must be copied once with `pnpm run migrate:maps-from-mongo` before decommissioning the old Mongo container.
 
 ## Troubleshooting
 
 - **CORS errors:** `FRONTEND_URL` must equal the browser’s `Origin` (scheme + host + port).
 - **WebSocket fails:** Ensure proxies pass `Upgrade` and `Connection` headers (see [docker/nginx.prod.conf](docker/nginx.prod.conf)).
-- **Mongo URI:** Special characters in passwords must be URL-encoded in `MONGO_URI`.
+- **Maps missing after deploy:** Run `./scripts/seed-production.sh` or `pnpm run seed:maps` after migration `028_maps_postgres.sql` is applied.

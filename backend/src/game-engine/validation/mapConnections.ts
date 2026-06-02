@@ -1,6 +1,6 @@
 /**
  * Offline validation for map JSON (seed files / editor output).
- * Ensures connection graph integrity before maps hit MongoDB or gameplay.
+ * Ensures connection graph integrity before maps are persisted or used in gameplay.
  */
 
 export interface MapConnection {

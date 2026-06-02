@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Node 22+, pnpm 9+
-- Docker (optional): Postgres, MongoDB, Redis per `docker/docker-compose.yml`
+- Docker (optional): Postgres + Redis per `docker/docker-compose.yml`
 
 ## Setup
 

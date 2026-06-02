@@ -5,7 +5,7 @@ import * as path from 'path';
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
-import { CustomMap } from '../db/mongo/MapModel';
+import { getMapById } from '../modules/maps/mapService';
 import {
   initializeGameState,
   advanceToNextPlayer,
@@ -144,7 +144,7 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
 async function resolveMap(mapId: string): Promise<GameMap | null> {
   if (mapId === 'tutorial') return getTutorialMap();
   // Curated regional maps should always resolve from static JSON so gameplay
-  // uses the exact shipped geometry (avoids stale Mongo copies).
+  // uses the exact shipped geometry (avoids stale DB copies).
   if (CURATED_STATIC_REGIONAL_MAP_IDS.has(mapId)) {
     if (!isSafeMapId(mapId)) return null;
     const curatedPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
@@ -154,8 +154,8 @@ async function resolveMap(mapId: string): Promise<GameMap | null> {
     }
     return null;
   }
-  const mapDoc = await CustomMap.findOne({ map_id: mapId }).lean();
-  if (mapDoc) return loadMapFromDoc(mapDoc);
+  const mapFromDb = await getMapById(mapId);
+  if (mapFromDb) return mapFromDb;
 
   // Fallback: load from static JSON files in database/maps/
   if (!isSafeMapId(mapId)) return null;
@@ -933,7 +933,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           [gameId]
         );
 
-        // Load map (tutorial maps are hardcoded; others from Mongo)
+        // Load map (tutorial maps are hardcoded; others from Postgres via getMapById)
         const gameMap = await resolveMap(game.map_id);
         if (!gameMap) return socket.emit('error', { message: 'Map not found' });
 

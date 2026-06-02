@@ -69,10 +69,6 @@ export const config = {
     database: process.env.POSTGRES_DB || 'borderfall',
   },
 
-  mongo: {
-    uri: process.env.MONGO_URI || 'mongodb://chronouser:chronopass@localhost:27017/borderfall_maps?authSource=admin',
-  },
-
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),

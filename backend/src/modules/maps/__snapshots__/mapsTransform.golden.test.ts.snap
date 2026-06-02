@@ -1,0 +1,118 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rowToGameMap — golden snapshot > full row transforms to expected GameMap shape (snapshot) 1`] = `
+{
+  "canvas_height": 700,
+  "canvas_width": 1200,
+  "connections": [
+    {
+      "from": "france",
+      "to": "england",
+      "type": "sea",
+    },
+  ],
+  "creator_id": "system",
+  "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms.",
+  "era_theme": "medieval",
+  "globe_view": {
+    "altitude": 1.8,
+    "center_lat": 35,
+    "center_lng": 20,
+    "lock_rotation": false,
+  },
+  "is_public": true,
+  "map_id": "era_medieval",
+  "map_kind": undefined,
+  "moderation_status": "approved",
+  "name": "Medieval World (1200 AD)",
+  "orbit_access": undefined,
+  "play_count": 100,
+  "projection_bounds": {
+    "maxLat": 72,
+    "maxLng": 145,
+    "minLat": -5,
+    "minLng": -20,
+  },
+  "rating_count": 15,
+  "rating_sum": 63,
+  "regions": [
+    {
+      "bonus": 3,
+      "name": "Western Europe",
+      "region_id": "western_europe",
+    },
+  ],
+  "territories": [
+    {
+      "center_point": [
+        50,
+        40,
+      ],
+      "name": "France",
+      "polygon": [
+        [
+          0,
+          0,
+        ],
+        [
+          100,
+          0,
+        ],
+        [
+          100,
+          80,
+        ],
+        [
+          0,
+          80,
+        ],
+      ],
+      "region_id": "western_europe",
+      "territory_id": "france",
+    },
+    {
+      "center_point": [
+        155,
+        30,
+      ],
+      "name": "England",
+      "polygon": [
+        [
+          110,
+          0,
+        ],
+        [
+          200,
+          0,
+        ],
+        [
+          200,
+          60,
+        ],
+        [
+          110,
+          60,
+        ],
+      ],
+      "region_id": "western_europe",
+      "territory_id": "england",
+    },
+  ],
+  "worlds": undefined,
+}
+`;
+
+exports[`rowToSummary — golden snapshot > full row transforms to expected MapSummary shape (snapshot) 1`] = `
+{
+  "avg_rating": 4.2,
+  "creator_id": "system",
+  "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms.",
+  "era_theme": "medieval",
+  "is_public": true,
+  "map_id": "era_medieval",
+  "name": "Medieval World (1200 AD)",
+  "play_count": 100,
+  "region_count": 1,
+  "territory_count": 2,
+}
+`;
