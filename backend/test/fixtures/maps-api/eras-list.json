@@ -1,0 +1,172 @@
+{
+  "maps": [
+    {
+      "map_id": "community_australia_1337",
+      "name": "Karkiyapani, Aotearoa & SW Manakiwana 1337",
+      "description": "An alternate history depicting the political landscape of Australia (Karkiyapani) in 1337 A.D. Indigenous Australian nations organized into structured territorial states, plus Aotearoa (New Zealand) and Pacific Island polities.",
+      "era_theme": "custom",
+      "territory_count": 26,
+      "region_count": 7,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "community_britain_925",
+      "name": "Great Britain 925 A.D.",
+      "description": "Medieval Britain divided among Anglo-Saxon, Viking, Welsh, and Scottish kingdoms. Control England's heartland or unite the Celtic fringes to dominate the isles.",
+      "era_theme": "custom",
+      "territory_count": 14,
+      "region_count": 5,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "community_horn_africa",
+      "name": "Horn of Africa & Yemen",
+      "description": "An alternate history scenario: the Socialist Union of the Horn of Africa and Yemen. A unified federated state spanning Ethiopia, Somalia, Eritrea, Djibouti, and southern Yemen, divided into regional provinces.",
+      "era_theme": "custom",
+      "territory_count": 29,
+      "region_count": 5,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_acw",
+      "name": "American Civil War (1861–1865)",
+      "description": "Union versus Confederacy: fight for the Eastern Theater, the Mississippi, and the Trans-Mississippi West.",
+      "era_theme": "acw",
+      "territory_count": 18,
+      "region_count": 6,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_ancient",
+      "name": "Ancient World (200 AD)",
+      "description": "The world at the height of the Roman Empire. Command the legions of Rome, the cavalry of Parthia, the armies of Han China, or the warriors of the Eurasian Steppe.",
+      "era_theme": "ancient",
+      "territory_count": 28,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_coldwar",
+      "name": "Cold War (1947–1991)",
+      "description": "The world divided between two superpowers. Command NATO forces in Western Europe, lead the Soviet bloc, fight proxy wars in Korea, Vietnam, and Africa, or play the Non-Aligned Movement as a kingmaker.",
+      "era_theme": "coldwar",
+      "territory_count": 44,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_discovery",
+      "name": "Age of Discovery (1600 AD)",
+      "description": "The world in the age of colonial empires and global sea trade. Command the Spanish Armada, Portuguese spice fleets, Ottoman janissaries, or Mughal cavalry across a world being reshaped by exploration.",
+      "era_theme": "discovery",
+      "territory_count": 34,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_galaxy",
+      "name": "Galactic Age",
+      "description": "Four contested worlds — Sol III, Verdan Reach, Rust Belt, and Nexus Station — linked only by Pathfinder hyperspace lanes. Research Hyperspace Chart to open the lanes between them.",
+      "era_theme": "galaxy_age",
+      "territory_count": 24,
+      "region_count": 4,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_medieval",
+      "name": "Medieval World (1200 AD)",
+      "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms. Lead the Mongol hordes, defend the Holy Land, or build a trading empire across the Silk Road.",
+      "era_theme": "medieval",
+      "territory_count": 29,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_modern",
+      "name": "The Modern Day",
+      "description": "The world as it stands today. Command the United States, lead the European Union, direct the rising power of China, build alliances across Africa, or dominate the Pacific Rim in a struggle for 21st-century supremacy.",
+      "era_theme": "modern",
+      "territory_count": 43,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_risorgimento",
+      "name": "Italian Unification (1859–1871)",
+      "description": "Risorgimento Italy: from Piedmont and the Two Sicilies to a united kingdom. Territories follow modern provincial outlines grouped into historical regions.",
+      "era_theme": "risorgimento",
+      "territory_count": 14,
+      "region_count": 6,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_space_age",
+      "name": "Space Age (2100 AD)",
+      "description": "The world as it may be in 2100 — climate-reshaped borders, corporate enclaves, planetary megastates — plus a second globe representing a contested lunar surface. Research Lunar Expansion, build a Launch Pad, and launch your Space Station to claim the Moon.",
+      "era_theme": "space_age",
+      "territory_count": 55,
+      "region_count": 10,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "era_ww2",
+      "name": "World War II (1939–1945)",
+      "description": "The greatest conflict in human history. Command the Wehrmacht across Europe, lead the Allied landings, defend the Pacific with Japan, or push back with the Soviet Red Army on the Eastern Front.",
+      "era_theme": "ww2",
+      "territory_count": 35,
+      "region_count": 8,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    },
+    {
+      "map_id": "rts_slice_v1",
+      "name": "Border Marches (Slice)",
+      "description": "Five connected territories in the Italian Marches (slice map for RTS MVP0). Pre-authored movement graphs with stitched frontiers.",
+      "era_theme": "rts",
+      "territory_count": 5,
+      "region_count": 1,
+      "is_public": true,
+      "play_count": 0,
+      "avg_rating": 0,
+      "creator_id": "system"
+    }
+  ]
+}

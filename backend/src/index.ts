@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { randomUUID } from 'crypto';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
-import mongoose from 'mongoose';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
@@ -11,7 +10,6 @@ import type { Server } from 'socket.io';
 import { config } from './config';
 import { validateProductionEnv } from './config/validateEnv';
 import { connectPostgres, pgPool, query, queryOne } from './db/postgres';
-import { connectMongo } from './db/mongo';
 import { connectRedis, redis } from './db/redis';
 import { registerErrorHandler } from './errorHandler';
 import { authenticate } from './middleware/authenticate';
@@ -87,7 +85,6 @@ async function bootstrap(): Promise<void> {
   initSentry();
 
   await connectPostgres();
-  await connectMongo();
   await connectRedis();
 
   const app = Fastify({
@@ -287,7 +284,7 @@ async function bootstrap(): Promise<void> {
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
-  /** Readiness for orchestrators — verifies Postgres, MongoDB, Redis. */
+  /** Readiness for orchestrators — verifies Postgres and Redis. */
   app.get('/ready', async (_req, reply) => {
     const result = await runReadinessChecks();
     return result.ok
@@ -373,7 +370,6 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
       stopGuestCleanupSweep();
       await shutdownGameSocket(io);
       await app.close();
-      await mongoose.connection.close();
       await redis.quit();
       await pgPool.end();
       console.log('[shutdown] Clean exit');

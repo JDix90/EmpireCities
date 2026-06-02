@@ -69,8 +69,7 @@ Two community maps (14 Nations and Strait of Hormuz) are also included. Addition
 | **Real-time** | Socket.io v4 (WebSockets) |
 | **Backend API** | Node.js 22 + TypeScript + Fastify |
 | **Authentication** | Custom JWT (access + refresh token rotation) |
-| **Relational DB** | PostgreSQL 16 (Drizzle ORM) |
-| **Document DB** | MongoDB 7 (Mongoose — map documents) |
+| **Relational DB** | PostgreSQL 16 (Drizzle ORM) — users, games, snapshots, **maps (JSONB)** |
 | **Cache / Leaderboards** | Redis 7 |
 | **AI Bots** | Server-side heuristic Minimax with Alpha-Beta Pruning, timeout-guarded worker |
 | **Ratings** | Glicko-style μ (skill) + φ (uncertainty), per rating type; σ tracked at the schema level for forward compatibility |
@@ -94,8 +93,7 @@ borderfall/
 │       ├── index.ts              # Fastify server entry point
 │       ├── config/               # Environment config loader
 │       ├── db/
-│       │   ├── postgres/         # PostgreSQL connection + migrations
-│       │   ├── mongo/            # MongoDB connection + Map model
+│       │   ├── postgres/         # PostgreSQL connection + migrations + maps JSONB
 │       │   └── redis/            # Redis connection + helpers
 │       ├── middleware/
 │       │   ├── authenticate.ts   # JWT auth middleware
@@ -177,10 +175,10 @@ borderfall/
 │   ├── migrations/               # 12 sequential PostgreSQL migrations
 │   ├── seeds/                    # Initial achievements, medals, cosmetics
 │   ├── maps/                     # Era + community map JSON files (10 total)
-│   └── seedMaps.ts               # MongoDB map seeder
+│   └── seedMaps.ts               # PostgreSQL map seeder (JSONB)
 │
 └── docker/
-    ├── docker-compose.yml        # Local dev: PostgreSQL + MongoDB + Redis
+    ├── docker-compose.yml        # Local dev: PostgreSQL + Redis
     └── docker-compose.prod.yml   # Production: nginx + backend + databases
 ```
 
@@ -242,13 +240,13 @@ All other values match the Docker Compose defaults and do not need changing for 
 docker-compose -f docker/docker-compose.yml up -d
 ```
 
-This starts PostgreSQL (port 5432), MongoDB (port 27017), and Redis (port 6379) as background services. Verify they are running:
+This starts PostgreSQL (port 5432) and Redis (port 6379) as background services. Verify they are running:
 
 ```bash
 docker-compose -f docker/docker-compose.yml ps
 ```
 
-All three services should show `Up` status.
+Both services should show `Up` status.
 
 ### Step 4 — Run Database Migrations
 
@@ -275,7 +273,7 @@ This inserts initial achievements and cosmetic items into PostgreSQL.
 pnpm run seed:maps
 ```
 
-This seeds all **8 historical era maps** (Ancient, Medieval, Age of Discovery, WWII, Cold War, Modern, American Civil War, Italian Unification) plus 2 community maps into MongoDB. This step is **required** — without it, no games can be started as the map data will not exist. You should see output like:
+This seeds all era and community maps into PostgreSQL (`maps` table). This step is **required** — without it, no games can be started as the map data will not exist. You should see output like:
 
 ```
 ✓ INSERTED: Ancient World (200 AD)          — 28 territories · 40 connections · 8 regions
@@ -330,10 +328,9 @@ The frontend starts on **http://localhost:5173**. Open this URL in your browser.
 | `FRONTEND_URL` | `http://localhost:5173` | CORS allowed origin |
 | `POSTGRES_HOST` | `localhost` | PostgreSQL host |
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
-| `POSTGRES_DB` | `borderfall` | Database name |
 | `POSTGRES_USER` | `chronouser` | Database user |
 | `POSTGRES_PASSWORD` | `chronopass` | Database password |
-| `MONGO_URI` | `mongodb://...` | MongoDB connection string |
+| `POSTGRES_DB` | `borderfall` | Database name (includes `maps` + `map_ratings` tables) |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `JWT_ACCESS_SECRET` | **CHANGE THIS** | Access token signing secret |
@@ -370,14 +367,10 @@ Twelve sequential migrations build the full schema:
 | `gold_transactions` | Audit log for every gold credit/debit |
 | `async_notifications` | Email/in-app turn notifications for async game mode |
 | `map_reports` | Community map moderation reports |
+| `maps` | Full map documents (territories, connections, regions as JSONB) |
+| `map_ratings` | Per-user map ratings (one row per user per map) |
 | `user_campaigns` | Single-player campaign state (current era index, prestige points) |
 | `campaign_entries` | Per-era result rows tied to a campaign |
-
-### MongoDB Collections
-
-| Collection | Purpose |
-|---|---|
-| `custommaps` | Full map data (territories, polygons, connections, regions, projection bounds) |
 
 ### Redis Keys
 
@@ -388,15 +381,16 @@ Twelve sequential migrations build the full schema:
 
 ### Migrating from legacy database names
 
-Greenfield defaults use PostgreSQL `borderfall` and MongoDB `borderfall_maps`. Older deployments may still use previous names:
+Greenfield defaults use PostgreSQL `borderfall` (users, games, snapshots, and **maps** in the `maps` / `map_ratings` tables). Older deployments may still use previous Postgres database names:
 
 | Legacy | Notes |
 |--------|--------|
-| `chronoconquest` / `chronoconquest_maps` | Original project databases |
-| `erasofempire` / `erasofempire_maps` | Intermediate rebrand defaults |
+| `chronoconquest` / `chronoconquest_maps` | Original project databases (maps were in Mongo `chronoconquest_maps`) |
+| `erasofempire` / `erasofempire_maps` | Intermediate rebrand defaults (maps were in Mongo `erasofempire_maps`) |
 
-- **Keep existing data without moving files:** In `backend/.env`, `.env.production`, and Docker env, set `POSTGRES_DB` and `MONGO_URI` to your existing database names so the app connects without a dump/restore.
-- **Move to Borderfall defaults:** Use `pg_dump` / `pg_restore` into `borderfall`, and `mongodump` / `mongorestore` into `borderfall_maps`, then update env vars. Docker-only: you can also start fresh volumes with the new names (loses old data unless you dump first).
+- **Keep existing Postgres data without moving files:** In `backend/.env`, `.env.production`, and Docker env, set `POSTGRES_DB` to your existing database name so the app connects without a dump/restore.
+- **Move to Borderfall defaults:** Use `pg_dump` / `pg_restore` into `borderfall`, then update env vars. Docker-only: you can also start fresh volumes with the new names (loses old data unless you dump first).
+- **Maps from legacy Mongo:** Apply migration `028_maps_postgres.sql`, then run `pnpm run migrate:maps-from-mongo` while Mongo still has your map data (set `MONGO_URI` in `backend/.env`). Greenfield installs skip this and use `pnpm run seed:maps` instead.
 - **Container renames:** Compose `container_name` values use the `borderfall_*` prefix; data stays in named volumes. After changing env, run `docker compose down` / `up` as needed.
 
 ### Borderfall rebrand — post-merge checklist
@@ -411,7 +405,7 @@ After pulling the Borderfall rebrand, run these on each environment:
 
    Confirms `026_rebrand_borderfall.sql` applied (check `_migrations` table).
 
-2. **Environment** — Greenfield dev uses `borderfall` / `borderfall_maps`. Existing prod can keep `erasofempire` or older names in `.env` until you dump/restore (see table above).
+2. **Environment** — Greenfield dev uses Postgres `borderfall` only. Existing prod can keep `erasofempire` or older Postgres names in `.env` until you dump/restore (see table above). Legacy Mongo map data: `pnpm run migrate:maps-from-mongo` once after `028_maps_postgres.sql`.
 
 3. **Mobile** — New store bundle `com.borderfall.app` (not an in-place rename of `com.chronoconquest.app`):
 
@@ -451,7 +445,7 @@ Or run them individually in separate terminals as described in Quick Start.
 | `backend/` | `pnpm run build` | Compile TypeScript to `dist/` |
 | `backend/` | `pnpm run migrate` | Run all PostgreSQL migrations |
 | `backend/` | `pnpm run seed` | Seed achievements and cosmetics into PostgreSQL |
-| `backend/` | `pnpm run seed:maps` | Seed all era maps into MongoDB (**required for gameplay**) |
+| `backend/` | `pnpm run seed:maps` | Seed all era maps into PostgreSQL (**required for gameplay**) |
 | `backend/` | `pnpm run test:backend` | Vitest unit tests (combat resolver, missions, map validation) |
 | `frontend/` | `pnpm run dev` | Start Vite dev server |
 | `frontend/` | `pnpm run build` | Build for production |
@@ -651,8 +645,7 @@ Published maps appear in the **Community Map Hub** where players rate them and f
 ```
 Browser (React + PixiJS / react-globe.gl)
         │
-        ├── HTTP (REST)  ──→  Fastify API  ──→  PostgreSQL (users, games, rankings, campaign)
-        │                                   ──→  MongoDB (maps)
+        ├── HTTP (REST)  ──→  Fastify API  ──→  PostgreSQL (users, games, maps, rankings, campaign)
         │                                   ──→  Redis (cache, leaderboards)
         │
         └── WebSocket  ──→  Socket.io Server  ──→  In-Memory Game State
@@ -667,7 +660,7 @@ Browser (React + PixiJS / react-globe.gl)
 - **Server-authoritative combat:** All dice rolls occur on the server using `crypto.randomInt()` — clients never control combat outcomes. Event card effects, tech benefits, and faction abilities are all resolved server-side.
 - **Fog of War filtering:** When enabled, the server filters the game state before broadcasting to each player, hiding enemy unit counts in non-adjacent territories.
 - **AI workers:** Bot turns are executed in a timeout-guarded worker (`runAiWithTimeout.ts`) so a slow AI search never stalls the game loop.
-- **Globe rendering:** Territory polygons must follow GeoJSON RFC 7946 winding rules. Canvas coordinates are converted via `projection_bounds` and `geo_polygon` from the MongoDB map document.
+- **Globe rendering:** Territory polygons must follow GeoJSON RFC 7946 winding rules. Canvas coordinates are converted via `projection_bounds` and `geo_polygon` from the map document (PostgreSQL `maps` table).
 
 ---
 
@@ -716,7 +709,7 @@ Every game optionally has an 8-character join code. Share it with friends to byp
 | API calls fail or CORS errors | `FRONTEND_URL` and optional `CORS_ORIGINS` in `backend/.env` must include your web origin (e.g. `http://localhost:5173`). |
 | `401` on `/api/auth/refresh` | Refresh cookie `SameSite`/HTTPS: see `REFRESH_COOKIE_SAME_SITE` in `backend/.env.example`. Ensure frontend uses the Vite proxy or matching API URL. |
 | Socket disconnects or "Game not found" | Socket auth requires a valid access token in the handshake; URL `gameId` must match a Postgres game row. Rejoin is sent automatically on reconnect (see `GamePage.tsx`). |
-| Map not rendering | Run `pnpm run seed:maps` from `backend/` so MongoDB has map documents. For custom geometry issues on the globe, see [docs/GLOBE_2D_CHECKLIST.md](docs/GLOBE_2D_CHECKLIST.md). |
+| Map not rendering | Run `pnpm run seed:maps` from `backend/` so PostgreSQL has map rows. For custom geometry issues on the globe, see [docs/GLOBE_2D_CHECKLIST.md](docs/GLOBE_2D_CHECKLIST.md). |
 | Globe polygons appear black or corrupt | Avoid extremely low `polygonCapCurvatureResolution`; verify GeoJSON exterior ring winding and that `projection_bounds` / `geo_polygon` are correct in the map document. |
 
 ## Automated Checks

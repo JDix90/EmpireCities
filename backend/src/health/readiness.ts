@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import { pgPool } from '../db/postgres';
 import { redis } from '../db/redis';
 
@@ -17,22 +16,6 @@ export async function runReadinessChecks(): Promise<{ ok: boolean; checks: Readi
   } catch (e) {
     checks.push({
       name: 'postgres',
-      ok: false,
-      detail: e instanceof Error ? e.message : String(e),
-    });
-  }
-
-  try {
-    const st = mongoose.connection.readyState;
-    if (st === 1) {
-      await mongoose.connection.db?.admin().ping();
-      checks.push({ name: 'mongodb', ok: true });
-    } else {
-      checks.push({ name: 'mongodb', ok: false, detail: `readyState=${st}` });
-    }
-  } catch (e) {
-    checks.push({
-      name: 'mongodb',
       ok: false,
       detail: e instanceof Error ? e.message : String(e),
     });

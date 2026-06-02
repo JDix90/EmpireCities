@@ -1,125 +1,19 @@
 /**
- * Borderfall — MongoDB Map Seeder (Mongoose version)
- * Seeds all 5 historical era maps into MongoDB using the same Mongoose
- * CustomMap model that the game server uses, ensuring perfect schema alignment.
+ * Borderfall — PostgreSQL Map Seeder
+ * Seeds historical era + community maps into the `maps` table (JSONB).
  *
- * Usage (from project root):
+ * Usage (from repo root):
  *   pnpm run seed:maps
- *
- * Or from backend folder:
- *   cd backend && pnpm run seed:maps
- *
- * Or directly:
- *   cd backend && npx tsx ../database/seedMaps.ts
  */
 
 import * as path from 'path';
-import * as fs   from 'fs';
+import * as fs from 'fs';
 import * as dotenv from 'dotenv';
-
-// Load backend .env
-dotenv.config({ path: path.resolve(__dirname, '../backend/.env') });
-
-import mongoose from 'mongoose';
+import { Pool } from 'pg';
 import Redis from 'ioredis';
 
-// ─── Inline the CustomMap schema (mirrors MapModel.ts exactly) ────────────────
-// We inline it here so the seeder can run standalone without importing the full
-// backend module graph (which requires all services to be available).
+dotenv.config({ path: path.resolve(__dirname, '../backend/.env') });
 
-const MapWorldSeedSchema = new mongoose.Schema(
-  {
-    world_id: { type: String, required: true },
-    display_name: { type: String, required: true },
-    globe_image_url: { type: String },
-    bump_image_url: { type: String },
-    show_atmosphere: { type: Boolean },
-    atmosphere_color: { type: String },
-    atmosphere_altitude: { type: Number },
-    background_color: { type: String },
-    requires_orbit_access: { type: Boolean },
-    initial_neutral_garrison: { type: Boolean },
-  },
-  { _id: false },
-);
-
-const TerritorySchema = new mongoose.Schema({
-  territory_id:  { type: String, required: true },
-  name:          { type: String, required: true },
-  polygon:       { type: [[Number]], required: true },
-  center_point:  { type: [Number], required: true },
-  region_id:     { type: String, required: true },
-  /** WGS84 rings — must match MapModel.ts or Mongoose strips them on seed (globe needs this). */
-  geo_polygon:   { type: [[Number]], default: undefined },
-  globe_id:      { type: String, default: undefined },
-  world_id:      { type: String, default: undefined },
-  galaxy_position: { type: [Number], default: undefined },
-  globe_image_url: { type: String, default: undefined },
-  bump_image_url: { type: String, default: undefined },
-}, { _id: false });
-
-const ConnectionSchema = new mongoose.Schema({
-  from: { type: String, required: true },
-  to:   { type: String, required: true },
-  type: { type: String, enum: ['land', 'sea', 'orbit'], default: 'land' },
-}, { _id: false });
-
-const RegionSchema = new mongoose.Schema({
-  region_id: { type: String, required: true },
-  name:      { type: String, required: true },
-  bonus:     { type: Number, required: true },
-}, { _id: false });
-
-const GlobeViewSchema = new mongoose.Schema({
-  lock_rotation: { type: Boolean },
-  center_lat:    { type: Number },
-  center_lng:    { type: Number },
-  altitude:      { type: Number },
-}, { _id: false });
-
-const ProjectionBoundsSchema = new mongoose.Schema({
-  minLng: { type: Number, required: true },
-  maxLng: { type: Number, required: true },
-  minLat: { type: Number, required: true },
-  maxLat: { type: Number, required: true },
-}, { _id: false });
-
-const MapSchema = new mongoose.Schema({
-  map_id:            { type: String, required: true, unique: true },
-  creator_id:        { type: String, required: true, default: 'system' },
-  name:              { type: String, required: true },
-  description:       { type: String, default: '' },
-  era_theme:         { type: String, default: '' },
-  background_image_url: { type: String, default: '' },
-  canvas_width:      { type: Number, default: 1200 },
-  canvas_height:     { type: Number, default: 700 },
-  projection_bounds: { type: ProjectionBoundsSchema, required: false },
-  globe_view:        { type: GlobeViewSchema, required: false },
-  map_kind:          { type: String, enum: ['standard', 'galaxy'], required: false },
-  worlds:            { type: [MapWorldSeedSchema], required: false },
-  orbit_access:      {
-    type: String,
-    enum: ['none', 'space_age_moon', 'galaxy_hyperspace'],
-    required: false,
-  },
-  /** Optional RTS tactical graph (MVP0) */
-  rts_terrain:       { type: mongoose.Schema.Types.Mixed, required: false },
-  territories:       { type: [TerritorySchema], required: true },
-  connections:       { type: [ConnectionSchema], required: true },
-  regions:           { type: [RegionSchema], required: true },
-  is_public:         { type: Boolean, default: true },
-  is_moderated:      { type: Boolean, default: true },
-  moderation_status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
-  rating:            { type: Number, default: 0 },
-  rating_count:      { type: Number, default: 0 },
-  play_count:        { type: Number, default: 0 },
-}, {
-  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
-});
-
-const SeederMap = mongoose.model('CustomMap', MapSchema);
-
-// ─── Map files ────────────────────────────────────────────────────────────────
 const MAP_FILES = [
   'era_ancient.json',
   'era_medieval.json',
@@ -134,7 +28,6 @@ const MAP_FILES = [
   'rts_slice_v1.json',
 ];
 
-/** Community maps: same schema as era JSON, but published under a user id for Map Hub. */
 const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
   { file: 'community_14_nations.json', creator_id: 'jmd' },
   { file: 'community_strait_hormuz.json', creator_id: 'jmd' },
@@ -145,221 +38,202 @@ const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
 
 const MAPS_DIR = path.resolve(__dirname, 'maps');
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+interface SeedDoc {
+  map_id: string;
+  creator_id: string;
+  name: string;
+  description: string;
+  era_theme: string;
+  canvas_width: number;
+  canvas_height: number;
+  projection_bounds?: unknown;
+  globe_view?: unknown;
+  map_kind?: string;
+  worlds?: unknown;
+  orbit_access?: string;
+  rts_terrain?: unknown;
+  territories: unknown;
+  connections: unknown;
+  regions: unknown;
+}
+
+async function upsertMap(pool: Pool, doc: SeedDoc): Promise<'inserted' | 'updated'> {
+  const existing = await pool.query('SELECT map_id FROM maps WHERE map_id = $1', [doc.map_id]);
+  if (existing.rowCount === 0) {
+    await pool.query(
+      `INSERT INTO maps (
+        map_id, creator_id, name, description, era_theme, canvas_width, canvas_height,
+        projection_bounds, globe_view, map_kind, worlds, orbit_access, rts_terrain,
+        territories, connections, regions, is_public, is_moderated, moderation_status
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8::jsonb, $9::jsonb, $10, $11::jsonb, $12, $13::jsonb,
+        $14::jsonb, $15::jsonb, $16::jsonb, true, true, 'approved'
+      )`,
+      [
+        doc.map_id,
+        doc.creator_id,
+        doc.name,
+        doc.description,
+        doc.era_theme,
+        doc.canvas_width,
+        doc.canvas_height,
+        doc.projection_bounds ? JSON.stringify(doc.projection_bounds) : null,
+        doc.globe_view ? JSON.stringify(doc.globe_view) : null,
+        doc.map_kind ?? null,
+        doc.worlds ? JSON.stringify(doc.worlds) : null,
+        doc.orbit_access ?? null,
+        doc.rts_terrain ? JSON.stringify(doc.rts_terrain) : null,
+        JSON.stringify(doc.territories),
+        JSON.stringify(doc.connections),
+        JSON.stringify(doc.regions),
+      ],
+    );
+    return 'inserted';
+  }
+
+  await pool.query(
+    `UPDATE maps SET
+      name = $2, description = $3, era_theme = $4, canvas_width = $5, canvas_height = $6,
+      projection_bounds = $7::jsonb, globe_view = $8::jsonb, map_kind = $9, worlds = $10::jsonb,
+      orbit_access = $11, rts_terrain = $12::jsonb,
+      territories = $13::jsonb, connections = $14::jsonb, regions = $15::jsonb,
+      is_public = true, is_moderated = true, moderation_status = 'approved', updated_at = NOW()
+     WHERE map_id = $1`,
+    [
+      doc.map_id,
+      doc.name,
+      doc.description,
+      doc.era_theme,
+      doc.canvas_width,
+      doc.canvas_height,
+      doc.projection_bounds ? JSON.stringify(doc.projection_bounds) : null,
+      doc.globe_view ? JSON.stringify(doc.globe_view) : null,
+      doc.map_kind ?? null,
+      doc.worlds ? JSON.stringify(doc.worlds) : null,
+      doc.orbit_access ?? null,
+      doc.rts_terrain ? JSON.stringify(doc.rts_terrain) : null,
+      JSON.stringify(doc.territories),
+      JSON.stringify(doc.connections),
+      JSON.stringify(doc.regions),
+    ],
+  );
+  return 'updated';
+}
+
+function buildDoc(data: Record<string, unknown>, creator_id: string): SeedDoc {
+  return {
+    map_id: data.map_id as string,
+    creator_id,
+    name: data.name as string,
+    description: (data.description as string) || '',
+    era_theme: (data.era_theme as string) || '',
+    canvas_width: (data.canvas_width as number) ?? 1200,
+    canvas_height: (data.canvas_height as number) ?? 700,
+    projection_bounds: data.projection_bounds,
+    globe_view: data.globe_view,
+    map_kind: data.map_kind as string | undefined,
+    worlds: data.worlds,
+    orbit_access: data.orbit_access as string | undefined,
+    rts_terrain: data.rts_terrain,
+    territories: data.territories,
+    connections: data.connections,
+    regions: data.regions,
+  };
+}
+
 async function seedMaps(): Promise<void> {
-  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://chronouser:chronopass@localhost:27017/borderfall_maps?authSource=admin';
+  const pool = new Pool({
+    host: process.env.POSTGRES_HOST || 'localhost',
+    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+    user: process.env.POSTGRES_USER || 'chronouser',
+    password: process.env.POSTGRES_PASSWORD || 'chronopass',
+    database: process.env.POSTGRES_DB || 'borderfall',
+  });
 
   console.log('═'.repeat(60));
-  console.log('Borderfall — Map Seeder');
+  console.log('Borderfall — Map Seeder (PostgreSQL)');
   console.log('═'.repeat(60));
-  console.log(`Connecting to MongoDB...`);
-
-  await mongoose.connect(mongoUri);
-  console.log('✓ Connected\n');
 
   let inserted = 0;
-  let updated  = 0;
-  let skipped  = 0;
+  let updated = 0;
+  let skipped = 0;
 
   for (const filename of MAP_FILES) {
     const filepath = path.join(MAPS_DIR, filename);
-
     if (!fs.existsSync(filepath)) {
       console.warn(`  ⚠ Not found, skipping: ${filename}`);
       skipped++;
       continue;
     }
 
-    const raw  = fs.readFileSync(filepath, 'utf-8');
-    const data = JSON.parse(raw);
-
-    // Build the document matching the Mongoose schema
-    const doc: Record<string, unknown> = {
-      map_id:            data.map_id,
-      creator_id:        'system',
-      name:              data.name,
-      description:       data.description || '',
-      era_theme:         data.era_theme   || '',
-      background_image_url: '',
-      canvas_width:      data.canvas_width ?? 1200,
-      canvas_height:     data.canvas_height ?? 700,
-      projection_bounds: data.projection_bounds ?? undefined,
-      globe_view:        data.globe_view ?? undefined,
-      map_kind:          data.map_kind ?? undefined,
-      worlds:            data.worlds ?? undefined,
-      orbit_access:      data.orbit_access ?? undefined,
-      territories:       data.territories,
-      connections:       data.connections,
-      regions:           data.regions,
-      is_public:         true,
-      is_moderated:      true,
-      moderation_status: 'approved' as 'approved',
-      rating:            0,
-      rating_count:      0,
-      play_count:        0,
-    };
-    if (data.rts_terrain) doc.rts_terrain = data.rts_terrain;
+    const data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+    const doc = buildDoc(data, 'system');
 
     try {
-      const existing = await SeederMap.findOne({ map_id: doc.map_id });
-
-      if (existing) {
-        // Update map data but preserve play/rating stats
-        const $set: Record<string, unknown> = {
-          name:              doc.name,
-          description:       doc.description,
-          era_theme:         doc.era_theme,
-          canvas_width:      doc.canvas_width,
-          canvas_height:     doc.canvas_height,
-          projection_bounds: doc.projection_bounds,
-          globe_view:        doc.globe_view,
-          map_kind:          doc.map_kind,
-          worlds:            doc.worlds,
-          orbit_access:      doc.orbit_access,
-          territories:       doc.territories,
-          connections:       doc.connections,
-          regions:           doc.regions,
-          is_public:         true,
-          is_moderated:      true,
-          moderation_status: 'approved',
-        };
-        if (data.rts_terrain) $set.rts_terrain = data.rts_terrain;
-        await SeederMap.updateOne(
-          { map_id: doc.map_id },
-          { $set }
-        );
+      const action = await upsertMap(pool, doc);
+      if (action === 'inserted') {
+        console.log(`  ✓ INSERTED: ${doc.name}`);
+        inserted++;
+      } else {
         console.log(`  ↻ UPDATED:  ${doc.name}`);
         updated++;
-      } else {
-        await SeederMap.create(doc);
-        console.log(`  ✓ INSERTED: ${doc.name}`);
-        console.log(`    ${doc.territories.length} territories · ${doc.connections.length} connections · ${doc.regions.length} regions`);
-        inserted++;
       }
-    } catch (err: any) {
-      console.error(`  ✗ ERROR seeding ${filename}: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ERROR seeding ${filename}: ${msg}`);
     }
   }
 
   for (const { file: filename, creator_id } of COMMUNITY_MAP_FILES) {
     const filepath = path.join(MAPS_DIR, filename);
-
     if (!fs.existsSync(filepath)) {
       console.warn(`  ⚠ Community map not found, skipping: ${filename}`);
       skipped++;
       continue;
     }
 
-    const raw  = fs.readFileSync(filepath, 'utf-8');
-    const data = JSON.parse(raw);
-
-    const doc = {
-      map_id:            data.map_id,
-      creator_id,
-      name:              data.name,
-      description:       data.description || '',
-      era_theme:         data.era_theme   || '',
-      background_image_url: '',
-      canvas_width:      data.canvas_width ?? 1200,
-      canvas_height:     data.canvas_height ?? 700,
-      projection_bounds: data.projection_bounds ?? undefined,
-      globe_view:        data.globe_view ?? undefined,
-      territories:       data.territories,
-      connections:       data.connections,
-      regions:           data.regions,
-      is_public:         true,
-      is_moderated:      true,
-      moderation_status: 'approved' as 'approved',
-      rating:            0,
-      rating_count:      0,
-      play_count:        0,
-    };
+    const data = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+    const doc = buildDoc(data, creator_id);
 
     try {
-      const existing = await SeederMap.findOne({ map_id: doc.map_id });
-
-      if (existing) {
-        await SeederMap.updateOne(
-          { map_id: doc.map_id },
-          {
-            $set: {
-              creator_id,
-              name:              doc.name,
-              description:       doc.description,
-              era_theme:         doc.era_theme,
-              canvas_width:      doc.canvas_width,
-              canvas_height:     doc.canvas_height,
-              projection_bounds: doc.projection_bounds,
-              globe_view:        doc.globe_view,
-              territories:       doc.territories,
-              connections:       doc.connections,
-              regions:           doc.regions,
-              is_public:         true,
-              is_moderated:      true,
-              moderation_status: 'approved',
-            }
-          }
-        );
-        console.log(`  ↻ UPDATED (community):  ${doc.name} [${creator_id}]`);
-        updated++;
-      } else {
-        await SeederMap.create(doc);
-        console.log(`  ✓ INSERTED (community): ${doc.name} [${creator_id}]`);
-        console.log(`    ${doc.territories.length} territories · ${doc.connections.length} connections · ${doc.regions.length} regions`);
+      const action = await upsertMap(pool, doc);
+      if (action === 'inserted') {
+        console.log(`  ✓ INSERTED (community): ${doc.name}`);
         inserted++;
+      } else {
+        console.log(`  ↻ UPDATED (community):  ${doc.name}`);
+        updated++;
       }
-    } catch (err: any) {
-      console.error(`  ✗ ERROR seeding community ${filename}: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`  ✗ ERROR seeding community ${filename}: ${msg}`);
     }
   }
 
+  const total = await pool.query('SELECT COUNT(*)::int AS count FROM maps');
   console.log('\n' + '─'.repeat(60));
-  console.log(`Seeding complete:`);
-  console.log(`  Inserted : ${inserted}`);
-  console.log(`  Updated  : ${updated}`);
-  console.log(`  Skipped  : ${skipped}`);
+  console.log(`Seeding complete: inserted=${inserted} updated=${updated} skipped=${skipped}`);
+  console.log(`Total maps in PostgreSQL: ${total.rows[0]?.count ?? 0}`);
 
-  // Verify
-  const total = await SeederMap.countDocuments();
-  console.log(`  Total maps in DB: ${total}`);
-
-  console.log('\nMaps in database:');
-  const allMaps = await SeederMap.find({}, 'map_id name era_theme territories connections').lean();
-  for (const m of allMaps) {
-    const eraTag = m.era_theme ? `[${m.era_theme}]` : '[custom]';
-    console.log(`  ${eraTag} ${m.name}`);
-    console.log(`    ${(m.territories as any[]).length} territories · ${(m.connections as any[]).length} connections`);
-  }
-
-  console.log('\n✅ Done.');
-
-  // Drop stale Redis map payloads (e.g. missing geo_polygon / projection_bounds after schema fixes).
+  const redisHost = process.env.REDIS_HOST || 'localhost';
+  const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+  const redisPassword = process.env.REDIS_PASSWORD || 'chronoredis';
   try {
-    const redisUrl = process.env.REDIS_URL
-      || (process.env.REDIS_HOST
-          ? `redis://:${process.env.REDIS_PASSWORD ?? ''}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT ?? 6379}`
-          : 'redis://127.0.0.1:6379');
-    const redis = new Redis(redisUrl, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 0,
-      enableOfflineQueue: false,
-    });
-    redis.on('error', () => { /* suppress unhandled-error noise before connect */ });
-    await redis.connect();
-    const allMaps = await SeederMap.find({}, 'map_id').lean();
-    for (const m of allMaps as { map_id: string }[]) {
-      await redis.del(`map:${m.map_id}`);
-    }
+    const redis = new Redis({ host: redisHost, port: redisPort, password: redisPassword });
+    const keys = await redis.keys('map:*');
+    if (keys.length > 0) await redis.del(...keys);
     await redis.quit();
-    console.log(`  ✓ Cleared Redis map:* cache (${allMaps.length} keys)`);
+    console.log(`Cleared ${keys.length} map cache key(s) from Redis`);
   } catch {
-    console.warn('  ⚠ Redis cache clear skipped (is Redis running?)');
+    console.warn('Could not clear Redis map cache (non-fatal)');
   }
 
-  await mongoose.disconnect();
+  await pool.end();
+  console.log('✅ Done.');
 }
 
-seedMaps().catch(err => {
-  console.error('❌ Seeder failed:', err);
+seedMaps().catch((err) => {
+  console.error(err);
   process.exit(1);
 });

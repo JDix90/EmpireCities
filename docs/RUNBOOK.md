@@ -2,7 +2,7 @@
 
 ## Deploy (production)
 
-1. **Backup** Postgres (and Mongo if map data is mutable in your process): `./scripts/backup-databases.sh`
+1. **Backup** Postgres: `./scripts/backup-databases.sh`
 2. **Pull** the release tag / commit on the app host.
 3. **Configure** `.env.production` (see [DEPLOYMENT.md](../DEPLOYMENT.md) and `.env.production.example`).
 4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed`).
@@ -23,7 +23,7 @@ See [DEPLOYMENT.md](../DEPLOYMENT.md) for HTTPS (Caddy example: [docker/Caddyfil
 | Route | Meaning |
 |-------|---------|
 | `GET /health` | Process is up (does not verify databases). |
-| `GET /ready` | Postgres, MongoDB, and Redis respond — use for load balancer readiness. |
+| `GET /ready` | Postgres and Redis respond — use for load balancer readiness. |
 | `GET /metrics/json` | Process metrics (`METRICS_ENDPOINT_ENABLED=false` to disable). |
 
 ## Structured analytics (optional)
@@ -34,4 +34,4 @@ Set `ANALYTICS_EVENTS_ENABLED=true` to emit JSON lines for events such as `daily
 
 1. Check Sentry / logs for `game_id` or `reqId`.
 2. Verify `/ready` per dependency.
-3. Redis down → sessions/cache degraded; Mongo down → map fetch may fail; Postgres down → API unavailable.
+3. Redis down → sessions/cache degraded; Postgres down → API and map fetch unavailable.

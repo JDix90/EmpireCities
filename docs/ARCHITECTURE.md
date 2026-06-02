@@ -6,8 +6,7 @@
 - **API:** Fastify (REST), JWT auth, rate limiting, cookie-based refresh.
 - **Real-time:** Socket.io on the same Node HTTP server; game state held in memory per active room with periodic Postgres persistence (`game_states`).
 - **Data:**
-  - **PostgreSQL:** users, games, ratings, progression, daily challenges, migrations metadata (`_migrations`).
-  - **MongoDB:** map documents (`custommaps` and related), queried by map service.
+  - **PostgreSQL:** users, games, ratings, progression, daily challenges, **map documents** (`maps` / `map_ratings` JSONB), migrations metadata (`_migrations`).
   - **Redis:** sessions, caching (e.g. map cache), leaderboards, queues (BullMQ for async turn deadlines).
 
 ## Key backend modules

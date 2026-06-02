@@ -40,8 +40,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 | Backend | Node.js, TypeScript, **Fastify** |
 | Real-time server | Socket.io |
 | Auth | Custom **JWT** (access + refresh), refresh rotation |
-| PostgreSQL | Drizzle ORM — users, games, snapshots, achievements, etc. |
-| MongoDB | Mongoose — **map documents** (territories, polygons, connections) |
+| PostgreSQL | Drizzle ORM — users, games, snapshots, achievements, **maps (JSONB)**, etc. |
 | Redis | Sessions, leaderboards, caching |
 | AI | Server-side minimax / alpha-beta style heuristics |
 
@@ -49,7 +48,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 
 - **Server-authoritative gameplay:** Dice and combat outcomes are computed on the server (e.g. `crypto.randomInt`). Clients never decide battle results.
 - **Live game state:** Active matches are held **in memory** on the game server for low latency; state is **snapshotted to PostgreSQL** for persistence and reconnection. Do not assume the full live state is only in Postgres or only in Redis without reading the code path.
-- **Maps vs games:** **Map definitions** (territories, geometry, connections) live in **MongoDB**. **Game sessions** and **metadata** live in **PostgreSQL**. When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
+- **Maps vs games:** **Map definitions** (territories, geometry, connections) live in **PostgreSQL** (`maps` table, JSONB). **Game sessions** and **metadata** live in the same Postgres instance (`games`, `game_states`). When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
 - **Fog of war:** When enabled, the server may **filter** state before sending to each client.
 
 ### 5. Codebase map (where to look)
@@ -66,7 +65,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 
 ### 6. Domain vocabulary
 
-Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connections** (`land` | `sea`), **phases** (e.g. draft/reinforcement, attack, fortify), Socket events like **`game:join`**, **`game:state`**, **`game:started`**. Avoid conflating a **Mongo document id** with a **Postgres game id** when reasoning about URLs and APIs.
+Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connections** (`land` | `sea`), **phases** (e.g. draft/reinforcement, attack, fortify), Socket events like **`game:join`**, **`game:state`**, **`game:started`**. Avoid conflating a **map_id** with a **Postgres game id** when reasoning about URLs and APIs.
 
 ### 7. Collaboration and quality bar
 
@@ -79,7 +78,7 @@ Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connect
 
 - **Globe:** Territory polygons must satisfy **GeoJSON / RFC 7946 exterior ring orientation** for correct triangulation in react-globe.gl. Canvas/editor coordinates must be converted using the map’s **`projection_bounds`** and/or **`geo_polygon`** when present. Avoid extremely low **`polygonCapCurvatureResolution`** (triangulation cost can black out or corrupt WebGL).
 - **Sockets:** Clients must send a valid **JWT** in the socket handshake auth payload where the app expects it. **`game:join`** runs against the **Postgres game row**; races or wrong `game_id` in the URL produce “game not found” even if the UI partially loaded.
-- **Data:** New playable historical maps must be **seeded** into MongoDB (`pnpm run seed:maps` from backend per README). Without map data, games cannot start correctly.
+- **Data:** New playable historical maps must be **seeded** into Postgres (`pnpm run seed:maps` from repo root per README). Without map data, games cannot start correctly.
 - **Ports (local dev):** Frontend typically Vite `5173`, backend `3001` — confirm in README and env if debugging CORS or API URLs.
 
 **End of paste block** — for Claude Console / Project instructions, copy from “You are a **senior full-stack…” through the bullets above (section 8). Optionally include the one-line reminder below only if the token budget is very small.
@@ -88,4 +87,4 @@ Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connect
 
 ## One-line reminder for short contexts
 
-Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres+Drizzle for users/games/snapshots, MongoDB for maps, Redis, JWT auth. Server-authoritative combat; in-memory game state with Postgres snapshots. Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.
+Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres+Drizzle for users/games/snapshots/maps (JSONB), Redis, JWT auth. Server-authoritative combat; in-memory game state with Postgres snapshots. Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.

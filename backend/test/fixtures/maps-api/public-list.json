@@ -1,0 +1,27 @@
+{
+  "total": 2,
+  "page": 1,
+  "pages": 1,
+  "maps": [
+    {
+      "map_id": "community_14_nations",
+      "name": "The 14 Nations",
+      "description": "North America from the Yucatán to the Yukon — 43 territories across 8 regions inspired by pre-contact indigenous nations. Control the Subarctic tundra, Pacific coast, Great Basin, sweeping Great Plains, forested Woodlands, the Southeast, the desert Heartland, and the empires of Mesoamerica.",
+      "era_theme": "custom",
+      "rating": 0,
+      "rating_count": 0,
+      "play_count": 0,
+      "creator_id": "jmd"
+    },
+    {
+      "map_id": "community_strait_hormuz",
+      "name": "Strait of Hormuz",
+      "description": "The world's most strategic maritime chokepoint — 24 territories spanning Iran's Hormozgan coast, the Gulf islands of Kish, Qeshm, and Lavan, the Musandam Peninsula, the UAE east coast, Oman's Batinah shore, Qatar, and Bahrain. Control the strait, dominate the Gulf.",
+      "era_theme": "custom",
+      "rating": 0,
+      "rating_count": 0,
+      "play_count": 0,
+      "creator_id": "jmd"
+    }
+  ]
+}

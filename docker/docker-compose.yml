@@ -18,24 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  mongodb:
-    image: mongo:7-jammy
-    container_name: borderfall_mongo
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-chronouser}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-chronopass}
-      MONGO_INITDB_DATABASE: ${MONGO_DB:-borderfall_maps}
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: borderfall_redis
@@ -53,5 +35,4 @@ services:
 
 volumes:
   postgres_data:
-  mongo_data:
   redis_data:
