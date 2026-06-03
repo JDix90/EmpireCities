@@ -24,6 +24,6 @@ docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" exec -T backend \
 
 echo "[seed] PostgreSQL era + community maps..."
 docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" exec -T backend \
-  sh -c "cd /app && pnpm exec tsx database/seedMaps.ts"
+  sh -c "cd /app/backend && pnpm run seed:maps"
 
 echo "[seed] Done."
