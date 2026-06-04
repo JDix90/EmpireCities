@@ -135,6 +135,81 @@ export async function sendPushNotification(
   }
 }
 
+// ── Email delivery (Resend HTTP API or SMTP) ─────────────────────────────────
+// All email goes through deliverEmail(), which picks the transport based on
+// config.email.provider. 'resend_api' sends over HTTPS (port 443) and avoids
+// the blocked-outbound-SMTP-port problem common on cloud hosts; any other value
+// falls back to the existing SMTP path. Both return a boolean: true if accepted.
+
+const RESEND_API_URL = 'https://api.resend.com/emails';
+const EMAIL_SEND_TIMEOUT_MS = 10_000;
+
+/** True if the currently selected email provider has the credentials it needs. */
+function isEmailConfigured(): boolean {
+  if (config.email.provider === 'resend_api') {
+    return Boolean(config.email.resendApiKey && config.smtp.from);
+  }
+  return Boolean(config.smtp.host && config.smtp.user);
+}
+
+/** Send via the Resend HTTP API over HTTPS. Returns true if accepted. */
+async function sendViaResendApi(to: string, subject: string, htmlBody: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EMAIL_SEND_TIMEOUT_MS);
+  try {
+    const res = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.email.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: config.smtp.from,
+        to: [to],
+        subject,
+        html: htmlBody,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      console.error(`[Notifications] Resend API send failed: HTTP ${res.status} ${detail}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Notifications] Resend API send error:', err);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Send via SMTP (Nodemailer). Returns true if accepted. */
+async function sendViaSmtp(to: string, subject: string, htmlBody: string): Promise<boolean> {
+  const transporter = getSmtpTransporter();
+  if (!transporter) return false;
+  try {
+    await transporter.sendMail({ from: config.smtp.from, to, subject, html: htmlBody });
+    return true;
+  } catch (err) {
+    console.error('[Notifications] SMTP send failed:', err);
+    return false;
+  }
+}
+
+/** Unified email dispatch. Picks transport by config.email.provider. */
+async function deliverEmail(to: string, subject: string, htmlBody: string): Promise<boolean> {
+  if (!isEmailConfigured()) {
+    console.log('[Notifications] Email not configured; skipping send');
+    return false;
+  }
+  return config.email.provider === 'resend_api'
+    ? sendViaResendApi(to, subject, htmlBody)
+    : sendViaSmtp(to, subject, htmlBody);
+}
+
 // ── Email Notifications ──────────────────────────────────────────────────────
 
 export async function sendEmailNotification(
@@ -142,50 +217,24 @@ export async function sendEmailNotification(
   subject: string,
   htmlBody: string,
 ): Promise<void> {
-  const transporter = getSmtpTransporter();
-  if (!transporter) return;
-
   const user = await queryOne<{ email: string | null }>(
     'SELECT email FROM users WHERE user_id = $1',
     [userId],
   );
   if (!user?.email) return;
-
-  try {
-    await transporter.sendMail({
-      from: config.smtp.from,
-      to: user.email,
-      subject,
-      html: htmlBody,
-    });
-  } catch (err) {
-    console.error('[Notifications] Email send failed:', err);
-  }
+  await deliverEmail(user.email, subject, htmlBody);
 }
 
 /**
  * Send a transactional email to a raw address (password reset, etc.).
- * @returns whether SMTP accepted the send; `false` if SMTP unavailable or send threw.
+ * @returns whether the provider accepted the send; `false` if unavailable or send threw.
  */
 export async function sendTransactionalEmailToAddress(
   to: string,
   subject: string,
   htmlBody: string,
 ): Promise<boolean> {
-  const transporter = getSmtpTransporter();
-  if (!transporter) return false;
-  try {
-    await transporter.sendMail({
-      from: config.smtp.from,
-      to,
-      subject,
-      html: htmlBody,
-    });
-    return true;
-  } catch (err) {
-    console.error('[Notifications] Transactional email send failed:', err);
-    return false;
-  }
+  return deliverEmail(to, subject, htmlBody);
 }
 
 // ── Turn Change Orchestrator ─────────────────────────────────────────────────
