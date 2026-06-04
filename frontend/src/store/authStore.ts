@@ -71,6 +71,8 @@ interface AuthState {
   setUser: (user: AuthUser) => void;
   setAccessToken: (token: string) => void;
   setBootstrapped: (bootstrapped: boolean) => void;
+  /** Re-fetch the current user's profile from the server and update the cache. */
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -164,6 +166,21 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user }),
       setAccessToken: (token) => set({ accessToken: token }),
       setBootstrapped: (bootstrapped) => set({ bootstrapped }),
+
+      refreshUser: async () => {
+        // Only meaningful when logged in; skip silently otherwise.
+        if (!get().isAuthenticated) return;
+        try {
+          const res = await api.get('/users/me');
+          const fresh = res.data?.user ?? res.data;
+          if (fresh) {
+            // Merge so we never drop fields the /me payload might omit.
+            set({ user: { ...(get().user ?? {}), ...fresh } as AuthUser });
+          }
+        } catch {
+          // Non-critical: keep showing the cached profile if the refresh fails.
+        }
+      },
     }),
     {
       name: 'cc-auth',

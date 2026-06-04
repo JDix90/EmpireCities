@@ -274,7 +274,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function LobbyPage() {
-  const { user, logout, accessToken } = useAuthStore();
+  const { user, logout, accessToken, refreshUser } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -319,6 +319,13 @@ export default function LobbyPage() {
   useEffect(() => {
     void fetchCampaignMe();
   }, [fetchCampaignMe]);
+
+  // Re-fetch the user's profile whenever the lobby mounts (e.g. returning from a
+  // finished game) so level/XP/gold reflect the latest server state rather than
+  // the value cached at login. Without this, stats only update on a full reload.
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
 
   const resumeCampaignFromLobby = useCallback(() => {
     if (!campaignMe || campaignMe.status !== 'active') {
