@@ -320,12 +320,38 @@ export default function LobbyPage() {
     void fetchCampaignMe();
   }, [fetchCampaignMe]);
 
+  // Onboarding stage derived from real quest completion (/progression/quests),
+  // NOT users.onboarding_stage — that counter is gated on tutorial completion
+  // and doesn't reflect quests actually completed (first_win, etc.). null = hide.
+  const [questStage, setQuestStage] = useState<number | null>(null);
+
   // Re-fetch the user's profile whenever the lobby mounts (e.g. returning from a
   // finished game) so level/XP/gold reflect the latest server state rather than
   // the value cached at login. Without this, stats only update on a full reload.
   useEffect(() => {
     void refreshUser();
   }, [refreshUser]);
+
+  // Load real onboarding-quest progress and derive the banner stage as the count
+  // of completed quests (= index of the next incomplete one). All done → hide.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.get<{ quests: { completed_at: string | null }[] }>('/progression/quests');
+        const quests = res.data?.quests ?? [];
+        const completedCount = quests.filter((q) => q.completed_at).length;
+        if (!cancelled) {
+          setQuestStage(completedCount >= quests.length ? null : completedCount);
+        }
+      } catch {
+        if (!cancelled) setQuestStage(null); // on failure, just hide the banner
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const resumeCampaignFromLobby = useCallback(() => {
     if (!campaignMe || campaignMe.status !== 'active') {
@@ -925,17 +951,18 @@ export default function LobbyPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
-        {/* Onboarding Quest Banner */}
-        {user && user.onboarding_stage != null && (
+        {/* Onboarding Quest Banner — driven by real quest completion (questStage),
+            derived from /progression/quests, not the gated users.onboarding_stage. */}
+        {questStage != null && (
           <OnboardingBanner
-            stage={user.onboarding_stage}
+            stage={questStage}
             onSkip={async () => {
               try {
                 await api.post('/progression/onboarding/skip');
-                useAuthStore.getState().setUser({ ...user, onboarding_stage: null });
               } catch {
                 // ignore skip failures; user can keep playing
               }
+              setQuestStage(null);
             }}
             className="mb-4"
           />
