@@ -69,6 +69,7 @@ import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionL
 import { evaluateCoachingTip } from '../game-engine/coaching/coachingDetectors';
 import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
 import { buildRedisAdapter } from './redisAdapter';
+import { isPlayerConnected } from './redisGameStore';
 import {
   getCachedRoom,
   setCachedRoom,
@@ -447,6 +448,90 @@ function isSocketUsersTurn(state: GameState, socketUserId: string, _socketUserna
   return Boolean(byId && byId.player_index === currentPlayer.player_index);
 }
 
+// Disconnect → AI takeover: gameId → (playerId → timeout handle). When a human
+// disconnects mid-game and other humans remain, we start a grace timer; if they
+// reconnect it's cleared, otherwise their seat is handed to the AI so the game
+// (and their territories) stays live instead of going inert.
+const takeoverTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>();
+const TAKEOVER_GRACE_MS = 90 * 1000;
+
+/** Cancel any pending AI-takeover for a player who has reconnected. */
+function cancelTakeoverTimer(gameId: string, playerId: string): void {
+  const byPlayer = takeoverTimers.get(gameId);
+  const timer = byPlayer?.get(playerId);
+  if (timer) {
+    clearTimeout(timer);
+    byPlayer!.delete(playerId);
+    if (byPlayer!.size === 0) takeoverTimers.delete(gameId);
+  }
+}
+
+/** Clear all pending takeover timers for a game (e.g. on eviction / game over). */
+function clearAllTakeoverTimers(gameId: string): void {
+  const byPlayer = takeoverTimers.get(gameId);
+  if (byPlayer) {
+    for (const t of byPlayer.values()) clearTimeout(t);
+    takeoverTimers.delete(gameId);
+  }
+}
+
+/**
+ * Hand a disconnected human's seat to the AI. Called when the takeover grace
+ * window lapses without the player reconnecting. The seat keeps its territories
+ * and army; the existing AI engine simply drives it from now on, so the game
+ * continues normally rather than stalling on an absent, un-driven player.
+ */
+async function aiTakeoverSeat(io: Server, gameId: string, playerId: string): Promise<void> {
+  cancelTakeoverTimer(gameId, playerId);
+
+  try {
+    await withLockedRoom(gameId, async (room) => {
+      const { state } = room;
+      if (state.phase === 'game_over') return;
+
+      const player = state.players.find((p) => p.player_id === playerId);
+      if (!player || player.is_ai || player.is_eliminated) return;
+
+      if (await isPlayerConnected(gameId, playerId)) return;
+
+      player.is_ai = true;
+      player.ai_difficulty = player.ai_difficulty ?? 'medium';
+
+      console.log(`[Socket] AI takeover: seat ${playerId} in game ${gameId} converted to AI after disconnect grace`);
+
+      try {
+        await pgPool.query(
+          'UPDATE game_players SET is_ai = true, ai_difficulty = COALESCE(ai_difficulty, $1) WHERE game_id = $2 AND user_id = $3',
+          ['medium', gameId, playerId],
+        );
+      } catch (err) {
+        console.error('[Socket] Failed to persist AI takeover for', playerId, err);
+      }
+
+      await persistGameStateAfterMutation(gameId, state);
+
+      io.to(gameId).emit('game:player_replaced_by_ai', {
+        player_id: playerId,
+        username: player.username,
+      });
+      broadcastState(io, gameId, state);
+
+      const current = state.players[state.current_player_index];
+      if (current?.player_id === playerId && !(await isAiTurnInFlight(gameId))) {
+        if (state.phase === 'territory_select') {
+          setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+        } else {
+          setTimeout(() => processAiTurn(io, gameId), 1500);
+        }
+      }
+    });
+  } catch (err) {
+    if (!(err instanceof GameRoomNotFoundError)) {
+      console.error('[Socket] AI takeover failed for', gameId, playerId, err);
+    }
+  }
+}
+
 const SPECTATOR_DELAY_MS = 30_000;
 const SPECTATOR_BROADCAST_MS = 3_000;
 const SPECTATOR_BUFFER_LIMIT = 24;
@@ -688,6 +773,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         if (room) {
           await onPlayerConnected(gameId, socket.id, userId);
+          cancelTakeoverTimer(gameId, userId);
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
           // Embed the map directly in the join handshake so private/pending
           // custom maps don't have to be re-fetched via the public REST
@@ -2535,6 +2621,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
                 clearTurnTimer(gameId, current.state);
               }
               void evictGameRoom(gameId);
+              clearAllTakeoverTimers(gameId);
               clearActionIdempotency(gameId);
               spectatorSeqCounters.delete(gameId);
               spectatorStateBuffers.delete(gameId);
@@ -2855,8 +2942,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       query('DELETE FROM ranked_queue WHERE socket_id = $1', [socket.id]).catch(() => {});
       forEachConnectedGame((gameId, sockets) => {
         if (!sockets.has(socket.id)) return;
-        const disconnectedPlayerId = sockets.get(socket.id)!;
-        void onPlayerDisconnected(gameId, socket.id, disconnectedPlayerId);
+        const departedPlayerId = sockets.get(socket.id)!;
+        void onPlayerDisconnected(gameId, socket.id, departedPlayerId);
 
         void (async () => {
           const gameMeta = await queryOne<{ map_id: string }>(
@@ -2881,12 +2968,30 @@ export function initGameSocket(httpServer: HttpServer): Server {
                 if (!current.state.settings.async_mode) {
                   clearTurnTimer(gameId, current.state);
                 }
+                clearAllTakeoverTimers(gameId);
                 void evictGameRoom(gameId);
                 clearActionIdempotency(gameId);
                 console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
               })();
             }, 5 * 60 * 1000);
             evictionTimer.unref();
+          } else if (
+            departedPlayerId &&
+            !room.state.settings.async_mode &&
+            room.state.players.some(
+              (p) => p.player_id === departedPlayerId && !p.is_ai && !p.is_eliminated,
+            ) &&
+            !(await isPlayerConnected(gameId, departedPlayerId))
+          ) {
+            const byPlayer = takeoverTimers.get(gameId) ?? new Map();
+            takeoverTimers.set(gameId, byPlayer);
+            if (!byPlayer.has(departedPlayerId)) {
+              const timer = setTimeout(() => {
+                void aiTakeoverSeat(io, gameId, departedPlayerId);
+              }, TAKEOVER_GRACE_MS);
+              timer.unref();
+              byPlayer.set(departedPlayerId, timer);
+            }
           }
         })();
       });
@@ -3666,6 +3771,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Clean up after a delay so clients can see final state
   setTimeout(() => {
+    clearAllTakeoverTimers(gameId);
     void evictGameRoom(gameId);
     clearActionIdempotency(gameId);
   }, 30000);

@@ -1,0 +1,62 @@
+diff --git a/frontend/src/pages/LobbyPage.tsx b/frontend/src/pages/LobbyPage.tsx
+index 4618ba0..1700d14 100644
+--- a/frontend/src/pages/LobbyPage.tsx
++++ b/frontend/src/pages/LobbyPage.tsx
+@@ -274,7 +274,7 @@ function timeAgo(dateStr: string): string {
+ }
+ 
+ export default function LobbyPage() {
+-  const { user, logout, accessToken } = useAuthStore();
++  const { user, logout, accessToken, refreshUser } = useAuthStore();
+   const navigate = useNavigate();
+   const [searchParams, setSearchParams] = useSearchParams();
+   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
+@@ -320,6 +320,13 @@ export default function LobbyPage() {
+     void fetchCampaignMe();
+   }, [fetchCampaignMe]);
+ 
++  // Re-fetch the user's profile whenever the lobby mounts (e.g. returning from a
++  // finished game) so level/XP/gold reflect the latest server state rather than
++  // the value cached at login. Without this, stats only update on a full reload.
++  useEffect(() => {
++    void refreshUser();
++  }, [refreshUser]);
++
+   const resumeCampaignFromLobby = useCallback(() => {
+     if (!campaignMe || campaignMe.status !== 'active') {
+       navigate('/campaign');
+diff --git a/frontend/src/store/authStore.ts b/frontend/src/store/authStore.ts
+index 0bd353e..3b29b6d 100644
+--- a/frontend/src/store/authStore.ts
++++ b/frontend/src/store/authStore.ts
+@@ -71,6 +71,8 @@ interface AuthState {
+   setUser: (user: AuthUser) => void;
+   setAccessToken: (token: string) => void;
+   setBootstrapped: (bootstrapped: boolean) => void;
++  /** Re-fetch the current user's profile from the server and update the cache. */
++  refreshUser: () => Promise<void>;
+ }
+ 
+ export const useAuthStore = create<AuthState>()(
+@@ -164,6 +166,21 @@ export const useAuthStore = create<AuthState>()(
+       setUser: (user) => set({ user }),
+       setAccessToken: (token) => set({ accessToken: token }),
+       setBootstrapped: (bootstrapped) => set({ bootstrapped }),
++
++      refreshUser: async () => {
++        // Only meaningful when logged in; skip silently otherwise.
++        if (!get().isAuthenticated) return;
++        try {
++          const res = await api.get('/users/me');
++          const fresh = res.data?.user ?? res.data;
++          if (fresh) {
++            // Merge so we never drop fields the /me payload might omit.
++            set({ user: { ...(get().user ?? {}), ...fresh } as AuthUser });
++          }
++        } catch {
++          // Non-critical: keep showing the cached profile if the refresh fails.
++        }
++      },
+     }),
+     {
+       name: 'cc-auth',

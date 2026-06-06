@@ -1,0 +1,152 @@
+diff --git a/backend/src/sockets/gameSocket.ts b/backend/src/sockets/gameSocket.ts
+index d20c104..4b8adfe 100644
+--- a/backend/src/sockets/gameSocket.ts
++++ b/backend/src/sockets/gameSocket.ts
+@@ -468,6 +468,91 @@ const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+ // Prevent overlapping AI turns: gameId → true while processAiTurn is running
+ const aiInFlight = new Set<string>();
+ 
++// Disconnect → AI takeover: gameId → (playerId → timeout handle). When a human
++// disconnects mid-game and other humans remain, we start a grace timer; if they
++// reconnect it's cleared, otherwise their seat is handed to the AI so the game
++// (and their territories) stays live instead of going inert.
++const takeoverTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>();
++// Grace period before an absent human's seat is taken over by AI. Long enough to
++// survive a network blip / brief tab close, short enough not to stall opponents.
++const TAKEOVER_GRACE_MS = 90 * 1000;
++
++/** Cancel any pending AI-takeover for a player who has reconnected. */
++function cancelTakeoverTimer(gameId: string, playerId: string): void {
++  const byPlayer = takeoverTimers.get(gameId);
++  const timer = byPlayer?.get(playerId);
++  if (timer) {
++    clearTimeout(timer);
++    byPlayer!.delete(playerId);
++    if (byPlayer!.size === 0) takeoverTimers.delete(gameId);
++  }
++}
++
++/** Clear all pending takeover timers for a game (e.g. on eviction / game over). */
++function clearAllTakeoverTimers(gameId: string): void {
++  const byPlayer = takeoverTimers.get(gameId);
++  if (byPlayer) {
++    for (const t of byPlayer.values()) clearTimeout(t);
++    takeoverTimers.delete(gameId);
++  }
++}
++
++/**
++ * Hand a disconnected human's seat to the AI. Called when the takeover grace
++ * window lapses without the player reconnecting. The seat keeps its territories
++ * and army; the existing AI engine simply drives it from now on, so the game
++ * continues normally rather than stalling on an absent, un-driven player.
++ */
++async function aiTakeoverSeat(io: Server, gameId: string, playerId: string): Promise<void> {
++  // Clear our own timer bookkeeping first.
++  cancelTakeoverTimer(gameId, playerId);
++
++  const room = activeGames.get(gameId);
++  if (!room || room.state.phase === 'game_over') return;
++
++  const player = room.state.players.find((p) => p.player_id === playerId);
++  // Guard against races: player may have reconnected, been eliminated, or already
++  // been converted between the timer firing and now.
++  if (!player || player.is_ai || player.is_eliminated) return;
++
++  // If they reconnected (have a live socket again), do nothing.
++  if ([...room.connectedSockets.values()].includes(playerId)) return;
++
++  player.is_ai = true;
++  player.ai_difficulty = player.ai_difficulty ?? 'medium';
++
++  console.log(`[Socket] AI takeover: seat ${playerId} in game ${gameId} converted to AI after disconnect grace`);
++
++  try {
++    // Persist the seat type so a server restart doesn't revert it to a human.
++    await pgPool.query(
++      'UPDATE game_players SET is_ai = true, ai_difficulty = COALESCE(ai_difficulty, $1) WHERE game_id = $2 AND user_id = $3',
++      ['medium', gameId, playerId],
++    );
++  } catch (err) {
++    console.error('[Socket] Failed to persist AI takeover for', playerId, err);
++  }
++
++  await saveGameState(gameId, room.state).catch(() => {});
++
++  // Tell remaining players so the UI can show "X disconnected — AI took over".
++  io.to(gameId).emit('game:player_replaced_by_ai', {
++    player_id: playerId,
++    username: player.username,
++  });
++  broadcastState(io, gameId, room.state);
++
++  // If it's currently this seat's turn, kick the AI so play doesn't stall.
++  const current = room.state.players[room.state.current_player_index];
++  if (current?.player_id === playerId && !aiInFlight.has(gameId)) {
++    if (room.state.phase === 'territory_select') {
++      setTimeout(() => processAiTerritorySelect(io, gameId), 800);
++    } else {
++      setTimeout(() => processAiTurn(io, gameId), 1500);
++    }
++  }
++}
++
+ const SPECTATOR_DELAY_MS = 30_000;
+ const SPECTATOR_BROADCAST_MS = 3_000;
+ const SPECTATOR_BUFFER_LIMIT = 24;
+@@ -690,6 +775,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
+         const room = activeGames.get(gameId);
+         if (room) {
+           room.connectedSockets.set(socket.id, userId);
++          // Player is back — cancel any pending AI takeover of their seat.
++          cancelTakeoverTimer(gameId, userId);
+           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
+           // Embed the map directly in the join handshake so private/pending
+           // custom maps don't have to be re-fetched via the public REST
+@@ -2884,6 +2971,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
+       query('DELETE FROM ranked_queue WHERE socket_id = $1', [socket.id]).catch(() => {});
+       for (const [gameId, room] of activeGames.entries()) {
+         if (!room.connectedSockets.has(socket.id)) continue;
++        const departedPlayerId = room.connectedSockets.get(socket.id);
+         room.connectedSockets.delete(socket.id);
+ 
+         // Schedule eviction if no human sockets remain
+@@ -2899,6 +2987,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
+                 if (!current.state.settings.async_mode) {
+                   clearTurnTimer(gameId, current.state);
+                 }
++                clearAllTakeoverTimers(gameId);
+                 activeGames.delete(gameId);
+                 aiInFlight.delete(gameId);
+                 clearActionIdempotency(gameId);
+@@ -2906,6 +2995,30 @@ export function initGameSocket(httpServer: HttpServer): Server {
+               }
+             }, 5 * 60 * 1000);
+             evictionTimer.unref();
++          } else if (
++            departedPlayerId &&
++            !room.state.settings.async_mode &&
++            // Only take over a live, human, non-eliminated seat with no remaining
++            // sockets controlling it. Async games intentionally tolerate long
++            // absences (play-by-email), so they're excluded.
++            room.state.players.some(
++              (p) => p.player_id === departedPlayerId && !p.is_ai && !p.is_eliminated,
++            ) &&
++            ![...room.connectedSockets.values()].includes(departedPlayerId)
++          ) {
++            // Other humans are still playing, but this player has no connected
++            // socket. Give them a grace window to reconnect; if it lapses, hand
++            // their seat to the AI so the game and their territories stay live
++            // instead of becoming an inert, un-driven, un-conquerable position.
++            const byPlayer = takeoverTimers.get(gameId) ?? new Map();
++            takeoverTimers.set(gameId, byPlayer);
++            if (!byPlayer.has(departedPlayerId)) {
++              const timer = setTimeout(() => {
++                void aiTakeoverSeat(io, gameId, departedPlayerId);
++              }, TAKEOVER_GRACE_MS);
++              timer.unref();
++              byPlayer.set(departedPlayerId, timer);
++            }
+           }
+         }
+       }

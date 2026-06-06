@@ -92,6 +92,16 @@ export const config = {
     from: process.env.SMTP_FROM || 'noreply@borderfall.com',
   },
 
+  email: {
+    // 'resend_api' sends over HTTPS (port 443) via the Resend API — avoids
+    // blocked outbound SMTP ports on cloud hosts. Anything else (or unset)
+    // falls back to SMTP via the smtp.* config above.
+    provider: process.env.EMAIL_PROVIDER || 'smtp',
+    // Reuses SMTP_PASS (your Resend API key) so no extra env var is required,
+    // but RESEND_API_KEY takes precedence if set explicitly.
+    resendApiKey: process.env.RESEND_API_KEY || process.env.SMTP_PASS || '',
+  },
+
   push: {
     fcmServiceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH || '',
   },
