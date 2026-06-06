@@ -17,9 +17,11 @@ import {
   listPublicMapRows,
   rowToGameMap,
   submitMapForModeration,
+  updateOwnedMap,
   upsertMapRating,
 } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
+import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/mapEditorGate';
 import { formatZodError } from '../../utils/formatZodError';
 
 const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
@@ -107,6 +109,8 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.post('/', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
+
     const body = CreateMapSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error, 'Invalid map data'));
@@ -136,6 +140,49 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     return reply.status(201).send({ map_id: mapId, message: 'Map saved. Submit for review to publish.' });
+  });
+
+  fastify.put<{ Params: { mapId: string } }>('/:mapId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
+
+    const { mapId } = request.params;
+    if (mapId.startsWith('era_')) {
+      return reply.status(403).send({ error: 'Built-in era maps cannot be edited' });
+    }
+
+    const body = CreateMapSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send(formatZodError(body.error, 'Invalid map data'));
+    }
+
+    const territoryIds = new Set(body.data.territories.map((t) => t.territory_id));
+    for (const conn of body.data.connections) {
+      if (!territoryIds.has(conn.from) || !territoryIds.has(conn.to)) {
+        return reply.status(400).send({ error: 'Connection references unknown territory' });
+      }
+    }
+
+    const regionIds = new Set(body.data.regions.map((r) => r.region_id));
+    for (const t of body.data.territories) {
+      if (!regionIds.has(t.region_id)) {
+        return reply.status(400).send({ error: `Territory "${t.name}" references unknown region` });
+      }
+    }
+
+    const owned = await findMapOwnedByUser(mapId, request.userId!);
+    if (!owned) return reply.status(404).send({ error: 'Map not found or not owned by you' });
+
+    const updated = await updateOwnedMap(mapId, request.userId!, {
+      name: body.data.name,
+      description: body.data.description,
+      territories: body.data.territories,
+      connections: body.data.connections,
+      regions: body.data.regions,
+    });
+    if (!updated) return reply.status(404).send({ error: 'Map not found or not owned by you' });
+
+    await invalidateMapCache(mapId);
+    return reply.send({ map_id: mapId, message: 'Map updated.' });
   });
 
   fastify.get('/public', async (request, reply) => {
@@ -217,6 +264,8 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     '/:mapId/publish',
     { preHandler: [authenticate, rejectGuest] },
     async (request, reply) => {
+      if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
+
       const map = await findMapOwnedByUser(request.params.mapId, request.userId!);
       if (!map) return reply.status(404).send({ error: 'Map not found or not owned by you' });
       if (map.moderation_status === 'rejected') {

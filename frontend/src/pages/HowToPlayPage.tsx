@@ -177,8 +177,9 @@ export default function HowToPlayPage() {
                 modifiers.
               </p>
               <p>
-                <strong className="text-bf-text">Players & AI</strong> — 2–8 players per lobby. Add AI bots
-                (Easy / Medium / Hard / Expert) to fill empty slots.
+                <strong className="text-bf-text">Players & AI</strong> — 2–8 players per lobby. Prefer to play
+                right now? Add AI opponents (Easy / Medium / Hard / Expert) and start instantly — no waiting
+                for a lobby to fill.
               </p>
               <p>
                 <strong className="text-bf-text">Turn Timer</strong> — Real-time (3–10 min per turn)

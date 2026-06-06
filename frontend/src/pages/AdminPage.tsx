@@ -20,6 +20,15 @@ import {
 } from 'recharts';
 import { api } from '../services/api';
 import Modal from '../components/ui/Modal';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
+
+const CLIENT_FEATURE_FLAGS = [
+  {
+    key: 'map_editor_enabled',
+    label: 'Map Editor',
+    description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
+  },
+] as const;
 
 type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'audit';
 
@@ -180,6 +189,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [patchKey, setPatchKey] = useState('xp');
   const [patchValue, setPatchValue] = useState('{}');
+  const [flagSaving, setFlagSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
@@ -330,9 +340,32 @@ export default function AdminPage() {
       await api.patch(`/admin/config/${patchKey}`, { value: parsed });
       toast.success('Config saved');
       await loadTab('config');
+      if (patchKey === 'feature_flags') {
+        await useFeatureFlagsStore.getState().load();
+      }
       setError(null);
     } catch {
       setError('Config patch failed. Ensure JSON is valid.');
+    }
+  }
+
+  async function toggleFeatureFlag(key: string, enabled: boolean) {
+    const cfg = (config as { config?: { feature_flags?: Record<string, boolean> } } | null)?.config;
+    const current = cfg?.feature_flags ?? {};
+    setFlagSaving(key);
+    try {
+      await api.patch('/admin/config/feature_flags', {
+        value: { ...current, [key]: enabled },
+      });
+      toast.success(`${key.replace(/_/g, ' ')} ${enabled ? 'enabled' : 'disabled'}`);
+      await loadTab('config');
+      await useFeatureFlagsStore.getState().load();
+      setError(null);
+    } catch {
+      setError('Feature flag update failed.');
+      toast.error('Feature flag update failed');
+    } finally {
+      setFlagSaving(null);
     }
   }
 
@@ -873,6 +906,38 @@ export default function AdminPage() {
               >
                 {(config as { matchmaking_paused?: boolean } | null)?.matchmaking_paused ? 'Matchmaking paused' : 'Matchmaking running'}
               </span>
+            </div>
+
+            <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4 space-y-4">
+              <div>
+                <p className="text-sm font-semibold">Feature flags</p>
+                <p className="text-xs text-bf-muted mt-1">
+                  Player-facing toggles — take effect immediately without a redeploy.
+                </p>
+              </div>
+              {CLIENT_FEATURE_FLAGS.map(({ key, label, description }) => {
+                const flags = (config as { config?: { feature_flags?: Record<string, boolean> } } | null)
+                  ?.config?.feature_flags ?? {};
+                return (
+                  <label
+                    key={key}
+                    className="flex items-start justify-between gap-4 rounded-lg border border-bf-border/80 bg-bf-dark/40 px-3 py-3 cursor-pointer"
+                  >
+                    <span>
+                      <span className="text-sm font-medium text-bf-text">{label}</span>
+                      <span className="block text-xs text-bf-muted mt-0.5">{description}</span>
+                      <span className="block text-[10px] text-bf-muted/80 mt-1 font-mono">{key}</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={!!flags[key]}
+                      disabled={flagSaving === key}
+                      onChange={(e) => void toggleFeatureFlag(key, e.target.checked)}
+                      className="mt-1 h-4 w-4 shrink-0 accent-bf-gold cursor-pointer"
+                    />
+                  </label>
+                );
+              })}
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">

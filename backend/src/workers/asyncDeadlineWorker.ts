@@ -45,7 +45,7 @@ export async function scheduleAsyncDeadline(
   playerIndex: number,
   deadlineSeconds: number,
 ): Promise<void> {
-  const jobId = `deadline:${gameId}:${turnNumber}`;
+  const jobId = `deadline-${gameId}-${turnNumber}`;
   const delayMs = deadlineSeconds * 1000;
 
   // Remove any stale job for this game+turn before scheduling
@@ -67,7 +67,7 @@ export async function scheduleAsyncDeadline(
  * Cancel a pending deadline (e.g. player submitted their turn early).
  */
 export async function cancelAsyncDeadline(gameId: string, turnNumber: number): Promise<void> {
-  const jobId = `deadline:${gameId}:${turnNumber}`;
+  const jobId = `deadline-${gameId}-${turnNumber}`;
   try {
     const job = await asyncDeadlineQueue.getJob(jobId);
     if (job) await job.remove();
@@ -79,7 +79,8 @@ export async function cancelAsyncDeadline(gameId: string, turnNumber: number): P
 // ── Worker (processes deadline expirations) ──────────────────────────────────
 
 // The actual processing logic is injected by gameSocket via setDeadlineProcessor()
-// because the worker needs access to activeGames, broadcastState, etc.
+// The actual processing logic is injected by gameSocket via setDeadlineProcessor()
+// because the worker needs access to broadcast/finalize helpers in gameSocket.
 let processorFn: ((job: Job<AsyncDeadlinePayload>) => Promise<void>) | null = null;
 
 export function setDeadlineProcessor(fn: (job: Job<AsyncDeadlinePayload>) => Promise<void>): void {

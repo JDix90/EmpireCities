@@ -16,7 +16,7 @@ export interface SocketContext {
   socket: Socket;
   userId: string;
   username: string;
-  activeGames: Map<string, ActiveGameRoom>;
+  getRoom: (gameId: string) => ActiveGameRoom | undefined;
   broadcastState: (io: Server, gameId: string, state: GameState) => void;
   scheduleDebouncedSave: (gameId: string) => void;
   isSocketUsersTurn: (state: GameState, socketUserId: string, socketUsername?: string) => boolean;

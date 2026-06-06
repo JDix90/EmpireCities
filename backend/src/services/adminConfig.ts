@@ -97,7 +97,9 @@ const DEFAULTS: AdminConfigState = {
     turn_timer_seconds: 300,
     initial_unit_count: 3,
   },
-  feature_flags: {},
+  feature_flags: {
+    map_editor_enabled: false,
+  },
 };
 
 let cache: AdminConfigState = structuredClone(DEFAULTS);

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
@@ -12,8 +12,7 @@ import type {
   EditorRegion,
   EditorTool,
 } from '../components/editor/GlobeMapEditor';
-
-const GlobeMapEditor = lazy(() => import('../components/editor/GlobeMapEditor'));
+import { GlobeMapEditorLazy, preloadGlobeEditorChunk } from '../utils/globeLoader';
 
 const REGION_COLORS = [
   '#c9a84c', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6',
@@ -178,6 +177,10 @@ export default function MapEditorPage() {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [isDirty]);
+
+  useEffect(() => {
+    preloadGlobeEditorChunk();
+  }, []);
 
   // Measure available space for the globe
   useEffect(() => {
@@ -465,7 +468,7 @@ export default function MapEditorPage() {
         {/* Globe Canvas */}
         <div ref={containerRef} className="flex-1 overflow-hidden relative">
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-bf-muted animate-pulse">Loading editor globe…</div>}>
-            <GlobeMapEditor
+            <GlobeMapEditorLazy
               territories={territories}
               connections={connections}
               regions={regions}

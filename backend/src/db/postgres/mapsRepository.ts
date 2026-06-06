@@ -320,6 +320,34 @@ export async function findMapOwnedByUser(mapId: string, creatorId: string): Prom
   );
 }
 
+export async function updateOwnedMap(
+  mapId: string,
+  creatorId: string,
+  input: Pick<CreateMapInput, 'name' | 'description' | 'territories' | 'connections' | 'regions'>,
+): Promise<boolean> {
+  const result = await query<{ map_id: string }>(
+    `UPDATE maps SET
+      name = $3,
+      description = $4,
+      territories = $5::jsonb,
+      connections = $6::jsonb,
+      regions = $7::jsonb,
+      updated_at = NOW()
+    WHERE map_id = $1 AND creator_id = $2 AND creator_id <> 'system'
+    RETURNING map_id`,
+    [
+      mapId,
+      creatorId,
+      input.name,
+      input.description ?? '',
+      JSON.stringify(input.territories),
+      JSON.stringify(input.connections),
+      JSON.stringify(input.regions),
+    ],
+  );
+  return result.length > 0;
+}
+
 export async function submitMapForModeration(mapId: string, creatorId: string): Promise<boolean> {
   const result = await query<{ map_id: string }>(
     `UPDATE maps SET moderation_status = 'pending', is_public = false, updated_at = NOW()

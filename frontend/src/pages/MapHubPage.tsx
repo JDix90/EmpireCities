@@ -10,6 +10,7 @@ import { getCustomMapImmersion } from '../data/customMapImmersion';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
+import { useMapEditorEnabled } from '../store/featureFlagsStore';
 
 interface PublicMap {
   map_id: string;
@@ -31,6 +32,7 @@ function formatCommunityUploader(creatorId: string): string {
 
 export default function MapHubPage() {
   const navigate = useNavigate();
+  const mapEditorEnabled = useMapEditorEnabled();
 
   // Era maps (built-in)
   const [eraMaps, setEraMaps]       = useState<MapSummary[]>([]);
@@ -81,11 +83,11 @@ export default function MapHubPage() {
       icon={Globe}
       maxWidth="6xl"
       headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
-      headerRight={(
+      headerRight={mapEditorEnabled ? (
         <Link to="/editor" className="btn-primary text-sm flex items-center gap-2 py-1.5">
           <Plus className="w-4 h-4" aria-hidden /> Create Map
         </Link>
-      )}
+      ) : undefined}
     >
         {/* ── Built-in Era Maps ─────────────────────────────────────────── */}
         <section className="mb-12">
@@ -317,8 +319,14 @@ export default function MapHubPage() {
             <p className="text-bf-muted text-center py-12">Loading maps...</p>
           ) : maps.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-bf-muted mb-4">No community maps yet. Be the first to create one!</p>
-              <Link to="/editor" className="btn-primary">Create a Map</Link>
+              <p className="text-bf-muted mb-4">
+                {mapEditorEnabled
+                  ? 'No community maps yet. Be the first to create one!'
+                  : 'No community maps published yet.'}
+              </p>
+              {mapEditorEnabled && (
+                <Link to="/editor" className="btn-primary">Create a Map</Link>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

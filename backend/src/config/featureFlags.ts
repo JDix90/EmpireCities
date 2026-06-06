@@ -46,4 +46,16 @@ export const featureFlags = {
       config.nodeEnv === 'development' && process.env.SOCKET_DEBUG === 'true',
     );
   },
+
+  /** When true, registered users can access the Map Editor UI and create/publish custom maps. */
+  get mapEditorEnabled(): boolean {
+    return overrideBool('map_editor_enabled', false);
+  },
 };
+
+/** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
+export function getClientFeatureFlags(): Record<string, boolean> {
+  return {
+    map_editor_enabled: featureFlags.mapEditorEnabled,
+  };
+}

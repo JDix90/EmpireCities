@@ -1,5 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
+import { AiBadge } from '../ui/AiBadge';
 import type { GameOverModalData } from './ActionModal';
 
 function EfficiencyBar({ pct }: { pct: number }) {
@@ -195,7 +196,7 @@ export default function MatchStatsTab({
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                       <span className="truncate">{p.username}</span>
-                      {p.is_ai && <span className="text-white/25 text-[10px] shrink-0">(AI)</span>}
+                      {p.is_ai && <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} />}
                       {isMe && <span className="text-bf-gold/60 text-[10px] shrink-0">you</span>}
                     </div>
                   </td>

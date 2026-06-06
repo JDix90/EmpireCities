@@ -27,6 +27,7 @@ export interface PlayerState {
   username: string;
   color: string;
   is_ai: boolean;
+  ai_difficulty?: string | null;
   is_eliminated: boolean;
   territory_count: number;
   cards: { card_id: string; symbol: string }[];

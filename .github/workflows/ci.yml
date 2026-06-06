@@ -27,6 +27,20 @@ jobs:
 
       - name: Backend tests
         run: pnpm run test:backend
+        env:
+          REDIS_TEST: '1'
+          REDIS_HOST: localhost
+          REDIS_PASSWORD: ''
+        services:
+          redis:
+            image: redis:7-alpine
+            ports:
+              - 6379:6379
+            options: >-
+              --health-cmd "redis-cli ping"
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
 
       - name: Validate maps
         run: pnpm run validate:maps

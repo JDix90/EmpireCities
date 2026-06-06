@@ -1,11 +1,8 @@
 import type { Server as HttpServer } from 'http';
 import { randomUUID } from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
-import { getMapById } from '../modules/maps/mapService';
 import {
   initializeGameState,
   advanceToNextPlayer,
@@ -18,7 +15,6 @@ import {
   appendWinProbabilitySnapshot,
   repairDraftUnitsIfMissing,
   autoPlaceDraftUnits,
-  repairLegacyGameState,
 } from '../game-engine/state/gameStateManager';
 import { resolveCombat, calculateReinforcements } from '../game-engine/combat/combatResolver';
 import {
@@ -62,18 +58,46 @@ import { checkReferralCompletion } from '../game-engine/progression/referralServ
 import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
-import { getTutorialMap } from '../game-engine/tutorial/tutorialScript';
 import { incrementPlayCount } from '../modules/maps/mapService';
 import type { GameState, GameMap, AiDifficulty } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
-import { isSafeMapId } from '../utils/mapId';
 import { registerChatHandlers } from './handlers/chatHandler';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
 import { evaluateCoachingTip } from '../game-engine/coaching/coachingDetectors';
 import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
+import { buildRedisAdapter } from './redisAdapter';
+import {
+  getCachedRoom,
+  setCachedRoom,
+  getCachedRoomCount,
+  loadAuthoritativeRoom,
+  withLockedRoom,
+  GameRoomNotFoundError,
+  persistGameStateAfterMutation,
+  flushGameState,
+  flushAllPendingPostgresSaves,
+  saveGameMapAuthoritative,
+  evictGameRoom,
+  onPlayerConnected,
+  onPlayerDisconnected,
+  hasHumanConnections,
+  forEachConnectedGame,
+  tryAcquireAiTurn,
+  releaseAiTurn,
+  isAiTurnInFlight,
+  type ActiveGameRoom,
+} from './gameRoomManager';
+import { runWithGameLock } from './gameLock';
+import { resolveMap } from './mapResolver';
+import {
+  scheduleTurnTimeout,
+  cancelTurnTimeout,
+  setTurnTimerProcessor,
+  stopTurnTimerWorker,
+} from '../workers/gameTimerWorker';
 import {
   scheduleAsyncDeadline,
   cancelAsyncDeadline,
@@ -115,64 +139,6 @@ import {
   executeTechAbility,
   isGameScopedAbility,
 } from '../game-engine/abilities/executeTechAbility';
-
-function loadMapFromDoc(mapDoc: any): GameMap {
-  return {
-    map_id: mapDoc.map_id,
-    name: mapDoc.name,
-    territories: mapDoc.territories,
-    connections: mapDoc.connections,
-    regions: mapDoc.regions,
-    canvas_width: mapDoc.canvas_width,
-    canvas_height: mapDoc.canvas_height,
-    projection_bounds: mapDoc.projection_bounds,
-    globe_view: mapDoc.globe_view,
-    map_kind: mapDoc.map_kind,
-    worlds: mapDoc.worlds,
-    orbit_access: mapDoc.orbit_access,
-  };
-}
-
-const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
-  'community_britain_925',
-  'community_horn_africa',
-  'community_australia_1337',
-  'community_flooded_north_america',
-  'era_galaxy',
-]);
-
-async function resolveMap(mapId: string): Promise<GameMap | null> {
-  if (mapId === 'tutorial') return getTutorialMap();
-  // Curated regional maps should always resolve from static JSON so gameplay
-  // uses the exact shipped geometry (avoids stale DB copies).
-  if (CURATED_STATIC_REGIONAL_MAP_IDS.has(mapId)) {
-    if (!isSafeMapId(mapId)) return null;
-    const curatedPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
-    if (fs.existsSync(curatedPath)) {
-      const data = JSON.parse(fs.readFileSync(curatedPath, 'utf-8'));
-      return loadMapFromDoc(data);
-    }
-    return null;
-  }
-  const mapFromDb = await getMapById(mapId);
-  if (mapFromDb) return mapFromDb;
-
-  // Fallback: load from static JSON files in database/maps/
-  if (!isSafeMapId(mapId)) return null;
-  const jsonPath = path.resolve(__dirname, '../../../database/maps', `${mapId}.json`);
-  if (fs.existsSync(jsonPath)) {
-    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-    return loadMapFromDoc(data);
-  }
-  return null;
-}
-
-// In-memory store: gameId → { state, map, connectedSockets }
-const activeGames = new Map<string, {
-  state: GameState;
-  map: GameMap;
-  connectedSockets: Map<string, string>; // socketId → playerId
-}>();
 
 // Per-game per-player combat accumulator (keyed gameId -> playerId -> stats)
 interface PlayerCombatStats {
@@ -243,7 +209,26 @@ function recordElimination(gameId: string, eliminatorId: string): void {
 
 /** For GET /metrics/json — count of in-memory game rooms (ops signal, not player count). */
 export function getActiveGameMetrics(): { activeGameRooms: number } {
-  return { activeGameRooms: activeGames.size };
+  return { activeGameRooms: getCachedRoomCount() };
+}
+
+/** Locked mutation with Redis reload, user-visible errors on failure. */
+async function mutateLockedRoom(
+  gameId: string,
+  socket: Socket,
+  durationMs: number,
+  fn: (room: ActiveGameRoom) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await withLockedRoom(gameId, fn, { durationMs });
+  } catch (err) {
+    if (err instanceof GameRoomNotFoundError) {
+      socket.emit('error', { message: 'Game not found' });
+      return;
+    }
+    console.error('[Socket] Locked mutation failed for', gameId, err);
+    socket.emit('error', { message: 'Action failed — please try again' });
+  }
 }
 
 type WaitingLobbyPlayerRow = {
@@ -462,12 +447,6 @@ function isSocketUsersTurn(state: GameState, socketUserId: string, _socketUserna
   return Boolean(byId && byId.player_index === currentPlayer.player_index);
 }
 
-// Turn timer enforcement: gameId → timeout handle
-const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-// Prevent overlapping AI turns: gameId → true while processAiTurn is running
-const aiInFlight = new Set<string>();
-
 const SPECTATOR_DELAY_MS = 30_000;
 const SPECTATOR_BROADCAST_MS = 3_000;
 const SPECTATOR_BUFFER_LIMIT = 24;
@@ -537,65 +516,99 @@ export function initGameSocket(httpServer: HttpServer): Server {
     connectTimeout: 30_000,
   });
 
+  // ── Phase 1: Redis adapter for cross-instance Socket.io broadcasting ────
+  // Transparent with a single instance; required for horizontal scaling.
+  io.adapter(buildRedisAdapter());
+
   // ── Register async deadline processor ───────────────────────────────────
   setDeadlineProcessor(async (job) => {
     const { gameId, turnNumber, playerIndex } = job.data;
-    let room = activeGames.get(gameId);
-
-    // Re-hydrate game from DB if evicted
-    if (!room) {
+    await runWithGameLock(gameId, async () => {
       const game = await queryOne<{ map_id: string; status: string }>(
         'SELECT map_id, status FROM games WHERE game_id = $1',
         [gameId],
       );
       if (!game || game.status !== 'in_progress') return;
-      const saved = await queryOne<{ state_json: GameState }>(
-        'SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1',
+      const room = await loadAuthoritativeRoom(gameId, game.map_id);
+      if (!room) return;
+      getOrBuildAdjacency(room.map);
+
+      const { state, map } = room;
+
+      // Stale-job guard: only process if turn/player still match
+      if (state.phase === 'game_over') return;
+      if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
+
+      const autoDraft = autoPlaceDraftUnits(state);
+      if (autoDraft.total > 0) {
+        emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
+        broadcastState(io, gameId, state);
+        io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
+      }
+
+      advanceToNextPlayer(state, map);
+      await saveGameState(gameId, state);
+      broadcastEventCard(io, gameId, state, map);
+      broadcastState(io, gameId, state);
+      maybeEmitCoachingTip(io, gameId, state, map);
+
+      const humanAfterAsync = state.players.find((p) => !p.is_ai);
+      if (humanAfterAsync && maybeResolveDailyPuzzle(io, gameId, room, null, humanAfterAsync.player_id, finalizeGame)) {
+        return;
+      }
+
+      if (!state.active_event?.choices?.length) {
+        startTurnTimer(io, gameId, state, map);
+      }
+      if (state.players[state.current_player_index].is_ai) {
+        setTimeout(() => processAiTurn(io, gameId), 1500);
+      }
+    });
+  });
+
+  // ── Phase 7: BullMQ turn timer processor (real-time mode) ─────────────────
+  setTurnTimerProcessor(async (job) => {
+    const { gameId } = job.data;
+    await runWithGameLock(gameId, async () => {
+      const game = await queryOne<{ map_id: string; status: string }>(
+        'SELECT map_id, status FROM games WHERE game_id = $1',
         [gameId],
       );
-      if (!saved) return;
-      const gameMap = await resolveMap(game.map_id);
-      if (!gameMap) return;
-      repairDraftUnitsIfMissing(saved.state_json, gameMap);
-      repairLegacyGameState(saved.state_json, gameMap);
-      getOrBuildAdjacency(gameMap);
-      activeGames.set(gameId, { state: saved.state_json, map: gameMap, connectedSockets: new Map() });
-      room = activeGames.get(gameId)!;
-    }
+      if (!game || game.status !== 'in_progress') return;
+      const room = await loadAuthoritativeRoom(gameId, game.map_id);
+      if (!room) return;
+      getOrBuildAdjacency(room.map);
 
-    const { state, map } = room;
+      if (room.state.phase === 'game_over') return;
 
-    // Stale-job guard: only process if turn/player still match
-    if (state.phase === 'game_over') return;
-    if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
+      const autoDraft = autoPlaceDraftUnits(room.state);
+      if (autoDraft.total > 0) {
+        emitAutoDraftMapVisuals(io, gameId, room.state, autoDraft.placements);
+        broadcastState(io, gameId, room.state);
+        io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
+      }
 
-    // Auto-place draft units
-    const autoDraft = autoPlaceDraftUnits(state);
-    if (autoDraft.total > 0) {
-      emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
-      broadcastState(io, gameId, state);
-      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
-    }
+      advanceToNextPlayer(room.state, room.map);
+      await saveGameState(gameId, room.state);
+      broadcastEventCard(io, gameId, room.state, room.map);
+      broadcastState(io, gameId, room.state);
+      maybeEmitCoachingTip(io, gameId, room.state, room.map);
 
-    advanceToNextPlayer(state, map);
-    await saveGameState(gameId, state);
-    broadcastEventCard(io, gameId, state, map);
-    broadcastState(io, gameId, state);
-    maybeEmitCoachingTip(io, gameId, state, map);
+      const humanT = room.state.players.find((p) => !p.is_ai);
+      if (humanT && maybeResolveDailyPuzzle(io, gameId, room, null, humanT.player_id, finalizeGame)) {
+        return;
+      }
 
-    const humanAfterAsync = state.players.find((p) => !p.is_ai);
-    if (humanAfterAsync && maybeResolveDailyPuzzle(io, gameId, room, null, humanAfterAsync.player_id, finalizeGame)) {
-      return;
-    }
+      if (!room.state.active_event?.choices?.length) {
+        startTurnTimer(io, gameId, room.state, room.map);
+      }
 
-    // Schedule next deadline or trigger AI
-    if (!state.active_event?.choices?.length) {
-      startTurnTimer(io, gameId, state, map);
-    }
-    if (state.players[state.current_player_index].is_ai) {
-      setTimeout(() => processAiTurn(io, gameId), 1500);
-    }
+      if (room.state.players[room.state.current_player_index].is_ai) {
+        setTimeout(() => processAiTurn(io, gameId), 1500);
+      }
+    });
   });
+  // Processor registered above; worker started from index.ts after initGameSocket returns.
 
   // ── Authentication middleware ─────────────────────────────────────────────
   io.use((socket, next) => {
@@ -619,7 +632,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Extracted handlers ──────────────────────────────────────────────────
     const ctx: SocketContext = {
       io, socket, userId, username,
-      activeGames, broadcastState, scheduleDebouncedSave, isSocketUsersTurn,
+      getRoom: getCachedRoom, broadcastState, scheduleDebouncedSave, isSocketUsersTurn,
     };
     registerChatHandlers(ctx);
 
@@ -662,34 +675,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
           await emitLobbyProposalUpdates(io, gameId, waitingDetails);
         }
 
-        // Initialize game state if not already active
-        if (!activeGames.has(gameId) && game.status === 'in_progress') {
-          // Load last saved state from DB
-          const savedState = await queryOne<{ state_json: GameState }>(
-            `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
-            [gameId]
-          );
-
-          if (savedState) {
-            const gameMap = await resolveMap(game.map_id);
-            if (!gameMap) {
-              console.error(`[Socket] MAP_LOAD_FAILED: game=${gameId} map_id=${game.map_id}`);
-              return socket.emit('error', { message: 'Map unavailable; the game cannot be resumed right now', code: 'MAP_LOAD_FAILED' });
-            }
-            repairDraftUnitsIfMissing(savedState.state_json, gameMap);
-            repairLegacyGameState(savedState.state_json, gameMap);
-            getOrBuildAdjacency(gameMap);
-            activeGames.set(gameId, {
-              state: savedState.state_json,
-              map: gameMap,
-              connectedSockets: new Map(),
-            });
+        // Load in-progress state from Redis (never serve a stale per-instance cache on join/reconnect).
+        let room: ActiveGameRoom | null = null;
+        if (game.status === 'in_progress') {
+          room = await loadAuthoritativeRoom(gameId, game.map_id);
+          if (!room) {
+            console.error(`[Socket] MAP_LOAD_FAILED: game=${gameId} map_id=${game.map_id}`);
+            return socket.emit('error', { message: 'Map unavailable; the game cannot be resumed right now', code: 'MAP_LOAD_FAILED' });
           }
+          getOrBuildAdjacency(room.map);
         }
 
-        const room = activeGames.get(gameId);
         if (room) {
-          room.connectedSockets.set(socket.id, userId);
+          await onPlayerConnected(gameId, socket.id, userId);
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
           // Embed the map directly in the join handshake so private/pending
           // custom maps don't have to be re-fetched via the public REST
@@ -722,7 +720,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
           // Resume AI turn if it's an AI's turn and no AI processing is already in-flight
           const currentAiPlayer = room.state.players[room.state.current_player_index];
-          if (currentAiPlayer?.is_ai && room.state.phase !== 'game_over' && !aiInFlight.has(gameId)) {
+          if (currentAiPlayer?.is_ai && room.state.phase !== 'game_over' && !(await isAiTurnInFlight(gameId))) {
             if (room.state.phase === 'territory_select') {
               setTimeout(() => processAiTerritorySelect(io, gameId), 800);
             } else {
@@ -733,7 +731,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           // For async games, ensure the deadline job is still scheduled (may be lost on server restart)
           if (room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
             import('../workers/asyncDeadlineWorker').then(({ asyncDeadlineQueue }) => {
-              const jobId = `deadline:${gameId}:${room!.state.turn_number}`;
+              const jobId = `deadline-${gameId}-${room!.state.turn_number}`;
               asyncDeadlineQueue.getJob(jobId).then((job) => {
                 if (!job) {
                   // Re-schedule from DB deadline
@@ -774,25 +772,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         socket.join(spectatorRoom);
         socket.data = { ...socket.data, spectating: gameId };
 
-        if (!activeGames.has(gameId)) {
-          const savedState = await queryOne<{ state_json: GameState }>(
-            `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
-            [gameId],
-          );
-          if (savedState) {
-            const gameMap = await resolveMap(game.map_id);
-            if (gameMap) {
-              repairDraftUnitsIfMissing(savedState.state_json, gameMap);
-              repairLegacyGameState(savedState.state_json, gameMap);
-              getOrBuildAdjacency(gameMap);
-              activeGames.set(gameId, {
-                state: savedState.state_json,
-                map: gameMap,
-                connectedSockets: new Map(),
-              });
-            }
-          }
-        }
+        const room = await loadAuthoritativeRoom(gameId, game.map_id);
+        if (room) getOrBuildAdjacency(room.map);
 
         // Increment spectator count
         await query('UPDATE games SET spectator_count = spectator_count + 1 WHERE game_id = $1', [gameId]).catch(() => {});
@@ -804,7 +785,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         spectators.add(socket.id);
 
-        const room = activeGames.get(gameId);
         if (room) {
           recordSpectatorState(gameId, room.state);
           const initEntry = getDelayedSpectatorState(gameId);
@@ -857,6 +837,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Start Game ──────────────────────────────────────────────────────────
     socket.on('game:start', async ({ gameId }: { gameId: string }) => {
       try {
+        await runWithGameLock(gameId, async () => {
         const callerSeat = await queryOne<{ player_index: number }>(
           `SELECT player_index
            FROM game_players
@@ -884,32 +865,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         // Already in progress: host (or client) clicked Start after reconnect; DB says started but UI may not have received game:started
         if (game.status === 'in_progress') {
-          let room = activeGames.get(gameId);
+          const room = await loadAuthoritativeRoom(gameId, game.map_id);
           if (!room) {
-            const savedState = await queryOne<{ state_json: GameState }>(
-              `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC LIMIT 1`,
-              [gameId]
-            );
-            if (!savedState) {
-              return socket.emit('error', { message: 'Game state not found' });
-            }
-            const gameMap = await resolveMap(game.map_id);
-            if (!gameMap) {
-              console.error(`[Socket] MAP_LOAD_FAILED: game=${gameId} map_id=${game.map_id}`);
-              return socket.emit('error', { message: 'Map unavailable; the game cannot be resumed right now', code: 'MAP_LOAD_FAILED' });
-            }
-            repairDraftUnitsIfMissing(savedState.state_json, gameMap);
-            repairLegacyGameState(savedState.state_json, gameMap);
-            getOrBuildAdjacency(gameMap);
-            activeGames.set(gameId, {
-              state: savedState.state_json,
-              map: gameMap,
-              connectedSockets: new Map(),
-            });
-            room = activeGames.get(gameId);
+            return socket.emit('error', { message: 'Game state not found' });
           }
-          if (!room) return socket.emit('error', { message: 'Failed to resume game' });
-          room.connectedSockets.set(socket.id, userId);
+          getOrBuildAdjacency(room.map);
+          await onPlayerConnected(gameId, socket.id, userId);
           socket.emit('game:started', { gameId });
           socket.emit('game:map', { mapId: room.state.map_id, map: room.map });
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
@@ -964,18 +925,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         applyTutorialModuleBoost(state);
 
-        // Populate connectedSockets from sockets currently in the room
-        const connectedSockets = new Map<string, string>();
         const socketsInRoom = await io.in(gameId).fetchSockets();
+        getOrBuildAdjacency(gameMap);
+        setCachedRoom(gameId, state, gameMap);
         for (const s of socketsInRoom) {
           const remoteUserId = s.data?.userId as string | undefined;
           if (remoteUserId) {
-            connectedSockets.set(s.id, remoteUserId);
+            await onPlayerConnected(gameId, s.id, remoteUserId);
           }
         }
-
-        getOrBuildAdjacency(gameMap);
-        activeGames.set(gameId, { state, map: gameMap, connectedSockets });
 
         // Compute game_type based on actual player composition at start
         const humanCount = players.filter((p) => !p.is_ai).length;
@@ -1000,7 +958,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         // Update DB
         await query('UPDATE games SET status = $1, started_at = NOW(), game_type = $2 WHERE game_id = $3', ['in_progress', gameType, gameId]);
-        await saveGameState(gameId, state);
+        await saveGameMapAuthoritative(gameId, gameMap);
+        await flushGameState(gameId, state);
         lobbyProposalsByGame.delete(gameId);
 
         io.to(gameId).emit('game:started', { gameId });
@@ -1027,6 +986,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         } else {
           startTurnTimer(io, gameId, state, gameMap);
         }
+        });
       } catch (err) {
         console.error('[Socket] game:start error:', err);
         socket.emit('error', { message: 'Failed to start game' });
@@ -1034,9 +994,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Draft Action ────────────────────────────────────────────────────────
-    socket.on('game:draft', ({ gameId, territoryId, units, action_id }: { gameId: string; territoryId: string; units: number; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:draft', async ({ gameId, territoryId, units, action_id }: { gameId: string; territoryId: string; units: number; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
@@ -1099,13 +1058,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Territory Selection (territory draft mode) ────────────────────────
-    socket.on('game:select_territory', ({ gameId, territoryId, action_id }: { gameId: string; territoryId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:select_territory', async ({ gameId, territoryId, action_id }: { gameId: string; territoryId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1160,7 +1119,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
 
       // If next player is AI and still in territory_select, trigger AI pick
       const nextPlayer = state.players[state.current_player_index];
@@ -1171,12 +1130,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       } else if (!nextPlayer.is_ai && state.phase === 'draft') {
         startTurnTimer(io, gameId, state, map);
       }
+      });
     });
 
     // ── Attack Action ───────────────────────────────────────────────────────
-    socket.on('game:attack', ({ gameId, fromId, toId, action_id, breakTruce }: { gameId: string; fromId: string; toId: string; action_id?: string; breakTruce?: boolean }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:attack', async ({ gameId, fromId, toId, action_id, breakTruce }: { gameId: string; fromId: string; toId: string; action_id?: string; breakTruce?: boolean }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1319,7 +1278,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           if (!navalResult.attacker_won) {
             // Naval defeat — abort land attack
             broadcastState(io, gameId, state);
-            scheduleDebouncedSave(gameId);
+            void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
             return;
           }
         }
@@ -1551,7 +1510,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           state,
         }));
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
 
@@ -1585,13 +1544,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Advance Phase ───────────────────────────────────────────────────────
-    socket.on('game:advance_phase', ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:advance_phase', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1626,7 +1585,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         if (maybeResolveDailyPuzzle(io, gameId, room, null, userId, finalizeGame)) {
           broadcastState(io, gameId, state);
-          scheduleDebouncedSave(gameId);
+          void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
           return;
         }
 
@@ -1642,14 +1601,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
+      });
     });
 
     // ── Fortify Action ──────────────────────────────────────────────────────
-    socket.on('game:fortify', ({ gameId, fromId, toId, units, action_id }: {
+    socket.on('game:fortify', async ({ gameId, fromId, toId, units, action_id }: {
       gameId: string; fromId: string; toId: string; units: number; action_id?: string;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1705,13 +1664,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Redeem Cards ────────────────────────────────────────────────────────
-    socket.on('game:redeem_cards', ({ gameId, cardIds, action_id }: { gameId: string; cardIds: string[]; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:redeem_cards', async ({ gameId, cardIds, action_id }: { gameId: string; cardIds: string[]; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
@@ -1730,18 +1689,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
         );
         socket.emit('game:cards_redeemed', { bonus });
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       } catch (err: unknown) {
         socket.emit('error', { message: err instanceof Error ? err.message : 'Card redemption failed' });
       }
+      });
     });
 
     // ── Build (Economy) ──────────────────────────────────────────────────────
-    socket.on('game:build', ({ gameId, territoryId, buildingType, action_id }: {
+    socket.on('game:build', async ({ gameId, territoryId, buildingType, action_id }: {
       gameId: string; territoryId: string; buildingType: BuildingType; action_id?: string;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1795,19 +1754,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
       if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeBuild, userId, finalizeGame)) {
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Naval Move (relocate fleets between own coastal territories) ─────────
-    socket.on('game:naval_move', ({ gameId, fromId, toId, count, action_id }: {
+    socket.on('game:naval_move', async ({ gameId, fromId, toId, count, action_id }: {
       gameId: string; fromId: string; toId: string; count: number; action_id?: string;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1828,15 +1787,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
         navalMoveProbBefore,
       );
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Naval Attack (standalone fleet combat / blockade) ────────────────────
-    socket.on('game:naval_attack', ({ gameId, fromId, toId, action_id }: {
+    socket.on('game:naval_attack', async ({ gameId, fromId, toId, action_id }: {
       gameId: string; fromId: string; toId: string; action_id?: string;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -1900,19 +1859,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Tutorial Settings Lab (advanced_settings lesson) ─────────────────────
-    socket.on('game:tutorial_apply_settings', ({
+    socket.on('game:tutorial_apply_settings', async ({
       gameId,
       settings,
     }: {
       gameId: string;
       settings: Record<string, boolean>;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       const { state } = room;
       if (!state.settings.tutorial || state.settings.tutorial_lesson_module !== 'advanced_settings') {
         return socket.emit('error', { message: 'Settings Lab is only available in the Advanced Settings tutorial' });
@@ -1924,13 +1883,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const applied = applyTutorialSettingsLab(state, settings);
       socket.emit('game:tutorial_settings_applied', { applied });
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Research Tech ────────────────────────────────────────────────────────
-    socket.on('game:research_tech', ({ gameId, techId, action_id }: { gameId: string; techId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:research_tech', async ({ gameId, techId, action_id }: { gameId: string; techId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
@@ -1962,24 +1921,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
       checkOnboardingQuests(userId, 'research').catch(() => {});
       if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforeResearch, userId, finalizeGame)) {
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Use Ability ──────────────────────────────────────────────────────────
     // Generic handler for once-per-turn faction/tech abilities not covered by
     // dedicated events (influence, blitzkrieg, etc.).
-    socket.on('game:use_ability', ({ gameId, abilityId, params, action_id }: {
+    socket.on('game:use_ability', async ({ gameId, abilityId, params, action_id }: {
       gameId: string;
       abilityId: string;
       params?: Record<string, unknown>;
       action_id?: string;
     }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -2044,7 +2003,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         recordAbility(`Guerrilla warfare: +1 unit on ${territoryName(map, territoryId)}`);
         socket.emit('game:ability_result', { abilityId, success: true, territoryId });
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
 
@@ -2101,7 +2060,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }), { state, map });
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         const atomBombVictoryResult = checkVictory(state, map);
         if (atomBombVictoryResult) {
           const { winnerIds, condition } = atomBombVictoryResult;
@@ -2124,7 +2083,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         });
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
 
@@ -2152,16 +2111,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
       broadcastState(io, gameId, state);
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // ── Influence (Cold War / Risorgimento era ability) ──────────────────────
     // Converts a neutral or enemy territory within influence_range hops of any
     // owned territory, costing 3 of the current player's units (spread across
     // adjacent owned territories). Only one use per turn.
-    socket.on('game:influence', ({ gameId, targetId, action_id }: { gameId: string; targetId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:influence', async ({ gameId, targetId, action_id }: { gameId: string; targetId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -2321,7 +2280,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.victory_condition = condition;
         finalizeGame(io, gameId, state, winnerIds);
       } else {
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       }
 
       const influenceVariant = isGaribaldiUse ? 'garibaldi' as const
@@ -2347,12 +2306,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       io.to(gameId).emit('game:influence_result', influenceResultPayload);
       io.to(`${gameId}:spectators`).emit('game:influence_result', influenceResultPayload);
       broadcastState(io, gameId, state);
+      });
     });
 
     // ── Event Card Choice ───────────────────────────────────────────────────
-    socket.on('game:event_choice', ({ gameId, choiceId, action_id }: { gameId: string; choiceId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:event_choice', async ({ gameId, choiceId, action_id }: { gameId: string; choiceId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
@@ -2383,15 +2342,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
         effect: choice.effect,
         result: eventResult,
       });
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       io.to(gameId).emit('game:event_card_resolved', { cardId: eventCardId });
       io.to(`${gameId}:spectators`).emit('game:event_card_resolved', { cardId: eventCardId });
       broadcastState(io, gameId, state);
       // Restart turn timer now that the blocking event choice is resolved (human players only)
-      const roomAfterChoice = activeGames.get(gameId);
-      if (roomAfterChoice && !roomAfterChoice.state.players[roomAfterChoice.state.current_player_index].is_ai) {
-        startTurnTimer(io, gameId, roomAfterChoice.state, roomAfterChoice.map);
+      if (!room.state.players[room.state.current_player_index].is_ai) {
+        startTurnTimer(io, gameId, room.state, room.map);
       }
+      });
     });
 
     // ── Set Coaching ─────────────────────────────────────────────────────────
@@ -2399,9 +2358,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // an eligible game can flip this. Server enforces eligibility; ineligible
     // games silently no-op so a tampered client can't enable coaching in a
     // multi-human or ranked match.
-    socket.on('game:set_coaching', ({ gameId, enabled }: { gameId: string; enabled: boolean }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:set_coaching', async ({ gameId, enabled }: { gameId: string; enabled: boolean }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       const { state, map } = room;
       if (!state.coaching_eligible) {
         return socket.emit('error', { message: 'Coaching is not available in this game' });
@@ -2417,12 +2375,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (enabled && state.phase === 'draft' && state.players[state.current_player_index]?.player_id === userId) {
         maybeEmitCoachingTip(io, gameId, state, map);
       }
-      scheduleDebouncedSave(gameId);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
     });
 
     // Chat handlers extracted to handlers/chatHandler.ts
 
     socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
+      await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
       if (!lobby) return socket.emit('error', { message: 'Game not found' });
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
@@ -2462,9 +2422,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
       lobbyProposalsByGame.set(gameId, current);
       await emitLobbyProposalUpdates(io, gameId, lobby);
+      });
     });
 
     socket.on('game:lobby_vote', async ({ gameId, proposalId, approve }: { gameId: string; proposalId: string; approve: boolean }) => {
+      await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
       if (!lobby) return socket.emit('error', { message: 'Game not found' });
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
@@ -2510,6 +2472,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       lobbyProposalsByGame.set(gameId, proposals);
       await emitLobbyProposalUpdates(io, gameId, lobby);
+      });
     });
 
     // ── Leave (Save & Leave) ────────────────────────────────────────────
@@ -2537,48 +2500,55 @@ export function initGameSocket(httpServer: HttpServer): Server {
       socket.leave(gameId);
       socket.emit('game:left', { gameId });
 
-      const room = activeGames.get(gameId);
+      const gameMeta = await queryOne<{ map_id: string; status: string }>(
+        'SELECT map_id, status FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      if (!gameMeta || gameMeta.status !== 'in_progress') {
+        return;
+      }
+
+      const room = await loadAuthoritativeRoom(gameId, gameMeta.map_id);
       if (!room) {
-        // Waiting / evicted / never-loaded game: nothing more to do. Silent
-        // success (no error emit) so a routine navigation never shows a
-        // "Game not found" toast.
         return;
       }
       const { state } = room;
 
-      if (state.phase === 'game_over') return;
+      if (state.phase === 'game_over') {
+        await onPlayerDisconnected(gameId, socket.id, userId);
+        return;
+      }
 
       await saveGameState(gameId, state);
-      room.connectedSockets.delete(socket.id);
+      await onPlayerDisconnected(gameId, socket.id, userId);
 
-      // If no human sockets remain, keep game in memory for 5 min then evict
-      const hasHumanConnections = [...room.connectedSockets.values()].some((pid) =>
-        state.players.some((p) => p.player_id === pid && !p.is_ai)
-      );
-      if (!hasHumanConnections) {
+      const humansConnected = await hasHumanConnections(gameId, state);
+      if (!humansConnected) {
+        const mapId = state.map_id;
         const evictionTimer = setTimeout(() => {
-          const current = activeGames.get(gameId);
-          if (current && current.connectedSockets.size === 0) {
-            // For async games, don't cancel the deadline — BullMQ handles it independently
-            if (!current.state.settings.async_mode) {
-              clearTurnTimer(gameId, current.state);
+          void (async () => {
+            const current = await loadAuthoritativeRoom(gameId, mapId);
+            if (!current) return;
+            const stillNoHumans = await hasHumanConnections(gameId, current.state);
+            if (stillNoHumans) {
+              if (!current.state.settings.async_mode) {
+                clearTurnTimer(gameId, current.state);
+              }
+              void evictGameRoom(gameId);
+              clearActionIdempotency(gameId);
+              spectatorSeqCounters.delete(gameId);
+              spectatorStateBuffers.delete(gameId);
+              console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
             }
-            activeGames.delete(gameId);
-            aiInFlight.delete(gameId);
-            clearActionIdempotency(gameId);
-            spectatorSeqCounters.delete(gameId);
-            spectatorStateBuffers.delete(gameId);
-            console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
-          }
+          })();
         }, 5 * 60 * 1000);
         evictionTimer.unref();
       }
     });
 
     // ── Propose Truce ─────────────────────────────────────────────────────
-    socket.on('game:propose_truce', ({ gameId, targetPlayerId, action_id }: { gameId: string; targetPlayerId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:propose_truce', async ({ gameId, targetPlayerId, action_id }: { gameId: string; targetPlayerId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
@@ -2635,12 +2605,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
 
       socket.emit('game:truce_result', { pending: true, targetName: target.username });
+      });
     });
 
     // ── Respond to Truce Proposal ──────────────────────────────────────────
-    socket.on('game:truce_response', ({ gameId, proposerId, accepted, action_id }: { gameId: string; proposerId: string; accepted: boolean; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+    socket.on('game:truce_response', async ({ gameId, proposerId, accepted, action_id }: { gameId: string; proposerId: string; accepted: boolean; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state } = room;
 
@@ -2686,12 +2656,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (accepted) {
         broadcastState(io, gameId, state);
       }
+      });
     });
 
     // ── Resign ────────────────────────────────────────────────────────────
     socket.on('game:resign', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
-      const room = activeGames.get(gameId);
-      if (!room) return socket.emit('error', { message: 'Game not found' });
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
@@ -2835,6 +2805,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       await saveGameState(gameId, state);
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
+      });
     });
 
     // ── Matchmaking socket shortcuts ────────────────────────────────────────
@@ -2882,33 +2853,43 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // Clean up matchmaking queue on disconnect
       query('DELETE FROM ranked_queue WHERE socket_id = $1', [socket.id]).catch(() => {});
-      for (const [gameId, room] of activeGames.entries()) {
-        if (!room.connectedSockets.has(socket.id)) continue;
-        room.connectedSockets.delete(socket.id);
+      forEachConnectedGame((gameId, sockets) => {
+        if (!sockets.has(socket.id)) return;
+        const disconnectedPlayerId = sockets.get(socket.id)!;
+        void onPlayerDisconnected(gameId, socket.id, disconnectedPlayerId);
 
-        // Schedule eviction if no human sockets remain
-        if (room.state.phase !== 'game_over') {
-          const hasHumanConnections = [...room.connectedSockets.values()].some((pid) =>
-            room.state.players.some((p) => p.player_id === pid && !p.is_ai)
+        void (async () => {
+          const gameMeta = await queryOne<{ map_id: string }>(
+            'SELECT map_id FROM games WHERE game_id = $1 AND status = $2',
+            [gameId, 'in_progress'],
           );
-          if (!hasHumanConnections) {
-            saveGameState(gameId, room.state);
+          if (!gameMeta) return;
+
+          const room = await loadAuthoritativeRoom(gameId, gameMeta.map_id);
+          if (!room || room.state.phase === 'game_over') return;
+
+          const humansConnected = await hasHumanConnections(gameId, room.state);
+          if (!humansConnected) {
+            await saveGameState(gameId, room.state);
+            const mapId = room.state.map_id;
             const evictionTimer = setTimeout(() => {
-              const current = activeGames.get(gameId);
-              if (current && current.connectedSockets.size === 0) {
+              void (async () => {
+                const current = await loadAuthoritativeRoom(gameId, mapId);
+                if (!current) return;
+                const stillNoHumans = await hasHumanConnections(gameId, current.state);
+                if (!stillNoHumans) return;
                 if (!current.state.settings.async_mode) {
                   clearTurnTimer(gameId, current.state);
                 }
-                activeGames.delete(gameId);
-                aiInFlight.delete(gameId);
+                void evictGameRoom(gameId);
                 clearActionIdempotency(gameId);
                 console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
-              }
+              })();
             }, 5 * 60 * 1000);
             evictionTimer.unref();
           }
-        }
-      }
+        })();
+      });
     });
   });
 
@@ -2918,10 +2899,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
 /** Clear turn timers, flush debounced saves, and close Socket.IO during graceful shutdown. */
 export async function shutdownGameSocket(io: Server): Promise<void> {
-  for (const t of turnTimers.values()) clearTimeout(t);
-  turnTimers.clear();
-  await flushAllPendingSaves();
-  // Stop async deadline worker (BullMQ jobs persist in Redis for next startup)
+  await flushAllPendingPostgresSaves();
+  await stopTurnTimerWorker();
   const { stopAsyncDeadlineWorker } = await import('../workers/asyncDeadlineWorker');
   await stopAsyncDeadlineWorker();
   return new Promise((resolve, reject) => {
@@ -3020,23 +2999,21 @@ function broadcastState(io: Server, gameId: string, state: GameState): void {
         territory.unit_count = 1;
       }
     }
-  const room = activeGames.get(gameId);
-  if (!room) return;
-
   recordSpectatorState(gameId, state);
 
-  // Send filtered state to each connected socket
-  if (room.connectedSockets.size > 0) {
-    for (const [socketId, playerId] of room.connectedSockets.entries()) {
-      const filteredState = buildClientState(state, playerId, state.settings.fog_of_war);
-      io.to(socketId).emit('game:state', filteredState);
+  const fog = state.settings.fog_of_war;
+  const humanPlayers = state.players.filter((p) => !p.is_ai);
+
+  // Per-player delivery via user rooms crosses Socket.io instances (Redis adapter).
+  if (humanPlayers.length > 0) {
+    for (const player of humanPlayers) {
+      const filteredState = buildClientState(state, player.player_id, fog);
+      io.to(`user:${player.player_id}`).emit('game:state', filteredState);
     }
-  } else {
-    // Fallback: no tracked sockets (e.g. right after start); broadcast to whole room
-    // Always fog-filter when fog_of_war is enabled to avoid leaking full state
-    // to any client that joined the room before connectedSockets tracked it.
-    io.to(gameId).emit('game:state', buildClientState(state, null, state.settings.fog_of_war));
+    return;
   }
+
+  io.to(gameId).emit('game:state', buildClientState(state, null, fog));
   // NOTE: The room-wide `game:state_public` broadcast was removed — it sent an
   // unfiltered state snapshot to every socket in the room regardless of the
   // fog_of_war setting, trivially defeating fog of war. Players now receive
@@ -3062,15 +3039,8 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 
   const human = state.players.find((p) => !p.is_ai);
   if (!human) return;
-  const room = activeGames.get(gameId);
-  if (!room) return;
 
-  // Send only to the human's socket(s) — coaching is private to that player.
-  for (const [socketId, playerId] of room.connectedSockets.entries()) {
-    if (playerId === human.player_id) {
-      io.to(socketId).emit('game:coaching_tip', tip);
-    }
-  }
+  io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
 }
 
 function recordSpectatorState(gameId: string, state: GameState): void {
@@ -3179,41 +3149,15 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 }
 
 async function saveGameState(gameId: string, state: GameState): Promise<void> {
-  try {
-    await query(
-      'INSERT INTO game_states (game_id, turn_number, state_json) VALUES ($1, $2, $3)',
-      [gameId, state.turn_number, JSON.stringify(state)]
-    );
-  } catch (err) {
-    console.error('[Socket] Failed to save game state:', err);
-  }
+  return flushGameState(gameId, state);
 }
-
-// ── Debounced save ────────────────────────────────────────────────────────
-const DEBOUNCE_MS = 800;
-const pendingSaves = new Map<string, ReturnType<typeof setTimeout>>();
 
 function scheduleDebouncedSave(gameId: string): void {
-  const existing = pendingSaves.get(gameId);
-  if (existing) clearTimeout(existing);
-  const timer = setTimeout(() => {
-    pendingSaves.delete(gameId);
-    const room = activeGames.get(gameId);
-    if (room) saveGameState(gameId, room.state);
-  }, DEBOUNCE_MS);
-  timer.unref();
-  pendingSaves.set(gameId, timer);
-}
-
-async function flushAllPendingSaves(): Promise<void> {
-  const saves: Promise<void>[] = [];
-  for (const [gameId, timer] of pendingSaves.entries()) {
-    clearTimeout(timer);
-    const room = activeGames.get(gameId);
-    if (room) saves.push(saveGameState(gameId, room.state));
-  }
-  pendingSaves.clear();
-  await Promise.allSettled(saves);
+  const room = getCachedRoom(gameId);
+  if (!room) return;
+  void persistGameStateAfterMutation(gameId, room.state).catch((err) => {
+    console.error('[Redis] persist after mutation failed', gameId, err);
+  });
 }
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
@@ -3249,29 +3193,20 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
     [campaignRow.campaign_id, state.era, gameId, won],
   );
 
-  // Determine prestige delta and carry-forward updates
-  let prestigeDelta = 1; // standard classic prestige
+  let prestigeDelta = 1;
   let updatedCarry = { ...campaignRow.path_carry };
 
   if (campaignRow.path_id) {
-    // Dynamically import to avoid circular dep; path config is pure data
     const { getPathEraConfig } = await import('../modules/campaign/campaignPaths');
     const pathEra = getPathEraConfig(campaignRow.path_id as any, eraIndex);
     if (pathEra) {
       const delta = won ? pathEra.carry_on_win : pathEra.carry_on_loss;
-      // Path deltas may omit `prestige_bonus` entirely (e.g. a path whose
-      // signature carry is something else like revolutionary_spirit). When
-      // that happens we keep the standard +1 default for wins so the player
-      // still progresses; explicit `0` is honored to let paths intentionally
-      // award nothing (e.g. carry_on_loss commonly sets `{ prestige_bonus: 0 }`).
       if (delta.prestige_bonus != null) {
         prestigeDelta = delta.prestige_bonus;
         updatedCarry.prestige_bonus = (updatedCarry.prestige_bonus ?? 0) + delta.prestige_bonus;
       } else if (!won) {
-        // Omitted on the loss branch — preserve historical "no prestige on loss" behavior.
         prestigeDelta = 0;
       }
-      // (Win + omitted prestige_bonus falls through to the +1 default set at declaration.)
       if (delta.survivor_bonus != null) {
         updatedCarry.survivor_bonus = Math.min(8, (updatedCarry.survivor_bonus ?? 0) + delta.survivor_bonus);
       }
@@ -3308,7 +3243,6 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
       });
     }
   } else {
-    // On loss: still update path_carry (carry_on_loss may give spirit/bonus) and narrative
     await query(
       `UPDATE user_campaigns
        SET path_carry = $1::jsonb, path_narrative = $2::jsonb
@@ -3732,14 +3666,13 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Clean up after a delay so clients can see final state
   setTimeout(() => {
-    activeGames.delete(gameId);
+    void evictGameRoom(gameId);
     clearActionIdempotency(gameId);
   }, 30000);
 }
 
 async function processAiTerritorySelect(io: Server, gameId: string): Promise<void> {
-  const room = activeGames.get(gameId);
-  if (!room) return;
+  await withLockedRoom(gameId, async (room) => {
   const { state, map } = room;
 
   if (state.phase !== 'territory_select') return;
@@ -3849,7 +3782,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   }
 
   broadcastState(io, gameId, state);
-  scheduleDebouncedSave(gameId);
+  void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
 
   // Chain: next AI pick or transition to human/draft
   const nextPlayer = state.players[state.current_player_index];
@@ -3860,18 +3793,18 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   } else if (!nextPlayer.is_ai && state.phase === 'draft') {
     startTurnTimer(io, gameId, state, map);
   }
+  }, { durationMs: 10000 });
 }
 
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
-  if (aiInFlight.has(gameId)) return;
-  const room = activeGames.get(gameId);
-  if (!room) return;
+  if (await isAiTurnInFlight(gameId)) return;
+  if (!(await tryAcquireAiTurn(gameId))) return;
+  try {
+  await withLockedRoom(gameId, async (room) => {
   const { state, map } = room;
 
   const currentPlayer = state.players[state.current_player_index];
   if (!currentPlayer.is_ai) return;
-
-  aiInFlight.add(gameId);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
@@ -3890,7 +3823,6 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   const doVictoryCheck = async (): Promise<boolean> => {
     if (maybeResolveDailyPuzzle(io, gameId, room, null, currentPlayer.player_id, finalizeGame)) {
-      aiInFlight.delete(gameId);
       return true;
     }
     const victoryResult = checkVictory(state, map);
@@ -3901,7 +3833,6 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       state.winner_id = winnerId;
       state.winner_ids = winnerIds;
       state.victory_condition = condition;
-      aiInFlight.delete(gameId);
       await finalizeGame(io, gameId, state, winnerIds);
       return true;
     }
@@ -3921,7 +3852,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         io.to(gameId).emit('game:cards_redeemed', { bonus });
         await delay();
         broadcastState(io, gameId, state);
-        scheduleDebouncedSave(gameId);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       } catch {
         break;
       }
@@ -4332,8 +4263,6 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   broadcastState(io, gameId, state);
   maybeEmitCoachingTip(io, gameId, state, map);
 
-  aiInFlight.delete(gameId);
-
   if (await doVictoryCheck()) return;
 
   // If there's an active event with choices and next player is AI, auto-resolve
@@ -4361,6 +4290,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   } else if (!state.active_event?.choices?.length) {
     // Don't start timer while a choice-based event awaits human resolution
     startTurnTimer(io, gameId, state, map);
+  }
+  }, { durationMs: 15000 });
+  } finally {
+    await releaseAiTurn(gameId);
   }
 }
 
@@ -4391,50 +4324,14 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     return;
   }
 
-  // ── Real-time mode: in-memory setTimeout (short timers ≤ 10 min) ──
-  const timer = setTimeout(async () => {
-    const room = activeGames.get(gameId);
-    if (!room || room.state.phase === 'game_over') return;
-
-    // Auto-place any remaining draft units so reinforcements are never silently lost
-    const autoDraft = autoPlaceDraftUnits(room.state);
-    if (autoDraft.total > 0) {
-      emitAutoDraftMapVisuals(io, gameId, room.state, autoDraft.placements);
-      broadcastState(io, gameId, room.state);
-      io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
-    }
-
-    advanceToNextPlayer(room.state, room.map);
-    await saveGameState(gameId, room.state);
-    broadcastEventCard(io, gameId, room.state, room.map);
-    broadcastState(io, gameId, room.state);
-    maybeEmitCoachingTip(io, gameId, room.state, room.map);
-
-    const humanT = room.state.players.find((p) => !p.is_ai);
-    if (humanT && maybeResolveDailyPuzzle(io, gameId, room, null, humanT.player_id, finalizeGame)) {
-      return;
-    }
-
-    // Don't restart timer while a choice-based event is pending resolution
-    if (!room.state.active_event?.choices?.length) {
-      startTurnTimer(io, gameId, room.state, room.map);
-    }
-
-    if (room.state.players[room.state.current_player_index].is_ai) {
-      setTimeout(() => processAiTurn(io, gameId), 1500);
-    }
-  }, seconds * 1000);
-  timer.unref();
-  turnTimers.set(gameId, timer);
+  // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
+  scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
+    console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
+  });
 }
 
 function clearTurnTimer(gameId: string, state?: GameState): void {
-  const existing = turnTimers.get(gameId);
-  if (existing) {
-    clearTimeout(existing);
-    turnTimers.delete(gameId);
-  }
-  // Also cancel any pending async deadline job
+  cancelTurnTimeout(gameId).catch(() => {});
   if (state) {
     cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
   }

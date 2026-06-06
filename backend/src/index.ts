@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'crypto';
+import os from 'os';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
@@ -17,9 +18,10 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
 import { mapsRoutes } from './modules/maps/maps.routes';
-import { initGameSocket, shutdownGameSocket, getActiveGameMetrics, getGameIo, emitWaitingLobbySnapshotPublic } from './sockets/gameSocket';
+import { getActiveGameMetrics, getGameIo, initGameSocket, shutdownGameSocket, emitWaitingLobbySnapshotPublic } from './sockets/gameSocket';
+import { getMigrationMetrics } from './sockets/migrationMetrics';
 import { runReadinessChecks } from './health/readiness';
-import { featureFlags } from './config/featureFlags';
+import { featureFlags, getClientFeatureFlags } from './config/featureFlags';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
 import { dailyRoutes } from './modules/daily/daily.routes';
 import { storeRoutes } from './modules/store/store.routes';
@@ -200,6 +202,10 @@ async function bootstrap(): Promise<void> {
     { prefix: '/api/admin' },
   );
 
+  app.get('/api/feature-flags', async (_req, reply) => {
+    return reply.send(getClientFeatureFlags());
+  });
+
   app.get('/api/lobby/seasonal', async (_req, reply) => {
     return reply.send(getActiveSeasonal(new Date()));
   });
@@ -302,13 +308,23 @@ async function bootstrap(): Promise<void> {
     }
     const mem = process.memoryUsage();
     const { activeGameRooms } = getActiveGameMetrics();
+    const migration = getMigrationMetrics();
     return reply.send({
       uptime_seconds: process.uptime(),
       active_game_rooms: activeGameRooms,
+      redis_migration: migration,
       rss_bytes: mem.rss,
       heap_used_bytes: mem.heapUsed,
       timestamp: new Date().toISOString(),
     });
+  });
+
+  /** Instance identity for multi-node debugging (non-production or when metrics enabled). */
+  app.get('/api/instance', async (_req, reply) => {
+    if (config.nodeEnv === 'production' && !featureFlags.metricsEndpointEnabled) {
+      return reply.code(404).send({ error: 'Not found' });
+    }
+    return reply.send({ instanceId: process.env.INSTANCE_ID || os.hostname() });
   });
 
   // Static era tech tree — public, no auth needed
@@ -336,6 +352,8 @@ async function bootstrap(): Promise<void> {
   setMatchmakingIo(io);
   startMatchmakingSweep();
   startAsyncDeadlineWorker();
+  const { startTurnTimerWorker } = await import('./workers/gameTimerWorker');
+  startTurnTimerWorker();
   startSeasonSweep();
   startChallengeSweep();
   startOrphanedGameSweep();

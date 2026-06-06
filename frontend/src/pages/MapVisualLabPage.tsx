@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import GameMap from '../components/game/GameMap';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
@@ -11,8 +11,7 @@ import {
 } from '../fixtures/mapVisualLabFixture';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import type { MapStrikeFlashProps } from '../utils/mapStrikeEffects';
-
-const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
+import { GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 
 type LabView = '2d' | 'globe';
 
@@ -158,6 +157,8 @@ export default function MapVisualLabPage() {
           <button
             type="button"
             onClick={() => setView('globe')}
+            onMouseEnter={preloadGlobeChunks}
+            onFocus={preloadGlobeChunks}
             className={view === 'globe' ? 'text-bf-gold text-sm' : 'text-bf-muted hover:text-bf-text text-sm'}
           >
             Globe
@@ -193,7 +194,7 @@ export default function MapVisualLabPage() {
             />
           ) : (
             <Suspense fallback={<div className="text-bf-muted animate-pulse p-8">Loading globe…</div>}>
-              <GlobeMap
+              <GlobeMapLazy
                 mapData={MAP_VISUAL_LAB_FIXTURE}
                 onTerritoryClick={() => {}}
                 width={900}

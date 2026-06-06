@@ -1,9 +1,25 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+/** Map Hub lives at /maps but regional JSON ships under public/maps/ — avoid 403 on /maps/. */
+function mapHubSpaFallback(): Plugin {
+  return {
+    name: 'map-hub-spa-fallback',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const pathname = req.url?.split('?')[0] ?? '';
+        if (pathname === '/maps' || pathname === '/maps/') {
+          req.url = '/index.html';
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), mapHubSpaFallback()],
   resolve: {
     dedupe: ['three'],
     alias: {

@@ -14,8 +14,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useMapEditorEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
+import clsx from 'clsx';
 import {
   Trash2, Timer, GraduationCap, Bot, Info, Calendar, Sword, Trophy,
 } from 'lucide-react';
@@ -32,6 +34,7 @@ import MonthlyChallenges from '../components/ui/MonthlyChallenges';
 import DailyLoginCalendar from '../components/ui/DailyLoginCalendar';
 import ActivityFeed from '../components/ui/ActivityFeed';
 import LeaderboardWidget from '../components/lobby/LeaderboardWidget';
+import ChallengeFriendModal from '../components/lobby/ChallengeFriendModal';
 import MobileTabBar from '../components/ui/MobileTabBar';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import Modal from '../components/ui/Modal';
@@ -41,7 +44,22 @@ import {
 } from '../constants/galacticAgeAccess';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules } from '../tutorial';
-import { Settings2, FlaskConical } from 'lucide-react';
+import { Settings2, FlaskConical, Radio, Activity, Eye, Swords } from 'lucide-react';
+
+interface LiveGameSummary {
+  game_id: string;
+  era_id: string;
+  player_count: string | number;
+  human_count: string | number;
+  turn_count: number;
+  spectator_count?: number;
+}
+
+interface ActivityStats {
+  games_in_progress: number;
+  games_today: number;
+  games_total: number;
+}
 
 // ── Small tooltip component used in the game-creation form ─────────────────
 function FeatureTooltip({ text }: { text: string }) {
@@ -275,6 +293,7 @@ function timeAgo(dateStr: string): string {
 
 export default function LobbyPage() {
   const { user, logout, accessToken } = useAuthStore();
+  const mapEditorEnabled = useMapEditorEnabled();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -375,6 +394,10 @@ export default function LobbyPage() {
   const [selectedFactionId, setSelectedFactionId] = useState<string>('random');
   const [_factionsLoading, setFactionsLoading] = useState(false);
   const [topLiveGameId, setTopLiveGameId] = useState<string | null>(null);
+  const [topLiveGame, setTopLiveGame] = useState<LiveGameSummary | null>(null);
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [dailySummary, setDailySummary] = useState<{ era_id: string; attempts_today: number; completed: boolean } | null>(null);
+  const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
   const joinFromUrlHandled = useRef(false);
 
   // New-user welcome modal — shown once for users with no XP
@@ -481,8 +504,19 @@ export default function LobbyPage() {
     api.get('/lobby/seasonal').then((res: { data: Array<{ era_id: string; name: string }> }) => {
       if (Array.isArray(res.data)) setActiveSeasonal(res.data);
     }).catch(() => {/* ignore */});
-    api.get<Array<{ game_id: string }>>('/games/live', { params: { limit: 1 } }).then((res) => {
+    api.get<LiveGameSummary[]>('/games/live', { params: { limit: 1 } }).then((res) => {
       setTopLiveGameId(res.data[0]?.game_id ?? null);
+      setTopLiveGame(res.data[0] ?? null);
+    }).catch(() => {});
+    api.get<{ challenge: { era_id: string }; attempts_today?: number; my_entry: unknown | null }>('/daily/today').then((res) => {
+      setDailySummary({
+        era_id: res.data.challenge.era_id,
+        attempts_today: res.data.attempts_today ?? 0,
+        completed: res.data.my_entry != null,
+      });
+    }).catch(() => {});
+    api.get<ActivityStats>('/games/stats/activity').then((res) => {
+      setActivityStats(res.data);
     }).catch(() => {});
     api.get<{ challenge: WeeklyChallengeSummary }>('/enhancements/weekly/current')
       .then(async (res) => {
@@ -769,6 +803,16 @@ export default function LobbyPage() {
     })();
   }, [searchParams, navigate, setSearchParams]);
 
+  // Deep link from post-game "Challenge a friend" → open the challenge modal.
+  useEffect(() => {
+    if (searchParams.get('challenge') === '1') {
+      setShowChallenge(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('challenge');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     if (lobbyTab !== 'casual') return;
     const token = accessToken ?? useAuthStore.getState().accessToken;
@@ -866,9 +910,9 @@ export default function LobbyPage() {
     }
   };
 
-  const handleWelcomeQuickSolo = async () => {
-    markWelcomeSeen();
-    setShowWelcomeModal(false);
+  // Shared "play now" path: instant solo game vs AI with sensible defaults — no lobby wait.
+  const startQuickMatch = async () => {
+    if (quickSoloLoading) return;
     setQuickSoloLoading(true);
     try {
       const res = await api.post('/games', {
@@ -894,6 +938,15 @@ export default function LobbyPage() {
     }
   };
 
+  const handleWelcomeQuickSolo = async () => {
+    markWelcomeSeen();
+    setShowWelcomeModal(false);
+    await startQuickMatch();
+  };
+
+  // New players (or anyone yet to score XP) get a solo-first layout: play now, no empty lobby.
+  const isNewUser = !!user && ((user.xp ?? 0) === 0 || user.onboarding_stage != null);
+
   return (
     <div className="min-h-screen bg-bf-dark" {...pullHandlers}>
       {showWelcomeModal && (
@@ -903,6 +956,7 @@ export default function LobbyPage() {
           onDismiss={() => { markWelcomeSeen(); setShowWelcomeModal(false); }}
         />
       )}
+      <ChallengeFriendModal open={showChallenge} onClose={() => setShowChallenge(false)} />
       {/* Pull-to-refresh indicator */}
       {(pullDistance > 0 || refreshing) && (
         <div
@@ -946,13 +1000,29 @@ export default function LobbyPage() {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             <button
+              onClick={() => void startQuickMatch()}
+              disabled={quickSoloLoading}
+              className="btn-primary flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Bot className="w-4 h-4" aria-hidden />
+              {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+            </button>
+            <button
               onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-2 justify-center sm:flex-none"
+              className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
               aria-haspopup="dialog"
               aria-controls="create-game-modal"
             >
               New Game
             </button>
+            {!user?.is_guest && (
+              <button
+                onClick={() => setShowChallenge(true)}
+                className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
+              >
+                <Swords className="w-4 h-4" aria-hidden /> Challenge a friend
+              </button>
+            )}
             <button
               onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
               className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
@@ -964,13 +1034,33 @@ export default function LobbyPage() {
                 War Room
               </Link>
             )}
-            {!user?.is_guest && (
+            {!user?.is_guest && mapEditorEnabled && (
               <Link to="/editor" className="btn-secondary items-center gap-2 hidden lg:flex">
                 Map Editor
               </Link>
             )}
           </div>
         </div>
+
+        {/* Honest activity signals — real counts, truthful even when small */}
+        {activityStats && (activityStats.games_in_progress > 0 || activityStats.games_total > 0) && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-6 text-sm text-bf-muted">
+            {activityStats.games_in_progress > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-green-400" aria-hidden />
+                <span className="text-bf-text font-medium">{activityStats.games_in_progress}</span>
+                {activityStats.games_in_progress === 1 ? 'game being played right now' : 'games being played right now'}
+              </span>
+            )}
+            {activityStats.games_total > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-bf-gold" aria-hidden />
+                <span className="text-bf-text font-medium">{activityStats.games_total.toLocaleString()}</span>
+                games played all-time
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Solo campaign — lobby CTA (context-aware) */}
         {user?.is_guest ? (
@@ -1191,7 +1281,7 @@ export default function LobbyPage() {
             )}
 
             {/* Quick-start cards for new users */}
-            {user && user.xp === 0 && lobbyTab === 'casual' && (
+            {isNewUser && lobbyTab === 'casual' && (
               <div className="card mb-6 animate-fade-in border-bf-gold/20">
                 <h3 className="font-display text-lg text-bf-gold mb-4 flex items-center gap-2">
                   Getting Started
@@ -1227,38 +1317,14 @@ export default function LobbyPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     disabled={quickSoloLoading}
-                    onClick={async () => {
-                      setQuickSoloLoading(true);
-                      try {
-                        const res = await api.post('/games', {
-                          era_id: 'ancient',
-                          map_id: ERA_MAP_IDS['ancient'],
-                          max_players: 8,
-                          ai_count: 3,
-                          ai_difficulty: 'medium',
-                          settings: {
-                            turn_timer_seconds: 300,
-                            allowed_victory_conditions: ['domination'],
-                            initial_unit_count: 3,
-                            card_set_escalating: true,
-                            diplomacy_enabled: true,
-                          },
-                        });
-                        navigate(`/game/${res.data.game_id}`);
-                      } catch (err: unknown) {
-                        if (axios.isAxiosError(err)) {
-                          toast.error(err.response?.data?.error || 'Failed to start game');
-                        }
-                        setQuickSoloLoading(false);
-                      }
-                    }}
+                    onClick={() => void startQuickMatch()}
                     className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold/50 transition-colors text-left group disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Bot className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">
-                      {quickSoloLoading ? 'Starting…' : 'Quick Solo Match'}
+                      {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                     </p>
-                    <p className="text-bf-muted text-xs mt-1">1v3 AI, Ancient World. Best if you know Risk.</p>
+                    <p className="text-bf-muted text-xs mt-1">3 AI opponents ready — start now. Ancient World.</p>
                   </button>
                   <button
                     onClick={() => navigate('/daily')}
@@ -1266,7 +1332,11 @@ export default function LobbyPage() {
                   >
                     <Calendar className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">Daily Challenge</p>
-                    <p className="text-bf-muted text-xs mt-1">One puzzle per day, same map for everyone.</p>
+                    <p className="text-bf-muted text-xs mt-1">
+                      {dailySummary && dailySummary.attempts_today > 0
+                        ? `${dailySummary.attempts_today} commander${dailySummary.attempts_today === 1 ? '' : 's'} attempted today.`
+                        : 'One puzzle per day, same map for everyone.'}
+                    </p>
                   </button>
                 </div>
               </div>
@@ -1540,19 +1610,47 @@ export default function LobbyPage() {
                     <label className="label">AI Opponents</label>
                     <select className="input" value={aiCount} onChange={(e) => setAiCount(Number(e.target.value))}>
                       {[0,1,2,3,4,5,6,7].map((n) => (
-                        <option key={n} value={n}>{n} AI Bot{n !== 1 ? 's' : ''}</option>
+                        <option key={n} value={n}>{n === 0 ? 'No AI — humans only' : `${n} AI opponent${n !== 1 ? 's' : ''}`}</option>
                       ))}
                     </select>
+                    <p className="text-xs text-bf-muted mt-1">
+                      {aiCount > 0 ? 'Ready to play instantly — no waiting for a lobby to fill.' : 'Invite friends or wait for players to join.'}
+                    </p>
                   </div>
-                  <div>
-                    <label className="label">AI Difficulty</label>
-                    <select className="input" value={aiDifficulty} onChange={(e) => setAiDifficulty(e.target.value)}>
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                      <option value="expert">Expert</option>
-                    </select>
-                  </div>
+                  {aiCount > 0 && (
+                    <div className="md:col-span-2">
+                      <label className="label">AI Difficulty</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {([
+                          { id: 'easy', label: 'Easy', desc: 'Forgiving — learn the ropes' },
+                          { id: 'medium', label: 'Medium', desc: 'A balanced challenge' },
+                          { id: 'hard', label: 'Hard', desc: 'Sharp, calculated play' },
+                          { id: 'expert', label: 'Expert', desc: 'Ruthless optimizer' },
+                        ] as const).map((d) => {
+                          const active = aiDifficulty === d.id;
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => setAiDifficulty(d.id)}
+                              aria-pressed={active}
+                              className={clsx(
+                                'rounded-lg border px-3 py-2.5 text-left transition-colors',
+                                active
+                                  ? 'border-bf-gold bg-bf-gold/10'
+                                  : 'border-bf-border bg-bf-dark hover:border-bf-gold/40',
+                              )}
+                            >
+                              <span className={clsx('block text-sm font-medium', active ? 'text-bf-gold' : 'text-bf-text')}>
+                                {d.label}
+                              </span>
+                              <span className="block text-[11px] leading-snug text-bf-muted mt-0.5">{d.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="label">Turn Timer</label>
                     <select className="input" value={turnTimer} onChange={(e) => setTurnTimer(Number(e.target.value))}>
@@ -1772,8 +1870,59 @@ export default function LobbyPage() {
           </div>
 
           <aside className="space-y-4 xl:sticky xl:top-24">
+            {topLiveGame && (
+              <Link
+                to={`/spectate/${topLiveGame.game_id}`}
+                className="card block hover:border-bf-gold/40 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Radio className="w-4 h-4 text-green-400" aria-hidden />
+                  <h3 className="font-display text-bf-gold">Watch a live game</h3>
+                </div>
+                <p className="text-bf-text text-sm">
+                  {ERA_LABELS[topLiveGame.era_id] ?? topLiveGame.era_id} · {Number(topLiveGame.human_count)} human
+                  {Number(topLiveGame.human_count) === 1 ? '' : 's'}
+                  {Number(topLiveGame.player_count) > Number(topLiveGame.human_count)
+                    ? ` + ${Number(topLiveGame.player_count) - Number(topLiveGame.human_count)} AI`
+                    : ''}
+                </p>
+                <p className="text-bf-muted text-xs mt-1">
+                  Turn {topLiveGame.turn_count} · in progress now
+                </p>
+                <span className="inline-flex items-center gap-1 text-bf-gold text-xs mt-2 group-hover:underline">
+                  <Eye className="w-3.5 h-3.5" /> Watch this match
+                </span>
+              </Link>
+            )}
             {user && !user.is_guest ? (
               <>
+                {!isNewUser && (
+                  <Link
+                    to="/daily"
+                    className="card block hover:border-bf-gold/40 transition-colors group"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="font-display text-bf-gold flex items-center gap-2">
+                        <Calendar className="w-4 h-4" /> Daily Challenge
+                      </h3>
+                      {dailySummary?.completed && (
+                        <span className="text-[10px] uppercase tracking-wide text-green-300 border border-green-700/40 bg-green-950/30 rounded px-1.5 py-0.5">
+                          Done
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-bf-muted text-sm">
+                      {dailySummary
+                        ? `Today: ${ERA_LABELS[dailySummary.era_id] ?? dailySummary.era_id} · same map for everyone.`
+                        : 'One puzzle per day, same map for everyone.'}
+                    </p>
+                    {dailySummary && dailySummary.attempts_today > 0 && (
+                      <p className="text-xs text-bf-gold/80 mt-2">
+                        {dailySummary.attempts_today} commander{dailySummary.attempts_today === 1 ? '' : 's'} attempted today
+                      </p>
+                    )}
+                  </Link>
+                )}
                 <LeaderboardWidget />
                 <DailyLoginCalendar />
                 <MonthlyChallenges />
@@ -1796,7 +1945,7 @@ export default function LobbyPage() {
             )}
             <Link to="/codex" className="hover:text-bf-gold transition-colors">Codex</Link>
             <Link to="/maps" className="hover:text-bf-gold transition-colors">Map Hub</Link>
-            {!user?.is_guest && (
+            {!user?.is_guest && mapEditorEnabled && (
               <Link to="/editor" className="hover:text-bf-gold transition-colors">Map Editor</Link>
             )}
             <Link to="/friends" className="hover:text-bf-gold transition-colors">Friends</Link>

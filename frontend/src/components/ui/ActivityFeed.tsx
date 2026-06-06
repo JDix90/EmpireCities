@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpCircle, Medal, Share2, Swords, Star, Zap } from 'lucide-react';
 import { api } from '../../services/api';
+import { formatEraLabel, humanizeMapId } from '../../utils/mapDisplayNames';
 // import { fetchMapById, getTerritoryById, getTerritoriesInRegion } from '../../services/mapService';
 
 interface ActivityEvent {
@@ -21,7 +22,7 @@ const EVENT_CONFIG: Record<string, { icon: typeof Trophy; color: string; label: 
   game_won: {
     icon: Trophy,
     color: 'text-bf-gold',
-    label: (d) => `Won a game${d.era ? ` (${d.era})` : ''}`,
+    label: (d) => `Won a game${d.era ? ` (${formatEraLabel(String(d.era))})` : ''}`,
   },
   level_up: {
     icon: ArrowUpCircle,
@@ -56,8 +57,12 @@ function displayLocationName(eventData: Record<string, unknown>): string {
   // TODO: Use map context for lookup if available
   if (eventData.territory_name && typeof eventData.territory_name === 'string') return eventData.territory_name;
   if (eventData.region_name && typeof eventData.region_name === 'string') return eventData.region_name;
-  if (eventData.territory_id && typeof eventData.territory_id === 'string') return eventData.territory_id;
-  if (eventData.region_id && typeof eventData.region_id === 'string') return eventData.region_id;
+  if (eventData.territory_id && typeof eventData.territory_id === 'string') {
+    return humanizeMapId(eventData.territory_id);
+  }
+  if (eventData.region_id && typeof eventData.region_id === 'string') {
+    return humanizeMapId(String(eventData.region_id));
+  }
   return '';
 }
 

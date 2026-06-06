@@ -31,7 +31,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!parsed.success) return;
     const { gameId, message } = parsed.data;
 
-    const room = ctx.activeGames.get(gameId);
+    const room = ctx.getRoom(gameId);
     if (!room) return;
     if (room.connectedSockets.get(socket.id) !== userId) return;
 

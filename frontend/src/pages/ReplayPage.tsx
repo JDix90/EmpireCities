@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
@@ -44,10 +44,7 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 
-// Heavy three-globe bundle: lazy-load mirroring GamePage so the 2D fallback
-// path can render without paying for it.
-const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
-const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
+import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
 const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
@@ -191,6 +188,10 @@ export default function ReplayPage() {
       window.visualViewport?.removeEventListener('resize', measure);
     };
   }, [loading, mapData, mapView]);
+
+  useEffect(() => {
+    if (mapView === 'globe') preloadGlobeChunks();
+  }, [mapView]);
 
   useEffect(() => {
     const md = mapData;
@@ -615,7 +616,15 @@ export default function ReplayPage() {
         </span>
         <button
           type="button"
-          onClick={() => setMapView((v) => (v === 'globe' ? '2d' : 'globe'))}
+          onMouseEnter={preloadGlobeChunks}
+          onFocus={preloadGlobeChunks}
+          onClick={() => {
+            setMapView((v) => {
+              const next = v === 'globe' ? '2d' : 'globe';
+              if (next === 'globe') preloadGlobeChunks();
+              return next;
+            });
+          }}
           aria-pressed={mapView === 'globe'}
           aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
           title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
@@ -667,7 +676,7 @@ export default function ReplayPage() {
             }
           >
             {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-              <GalaxyStrategicView
+              <GalaxyStrategicViewLazy
                 mapData={mapData}
                 gameState={currentState}
                 selectedTerritoryId={null}
@@ -701,7 +710,7 @@ export default function ReplayPage() {
                     </div>
                   </div>
                 )}
-                <GlobeMap
+                <GlobeMapLazy
                 mapData={mapData}
                 onTerritoryClick={() => {}}
                 width={mapCanvasSize.w}

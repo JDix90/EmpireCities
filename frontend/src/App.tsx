@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
+import { useFeatureFlagsStore, useMapEditorEnabled } from './store/featureFlagsStore';
 import { api } from './services/api';
 import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
@@ -20,6 +21,7 @@ const RegisterPage = lazyWithChunkRetry(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazyWithChunkRetry(() => import('./pages/ResetPasswordPage'));
 const LobbyPage = lazyWithChunkRetry(() => import('./pages/LobbyPage'));
+const JoinGamePage = lazyWithChunkRetry(() => import('./pages/JoinGamePage'));
 const GamePage = lazyWithChunkRetry(() => import('./pages/GamePage'));
 const MapEditorPage = lazyWithChunkRetry(() => import('./pages/MapEditorPage'));
 const ProfilePage = lazyWithChunkRetry(() => import('./pages/ProfilePage'));
@@ -133,6 +135,18 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function MapEditorRoute({ children }: { children: React.ReactNode }) {
+  const mapEditorEnabled = useMapEditorEnabled();
+  const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
+  if (!flagsLoaded) {
+    return <RouteLoadingFallback />;
+  }
+  if (!mapEditorEnabled) {
+    return <Navigate to="/lobby" replace />;
+  }
+  return <PrivateRoute>{children}</PrivateRoute>;
+}
+
 export default function App() {
   const { isAuthenticated } = useAuthStore();
   const user = useAuthStore((s) => s.user);
@@ -175,6 +189,10 @@ export default function App() {
       }
     })();
   }, [hydrated]);
+
+  useEffect(() => {
+    void useFeatureFlagsStore.getState().load();
+  }, []);
 
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {
@@ -241,6 +259,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
+        <Route path="/join/:code" element={<JoinGamePage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
         <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
@@ -252,12 +271,13 @@ export default function App() {
         <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />
         <Route path="/game/:gameId" element={<PrivateRoute><GamePage /></PrivateRoute>} />
         <Route path="/replay/:gameId" element={<PrivateRoute><ReplayPage /></PrivateRoute>} />
-        <Route path="/editor" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
-        <Route path="/editor/:mapId" element={<PrivateRoute><MapEditorPage /></PrivateRoute>} />
+        <Route path="/editor" element={<MapEditorRoute><MapEditorPage /></MapEditorRoute>} />
+        <Route path="/editor/:mapId" element={<MapEditorRoute><MapEditorPage /></MapEditorRoute>} />
         <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/campaign" element={<PrivateRoute><CampaignPage /></PrivateRoute>} />
         <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
+        <Route path="/maps/" element={<Navigate to="/maps" replace />} />
         <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
         <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />

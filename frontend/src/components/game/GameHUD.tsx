@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useGameStore, type PlayerState, type SecretMissionPayload } from '../../store/gameStore';
+import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
+import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
 import { getFactionGlobalAbilities, FACTION_ABILITY_UI } from '../../utils/factionAbilities';
+import {
+  describeSecretMission,
+  resolveTerritoryName,
+  type MapNameLookup,
+} from '../../utils/mapDisplayNames';
 
 const FAST_COMBAT_KEY = 'cc-fast-combat';
 function readFastCombat() {
@@ -38,6 +44,8 @@ interface GameHUDProps {
   resolvedViewerPlayerId?: string | null;
   /** Labels of optional rules enabled via the Advanced Settings tutorial lab. */
   tutorialActiveSettings?: string[];
+  /** Labels for capital / secret-mission objectives (from loaded map JSON). */
+  mapNameLookup?: MapNameLookup | null;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -55,20 +63,6 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   fortify: <ArrowRight className="w-4 h-4" />,
 };
 
-function describeSecretMission(mission: SecretMissionPayload, players: PlayerState[]): string {
-  if (mission.kind === 'capture_territories' && mission.territory_ids) {
-    return `Own: ${mission.territory_ids.join(' & ')}`;
-  }
-  if (mission.kind === 'eliminate_player' && mission.target_player_id) {
-    const t = players.find((p) => p.player_id === mission.target_player_id);
-    return `Eliminate ${t?.username ?? mission.target_player_id}`;
-  }
-  if (mission.kind === 'control_regions' && mission.region_ids?.length) {
-    return `Control regions: ${mission.region_ids.join(', ')}`;
-  }
-  return 'Secret objective';
-}
-
 export default function GameHUD({
   onAdvancePhase,
   onRedeemCards,
@@ -85,6 +79,7 @@ export default function GameHUD({
   mobile = false,
   resolvedViewerPlayerId,
   tutorialActiveSettings,
+  mapNameLookup,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
@@ -271,13 +266,13 @@ export default function GameHUD({
           {myPlayer.capital_territory_id && (
             <p className="text-xs text-bf-text">
               <span className="text-bf-muted">Your capital: </span>
-              <span className="font-mono">{myPlayer.capital_territory_id}</span>
+              <span>{resolveTerritoryName(myPlayer.capital_territory_id, mapNameLookup)}</span>
             </p>
           )}
           {myPlayer.secret_mission && (
             <p className="text-xs text-bf-text mt-1">
               <span className="text-bf-muted">Mission: </span>
-              {describeSecretMission(myPlayer.secret_mission, gameState.players)}
+              {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup)}
             </p>
           )}
         </div>
@@ -336,11 +331,11 @@ export default function GameHUD({
                 style={{ backgroundColor: player.color }}
               />
               <span className={clsx(
-                'flex-1 truncate',
+                'flex-1 flex items-center gap-1.5 min-w-0',
                 player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
               )}>
-                {player.username}
-                {player.is_ai && <span className="text-bf-muted text-xs ml-1">(AI)</span>}
+                <span className="truncate">{player.username}</span>
+                {player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
               </span>
               <span className="text-bf-muted text-xs">{player.territory_count}T</span>
               {player.is_eliminated && (

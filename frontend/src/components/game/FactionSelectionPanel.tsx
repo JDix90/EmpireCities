@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { GameLobbySnapshot } from '../../types/gameLobbyApi';
 import FactionLoreModal, { type FactionLoreInfo } from './FactionLoreModal';
+import { AiBadge } from '../ui/AiBadge';
 
 interface FactionInfo {
   faction_id: string;
@@ -99,6 +100,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                       <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: p.player_color }} />
                       {p.username || (isAI ? `AI Bot ${p.player_index}` : '—')}
                       {isMe && !isAI && <span className="ml-1 text-bf-gold text-xs">(you)</span>}
+                      {isAI && <AiBadge difficulty={p.ai_difficulty} size="xs" />}
                       {isAI && isHost && <span className="ml-1 text-bf-muted text-xs">(host sets)</span>}
                     </span>
                   </td>
