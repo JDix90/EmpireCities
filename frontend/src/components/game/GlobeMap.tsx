@@ -4,10 +4,10 @@
  * Supports animated event overlays: reinforcements, combat, and fortification.
  */
 
-import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useMemo, useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { FastForward } from 'lucide-react';
-import GameMap from './GameMap';
+const GameMapLazy = lazy(() => import('./GameMap'));
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { type TerritoryGeoConfig, type ClipBbox } from '../../data/territoryGeoMapping';
@@ -2911,13 +2911,15 @@ function GlobeMapWithFallback(props: GlobeMapProps) {
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-amber-800/80 text-amber-100 text-xs px-3 py-1 rounded-full pointer-events-none">
           3D globe unavailable — showing 2D map
         </div>
-        <GameMap
-          mapData={props.mapData}
-          onTerritoryClick={props.onTerritoryClick ?? (() => {})}
-          width={props.width}
-          height={props.height}
-          highlightTerritoryId={props.highlightTerritoryId}
-        />
+        <Suspense fallback={<div className="flex items-center justify-center h-full text-bf-muted text-sm">Loading 2D map…</div>}>
+          <GameMapLazy
+            mapData={props.mapData}
+            onTerritoryClick={props.onTerritoryClick ?? (() => {})}
+            width={props.width}
+            height={props.height}
+            highlightTerritoryId={props.highlightTerritoryId}
+          />
+        </Suspense>
       </div>
     );
   }

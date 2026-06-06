@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Users, Clock, RefreshCw, Radio } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import { AiBadge } from '../components/ui/AiBadge';
 import clsx from 'clsx';
 import { api } from '../services/api';
 
@@ -181,8 +182,9 @@ function LiveGameCard({ game, onOpen }: { game: LiveGame; onOpen: () => void }) 
           >
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.player_color }} />
             <span className={clsx('text-bf-text', p.is_ai && 'text-bf-muted')}>
-              {p.username} {p.is_ai && <span className="text-bf-muted/60 text-xs">(AI)</span>}
+              {p.username}
             </span>
+            {p.is_ai && <AiBadge size="xs" showLabel={false} />}
           </span>
         ))}
       </div>

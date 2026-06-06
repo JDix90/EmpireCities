@@ -36,6 +36,7 @@
     "docker:prod:down": "docker compose -f docker/docker-compose.prod.yml --env-file .env.production down",
     "docker:prod:logs": "docker compose -f docker/docker-compose.prod.yml --env-file .env.production logs -f",
     "smoke:production": "bash scripts/smoke-production.sh",
+    "validate:redis-staging": "bash scripts/validate-redis-staging.sh",
     "deploy:production": "bash scripts/deploy-production.sh",
     "seed:production": "bash scripts/seed-production.sh",
     "backup:databases": "bash scripts/backup-databases.sh",

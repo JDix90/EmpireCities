@@ -2,12 +2,14 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
-import { Sword, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film } from 'lucide-react';
+import { AiBadge } from '../ui/AiBadge';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film } from 'lucide-react';
 import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
+import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,7 @@ export interface GameOverModalData {
     buildings_built_count?: number;
     is_eliminated: boolean;
     is_ai: boolean;
+    ai_difficulty?: string | null;
   }>;
   win_probability_history?: WinProbabilitySnapshot[];
   rating_change?: number;
@@ -865,7 +868,8 @@ function WinProbabilityChart({
         {players.map((pl) => (
           <span key={pl.player_id} className="inline-flex items-center gap-1.5 text-[10px] text-white/50">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pl.color }} />
-            <span className="truncate max-w-[7rem]">{pl.username}{pl.is_ai ? ' (AI)' : ''}</span>
+            <span className="truncate max-w-[7rem]">{pl.username}</span>
+            {pl.is_ai ? <AiBadge size="xs" showLabel={false} /> : null}
           </span>
         ))}
       </div>
@@ -878,11 +882,12 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFriend }: {
   data: GameOverModalData;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   onWatchReplay?: (gameId: string) => void;
+  onChallengeFriend?: () => void;
 }) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
@@ -1198,8 +1203,9 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
                 )}>
                   <span className="text-white/30 text-xs w-5 text-right">#{i + 1}</span>
                   <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                  <span className={clsx('flex-1 text-left truncate', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
-                    {p.username} {p.is_ai ? <span className="text-white/25 text-xs">(AI)</span> : ''}
+                  <span className={clsx('flex-1 text-left flex items-center gap-1.5 min-w-0', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
+                    <span className="truncate">{p.username}</span>
+                    {p.is_ai ? <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} /> : null}
                   </span>
                   <span className="text-white/30 text-xs tabular-nums">{p.territory_count}T</span>
                   {p.is_eliminated && <span className="text-red-400/50 text-xs">Eliminated</span>}
@@ -1276,6 +1282,17 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
           >
             <RotateCcw className="w-4 h-4" />
             Rematch
+          </button>
+        )}
+        {onChallengeFriend && (
+          <button
+            onClick={onChallengeFriend}
+            className="shrink-0 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10
+                       border border-white/10 text-white/80 font-medium transition-all
+                       flex items-center justify-center gap-2"
+          >
+            <Swords className="w-4 h-4" />
+            Challenge a friend
           </button>
         )}
       </div>
@@ -1381,22 +1398,25 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay }: {
 
 // ─── Elimination View ───────────────────────────────────────────────────────
 
-function formatMission(m: NonNullable<EliminationModalData['secretMission']>): string {
-  switch (m.kind) {
-    case 'capture_territories':
-      return `Capture territories: ${(m.territory_ids ?? []).join(' and ')}`;
-    case 'eliminate_player':
-      return `Eliminate player: ${m.target_player_id ?? 'unknown'}`;
-    case 'control_regions':
-      return `Control regions: ${(m.region_ids ?? []).join(', ')}`;
-    case 'alliance':
-      return `Form alliance with ${m.ally_player_id ?? 'unknown'}`;
-    default:
-      return 'Unknown mission';
-  }
+function formatMission(
+  m: NonNullable<EliminationModalData['secretMission']>,
+  lookup?: MapNameLookup | null,
+  players?: Array<{ player_id: string; username: string }>,
+): string {
+  return formatSecretMissionReveal(m, lookup, players);
 }
 
-function EliminationView({ data, onDismiss }: { data: EliminationModalData; onDismiss: () => void }) {
+function EliminationView({
+  data,
+  onDismiss,
+  mapNameLookup,
+  players,
+}: {
+  data: EliminationModalData;
+  onDismiss: () => void;
+  mapNameLookup?: MapNameLookup | null;
+  players?: Array<{ player_id: string; username: string }>;
+}) {
   return (
     <div className="w-full max-w-md mx-auto text-center">
       <Skull className={clsx('w-14 h-14 mx-auto mb-4', data.isSelf ? 'text-red-400' : 'text-white/30')} />
@@ -1411,7 +1431,7 @@ function EliminationView({ data, onDismiss }: { data: EliminationModalData; onDi
       {data.secretMission && (
         <div className="mb-6 p-3 bg-amber-950/30 rounded-lg border border-amber-600/30">
           <p className="text-xs text-amber-400 uppercase tracking-wide mb-1 font-bold">Secret Mission Revealed</p>
-          <p className="text-sm text-white/70">{formatMission(data.secretMission)}</p>
+          <p className="text-sm text-white/70">{formatMission(data.secretMission, mapNameLookup, players)}</p>
         </div>
       )}
       <div className="flex gap-3">
@@ -1540,9 +1560,23 @@ interface ActionModalProps {
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
   onWatchReplay?: (gameId: string) => void;
+  /** Open the "Challenge a friend" flow (rendered as a CTA on GameOverView). */
+  onChallengeFriend?: () => void;
+  mapNameLookup?: MapNameLookup | null;
+  players?: Array<{ player_id: string; username: string }>;
 }
 
-export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeatCombat, onRematch, onWatchReplay }: ActionModalProps) {
+export default function ActionModal({
+  data,
+  onDismiss,
+  onResignConfirm,
+  onRepeatCombat,
+  onRematch,
+  onWatchReplay,
+  onChallengeFriend,
+  mapNameLookup,
+  players,
+}: ActionModalProps) {
   const isGameOver = data?.type === 'game_over';
   const isResign = data?.type === 'resign_confirm';
 
@@ -1600,8 +1634,15 @@ export default function ActionModal({ data, onDismiss, onResignConfirm, onRepeat
             onDismiss={onDismiss}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} />}
-        {data.type === 'elimination' && <EliminationView data={data} onDismiss={onDismiss} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onChallengeFriend={onChallengeFriend} />}
+        {data.type === 'elimination' && (
+          <EliminationView
+            data={data}
+            onDismiss={onDismiss}
+            mapNameLookup={mapNameLookup}
+            players={players}
+          />
+        )}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}
       </div>

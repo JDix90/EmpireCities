@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
@@ -40,6 +40,7 @@ import {
   type TutorialLessonModule,
 } from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
+import PostTutorialPromptModal from '../components/game/PostTutorialPromptModal';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
@@ -60,7 +61,9 @@ import {
   scheduleEventCardMapVisualBackup,
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
+import { formatEraLabel } from '../utils/mapDisplayNames';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
@@ -83,9 +86,7 @@ import {
 } from '../utils/orbitAccess';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
-
-const GlobeMap = lazy(() => import('../components/game/GlobeMap'));
-const GalaxyStrategicView = lazy(() => import('../components/game/GalaxyStrategicView'));
+import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
@@ -390,7 +391,20 @@ export default function GamePage() {
   }, [navalSource, attackSource, gameState]);
 
   /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
-  const nonTutorialIslandGlobeAppliedRef = useRef(false);
+  const globeDefaultAppliedRef = useRef(false);
+
+  /** Prefetch globe vendor chunks when the user prefers globe or may switch soon. */
+  useEffect(() => {
+    if (!gameStarted || !gameState) return;
+    if (mapView !== 'globe') return;
+    preloadGlobeChunks();
+  }, [gameStarted, gameState, mapView]);
+
+  const switchToGlobeView = useCallback(() => {
+    preloadGlobeChunks();
+    setMapView('globe');
+    persistMapView('globe');
+  }, []);
   const [tutorialStep, setTutorialStep] = useState(0);
   const isTutorial = gameState?.settings?.tutorial === true;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
@@ -545,6 +559,8 @@ export default function GamePage() {
     onContinue: () => void;
     outcomeLabel?: string;
   }>(null);
+  const [postTutorialPrompt, setPostTutorialPrompt] = useState(false);
+  const [postTutorialStarting, setPostTutorialStarting] = useState(false);
 
   /**
    * Daily challenge / campaign intro modals — shown once per game (gated on
@@ -595,10 +611,20 @@ export default function GamePage() {
   }, [gameStarted, gameState]);
 
   useEffect(() => {
-    nonTutorialIslandGlobeAppliedRef.current = false;
+    globeDefaultAppliedRef.current = false;
     draftSummaryShownRef.current = false;
     pendingDraftSummaryRef.current = null;
   }, [gameId]);
+
+  /** Default every game to globe on first load, clearing any stale 2D localStorage preference. */
+  useEffect(() => {
+    if (!gameStarted || !gameState) return;
+    if (globeDefaultAppliedRef.current) return;
+    globeDefaultAppliedRef.current = true;
+    setMapView('globe');
+    persistMapView('globe');
+    preloadGlobeChunks();
+  }, [gameStarted, gameState]);
 
   // Global keyboard shortcuts while in-game
   useEffect(() => {
@@ -620,19 +646,6 @@ export default function GamePage() {
     pendingDraftSummaryRef.current = null;
     draftSummaryShownRef.current = true;
   }, [mapData]);
-
-  // All tutorial games now use era_ww2 (globe). The old 'tutorial' island map
-  // (flat 2D-only) is no longer created by the backend, so we always default
-  // to globe for every game — tutorials included.
-
-  /** Default every game to globe on first load, clearing any stale 2D localStorage preference. */
-  useEffect(() => {
-    if (!gameStarted || !gameState) return;
-    if (nonTutorialIslandGlobeAppliedRef.current) return;
-    nonTutorialIslandGlobeAppliedRef.current = true;
-    setMapView('globe');
-    persistMapView('globe');
-  }, [gameStarted, gameState]);
 
   const pushModal = useCallback((data: ModalData) => {
     setModalQueue(prev => [...prev, data]);
@@ -1935,16 +1948,49 @@ export default function GamePage() {
     }
     // Tutorial games end → guests see the account-creation prompt before
     // they're routed to /lobby so the call to action survives a natural finish
-    // (not just the wrap-up card).
+    // (not just the wrap-up card). Registered players are actively routed into
+    // their first real match instead of being dropped back on the lobby.
     if (settings?.tutorial === true) {
-      maybePromptTutorialAccount(
-        () => navigate('/lobby'),
-        'Great work, Commander. Lock in your hard-earned XP by creating a free account.',
-      );
+      if (user?.is_guest) {
+        maybePromptTutorialAccount(
+          () => navigate('/lobby'),
+          'Great work, Commander. Lock in your hard-earned XP by creating a free account.',
+        );
+      } else {
+        setPostTutorialPrompt(true);
+      }
       return;
     }
     navigate('/lobby');
   };
+
+  // Post-tutorial activation: spin up an instant solo match vs AI.
+  const startSoloFromTutorial = useCallback(async () => {
+    setPostTutorialStarting(true);
+    try {
+      const res = await api.post<{ game_id: string }>('/games', {
+        era_id: 'ancient',
+        map_id: 'era_ancient',
+        max_players: 8,
+        ai_count: 3,
+        ai_difficulty: 'medium',
+        settings: {
+          turn_timer_seconds: 300,
+          allowed_victory_conditions: ['domination'],
+          initial_unit_count: 3,
+          card_set_escalating: true,
+          diplomacy_enabled: true,
+        },
+      });
+      setPostTutorialPrompt(false);
+      navigate(`/game/${res.data.game_id}`);
+    } catch {
+      toast.error('Could not start a solo game. Returning to lobby.');
+      setPostTutorialStarting(false);
+      setPostTutorialPrompt(false);
+      navigate('/lobby');
+    }
+  }, [navigate]);
 
   /**
    * Navigate to the post-match replay. Wired to the "Watch Replay" CTA on
@@ -2569,7 +2615,7 @@ export default function GamePage() {
                             </p>
                             <p className="text-xs text-bf-muted mt-0.5">
                               {p.is_ai
-                                ? `AI seat${p.ai_difficulty ? ` · ${p.ai_difficulty.charAt(0).toUpperCase()}${p.ai_difficulty.slice(1)}` : ''}`
+                                ? 'Ready to play — no waiting'
                                 : p.player_index === 0
                                   ? 'Lobby host'
                                   : 'Player slot'}
@@ -2580,11 +2626,7 @@ export default function GamePage() {
                               Host
                             </span>
                           )}
-                          {p.is_ai && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-bf-surface text-bf-muted border border-bf-border">
-                              AI
-                            </span>
-                          )}
+                          {p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
                         </li>
                       );
                     })}
@@ -2701,7 +2743,7 @@ export default function GamePage() {
         <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-bf-muted text-xs">·</span>
         <span className="text-bf-muted text-xs capitalize">
-          {gameState.era === 'custom' ? 'Community map' : `${gameState.era} Era`}
+          {formatEraLabel(gameState.era)}
         </span>
         <span className="text-bf-muted text-xs">·</span>
         <span className="text-bf-muted text-xs">Turn {gameState.turn_number}</span>
@@ -2711,8 +2753,11 @@ export default function GamePage() {
           {/* Mobile: compact icon-only toggle */}
           <button
             type="button"
+            onMouseEnter={preloadGlobeChunks}
+            onFocus={preloadGlobeChunks}
             onClick={() => {
               const next = mapView === 'globe' ? '2d' : 'globe';
+              if (next === 'globe') preloadGlobeChunks();
               setMapView(next);
               persistMapView(next);
             }}
@@ -2724,10 +2769,9 @@ export default function GamePage() {
           {/* Desktop: full labeled buttons */}
           <button
             type="button"
-            onClick={() => {
-              setMapView('globe');
-              persistMapView('globe');
-            }}
+            onMouseEnter={preloadGlobeChunks}
+            onFocus={preloadGlobeChunks}
+            onClick={switchToGlobeView}
             className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             Globe
@@ -2872,7 +2916,7 @@ export default function GamePage() {
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
                   {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-                    <GalaxyStrategicView
+                    <GalaxyStrategicViewLazy
                       mapData={mapData}
                       gameState={gameState}
                       selectedTerritoryId={selectedTerritory}
@@ -2901,7 +2945,7 @@ export default function GamePage() {
                           </div>
                         </div>
                       )}
-                      <GlobeMap
+                      <GlobeMapLazy
                         mapData={mapData}
                         onTerritoryClick={handleTerritoryClick}
                         width={mapCanvasSize.w}
@@ -2963,7 +3007,7 @@ export default function GamePage() {
                           <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-gold pointer-events-none">
                             Moon
                           </div>
-                          <GlobeMap
+                          <GlobeMapLazy
                             mapData={mapData}
                             onTerritoryClick={handleTerritoryClick}
                             width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
@@ -3085,6 +3129,7 @@ export default function GamePage() {
           tutorialActiveSettings={
             tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
           }
+          mapNameLookup={mapData}
         />
       </div>
 
@@ -3243,13 +3288,14 @@ export default function GamePage() {
               tutorialActiveSettings={
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
+              mapNameLookup={mapData}
             />
             <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-2">
               <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-2">Map View</p>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setMapView('globe'); persistMapView('globe'); }}
+                  onClick={switchToGlobeView}
                   className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
                 >
                   Globe
@@ -3455,6 +3501,9 @@ export default function GamePage() {
         onRepeatCombat={handleAttack}
         onRematch={handleRematch}
         onWatchReplay={handleWatchReplay}
+        onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
+        mapNameLookup={mapData}
+        players={gameState?.players}
       />
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
@@ -3526,6 +3575,15 @@ export default function GamePage() {
             setTutorialAccountPrompt(null);
             try { next?.onContinue(); } catch { /* ignore */ }
           }}
+        />
+      )}
+
+      {/* Post-tutorial routing: offer a first real match (registered players) */}
+      {postTutorialPrompt && (
+        <PostTutorialPromptModal
+          loading={postTutorialStarting}
+          onStartSolo={() => void startSoloFromTutorial()}
+          onBackToLobby={() => { setPostTutorialPrompt(false); navigate('/lobby'); }}
         />
       )}
 

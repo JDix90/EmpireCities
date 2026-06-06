@@ -98,9 +98,9 @@ export default function NewUserWelcomeModal({
             <Zap className="w-5 h-5 text-bf-gold" aria-hidden />
           </div>
           <div className="min-w-0">
-            <p className="font-display text-bf-gold text-base mb-0.5">Quick Solo Match</p>
+            <p className="font-display text-bf-gold text-base mb-0.5">Quick Match</p>
             <p className="text-bf-muted text-xs leading-relaxed">
-              1v3 AI in the Ancient World. Best if you already know Risk — or if you just want to dive in.
+              3 AI opponents ready in the Ancient World — start now, no waiting. Best if you already know Risk.
             </p>
           </div>
         </button>

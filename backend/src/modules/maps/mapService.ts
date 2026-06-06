@@ -114,6 +114,7 @@ export {
   listPublicMapRows,
   rowToGameMap,
   submitMapForModeration,
+  updateOwnedMap,
   upsertMapRating,
   upsertSeedMap,
 } from '../../db/postgres/mapsRepository';

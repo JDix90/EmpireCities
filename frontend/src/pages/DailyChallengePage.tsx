@@ -51,6 +51,8 @@ interface DailyResponse {
   active_game_id: string | null;
   /** Set when the user successfully completed today's daily; powers the "Watch Replay" CTA. */
   completed_game_id?: string | null;
+  /** Real count of commanders who have attempted today's challenge. */
+  attempts_today?: number;
   leaderboard: LeaderboardRow[];
 }
 
@@ -182,7 +184,7 @@ export default function DailyChallengePage() {
     );
   }
 
-  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard } = data;
+  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today } = data;
   const alreadyPlayed = my_entry !== null;
   const canWatchReplay = !!my_entry?.won && !!completed_game_id;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;
@@ -204,6 +206,11 @@ export default function DailyChallengePage() {
                 <h2 className="font-display text-xl text-bf-gold tracking-wide">{eraLabel}</h2>
               </div>
               <p className="text-bf-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
+              {attempts_today != null && attempts_today > 0 && (
+                <p className="text-bf-gold/80 text-sm mt-1">
+                  {attempts_today} commander{attempts_today === 1 ? '' : 's'} attempted today
+                </p>
+              )}
               {challenge.spec?.title && (
                 <p className="text-bf-text font-medium mt-3">{challenge.spec.title}</p>
               )}

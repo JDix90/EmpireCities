@@ -11,6 +11,7 @@ import {
   TAGLINE_CINEMATIC,
   STORE_DESCRIPTION,
 } from '../constants/brand';
+import { REGIONAL_MAPS } from '../data/regionalMaps';
 
 type EraScope = 'global' | 'regional';
 
@@ -167,8 +168,20 @@ const ERAS: EraDefinition[] = [
   },
 ];
 
+const COMMUNITY_REGIONAL_ERAS: EraDefinition[] = REGIONAL_MAPS.map((rm) => ({
+  id: rm.map_id,
+  mapId: rm.map_id,
+  label: rm.name,
+  years: rm.year,
+  color: rm.color,
+  scope: 'regional',
+  territoryCount: rm.territory_count,
+  summary: rm.description,
+  suggestedPlayers: '2–4 players',
+}));
+
 const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global');
-const REGIONAL_ERAS = ERAS.filter((e) => e.scope === 'regional');
+const REGIONAL_ERAS = [...ERAS.filter((e) => e.scope === 'regional'), ...COMMUNITY_REGIONAL_ERAS];
 
 const FEATURES = [
   { icon: Globe,  title: 'Eras Across Time',         desc: 'Fight from ancient kingdoms through world wars to galactic fronts — each era with its own map, factions, and rules.' },
@@ -400,7 +413,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="text-center py-16 sm:py-24 px-4 sm:px-6">
+      <section className="text-center pt-16 sm:pt-24 pb-10 sm:pb-12 px-4 sm:px-6">
         <h2 className="font-display text-4xl sm:text-5xl md:text-7xl text-bf-gold mb-4 sm:mb-6 leading-tight">
           {APP_NAME}
         </h2>
@@ -426,7 +439,7 @@ export default function LandingPage() {
       </section>
 
       {/* Era Showcase */}
-      <section className="py-16 px-6 max-w-6xl mx-auto">
+      <section className="pt-8 pb-16 px-6 max-w-6xl mx-auto">
         <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Choose Your Era</h3>
 
         <div className="mb-12">
@@ -442,11 +455,12 @@ export default function LandingPage() {
         </div>
 
         <div>
-          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Regional</h4>
+          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Regional &amp; Custom Maps</h4>
           <p className="text-bf-muted text-sm mb-6 max-w-2xl">
-            Theater-scale maps focused on a single region for faster, more intimate campaigns.
+            Theater-scale and alternate-history maps — from Civil War battlefields to flooded coastlines and indigenous
+            polities — for faster, more intimate campaigns.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {REGIONAL_ERAS.map((era) => (
               <EraCardButton key={era.id} era={era} onOpen={setModalEra} />
             ))}

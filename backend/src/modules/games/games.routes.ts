@@ -5,6 +5,7 @@ import type { VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
+import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
@@ -106,6 +107,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const gameType = ai_count === 0 ? 'multiplayer' : ai_count >= totalPlayers - 1 ? 'solo' : 'hybrid';
 
     let gameInsertOk = false;
+    let assignedJoinCode: string | null = null;
     for (let attempt = 0; attempt < 15; attempt++) {
       const joinCode = generateJoinCode();
       try {
@@ -115,6 +117,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           [gameId, map_id, era_id, JSON.stringify(applyAdminSnapshotsToSettings({ ...settings, max_players })), gameType, joinCode, !!settings.async_mode],
         );
         gameInsertOk = true;
+        assignedJoinCode = joinCode;
         break;
       } catch (e: unknown) {
         const pgCode = typeof e === 'object' && e !== null && 'code' in e ? (e as { code: string }).code : '';
@@ -142,7 +145,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType });
+    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType, join_code: assignedJoinCode });
   });
 
   // ── POST /api/games/tutorial/start ────────────────────────────────────────
@@ -291,6 +294,49 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       params,
     );
     return reply.send(games);
+  });
+
+  // ── GET /api/games/stats/activity ─────────────────────────────────────────
+  // Honest, real-time-ish activity signals for the lobby. Every number maps to
+  // real rows, so they stay truthful even when small. Cached briefly in Redis.
+  fastify.get('/stats/activity', { preHandler: authenticate }, async (_request, reply) => {
+    const cacheKey = 'games:activity-stats';
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return reply.send(JSON.parse(cached));
+    } catch {
+      // Redis miss/unavailable — fall through to a live query.
+    }
+
+    const row = await queryOne<{
+      games_in_progress: number;
+      games_today: number;
+      games_total: number;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM games g
+            WHERE g.status = 'in_progress'
+              AND EXISTS (SELECT 1 FROM game_players gp
+                          WHERE gp.game_id = g.game_id AND gp.is_ai = false))::int AS games_in_progress,
+         (SELECT COUNT(*) FROM games
+            WHERE status IN ('completed', 'abandoned')
+              AND ended_at >= NOW() - INTERVAL '24 hours')::int AS games_today,
+         (SELECT COUNT(*) FROM games
+            WHERE status IN ('completed', 'abandoned'))::int AS games_total`,
+    );
+
+    const result = {
+      games_in_progress: row?.games_in_progress ?? 0,
+      games_today: row?.games_today ?? 0,
+      games_total: row?.games_total ?? 0,
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(result), 'EX', 30);
+    } catch {
+      // Best-effort cache; ignore write failures.
+    }
+    return reply.send(result);
   });
 
   // ── GET /api/games/lookup?code= ──────────────────────────────────────────

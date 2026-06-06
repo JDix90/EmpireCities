@@ -116,6 +116,15 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
         )
       : null;
 
+    // Honest "shared event" signal: how many commanders have attempted today's
+    // challenge. Real count, interesting even when small.
+    const attemptsRow = await queryOne<{ attempts: string }>(
+      `SELECT COUNT(*)::int AS attempts
+       FROM daily_challenge_entries
+       WHERE challenge_date = $1`,
+      [row.challenge_date],
+    );
+
     // Top 10 leaderboard for today
     const leaderboard = await query<{
       username: string;
@@ -138,6 +147,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       my_entry: myEntry ?? null,
       active_game_id: activeGame?.game_id ?? null,
       completed_game_id: completedGame?.game_id ?? null,
+      attempts_today: attemptsRow?.attempts ? Number(attemptsRow.attempts) : 0,
       leaderboard,
     });
   });

@@ -9,6 +9,7 @@ import GameMap from '../components/game/GameMap';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import GameChat from '../components/game/GameChat';
+import { AiBadge } from '../components/ui/AiBadge';
 import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
 import {
   getStrikeToastMessage,
@@ -308,7 +309,7 @@ export default function SpectatorPage() {
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
             <span className="text-bf-text">{p.username}</span>
             <span className="text-bf-muted">{p.territory_count}T</span>
-            {p.is_ai && <span className="text-bf-muted/50">(AI)</span>}
+            {p.is_ai && <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} />}
           </span>
         ))}
       </div>

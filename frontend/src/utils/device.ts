@@ -56,9 +56,9 @@ const MAP_VIEW_KEY = 'cc-preferred-map-view';
 
 export function getInitialMapView(): '2d' | 'globe' {
   if (typeof window === 'undefined') return 'globe';
+  if (isLiteMode()) return '2d';
   const saved = localStorage.getItem(MAP_VIEW_KEY);
   if (saved === '2d' || saved === 'globe') return saved;
-  if (isMobileViewport() || isCoarsePointer()) return '2d';
   return 'globe';
 }
 

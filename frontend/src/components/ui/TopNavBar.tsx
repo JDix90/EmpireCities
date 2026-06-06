@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
+import { useMapEditorEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
@@ -14,6 +15,7 @@ type NavItem = {
   title?: string;
   hideForGuest?: boolean;
   hideForNonAdmin?: boolean;
+  requiresMapEditor?: boolean;
   exact?: boolean;
 };
 
@@ -25,7 +27,7 @@ const mainNav: NavItem[] = [
   { to: '/store', label: 'Store', icon: ShoppingBag, title: 'Store', hideForGuest: true },
   { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
   { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },
-  { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true },
+  { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true, requiresMapEditor: true },
   { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
 ];
 
@@ -35,6 +37,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   // persisted user.is_admin field — see selectIsAdminFromToken docstring.
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAdmin = selectIsAdminFromToken(accessToken);
+  const mapEditorEnabled = useMapEditorEnabled();
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to;
     return location.pathname.startsWith(to) && to !== '/';
@@ -48,8 +51,10 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Main nav groups */}
       <div className={styles.mainNav}>
         <div className={styles.navLinks}>
-          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, exact }) =>
-            (!hideForGuest || !user?.is_guest) && (!hideForNonAdmin || isAdmin) && (
+          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, requiresMapEditor, exact }) =>
+            (!hideForGuest || !user?.is_guest)
+            && (!hideForNonAdmin || isAdmin)
+            && (!requiresMapEditor || mapEditorEnabled) && (
               <Link
                 key={to}
                 to={to}

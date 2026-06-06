@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIsLandscape } from '../../hooks/useIsLandscape';
+import { useMapEditorEnabled } from '../../store/featureFlagsStore';
 
 interface MobileTabBarProps {
   isGuest?: boolean;
@@ -24,6 +25,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const isLandscape = useIsLandscape();
+  const mapEditorEnabled = useMapEditorEnabled();
 
   // Hide tab bar in landscape to maximize screen real estate
   if (isLandscape) return null;
@@ -48,7 +50,9 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               <MoreLink to="/codex" icon={BookOpen} label="Codex" onClick={() => setMoreOpen(false)} />
               {!isGuest && <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />}
               {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
-              {!isGuest && <MoreLink to="/editor" icon={PenSquare} label="Editor" onClick={() => setMoreOpen(false)} />}
+              {!isGuest && mapEditorEnabled && (
+                <MoreLink to="/editor" icon={PenSquare} label="Editor" onClick={() => setMoreOpen(false)} />
+              )}
               <MoreLink to="/leaderboards" icon={Trophy} label="Leaders" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
