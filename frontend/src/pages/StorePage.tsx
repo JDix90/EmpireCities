@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle } from 'lucide-react';
+import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
 import { RARITY_COLORS } from '@borderfall/shared';
 import type { CosmeticRarity } from '@borderfall/shared';
@@ -17,6 +17,8 @@ interface CosmeticItem {
   is_premium: boolean;
   owned: boolean;
   rarity?: CosmeticRarity | null;
+  required_achievement?: string | null;
+  achievement_earned?: boolean;
 }
 
 interface OwnedItem {
@@ -245,7 +247,13 @@ export default function StorePage() {
               <div className="text-center py-16 text-bf-muted">No items in this category.</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayed.map((item) => (
+                {displayed.map((item) => {
+                  // Achievement-gated item the player hasn't earned yet. Earning
+                  // the achievement auto-grants the cosmetic (owned === true), so
+                  // a locked item is one with a requirement that's unmet and
+                  // unowned. The backend is the authoritative gate; this is UX.
+                  const locked = Boolean(item.required_achievement) && !item.owned && !item.achievement_earned;
+                  return (
                   <div
                     key={item.cosmetic_id}
                     className={`card flex flex-col gap-3 ${
@@ -289,7 +297,12 @@ export default function StorePage() {
 
                     {/* Price / action */}
                     <div className="mt-auto pt-2 flex items-center justify-between">
-                      {item.price_gems === 0 ? (
+                      {locked ? (
+                        <span className="flex items-center gap-1 text-bf-muted text-xs font-medium">
+                          <Lock className="w-3.5 h-3.5" />
+                          Achievement
+                        </span>
+                      ) : item.price_gems === 0 ? (
                         <span className="text-xs text-green-400 font-medium">Free</span>
                       ) : (
                         <span className="flex items-center gap-1 text-bf-gold text-sm font-medium">
@@ -301,6 +314,13 @@ export default function StorePage() {
                       {item.owned ? (
                         <span className="text-xs text-bf-muted px-3 py-1 rounded border border-bf-border">
                           Collected
+                        </span>
+                      ) : locked ? (
+                        <span
+                          className="flex items-center gap-1 text-xs text-bf-muted px-3 py-1 rounded border border-bf-border"
+                          title="Earn the linked achievement to unlock this item"
+                        >
+                          <Lock className="w-3 h-3" /> Locked
                         </span>
                       ) : (
                         <button
@@ -317,7 +337,8 @@ export default function StorePage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>

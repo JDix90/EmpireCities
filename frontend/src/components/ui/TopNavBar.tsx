@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield
+  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield, Settings, Coins
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
@@ -38,6 +38,9 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAdmin = selectIsAdminFromToken(accessToken);
   const mapEditorEnabled = useMapEditorEnabled();
+  // Read gold from the store (not the prop) so it stays reactive after daily
+  // claims, purchases, and game rewards update the balance elsewhere.
+  const gold = useAuthStore((s) => s.user?.gold ?? 0);
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to;
     return location.pathname.startsWith(to) && to !== '/';
@@ -70,6 +73,16 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       </div>
       {/* Account & Help */}
       <div className={styles.accountNav}>
+        {!user?.is_guest && (
+          <Link
+            to="/store"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium hover:bg-bf-gold/20 transition-colors"
+            title="Gold balance"
+          >
+            <Coins className="w-4 h-4" aria-hidden />
+            <span className="tabular-nums">{gold.toLocaleString()}</span>
+          </Link>
+        )}
         <Link
           to="/profile"
           className={isActive('/profile') ? `${styles.navLink} ${styles.active}` : styles.navLink}
@@ -104,6 +117,16 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
         >
           <HelpCircle className={styles.icon} /> Help
         </Link>
+        {!user?.is_guest && (
+          <Link
+            to="/settings"
+            className={isActive('/settings') ? `${styles.navLink} ${styles.active}` : styles.navLink}
+            aria-current={isActive('/settings') ? 'page' : undefined}
+            title="Settings"
+          >
+            <Settings className={styles.icon} /> Settings
+          </Link>
+        )}
         <button type="button" onClick={onLogout} className={styles.navLink + ' hover:text-red-400'} title="Logout">
           <LogOut className={styles.icon} /> Logout
         </button>

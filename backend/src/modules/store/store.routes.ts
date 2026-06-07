@@ -15,6 +15,8 @@ interface CosmeticRow {
   is_premium: boolean;
   rarity: string;
   owned: boolean;
+  required_achievement: string | null;
+  achievement_earned: boolean;
 }
 
 const BuySchema = z.object({
@@ -29,10 +31,14 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
               COALESCE(c.price_gems, 0) AS price_gems,
               COALESCE(c.is_premium, false) AS is_premium,
               COALESCE(c.rarity, 'common') AS rarity,
-              (uc.cosmetic_id IS NOT NULL) AS owned
+              c.required_achievement,
+              (uc.cosmetic_id IS NOT NULL) AS owned,
+              (ua.achievement_id IS NOT NULL) AS achievement_earned
        FROM cosmetics c
        LEFT JOIN user_cosmetics uc
          ON uc.cosmetic_id = c.cosmetic_id AND uc.user_id = $1
+       LEFT JOIN user_achievements ua
+         ON ua.achievement_id = c.required_achievement AND ua.user_id = $1
        ORDER BY c.is_premium ASC, c.price_gems ASC, c.name ASC`,
       [request.userId],
     );
@@ -48,8 +54,8 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
     const { cosmetic_id } = parsed.data;
 
     // Load cosmetic
-    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string }>(
-      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity FROM cosmetics WHERE cosmetic_id = $1',
+    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string; required_achievement: string | null }>(
+      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity, required_achievement FROM cosmetics WHERE cosmetic_id = $1',
       [cosmetic_id, 'common'],
     );
     if (!cosmetic) {
@@ -59,6 +65,19 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
     // Legendary and mythic cosmetics cannot be purchased
     if (cosmetic.rarity === 'legendary' || cosmetic.rarity === 'mythic') {
       return reply.status(403).send({ error: 'This cosmetic can only be earned through achievements or seasonal rewards' });
+    }
+
+    // Achievement-gated cosmetics: the linked achievement must be earned first.
+    // Fail closed — without this check the free-claim path below would hand out
+    // prestige medals to anyone, bypassing the progression system entirely.
+    if (cosmetic.required_achievement) {
+      const earned = await queryOne<{ achievement_id: string }>(
+        'SELECT achievement_id FROM user_achievements WHERE user_id = $1 AND achievement_id = $2',
+        [request.userId, cosmetic.required_achievement],
+      );
+      if (!earned) {
+        return reply.status(403).send({ error: 'Earn the linked achievement to unlock this item' });
+      }
     }
 
     // Free items — no gold check, but still need atomic "insert if not owned".
