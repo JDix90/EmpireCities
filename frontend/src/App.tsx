@@ -279,8 +279,11 @@ export default function App() {
         <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/campaign" element={<PrivateRoute><CampaignPage /></PrivateRoute>} />
+        {/* React Router v6 already matches a trailing slash (`/maps/`) to this
+            route, so no separate `/maps/` redirect is needed. A duplicate
+            `path="/maps/"` route actually hijacks the `/maps` match and renders
+            a no-op <Navigate to="/maps">, blanking the page. */}
         <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
-        <Route path="/maps/" element={<Navigate to="/maps" replace />} />
         <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
         <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />
