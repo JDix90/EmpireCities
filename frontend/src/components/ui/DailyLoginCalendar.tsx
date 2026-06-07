@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { Calendar, Coins, Flame } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
@@ -61,8 +62,16 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
       if (user) {
         setUser({ ...user, gold: res.data.gold, daily_streak: res.data.daily_streak });
       }
+      // Confirm the gold actually landed. `claimed` is false when the day was
+      // already redeemed (e.g. a double-tap or another device), so don't claim
+      // credit for gold the server didn't award.
+      if (res.data.claimed) {
+        toast.success(`+${data.gold_per_day} gold claimed!`, { icon: '🪙' });
+      } else {
+        toast('Already claimed today', { icon: '✅' });
+      }
     } catch {
-      // silently fail
+      toast.error('Could not claim daily reward');
     } finally {
       setClaiming(false);
     }

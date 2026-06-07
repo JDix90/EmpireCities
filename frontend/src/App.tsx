@@ -34,6 +34,7 @@ const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
 const StorePage = lazyWithChunkRetry(() => import('./pages/StorePage'));
+const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
 const ReplayPage = lazyWithChunkRetry(() => import('./pages/ReplayPage'));
 const CampaignPage = lazyWithChunkRetry(() => import('./pages/CampaignPage'));
 const LeaderboardsPage = lazyWithChunkRetry(() => import('./pages/LeaderboardsPage'));
@@ -278,6 +279,7 @@ export default function App() {
         <Route path="/editor/:mapId" element={<MapEditorRoute><MapEditorPage /></MapEditorRoute>} />
         <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/profile/:userId" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+        <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
         <Route path="/campaign" element={<PrivateRoute><CampaignPage /></PrivateRoute>} />
         {/* React Router v6 already matches a trailing slash (`/maps/`) to this
             route, so no separate `/maps/` redirect is needed. A duplicate
