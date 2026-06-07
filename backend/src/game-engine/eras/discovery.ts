@@ -21,7 +21,9 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     lore: 'Portugal lives by charts, caravels, and coastal strongpoints, turning sea lanes into a private imperial network.',
     flavor_quote: 'Map the current, own the world beyond it.',
     home_region_ids: ['europe_disc'],
-    passive_attack_bonus: 1,
+    // Naval Charts is a sea-only effect (see executeTechAbility / combatModifiers):
+    // sea_lanes attacks roll the full 3-dice cap. No general passive attack bonus,
+    // so land attacks are unaffected — matching the faction description.
     ability_id: 'naval_charts',
     ability_description: 'Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.',
     color: '#27ae60',

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   autoPlaceDraftUnits,
+  advancePhaseOnTimeout,
   advanceToNextPlayer,
   checkVictory,
   redeemCardSet,
@@ -105,6 +106,83 @@ describe('autoPlaceDraftUnits', () => {
     autoPlaceDraftUnits(state);
     expect(state.territories.t1.unit_count).toBe(5);
     expect(state.draft_units_remaining).toBe(0);
+  });
+
+  it('respects the per-territory stability deploy cap (critical → 1)', () => {
+    const state = makeState({
+      draft_units_remaining: 5,
+      settings: makeSettings({ stability_enabled: true }),
+      territories: {
+        t1: { ...makeTerritory('t1', 'p1', 2), stability: 20 }, // < 30 → cap 1
+      },
+    });
+    const res = autoPlaceDraftUnits(state);
+    expect(res.total).toBe(1);
+    expect(state.territories.t1.unit_count).toBe(3);
+    // Units that couldn't be placed under the cap remain for the caller to clear.
+    expect(state.draft_units_remaining).toBe(4);
+    expect(state.draft_placements_this_turn?.t1).toBe(1);
+  });
+
+  it('distributes across territories up to each stability cap then stops', () => {
+    const state = makeState({
+      draft_units_remaining: 10,
+      settings: makeSettings({ stability_enabled: true }),
+      territories: {
+        t1: { ...makeTerritory('t1', 'p1', 1), stability: 40 }, // 30-49 → cap 3
+        t2: { ...makeTerritory('t2', 'p1', 1), stability: 40 }, // 30-49 → cap 3
+      },
+    });
+    const res = autoPlaceDraftUnits(state);
+    expect(res.total).toBe(6); // 3 + 3
+    expect(state.draft_units_remaining).toBe(4);
+  });
+
+  it('ignores caps entirely when stability is disabled', () => {
+    const state = makeState({
+      draft_units_remaining: 5,
+      settings: makeSettings({ stability_enabled: false }),
+      territories: {
+        t1: { ...makeTerritory('t1', 'p1', 2), stability: 10 },
+      },
+    });
+    const res = autoPlaceDraftUnits(state);
+    expect(res.total).toBe(5);
+    expect(state.draft_units_remaining).toBe(0);
+  });
+});
+
+// ── advancePhaseOnTimeout ─────────────────────────────────────────────────────
+
+describe('advancePhaseOnTimeout', () => {
+  it('auto-places draft units and moves draft → attack for the same player', () => {
+    const state = makeState({ phase: 'draft', draft_units_remaining: 5 });
+    const result = advancePhaseOnTimeout(state);
+    expect(result.kind).toBe('phase');
+    if (result.kind === 'phase') {
+      expect(result.newPhase).toBe('attack');
+      expect(result.autoDraft.total).toBe(5);
+    }
+    expect(state.phase).toBe('attack');
+    expect(state.draft_units_remaining).toBe(0);
+    expect(state.current_player_index).toBe(0);
+  });
+
+  it('moves attack → fortify without ending the turn', () => {
+    const state = makeState({ phase: 'attack' });
+    const result = advancePhaseOnTimeout(state);
+    expect(result.kind).toBe('phase');
+    if (result.kind === 'phase') expect(result.newPhase).toBe('fortify');
+    expect(state.phase).toBe('fortify');
+    expect(state.current_player_index).toBe(0);
+  });
+
+  it('ends the turn from fortify, advancing to the next player in draft', () => {
+    const state = makeState({ phase: 'fortify', current_player_index: 0 });
+    const result = advancePhaseOnTimeout(state);
+    expect(result.kind).toBe('turn');
+    expect(state.current_player_index).toBe(1);
+    expect(state.phase).toBe('draft');
   });
 });
 

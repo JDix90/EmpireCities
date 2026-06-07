@@ -18,6 +18,7 @@ import {
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
 import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
+import { isFogHidden } from '../../utils/fogVisibility';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
 import {
   SPACE_AGE_WASTELANDS,
@@ -2291,6 +2292,8 @@ function GlobeMap({
     for (const [tid, tState] of Object.entries(gameState.territories)) {
       const terr = territoryById.get(tid);
       if (!terr || inferWorldId(terr) !== activeWorldId) continue;
+      // Fog of war: don't reveal building icons on unscouted territories.
+      if (isFogHidden(tState)) continue;
       const buildings: string[] = (tState as { buildings?: string[] }).buildings ?? [];
       if (buildings.length === 0) continue;
       const c = territoryCentroids.get(tid);

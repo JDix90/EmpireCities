@@ -792,81 +792,6 @@
   ],
   "connections": [
     {
-      "from": "anatolia_med",
-      "to": "byzantine",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_med",
-      "to": "levant_crusader",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_med",
-      "to": "mesopotamia_med",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_med",
-      "to": "persia_med",
-      "type": "land"
-    },
-    {
-      "from": "arabia_med",
-      "to": "east_africa_med",
-      "type": "sea"
-    },
-    {
-      "from": "arabia_med",
-      "to": "mesopotamia_med",
-      "type": "land"
-    },
-    {
-      "from": "byzantine",
-      "to": "hungary",
-      "type": "land"
-    },
-    {
-      "from": "central_asia",
-      "to": "delhi_sultanate",
-      "type": "land"
-    },
-    {
-      "from": "central_asia",
-      "to": "kievan_rus",
-      "type": "land"
-    },
-    {
-      "from": "central_asia",
-      "to": "persia_med",
-      "type": "land"
-    },
-    {
-      "from": "central_asia",
-      "to": "siberia",
-      "type": "land"
-    },
-    {
-      "from": "delhi_sultanate",
-      "to": "persia_med",
-      "type": "land"
-    },
-    {
-      "from": "delhi_sultanate",
-      "to": "south_india_med",
-      "type": "land"
-    },
-    {
-      "from": "delhi_sultanate",
-      "to": "southeast_asia",
-      "type": "land"
-    },
-    {
-      "from": "egypt_ayyubid",
-      "to": "levant_crusader",
-      "type": "land"
-    },
-    {
       "from": "england",
       "to": "france",
       "type": "sea"
@@ -878,17 +803,27 @@
     },
     {
       "from": "france",
-      "to": "holy_roman",
-      "type": "land"
-    },
-    {
-      "from": "france",
       "to": "iberia",
       "type": "land"
     },
     {
       "from": "france",
+      "to": "holy_roman",
+      "type": "land"
+    },
+    {
+      "from": "france",
       "to": "italy_states",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "italy_states",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman",
+      "to": "poland_bohemia",
       "type": "land"
     },
     {
@@ -898,62 +833,67 @@
     },
     {
       "from": "holy_roman",
-      "to": "italy_states",
-      "type": "land"
-    },
-    {
-      "from": "holy_roman",
-      "to": "poland_bohemia",
-      "type": "land"
-    },
-    {
-      "from": "holy_roman",
       "to": "scandinavia",
       "type": "land"
     },
     {
-      "from": "hungary",
+      "from": "scandinavia",
       "to": "kievan_rus",
       "type": "land"
     },
     {
+      "from": "poland_bohemia",
+      "to": "kievan_rus",
+      "type": "land"
+    },
+    {
+      "from": "poland_bohemia",
+      "to": "hungary",
+      "type": "land"
+    },
+    {
       "from": "hungary",
-      "to": "poland_bohemia",
-      "type": "land"
-    },
-    {
-      "from": "iberia",
-      "to": "mali_empire",
-      "type": "sea"
-    },
-    {
-      "from": "italy_states",
       "to": "byzantine",
-      "type": "sea"
-    },
-    {
-      "from": "kievan_rus",
-      "to": "poland_bohemia",
       "type": "land"
     },
     {
       "from": "kievan_rus",
-      "to": "scandinavia",
+      "to": "byzantine",
       "type": "land"
     },
     {
       "from": "kievan_rus",
-      "to": "siberia",
+      "to": "central_asia",
       "type": "land"
     },
     {
-      "from": "korea_japan",
-      "to": "song_china",
-      "type": "sea"
+      "from": "byzantine",
+      "to": "anatolia_med",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_med",
+      "to": "levant_crusader",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_med",
+      "to": "mesopotamia_med",
+      "type": "land"
+    },
+    {
+      "from": "levant_crusader",
+      "to": "egypt_ayyubid",
+      "type": "land"
     },
     {
       "from": "levant_crusader",
       "to": "mesopotamia_med",
+      "type": "land"
+    },
+    {
+      "from": "egypt_ayyubid",
+      "to": "arabia_med",
       "type": "land"
     },
     {
@@ -962,13 +902,43 @@
       "type": "land"
     },
     {
+      "from": "mesopotamia_med",
+      "to": "arabia_med",
+      "type": "land"
+    },
+    {
+      "from": "persia_med",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "persia_med",
+      "to": "delhi_sultanate",
+      "type": "land"
+    },
+    {
+      "from": "siberia",
+      "to": "mongolia",
+      "type": "land"
+    },
+    {
+      "from": "siberia",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
+      "from": "mongolia",
+      "to": "central_asia",
+      "type": "land"
+    },
+    {
       "from": "mongolia",
       "to": "northern_china_med",
       "type": "land"
     },
     {
-      "from": "mongolia",
-      "to": "siberia",
+      "from": "central_asia",
+      "to": "delhi_sultanate",
       "type": "land"
     },
     {
@@ -977,8 +947,8 @@
       "type": "land"
     },
     {
-      "from": "scandinavia",
-      "to": "siberia",
+      "from": "northern_china_med",
+      "to": "korea_japan",
       "type": "land"
     },
     {
@@ -987,13 +957,28 @@
       "type": "land"
     },
     {
+      "from": "southern_china_med",
+      "to": "southeast_asia",
+      "type": "land"
+    },
+    {
+      "from": "korea_japan",
+      "to": "song_china",
+      "type": "sea"
+    },
+    {
+      "from": "delhi_sultanate",
+      "to": "south_india_med",
+      "type": "land"
+    },
+    {
       "from": "south_india_med",
       "to": "southeast_asia",
       "type": "sea"
     },
     {
-      "from": "southeast_asia",
-      "to": "southern_china_med",
+      "from": "egypt_ayyubid",
+      "to": "east_africa_med",
       "type": "land"
     },
     {
@@ -1002,9 +987,19 @@
       "type": "land"
     },
     {
-      "from": "central_africa_med",
-      "to": "east_africa_med",
+      "from": "east_africa_med",
+      "to": "central_africa_med",
       "type": "land"
+    },
+    {
+      "from": "iberia",
+      "to": "mali_empire",
+      "type": "sea"
+    },
+    {
+      "from": "arabia_med",
+      "to": "east_africa_med",
+      "type": "sea"
     }
   ],
   "regions": [

@@ -30,7 +30,8 @@ export const TERRITORY_ABILITY_UI: Record<string, TerritoryAbilityUiDef> = {
   siege_assault: { label: 'Siege Assault', emoji: '🏰', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
   cannon_barrage: { label: 'Cannon Barrage', emoji: '💣', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
   royal_decree: { label: 'Royal Decree', emoji: '👑', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'info' },
-  march_to_sea: { label: 'March to the Sea', emoji: '⚔️', scope: 'game', phase: 'attack', enemyTarget: false, style: 'info' },
+  march_to_sea: { label: 'March to the Sea', emoji: '⚔️', scope: 'game', phase: 'attack', enemyTarget: false, style: 'info', hint: '+1 attack die on up to 3 consecutive chain captures' },
+  double_blitz: { label: 'Double Blitz', emoji: '⚡', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning', hint: 'After a capture, make two bonus attacks from that territory (+1 die each).' },
   launch_space_station: { label: 'Launch Space Station', emoji: '🚀', scope: 'game', phase: 'draft', enemyTarget: false, style: 'info' },
 };
 

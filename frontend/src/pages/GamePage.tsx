@@ -727,6 +727,11 @@ export default function GamePage() {
     });
 
     socket.on('game:state', (state: ClientGameState) => {
+      // Guard against cross-game state bleed: the socket is a singleton, so a
+      // stale room subscription from a previously-open game can deliver that
+      // game's broadcasts here. Ignore any state that isn't for this route's
+      // game so the view doesn't flicker between two games.
+      if (state.game_id && state.game_id !== gameId) return;
       // Reconnecting players only receive game:state, not game:started — keep UI in sync
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);
@@ -823,6 +828,19 @@ export default function GamePage() {
             key: notifCounter.current,
           });
         }
+      }
+
+      // Clear stale attack/fleet selection so a leftover source territory can't
+      // drive a wrong fortify emit or a misleading HUD pill after the turn moves
+      // on (reconnect, opponent's turn ends) or the phase changes underneath us.
+      // attackSource doubles as the fortify source, so any phase/turn shift that
+      // invalidates the current selection should reset it.
+      const phaseChanged = !!prevPhase && prevPhase !== state.phase;
+      if (playerChanged || (phaseChanged && !isMyTurn) || (phaseChanged && state.phase === 'fortify')) {
+        useUiStore.getState().reset();
+        // The truce-break confirm modal lives in local state (not uiStore); clear
+        // it too so it can't submit an attack with stale from/to after the turn moves on.
+        setTruceBreakerConfirm(null);
       }
 
       prevPlayerIndexRef.current = newIndex;
@@ -1266,6 +1284,16 @@ export default function GamePage() {
       // it had been queued up against the previous (now invalid) selection.
       // Clearing it forces a clean re-pick.
       setSelectedTerritory(null);
+      // Also drop transient targeting/confirmation state that could otherwise
+      // mis-fire after a rejected action: a stale fleet source would drive the
+      // next naval submit, and the truce-break confirm modal auto-submits an
+      // attack with its captured from/to when confirmed.
+      setNavalSource(null);
+      setTruceBreakerConfirm(null);
+      // A territory-select pick can be rejected (e.g. not your pick) without a
+      // following game:state. Release the in-flight lock here so the player isn't
+      // soft-locked out of selecting again.
+      territorySelectPendingRef.current = false;
       const gs = useGameStore.getState().gameState;
       const uid = userRef.current?.user_id;
       const uname = userRef.current?.username;

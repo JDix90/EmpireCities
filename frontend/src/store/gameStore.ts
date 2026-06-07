@@ -49,6 +49,10 @@ export interface PlayerState {
   pending_extra_attack_die?: boolean;
   pending_ignore_defense_building?: boolean;
   march_to_sea_active?: boolean;
+  /** ACW Total War: chain captures that have received the +1 die bonus (0–3). */
+  march_to_sea_hops_used?: number;
+  /** ACW Total War: territory captured in the prior chain hop. */
+  march_to_sea_last_capture_id?: string | null;
 }
 
 export interface GameState {

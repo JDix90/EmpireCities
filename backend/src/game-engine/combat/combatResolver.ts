@@ -121,14 +121,21 @@ export function resolveCombat(
     attackerRolls.splice(0, attackerRolls.length, ...rerolledAttackerRolls);
   }
 
+  // Cap attacker losses so an attacking territory can never drop below 1 unit.
+  // Bonus dice (tech, faction, blitzkrieg, truce, coastal battery, etc.) can push
+  // the comparison count above `attackingUnits - 1`; without this floor the caller
+  // would subtract more units than exist, corrupting state with a zero/negative army.
+  const cappedAttackerLosses = Math.min(attackerLosses, attackingUnits - 1);
+  const cappedDefenderLosses = Math.min(defenderLosses, defendingUnits);
+
   const territory_captured =
-    defenderLosses >= defendingUnits && attackerLosses < attackingUnits;
+    cappedDefenderLosses >= defendingUnits && cappedAttackerLosses < attackingUnits;
 
   return {
     attacker_rolls: attackerRolls,
     defender_rolls: defenderRolls,
-    attacker_losses: attackerLosses,
-    defender_losses: Math.min(defenderLosses, defendingUnits),
+    attacker_losses: cappedAttackerLosses,
+    defender_losses: cappedDefenderLosses,
     territory_captured,
   };
 }

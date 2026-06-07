@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Shield, Sword, X, Anchor, Flag } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
+import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
@@ -109,6 +110,9 @@ export default function TerritoryPanel({
   const isUnowned = tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral';
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
   const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
+  // Fog-of-war: server sends unit_count -1 (and strips buildings/fleets/stability)
+  // for territories this player hasn't revealed. Don't render scouting intel for them.
+  const fogHidden = isFogHidden(tState);
   const isMobile = isMobileViewport();
   // Once the player has locked in an attacker on mobile, the panel should stay
   // compact whether they're viewing the attacker territory itself or sizing up
@@ -316,7 +320,7 @@ export default function TerritoryPanel({
           <span className="text-bf-muted text-sm">
             {isViewingOwnAttacker ? 'units ready to attack' : 'defending units'}
           </span>
-          {tState.naval_units != null && tState.naval_units > 0 && (
+          {!fogHidden && tState.naval_units != null && tState.naval_units > 0 && (
             <span className="ml-2 text-xs text-blue-300">· {tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''}</span>
           )}
         </div>
@@ -328,8 +332,8 @@ export default function TerritoryPanel({
             <span className="text-bf-muted text-sm">units</span>
           </div>
 
-          {/* Fleet Count (naval warfare) */}
-          {tState.naval_units != null && (
+          {/* Fleet Count (naval warfare) — hidden under fog of war */}
+          {!fogHidden && tState.naval_units != null && (
             <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
               <Anchor className="w-5 h-5 text-blue-400" />
               <span className="text-2xl font-bold text-bf-text">{tState.naval_units}</span>
@@ -337,8 +341,8 @@ export default function TerritoryPanel({
             </div>
           )}
 
-          {/* Stability Bar */}
-          {gameState.settings.stability_enabled && tState.stability != null && (
+          {/* Stability Bar — hidden under fog of war */}
+          {!fogHidden && gameState.settings.stability_enabled && tState.stability != null && (
             <div className="mb-4 p-3 bg-bf-dark rounded-lg">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-bf-muted">Stability</span>
@@ -475,6 +479,7 @@ export default function TerritoryPanel({
             const factionAbilities = getFactionTerritoryAbilities(gameState, myPlayer, {
               isEnemy,
               isMine,
+              isUnowned,
             });
             const allAbilities = [...techAbilities, ...factionAbilities];
             if (allAbilities.length === 0) return null;
@@ -551,6 +556,13 @@ export default function TerritoryPanel({
                       return (
                         <p className="text-xs text-purple-400/50 text-center py-1">
                           📡 Influence on cooldown ({cooldown} turn{cooldown > 1 ? 's' : ''})
+                        </p>
+                      );
+                    }
+                    if (!isGaribaldiTarget && fogHidden) {
+                      return (
+                        <p className="text-xs text-purple-400/50 text-center py-1">
+                          📡 Strength unknown — scout this territory first
                         </p>
                       );
                     }
@@ -771,13 +783,13 @@ export default function TerritoryPanel({
         return (
           <BuildingPanel
             territoryId={selectedTerritory}
-            buildings={tState.buildings ?? []}
+            buildings={fogHidden ? [] : (tState.buildings ?? [])}
             playerResources={gameState.players.find((p) => p.player_id === myPlayerId)?.special_resource ?? 0}
             isMine={isMine}
             isMyTurn={isMyTurn}
             phase={gameState.phase}
             onBuild={onBuild}
-            isCoastal={tState.naval_units != null}
+            isCoastal={!fogHidden && tState.naval_units != null}
             eraWonder={eraWonderProp}
           />
         );

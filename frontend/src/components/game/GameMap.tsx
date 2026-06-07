@@ -3,6 +3,7 @@ import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
+import { isFogHidden } from '../../utils/fogVisibility';
 import { hapticImpact } from '../../utils/haptics';
 import { REGION_PIXI_COLORS } from '../../constants/regionColors';
 import {
@@ -529,7 +530,8 @@ export default function GameMap({
     if (buildingLayer) {
       for (const territory of mapData.territories) {
         const tState = gameState.territories[territory.territory_id];
-        const buildings = tState?.buildings ?? [];
+        // Fog of war: don't reveal building icons on territories the player hasn't scouted.
+        const buildings = isFogHidden(tState) ? [] : (tState?.buildings ?? []);
         const existing = buildingTextMapRef.current.get(territory.territory_id);
 
         if (buildings.length === 0) {

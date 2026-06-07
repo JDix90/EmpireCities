@@ -1,5 +1,8 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { syncTerritoryCounts } from '../state/gameStateManager';
+import { getEraTechTree } from '../eras';
+import { getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../state/influenceManager';
+import { getWonderInfluenceRange } from '../state/wonderManager';
 import {
   GAME_SCOPED_ABILITIES,
   TERRITORY_ABILITY_DEFS,
@@ -71,6 +74,10 @@ export function executeTechAbility(params: {
     currentPlayer.pending_extra_attack_die = true;
     return { success: true, effect: 'extra_attack_die_ready' };
   }
+  if (def?.selfBuff === 'negate_attacker_losses') {
+    currentPlayer.pending_negate_attacker_losses = true;
+    return { success: true, effect: 'negate_attacker_losses_ready' };
+  }
 
   // ── Recon abilities (no territory target) ─────────────────────────────────
   if (abilityId === 'spy_network' || abilityId === 'satellite_reconnaissance') {
@@ -87,12 +94,132 @@ export function executeTechAbility(params: {
     return { success: true, effect: 'royal_decree_units', territoryId };
   }
 
+  // ── Total War / People's War: one-time draft reinforcement surge (Group C) ──
+  if (abilityId === 'total_war' || abilityId === 'peoples_war') {
+    state.draft_units_remaining += 6;
+    currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
+    return { success: true, effect: 'faction_draft_reinforcements' };
+  }
+
+  // ── Imperial Diet: +1 draft unit per fully-owned region, capped at +4 ───────
+  if (abilityId === 'imperial_diet') {
+    const regionTally = new Map<string, { owned: number; total: number }>();
+    for (const t of Object.values(state.territories)) {
+      if (!t.region_id) continue;
+      const entry = regionTally.get(t.region_id) ?? { owned: 0, total: 0 };
+      entry.total += 1;
+      if (t.owner_id === playerId) entry.owned += 1;
+      regionTally.set(t.region_id, entry);
+    }
+    let fullyOwned = 0;
+    for (const { owned, total } of regionTally.values()) {
+      if (total > 0 && owned === total) fullyOwned += 1;
+    }
+    const bonus = Math.min(fullyOwned, 4);
+    if (bonus === 0) return { success: false, error: 'Control at least one full region first' };
+    state.draft_units_remaining += bonus;
+    return { success: true, effect: 'faction_draft_reinforcements' };
+  }
+
+  // ── Unification Drive: free conversion of a neutral territory in range ──────
+  if (abilityId === 'unification_drive') {
+    if (!territoryId) return { success: false, error: 'Provide territoryId' };
+    const target = state.territories[territoryId];
+    if (!target) return { success: false, error: 'Invalid territory' };
+    if (target.owner_id != null) return { success: false, error: 'Can only unify a neutral territory' };
+
+    const ownedIds = Object.entries(state.territories)
+      .filter(([, t]) => t.owner_id === playerId)
+      .map(([id]) => id);
+    const hopLimit = getInfluenceHopLimit({
+      baseHopLimit: state.era_modifiers?.influence_range ?? 1,
+      unlockedTechs: currentPlayer.unlocked_techs ?? [],
+      techTree: state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [],
+      wonderRangeBonus: state.settings.economy_enabled ? getWonderInfluenceRange(state, playerId) : 0,
+    });
+    if (!isTerritoryReachableWithinHops({ map, ownedTerritoryIds: ownedIds, targetId: territoryId, hopLimit })) {
+      return { success: false, error: 'Target is out of influence range' };
+    }
+
+    target.owner_id = playerId;
+    target.unit_count = 1;
+    syncTerritoryCounts(state);
+    return { success: true, effect: 'unification_convert', territoryId };
+  }
+
+  // ── Armored Push: +1 fortify move this turn (Group F) ───────────────────────
+  if (abilityId === 'armored_push') {
+    currentPlayer.bonus_fortify_moves = (currentPlayer.bonus_fortify_moves ?? 0) + 1;
+    return { success: true, effect: 'bonus_fortify_move' };
+  }
+
+  // ── Silk Road: +3 tech points (Group C) ─────────────────────────────────────
+  if (abilityId === 'silk_road') {
+    currentPlayer.tech_points = (currentPlayer.tech_points ?? 0) + 3;
+    return { success: true, effect: 'faction_tech_points' };
+  }
+
+  // ── House of Wisdom: discount the next research by 3 tech points (min 1) ────
+  if (abilityId === 'house_of_wisdom') {
+    currentPlayer.pending_tech_discount = (currentPlayer.pending_tech_discount ?? 0) + 3;
+    return { success: true, effect: 'faction_tech_discount' };
+  }
+
+  // ── Spice Trade: spend tech points to add reinforcements to the draft pool ──
+  if (def?.draftReinforcements) {
+    const cost = def.techCost ?? 0;
+    if ((currentPlayer.tech_points ?? 0) < cost) {
+      return { success: false, error: `Not enough tech points (need ${cost})` };
+    }
+    currentPlayer.tech_points = (currentPlayer.tech_points ?? 0) - cost;
+    state.draft_units_remaining += def.draftReinforcements;
+    return { success: true, effect: 'faction_draft_reinforcements' };
+  }
+
+  // ── Faction free / tech-gated unit placement on an owned territory (Groups A & B) ─
+  if (def?.ownPlacement) {
+    if (!territoryId) return { success: false, error: 'Provide territoryId' };
+    const t = state.territories[territoryId];
+    if (!t || t.owner_id !== playerId) return { success: false, error: 'Invalid territory' };
+    if (def.ownPlacement.requiresMoon && t.world_id !== 'moon' && t.globe_id !== 'moon') {
+      return { success: false, error: 'Must target an owned Moon territory' };
+    }
+    if (def.ownPlacement.requiresProductionBuilding
+      && !(t.buildings ?? []).some((b) => b === 'production_1' || b === 'production_2' || b === 'production_3')) {
+      return { success: false, error: 'Must target a territory with a production building' };
+    }
+    const cost = def.techCost ?? 0;
+    if (cost > 0 && (currentPlayer.tech_points ?? 0) < cost) {
+      return { success: false, error: `Not enough tech points (need ${cost})` };
+    }
+    if (cost > 0) currentPlayer.tech_points = (currentPlayer.tech_points ?? 0) - cost;
+    t.unit_count += def.ownPlacement.units;
+    if (def.ownPlacement.restoreStability && t.stability != null) {
+      t.stability = 100;
+    }
+    syncTerritoryCounts(state);
+    return { success: true, effect: 'faction_units_placed', territoryId };
+  }
+
+  // ── Mass Mobilization: place 5 free units on an owned territory (once/game) ─
+  if (abilityId === 'mass_mobilization') {
+    if (!territoryId) return { success: false, error: 'Provide territoryId' };
+    const t = state.territories[territoryId];
+    if (!t || t.owner_id !== playerId) return { success: false, error: 'Invalid territory' };
+    t.unit_count += 5;
+    syncTerritoryCounts(state);
+    currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
+    return { success: true, effect: 'mass_mobilization_units', territoryId };
+  }
+
   // ── March to the Sea: enable chain attacks for this turn (once per game) ──
   if (abilityId === 'march_to_sea') {
     if (state.phase !== 'attack') {
       return { success: false, error: 'March to the Sea can only be activated during the attack phase' };
     }
     currentPlayer.march_to_sea_active = true;
+    currentPlayer.march_to_sea_hops_used = 0;
+    currentPlayer.march_to_sea_last_capture_id = null;
     currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
     return { success: true, effect: 'march_to_sea_active' };
   }
@@ -115,12 +242,26 @@ export function executeTechAbility(params: {
       return { success: false, error: 'Target territory is out of range' };
     }
 
+    // Privateer: the raid can only strike coastal targets (territories with a sea connection).
+    if (def.requiresCoastalTarget) {
+      const isCoastal = (map.connections ?? []).some(
+        (c) => c.type === 'sea' && (c.from === territoryId || c.to === territoryId),
+      );
+      if (!isCoastal) return { success: false, error: 'Can only strike a coastal territory' };
+    }
+
     const { previousOwner, previousUnits } = applyUnitReduction(
       state,
       territoryId,
       def.unitReduction,
       def.minTargetUnits ?? 1,
     );
+
+    // Privateer: looting a coastal target yields tech points when economy is enabled.
+    if (def.grantsTechPointOnUse && state.settings.economy_enabled) {
+      currentPlayer.tech_points = (currentPlayer.tech_points ?? 0) + def.grantsTechPointOnUse;
+    }
+
     return {
       success: true,
       effect: 'unit_reduction',
@@ -196,16 +337,19 @@ export function consumeAttackBuffs(player: PlayerState): {
   preAttackDamage: number;
   extraAttackDie: boolean;
   ignoreDefenseBuilding: boolean;
+  negateAttackerLosses: boolean;
 } {
   const preAttackDamage = player.pending_pre_attack_damage ?? 0;
   const extraAttackDie = !!player.pending_extra_attack_die;
   const ignoreDefenseBuilding = !!player.pending_ignore_defense_building;
+  const negateAttackerLosses = !!player.pending_negate_attacker_losses;
 
   player.pending_pre_attack_damage = undefined;
   player.pending_extra_attack_die = undefined;
   player.pending_ignore_defense_building = undefined;
+  player.pending_negate_attacker_losses = undefined;
 
-  return { preAttackDamage, extraAttackDie, ignoreDefenseBuilding };
+  return { preAttackDamage, extraAttackDie, ignoreDefenseBuilding, negateAttackerLosses };
 }
 
 export function playerCanUseAbility(

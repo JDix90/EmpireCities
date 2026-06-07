@@ -895,13 +895,7 @@
         70,
         583
       ],
-      "region_id": "sea_routes",
-      "geo_polygon": [
-        [-21, -9],
-        [-19, -9],
-        [-19, -11],
-        [-21, -11]
-      ]
+      "region_id": "sea_routes"
     },
     {
       "territory_id": "indian_ocean",
@@ -928,105 +922,19 @@
         650,
         500
       ],
-      "region_id": "sea_routes",
-      "geo_polygon": [
-        [64, 0],
-        [66, 0],
-        [66, -2],
-        [64, -2]
-      ]
+      "region_id": "sea_routes"
     }
   ],
   "connections": [
     {
-      "from": "anatolia_disc",
-      "to": "levant_disc",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_disc",
-      "to": "mesopotamia_disc",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_disc",
-      "to": "ottoman_balkans",
-      "type": "land"
-    },
-    {
-      "from": "anatolia_disc",
-      "to": "persia_disc",
-      "type": "land"
-    },
-    {
-      "from": "arabia_disc",
-      "to": "indian_ocean",
-      "type": "sea"
-    },
-    {
-      "from": "arabia_disc",
-      "to": "levant_disc",
-      "type": "land"
-    },
-    {
-      "from": "arabia_disc",
-      "to": "mesopotamia_disc",
-      "type": "land"
-    },
-    {
-      "from": "atlantic_route",
-      "to": "rio_plata",
-      "type": "sea"
-    },
-    {
-      "from": "brazil",
+      "from": "spain_portugal",
       "to": "france_disc",
       "type": "land"
     },
     {
-      "from": "brazil",
-      "to": "new_granada",
-      "type": "land"
-    },
-    {
-      "from": "brazil",
-      "to": "peru_chile",
-      "type": "land"
-    },
-    {
-      "from": "brazil",
-      "to": "rio_plata",
-      "type": "land"
-    },
-    {
-      "from": "britain_disc",
-      "to": "north_america_east",
+      "from": "spain_portugal",
+      "to": "morocco",
       "type": "sea"
-    },
-    {
-      "from": "central_africa_disc",
-      "to": "west_africa_disc",
-      "type": "land"
-    },
-    {
-      "from": "ceylon_spice",
-      "to": "southeast_asia_disc",
-      "type": "sea"
-    },
-    {
-      "from": "east_africa_disc",
-      "to": "indian_ocean",
-      "type": "sea"
-    },
-    {
-      "from": "east_africa_disc",
-      "to": "south_africa",
-      "type": "land"
-    },
-    {
-      "from": "egypt_disc",
-      "to": "levant_disc",
-      "type": "land"
     },
     {
       "from": "france_disc",
@@ -1044,8 +952,13 @@
       "type": "land"
     },
     {
-      "from": "france_disc",
-      "to": "spain_portugal",
+      "from": "holy_roman_disc",
+      "to": "russia_disc",
+      "type": "land"
+    },
+    {
+      "from": "holy_roman_disc",
+      "to": "ottoman_balkans",
       "type": "land"
     },
     {
@@ -1054,23 +967,33 @@
       "type": "land"
     },
     {
-      "from": "holy_roman_disc",
+      "from": "russia_disc",
       "to": "ottoman_balkans",
       "type": "land"
     },
     {
-      "from": "indian_ocean",
-      "to": "ceylon_spice",
-      "type": "sea"
-    },
-    {
-      "from": "indian_ocean",
-      "to": "south_africa",
+      "from": "russia_disc",
+      "to": "persia_disc",
       "type": "land"
     },
     {
-      "from": "italy_disc",
-      "to": "ottoman_balkans",
+      "from": "ottoman_balkans",
+      "to": "anatolia_disc",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_disc",
+      "to": "levant_disc",
+      "type": "land"
+    },
+    {
+      "from": "anatolia_disc",
+      "to": "mesopotamia_disc",
+      "type": "land"
+    },
+    {
+      "from": "levant_disc",
+      "to": "egypt_disc",
       "type": "land"
     },
     {
@@ -1079,58 +1002,53 @@
       "type": "land"
     },
     {
+      "from": "egypt_disc",
+      "to": "arabia_disc",
+      "type": "land"
+    },
+    {
       "from": "mesopotamia_disc",
       "to": "persia_disc",
       "type": "land"
     },
     {
-      "from": "ming_north",
-      "to": "japan_disc",
+      "from": "mesopotamia_disc",
+      "to": "arabia_disc",
+      "type": "land"
+    },
+    {
+      "from": "persia_disc",
+      "to": "mughal_north",
+      "type": "land"
+    },
+    {
+      "from": "north_america_west",
+      "to": "north_america_east",
+      "type": "land"
+    },
+    {
+      "from": "north_america_east",
+      "to": "new_spain",
+      "type": "land"
+    },
+    {
+      "from": "spain_portugal",
+      "to": "north_america_east",
       "type": "sea"
     },
     {
-      "from": "ming_north",
-      "to": "ming_south",
-      "type": "land"
-    },
-    {
-      "from": "ming_south",
-      "to": "southeast_asia_disc",
-      "type": "land"
-    },
-    {
-      "from": "morocco",
-      "to": "west_africa_disc",
-      "type": "land"
-    },
-    {
-      "from": "mughal_north",
-      "to": "mughal_south",
-      "type": "land"
-    },
-    {
-      "from": "mughal_north",
-      "to": "persia_disc",
-      "type": "land"
-    },
-    {
-      "from": "mughal_north",
-      "to": "southeast_asia_disc",
-      "type": "land"
-    },
-    {
-      "from": "mughal_south",
-      "to": "ceylon_spice",
+      "from": "britain_disc",
+      "to": "north_america_east",
       "type": "sea"
     },
     {
-      "from": "mughal_south",
-      "to": "indian_ocean",
-      "type": "sea"
+      "from": "new_spain",
+      "to": "new_granada",
+      "type": "land"
     },
     {
       "from": "new_granada",
-      "to": "new_spain",
+      "to": "brazil",
       "type": "land"
     },
     {
@@ -1139,28 +1057,8 @@
       "type": "land"
     },
     {
-      "from": "new_spain",
-      "to": "north_america_east",
-      "type": "land"
-    },
-    {
-      "from": "new_spain",
-      "to": "north_america_west",
-      "type": "land"
-    },
-    {
-      "from": "north_america_east",
-      "to": "north_america_west",
-      "type": "land"
-    },
-    {
-      "from": "north_america_east",
-      "to": "russia_disc",
-      "type": "land"
-    },
-    {
-      "from": "north_america_west",
-      "to": "russia_disc",
+      "from": "brazil",
+      "to": "rio_plata",
       "type": "land"
     },
     {
@@ -1169,28 +1067,113 @@
       "type": "land"
     },
     {
-      "from": "south_africa",
-      "to": "atlantic_route",
-      "type": "sea"
-    },
-    {
       "from": "spain_portugal",
       "to": "brazil",
       "type": "sea"
     },
     {
-      "from": "spain_portugal",
-      "to": "morocco",
-      "type": "sea"
+      "from": "morocco",
+      "to": "west_africa_disc",
+      "type": "land"
     },
     {
-      "from": "spain_portugal",
-      "to": "north_america_east",
-      "type": "sea"
+      "from": "egypt_disc",
+      "to": "east_africa_disc",
+      "type": "land"
+    },
+    {
+      "from": "west_africa_disc",
+      "to": "central_africa_disc",
+      "type": "land"
+    },
+    {
+      "from": "east_africa_disc",
+      "to": "central_africa_disc",
+      "type": "land"
+    },
+    {
+      "from": "central_africa_disc",
+      "to": "south_africa",
+      "type": "land"
+    },
+    {
+      "from": "east_africa_disc",
+      "to": "south_africa",
+      "type": "land"
     },
     {
       "from": "spain_portugal",
       "to": "west_africa_disc",
+      "type": "sea"
+    },
+    {
+      "from": "mughal_north",
+      "to": "mughal_south",
+      "type": "land"
+    },
+    {
+      "from": "mughal_south",
+      "to": "ceylon_spice",
+      "type": "sea"
+    },
+    {
+      "from": "east_africa_disc",
+      "to": "indian_ocean",
+      "type": "sea"
+    },
+    {
+      "from": "arabia_disc",
+      "to": "indian_ocean",
+      "type": "sea"
+    },
+    {
+      "from": "mughal_south",
+      "to": "indian_ocean",
+      "type": "sea"
+    },
+    {
+      "from": "ceylon_spice",
+      "to": "southeast_asia_disc",
+      "type": "sea"
+    },
+    {
+      "from": "ming_north",
+      "to": "ming_south",
+      "type": "land"
+    },
+    {
+      "from": "ming_north",
+      "to": "japan_disc",
+      "type": "sea"
+    },
+    {
+      "from": "ming_south",
+      "to": "southeast_asia_disc",
+      "type": "land"
+    },
+    {
+      "from": "south_africa",
+      "to": "atlantic_route",
+      "type": "sea"
+    },
+    {
+      "from": "atlantic_route",
+      "to": "rio_plata",
+      "type": "sea"
+    },
+    {
+      "from": "atlantic_route",
+      "to": "west_africa_disc",
+      "type": "sea"
+    },
+    {
+      "from": "south_africa",
+      "to": "indian_ocean",
+      "type": "sea"
+    },
+    {
+      "from": "indian_ocean",
+      "to": "ceylon_spice",
       "type": "sea"
     }
   ],

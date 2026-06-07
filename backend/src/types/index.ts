@@ -160,8 +160,29 @@ export interface PlayerState {
   pending_extra_attack_die?: boolean;
   /** Next land attack ignores defense-building bonus (activated siege abilities). */
   pending_ignore_defense_building?: boolean;
+  /** Next land attack the player makes inflicts 0 attacker losses (testudo). */
+  pending_negate_attacker_losses?: boolean;
+  /** Extra fortify moves granted this turn (armored_push). Reset at turn start. */
+  bonus_fortify_moves?: number;
+  /**
+   * Per-turn defensive charge (greek_fire / great_wall) consumed on the first
+   * attack against this player each turn. Reset for all players at every turn
+   * transition in advanceToNextPlayer.
+   */
+  defensive_charge_used_this_turn?: boolean;
+  /** Per-turn influence-block charge (papal_dispensation). Reset at turn start. */
+  influence_block_used_this_turn?: boolean;
+  /**
+   * Tech-point discount applied to the player's NEXT research (House of Wisdom).
+   * Consumed (reset to 0) when a tech is applied. Effective cost never drops below 1.
+   */
+  pending_tech_discount?: number;
   /** ACW Total War: chain attacks enabled for remainder of turn after activation. */
   march_to_sea_active?: boolean;
+  /** ACW Total War: number of consecutive chain captures that have received the +1 die bonus (0–3). */
+  march_to_sea_hops_used?: number;
+  /** ACW Total War: territory captured in the prior chain hop; the next hop must continue from here. */
+  march_to_sea_last_capture_id?: string | null;
 }
 
 export interface DiplomacyEntry {
@@ -433,6 +454,12 @@ export interface GameState {
    * Blitzkrieg-eligible capture and the first attack from that same source.
    */
   blitzkrieg_bonus_source_id?: string | null;
+  /**
+   * Remaining Blitzkrieg bonus attacks this turn. Blitzkrieg arms 1; Double
+   * Blitz (WW2 tech) arms 2. Each capture re-arms the bonus source while this
+   * is > 0; each resolved bonus attack decrements it.
+   */
+  blitzkrieg_bonus_attacks_remaining?: number;
   /** Currently active event card awaiting resolution (events feature). */
   active_event?: EventCard;
   /** Transient: result of last instant event effect application (cleared after broadcast). */
