@@ -17,8 +17,10 @@ interface CosmeticItem {
   is_premium: boolean;
   owned: boolean;
   rarity?: CosmeticRarity | null;
-  required_achievement?: string | null;
-  achievement_earned?: boolean;
+  /** Earned through gameplay (levels/seasons/achievements/…) — not claimable here. */
+  earned_only?: boolean;
+  /** Server-authoritative: item can't be acquired in the store right now and isn't owned. */
+  locked?: boolean;
 }
 
 interface OwnedItem {
@@ -248,11 +250,11 @@ export default function StorePage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {displayed.map((item) => {
-                  // Achievement-gated item the player hasn't earned yet. Earning
-                  // the achievement auto-grants the cosmetic (owned === true), so
-                  // a locked item is one with a requirement that's unmet and
-                  // unowned. The backend is the authoritative gate; this is UX.
-                  const locked = Boolean(item.required_achievement) && !item.owned && !item.achievement_earned;
+                  // `locked` is computed server-side: earned-only rewards (levels,
+                  // seasons, prestige, ratings, achievements) and legendary/mythic
+                  // items that the player doesn't yet own. The backend is the
+                  // authoritative gate; this just hides the dead "Get Free" button.
+                  const locked = Boolean(item.locked);
                   return (
                   <div
                     key={item.cosmetic_id}
@@ -300,7 +302,7 @@ export default function StorePage() {
                       {locked ? (
                         <span className="flex items-center gap-1 text-bf-muted text-xs font-medium">
                           <Lock className="w-3.5 h-3.5" />
-                          Achievement
+                          Earned
                         </span>
                       ) : item.price_gems === 0 ? (
                         <span className="text-xs text-green-400 font-medium">Free</span>
@@ -318,7 +320,7 @@ export default function StorePage() {
                       ) : locked ? (
                         <span
                           className="flex items-center gap-1 text-xs text-bf-muted px-3 py-1 rounded border border-bf-border"
-                          title="Earn the linked achievement to unlock this item"
+                          title={item.description ?? 'Earned through gameplay'}
                         >
                           <Lock className="w-3 h-3" /> Locked
                         </span>

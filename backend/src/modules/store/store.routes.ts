@@ -15,8 +15,10 @@ interface CosmeticRow {
   is_premium: boolean;
   rarity: string;
   owned: boolean;
-  required_achievement: string | null;
-  achievement_earned: boolean;
+  /** Earned through gameplay (levels, seasons, achievements, …) — never claimable in the store. */
+  earned_only: boolean;
+  /** True when the item can't be acquired here right now (earned-only / prestige) and isn't owned. */
+  locked: boolean;
 }
 
 const BuySchema = z.object({
@@ -31,14 +33,16 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
               COALESCE(c.price_gems, 0) AS price_gems,
               COALESCE(c.is_premium, false) AS is_premium,
               COALESCE(c.rarity, 'common') AS rarity,
-              c.required_achievement,
+              COALESCE(c.earned_only, false) AS earned_only,
               (uc.cosmetic_id IS NOT NULL) AS owned,
-              (ua.achievement_id IS NOT NULL) AS achievement_earned
+              (
+                uc.cosmetic_id IS NULL
+                AND (COALESCE(c.earned_only, false)
+                     OR COALESCE(c.rarity, 'common') IN ('legendary', 'mythic'))
+              ) AS locked
        FROM cosmetics c
        LEFT JOIN user_cosmetics uc
          ON uc.cosmetic_id = c.cosmetic_id AND uc.user_id = $1
-       LEFT JOIN user_achievements ua
-         ON ua.achievement_id = c.required_achievement AND ua.user_id = $1
        ORDER BY c.is_premium ASC, c.price_gems ASC, c.name ASC`,
       [request.userId],
     );
@@ -54,8 +58,8 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
     const { cosmetic_id } = parsed.data;
 
     // Load cosmetic
-    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string; required_achievement: string | null }>(
-      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity, required_achievement FROM cosmetics WHERE cosmetic_id = $1',
+    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string; earned_only: boolean }>(
+      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity, COALESCE(earned_only, false) AS earned_only FROM cosmetics WHERE cosmetic_id = $1',
       [cosmetic_id, 'common'],
     );
     if (!cosmetic) {
@@ -67,17 +71,12 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: 'This cosmetic can only be earned through achievements or seasonal rewards' });
     }
 
-    // Achievement-gated cosmetics: the linked achievement must be earned first.
-    // Fail closed — without this check the free-claim path below would hand out
-    // prestige medals to anyone, bypassing the progression system entirely.
-    if (cosmetic.required_achievement) {
-      const earned = await queryOne<{ achievement_id: string }>(
-        'SELECT achievement_id FROM user_achievements WHERE user_id = $1 AND achievement_id = $2',
-        [request.userId, cosmetic.required_achievement],
-      );
-      if (!earned) {
-        return reply.status(403).send({ error: 'Earn the linked achievement to unlock this item' });
-      }
+    // Earned-only cosmetics (level/season/prestige/rating/achievement rewards)
+    // are granted exclusively by gameplay services — never via the store. This
+    // is the single authoritative gate that closes the free-claim bypass; the
+    // services that award these still INSERT into user_cosmetics directly.
+    if (cosmetic.earned_only) {
+      return reply.status(403).send({ error: 'This item is earned through gameplay, not the store' });
     }
 
     // Free items — no gold check, but still need atomic "insert if not owned".

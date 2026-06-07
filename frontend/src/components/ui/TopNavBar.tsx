@@ -74,14 +74,15 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Account & Help */}
       <div className={styles.accountNav}>
         {!user?.is_guest && (
-          <Link
-            to="/store"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium hover:bg-bf-gold/20 transition-colors"
-            title="Gold balance"
+          // Balance indicator only — the labeled "Store" nav link is the single
+          // entry point, so this pill is intentionally not a second redirect.
+          <span
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium"
+            title="Your gold balance"
           >
             <Coins className="w-4 h-4" aria-hidden />
             <span className="tabular-nums">{gold.toLocaleString()}</span>
-          </Link>
+          </span>
         )}
         <Link
           to="/profile"
