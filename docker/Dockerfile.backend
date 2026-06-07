@@ -1,6 +1,9 @@
 # Monorepo backend image — runs migrations then the API + Socket.io.
 # Build from repository root: docker build -f docker/Dockerfile.backend .
 FROM node:22-alpine
+# Fonts for server-rendered replay OG preview images (@resvg/resvg-js). Alpine
+# ships no fonts by default, so rasterized SVG text would otherwise be blank.
+RUN apk add --no-cache fontconfig ttf-dejavu
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/

@@ -28,6 +28,7 @@ import { storeRoutes } from './modules/store/store.routes';
 import { campaignRoutes } from './modules/campaign/campaign.routes';
 import { progressionRoutes } from './modules/progression/progression.routes';
 import { shareRoutes } from './modules/share/share.routes';
+import { registerReplayPreviewRoutes } from './modules/share/replayPreview';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { feedRoutes } from './modules/feed/feed.routes';
 import { enhancementsRoutes } from './modules/enhancements/enhancements.routes';
@@ -185,6 +186,9 @@ async function bootstrap(): Promise<void> {
   await app.register(campaignRoutes, { prefix: '/api/campaign' });
   await app.register(progressionRoutes, { prefix: '/api/progression' });
   await app.register(shareRoutes, { prefix: '/api/share' });
+  // Top-level (no /api prefix) crawler HTML shell for /replay/:id. nginx routes
+  // only social/chat crawler user-agents here; humans get the SPA.
+  registerReplayPreviewRoutes(app);
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
   await app.register(feedRoutes, { prefix: '/api/feed' });
   await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });

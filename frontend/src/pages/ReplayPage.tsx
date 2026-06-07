@@ -18,15 +18,21 @@ import {
   Map as MapIcon,
   Info,
   X,
+  Sparkles,
+  Lock,
+  LogIn,
+  Clapperboard,
 } from 'lucide-react';
 import clsx from 'clsx';
-import type { GameState } from '../store/gameStore';
+import { useAuthStore } from '../store/authStore';
+import { loadReplaySnapshots, ReplayNotPublicError } from '../utils/replayLoader';
+import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCondense';
+import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
 import ReplayTipToast from '../components/game/ReplayTipToast';
 import {
   buildTimeLapseIndices,
   nextTimeLapseIndex,
-  prevTimeLapseIndex,
 } from '../utils/replayTimeLapse';
 import { isLiteMode, isMobileViewport, prefersReducedMotion } from '../utils/device';
 import { inferWorldId } from '@borderfall/shared';
@@ -104,22 +110,34 @@ export default function ReplayPage() {
   // a player landing here straight from their match gets a normal-paced
   // 2D replay rather than a 4x globe time-lapse.
   const fromMatch = searchParams.get('source') === 'match';
+  // Shared links append ?source=share. Those open straight into the condensed
+  // Highlights reel so a first-time viewer sees the best moments immediately.
+  const fromShare = searchParams.get('source') === 'share';
   const { replaySnapshots, replayFrame, loadReplay, setReplayFrame, clearGame, gameState } = useGameStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Set when a replay exists but isn't public and the viewer can't see it.
+  const [notPublic, setNotPublic] = useState(false);
   const [playing, setPlaying] = useState(false);
   // Daily-challenge replays default to a faster, time-lapse cadence; match
   // replays and general replays use real-time 1x.
   const [speed, setSpeed] = useState<Speed>(fromDaily ? 4 : 1);
-  const [timeLapseMode, setTimeLapseMode] = useState<boolean>(fromDaily);
+  // Playback cadence: 'all' walks every frame, 'timelapse' one frame per
+  // turn-player pair, 'highlights' the condensed reel with variable dwell.
+  const [playbackMode, setPlaybackMode] = useState<'all' | 'timelapse' | 'highlights'>(
+    fromShare ? 'highlights' : fromDaily ? 'timelapse' : 'all',
+  );
   // Daily replays open in the cinematic 3D globe view; match replays open in
   // 2D so the local player sees the familiar board they just played on.
   const [mapView, setMapView] = useState<'2d' | 'globe'>(fromMatch ? '2d' : 'globe');
   const [isPublic, setIsPublic] = useState(false);
+  const [loadedPublic, setLoadedPublic] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [clipExporterOpen, setClipExporterOpen] = useState(false);
   const [highlights, setHighlights] = useState<Array<{ turn: number; label: string; type: string }>>([]);
   const [insights, setInsights] = useState<ReplayInsight[]>([]);
   const [insightsLoading, setInsightsLoading] = useState(true);
@@ -154,7 +172,7 @@ export default function ReplayPage() {
     clearMapVisuals,
   } = useMapVisualEvents();
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Measure the flex-1 map area so the canvas always fills exactly the space
   // between the top bar and the playback controls — no scrolling, no clipped
@@ -245,20 +263,7 @@ export default function ReplayPage() {
     if (!gameId) return;
     let mounted = true;
     setLoading(true);
-
-    async function fetchReplay(attemptsLeft: number): Promise<{ snapshots: Array<{ turn_number: number; state: GameState }> }> {
-      try {
-        const res = await api.get<{ snapshots: Array<{ turn_number: number; state: GameState }> }>(`/games/${gameId}/replay`);
-        return res.data;
-      } catch (err: unknown) {
-        const status = (err as { response?: { status?: number } })?.response?.status;
-        if (attemptsLeft > 1 && (status === 404 || status === 503)) {
-          await new Promise((r) => setTimeout(r, 2000));
-          return fetchReplay(attemptsLeft - 1);
-        }
-        throw err;
-      }
-    }
+    setNotPublic(false);
 
     async function fetchInsights(attemptsLeft: number): Promise<ReplayInsight[]> {
       try {
@@ -275,36 +280,49 @@ export default function ReplayPage() {
       }
     }
 
-    fetchReplay(3)
-      .then((data) => {
+    loadReplaySnapshots(gameId, { authenticated: isAuthenticated })
+      .then((result) => {
         if (!mounted) return;
-        const states = data.snapshots.map((s) => s.state);
+        const states = result.snapshots.map((s) => s.state);
         if (states.length === 0) {
           setError('No replay data available for this game.');
           return;
         }
+        setLoadedPublic(result.isPublic);
+        setIsPublic(result.isPublic);
         loadReplay(states);
-        api
-          .get<{ highlights: Array<{ turn: number; label: string; type: string }> }>(`/enhancements/replays/${gameId}/highlights`)
-          .then((highlightsRes) => {
-            if (!mounted) return;
-            setHighlights(highlightsRes.data.highlights ?? []);
-          })
-          .catch(() => {});
-        // Coaching insights: separate retry budget so they don't block the main replay.
-        setInsightsLoading(true);
-        fetchInsights(3)
-          .then((items) => {
-            if (!mounted) return;
-            setInsights(items);
-          })
-          .finally(() => {
-            if (mounted) setInsightsLoading(false);
-          });
-        // Load map data from first snapshot
+
+        // Coaching insights + server highlights only exist behind authed
+        // endpoints; skip them for public (non-participant) viewers.
+        if (!result.isPublic) {
+          api
+            .get<{ highlights: Array<{ turn: number; label: string; type: string }> }>(`/enhancements/replays/${gameId}/highlights`)
+            .then((highlightsRes) => {
+              if (!mounted) return;
+              setHighlights(highlightsRes.data.highlights ?? []);
+            })
+            .catch(() => {});
+          setInsightsLoading(true);
+          fetchInsights(3)
+            .then((items) => {
+              if (!mounted) return;
+              setInsights(items);
+            })
+            .finally(() => {
+              if (mounted) setInsightsLoading(false);
+            });
+        } else {
+          setInsightsLoading(false);
+        }
+
+        // Load map geometry from the first snapshot. Public viewers use the
+        // unauthenticated public-map endpoint; participants use the authed one.
         const mapId = states[0]?.map_id;
         if (mapId) {
-          return api.get(`/maps/${mapId}`).then((mapRes) => {
+          const mapReq = result.isPublic
+            ? api.get(`/share/${gameId}/public-map`)
+            : api.get(`/maps/${mapId}`);
+          return mapReq.then((mapRes) => {
             if (!mounted) return;
             setMapData(mapRes.data.map);
           });
@@ -312,6 +330,10 @@ export default function ReplayPage() {
       })
       .catch((err: unknown) => {
         if (!mounted) return;
+        if (err instanceof ReplayNotPublicError) {
+          setNotPublic(true);
+          return;
+        }
         const msg =
           err && typeof err === 'object' && 'response' in err
             ? ((err as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Failed to load replay')
@@ -322,7 +344,7 @@ export default function ReplayPage() {
       .finally(() => { if (mounted) setLoading(false); });
 
     return () => { mounted = false; clearGame(); };
-  }, [gameId]);
+  }, [gameId, isAuthenticated]);
 
   // Time-lapse cadence — index list into replaySnapshots, recomputed when the
   // snapshot list changes. We always keep a fallback to all-frames so the
@@ -336,9 +358,50 @@ export default function ReplayPage() {
     (currentIdx: number) => nextTimeLapseIndex(timeLapseIndices, currentIdx),
     [timeLapseIndices],
   );
-  const prevTimeLapseFrom = useCallback(
-    (currentIdx: number) => prevTimeLapseIndex(timeLapseIndices, currentIdx),
-    [timeLapseIndices],
+
+  // Condensed highlight reel — sub-60s curated timeline with variable dwell.
+  // Server highlight turns boost their frames' scores when available.
+  const condensedTimeline = useMemo(
+    () =>
+      buildCondensedTimeline(replaySnapshots, {
+        highlightTurns: highlights.map((h) => h.turn),
+      }),
+    [replaySnapshots, highlights],
+  );
+  const highlightIndices = useMemo(
+    () => condensedTimeline.frames.map((f) => f.index),
+    [condensedTimeline],
+  );
+  const condensedByIndex = useMemo(() => {
+    const m = new Map<number, (typeof condensedTimeline.frames)[number]>();
+    for (const f of condensedTimeline.frames) m.set(f.index, f);
+    return m;
+  }, [condensedTimeline]);
+
+  // Indices the active playback mode steps through.
+  const stepIndices = useMemo(() => {
+    if (playbackMode === 'highlights') return highlightIndices;
+    if (playbackMode === 'timelapse') return timeLapseIndices;
+    return replaySnapshots.map((_, i) => i);
+  }, [playbackMode, highlightIndices, timeLapseIndices, replaySnapshots]);
+
+  const nextStepFrom = useCallback(
+    (currentIdx: number) => {
+      for (const idx of stepIndices) if (idx > currentIdx) return idx;
+      return null;
+    },
+    [stepIndices],
+  );
+  const prevStepFrom = useCallback(
+    (currentIdx: number) => {
+      let prev: number | null = null;
+      for (const idx of stepIndices) {
+        if (idx >= currentIdx) break;
+        prev = idx;
+      }
+      return prev;
+    },
+    [stepIndices],
   );
 
   // Map turn numbers → coaching tip for fast lookup as the playhead advances.
@@ -367,47 +430,74 @@ export default function ReplayPage() {
     }
   }, [gameState, insightByTurn]);
 
-  // Playback timer
+  // Playback timer. A setTimeout chain (rather than a fixed-interval timer)
+  // lets Highlights mode dwell variably — longer on big moments, short on
+  // transitions — while 'all'/'timelapse' use a steady per-frame cadence.
   const stopPlayback = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    if (playbackRef.current) {
+      clearTimeout(playbackRef.current);
+      playbackRef.current = null;
     }
     setPlaying(false);
   }, []);
 
-  const startPlayback = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setPlaying(true);
-    // Time-lapse mode advances frame-by-turn (one snapshot per active player
-    // per turn). Standard mode advances every frame. Use a slightly longer
-    // base interval in time-lapse so 4× / 8× still read clearly.
-    const baseMs = timeLapseMode ? 1100 : 1500;
-    const stepMs = Math.max(60, Math.round(baseMs / speed));
-    intervalRef.current = setInterval(() => {
-      const s = useGameStore.getState();
-      let next: number | null;
-      if (timeLapseMode) {
-        next = nextTimeLapseFrom(s.replayFrame);
-      } else {
-        next = s.replayFrame + 1 < s.replaySnapshots.length ? s.replayFrame + 1 : null;
+  // Given the current frame, decide the next frame and how long to dwell on
+  // the current one before advancing.
+  const computeNextFrame = useCallback(
+    (current: number): { next: number | null; holdMs: number } => {
+      const snaps = useGameStore.getState().replaySnapshots;
+      if (playbackMode === 'highlights') {
+        const order = highlightIndices;
+        if (order.length === 0) return { next: null, holdMs: 1000 };
+        const pos = order.findIndex((idx) => idx >= current);
+        if (pos === -1) return { next: null, holdMs: 1000 }; // past the reel end
+        const dwell = condensedByIndex.get(order[pos])?.dwellMs ?? 800;
+        const holdMs = Math.max(120, Math.round(dwell / speed));
+        // Off-reel (user scrubbed elsewhere): snap onto the reel briefly.
+        if (order[pos] !== current) {
+          return { next: order[pos], holdMs: Math.max(120, Math.round(400 / speed)) };
+        }
+        const nextPos = pos + 1;
+        if (nextPos >= order.length) return { next: null, holdMs };
+        return { next: order[nextPos], holdMs };
       }
-      if (next === null) {
-        stopPlayback();
-        return;
+      if (playbackMode === 'timelapse') {
+        return { next: nextTimeLapseFrom(current), holdMs: Math.max(60, Math.round(1100 / speed)) };
       }
-      useGameStore.setState({ replayFrame: next, gameState: s.replaySnapshots[next] });
-    }, stepMs);
-  }, [speed, stopPlayback, timeLapseMode, nextTimeLapseFrom]);
+      const next = current + 1 < snaps.length ? current + 1 : null;
+      return { next, holdMs: Math.max(60, Math.round(1500 / speed)) };
+    },
+    [playbackMode, speed, highlightIndices, condensedByIndex, nextTimeLapseFrom],
+  );
 
-  // Restart interval when speed or mode changes while playing. `playing` and
+  const scheduleTick = useCallback(() => {
+    const cur = useGameStore.getState().replayFrame;
+    const { next, holdMs } = computeNextFrame(cur);
+    if (next === null) {
+      stopPlayback();
+      return;
+    }
+    playbackRef.current = setTimeout(() => {
+      const s = useGameStore.getState();
+      useGameStore.setState({ replayFrame: next, gameState: s.replaySnapshots[next] ?? null });
+      scheduleTick();
+    }, holdMs);
+  }, [computeNextFrame, stopPlayback]);
+
+  const startPlayback = useCallback(() => {
+    if (playbackRef.current) clearTimeout(playbackRef.current);
+    setPlaying(true);
+    scheduleTick();
+  }, [scheduleTick]);
+
+  // Restart the timer when speed or mode changes while playing. `playing` and
   // `startPlayback` must be in the dep list because both are read from the
   // effect body — missing deps previously meant a `setPlaying(true)` outside
   // this effect (auto-start) wouldn't pick up later speed/mode toggles in
   // the same render cycle.
   useEffect(() => {
     if (playing) startPlayback();
-  }, [speed, timeLapseMode, playing, startPlayback]);
+  }, [speed, playbackMode, playing, startPlayback]);
 
   // Auto-start playback once the replay is fully loaded. The ref guard makes
   // this fire exactly once per game-id mount; manual pause/play afterwards is
@@ -425,7 +515,7 @@ export default function ReplayPage() {
 
   useEffect(() => {
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (playbackRef.current) clearTimeout(playbackRef.current);
     };
   }, []);
 
@@ -440,24 +530,16 @@ export default function ReplayPage() {
     stopPlayback();
     clearMapVisuals();
     lastDiffFrameRef.current = null;
-    if (timeLapseMode) {
-      const prev = prevTimeLapseFrom(replayFrame);
-      setReplayFrame(prev ?? 0);
-    } else {
-      setReplayFrame(Math.max(0, replayFrame - 1));
-    }
+    const prev = prevStepFrom(replayFrame);
+    setReplayFrame(prev ?? 0);
   };
 
   const handleStepForward = () => {
     stopPlayback();
     clearMapVisuals();
     lastDiffFrameRef.current = null;
-    if (timeLapseMode) {
-      const next = nextTimeLapseFrom(replayFrame);
-      if (next !== null) setReplayFrame(next);
-    } else {
-      setReplayFrame(Math.min(replaySnapshots.length - 1, replayFrame + 1));
-    }
+    const next = nextStepFrom(replayFrame);
+    if (next !== null) setReplayFrame(next);
   };
 
   const handleJumpToTurn = useCallback(
@@ -467,7 +549,7 @@ export default function ReplayPage() {
       lastDiffFrameRef.current = null;
       // Jump to the FIRST frame of the requested turn in the active track so
       // the user sees how that turn unfolded rather than its end-state.
-      const indices = timeLapseMode ? timeLapseIndices : replaySnapshots.map((_, i) => i);
+      const indices = stepIndices;
       let target = -1;
       for (const idx of indices) {
         if ((replaySnapshots[idx]?.turn_number ?? 0) >= turn) {
@@ -478,7 +560,7 @@ export default function ReplayPage() {
       if (target < 0) target = replaySnapshots.length - 1;
       setReplayFrame(target);
     },
-    [replaySnapshots, timeLapseMode, timeLapseIndices, setReplayFrame, stopPlayback, clearMapVisuals],
+    [replaySnapshots, stepIndices, setReplayFrame, stopPlayback, clearMapVisuals],
   );
 
   // Infer map visuals from snapshot diffs when the playhead advances.
@@ -530,14 +612,44 @@ export default function ReplayPage() {
     try {
       await api.post(`/share/${gameId}/make-public`);
       setIsPublic(true);
-      const url = `${window.location.origin}/replay/${gameId}`;
+      // ?source=share opens the link straight into the condensed Highlights reel.
+      const url = `${window.location.origin}/replay/${gameId}?source=share`;
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast.success('Replay link copied!');
-      api.post(`/share/${gameId}`, { platform: 'link' }).catch(() => {});
+      api.post(`/share/${gameId}`, { platform: 'clipboard' }).catch(() => {});
     } catch {
       toast.error('Failed to make replay public');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Public viewers: the replay is already public, so just copy the link.
+  const handleCopyLink = async () => {
+    if (!gameId) return;
+    try {
+      const url = `${window.location.origin}/replay/${gameId}?source=share`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Replay link copied!');
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  // Revoke public access (visibility toggle). Only meaningful for participants.
+  const handleMakePrivate = async () => {
+    if (!gameId) return;
+    setSharing(true);
+    try {
+      await api.post(`/share/${gameId}/make-private`);
+      setIsPublic(false);
+      toast.success('Replay is now private.');
+    } catch {
+      toast.error('Failed to make replay private');
     } finally {
       setSharing(false);
     }
@@ -556,6 +668,34 @@ export default function ReplayPage() {
     return (
       <div className="min-h-screen bg-bf-dark flex items-center justify-center">
         <p className="text-bf-muted">Loading replay…</p>
+      </div>
+    );
+  }
+
+  if (notPublic) {
+    return (
+      <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <Lock className="w-10 h-10 text-bf-gold/70" />
+        <div>
+          <h1 className="font-display text-bf-text text-xl">This replay isn't public</h1>
+          <p className="text-bf-muted text-sm mt-1 max-w-sm">
+            The player who shared this match hasn't made it publicly viewable
+            {isAuthenticated ? '.' : ', or you need to sign in if you played in it.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {!isAuthenticated && (
+            <button
+              className="btn-primary text-sm flex items-center gap-1.5"
+              onClick={() => navigate(`/login?redirect=${encodeURIComponent(`/replay/${gameId}`)}`)}
+            >
+              <LogIn className="w-4 h-4" /> Sign in
+            </button>
+          )}
+          <button className="btn-secondary text-sm" onClick={() => navigate('/')}>
+            Go Home
+          </button>
+        </div>
       </div>
     );
   }
@@ -579,6 +719,16 @@ export default function ReplayPage() {
     : fromMatch
       ? 'Match Replay'
       : 'Game Replay';
+  const clipEraLabel = (() => {
+    const raw = replaySnapshots[0]?.era ?? currentState?.era ?? '';
+    if (!raw) return 'Borderfall';
+    return raw
+      .replace(/^era_/, '')
+      .split(/[_-]/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  })();
   // Mirror GamePage's reduced-globe heuristic: low-power devices and motion-
   // averse users still get the globe, just without continuous spin/effects.
   const reducedGlobe =
@@ -602,12 +752,18 @@ export default function ReplayPage() {
               navigate('/lobby');
               return;
             }
+            // Public viewers arriving from a shared link have no in-app history
+            // to fall back on — send them somewhere sensible instead of off-site.
+            if (loadedPublic && !isAuthenticated) {
+              navigate('/');
+              return;
+            }
             navigate(-1);
           }}
           className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm"
         >
           <ChevronLeft className="w-4 h-4" />{' '}
-          {fromDaily ? 'Back to Daily' : fromMatch ? 'Back to Lobby' : 'Back'}
+          {fromDaily ? 'Back to Daily' : fromMatch ? 'Back to Lobby' : loadedPublic && !isAuthenticated ? 'Home' : 'Back'}
         </button>
         <div className="h-4 w-px bg-bf-border" />
         <span className="text-bf-gold font-display text-sm tracking-wide">{headerLabel}</span>
@@ -642,25 +798,63 @@ export default function ReplayPage() {
             Galaxy chart
           </button>
         )}
+        {/* Coaching tips only exist for participants (authed endpoint). */}
+        {!loadedPublic && (
+          <button
+            type="button"
+            onClick={() => setInsightsOpen((v) => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
+          >
+            <FilmIcon className="w-3.5 h-3.5" />
+            {insightsOpen ? 'Hide Tips' : 'Show Tips'}
+            {insights.length > 0 && (
+              <span className="ml-1 text-bf-gold">{insights.length}</span>
+            )}
+          </button>
+        )}
+        {/* Export a short, branded highlight clip (video/GIF) for socials. */}
         <button
           type="button"
-          onClick={() => setInsightsOpen((v) => !v)}
+          onClick={() => setClipExporterOpen(true)}
+          title="Export highlight clip (video / GIF)"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
-          <FilmIcon className="w-3.5 h-3.5" />
-          {insightsOpen ? 'Hide Tips' : 'Show Tips'}
-          {insights.length > 0 && (
-            <span className="ml-1 text-bf-gold">{insights.length}</span>
-          )}
+          <Clapperboard className="w-3.5 h-3.5" />
+          Clip
         </button>
-        <button
-          onClick={handleShareReplay}
-          disabled={sharing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-          {isPublic ? 'Copy Link' : 'Share Replay'}
-        </button>
+        {/* Public viewers (non-participants) can copy the already-public link;
+            participants can make it public, copy it, or revoke. */}
+        {loadedPublic ? (
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+            Copy Link
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleShareReplay}
+              disabled={sharing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+              {isPublic ? 'Copy Link' : 'Share Replay'}
+            </button>
+            {isPublic && (
+              <button
+                onClick={handleMakePrivate}
+                disabled={sharing}
+                title="Stop sharing this replay publicly"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all disabled:opacity-50"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Make Private
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Map area — flex-1 between the top bar and the controls. The canvas
@@ -793,8 +987,16 @@ export default function ReplayPage() {
 
         {/* Phase indicator */}
         {currentState && (
-          <div className="absolute top-3 left-3 bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold capitalize">
-            {currentState.players[currentState.current_player_index]?.username}'s {currentState.phase} phase
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
+            <div className="bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold capitalize">
+              {currentState.players[currentState.current_player_index]?.username}'s {currentState.phase} phase
+            </div>
+            {playbackMode === 'highlights' && condensedByIndex.has(replayFrame) && (
+              <div className="flex items-center gap-1.5 bg-bf-gold/15 border border-bf-gold/30 rounded-lg px-2.5 py-1 text-[11px] text-bf-gold">
+                <Sparkles className="w-3 h-3" />
+                {condenseReasonLabel(condensedByIndex.get(replayFrame)!.reason)}
+              </div>
+            )}
           </div>
         )}
 
@@ -886,15 +1088,38 @@ export default function ReplayPage() {
             <SkipForward className="w-4 h-4" />
           </button>
 
-          {/* Time-lapse toggle — when on, playback walks one frame per turn-player pair. */}
+          {/* Highlights mode — plays the condensed sub-60s reel with variable dwell. */}
           <button
             type="button"
-            onClick={() => setTimeLapseMode((v) => !v)}
-            aria-pressed={timeLapseMode}
-            title={timeLapseMode ? 'Time-lapse on' : 'Time-lapse off'}
+            onClick={() => {
+              stopPlayback();
+              setPlaybackMode((m) => (m === 'highlights' ? 'all' : 'highlights'));
+            }}
+            aria-pressed={playbackMode === 'highlights'}
+            title={`Highlights reel${condensedTimeline.frames.length ? ` · ${condensedTimeline.frames.length} moments` : ''}`}
             className={clsx(
               'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
-              timeLapseMode
+              playbackMode === 'highlights'
+                ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
+                : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
+            )}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Highlights
+          </button>
+
+          {/* Time-lapse — walks one frame per turn-player pair. */}
+          <button
+            type="button"
+            onClick={() => {
+              stopPlayback();
+              setPlaybackMode((m) => (m === 'timelapse' ? 'all' : 'timelapse'));
+            }}
+            aria-pressed={playbackMode === 'timelapse'}
+            title={playbackMode === 'timelapse' ? 'Time-lapse on' : 'Time-lapse off'}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
+              playbackMode === 'timelapse'
                 ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
                 : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
             )}
@@ -989,6 +1214,21 @@ export default function ReplayPage() {
           </div>
         )}
       </div>
+
+      {gameId && (
+        <ReplayClipExporter
+          open={clipExporterOpen}
+          onClose={() => setClipExporterOpen(false)}
+          frames={condensedTimeline.frames}
+          snapshots={replaySnapshots}
+          mapData={mapData}
+          eraLabel={clipEraLabel}
+          gameId={gameId}
+          onShared={(platform) => {
+            api.post(`/share/${gameId}`, { platform }).catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 }

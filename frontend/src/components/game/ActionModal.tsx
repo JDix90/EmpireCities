@@ -3,7 +3,7 @@ import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
-import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film } from 'lucide-react';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
@@ -906,9 +906,21 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
 
   const myPlayer = user ? data.players.find((p) => p.player_id === user.user_id) : null;
 
+  // Canonical shareable replay URL. `?source=share` opens recipients straight
+  // into the condensed Highlights reel.
+  const replayShareUrl = data.gameId
+    ? `${window.location.origin}/replay/${data.gameId}?source=share`
+    : window.location.origin;
+
   const handleOpenShare = async () => {
     if (shareBusy) return;
     setShareBusy(true);
+    // Make the replay public so the link works for anyone — without this the
+    // recipient hits the "not public" gate. Fire-and-forget; the viewer also
+    // re-asserts public when copying from the replay page.
+    if (data.gameId) {
+      api.post(`/share/${data.gameId}/make-public`).catch(() => {});
+    }
     try {
       const blob = await generateShareCard({
         eraName: data.eraName ?? APP_NAME,
@@ -917,7 +929,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
         territoryCount: myPlayer?.territory_count ?? 0,
         turnCount: data.turnCount,
         username: user?.username ?? data.winnerName,
-        shareUrl: data.gameId ? `${window.location.origin}/replay/${data.gameId}` : window.location.origin,
+        shareUrl: replayShareUrl,
         isWinner: data.isWinner,
         achievements: data.achievements_unlocked,
         friendStreakBonus: data.progression?.friend_streak_bonus,
@@ -987,6 +999,20 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
     : undefined;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition);
+
+  const showWatchReplay = Boolean(
+    data.gameId &&
+      onWatchReplay &&
+      (data.victory_condition !== 'abandoned' || data.allowReplayDespiteAbandon),
+  );
+  const showRematch = Boolean(
+    data.rematchConfig &&
+      !data.rematchConfig.settings?.daily_challenge_date &&
+      !data.rematchConfig.settings?.tutorial &&
+      onRematch,
+  );
+  const showChallenge = Boolean(onChallengeFriend);
+  const tertiaryCount = 1 + (showWatchReplay ? 1 : 0) + (showChallenge ? 1 : 0);
 
   return (
     <div className="w-full min-w-0 text-center">
@@ -1235,66 +1261,83 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
         </>
       )}
 
-      {/* Buttons */}
+      {/* Actions — primary CTAs stack; secondary actions in an equal grid (no overflow) */}
       <div className={clsx(
-        'flex gap-3 transition-all duration-500 delay-600',
-        showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        'flex flex-col gap-3 w-full min-w-0 transition-all duration-500 delay-600',
+        showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        <button
-          onClick={handleOpenShare}
-          disabled={shareBusy}
-          className="py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
-                     text-white/70 font-medium transition-all flex items-center justify-center gap-2
-                     disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-        >
-          <Share2 className="w-4 h-4" />
-          {shareBusy ? '…' : 'Share'}
-        </button>
-        <button
-          onClick={onDismiss}
-          className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10
-                     text-white font-medium transition-all flex items-center justify-center gap-2"
-        >
-          Return to Lobby
-          <ChevronRight className="w-4 h-4" />
-        </button>
-        {/* Watch Replay — completed games for all humans; abandoned games only
-            when allowReplayDespiteAbandon (last known win chance very low). */}
-        {data.gameId &&
-          onWatchReplay &&
-          (data.victory_condition !== 'abandoned' || data.allowReplayDespiteAbandon) && (
+        {showRematch && (
           <button
-            onClick={() => onWatchReplay(data.gameId!)}
-            className="shrink-0 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10
-                       border border-white/10 text-white/80 font-medium transition-all
+            type="button"
+            onClick={() => onRematch!(data.rematchConfig!)}
+            className="w-full py-3 px-4 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30
+                       border border-bf-gold/40 text-bf-gold font-semibold transition-all
                        flex items-center justify-center gap-2"
           >
-            <Film className="w-4 h-4" />
-            Watch Replay
-          </button>
-        )}
-        {data.rematchConfig && !data.rematchConfig.settings?.daily_challenge_date && !data.rematchConfig.settings?.tutorial && onRematch && (
-          <button
-            onClick={() => onRematch(data.rematchConfig!)}
-            className="shrink-0 py-3 px-4 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30
-                       border border-bf-gold/40 text-bf-gold font-medium transition-all
-                       flex items-center justify-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4 shrink-0" />
             Rematch
           </button>
         )}
-        {onChallengeFriend && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className={clsx(
+            'w-full py-3 px-4 rounded-xl border font-medium transition-all',
+            'flex items-center justify-center gap-2 whitespace-nowrap',
+            showRematch
+              ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'
+              : 'bg-white/10 hover:bg-white/15 border-white/10 text-white',
+          )}
+        >
+          Return to Lobby
+          <ChevronRight className="w-4 h-4 shrink-0" />
+        </button>
+
+        <div
+          className={clsx(
+            'grid gap-2 w-full min-w-0',
+            tertiaryCount === 3 && 'grid-cols-3',
+            tertiaryCount === 2 && 'grid-cols-2',
+            tertiaryCount === 1 && 'grid-cols-1',
+          )}
+        >
           <button
-            onClick={onChallengeFriend}
-            className="shrink-0 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10
-                       border border-white/10 text-white/80 font-medium transition-all
-                       flex items-center justify-center gap-2"
+            type="button"
+            onClick={handleOpenShare}
+            disabled={shareBusy}
+            className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                       text-white/70 text-xs sm:text-sm font-medium transition-all
+                       flex flex-col sm:flex-row items-center justify-center gap-1.5 min-w-0
+                       disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Swords className="w-4 h-4" />
-            Challenge a friend
+            <Share2 className="w-4 h-4 shrink-0" />
+            <span className="truncate">{shareBusy ? '…' : 'Share'}</span>
           </button>
-        )}
+          {showWatchReplay && (
+            <button
+              type="button"
+              onClick={() => onWatchReplay!(data.gameId!)}
+              className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                         text-white/70 text-xs sm:text-sm font-medium transition-all
+                         flex flex-col sm:flex-row items-center justify-center gap-1.5 min-w-0"
+            >
+              <Film className="w-4 h-4 shrink-0" />
+              <span className="truncate">Replay</span>
+            </button>
+          )}
+          {showChallenge && (
+            <button
+              type="button"
+              onClick={onChallengeFriend}
+              className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                         text-white/70 text-xs sm:text-sm font-medium transition-all
+                         flex flex-col sm:flex-row items-center justify-center gap-1.5 min-w-0"
+            >
+              <Swords className="w-4 h-4 shrink-0" />
+              <span className="truncate">Challenge</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Share preview overlay */}
@@ -1314,13 +1357,12 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
                 </span>
                 <button
                   onClick={async () => {
-                    const url = `${window.location.origin}/replay/${data.gameId}`;
-                    await navigator.clipboard.writeText(url).catch(() => {});
+                    await navigator.clipboard.writeText(replayShareUrl).catch(() => {});
                     setCopyStatus('copied');
                     setTimeout(() => setCopyStatus('idle'), 2000);
                     // Track share
                     if (data.gameId) {
-                      api.post(`/share/${data.gameId}`, { platform: 'link' }).catch(() => {});
+                      api.post(`/share/${data.gameId}`, { platform: 'clipboard' }).catch(() => {});
                     }
                   }}
                   className="text-bf-gold text-xs font-medium hover:text-white transition-colors shrink-0 flex items-center gap-1"
@@ -1350,7 +1392,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
                     eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
-                    shareUrl: data.gameId ? `${window.location.origin}/replay/${data.gameId}` : window.location.origin,
+                    shareUrl: replayShareUrl,
                   });
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
@@ -1365,6 +1407,32 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
                            flex items-center justify-center gap-2 transition-all border border-[#1da1f2]/20"
               >
                 <ExternalLink className="w-4 h-4" /> Twitter / X
+              </button>
+
+              {/* Discord: copy a ready-to-paste message (link + result blurb)
+                  since Discord has no web intent URL. */}
+              <button
+                onClick={async () => {
+                  const text = buildShareText({
+                    username: user?.username ?? data.winnerName,
+                    isWinner: data.isWinner,
+                    eraName: data.eraName ?? APP_NAME,
+                    victoryCondition: data.victory_condition ?? 'domination',
+                    turnCount: data.turnCount,
+                    shareUrl: replayShareUrl,
+                  });
+                  await navigator.clipboard.writeText(text).catch(() => {});
+                  setCopyStatus('copied');
+                  setTimeout(() => setCopyStatus('idle'), 2000);
+                  if (data.gameId) {
+                    api.post(`/share/${data.gameId}`, { platform: 'discord' }).catch(() => {});
+                  }
+                  window.open('https://discord.com/app', '_blank', 'noopener,noreferrer');
+                }}
+                className="py-2.5 rounded-xl bg-[#5865f2]/10 hover:bg-[#5865f2]/20 text-[#5865f2] text-sm font-medium
+                           flex items-center justify-center gap-2 transition-all border border-[#5865f2]/20"
+              >
+                <MessageCircle className="w-4 h-4" /> Discord
               </button>
             </div>
 
