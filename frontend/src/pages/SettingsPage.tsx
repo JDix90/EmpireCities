@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Settings, Coins, Bell, Mail, Zap, User as UserIcon, KeyRound, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
@@ -19,8 +19,11 @@ function readFastCombat(): boolean {
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
+  const logout = useAuthStore((s) => s.logout);
+  const isGuest = Boolean(user?.is_guest);
 
   // Notification preferences (server-backed)
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -29,6 +32,14 @@ export default function SettingsPage() {
 
   // Gameplay (local only)
   const [fastCombat, setFastCombat] = useState(readFastCombat);
+
+  // Change password (inline form). The endpoint revokes every session on
+  // success, so a successful change logs the user out and bounces to /login.
+  const [showPwForm, setShowPwForm] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwSubmitting, setPwSubmitting] = useState(false);
 
   useEffect(() => {
     api
@@ -53,6 +64,32 @@ export default function SettingsPage() {
       localStorage.setItem(FAST_COMBAT_KEY, String(value));
     } catch {
       /* noop */
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwSubmitting) return;
+    if (newPw !== confirmPw) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPw.length < 8) {
+      toast.error('New password must be at least 8 characters');
+      return;
+    }
+    setPwSubmitting(true);
+    try {
+      await api.post('/auth/change-password', { current_password: currentPw, new_password: newPw });
+      toast.success('Password updated — please log in again');
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? 'Could not update password';
+      toast.error(message);
+    } finally {
+      setPwSubmitting(false);
     }
   };
 
@@ -92,16 +129,63 @@ export default function SettingsPage() {
               </div>
               <ChevronRight className="w-4 h-4 text-bf-muted group-hover:text-bf-gold transition-colors" />
             </Link>
-            <Link
-              to="/forgot-password"
-              className="flex items-center justify-between py-2 group"
-            >
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-bf-muted" />
-                <span className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">Change password</span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-bf-muted group-hover:text-bf-gold transition-colors" />
-            </Link>
+            {!isGuest && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowPwForm((v) => !v)}
+                  className="w-full flex items-center justify-between py-2 group"
+                  aria-expanded={showPwForm}
+                >
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-bf-muted" />
+                    <span className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">Change password</span>
+                  </div>
+                  <ChevronRight
+                    className={`w-4 h-4 text-bf-muted group-hover:text-bf-gold transition-transform ${showPwForm ? 'rotate-90' : ''}`}
+                  />
+                </button>
+                {showPwForm && (
+                  <form onSubmit={handleChangePassword} className="space-y-3 pt-2 pb-1">
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Current password"
+                      value={currentPw}
+                      onChange={(e) => setCurrentPw(e.target.value)}
+                      required
+                      className="input w-full"
+                    />
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="New password (min 8 characters)"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      required
+                      className="input w-full"
+                    />
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Confirm new password"
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      required
+                      className="input w-full"
+                    />
+                    <p className="text-xs text-bf-muted">Changing your password signs out all devices.</p>
+                    <button
+                      type="submit"
+                      disabled={pwSubmitting}
+                      className="btn-primary text-sm px-4 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {pwSubmitting ? 'Updating…' : 'Update password'}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
           </div>
         </section>
 
