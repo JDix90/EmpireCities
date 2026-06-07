@@ -55,7 +55,7 @@ export function validateResearch(
   const costMultiplier = state.settings.economy_enabled
     ? getWonderTechCostMultiplier(state, playerId)
     : 1;
-  const effectiveCost = Math.ceil(node.cost * costMultiplier);
+  const effectiveCost = Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0));
   if (techPoints < effectiveCost) {
     return { valid: false, error: `Not enough tech points (need ${effectiveCost}, have ${techPoints})` };
   }
@@ -77,8 +77,10 @@ export function applyResearch(
   const costMultiplier = state.settings.economy_enabled
     ? getWonderTechCostMultiplier(state, playerId)
     : 1;
-  const effectiveCost = Math.ceil(node.cost * costMultiplier);
+  const effectiveCost = Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0));
   player.tech_points = (player.tech_points ?? 0) - effectiveCost;
+  // House of Wisdom: the discount applies to a single research, then clears.
+  if (player.pending_tech_discount) player.pending_tech_discount = 0;
   if (!player.unlocked_techs) player.unlocked_techs = [];
   player.unlocked_techs.push(node.tech_id);
 

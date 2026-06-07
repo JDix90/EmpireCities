@@ -13,7 +13,7 @@ import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
-import { initializeStability, applyStabilityTick } from './stabilityManager';
+import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
@@ -587,11 +587,24 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   state.blitzkrieg_attacked = false;
   state.blitzkrieg_active = false;
   state.blitzkrieg_bonus_source_id = null;
+  state.blitzkrieg_bonus_attacks_remaining = 0;
   // Reset per-player per-turn ability use counts
   for (const player of state.players) {
     player.ability_uses = {};
     player.territories_captured_this_turn = 0;
     player.card_earned_this_turn = false;
+    // Armored Push grants extra fortify moves for one turn only.
+    player.bonus_fortify_moves = 0;
+    // Refresh per-turn defensive charges so each opponent's turn gets a fresh
+    // "first attack against you" trigger (greek_fire / great_wall) and the
+    // papal_dispensation influence block resets.
+    player.defensive_charge_used_this_turn = false;
+    player.influence_block_used_this_turn = false;
+    // March to the Sea is a single-turn doctrine (once per game); clear its chain
+    // state so a stale chain can't grant bonus dice on a later turn.
+    player.march_to_sea_active = false;
+    player.march_to_sea_hops_used = 0;
+    player.march_to_sea_last_capture_id = null;
   }
 }
 
@@ -606,32 +619,105 @@ export interface AutoDraftResult {
   placements: AutoDraftPlacement[];
 }
 
+export type TimeoutPhaseAdvance =
+  | { kind: 'phase'; newPhase: 'attack' | 'fortify'; autoDraft: AutoDraftResult }
+  | { kind: 'turn' };
+
 /**
- * Auto-place remaining draft units when the turn timer expires.
- * Distributes units round-robin across the player's territories in sorted `territory_id` order.
+ * Advance a single phase when a real-time turn timer expires.
+ *
+ * Previously a timeout always jumped straight to the next player, so a player who
+ * timed out while still in the draft phase silently forfeited their attack and
+ * fortify phases. This walks the active player through draft → attack → fortify one
+ * step per expiry (mirroring manual `game:advance_phase`), only handing the turn to
+ * the next player once the fortify phase times out.
+ *
+ * Returns `{ kind: 'phase' }` when the same player continues into a new phase (the
+ * caller should restart their timer) or `{ kind: 'turn' }` when the turn advanced.
+ */
+export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutPhaseAdvance {
+  if (state.phase === 'draft') {
+    const autoDraft = state.draft_units_remaining > 0
+      ? autoPlaceDraftUnits(state)
+      : { total: 0, placements: [] };
+    state.draft_units_remaining = 0;
+    state.phase = 'attack';
+    return { kind: 'phase', newPhase: 'attack', autoDraft };
+  }
+  if (state.phase === 'attack') {
+    state.phase = 'fortify';
+    return { kind: 'phase', newPhase: 'fortify', autoDraft: { total: 0, placements: [] } };
+  }
+  // fortify (or any unexpected phase) → hand the turn to the next player.
+  state.fortify_moves_used = 0;
+  advanceToNextPlayer(state, map);
+  return { kind: 'turn' };
+}
+
+/**
+ * Auto-place remaining draft units when the turn timer expires (or a player ends
+ * the draft with units unspent). Distributes units round-robin across the player's
+ * territories in sorted `territory_id` order, honoring the per-territory stability
+ * deploy cap so the auto-place path can't quietly bypass the limit the manual
+ * `game:draft` handler enforces. Units that can't be placed because every owned
+ * territory is capped are left in `draft_units_remaining` for the caller to clear.
  */
 export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
   const empty: AutoDraftResult = { total: 0, placements: [] };
   if (state.phase !== 'draft' || state.draft_units_remaining <= 0) return empty;
 
-  const playerId = state.players[state.current_player_index]?.player_id;
-  if (!playerId) return empty;
+  const player = state.players[state.current_player_index];
+  const playerId = player?.player_id;
+  if (!player || !playerId) return empty;
 
   const ownedIds = Object.keys(state.territories)
     .filter((tid) => state.territories[tid].owner_id === playerId)
     .sort();
   if (ownedIds.length === 0) return empty;
 
+  const stabilityEnabled = !!state.settings.stability_enabled;
+  const placedThisTurn = stabilityEnabled
+    ? (state.draft_placements_this_turn = state.draft_placements_this_turn ?? {})
+    : null;
+
+  // Per-territory remaining capacity for the rest of this draft. Infinity when
+  // stability is off or the territory is stable enough to be uncapped.
+  const remainingCap = new Map<string, number>();
+  for (const tid of ownedIds) {
+    if (!stabilityEnabled) {
+      remainingCap.set(tid, Infinity);
+      continue;
+    }
+    const cap = getDeployCap(state.territories[tid].stability, {
+      era: state.era,
+      turnNumber: state.turn_number,
+      economyEnabled: !!state.settings.economy_enabled,
+      playerSpecialResource: player.special_resource ?? 0,
+    });
+    remainingCap.set(tid, Math.max(0, cap - (placedThisTurn![tid] ?? 0)));
+  }
+
   const counts = new Map<string, number>();
   let placed = 0;
   let idx = 0;
-  while (state.draft_units_remaining > 0) {
+  let consecutiveSkips = 0;
+  // Stop when the pool is empty or every territory has hit its cap (a full lap of
+  // skips). The skip counter resets on each successful placement.
+  while (state.draft_units_remaining > 0 && consecutiveSkips < ownedIds.length) {
     const tid = ownedIds[idx % ownedIds.length]!;
+    idx++;
+    const cap = remainingCap.get(tid) ?? 0;
+    if (cap <= 0) {
+      consecutiveSkips++;
+      continue;
+    }
     state.territories[tid].unit_count += 1;
     state.draft_units_remaining -= 1;
+    remainingCap.set(tid, cap - 1);
+    if (placedThisTurn) placedThisTurn[tid] = (placedThisTurn[tid] ?? 0) + 1;
     counts.set(tid, (counts.get(tid) ?? 0) + 1);
     placed++;
-    idx++;
+    consecutiveSkips = 0;
   }
 
   const placements: AutoDraftPlacement[] = [...counts.entries()]

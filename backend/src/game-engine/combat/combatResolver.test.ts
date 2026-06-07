@@ -53,6 +53,21 @@ describe('resolveCombat', () => {
     expect(r.attacker_rolls).toHaveLength(4);
     expect(r.defender_rolls).toHaveLength(3);
   });
+
+  it('caps attacker losses so the attacking territory keeps at least 1 unit', () => {
+    // 2 attacking units → at most 1 loss, even if 5 defender dice all beat the lone
+    // attacker die. Without the cap the comparison count (5) would exceed units - 1.
+    const r = resolveCombat(2, 1, 1, 5, sequencer([1, 6, 6, 6, 6, 6]));
+    expect(r.attacker_losses).toBe(1);
+  });
+
+  it('does not capture when capped attacker losses would wipe the attacker', () => {
+    // Attacker has 2 units, defender 1. Defender wins the only comparison so the
+    // attacker takes a (capped) loss and cannot have captured the territory.
+    const r = resolveCombat(2, 1, 1, 1, sequencer([3, 6]));
+    expect(r.attacker_losses).toBe(1);
+    expect(r.territory_captured).toBe(false);
+  });
 });
 
 describe('getCardSetBonus', () => {

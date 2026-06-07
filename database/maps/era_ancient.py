@@ -209,6 +209,7 @@ connections = [
     {"from": "central_africa", "to": "aksum",           "type": "land"},
     # Cross-region
     {"from": "anatolia",       "to": "pontic_steppe",   "type": "land"},
+    {"from": "pontic_steppe",  "to": "greece",          "type": "land"},
     {"from": "pontic_steppe",  "to": "sarmatia",        "type": "land"},
     {"from": "sarmatia",       "to": "germania",        "type": "land"},
     {"from": "aksum",          "to": "arabia",          "type": "sea"},

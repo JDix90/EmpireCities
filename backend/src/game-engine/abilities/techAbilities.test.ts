@@ -7,6 +7,7 @@ import {
   getUnlockedAbilityIds,
   playerHasUnlockedAbility,
   attackerIgnoresDefenseBuilding,
+  expandFogVisibilityFromRecon,
 } from './techAbilities';
 
 function baseState(overrides: Partial<GameState> = {}): GameState {
@@ -91,5 +92,53 @@ describe('techAbilities', () => {
     state.settings.tech_trees_enabled = false;
     state.players[0]!.unlocked_techs = ['cw_icbm'];
     expect(getUnlockedAbilityIds(state, state.players[0]!).size).toBe(0);
+  });
+});
+
+describe('passive recon fog reveal', () => {
+  // o1 (owned) — e1 (1 hop) — e2 (2 hops) — e3 (3 hops)
+  function reconState(era: GameState['era'], techs: string[]): GameState {
+    const state = baseState({ era });
+    state.players[0]!.unlocked_techs = techs;
+    state.territories = {
+      o1: { territory_id: 'o1', owner_id: 'p1', unit_count: 3, buildings: [], naval_units: 0 },
+      e1: { territory_id: 'e1', owner_id: 'p2', unit_count: 2, buildings: [], naval_units: 0 },
+      e2: { territory_id: 'e2', owner_id: 'p2', unit_count: 2, buildings: [], naval_units: 0 },
+      e3: { territory_id: 'e3', owner_id: 'p2', unit_count: 2, buildings: [], naval_units: 0 },
+    };
+    return state;
+  }
+
+  const adjacency = new Map<string, string[]>([
+    ['o1', ['e1']],
+    ['e1', ['o1', 'e2']],
+    ['e2', ['e1', 'e3']],
+    ['e3', ['e2']],
+  ]);
+
+  it('drone_recon reveals enemy territories within 2 hops but not 3', () => {
+    const state = reconState('modern', ['mod_drones']);
+    const visible = new Set<string>(['o1']);
+    expandFogVisibilityFromRecon(state, 'p1', visible, adjacency);
+    expect(visible.has('e1')).toBe(true);
+    expect(visible.has('e2')).toBe(true);
+    expect(visible.has('e3')).toBe(false);
+  });
+
+  it('orbital_recon reveals enemy territories within 2 hops', () => {
+    const state = reconState('space_age', ['sa_orbital_recon']);
+    const visible = new Set<string>(['o1']);
+    expandFogVisibilityFromRecon(state, 'p1', visible, adjacency);
+    expect(visible.has('e1')).toBe(true);
+    expect(visible.has('e2')).toBe(true);
+  });
+
+  it('does not reveal anything when tech trees are disabled', () => {
+    const state = reconState('modern', ['mod_drones']);
+    state.settings.tech_trees_enabled = false;
+    const visible = new Set<string>(['o1']);
+    expandFogVisibilityFromRecon(state, 'p1', visible, adjacency);
+    expect(visible.has('e1')).toBe(false);
+    expect(visible.has('e2')).toBe(false);
   });
 });

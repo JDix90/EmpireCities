@@ -235,6 +235,7 @@ connections = [
     # Sea routes
     {"from": "south_africa",     "to": "atlantic_route",    "type": "sea"},
     {"from": "atlantic_route",   "to": "rio_plata",         "type": "sea"},
+    {"from": "atlantic_route",   "to": "west_africa_disc",  "type": "sea"},
     {"from": "south_africa",     "to": "indian_ocean",      "type": "sea"},
     {"from": "indian_ocean",     "to": "ceylon_spice",      "type": "sea"},
 ]

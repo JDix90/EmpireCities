@@ -1,6 +1,6 @@
 {
   "map_id": "era_ww2",
-  "name": "World War II (1939–1945)",
+  "name": "World War II (1939\u20131945)",
   "description": "The greatest conflict in human history. Command the Wehrmacht across Europe, lead the Allied landings, defend the Pacific with Japan, or push back with the Soviet Red Army on the Eastern Front.",
   "era_theme": "ww2",
   "canvas_width": 1200,
@@ -954,21 +954,6 @@
   ],
   "connections": [
     {
-      "from": "arabia_ww2",
-      "to": "ethiopia_ww2",
-      "type": "sea"
-    },
-    {
-      "from": "arabia_ww2",
-      "to": "levant_ww2",
-      "type": "land"
-    },
-    {
-      "from": "australia_ww2",
-      "to": "pacific_islands",
-      "type": "land"
-    },
-    {
       "from": "britain_ww2",
       "to": "france_ww2",
       "type": "sea"
@@ -979,8 +964,198 @@
       "type": "sea"
     },
     {
-      "from": "burma_indochina",
+      "from": "france_ww2",
+      "to": "germany",
+      "type": "land"
+    },
+    {
+      "from": "france_ww2",
+      "to": "italy_ww2",
+      "type": "land"
+    },
+    {
+      "from": "france_ww2",
+      "to": "iberia_ww2",
+      "type": "land"
+    },
+    {
+      "from": "germany",
+      "to": "scandinavia_ww2",
+      "type": "land"
+    },
+    {
+      "from": "germany",
+      "to": "eastern_europe_ww2",
+      "type": "land"
+    },
+    {
+      "from": "italy_ww2",
+      "to": "eastern_europe_ww2",
+      "type": "land"
+    },
+    {
+      "from": "italy_ww2",
+      "to": "libya_egypt",
+      "type": "sea"
+    },
+    {
+      "from": "eastern_europe_ww2",
+      "to": "ukraine",
+      "type": "land"
+    },
+    {
+      "from": "eastern_europe_ww2",
+      "to": "turkey_ww2",
+      "type": "land"
+    },
+    {
+      "from": "ukraine",
+      "to": "russia_west",
+      "type": "land"
+    },
+    {
+      "from": "ukraine",
+      "to": "caucasus",
+      "type": "land"
+    },
+    {
+      "from": "russia_west",
+      "to": "russia_central",
+      "type": "land"
+    },
+    {
+      "from": "russia_central",
+      "to": "russia_east",
+      "type": "land"
+    },
+    {
+      "from": "russia_east",
+      "to": "manchuria_ww2",
+      "type": "land"
+    },
+    {
+      "from": "caucasus",
+      "to": "iran_ww2",
+      "type": "land"
+    },
+    {
+      "from": "iberia_ww2",
+      "to": "morocco_ww2",
+      "type": "sea"
+    },
+    {
+      "from": "morocco_ww2",
+      "to": "libya_egypt",
+      "type": "land"
+    },
+    {
+      "from": "morocco_ww2",
+      "to": "west_africa_ww2",
+      "type": "land"
+    },
+    {
+      "from": "libya_egypt",
+      "to": "ethiopia_ww2",
+      "type": "land"
+    },
+    {
+      "from": "libya_egypt",
+      "to": "levant_ww2",
+      "type": "land"
+    },
+    {
+      "from": "west_africa_ww2",
+      "to": "central_africa_ww2",
+      "type": "land"
+    },
+    {
+      "from": "ethiopia_ww2",
+      "to": "central_africa_ww2",
+      "type": "land"
+    },
+    {
+      "from": "turkey_ww2",
+      "to": "levant_ww2",
+      "type": "land"
+    },
+    {
+      "from": "turkey_ww2",
+      "to": "iran_ww2",
+      "type": "land"
+    },
+    {
+      "from": "levant_ww2",
+      "to": "iran_ww2",
+      "type": "land"
+    },
+    {
+      "from": "levant_ww2",
+      "to": "arabia_ww2",
+      "type": "land"
+    },
+    {
+      "from": "iran_ww2",
+      "to": "india_ww2",
+      "type": "land"
+    },
+    {
+      "from": "arabia_ww2",
+      "to": "ethiopia_ww2",
+      "type": "sea"
+    },
+    {
+      "from": "japan_ww2",
+      "to": "manchuria_ww2",
+      "type": "land"
+    },
+    {
+      "from": "japan_ww2",
+      "to": "philippines",
+      "type": "sea"
+    },
+    {
+      "from": "japan_ww2",
+      "to": "pacific_islands",
+      "type": "sea"
+    },
+    {
+      "from": "philippines",
       "to": "dutch_east_indies",
+      "type": "sea"
+    },
+    {
+      "from": "dutch_east_indies",
+      "to": "australia_ww2",
+      "type": "sea"
+    },
+    {
+      "from": "pacific_islands",
+      "to": "australia_ww2",
+      "type": "sea"
+    },
+    {
+      "from": "pacific_islands",
+      "to": "usa_west",
+      "type": "sea"
+    },
+    {
+      "from": "usa_west",
+      "to": "usa_east",
+      "type": "land"
+    },
+    {
+      "from": "manchuria_ww2",
+      "to": "north_china_ww2",
+      "type": "land"
+    },
+    {
+      "from": "north_china_ww2",
+      "to": "south_china_ww2",
+      "type": "land"
+    },
+    {
+      "from": "south_china_ww2",
+      "to": "burma_indochina",
       "type": "land"
     },
     {
@@ -990,223 +1165,13 @@
     },
     {
       "from": "burma_indochina",
-      "to": "south_china_ww2",
-      "type": "land"
-    },
-    {
-      "from": "caribbean",
-      "to": "france_ww2",
-      "type": "sea"
-    },
-    {
-      "from": "caucasus",
-      "to": "iran_ww2",
-      "type": "land"
-    },
-    {
-      "from": "caucasus",
-      "to": "turkey_ww2",
-      "type": "land"
-    },
-    {
-      "from": "central_africa_ww2",
-      "to": "libya_egypt",
-      "type": "land"
-    },
-    {
-      "from": "central_africa_ww2",
-      "to": "west_africa_ww2",
-      "type": "land"
-    },
-    {
-      "from": "dutch_east_indies",
-      "to": "australia_ww2",
-      "type": "sea"
-    },
-    {
-      "from": "dutch_east_indies",
-      "to": "pacific_islands",
-      "type": "land"
-    },
-    {
-      "from": "eastern_europe_ww2",
-      "to": "germany",
-      "type": "land"
-    },
-    {
-      "from": "eastern_europe_ww2",
-      "to": "italy_ww2",
-      "type": "land"
-    },
-    {
-      "from": "eastern_europe_ww2",
-      "to": "russia_west",
-      "type": "land"
-    },
-    {
-      "from": "eastern_europe_ww2",
-      "to": "turkey_ww2",
-      "type": "land"
-    },
-    {
-      "from": "eastern_europe_ww2",
-      "to": "ukraine",
-      "type": "land"
-    },
-    {
-      "from": "france_ww2",
-      "to": "germany",
-      "type": "land"
-    },
-    {
-      "from": "france_ww2",
-      "to": "iberia_ww2",
-      "type": "land"
-    },
-    {
-      "from": "france_ww2",
-      "to": "italy_ww2",
-      "type": "land"
-    },
-    {
-      "from": "germany",
-      "to": "scandinavia_ww2",
-      "type": "land"
-    },
-    {
-      "from": "iberia_ww2",
-      "to": "morocco_ww2",
-      "type": "sea"
-    },
-    {
-      "from": "india_ww2",
-      "to": "iran_ww2",
-      "type": "land"
-    },
-    {
-      "from": "iran_ww2",
-      "to": "levant_ww2",
-      "type": "land"
-    },
-    {
-      "from": "iran_ww2",
-      "to": "turkey_ww2",
-      "type": "land"
-    },
-    {
-      "from": "italy_ww2",
-      "to": "libya_egypt",
-      "type": "sea"
-    },
-    {
-      "from": "japan_ww2",
-      "to": "pacific_islands",
-      "type": "sea"
-    },
-    {
-      "from": "japan_ww2",
-      "to": "philippines",
-      "type": "sea"
-    },
-    {
-      "from": "levant_ww2",
-      "to": "libya_egypt",
-      "type": "land"
-    },
-    {
-      "from": "levant_ww2",
-      "to": "turkey_ww2",
-      "type": "land"
-    },
-    {
-      "from": "libya_egypt",
-      "to": "morocco_ww2",
-      "type": "land"
-    },
-    {
-      "from": "libya_egypt",
-      "to": "west_africa_ww2",
-      "type": "land"
-    },
-    {
-      "from": "manchuria_ww2",
-      "to": "north_china_ww2",
-      "type": "land"
-    },
-    {
-      "from": "manchuria_ww2",
-      "to": "russia_east",
-      "type": "land"
-    },
-    {
-      "from": "morocco_ww2",
-      "to": "west_africa_ww2",
-      "type": "land"
-    },
-    {
-      "from": "north_china_ww2",
-      "to": "south_china_ww2",
-      "type": "land"
-    },
-    {
-      "from": "pacific_islands",
-      "to": "south_africa_ww2",
-      "type": "land"
-    },
-    {
-      "from": "pacific_islands",
-      "to": "usa_west",
-      "type": "sea"
-    },
-    {
-      "from": "philippines",
       "to": "dutch_east_indies",
       "type": "sea"
     },
     {
-      "from": "russia_central",
-      "to": "russia_east",
+      "from": "usa_east",
+      "to": "caribbean",
       "type": "land"
-    },
-    {
-      "from": "russia_central",
-      "to": "russia_west",
-      "type": "land"
-    },
-    {
-      "from": "russia_east",
-      "to": "russia_west",
-      "type": "land"
-    },
-    {
-      "from": "russia_east",
-      "to": "scandinavia_ww2",
-      "type": "land"
-    },
-    {
-      "from": "russia_east",
-      "to": "usa_east",
-      "type": "land"
-    },
-    {
-      "from": "russia_west",
-      "to": "scandinavia_ww2",
-      "type": "land"
-    },
-    {
-      "from": "russia_west",
-      "to": "ukraine",
-      "type": "land"
-    },
-    {
-      "from": "south_africa_ww2",
-      "to": "australia_ww2",
-      "type": "sea"
-    },
-    {
-      "from": "south_china_ww2",
-      "to": "philippines",
-      "type": "sea"
     },
     {
       "from": "usa_east",
@@ -1214,9 +1179,19 @@
       "type": "sea"
     },
     {
-      "from": "usa_east",
-      "to": "usa_west",
+      "from": "caribbean",
+      "to": "france_ww2",
+      "type": "sea"
+    },
+    {
+      "from": "central_africa_ww2",
+      "to": "south_africa_ww2",
       "type": "land"
+    },
+    {
+      "from": "south_africa_ww2",
+      "to": "australia_ww2",
+      "type": "sea"
     }
   ],
   "regions": [

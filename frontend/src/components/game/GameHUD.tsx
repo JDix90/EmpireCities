@@ -469,6 +469,16 @@ export default function GameHUD({
 
       </div>{/* end scrollable body */}
 
+      {/* March to the Sea chain indicator (ACW Total War) */}
+      {isMyTurn && gameState.phase === 'attack' && myPlayer?.march_to_sea_active && (
+        <div className="px-4 pt-2">
+          <div className="w-full text-center text-xs rounded border border-amber-600/50 bg-amber-950/40 text-amber-300 py-1.5">
+            ⚔️ March to the Sea — chain {Math.min(myPlayer.march_to_sea_hops_used ?? 0, 3)}/3
+            <span className="opacity-60"> (+1 attack die)</span>
+          </div>
+        </div>
+      )}
+
       {/* Phase Advance Button */}
       {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
         <div className="p-4 border-t border-bf-border">
