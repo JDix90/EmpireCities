@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, ShoppingBag, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield, Settings, Coins
+  HelpCircle, Map, Calendar, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield, Settings, Coins
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
@@ -24,7 +24,6 @@ const mainNav: NavItem[] = [
   { to: '/maps', label: 'Map Hub', icon: Map, title: 'Map Hub' },
   { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily', hideForGuest: true },
   { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
-  { to: '/store', label: 'Store', icon: ShoppingBag, title: 'Store', hideForGuest: true },
   { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
   { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },
   { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true, requiresMapEditor: true },
@@ -74,15 +73,23 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Account & Help */}
       <div className={styles.accountNav}>
         {!user?.is_guest && (
-          // Balance indicator only — the labeled "Store" nav link is the single
-          // entry point, so this pill is intentionally not a second redirect.
-          <span
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium"
-            title="Your gold balance"
+          // Gold balance doubles as the Store entry point (standard game UX:
+          // click your currency to open the shop). This is the single store
+          // redirect now that the separate "Store" nav link is removed.
+          <Link
+            to="/store"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium transition-colors ${
+              isActive('/store')
+                ? 'bg-bf-gold/25 border-bf-gold/50 text-bf-gold'
+                : 'bg-bf-gold/10 border-bf-gold/30 text-bf-gold hover:bg-bf-gold/20'
+            }`}
+            aria-current={isActive('/store') ? 'page' : undefined}
+            title="Open Store"
+            aria-label={`Open Store — ${gold.toLocaleString()} gold`}
           >
             <Coins className="w-4 h-4" aria-hidden />
             <span className="tabular-nums">{gold.toLocaleString()}</span>
-          </span>
+          </Link>
         )}
         <Link
           to="/profile"
