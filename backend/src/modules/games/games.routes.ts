@@ -545,6 +545,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/games/:gameId/replay ────────────────────────────────────────
   // Optional query params: ?from=N&limit=N (for paginating large replays).
+  // `from` is a 0-based ROW offset (not a turn number) so pages tile the full
+  // snapshot stream without ever skipping intra-turn frames at a page boundary.
   // Both are validated and clamped so clients cannot request unbounded data.
   fastify.get<{ Params: { gameId: string }; Querystring: { from?: string; limit?: string } }>(
     '/:gameId/replay',
@@ -552,7 +554,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
     const { gameId } = request.params;
 
-    const fromTurn = Math.max(0, parseInt(request.query.from ?? '0', 10) || 0);
+    const fromOffset = Math.max(0, parseInt(request.query.from ?? '0', 10) || 0);
     const limitTurns = Math.min(200, Math.max(1, parseInt(request.query.limit ?? '200', 10) || 200));
 
     // Game must exist and be completed
@@ -576,8 +578,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (!participant) return reply.status(403).send({ error: 'Not a participant in this game' });
 
     const rows = await query<{ turn_number: number; state_json: unknown }>(
-      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 AND turn_number >= $2 ORDER BY turn_number ASC LIMIT $3',
-      [gameId, fromTurn, limitTurns],
+      'SELECT turn_number, state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number ASC, saved_at ASC OFFSET $2 LIMIT $3',
+      [gameId, fromOffset, limitTurns],
     );
 
     const snapshots = rows.map((row) => {

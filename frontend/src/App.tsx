@@ -260,6 +260,10 @@ export default function App() {
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/join/:code" element={<JoinGamePage />} />
+        {/* Public replay viewer — ReplayPage loads the authed participant feed
+            when signed in and falls back to the public-replay endpoint (which
+            only succeeds when the owner made it public) otherwise. */}
+        <Route path="/replay/:gameId" element={<ReplayPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
         <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
@@ -270,7 +274,6 @@ export default function App() {
         <Route path="/store" element={<PrivateRoute><StorePage /></PrivateRoute>} />
         <Route path="/lobby" element={<PrivateRoute><LobbyPage /></PrivateRoute>} />
         <Route path="/game/:gameId" element={<PrivateRoute><GamePage /></PrivateRoute>} />
-        <Route path="/replay/:gameId" element={<PrivateRoute><ReplayPage /></PrivateRoute>} />
         <Route path="/editor" element={<MapEditorRoute><MapEditorPage /></MapEditorRoute>} />
         <Route path="/editor/:mapId" element={<MapEditorRoute><MapEditorPage /></MapEditorRoute>} />
         <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />

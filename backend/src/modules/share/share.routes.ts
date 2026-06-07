@@ -5,6 +5,15 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { recordActivity } from '../../services/activityService';
 import { formatZodError } from '../../utils/formatZodError';
+import { resolveMap } from '../../sockets/mapResolver';
+import { renderReplayOgPng } from './ogImage';
+import { buildReplayPreviewData } from './replayOgData';
+
+// Rendering an SVG→PNG is CPU-bound and blocks the event loop. Completed-game
+// preview data is immutable, so memoize the rendered PNG per game. Bounded so a
+// flood of distinct ids can't grow it without limit.
+const OG_IMAGE_CACHE = new Map<string, Buffer>();
+const OG_IMAGE_CACHE_MAX = 200;
 
 export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/share/:gameId ─────────────────────────────────────────────
@@ -92,12 +101,12 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   );
 
   // ── GET /api/share/:gameId/public-replay ────────────────────────────────
-  // Public replay data — no auth required. Snapshots are paginated; the legacy
-  // behavior of "first 200 turns only" silently truncated long matches and
-  // caused the share link to render an incomplete game. Clients can scroll
-  // through the entire match by following `next_from`.
+  // Public replay data — no auth required. Snapshots are paginated by a 0-based
+  // ROW offset (`from`) so pages tile the full snapshot stream without skipping
+  // intra-turn frames at a page boundary. Clients follow `pagination.next_from`
+  // until it's null.
   //
-  // Defaults:  from=1, limit=200
+  // Defaults:  from=0, limit=200
   // Caps:      limit <= 500 (to bound payload size and serialization cost)
   // Auth:      none (route is intentionally public — only enabled when the
   //            owning participant flipped `is_replay_public`)
@@ -107,9 +116,9 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   }>('/:gameId/public-replay', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (request, reply) => {
     const { gameId } = request.params;
     const qs = request.query ?? {};
-    const fromRaw = parseInt(qs.from ?? '1', 10);
+    const fromRaw = parseInt(qs.from ?? '0', 10);
     const limitRaw = parseInt(qs.limit ?? '200', 10);
-    const from = Number.isFinite(fromRaw) && fromRaw > 0 ? fromRaw : 1;
+    const from = Number.isFinite(fromRaw) && fromRaw > 0 ? fromRaw : 0;
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 500)) : 200;
 
     const game = await queryOne<{ game_id: string; status: string; is_replay_public: boolean; era_id: string; winner_id: string }>(
@@ -138,9 +147,9 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
     const rows = await query<{ turn_number: number; state_json: unknown }>(
       `SELECT turn_number, state_json
        FROM game_states
-       WHERE game_id = $1 AND turn_number >= $2
-       ORDER BY turn_number ASC
-       LIMIT $3`,
+       WHERE game_id = $1
+       ORDER BY turn_number ASC, saved_at ASC
+       OFFSET $2 LIMIT $3`,
       [gameId, from, limit],
     );
 
@@ -160,8 +169,9 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
       return { turn_number: row.turn_number, state };
     });
 
-    const lastReturned = snapshots.length > 0 ? snapshots[snapshots.length - 1].turn_number : from - 1;
-    const hasMore = lastReturned < maxTurn;
+    // Offset cursor: more rows remain when we haven't yet returned all of them.
+    const nextOffset = from + rows.length;
+    const hasMore = nextOffset < totalTurns;
 
     return reply.send({
       game_id: game.game_id,
@@ -175,8 +185,110 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
         returned: snapshots.length,
         total_turns: totalTurns,
         max_turn: maxTurn,
-        next_from: hasMore ? lastReturned + 1 : null,
+        next_from: hasMore ? nextOffset : null,
       },
     });
   });
+
+  // ── GET /api/share/:gameId/public-map ───────────────────────────────────
+  // Map geometry for a public replay — no auth required. The public viewer
+  // needs polygons/connections that aren't in the per-turn snapshots, and the
+  // authed GET /api/maps/:mapId route is gated. We resolve the map id from the
+  // game's own snapshots (never trusting the client) so this can't be abused
+  // to fetch arbitrary private community maps.
+  fastify.get<{ Params: { gameId: string } }>(
+    '/:gameId/public-map',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { gameId } = request.params;
+
+      const game = await queryOne<{ is_replay_public: boolean }>(
+        'SELECT is_replay_public FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      if (!game) return reply.status(404).send({ error: 'Game not found' });
+      if (!game.is_replay_public) return reply.status(403).send({ error: 'Replay is not public' });
+
+      const mapRow = await queryOne<{ map_id: string | null }>(
+        `SELECT state_json->>'map_id' AS map_id
+         FROM game_states WHERE game_id = $1
+         ORDER BY turn_number ASC, saved_at ASC LIMIT 1`,
+        [gameId],
+      );
+      const mapId = mapRow?.map_id;
+      if (!mapId) return reply.status(404).send({ error: 'Map not found for this replay' });
+
+      const map = await resolveMap(mapId);
+      if (!map) return reply.status(404).send({ error: 'Map not found' });
+
+      return reply.send({ map });
+    },
+  );
+
+  // ── GET /api/share/:gameId/og-image.png ─────────────────────────────────
+  // Dynamic Open Graph preview image for social/chat link unfurls. Public and
+  // cacheable; only renders for completed games. Shows non-sensitive aggregate
+  // info (winner, era, turns, player colors).
+  fastify.get<{ Params: { gameId: string } }>(
+    '/:gameId/og-image.png',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { gameId } = request.params;
+
+      const cached = OG_IMAGE_CACHE.get(gameId);
+      if (cached) {
+        return reply
+          .header('Content-Type', 'image/png')
+          .header('Cache-Control', 'public, max-age=86400, immutable')
+          .send(cached);
+      }
+
+      const opts = await buildReplayPreviewData(gameId);
+      // Only completed AND publicly-shared replays get a per-replay preview, so
+      // a known gameId can't leak the winner/players of an un-shared game.
+      if (!opts || !opts.isPublic) return reply.status(404).send({ error: 'Replay preview not available' });
+
+      try {
+        const png = renderReplayOgPng(opts);
+        if (OG_IMAGE_CACHE.size >= OG_IMAGE_CACHE_MAX) {
+          OG_IMAGE_CACHE.delete(OG_IMAGE_CACHE.keys().next().value as string);
+        }
+        OG_IMAGE_CACHE.set(gameId, png);
+        return reply
+          .header('Content-Type', 'image/png')
+          .header('Cache-Control', 'public, max-age=86400, immutable')
+          .send(png);
+      } catch (err) {
+        request.log.error({ err }, 'OG image render failed');
+        return reply.status(500).send({ error: 'Failed to render preview' });
+      }
+    },
+  );
+
+  // ── POST /api/share/:gameId/make-private ────────────────────────────────
+  // Revoke public access to a replay (inverse of make-public). Only a
+  // participant can do this.
+  fastify.post<{ Params: { gameId: string } }>(
+    '/:gameId/make-private',
+    { preHandler: [authenticate, rejectGuest] },
+    async (request, reply) => {
+      const { gameId } = request.params;
+
+      const game = await queryOne<{ status: string }>(
+        'SELECT status FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      if (!game) return reply.status(404).send({ error: 'Game not found' });
+
+      const participant = await queryOne<{ user_id: string }>(
+        'SELECT user_id FROM game_players WHERE game_id = $1 AND user_id = $2',
+        [gameId, request.userId],
+      );
+      if (!participant) return reply.status(403).send({ error: 'Not a participant' });
+
+      await query('UPDATE games SET is_replay_public = false WHERE game_id = $1', [gameId]);
+
+      return reply.send({ ok: true });
+    },
+  );
 }
