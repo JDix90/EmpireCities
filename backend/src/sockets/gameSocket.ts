@@ -1687,6 +1687,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
 
@@ -2076,6 +2077,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         recordAbility(`Activated ${abilityId}`);
         socket.emit('game:ability_result', { abilityId, success: true, effect: 'blitzkrieg_ready' });
         broadcastState(io, gameId, state);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
 
@@ -2692,6 +2694,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
 
       socket.emit('game:truce_result', { pending: true, targetName: target.username });
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
 
@@ -2743,6 +2746,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (accepted) {
         broadcastState(io, gameId, state);
       }
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
 
