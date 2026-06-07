@@ -71,10 +71,12 @@ export type SecretMissionLike = {
   ally_player_id?: string;
 };
 
+export type PlayerNameLookup = Pick<PlayerState, 'player_id' | 'username'>;
+
 export function formatSecretMissionReveal(
   mission: SecretMissionLike,
   lookup?: MapNameLookup | null,
-  players?: PlayerState[],
+  players?: PlayerNameLookup[],
 ): string {
   switch (mission.kind) {
     case 'capture_territories':
