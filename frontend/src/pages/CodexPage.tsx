@@ -28,6 +28,10 @@ export default function CodexPage() {
   return (
     <SubpageShell title="FACTION CODEX" icon={BookOpen} maxWidth="4xl" contentClassName="space-y-8">
       <p className="text-bf-muted text-sm -mt-2">Browse all factions across every era.</p>
+      <p className="text-bf-muted/70 text-xs -mt-6 flex items-center gap-1.5">
+        <span className="w-2.5 h-2.5 rounded-full bg-bf-gold/70 inline-block" />
+        The colored dot shows each faction&apos;s identity color on the map.
+      </p>
 
       {loading && <p className="text-bf-muted">Loading factions…</p>}
 
@@ -36,8 +40,13 @@ export default function CodexPage() {
         if (!loading && factions.length === 0) return null;
         return (
           <section key={eraId} className="mb-10">
-            <h2 className="font-display text-xl text-bf-text mb-4">
+            <h2 className="font-display text-xl text-bf-text mb-4 flex items-center gap-2">
               {ERA_LABELS[eraId] ?? eraId}
+              {eraId === 'galaxy_age' && (
+                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-bf-gold/40 text-bf-gold/80">
+                  Coming soon
+                </span>
+              )}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {factions.map((f) => (

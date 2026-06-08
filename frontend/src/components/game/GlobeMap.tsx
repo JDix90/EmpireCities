@@ -203,6 +203,8 @@ interface GlobeMapProps {
   ambientEnabled?: boolean;
   turnHolderPlayerId?: string | null;
   contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
+  /** Fires once when react-globe.gl has initialized and the globe is rendered. */
+  onGlobeReady?: () => void;
 }
 
 /**
@@ -681,6 +683,7 @@ function GlobeMap({
   ambientEnabled = false,
   turnHolderPlayerId,
   contestedBorders = [],
+  onGlobeReady,
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -2882,6 +2885,7 @@ function GlobeMap({
 
         onGlobeReady={() => {
           setGlobeReadyTick((t) => t + 1);
+          onGlobeReady?.();
         }}
       />
     </div>
@@ -2895,6 +2899,8 @@ export { GlobeMap as GlobeMapCore };
 
 function GlobeMapWithFallback(props: GlobeMapProps) {
   const [webglOk, setWebglOk] = useState<boolean | null>(null);
+  const onGlobeReadyRef = useRef(props.onGlobeReady);
+  onGlobeReadyRef.current = props.onGlobeReady;
 
   useEffect(() => {
     try {
@@ -2905,6 +2911,13 @@ function GlobeMapWithFallback(props: GlobeMapProps) {
       setWebglOk(false);
     }
   }, []);
+
+  // The 2D fallback never mounts the globe, so its onGlobeReady would never
+  // fire — signal readiness once the lighter 2D map path is chosen so the
+  // turn-ready ack still happens for non-WebGL clients.
+  useEffect(() => {
+    if (webglOk === false) onGlobeReadyRef.current?.();
+  }, [webglOk]);
 
   if (webglOk === null) return null;
 

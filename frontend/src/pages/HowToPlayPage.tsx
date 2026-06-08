@@ -254,8 +254,8 @@ export default function HowToPlayPage() {
               </div>
             </div>
             <p className="text-bf-muted/70 text-xs mt-2">
-              This page summarizes core and advanced rules. For tables, building costs, and extended FAQs, see{' '}
-              <code className="text-bf-gold/90">docs/PLAYER_GUIDE.md</code> in the project repository.
+              This page summarizes the core and advanced rules. Open the in-game Codex for full faction
+              details, building costs, and ability tables.
             </p>
           </Section>
 

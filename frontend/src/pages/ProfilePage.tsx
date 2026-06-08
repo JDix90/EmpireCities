@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
@@ -229,7 +228,6 @@ export default function ProfilePage() {
       <SubpageShell
         title="PROFILE"
         maxWidth="4xl"
-        headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
       >
         <p className="text-bf-muted text-center py-16">Loading profile…</p>
       </SubpageShell>
@@ -241,14 +239,13 @@ export default function ProfilePage() {
       <SubpageShell
         title="PROFILE"
         maxWidth="4xl"
-        headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
       >
         <div className="text-center py-16 space-y-4">
           <p className="text-bf-muted">{loadError ?? 'User not found.'}</p>
           {loadError && (
-            <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
-              If the server was updated recently, apply pending database migrations so ratings and profile columns exist.
-            </p>
+              <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
+                This profile could not be loaded right now. Please try again in a moment.
+              </p>
           )}
           <Link to="/lobby" className="btn-secondary text-sm inline-block">Back to Lobby</Link>
         </div>
@@ -265,7 +262,6 @@ export default function ProfilePage() {
       title="COMMANDER PROFILE"
       maxWidth="4xl"
       contentClassName="space-y-6"
-      headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
     >
         {/* Profile Card */}
         <div className="card flex flex-col sm:flex-row items-center gap-6">
@@ -314,7 +310,7 @@ export default function ProfilePage() {
               </span>
             </div>
             <div className="mt-3">
-              <XpBar xp={profile.xp} />
+              <XpBar xp={profile.xp ?? 0} />
               {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
                 <p className="flex items-center gap-1 text-bf-gold text-xs mt-2">
                   <Coins className="w-3.5 h-3.5" />
@@ -332,7 +328,7 @@ export default function ProfilePage() {
                 <GraduationCap className="w-5 h-5" /> Learn to Play
               </h3>
               <p className="text-bf-muted text-sm mt-1 max-w-xl">
-                Launch a guided tutorial match, or open <strong className="text-bf-text">Rules</strong> for the in-app guide (combat, cards, victory conditions, advanced features). Developers and power users can also read <code className="text-xs">docs/PLAYER_GUIDE.md</code> in the repository for the longest-form FAQ and tables.
+                Launch a guided tutorial match, or open <strong className="text-bf-text">Rules</strong> for the in-app guide covering combat, cards, victory conditions, and advanced features.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -466,7 +462,9 @@ export default function ProfilePage() {
                     <p className={`text-sm font-medium ${unlocked ? 'text-bf-gold' : 'text-bf-muted'}`}>
                       {unlocked ? a.name : '???'}
                     </p>
-                    <p className="text-xs text-bf-muted mt-1 leading-relaxed">{a.description}</p>
+                    <p className="text-xs text-bf-muted mt-1 leading-relaxed">
+                      {unlocked ? a.description : 'Locked — keep playing to reveal this achievement.'}
+                    </p>
                     {unlocked?.unlocked_at && (
                       <p className="text-[10px] text-bf-muted/60 mt-1">
                         {formatDate(unlocked.unlocked_at)}
@@ -500,7 +498,7 @@ export default function ProfilePage() {
             {[
               { label: 'MMR Rating', value: profile.mmr, icon: Trophy },
               { label: 'Level', value: profile.level, icon: Sword },
-              { label: 'Total XP', value: profile.xp.toLocaleString(), icon: Map },
+              { label: 'Total XP', value: (profile.xp ?? 0).toLocaleString(), icon: Map },
             ].map(({ label, value, icon: Icon }) => (
               <div key={label} className="card text-center">
                 <Icon className="w-6 h-6 text-bf-gold mx-auto mb-2" />
@@ -541,7 +539,7 @@ export default function ProfilePage() {
           <div className="card border-red-500/20">
             <h3 className="font-display text-lg text-red-400/90 mb-2">Delete account</h3>
             <p className="text-bf-muted text-sm mb-4">
-              Permanently remove your account and sign out. Run database migration <code className="text-xs bg-bf-dark px-1 rounded">003_user_delete_fk.sql</code> if deletion fails due to foreign keys.
+              Permanently remove your account and sign out. This action cannot be undone.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
               <div className="flex-1">

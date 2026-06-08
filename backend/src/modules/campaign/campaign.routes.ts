@@ -333,11 +333,18 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       const erasWithNarrative = CAMPAIGN_ERAS.map((era, idx) => {
         const entry = entries.find((e) => e.era_id === era);
         const pathEra = pathConfig?.eras[idx];
+        // "completed" must mean the era game reached a terminal outcome (won or
+        // lost) — not merely that an entry row was created at era start. The
+        // authoritative terminal signal is the per-era outcome stored in
+        // path_narrative by handleCampaignCompletion. Using `!!entry` here made
+        // in-progress / abandoned eras show as "Failed" on the campaign page.
+        const outcome = c.path_narrative?.[`era_${idx}_outcome`];
+        const isTerminal = outcome === 'won' || outcome === 'lost';
         return {
           era_id: era,
           index: idx,
-          won: entry?.won ?? false,
-          completed: !!entry,
+          won: outcome === 'won' || (isTerminal ? false : (entry?.won ?? false)),
+          completed: isTerminal,
           game_id: entry?.game_id ?? null,
           faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
           map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],

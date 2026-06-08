@@ -460,6 +460,62 @@ export default function GamePage() {
 
   const turnHolderPlayer = gameState?.players[gameState.current_player_index ?? 0];
 
+  // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
+  // The server starts the turn timer the instant a turn begins, but the 3D
+  // globe can take a beat to initialize on slower devices, so the HUD
+  // countdown burns time before the player can even see the map. Once the
+  // globe is ready (or the 2D fallback mounts) and it is the local human's
+  // turn, we send a one-shot `game:turn_ready` so the server realigns
+  // turn_started_at. The server guards this to once per turn within a short
+  // window, so it cannot be abused to stall the clock.
+  const globeReadyRef = useRef(false);
+  const turnReadyAckRef = useRef<string | null>(null);
+
+  const maybeEmitTurnReady = useCallback(() => {
+    if (!globeReadyRef.current || !gameId) return;
+    const gs = useGameStore.getState().gameState;
+    if (!gs || !gs.settings.turn_timer_seconds || gs.settings.async_mode) return;
+    const myPid = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
+    if (!myPid) return;
+    const current = gs.players[gs.current_player_index];
+    if (!current || current.player_id !== myPid) return;
+    const key = `${gs.turn_number}:${gs.current_player_index}`;
+    if (turnReadyAckRef.current === key) return;
+    turnReadyAckRef.current = key;
+    getSocket().emit('game:turn_ready', { gameId });
+  }, [gameId]);
+
+  const handleGlobeReady = useCallback(() => {
+    globeReadyRef.current = true;
+    maybeEmitTurnReady();
+  }, [maybeEmitTurnReady]);
+
+  // Reset ack state when switching games so a prior room's readiness cannot
+  // leak into the next match.
+  useEffect(() => {
+    globeReadyRef.current = false;
+    turnReadyAckRef.current = null;
+  }, [gameId]);
+
+  // 2D map and galaxy overview render immediately (no WebGL init), so treat
+  // them as "map ready" for the turn-timer ack without waiting on onGlobeReady.
+  useEffect(() => {
+    if (!mapData) return;
+    const instantReady =
+      mapView === '2d' ||
+      (mapView === 'globe' && mapData.map_kind === 'galaxy' && galaxyOverviewMode);
+    if (instantReady) {
+      globeReadyRef.current = true;
+      maybeEmitTurnReady();
+    } else if (mapView === 'globe') {
+      globeReadyRef.current = false;
+    }
+  }, [mapData, mapView, galaxyOverviewMode, maybeEmitTurnReady]);
+
+  useEffect(() => {
+    maybeEmitTurnReady();
+  }, [gameState?.turn_number, gameState?.current_player_index, maybeEmitTurnReady]);
+
   const contestedBorders = useMemo(() => {
     if (!gameState || !mapData || !mapAmbientEnabled) return [];
     return computeContestedBorders(
@@ -2633,7 +2689,7 @@ export default function GamePage() {
                       <h3 className="font-display text-xl text-bf-gold">Players</h3>
                     </div>
                     <span className="inline-flex items-center gap-1.5 text-sm text-bf-muted">
-                      <Users className="w-4 h-4" /> {roster.length} connected seats
+                      <Users className="w-4 h-4" /> {roster.length} / {maxPlayers} players
                     </span>
                   </div>
 
@@ -3003,6 +3059,7 @@ export default function GamePage() {
                         onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
                         autoSpin={globeSpinEnabled}
+                        onGlobeReady={handleGlobeReady}
                         highlightTerritoryId={tutorialHighlightId}
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}

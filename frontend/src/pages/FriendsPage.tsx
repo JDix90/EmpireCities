@@ -116,6 +116,9 @@ export default function FriendsPage() {
     }
   };
 
+  const incomingRequests = pending.filter((p) => p.direction === 'incoming');
+  const outgoingRequests = pending.filter((p) => p.direction === 'outgoing');
+
   if (user?.is_guest) {
     return (
       <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg">
@@ -150,36 +153,49 @@ export default function FriendsPage() {
           <p className="text-bf-muted text-center">Loading…</p>
         ) : (
           <>
-            {pending.length > 0 && (
+            {incomingRequests.length > 0 && (
               <div className="card space-y-3">
-                <h2 className="font-display text-bf-gold text-lg">Pending</h2>
+                <h2 className="font-display text-bf-gold text-lg">Incoming requests ({incomingRequests.length})</h2>
                 <ul className="space-y-2">
-                  {pending.map((p) => (
+                  {incomingRequests.map((p) => (
                     <li
                       key={p.id}
                       className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
                     >
                       <span className="text-bf-text">{p.other_username}</span>
-                      {p.direction === 'incoming' ? (
-                        <span className="flex gap-1 shrink-0">
-                          <button
-                            type="button"
-                            className="btn-primary text-xs py-1 px-2 flex items-center gap-1"
-                            onClick={() => void accept(p.other_user_id)}
-                          >
-                            <Check className="w-3 h-3" /> Accept
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-secondary text-xs py-1 px-2 flex items-center gap-1"
-                            onClick={() => void decline(p.other_user_id)}
-                          >
-                            <X className="w-3 h-3" /> Decline
-                          </button>
-                        </span>
-                      ) : (
-                        <span className="text-bf-muted text-xs">Waiting…</span>
-                      )}
+                      <span className="flex gap-1 shrink-0">
+                        <button
+                          type="button"
+                          className="btn-primary text-xs py-1 px-2 flex items-center gap-1"
+                          onClick={() => void accept(p.other_user_id)}
+                        >
+                          <Check className="w-3 h-3" /> Accept
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary text-xs py-1 px-2 flex items-center gap-1"
+                          onClick={() => void decline(p.other_user_id)}
+                        >
+                          <X className="w-3 h-3" /> Decline
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {outgoingRequests.length > 0 && (
+              <div className="card space-y-3">
+                <h2 className="font-display text-bf-gold text-lg">Sent requests ({outgoingRequests.length})</h2>
+                <ul className="space-y-2">
+                  {outgoingRequests.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
+                    >
+                      <span className="text-bf-text">{p.other_username}</span>
+                      <span className="text-bf-muted text-xs shrink-0">Waiting…</span>
                     </li>
                   ))}
                 </ul>

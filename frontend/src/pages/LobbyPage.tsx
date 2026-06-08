@@ -25,7 +25,7 @@ import TopNavBar from '../components/ui/TopNavBar';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
-import { COMMUNITY_MAP_TITLES, ERA_LABELS } from '../constants/gameLobbyLabels';
+import { COMMUNITY_MAP_TITLES, ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import { advancedFeatureTooltip, getCustomMapImmersion } from '../data/customMapImmersion';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
 import StreakBadge from '../components/ui/StreakBadge';
@@ -275,7 +275,7 @@ interface LobbyCampaignMe {
 }
 
 const GAME_TYPE_LABELS: Record<string, string> = {
-  solo: 'Solo',
+  solo: 'vs AI',
   multiplayer: 'Multiplayer',
   hybrid: 'Hybrid',
 };
@@ -405,6 +405,7 @@ export default function LobbyPage() {
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
+  const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
   const [turnTimer, setTurnTimer] = useState(300);
   type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission';
   const [victoryModes, setVictoryModes] = useState<Set<VictoryMode>>(
@@ -721,7 +722,7 @@ export default function LobbyPage() {
         turn_timer_seconds: turnTimer,
         initial_unit_count: 3,
         card_set_escalating: true,
-        diplomacy_enabled: true,
+        diplomacy_enabled: diplomacyEnabled,
         factions_enabled: factionsEnabled || undefined,
         economy_enabled: economyEnabled || undefined,
         tech_trees_enabled: techTreesEnabled || undefined,
@@ -1459,6 +1460,9 @@ export default function LobbyPage() {
                     {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
                       <p className="text-bf-muted text-xs mt-1">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
                     )}
+                    {weeklyChallenge.rules_json?.scoring && (
+                      <p className="text-bf-muted text-xs mt-1">Ranked by: {formatWeeklyScoring(weeklyChallenge.rules_json.scoring)}</p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -1782,6 +1786,13 @@ export default function LobbyPage() {
                           <label htmlFor="create-game-fog" className="contents cursor-pointer">
                             <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Fog of War</span>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                          <FeatureTooltip text="Allow players to propose and honor truces during the game. Disable for a no-quarter free-for-all where no alliances can be formed." />
+                          <label htmlFor="create-game-diplomacy" className="contents cursor-pointer">
+                            <input id="create-game-diplomacy" type="checkbox" checked={diplomacyEnabled} onChange={(e) => setDiplomacyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Diplomacy</span>
                           </label>
                         </div>
                         {aiCount > 0 && (
