@@ -28,6 +28,12 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
   },
+  {
+    key: 'era_advancement_lobby_enabled',
+    label: 'Era Advancement (lobby)',
+    description:
+      'Show the Era Advancement advanced game setting in the lobby. Does not affect games already created with the option on.',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'audit';

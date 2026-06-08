@@ -41,4 +41,12 @@ describe('strikeAnimation', () => {
     expect(shouldEmitAbilityStrikeVisuals('air_strike', 'unit_reduction')).toBe(true);
     expect(shouldEmitAbilityStrikeVisuals('air_strike', 'pre_attack_damage_ready')).toBe(false);
   });
+
+  it('shouldEmitAbilityStrikeVisuals covers faction unit-reduction strikes', () => {
+    expect(shouldEmitAbilityStrikeVisuals('longbowmen', 'unit_reduction')).toBe(true);
+    expect(shouldEmitAbilityStrikeVisuals('precision_airstrike', 'unit_reduction')).toBe(true);
+    expect(shouldEmitAbilityStrikeVisuals('chevauchee', 'unit_reduction')).toBe(true);
+    expect(shouldEmitAbilityStrikeVisuals('privateer', 'unit_reduction')).toBe(true);
+    expect(shouldEmitFullScreenStrike('longbowmen', 'unit_reduction')).toBe(false);
+  });
 });

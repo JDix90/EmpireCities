@@ -311,3 +311,22 @@ export const STABILITY_CONSTANTS = {
   DEPLOY_CAP_TURN_STEP,
   DEPLOY_CAP_TURN_STEP_BONUS,
 } as const;
+
+/**
+ * Population-weighted average stability across all territories owned by a player.
+ * Returns 100 when the player owns no stability-tracked territories.
+ */
+export function getEmpireWeightedStability(state: GameState, playerId: string): number {
+  let weightedSum = 0;
+  let popSum = 0;
+
+  for (const territory of Object.values(state.territories)) {
+    if (territory.owner_id !== playerId || territory.stability == null) continue;
+    const pop = Math.max(1, territory.population ?? 1);
+    weightedSum += territory.stability * pop;
+    popSum += pop;
+  }
+
+  if (popSum <= 0) return 100;
+  return weightedSum / popSum;
+}

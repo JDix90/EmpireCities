@@ -99,6 +99,7 @@ const DEFAULTS: AdminConfigState = {
   },
   feature_flags: {
     map_editor_enabled: false,
+    era_advancement_lobby_enabled: false,
   },
 };
 

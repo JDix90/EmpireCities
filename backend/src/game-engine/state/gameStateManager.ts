@@ -199,6 +199,11 @@ export function initializeGameState(
     unlocked_techs: [],
     ability_uses: {},
     space_station_launched: p.faction_id === 'lunar_pioneers' ? true : undefined,
+    current_era_index: settingsNorm.era_advancement_enabled ? 0 : undefined,
+    era_transition_turns_remaining: settingsNorm.era_advancement_enabled ? 0 : undefined,
+    last_turn_production_income: settingsNorm.era_advancement_enabled ? 0 : undefined,
+    era_advancement_tech_echo: settingsNorm.era_advancement_enabled ? {} : undefined,
+    medieval_signature_charges: settingsNorm.era_advancement_enabled ? 0 : undefined,
   }));
 
   // Initialize buildings array on territories when economy is enabled
@@ -525,6 +530,9 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
 
   const nextPlayer = state.players[next];
+  if (state.settings.era_advancement_enabled && (nextPlayer.era_transition_turns_remaining ?? 0) > 0) {
+    nextPlayer.era_transition_turns_remaining = 0;
+  }
   if (map) {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
     const passiveReinforceBonus = getPlayerReinforceBonus(state, nextPlayer.player_id);
@@ -605,6 +613,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     player.march_to_sea_active = false;
     player.march_to_sea_hops_used = 0;
     player.march_to_sea_last_capture_id = null;
+    player.era_advanced_this_turn = false;
   }
 }
 

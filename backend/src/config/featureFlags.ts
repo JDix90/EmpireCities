@@ -51,11 +51,17 @@ export const featureFlags = {
   get mapEditorEnabled(): boolean {
     return overrideBool('map_editor_enabled', false);
   },
+
+  /** When true, the Era Advancement advanced setting appears in the lobby create-game UI. */
+  get eraAdvancementLobbyEnabled(): boolean {
+    return overrideBool('era_advancement_lobby_enabled', false);
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
 export function getClientFeatureFlags(): Record<string, boolean> {
   return {
     map_editor_enabled: featureFlags.mapEditorEnabled,
+    era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
   };
 }

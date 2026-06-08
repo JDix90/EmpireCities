@@ -10,7 +10,11 @@ export type MapStrikeAbilityId =
   | 'swarm_strike'
   | 'dyson_beam'
   | 'river_blockade'
-  | 'air_strike';
+  | 'air_strike'
+  | 'longbowmen'
+  | 'precision_airstrike'
+  | 'chevauchee'
+  | 'privateer';
 
 export interface MapStrikeFlashProps {
   territoryId: string;
@@ -125,6 +129,42 @@ export const STRIKE_MAP_STYLES: Record<MapStrikeAbilityId, StrikeMapStyle> = {
     mapFlashMs: 2000,
     fullScreen: false,
   },
+  longbowmen: {
+    emoji: '🏹',
+    fillHex: 0xd97706,
+    ringHex: 0xb45309,
+    ringRgb: [217, 119, 6],
+    durationMs: 2200,
+    mapFlashMs: 1800,
+    fullScreen: false,
+  },
+  precision_airstrike: {
+    emoji: '✈️',
+    fillHex: 0x60a5fa,
+    ringHex: 0x2563eb,
+    ringRgb: [96, 165, 250],
+    durationMs: 2600,
+    mapFlashMs: 2100,
+    fullScreen: false,
+  },
+  chevauchee: {
+    emoji: '🐎',
+    fillHex: 0xf97316,
+    ringHex: 0xc2410c,
+    ringRgb: [249, 115, 22],
+    durationMs: 2400,
+    mapFlashMs: 2000,
+    fullScreen: false,
+  },
+  privateer: {
+    emoji: '🏴‍☠️',
+    fillHex: 0x1d4ed8,
+    ringHex: 0x1e3a8a,
+    ringRgb: [29, 78, 216],
+    durationMs: 2300,
+    mapFlashMs: 1900,
+    fullScreen: false,
+  },
 };
 
 const STRIKE_ABILITY_IDS = new Set<string>(Object.keys(STRIKE_MAP_STYLES));
@@ -161,7 +201,13 @@ export function getStrikeToastStyle(abilityId: MapStrikeAbilityId): {
     case 'river_blockade':
       return { background: '#021018', border: '1px solid #0284c7', color: '#7dd3fc' };
     case 'air_strike':
+    case 'precision_airstrike':
       return { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' };
+    case 'longbowmen':
+    case 'chevauchee':
+      return { background: '#1a1004', border: '1px solid #b45309', color: '#fdba74' };
+    case 'privateer':
+      return { background: '#020617', border: '1px solid #1d4ed8', color: '#93c5fd' };
     case 'nuclear_strike':
       return { background: '#1a0000', border: '1px solid #7f1d1d', color: '#fca5a5' };
     case 'atom_bomb':

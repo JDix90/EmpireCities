@@ -146,11 +146,10 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_chivalry',
     name: 'Chivalric Code',
-    description: 'Elite knights — +1 attack die once per turn in one attack exchange.',
+    description: 'Elite knights — unlocks Knights Charge (+1 attack die once per turn).',
     tier: 2,
     prerequisite: 'medieval_feudalism',
     cost: 7,
-    attack_bonus: 1,
     unlocks_ability: 'knights_charge',
   },
   // Tier 3

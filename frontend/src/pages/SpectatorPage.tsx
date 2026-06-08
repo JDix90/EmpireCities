@@ -6,6 +6,7 @@ import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
+import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import GameChat from '../components/game/GameChat';
@@ -30,10 +31,12 @@ import type { EventCard } from '../components/game/EventCardModal';
 import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
 import { prefersReducedMotion } from '../utils/device';
+import { playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import {
   computeContestedBorders,
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
+import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
 
 interface MapData {
   canvas_width?: number;
@@ -77,6 +80,17 @@ export default function SpectatorPage() {
   const eventCardVisualSeenRef = useRef(new Set<string>());
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
+  const seenEraAdvanceVisualsRef = useRef(new Set<string>());
+  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; label: string } | null>(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    for (const ev of mapVisualEvents) {
+      if (ev.kind !== 'era_advance' || seenEraAdvanceVisualsRef.current.has(ev.id)) continue;
+      seenEraAdvanceVisualsRef.current.add(ev.id);
+      setEraAdvanceVignette({ key: Date.now(), label: eraAdvanceDisplayName(ev.variant) });
+    }
+  }, [mapVisualEvents]);
 
   useEffect(() => {
     if (!gameId || !accessToken) return;
@@ -122,6 +136,7 @@ export default function SpectatorPage() {
       if (!isMapStrikeAbility(event.abilityId)) return;
 
       const abilityId = event.abilityId as MapStrikeAbilityId;
+      playStrikeAbilitySound(abilityId);
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
@@ -316,6 +331,14 @@ export default function SpectatorPage() {
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className={`flex-1 relative min-h-[50vh]${phaseTint ? ` ${phaseTint}` : ''}`}>
+          {eraAdvanceVignette && (
+            <EraAdvanceVignette
+              key={eraAdvanceVignette.key}
+              active
+              eraLabel={eraAdvanceVignette.label}
+              onComplete={() => setEraAdvanceVignette(null)}
+            />
+          )}
           <GameMap
             mapData={mapData}
             onTerritoryClick={() => {}}

@@ -16,6 +16,9 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
+import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
+import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
+import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import MobileCombatBanner from '../components/game/MobileCombatBanner';
@@ -61,6 +64,10 @@ import {
   scheduleEventCardMapVisualBackup,
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
+import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
+import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
+import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
+import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { formatEraLabel } from '../utils/mapDisplayNames';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { AiBadge } from '../components/ui/AiBadge';
@@ -392,6 +399,7 @@ export default function GamePage() {
 
   /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
   const globeDefaultAppliedRef = useRef(false);
+  const eraAdvancementAnnouncedRef = useRef(false);
 
   /** Prefetch globe vendor chunks when the user prefers globe or may switch soon. */
   useEffect(() => {
@@ -434,6 +442,21 @@ export default function GamePage() {
   }, [gameState, joinPlayerIndex]);
   resolvedViewerPlayerIdRef.current = resolvedViewerPlayerId;
 
+  const viewerPlayer = useMemo(() => {
+    if (!gameState) return null;
+    if (resolvedViewerPlayerId) {
+      return gameState.players.find((p) => p.player_id === resolvedViewerPlayerId) ?? null;
+    }
+    return gameState.players.find(
+      (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+    ) ?? null;
+  }, [gameState, resolvedViewerPlayerId, user?.user_id, user?.username]);
+
+  const playerTechEra = useMemo(
+    () => (gameState ? resolvePlayerTechEraId(gameState, viewerPlayer) : null),
+    [gameState, viewerPlayer],
+  );
+
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
   // that dismissing the game-over modal routes back to the right campaign detail.
   // (Also set on loss via looking at game settings — see handleGameOverDismiss.)
@@ -450,6 +473,17 @@ export default function GamePage() {
   const eventCardVisualSeenRef = useRef(new Set<string>());
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
+  const seenEraAdvanceVisualsRef = useRef(new Set<string>());
+  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; label: string } | null>(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion() || liteModeEnabled) return;
+    for (const ev of mapVisualEvents) {
+      if (ev.kind !== 'era_advance' || seenEraAdvanceVisualsRef.current.has(ev.id)) continue;
+      seenEraAdvanceVisualsRef.current.add(ev.id);
+      setEraAdvanceVignette({ key: Date.now(), label: eraAdvanceDisplayName(ev.variant) });
+    }
+  }, [mapVisualEvents, liteModeEnabled]);
 
   const mapAmbientEnabled = useMemo(() => {
     if (!gameState || gameState.phase === 'game_over') return false;
@@ -1183,6 +1217,15 @@ export default function GamePage() {
       }
     });
 
+    socket.on('game:advance_era_result', ({ era_id }: { success: boolean; era_id?: string }) => {
+      const label = era_id ? (ERA_LABELS[era_id] ?? era_id) : 'the next era';
+      setShowTechTree(false);
+      toast.success(
+        `Advanced to ${label}! New tech tree unlocked — research fresh Medieval technologies.`,
+        { icon: '✨', duration: 6000 },
+      );
+    });
+
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
       fromId: string; toId: string;
       result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
@@ -1236,11 +1279,18 @@ export default function GamePage() {
       effect?: string;
       territoryId?: string;
     }) => {
-      if (result.effect === 'pre_attack_damage_ready' && result.abilityId === 'air_strike') {
-        toast('✈️ Air Strike armed — your next attack deals +1 damage before combat', {
-          duration: 4500,
-          style: { background: '#0f172a', border: '1px solid #64748b', color: '#cbd5e1' },
-        });
+      if (result.success !== false) {
+        const tName = result.territoryId
+          ? (mapDataRef.current?.territories.find((t) => t.territory_id === result.territoryId)?.name)
+          : undefined;
+        playAbilityActivationSound(result.abilityId, result.effect);
+        const activationMsg = getAbilityActivationMessage(result.abilityId, result.effect, tName);
+        if (activationMsg) {
+          toast(activationMsg, {
+            duration: 4500,
+            style: { background: '#1a1208', border: '1px solid #b45309', color: '#fde68a' },
+          });
+        }
       }
 
       if (result.abilityId === 'guerrilla_warfare' && result.success !== false) {
@@ -1420,6 +1470,7 @@ export default function GamePage() {
       if (!isMapStrikeAbility(event.abilityId)) return;
 
       const abilityId = event.abilityId as MapStrikeAbilityId;
+      playStrikeAbilitySound(abilityId);
       const tName = mapDataRef.current?.territories.find((t) => t.territory_id === event.territoryId)?.name
         ?? event.territoryId;
 
@@ -1513,6 +1564,7 @@ export default function GamePage() {
       socket.off('game:build_result');
       socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
+      socket.off('game:advance_era_result');
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
       socket.off('game:event_card');
@@ -1636,6 +1688,15 @@ export default function GamePage() {
       factionNotifShownRef.current = true;
     }
   }, [gameStarted, gameState, user?.user_id]);
+
+  useEffect(() => {
+    if (!gameState?.settings?.era_advancement_enabled || eraAdvancementAnnouncedRef.current) return;
+    eraAdvancementAnnouncedRef.current = true;
+    toast(
+      'Era Advancement is on — climb Ancient → Medieval mid-match. Check the gold panel in the sidebar (or menu on mobile).',
+      { icon: '✨', duration: 7000 },
+    );
+  }, [gameState?.settings?.era_advancement_enabled]);
 
   // ── Load map data ─────────────────────────────────────────────────────────
   // Primary delivery path is the `game:map` socket event. This effect is a
@@ -1950,11 +2011,15 @@ export default function GamePage() {
     getSocket().emit('game:research_tech', { gameId, techId });
   }, [gameId]);
 
+  const handleAdvanceEra = useCallback(() => {
+    getSocket().emit('game:advance_era', { gameId, action_id: generateActionId() });
+  }, [gameId]);
+
   const handleOpenTechTree = useCallback(async () => {
-    if (!gameState?.era) return;
+    if (!playerTechEra) return;
     if (techTree.length === 0) {
       try {
-        const res = await api.get(`/eras/${gameState.era}/tech-tree`);
+        const res = await api.get(`/eras/${playerTechEra}/tech-tree`);
         setTechTree(res.data.techTree ?? []);
       } catch {
         toast.error('Could not load tech tree');
@@ -1969,15 +2034,9 @@ export default function GamePage() {
         setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
       }
     }
-  }, [gameState?.era, techTree.length]);
+  }, [playerTechEra, techTree.length]);
 
   const handleOpenBonuses = useCallback(() => {
-    // Pre-load tech tree so BonusesModal can show full tech descriptions
-    if (gameState?.era && gameState.settings.tech_trees_enabled && techTree.length === 0) {
-      api.get(`/eras/${gameState.era}/tech-tree`)
-        .then((res) => setTechTree(res.data.techTree ?? []))
-        .catch(() => {});
-    }
     setShowBonuses(true);
     const gs = useGameStore.getState().gameState;
     if (gs?.settings?.tutorial) {
@@ -1986,15 +2045,24 @@ export default function GamePage() {
         setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
       }
     }
-  }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
+  }, []);
 
-  // Pre-load tech tree so territory-panel ability buttons resolve unlocked abilities.
+  // Load the tech tree for the viewer's current era (reloads after era advancement).
   useEffect(() => {
-    if (!gameState?.era || !gameState.settings.tech_trees_enabled || techTree.length > 0) return;
-    api.get(`/eras/${gameState.era}/tech-tree`)
-      .then((res) => setTechTree(res.data.techTree ?? []))
-      .catch(() => {});
-  }, [gameState?.era, gameState?.settings.tech_trees_enabled, techTree.length]);
+    if (!playerTechEra || !gameState?.settings.tech_trees_enabled) {
+      if (!gameState?.settings.tech_trees_enabled) setTechTree([]);
+      return;
+    }
+    let cancelled = false;
+    api.get(`/eras/${playerTechEra}/tech-tree`)
+      .then((res) => {
+        if (!cancelled) setTechTree(res.data.techTree ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setTechTree([]);
+      });
+    return () => { cancelled = true; };
+  }, [playerTechEra, gameState?.settings.tech_trees_enabled]);
 
   const handleNavalMove = useCallback((fromId: string, toId: string, count: number) => {
     getSocket().emit('game:naval_move', { gameId, fromId, toId, count });
@@ -2631,6 +2699,12 @@ export default function GamePage() {
                       <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Diplomacy</dt>
                       <dd className="text-bf-text font-medium">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
                     </div>
+                    {!!settings.era_advancement_enabled && (
+                      <div className="rounded-lg border border-bf-gold/30 bg-bf-gold/10 p-3 sm:col-span-2">
+                        <dt className="text-[10px] uppercase tracking-wider text-bf-gold mb-1">Era Advancement</dt>
+                        <dd className="text-bf-text font-medium">On · Ancient → Medieval mid-match</dd>
+                      </div>
+                    )}
                     <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3 sm:col-span-2 xl:col-span-1">
                       <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Victory</dt>
                       <dd className="text-bf-text font-medium">{victorySummary}</dd>
@@ -3016,6 +3090,26 @@ export default function GamePage() {
           ref={mapAreaRef}
           className={`flex-1 relative overflow-hidden min-h-0 min-w-0${mapPhaseTintClass ? ` ${mapPhaseTintClass}` : ''}`}
         >
+          {gameState?.settings.era_advancement_enabled && (
+            <EraAdvancementBanner
+              gameState={gameState}
+              myPlayer={
+                resolvedViewerPlayerId
+                  ? gameState.players.find((p) => p.player_id === resolvedViewerPlayerId)
+                  : gameState.players.find(
+                      (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
+                    )
+              }
+            />
+          )}
+          {eraAdvanceVignette && (
+            <EraAdvanceVignette
+              key={eraAdvanceVignette.key}
+              active
+              eraLabel={eraAdvanceVignette.label}
+              onComplete={() => setEraAdvanceVignette(null)}
+            />
+          )}
           {mapData ? (
             mapView === 'globe' ? (
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
@@ -3227,7 +3321,13 @@ export default function GamePage() {
           onExitTutorial={isTutorial ? handleTutorialExit : undefined}
           onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
           onOpenBonuses={handleOpenBonuses}
-          onUseAbility={gameState?.settings.factions_enabled ? handleUseAbility : undefined}
+          onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
+          onUseAbility={
+            (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+              ? handleUseAbility
+              : undefined
+          }
+          techTree={techTree}
           lastCombatLog={combatLog}
           gameId={gameStarted && gameId ? gameId : undefined}
           activeInteractionLabel={activeInteractionLabel}
@@ -3299,6 +3399,16 @@ export default function GamePage() {
                 </div>
               </div>
             </div>
+            {/* Era advancement (mobile) */}
+            {gameState.settings.era_advancement_enabled && me && (
+              <AdvanceEraPanel
+                variant="compact"
+                gameState={gameState}
+                myPlayer={me}
+                isMyTurn={myTurn}
+                onAdvanceEra={handleAdvanceEra}
+              />
+            )}
             {/* End-phase button */}
             {myTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
               <button
@@ -3386,7 +3496,13 @@ export default function GamePage() {
               onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
               onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
-              onUseAbility={gameState?.settings.factions_enabled ? (abilityId, targetId) => { handleUseAbility(abilityId, targetId); setMobileHudOpen(false); } : undefined}
+              onAdvanceEra={gameState?.settings.era_advancement_enabled ? () => { handleAdvanceEra(); setMobileHudOpen(false); } : undefined}
+              onUseAbility={
+                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                  ? (abilityId, targetId) => { handleUseAbility(abilityId, targetId); setMobileHudOpen(false); }
+                  : undefined
+              }
+              techTree={techTree}
               lastCombatLog={combatLog}
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
@@ -3458,6 +3574,7 @@ export default function GamePage() {
           gameState={gameState}
           currentPlayerId={user.user_id}
           techTree={techTree}
+          eraLabel={playerTechEra ? (ERA_LABELS[playerTechEra] ?? playerTechEra) : undefined}
           onResearch={(techId) => { handleResearchTech(techId); }}
           onClose={() => setShowTechTree(false)}
         />

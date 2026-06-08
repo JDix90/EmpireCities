@@ -15,6 +15,7 @@
  * / `extraDefenseBonuses` and they are folded into the totals here.
  */
 import type { GameState, MapConnection, PlayerState } from '../../types';
+import { getPlayerEraIndex } from '../eraAdvancement/constants';
 import { getBuildingDefenseBonus, getSeaDefenseBonus } from '../state/economyManager';
 import { getPlayerAttackBonus, getPlayerDefenseBonus } from '../state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice } from '../state/wonderManager';
@@ -129,10 +130,22 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     : 0;
   // Fortify the Coast: coastal_battery grants +1 defense die ONLY on sea attacks.
   const seaDefenseBonus = isSea ? getSeaDefenseBonus(state, toId) : 0;
+  const defenderPlayer = defenderId
+    ? state.players.find((p) => p.player_id === defenderId)
+    : undefined;
+  let eraGapDefenseBonus = 0;
+  if (state.settings.era_advancement_enabled && defenderId) {
+    const attackerIndex = getPlayerEraIndex(state, attackerId);
+    const defenderIndex = getPlayerEraIndex(state, defenderId);
+    const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
+    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    eraGapDefenseBonus = Math.max(0, -effectiveGap) * gapDice;
+  }
+
   const extraDefenseTotal = sumBonuses(extraDefenseBonuses);
   const totalDefenseBonus =
     buildingDefenseBonus + techDefenseBonus + factionDefenseBonus + eventDefenseBonus
-    + wonderDefenseBonus + seaDefenseBonus + extraDefenseTotal;
+    + wonderDefenseBonus + seaDefenseBonus + eraGapDefenseBonus + extraDefenseTotal;
 
   const defenderBonusBreakdown: Record<string, number> = {
     building: buildingDefenseBonus,
@@ -141,15 +154,25 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     event: eventDefenseBonus,
     wonder: wonderDefenseBonus,
     sea: seaDefenseBonus,
+    era_gap: eraGapDefenseBonus,
     ...(extraDefenseBonuses ?? {}),
     total: totalDefenseBonus,
   };
   // Janissaries (Ottoman): defend with the full 3 dice regardless of garrison size.
   const janissaries = defenderFaction?.ability_id === 'janissaries';
   const baseDefenderDice = janissaries ? 3 : Math.min(defendingUnits, 2);
-  const defenderDiceOverride = totalDefenseBonus > 0 || janissaries
+  let defenderDiceOverride = totalDefenseBonus > 0 || janissaries
     ? baseDefenderDice + totalDefenseBonus
     : undefined;
+  if (
+    state.settings.era_advancement_enabled
+    && (defenderPlayer?.era_transition_turns_remaining ?? 0) > 0
+  ) {
+    const vulnMult = state.settings.era_advancement_vuln_defense_mult ?? 0.75;
+    const preVuln = defenderDiceOverride ?? baseDefenderDice;
+    defenderDiceOverride = Math.max(1, Math.floor(preVuln * vulnMult));
+    defenderBonusBreakdown.vulnerability = defenderDiceOverride - preVuln;
+  }
 
   // ── Attacker dice ──────────────────────────────────────────────────────────
   const attackerPlayer = state.players.find((p) => p.player_id === attackerId);
@@ -184,16 +207,26 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     ? getTemporaryModifierValue(state, attackerId, 'attack_modifier')
     : 0;
   const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, attackerId, defendingUnits);
+  let eraGapAttackBonus = 0;
+  if (state.settings.era_advancement_enabled && defenderId) {
+    const attackerIndex = getPlayerEraIndex(state, attackerId);
+    const defenderIndex = getPlayerEraIndex(state, defenderId);
+    const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
+    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    eraGapAttackBonus = Math.max(0, effectiveGap) * gapDice;
+  }
   const extraAttackTotal = sumBonuses(extraAttackBonuses);
 
   const combinedAttackBonus =
-    techAttackBonus + factionAttackBonus + eventAttackBonus + underdefendedBonus + extraAttackTotal;
+    techAttackBonus + factionAttackBonus + eventAttackBonus + underdefendedBonus
+    + eraGapAttackBonus + extraAttackTotal;
 
   const attackerBonusBreakdown: Record<string, number> = {
     tech: techAttackBonus,
     faction: factionAttackBonus,
     event: eventAttackBonus,
     underdefended: underdefendedBonus,
+    era_gap: eraGapAttackBonus,
     ...(extraAttackBonuses ?? {}),
     total: combinedAttackBonus,
   };

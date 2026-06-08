@@ -23,6 +23,8 @@ interface Props {
   gameState: GameState;
   currentPlayerId: string;
   techTree: TechNode[];
+  /** When era advancement is on, shows which era tree is displayed (e.g. Medieval). */
+  eraLabel?: string;
   onResearch: (techId: string) => void;
   onClose: () => void;
 }
@@ -68,7 +70,7 @@ function UnlockChainTags({ node, allTechs }: { node: TechNode; allTechs: TechNod
   );
 }
 
-export default function TechTreeModal({ gameState, currentPlayerId, techTree, onResearch, onClose }: Props) {
+export default function TechTreeModal({ gameState, currentPlayerId, techTree, eraLabel, onResearch, onClose }: Props) {
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   const unlocked = useMemo(() => new Set(player?.unlocked_techs ?? []), [player]);
   const techPoints = player?.tech_points ?? 0;
@@ -83,7 +85,12 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, on
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-2">
             <Zap className="text-yellow-400 w-5 h-5" />
-            <h2 className="text-lg font-semibold text-white">Technology Tree</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Technology Tree</h2>
+              {eraLabel && gameState.settings.era_advancement_enabled && (
+                <p className="text-xs text-amber-300/90 mt-0.5">{eraLabel} era · fresh tree after advancement</p>
+              )}
+            </div>
             <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-800 text-blue-200 text-sm font-mono">
               {techPoints} TP available
             </span>

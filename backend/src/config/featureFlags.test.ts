@@ -17,4 +17,15 @@ describe('featureFlags', () => {
     expect(featureFlags.mapEditorEnabled).toBe(true);
     expect(getClientFeatureFlags().map_editor_enabled).toBe(true);
   });
+
+  it('era_advancement_lobby_enabled defaults to off', () => {
+    expect(featureFlags.eraAdvancementLobbyEnabled).toBe(false);
+    expect(getClientFeatureFlags().era_advancement_lobby_enabled).toBe(false);
+  });
+
+  it('admin override can enable era advancement lobby toggle', () => {
+    setAdminConfigCacheForTests({ feature_flags: { era_advancement_lobby_enabled: true } });
+    expect(featureFlags.eraAdvancementLobbyEnabled).toBe(true);
+    expect(getClientFeatureFlags().era_advancement_lobby_enabled).toBe(true);
+  });
 });

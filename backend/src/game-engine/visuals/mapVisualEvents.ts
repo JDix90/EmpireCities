@@ -10,7 +10,8 @@ export type MapVisualKind =
   | 'strike'
   | 'naval'
   | 'influence'
-  | 'event';
+  | 'event'
+  | 'era_advance';
 
 /** Payload broadcast to all clients for map-local animations. */
 export interface MapVisualEventPayload {
@@ -168,6 +169,30 @@ export function buildInfluenceMapVisual(params: {
     newOwnerColor: blocked ? undefined : actorColor,
     captured: !blocked,
     variant: params.variant ?? 'seize',
+  };
+}
+
+/** Era advancement — shimmer all territories owned by the advancing player. */
+export function buildEraAdvanceMapVisual(params: {
+  playerId: string;
+  eraId: string;
+  state: GameState;
+}): Omit<MapVisualEventPayload, 'id'> {
+  const ownedIds = Object.entries(params.state.territories)
+    .filter(([, t]) => t.owner_id === params.playerId)
+    .map(([tid]) => tid);
+  const highlightTerritory = params.state.players.find((p) => p.player_id === params.playerId)
+    ?.capital_territory_id
+    ?? ownedIds[0]
+    ?? '__global__';
+
+  return {
+    kind: 'era_advance',
+    territoryId: highlightTerritory,
+    playerId: params.playerId,
+    playerColor: playerColor(params.state, params.playerId),
+    variant: params.eraId,
+    affectedTerritories: ownedIds.map((territory_id) => ({ territory_id, delta: 0 })),
   };
 }
 

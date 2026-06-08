@@ -48,11 +48,20 @@ export interface PlayerState {
   pending_pre_attack_damage?: number;
   pending_extra_attack_die?: boolean;
   pending_ignore_defense_building?: boolean;
+  pending_negate_attacker_losses?: boolean;
   march_to_sea_active?: boolean;
   /** ACW Total War: chain captures that have received the +1 die bonus (0–3). */
   march_to_sea_hops_used?: number;
   /** ACW Total War: territory captured in the prior chain hop. */
   march_to_sea_last_capture_id?: string | null;
+  current_era_index?: number;
+  era_transition_turns_remaining?: number;
+  last_turn_production_income?: number;
+  era_advancement_tech_echo?: Record<string, number>;
+  medieval_signature_charges?: number;
+  era_advanced_this_turn?: boolean;
+  bonus_fortify_moves?: number;
+  pending_tech_discount?: number;
 }
 
 export interface GameState {
@@ -93,6 +102,11 @@ export interface GameState {
     naval_enabled?: boolean;
     stability_enabled?: boolean;
     coaching_enabled?: boolean;
+    era_advancement_enabled?: boolean;
+    era_advancement_cost_mult?: number;
+    era_advancement_cost_escalation?: number;
+    era_advancement_max_era_index?: number;
+    era_advancement_tech_gate_pct?: number;
     daily_challenge_date?: string;
     /** True when this game is an era of a solo campaign. Set server-side in campaign.routes.ts. */
     is_campaign?: boolean;
@@ -147,6 +161,9 @@ export interface GameState {
     probabilities: Record<string, number>;
   }>;
   coaching_eligible?: boolean;
+  blitzkrieg_active?: boolean;
+  blitzkrieg_bonus_attacks_remaining?: number;
+  blitzkrieg_bonus_source_id?: string | null;
 }
 
 export interface CombatResult {
@@ -159,7 +176,9 @@ export interface CombatResult {
     tech?: number;
     faction?: number;
     event?: number;
+    pending?: number;
     total?: number;
+    [key: string]: number | undefined;
   };
   defender_bonus_breakdown?: {
     building?: number;
@@ -169,7 +188,23 @@ export interface CombatResult {
     wonder?: number;
     sea?: number;
     total?: number;
+    [key: string]: number | undefined;
   };
+  combat_ability_callouts?: Array<{
+    id:
+      | 'knights_charge'
+      | 'cannon_barrage'
+      | 'war_elephants'
+      | 'ambush'
+      | 'banzai_charge'
+      | 'bersaglieri_charge'
+      | 'siege_assault'
+      | 'gunpowder_passive'
+      | 'testudo'
+      | 'air_strike'
+      | 'extra_attack_die';
+    detail?: string;
+  }>;
   fromName?: string;
   toName?: string;
   attackerId?: string | null;

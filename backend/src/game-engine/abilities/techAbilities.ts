@@ -1,5 +1,5 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
-import { getEraTechTree } from '../eras';
+import { getEraTechTreeForPlayer } from '../state/techManager';
 import type { TechNode } from '../eras/types';
 import { isTerritoryReachableWithinHops, getAdjacentTerritoryIds } from '../state/influenceManager';
 
@@ -14,9 +14,9 @@ export const GAME_SCOPED_ABILITIES = new Set([
 ]);
 
 /** Tech abilities that ignore defense-building bonus when the player attacks. */
+/** Unlocked ability ids that permanently negate defender building dice (not once-per-turn actives). */
 const PASSIVE_IGNORE_DEFENSE_BUILDING = new Set([
   'siege_attack',
-  'siege_assault',
   'heavy_bombardment',
   'artillery_barrage',
   'cannon_barrage',
@@ -71,6 +71,8 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   air_strike: { label: 'Air Strike', scope: 'turn', phase: 'attack', selfBuff: 'pre_attack_damage', unitReduction: 1 },
   knights_charge: { label: 'Knights Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   bersaglieri_charge: { label: 'Bersaglieri Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
+  siege_assault: { label: 'Siege Assault', scope: 'turn', phase: 'attack' },
+  cannon_barrage: { label: 'Cannon Barrage', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   spy_network: { label: 'Spy Network', scope: 'turn', phase: 'attack' },
   satellite_reconnaissance: { label: 'Satellite Recon', scope: 'turn', phase: 'attack' },
   launch_space_station: { label: 'Launch Space Station', scope: 'game', phase: 'draft' },
@@ -123,7 +125,7 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
 export function getUnlockedAbilityIds(state: GameState, player: PlayerState): Set<string> {
   if (!state.settings.tech_trees_enabled) return new Set();
   const unlocked = player.unlocked_techs ?? [];
-  const tree = getEraTechTree(state.era);
+  const tree = getEraTechTreeForPlayer(state, player.player_id);
   const ids = new Set<string>();
   for (const node of tree) {
     if (unlocked.includes(node.tech_id) && node.unlocks_ability) {

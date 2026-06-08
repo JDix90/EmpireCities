@@ -5,6 +5,7 @@ import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
 import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle } from 'lucide-react';
 import clsx from 'clsx';
+import CombatAbilityCallouts from './CombatAbilityCallouts';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
@@ -354,7 +355,13 @@ function CombatResultView({
         'transition-all duration-500 ease-out',
         showResult ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'
       )}>
-        {/* Bonus activation feedback */}
+        {/* Ability + faction activation feedback */}
+        {(result.combat_ability_callouts?.length ?? 0) > 0 && (
+          <CombatAbilityCallouts
+            callouts={result.combat_ability_callouts!}
+            perspective={perspective}
+          />
+        )}
         {((result.attacker_bonus_breakdown?.faction ?? 0) > 0 || (result.defender_bonus_breakdown?.faction ?? 0) > 0) && (
           <div className="mb-4 space-y-2">
             {(result.attacker_bonus_breakdown?.faction ?? 0) > 0 && (
@@ -378,6 +385,19 @@ function CombatResultView({
               </p>
             )}
           </div>
+        )}
+        {(result.attacker_bonus_breakdown?.pending ?? 0) > 0
+          && !(result.combat_ability_callouts ?? []).some((c) =>
+            c.id === 'knights_charge' || c.id === 'cannon_barrage' || c.id === 'extra_attack_die',
+          ) && (
+          <p className={clsx(
+            'text-xs px-3 py-2 rounded-lg border animate-pulse mb-4',
+            perspective === 'attacker'
+              ? 'border-amber-300/70 bg-amber-500/15 text-amber-100'
+              : 'border-amber-500/40 bg-amber-900/20 text-amber-200',
+          )}>
+            ⚔️ Bonus attack die activated (+{result.attacker_bonus_breakdown?.pending} die)
+          </p>
         )}
 
         {/* Losses */}

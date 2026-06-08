@@ -11,14 +11,8 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
 import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
 import { REGION_CSS_COLORS } from '../../constants/regionColors';
-import {
-  getTerritoryPanelAbilities,
-  TERRITORY_ABILITY_UI,
-} from '../../utils/techAbilities';
-import {
-  getFactionTerritoryAbilities,
-  FACTION_ABILITY_UI,
-} from '../../utils/factionAbilities';
+import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
+import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
   getGalaxyTerritoryLoreDetail,
   getGalaxyWorldLore,
@@ -72,7 +66,15 @@ export default function TerritoryPanel({
   onClaimTerritory,
 }: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
   const { gameState, draftUnitsRemaining } = useGameStore();
-  const { selectedTerritory, attackSource, setAttackSource, setFortifyUnits, navalSource, setNavalSource } = useUiStore();
+  const {
+    selectedTerritory,
+    attackSource,
+    setAttackSource,
+    setSelectedTerritory,
+    setFortifyUnits,
+    navalSource,
+    setNavalSource,
+  } = useUiStore();
   const { user } = useAuthStore();
   const [draftAmount, setDraftAmount] = React.useState(1);
   const [fortifyAmount, setFortifyAmount] = React.useState(1);
@@ -471,20 +473,15 @@ export default function TerritoryPanel({
           )}
 
           {/* Tech / faction ability buttons — phase-gated per each ability's own def.phase */}
-          {onUseAbility && !attackSource && myPlayer && (() => {
-            const techAbilities = getTerritoryPanelAbilities(gameState, myPlayer, techTree, {
-              isEnemy,
-              isMine,
-            });
-            const factionAbilities = getFactionTerritoryAbilities(gameState, myPlayer, {
+          {onUseAbility && (!attackSource || attackSource === selectedTerritory) && myPlayer && (() => {
+            const allAbilities = getPlayerTerritoryAbilities(gameState, myPlayer, techTree, {
               isEnemy,
               isMine,
               isUnowned,
             });
-            const allAbilities = [...techAbilities, ...factionAbilities];
             if (allAbilities.length === 0) return null;
             return allAbilities.map((abilityId) => {
-              const def = TERRITORY_ABILITY_UI[abilityId] ?? FACTION_ABILITY_UI[abilityId];
+              const def = getAbilityUiDef(abilityId);
               if (!def) return null;
               const styleClass =
                 def.style === 'danger'
@@ -505,8 +502,16 @@ export default function TerritoryPanel({
                     styleClass,
                   )}
                   onClick={() => {
+                    if (
+                      gameState.phase === 'attack'
+                      && isMine
+                      && tState.unit_count >= 2
+                      && isAttackSelfBuffAbility(abilityId, def)
+                    ) {
+                      setAttackSource(selectedTerritory);
+                    }
                     onUseAbility(abilityId, targetId);
-                    onClose();
+                    setSelectedTerritory(null);
                   }}
                 >
                   <span className="flex items-center gap-1.5">

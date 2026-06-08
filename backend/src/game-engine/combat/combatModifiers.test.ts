@@ -248,3 +248,86 @@ describe('recordMarchToSeaResult + getMarchToSeaBonus chain', () => {
     expect(player.march_to_sea_last_capture_id).toBe('t1');
   });
 });
+
+describe('era advancement combat modifiers', () => {
+  it('grants +1 attacker die per era gap (gap 1)', () => {
+    const state = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_enabled: true,
+        era_advancement_combat_gap_dice: 1,
+      },
+      players: [
+        basePlayer({ player_id: 'p1', current_era_index: 1 }),
+        basePlayer({ player_id: 'p2', player_index: 1, current_era_index: 0 }),
+      ],
+    });
+    const mods = computeLandCombatModifiers({
+      state,
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 5,
+      defendingUnits: 3,
+      connection: landConn,
+    });
+    expect(mods.attackerBonusBreakdown.era_gap).toBe(1);
+  });
+
+  it('grants +2 attacker dice when gap is clamped at 2', () => {
+    const state = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_enabled: true,
+        era_advancement_combat_gap_dice: 1,
+      },
+      players: [
+        basePlayer({ player_id: 'p1', current_era_index: 3 }),
+        basePlayer({ player_id: 'p2', player_index: 1, current_era_index: 0 }),
+      ],
+    });
+    const mods = computeLandCombatModifiers({
+      state,
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 6,
+      defendingUnits: 3,
+      connection: landConn,
+    });
+    expect(mods.attackerBonusBreakdown.era_gap).toBe(2);
+  });
+
+  it('applies vulnerability defense multiplier to advancing defender', () => {
+    const state = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_enabled: true,
+        era_advancement_vuln_defense_mult: 0.75,
+        tech_trees_enabled: true,
+      },
+      players: [
+        basePlayer({ player_id: 'p1' }),
+        basePlayer({
+          player_id: 'p2',
+          player_index: 1,
+          era_transition_turns_remaining: 1,
+        }),
+      ],
+    });
+    const mods = computeLandCombatModifiers({
+      state,
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 5,
+      defendingUnits: 4,
+      connection: landConn,
+    });
+    expect(mods.defenderDiceOverride).toBe(1);
+    expect(mods.defenderBonusBreakdown.vulnerability).toBe(-1);
+  });
+});

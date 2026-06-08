@@ -31,9 +31,15 @@ import {
   STRIKE_MAP_STYLES,
   type MapStrikeAbilityId,
 } from '../../utils/mapStrikeEffects';
-import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB } from '../../utils/mapVisualStyles';
+import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB, ERA_ADVANCE_GOLD_RGB } from '../../utils/mapVisualStyles';
 import { eventDurationMs, resolveEventVisualMode } from '../../utils/mapEventEffects';
 import type { MapVisualEvent } from '../../utils/mapVisualEvents';
+import {
+  eraAdvanceCascadePhase,
+  eraAdvanceDisplayName,
+  eraAdvancePolygonRgba,
+  sortTerritoryIdsByLatLng,
+} from '../../utils/eraAdvanceVisualUtils';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -100,8 +106,8 @@ function polygonAltitudeHash(territoryId: string): number {
 
 export interface GlobeEvent {
   id: string;
-  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event';
-  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event';
+  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance';
+  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance';
   territoryId: string;
   fromTerritoryId?: string;
   units?: number;
@@ -727,8 +733,14 @@ function GlobeMap({
     fromRgb: [number, number, number];
     toRgb: [number, number, number];
   } | null>(null);
+  /** Gold cascade wash across all owned territories during era advance */
+  const [polygonEraAdvanceFlash, setPolygonEraAdvanceFlash] = useState<{
+    phases: Map<string, number>;
+    playerRgb: [number, number, number];
+  } | null>(null);
   const polygonFlashTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const polygonCaptureTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const polygonEraAdvanceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Event queue refs
   const eventQueueRef = useRef<GlobeEvent[]>([]);
@@ -931,6 +943,30 @@ function GlobeMap({
         abilityId,
         phase: 0.45 + 0.55 * Math.abs(Math.sin(elapsed * 0.014)),
       });
+    }, 48);
+  }, []);
+
+  const startPolygonEraAdvanceCascade = useCallback((
+    sortedIds: string[],
+    playerRgb: [number, number, number],
+    duration: number,
+  ) => {
+    if (polygonEraAdvanceTimerRef.current) clearInterval(polygonEraAdvanceTimerRef.current);
+    const started = Date.now();
+    const total = sortedIds.length;
+    polygonEraAdvanceTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - started;
+      if (elapsed >= duration) {
+        if (polygonEraAdvanceTimerRef.current) clearInterval(polygonEraAdvanceTimerRef.current);
+        polygonEraAdvanceTimerRef.current = null;
+        setPolygonEraAdvanceFlash(null);
+        return;
+      }
+      const phases = new Map<string, number>();
+      for (let i = 0; i < sortedIds.length; i++) {
+        phases.set(sortedIds[i]!, eraAdvanceCascadePhase(elapsed, i, total, duration));
+      }
+      setPolygonEraAdvanceFlash({ phases, playerRgb });
     }, 48);
   }, []);
 
@@ -2138,6 +2174,125 @@ function GlobeMap({
     mapData.territories,
   ]);
 
+  const animateEraAdvance = useCallback((event: GlobeEvent) => {
+    const duration = MAP_VISUAL_DURATIONS.eraAdvance;
+    pauseAutoRotate();
+
+    const centers = territoryCentersRef.current;
+    const rows = event.affectedTerritories?.length
+      ? event.affectedTerritories
+      : [{ territory_id: event.territoryId, delta: 0 }];
+    const territoryIds = rows.map((row) => row.territory_id);
+    const sortedIds = sortTerritoryIdsByLatLng(territoryIds, centers, event.territoryId);
+
+    const focus = centers.get(event.territoryId);
+    if (focus && !regionalGlobeRef.current.lockRotation) {
+      panCamera(focus.lat, focus.lng, 1.5);
+    }
+
+    const playerRgb = hexToRgb(event.playerColor ?? '#f39c12');
+    const ringIds: string[] = [];
+    const overlayIds: string[] = [];
+    const eraName = eraAdvanceDisplayName(event.variant);
+
+    startPolygonEraAdvanceCascade(sortedIds, playerRgb, duration);
+
+    if (focus) {
+      for (let wave = 0; wave < 3; wave++) {
+        const ringId = uid(`era-advance-burst-${wave}`);
+        ringIds.push(ringId);
+        scheduleTimer(() => {
+          addRings({
+            id: ringId,
+            lat: focus.lat,
+            lng: focus.lng,
+            maxRadius: 14 - wave * 2,
+            speed: 5.5,
+            repeatPeriod: 320,
+            colorFn: (t: number) => {
+              const pulse = Math.pow(1 - t, 1.1);
+              const mix = lerpRgb(playerRgb, ERA_ADVANCE_GOLD_RGB, 0.55 + wave * 0.12);
+              const white = lerpRgb(mix, [255, 255, 255], (1 - t) * 0.4);
+              return `rgba(${white.join(',')}, ${pulse * (0.95 - wave * 0.15)})`;
+            },
+          });
+        }, wave * 140);
+      }
+
+      const bannerId = uid('era-advance-banner');
+      overlayIds.push(bannerId);
+      scheduleTimer(() => {
+        addOverlay({
+          kind: 'animation-strike-flash',
+          id: bannerId,
+          lat: focus.lat,
+          lng: focus.lng,
+          alt: 0.1,
+          emoji: '✨',
+          glowRgb: 'rgba(255, 255, 255, 0.95)',
+        });
+        const labelId = uid('era-advance-label');
+        overlayIds.push(labelId);
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: labelId,
+          lat: focus.lat,
+          lng: focus.lng,
+          alt: 0.14,
+          text: `${eraName.toUpperCase()} ERA`,
+        });
+        const subId = uid('era-advance-sub');
+        overlayIds.push(subId);
+        addOverlay({
+          kind: 'animation-loss-banner',
+          id: subId,
+          lat: focus.lat - 1.2,
+          lng: focus.lng,
+          alt: 0.11,
+          text: 'Civilization Ascends',
+        });
+      }, 280);
+    }
+
+    sortedIds.forEach((tid, i) => {
+      const c = centers.get(tid);
+      if (!c || tid === event.territoryId) return;
+      const ringId = uid(`era-advance-cascade-${i}`);
+      ringIds.push(ringId);
+      const stagger = 320 + i * 70;
+      scheduleTimer(() => {
+        addRings({
+          id: ringId,
+          lat: c.lat,
+          lng: c.lng,
+          maxRadius: 7,
+          speed: 4.5,
+          repeatPeriod: 300,
+          colorFn: (t: number) => {
+            const pulse = Math.pow(1 - t, 1.3);
+            const mix = lerpRgb(playerRgb, ERA_ADVANCE_GOLD_RGB, 0.5);
+            return `rgba(${mix.join(',')}, ${pulse * 0.75})`;
+          },
+        });
+      }, stagger);
+    });
+
+    scheduleTimer(() => {
+      for (const id of ringIds) removeRings(id);
+      for (const id of overlayIds) removeOverlay(id);
+      playNextRef.current();
+    }, duration);
+  }, [
+    pauseAutoRotate,
+    panCamera,
+    scheduleTimer,
+    addRings,
+    removeRings,
+    addOverlay,
+    removeOverlay,
+    startPolygonEraAdvanceCascade,
+  ]);
+
   // ── Event queue engine ─────────────────────────────────────────────────
 
   playNextRef.current = () => {
@@ -2163,6 +2318,7 @@ function GlobeMap({
       case 'naval': animateNaval(next); break;
       case 'influence': animateInfluence(next); break;
       case 'event': animateEvent(next); break;
+      case 'era_advance': animateEraAdvance(next); break;
       default: playNextRef.current(); break;
     }
   };
@@ -2170,6 +2326,9 @@ function GlobeMap({
   const skipRemainingAnimations = useCallback(() => {
     for (const t of cleanupTimersRef.current) clearTimeout(t);
     cleanupTimersRef.current = [];
+    if (polygonEraAdvanceTimerRef.current) clearInterval(polygonEraAdvanceTimerRef.current);
+    polygonEraAdvanceTimerRef.current = null;
+    setPolygonEraAdvanceFlash(null);
     setOverlays([]);
     setArcs([]);
     setRings([]);
@@ -2216,6 +2375,7 @@ function GlobeMap({
       for (const t of cleanupTimersRef.current) clearTimeout(t);
       clearTimeout(autoRotateTimerRef.current);
       if (polygonFlashTimerRef.current) clearInterval(polygonFlashTimerRef.current);
+      if (polygonEraAdvanceTimerRef.current) clearInterval(polygonEraAdvanceTimerRef.current);
     };
   }, []);
 
@@ -2649,9 +2809,16 @@ function GlobeMap({
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
       }
 
+      if (polygonEraAdvanceFlash) {
+        const phase = polygonEraAdvanceFlash.phases.get(p.territory_id);
+        if (phase && phase > 0.02) {
+          return eraAdvancePolygonRgba(polygonEraAdvanceFlash.playerRgb, phase);
+        }
+      }
+
       return base;
     },
-    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash],
+    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash],
   );
 
   const adjacencyTargets = useMemo(() => {

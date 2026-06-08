@@ -183,6 +183,18 @@ export interface PlayerState {
   march_to_sea_hops_used?: number;
   /** ACW Total War: territory captured in the prior chain hop; the next hop must continue from here. */
   march_to_sea_last_capture_id?: string | null;
+  /** Per-player era tier when era advancement is enabled (0 = Ancient in PoC). */
+  current_era_index?: number;
+  /** Turns remaining in post-advance vulnerability window (defense penalty). */
+  era_transition_turns_remaining?: number;
+  /** Gross production income from the prior economy tick (advancement cost basis). */
+  last_turn_production_income?: number;
+  /** Permanent passive bonuses echoed from prior-era completed tech. */
+  era_advancement_tech_echo?: Record<string, number>;
+  /** PoC signature payoff: +1 attack die on next land combat. */
+  medieval_signature_charges?: number;
+  /** Set when advancing during attack phase — blocks further attacks this turn. */
+  era_advanced_this_turn?: boolean;
 }
 
 export interface DiplomacyEntry {
@@ -242,6 +254,19 @@ export interface GameSettings {
    * player's preference *within* an eligible game.
    */
   coaching_enabled?: boolean;
+  /** Mid-match per-player era advancement (PoC: Ancient → Medieval). */
+  era_advancement_enabled?: boolean;
+  era_advancement_conversion_ratio?: number;
+  era_advancement_strength_step?: number;
+  era_advancement_cost_step?: number;
+  era_advancement_cost_mult?: number;
+  era_advancement_cost_escalation?: number;
+  era_advancement_stability_gate?: number;
+  era_advancement_tech_gate_pct?: number;
+  era_advancement_vuln_defense_mult?: number;
+  era_advancement_vuln_turns?: number;
+  era_advancement_max_era_index?: number;
+  era_advancement_combat_gap_dice?: number;
   /** True when this game is part of a campaign sequence. */
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
@@ -359,6 +384,7 @@ export type ActionDecisionType =
   | 'redeem_cards'
   | 'build'
   | 'research'
+  | 'advance_era'
   | 'ability'
   | 'influence'
   | 'event_choice';
@@ -570,6 +596,22 @@ export interface CombatResult {
     sea?: number;
     total?: number;
   };
+  /** Active/passive combat abilities that affected this exchange. */
+  combat_ability_callouts?: Array<{
+    id:
+      | 'knights_charge'
+      | 'cannon_barrage'
+      | 'war_elephants'
+      | 'ambush'
+      | 'banzai_charge'
+      | 'bersaglieri_charge'
+      | 'siege_assault'
+      | 'gunpowder_passive'
+      | 'testudo'
+      | 'air_strike'
+      | 'extra_attack_die';
+    detail?: string;
+  }>;
   error?: string;
 }
 
