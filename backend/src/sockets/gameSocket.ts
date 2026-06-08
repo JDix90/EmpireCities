@@ -580,6 +580,16 @@ export async function emitWaitingLobbySnapshotPublic(io: Server, gameId: string)
   return emitWaitingLobbySnapshot(io, gameId);
 }
 
+// Tracks the last turn (per game) for which we honored a client `game:turn_ready`
+// ack, so a single turn's timer can be realigned to the globe-render moment at
+// most once. Without this a client could repeatedly emit the ack to keep
+// resetting its own countdown and stall the game.
+const turnReadyAcked = new Map<string, string>();
+// A turn-ready ack is only honored shortly after the turn began. A late ack
+// (e.g. from a reconnect deep into the turn) must not hand the player a fresh
+// full clock.
+const TURN_READY_MAX_WINDOW_MS = 20_000;
+
 export function initGameSocket(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
@@ -1709,6 +1719,35 @@ export function initGameSocket(httpServer: HttpServer): Server {
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
+    // The client emits this once its map (globe / 2D) has rendered and it is the
+    // local human's turn. We realign turn_started_at to "now" so the HUD
+    // countdown reflects the time the player can actually act, and reschedule
+    // the real-time turn timeout to match. Guarded: only once per (turn, seat)
+    // and only within a short window after the turn began (see TURN_READY_*).
+    socket.on('game:turn_ready', async ({ gameId }: { gameId: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+        const { state, map } = room;
+        const seconds = state.settings.turn_timer_seconds;
+        if (!seconds || seconds <= 0 || state.settings.async_mode) return;
+        if (!isSocketUsersTurn(state, userId, username)) return;
+        const currentPlayer = state.players[state.current_player_index];
+        if (currentPlayer.is_ai) return;
+        // A choice-based event pauses the timer; don't restart it here.
+        if (state.active_event?.choices?.length) return;
+
+        const key = `${state.turn_number}:${state.current_player_index}`;
+        if (turnReadyAcked.get(gameId) === key) return;
+        turnReadyAcked.set(gameId, key);
+        // Late acks are recorded (to dedupe) but do not reset the clock.
+        if (Date.now() - state.turn_started_at > TURN_READY_MAX_WINDOW_MS) return;
+
+        state.turn_started_at = Date.now();
+        startTurnTimer(io, gameId, state, map);
+        broadcastState(io, gameId, state);
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
 
@@ -3815,6 +3854,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   };
   io.to(gameId).emit('game:over', stats);
   gameCombatStats.delete(gameId);
+  turnReadyAcked.delete(gameId);
 
   clearDecisionLog(gameId);
 

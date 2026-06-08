@@ -5,18 +5,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import { AiBadge } from '../components/ui/AiBadge';
 import clsx from 'clsx';
 import { api } from '../services/api';
-
-const ERA_LABELS: Record<string, string> = {
-  ancient: 'Ancient',
-  medieval: 'Medieval',
-  discovery: 'Discovery',
-  ww2: 'World War II',
-  coldwar: 'Cold War',
-  modern: 'Modern',
-  acw: 'American Civil War',
-  risorgimento: 'Risorgimento',
-  space_age: 'Space Age',
-};
+import { ERA_LABELS } from '../constants/gameLobbyLabels';
 
 interface LiveGame {
   game_id: string;

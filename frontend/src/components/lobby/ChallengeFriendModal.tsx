@@ -30,6 +30,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
   const navigate = useNavigate();
   const [aiCount, setAiCount] = useState(0);
   const [turnTimer, setTurnTimer] = useState(86400);
+  const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<{ gameId: string; joinCode: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -41,6 +42,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
     setCopied(false);
     setAiCount(0);
     setTurnTimer(86400);
+    setDiplomacyEnabled(true);
   };
 
   const handleClose = () => {
@@ -65,7 +67,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
           allowed_victory_conditions: ['domination'],
           initial_unit_count: 3,
           card_set_escalating: true,
-          diplomacy_enabled: true,
+          diplomacy_enabled: diplomacyEnabled,
           async_mode: isAsync || undefined,
           async_turn_deadline_seconds: isAsync ? turnTimer : undefined,
         },
@@ -177,6 +179,20 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
               {aiCount === 0 ? 'A 1v1 duel.' : `You + your friend vs ${aiCount} AI opponent${aiCount === 1 ? '' : 's'}.`}
             </p>
           </div>
+
+          <label htmlFor="challenge-diplomacy" className="flex items-start gap-2 cursor-pointer">
+            <input
+              id="challenge-diplomacy"
+              type="checkbox"
+              checked={diplomacyEnabled}
+              onChange={(e) => setDiplomacyEnabled(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+            />
+            <span className="text-sm text-bf-text leading-snug select-none">
+              Diplomacy
+              <span className="block text-[11px] text-bf-muted">Allow truces between players.</span>
+            </span>
+          </label>
 
           <button
             type="button"

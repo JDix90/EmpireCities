@@ -23,6 +23,22 @@ export const ERA_LABELS: Record<string, string> = {
   custom: 'Community map',
 };
 
+/** Turn a machine scoring key (e.g. "score_desc_efficiency_desc_duration_asc")
+ * into a player-readable tie-break order. */
+export function formatWeeklyScoring(scoring: string): string {
+  const LABELS: Record<string, string> = {
+    score: 'highest score',
+    efficiency: 'fewest losses',
+    duration: 'fastest time',
+  };
+  const parts = scoring
+    .split('_')
+    .filter((token) => token in LABELS)
+    .map((token) => LABELS[token]);
+  if (parts.length === 0) return 'highest score';
+  return parts.join(', then ');
+}
+
 /** Map document name when era is custom; otherwise a short label from map_id. */
 export function formatLobbyMapLabel(mapId: string, eraId: string): string {
   if (eraId === 'custom') {

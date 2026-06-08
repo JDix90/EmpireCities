@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import { ERA_LABELS } from '../constants/gameLobbyLabels';
+import { ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
 import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
@@ -311,8 +311,8 @@ export default function DailyChallengePage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
                     {row.turn_count !== null && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {row.turn_count}t
+                      <span className="flex items-center gap-1" title="Turns taken to finish">
+                        <Clock className="w-3 h-3" /> {row.turn_count} {row.turn_count === 1 ? 'turn' : 'turns'}
                       </span>
                     )}
                     {row.won ? (
@@ -345,6 +345,9 @@ export default function DailyChallengePage() {
               </p>
               {typeof weeklyChallenge.rules_json?.turn_limit === 'number' && (
                 <p className="text-bf-muted text-xs">Turn limit: {weeklyChallenge.rules_json.turn_limit}</p>
+              )}
+              {weeklyChallenge.rules_json?.scoring && (
+                <p className="text-bf-muted text-xs">Ranked by: {formatWeeklyScoring(weeklyChallenge.rules_json.scoring)}</p>
               )}
               <div className="flex flex-col sm:flex-row gap-2">
                 <button

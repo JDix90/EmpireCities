@@ -31,7 +31,7 @@ interface OwnedItem {
   asset_url: string | null;
 }
 
-type FilterType = 'all' | 'profile_banner' | 'unit_skin' | 'dice_skin' | 'map_theme' | 'map_marker';
+type FilterType = 'all' | 'profile_banner' | 'unit_skin' | 'dice_skin' | 'map_theme' | 'map_marker' | 'profile_frame';
 
 const TYPE_LABELS: Record<string, string> = {
   profile_banner: 'Banners',
@@ -53,10 +53,12 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 
 const FILTER_CHIPS: { key: FilterType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'profile_frame', label: 'Frames' },
   { key: 'profile_banner', label: 'Banners' },
   { key: 'unit_skin', label: 'Unit Skins' },
   { key: 'dice_skin', label: 'Dice' },
   { key: 'map_theme', label: 'Map Themes' },
+  { key: 'map_marker', label: 'Markers' },
 ];
 
 export default function StorePage() {
@@ -71,6 +73,8 @@ export default function StorePage() {
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [gold, setGold] = useState<number>(user?.gold ?? 0);
   const [equippedFrame, setEquippedFrame] = useState<string | null>(user?.equipped_frame ?? null);
+  const [equippedMarker, setEquippedMarker] = useState<string | null>(user?.equipped_marker ?? null);
+  const [equippedDice, setEquippedDice] = useState<string | null>(user?.equipped_dice ?? null);
 
   const fetchCatalog = useCallback(async () => {
     setLoadingCatalog(true);
@@ -108,6 +112,13 @@ export default function StorePage() {
       // non-critical
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setEquippedFrame(user.equipped_frame ?? null);
+    setEquippedMarker(user.equipped_marker ?? null);
+    setEquippedDice(user.equipped_dice ?? null);
+  }, [user?.user_id, user?.equipped_frame, user?.equipped_marker, user?.equipped_dice]);
 
   useEffect(() => {
     fetchCatalog();
@@ -168,15 +179,30 @@ export default function StorePage() {
   const handleEquip = async (item: OwnedItem) => {
     if (equippingId) return;
     const isFrame = item.type === 'profile_frame' || item.type === 'profile_banner';
-    if (!isFrame) {
+    const isMarker = item.type === 'map_marker';
+    const isDice = item.type === 'dice_skin';
+    if (!isFrame && !isMarker && !isDice) {
       toast('This item type cannot be equipped yet.', { icon: 'ℹ️' });
       return;
     }
     setEquippingId(item.cosmetic_id);
     try {
-      await api.put('/users/me/cosmetics/equip', { frame_id: item.cosmetic_id });
-      setEquippedFrame(item.cosmetic_id);
-      if (user) setUser({ ...user, equipped_frame: item.cosmetic_id });
+      const payload = isFrame
+        ? { frame_id: item.cosmetic_id }
+        : isMarker
+          ? { marker_id: item.cosmetic_id }
+          : { dice_id: item.cosmetic_id };
+      await api.put('/users/me/cosmetics/equip', payload);
+      if (isFrame) {
+        setEquippedFrame(item.cosmetic_id);
+        if (user) setUser({ ...user, equipped_frame: item.cosmetic_id });
+      } else if (isMarker) {
+        setEquippedMarker(item.cosmetic_id);
+        if (user) setUser({ ...user, equipped_marker: item.cosmetic_id });
+      } else {
+        setEquippedDice(item.cosmetic_id);
+        if (user) setUser({ ...user, equipped_dice: item.cosmetic_id });
+      }
       toast.success(`${item.name} equipped!`);
     } catch {
       toast.error('Failed to equip item');
@@ -302,7 +328,7 @@ export default function StorePage() {
                       {locked ? (
                         <span className="flex items-center gap-1 text-bf-muted text-xs font-medium">
                           <Lock className="w-3.5 h-3.5" />
-                          Earned
+                          Achievement reward
                         </span>
                       ) : item.price_gems === 0 ? (
                         <span className="text-xs text-green-400 font-medium">Free</span>
@@ -320,9 +346,9 @@ export default function StorePage() {
                       ) : locked ? (
                         <span
                           className="flex items-center gap-1 text-xs text-bf-muted px-3 py-1 rounded border border-bf-border"
-                          title={item.description ?? 'Earned through gameplay'}
+                          title={item.description ?? 'Unlocked through gameplay achievements'}
                         >
-                          <Lock className="w-3 h-3" /> Locked
+                          <Lock className="w-3 h-3" /> Earn in game
                         </span>
                       ) : (
                         <button
@@ -372,9 +398,15 @@ export default function StorePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {items.map((item) => {
                         const isEquipped =
-                          (type === 'profile_frame' || type === 'profile_banner') &&
-                          equippedFrame === item.cosmetic_id;
-                        const canEquip = type === 'profile_frame' || type === 'profile_banner';
+                          ((type === 'profile_frame' || type === 'profile_banner') &&
+                            equippedFrame === item.cosmetic_id) ||
+                          (type === 'map_marker' && equippedMarker === item.cosmetic_id) ||
+                          (type === 'dice_skin' && equippedDice === item.cosmetic_id);
+                        const canEquip =
+                          type === 'profile_frame' ||
+                          type === 'profile_banner' ||
+                          type === 'map_marker' ||
+                          type === 'dice_skin';
                         return (
                           <div
                             key={item.cosmetic_id}

@@ -58,6 +58,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       created_at: Date;
       equipped_frame?: string | null;
       equipped_marker?: string | null;
+      equipped_dice?: string | null;
       gold: number;
       onboarding_stage: number;
       win_streak: number;
@@ -70,7 +71,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     try {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
-                equipped_frame, equipped_marker, COALESCE(gold, 0) AS gold,
+                equipped_frame, equipped_marker, equipped_dice, COALESCE(gold, 0) AS gold,
                 COALESCE(onboarding_stage, 0) AS onboarding_stage,
                 COALESCE(win_streak, 0) AS win_streak,
                 COALESCE(daily_streak, 0) AS daily_streak,
@@ -218,7 +219,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1
          AND g.status = 'completed'
-         AND gp.final_rank IS NOT NULL
        GROUP BY g.game_type, g.era_id, (gp.final_rank = 1)`,
       [request.userId],
     );
@@ -256,7 +256,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1
          AND g.status = 'completed'
-         AND gp.final_rank IS NOT NULL
        ORDER BY g.ended_at DESC
        LIMIT 100`,
       [request.userId],
@@ -313,7 +312,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/me/achievements/progress', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const userId = request.userId as string;
     const [gamesRow, userRow] = await Promise.all([
-      query<{ count: string }>(`SELECT COUNT(*) AS count FROM game_players WHERE user_id = $1`, [userId]),
+      // Count completed games only, matching the "Games Played" stat and the
+      // Veteran achievement unlock logic so progress never disagrees with them.
+      query<{ count: string }>(
+        `SELECT COUNT(*) AS count
+         FROM game_players gp
+         JOIN games g ON g.game_id = gp.game_id
+         WHERE gp.user_id = $1 AND g.status = 'completed'`,
+        [userId],
+      ),
       queryOne<{ win_streak: number }>(
         `SELECT COALESCE(win_streak, 0) AS win_streak FROM users WHERE user_id = $1`, [userId],
       ),
@@ -395,7 +402,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
   fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    const body = request.body as { frame_id?: string; marker_id?: string } | undefined;
+    const body = request.body as { frame_id?: string; marker_id?: string; dice_id?: string } | undefined;
     if (!body) return reply.status(400).send({ error: 'Missing body' });
 
     if (body.frame_id) {
@@ -414,13 +421,22 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       );
       if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
     }
+    if (body.dice_id) {
+      const owns = await queryOne(
+        `SELECT 1 FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
+         WHERE uc.user_id = $1 AND uc.cosmetic_id = $2 AND c.type = 'dice_skin'`,
+        [request.userId, body.dice_id],
+      );
+      if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
+    }
 
     try {
       await query(
         `UPDATE users SET equipped_frame = COALESCE($1, equipped_frame),
-                          equipped_marker = COALESCE($2, equipped_marker)
-         WHERE user_id = $3`,
-        [body.frame_id ?? null, body.marker_id ?? null, request.userId],
+                          equipped_marker = COALESCE($2, equipped_marker),
+                          equipped_dice = COALESCE($3, equipped_dice)
+         WHERE user_id = $4`,
+        [body.frame_id ?? null, body.marker_id ?? null, body.dice_id ?? null, request.userId],
       );
     } catch {
       return reply.status(503).send({ error: 'Cosmetic equip requires database migration (equipped_frame columns).' });
@@ -702,9 +718,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // fields — never `email`, `password_hash`, `is_admin`, or `is_banned`.
   fastify.get<{ Params: { userId: string } }>('/:userId', async (request, reply) => {
     const user = await queryOne<{
-      user_id: string; username: string; level: number; mmr: number; avatar_url: string | null;
+      user_id: string; username: string; level: number; xp: number; mmr: number;
+      avatar_url: string | null; created_at: Date; equipped_frame: string | null;
     }>(
-      `SELECT user_id, username, level, mmr, avatar_url
+      `SELECT user_id, username, level, COALESCE(xp, 0) AS xp, mmr, avatar_url,
+              created_at, equipped_frame
        FROM users
        WHERE user_id = $1
          AND COALESCE(is_banned, false) = false
@@ -712,7 +730,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       [request.params.userId],
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
-    return reply.send(user);
+    const ratings = await fetchUserRatingsSafe(request.params.userId);
+    return reply.send({ ...user, ratings });
   });
 
   // ── GET /api/users/me/preferences ──────────────────────────────────────
