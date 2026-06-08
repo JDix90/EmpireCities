@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { api } from '../services/api';
-import { resyncSocketAuth } from '../services/socket';
+import { resyncSocketAuth, disconnectSocket } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
 
 const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
@@ -93,6 +93,11 @@ export const useAuthStore = create<AuthState>()(
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          // The socket is a singleton; an already-connected socket keeps the
+          // previous identity's token (e.g. a guest session), which makes
+          // game:join fail with "Not a participant" for this user's games.
+          // Reconnect with the fresh token so the socket identity matches HTTP.
+          resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -108,6 +113,7 @@ export const useAuthStore = create<AuthState>()(
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -120,6 +126,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await rawHttp.post('/auth/guest');
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -138,6 +145,9 @@ export const useAuthStore = create<AuthState>()(
           } catch { /* ignore */ }
           // Logout completes the bootstrap flow as well — no pending refresh in flight.
           set({ user: null, accessToken: null, isAuthenticated: false, bootstrapped: true });
+          // Drop the singleton socket so it can't keep operating under the
+          // logged-out identity's token after a subsequent login.
+          disconnectSocket();
         }
       },
 

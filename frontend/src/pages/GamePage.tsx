@@ -1277,6 +1277,27 @@ export default function GamePage() {
       ) {
         setIsStartingGame(false);
       }
+      // Fatal join failures (wrong identity, missing/finished game) would
+      // otherwise leave the user stuck on the "preparing…"/lobby screen with
+      // only a transient toast. Surface the actionable "Game unavailable"
+      // screen so they can get back to the lobby instead.
+      if (!useGameStore.getState().gameState) {
+        if (
+          message === 'Not a participant in this game' ||
+          message === 'Game not found'
+        ) {
+          if (lobbyTimeoutRef.current) {
+            clearTimeout(lobbyTimeoutRef.current);
+            lobbyTimeoutRef.current = null;
+          }
+          setLobbyLoadError(
+            message === 'Not a participant in this game'
+              ? 'You are not a participant in this game. Try returning to the lobby and reopening it.'
+              : 'This game could not be found. It may have ended or been removed.',
+          );
+          return;
+        }
+      }
       // Many gameplay errors (invalid attack target, not enough units,
       // territory not adjacent, build prereqs not met, etc.) come back here
       // *after* the user already optimistically selected a territory in the
