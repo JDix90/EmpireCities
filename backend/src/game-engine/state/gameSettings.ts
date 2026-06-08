@@ -1,4 +1,5 @@
 import type { GameSettings, VictoryType } from '../../types';
+import { getDefaultEraAdvancementSettings } from '../eraAdvancement/constants';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
@@ -36,6 +37,12 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const stabilityEnabled = typeof raw.stability_enabled === 'boolean' ? raw.stability_enabled : false;
   const territorySelection = typeof raw.territory_selection === 'boolean' ? raw.territory_selection : false;
   const coachingEnabled = typeof raw.coaching_enabled === 'boolean' ? raw.coaching_enabled : false;
+  const eraDefaults = getDefaultEraAdvancementSettings();
+  const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
+    ? raw.era_advancement_enabled
+    : eraDefaults.era_advancement_enabled;
+  const numSetting = (value: unknown, fallback: number) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
   // Async mode: auto-detect from long turn timers (≥12 hours)
   const VALID_ASYNC_DEADLINES = [43200, 86400, 259200]; // 12h, 24h, 72h
@@ -105,6 +112,40 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     stability_enabled: stabilityEnabled || undefined,
     territory_selection: territorySelection || undefined,
     coaching_enabled: coachingEnabled || undefined,
+    era_advancement_enabled: eraAdvancementEnabled || undefined,
+    era_advancement_conversion_ratio: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
+      : undefined,
+    era_advancement_strength_step: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_strength_step, eraDefaults.era_advancement_strength_step)
+      : undefined,
+    era_advancement_cost_step: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_step, eraDefaults.era_advancement_cost_step)
+      : undefined,
+    era_advancement_cost_mult: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_mult, eraDefaults.era_advancement_cost_mult)
+      : undefined,
+    era_advancement_cost_escalation: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_escalation, eraDefaults.era_advancement_cost_escalation)
+      : undefined,
+    era_advancement_stability_gate: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_stability_gate, eraDefaults.era_advancement_stability_gate)
+      : undefined,
+    era_advancement_tech_gate_pct: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_tech_gate_pct, eraDefaults.era_advancement_tech_gate_pct)
+      : undefined,
+    era_advancement_vuln_defense_mult: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_vuln_defense_mult, eraDefaults.era_advancement_vuln_defense_mult)
+      : undefined,
+    era_advancement_vuln_turns: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_vuln_turns, eraDefaults.era_advancement_vuln_turns)
+      : undefined,
+    era_advancement_max_era_index: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_max_era_index, eraDefaults.era_advancement_max_era_index)
+      : undefined,
+    era_advancement_combat_gap_dice: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_combat_gap_dice, eraDefaults.era_advancement_combat_gap_dice)
+      : undefined,
   };
 
   // Preserve extensions not part of the normalized core (campaign, daily puzzle, lobby).

@@ -27,7 +27,9 @@ import {
   getSeaDefenseBonus,
   onTerritoryCapture,
 } from '../game-engine/state/economyManager';
-import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus } from '../game-engine/state/techManager';
+import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
+import { executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
+import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
@@ -135,6 +137,7 @@ import {
   buildFortifyMapVisual,
   buildInfluenceMapVisual,
   buildNavalMapVisual,
+  buildEraAdvanceMapVisual,
   buildReinforceMapVisual,
   emitEventCardMapVisuals,
   emitMapVisual,
@@ -144,6 +147,10 @@ import {
   executeTechAbility,
   isGameScopedAbility,
 } from '../game-engine/abilities/executeTechAbility';
+import {
+  attachCombatAbilityCallouts,
+  buildCombatAbilityCallouts,
+} from '../game-engine/combat/combatAbilityCallouts';
 
 // Per-game per-player combat accumulator (keyed gameId -> playerId -> stats)
 interface PlayerCombatStats {
@@ -1274,6 +1281,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const currentPlayer = state.players[state.current_player_index];
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Not in attack phase' });
+      if (currentPlayer.era_advanced_this_turn) {
+        return socket.emit('error', { message: 'Cannot attack after advancing this turn' });
+      }
 
       const fromTerritory = state.territories[fromId];
       const toTerritory = state.territories[toId];
@@ -1404,6 +1414,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // this AFTER the sea-lane/naval gate prevents a "no fleet" rejection or a
       // naval defeat from silently burning the buffs for no benefit.
       const attackBuffs = consumeAttackBuffs(currentPlayer);
+      let signatureAttackBonus = 0;
+      if ((currentPlayer.medieval_signature_charges ?? 0) > 0) {
+        signatureAttackBonus = 1;
+        currentPlayer.medieval_signature_charges!--;
+      }
 
       // Blitzkrieg: this attack qualifies as the bonus follow-up if the source
       // matches the territory we just captured from while the doctrine was
@@ -1444,6 +1459,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           blitzkrieg: isBlitzkriegBonusAttack ? 1 : 0,
           pending: attackBuffs.extraAttackDie ? 1 : 0,
           march_to_sea: marchToSeaBonus,
+          era_signature: signatureAttackBonus,
         },
         extraDefenseBonuses: {
           truce_break: truceBrokenDefenseBonus,
@@ -1495,6 +1511,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
       result.attacker_bonus_breakdown = attackerBonusBreakdown;
       result.defender_bonus_breakdown = defenderBonusBreakdown;
+
+      const rawAttackerLosses = result.attacker_losses;
+      attachCombatAbilityCallouts(
+        result,
+        buildCombatAbilityCallouts({
+          state,
+          attackerId: userId,
+          toId,
+          attackBuffs,
+          abilityUses: currentPlayer.ability_uses,
+          rawAttackerLosses,
+        }),
+      );
 
       // Testudo: the formation absorbs all attacker casualties for this exchange.
       if (attackBuffs.negateAttackerLosses) result.attacker_losses = 0;
@@ -1862,7 +1891,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const unlockedTechs = currentPlayer.unlocked_techs ?? [];
       let techUnlocked = true;
       if (state.settings.tech_trees_enabled) {
-        const techTree = getEraTechTree(state.era);
+        const techTree = getEraTechTreeForPlayer(state, userId);
         const requiringNode = techTree.find((node) => node.unlocks_building === buildingType);
         if (requiringNode) {
           techUnlocked = unlockedTechs.includes(requiringNode.tech_id);
@@ -2035,6 +2064,42 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Research Tech ────────────────────────────────────────────────────────
+    socket.on('game:advance_era', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
+      const { state } = room;
+
+      const currentPlayer = state.players[state.current_player_index];
+      if (!isSocketUsersTurn(state, userId, username)) {
+        return socket.emit('error', { message: 'Not your turn' });
+      }
+      if (state.phase !== 'draft' && state.phase !== 'attack') {
+        return socket.emit('error', { message: 'Era advancement is only available during draft or attack phase' });
+      }
+
+      const result = executeAdvanceEra(state, userId);
+      if (!result.success) {
+        return socket.emit('error', { message: result.error ?? 'Cannot advance era' });
+      }
+
+      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
+        playerId: userId,
+        eraId: nextEraId,
+        state,
+      }));
+
+      commitActionDecision(
+        gameId, state, userId, 'advance_era',
+        `Advanced to ${nextEraId}`,
+        captureProbBefore(state, userId),
+      );
+      socket.emit('game:advance_era_result', { success: true, era_id: nextEraId });
+      broadcastState(io, gameId, state);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
     socket.on('game:research_tech', async ({ gameId, techId, action_id }: { gameId: string; techId: string; action_id?: string }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
@@ -2109,7 +2174,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const hasFactionAbility = faction?.ability_id === abilityId;
 
       const unlockedTechs = currentPlayer.unlocked_techs ?? [];
-      const techTree = state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [];
+      const techTree = state.settings.tech_trees_enabled ? getEraTechTreeForPlayer(state, userId) : [];
       const hasTechAbility = techTree.some(
         (n) => unlockedTechs.includes(n.tech_id) && n.unlocks_ability === abilityId
       );
@@ -2311,7 +2376,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // BFS to check target is within influence_range hops from any owned territory
       const baseHopLimit = modifiers?.influence_range ?? 1;
       const unlockedTechs = currentPlayer.unlocked_techs ?? [];
-      const techTree = state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [];
+      const techTree = state.settings.tech_trees_enabled ? getEraTechTreeForPlayer(state, userId) : [];
       const wonderRangeBonus = state.settings.economy_enabled
         ? getWonderInfluenceRange(state, userId)
         : 0;
@@ -4345,7 +4410,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         }
       }
       if (target.unit_count > 3) continue;
-      const aiTechTree = state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [];
+      const aiTechTree = state.settings.tech_trees_enabled
+        ? getEraTechTreeForPlayer(state, currentPlayer.player_id)
+        : [];
       const aiHopLimit = getInfluenceHopLimit({
         baseHopLimit: modifiers?.influence_range ?? 1,
         unlockedTechs: currentPlayer.unlocked_techs ?? [],
@@ -4542,6 +4609,20 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     );
     result.attacker_bonus_breakdown = aiAttackerBonusBreakdown;
     result.defender_bonus_breakdown = aiDefenderBonusBreakdown;
+
+    const aiRawAttackerLosses = result.attacker_losses;
+    attachCombatAbilityCallouts(
+      result,
+      buildCombatAbilityCallouts({
+        state,
+        attackerId: currentPlayer.player_id,
+        toId: action.to,
+        attackBuffs: aiAttackBuffs,
+        abilityUses: currentPlayer.ability_uses,
+        rawAttackerLosses: aiRawAttackerLosses,
+      }),
+    );
+
     // Testudo: the formation absorbs all attacker casualties for this exchange.
     if (aiAttackBuffs.negateAttackerLosses) result.attacker_losses = 0;
     // If resolveCombat returns an error, skip this attack

@@ -288,6 +288,20 @@ describe('executeTechAbility', () => {
     expect(state.players[0]!.pending_negate_attacker_losses).toBe(true);
   });
 
+  it('siege_assault arms ignore-defense-building for the next attack', () => {
+    const state = baseState();
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'siege_assault' });
+    expect(result.success).toBe(true);
+    expect(state.players[0]!.pending_ignore_defense_building).toBe(true);
+  });
+
+  it('cannon_barrage arms an extra attack die for the next attack', () => {
+    const state = baseState();
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'cannon_barrage' });
+    expect(result.success).toBe(true);
+    expect(state.players[0]!.pending_extra_attack_die).toBe(true);
+  });
+
   // ── Group E: unit-reduction strikes ─────────────────────────────────────────
   it('precision_airstrike removes 2 units from an adjacent enemy', () => {
     const state = baseState();
@@ -309,6 +323,13 @@ describe('executeTechAbility', () => {
   it('unification_drive rejects a non-neutral target', () => {
     const state = baseState();
     const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'unification_drive', territoryId: 't2' });
+    expect(result.success).toBe(false);
+  });
+
+  it('armored_push rejects use during draft phase', () => {
+    const state = baseState();
+    state.phase = 'draft';
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'armored_push' });
     expect(result.success).toBe(false);
   });
 

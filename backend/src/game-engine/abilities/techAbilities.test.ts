@@ -87,6 +87,18 @@ describe('techAbilities', () => {
     expect(attackerIgnoresDefenseBuilding(state, 'p1')).toBe(true);
   });
 
+  it('siege_assault does not passively ignore defense buildings', () => {
+    const state = baseState({ era: 'medieval' });
+    state.players[0]!.unlocked_techs = ['medieval_siege_warfare'];
+    expect(attackerIgnoresDefenseBuilding(state, 'p1')).toBe(false);
+  });
+
+  it('cannon_barrage passively ignores defense buildings when gunpowder is unlocked', () => {
+    const state = baseState({ era: 'medieval' });
+    state.players[0]!.unlocked_techs = ['medieval_gunpowder'];
+    expect(attackerIgnoresDefenseBuilding(state, 'p1')).toBe(true);
+  });
+
   it('returns empty ability set when tech trees disabled', () => {
     const state = baseState();
     state.settings.tech_trees_enabled = false;

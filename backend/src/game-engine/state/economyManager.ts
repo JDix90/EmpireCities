@@ -311,6 +311,9 @@ export function collectProduction(
   const player = state.players.find((p) => p.player_id === playerId);
   if (player) {
     player.special_resource = (player.special_resource ?? 0) + productionEarned;
+    if (state.settings.era_advancement_enabled) {
+      player.last_turn_production_income = productionEarned;
+    }
     if (state.settings.tech_trees_enabled) {
       player.tech_points = (player.tech_points ?? 0) + techPointsEarned;
     }

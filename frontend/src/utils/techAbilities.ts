@@ -13,26 +13,86 @@ export interface TerritoryAbilityUiDef {
 
 /** UI metadata for tech/faction abilities triggered from the territory panel. */
 export const TERRITORY_ABILITY_UI: Record<string, TerritoryAbilityUiDef> = {
-  atom_bomb: { label: 'Atom Bomb', emoji: '☢️', scope: 'game', phase: 'attack', enemyTarget: true, style: 'danger' },
-  nuclear_strike: { label: 'Nuclear Strike', emoji: '☢️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger' },
-  cyber_attack: { label: 'Cyber Attack', emoji: '💻', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning' },
-  data_breach: { label: 'Data Breach', emoji: '💻', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning' },
-  orbital_strike: { label: 'Orbital Strike', emoji: '🛰️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger' },
-  swarm_strike: { label: 'Swarm Strike', emoji: '🐝', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning' },
-  dyson_beam: { label: 'Dyson Beam', emoji: '☀️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger' },
-  hypersonic_strike: { label: 'Hypersonic Strike', emoji: '🚀', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning' },
-  river_blockade: { label: 'River Blockade', emoji: '🌊', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning' },
-  air_strike: { label: 'Air Strike', emoji: '✈️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  knights_charge: { label: 'Knights Charge', emoji: '🐴', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  bersaglieri_charge: { label: 'Bersaglieri Charge', emoji: '🎖️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  spy_network: { label: 'Spy Network', emoji: '🕵️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  satellite_reconnaissance: { label: 'Satellite Recon', emoji: '🛰️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  siege_assault: { label: 'Siege Assault', emoji: '🏰', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  cannon_barrage: { label: 'Cannon Barrage', emoji: '💣', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info' },
-  royal_decree: { label: 'Royal Decree', emoji: '👑', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'info' },
-  march_to_sea: { label: 'March to the Sea', emoji: '⚔️', scope: 'game', phase: 'attack', enemyTarget: false, style: 'info', hint: '+1 attack die on up to 3 consecutive chain captures' },
-  double_blitz: { label: 'Double Blitz', emoji: '⚡', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning', hint: 'After a capture, make two bonus attacks from that territory (+1 die each).' },
-  launch_space_station: { label: 'Launch Space Station', emoji: '🚀', scope: 'game', phase: 'draft', enemyTarget: false, style: 'info' },
+  atom_bomb: {
+    label: 'Atom Bomb', emoji: '☢️', scope: 'game', phase: 'attack', enemyTarget: true, style: 'danger',
+    hint: 'Devastate an enemy territory (once per game).',
+  },
+  nuclear_strike: {
+    label: 'Nuclear Strike', emoji: '☢️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger',
+    hint: 'Remove 2 units from an enemy territory.',
+  },
+  cyber_attack: {
+    label: 'Cyber Attack', emoji: '💻', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Remove 1 unit from an adjacent enemy territory.',
+  },
+  data_breach: {
+    label: 'Data Breach', emoji: '💻', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Remove 1 unit from an adjacent enemy territory.',
+  },
+  orbital_strike: {
+    label: 'Orbital Strike', emoji: '🛰️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger',
+    hint: 'Remove 3 units from an enemy territory.',
+  },
+  swarm_strike: {
+    label: 'Swarm Strike', emoji: '🐝', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Remove 2 units from an adjacent enemy territory.',
+  },
+  dyson_beam: {
+    label: 'Dyson Beam', emoji: '☀️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger',
+    hint: 'Remove 4 units from an enemy territory.',
+  },
+  hypersonic_strike: {
+    label: 'Hypersonic Strike', emoji: '🚀', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Remove 2 units from an enemy within 2 hops.',
+  },
+  river_blockade: {
+    label: 'River Blockade', emoji: '🌊', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Remove 1 unit from an adjacent enemy territory.',
+  },
+  air_strike: {
+    label: 'Air Strike', emoji: '✈️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: '+1 damage to target before your next attack resolves',
+  },
+  knights_charge: {
+    label: 'Knights Charge', emoji: '🐴', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: '+1 attack die on your next attack',
+  },
+  bersaglieri_charge: {
+    label: 'Bersaglieri Charge', emoji: '🎖️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: '+1 attack die on your next attack',
+  },
+  spy_network: {
+    label: 'Spy Network', emoji: '🕵️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info',
+    hint: 'Reveal enemy territories within 2 hops for this turn.',
+  },
+  satellite_reconnaissance: {
+    label: 'Satellite Recon', emoji: '🛰️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info',
+    hint: 'Reveal the entire map for this turn.',
+  },
+  siege_assault: {
+    label: 'Siege Assault', emoji: '🏰', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: 'Next attack ignores enemy fortification bonus',
+  },
+  cannon_barrage: {
+    label: 'Cannon Barrage', emoji: '💣', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: '+1 attack die on your next attack (Gunpowder already negates forts)',
+  },
+  royal_decree: {
+    label: 'Royal Decree', emoji: '👑', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'success',
+    hint: 'Place 2 free units on an owned territory.',
+  },
+  march_to_sea: {
+    label: 'March to the Sea', emoji: '⚔️', scope: 'game', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: '+1 attack die on up to 3 consecutive chain captures (once per game).',
+  },
+  double_blitz: {
+    label: 'Double Blitz', emoji: '⚡', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'warning',
+    hint: 'After a capture, make two bonus attacks from that territory (+1 die each).',
+  },
+  launch_space_station: {
+    label: 'Launch Space Station', emoji: '🚀', scope: 'game', phase: 'draft', enemyTarget: false, style: 'info',
+    hint: 'Launch your orbital station (requires Launch Pad, once per game).',
+  },
 };
 
 const GAME_SCOPED = new Set(['atom_bomb', 'launch_space_station', 'march_to_sea']);

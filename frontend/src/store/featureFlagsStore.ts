@@ -3,10 +3,12 @@ import { api } from '../services/api';
 
 export interface ClientFeatureFlags {
   map_editor_enabled: boolean;
+  era_advancement_lobby_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_editor_enabled: false,
+  era_advancement_lobby_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -33,4 +35,8 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>((set) => ({
 
 export function useMapEditorEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.map_editor_enabled);
+}
+
+export function useEraAdvancementLobbyEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.era_advancement_lobby_enabled);
 }

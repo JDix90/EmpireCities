@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { CombatResult } from '../../store/gameStore';
+import CombatAbilityCallouts from './CombatAbilityCallouts';
 
 interface MobileCombatBannerProps {
   lastCombatResult: CombatResult | null;
@@ -112,6 +113,14 @@ function MobileCombatBanner({
             <p className="text-bf-gold font-medium text-xs pt-1.5 mt-1.5 border-t border-bf-border">
               Territory Captured!
             </p>
+          )}
+          {(displayResult.combat_ability_callouts?.length ?? 0) > 0 && (
+            <div className="pt-1.5 mt-1.5 border-t border-bf-border">
+              <CombatAbilityCallouts
+                callouts={displayResult.combat_ability_callouts!}
+                compact
+              />
+            </div>
           )}
           {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
             <div className="pt-1.5 mt-1.5 border-t border-bf-border space-y-1">

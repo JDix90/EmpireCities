@@ -48,6 +48,7 @@ const CreateGameSchema = z.object({
       coaching_enabled: z.boolean().optional(),
       async_mode: z.boolean().optional(),
       async_turn_deadline_seconds: z.number().int().optional(),
+      era_advancement_enabled: z.boolean().optional(),
     })
     .superRefine((data, ctx) => {
       const list =
@@ -69,6 +70,15 @@ const CreateGameSchema = z.object({
           message: 'Territory Draft cannot be combined with Asymmetric Factions',
           path: ['territory_selection'],
         });
+      }
+      if (data.era_advancement_enabled) {
+        if (!data.economy_enabled) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Era Advancement requires Economy & Buildings',
+            path: ['era_advancement_enabled'],
+          });
+        }
       }
     }),
   ai_count: z.number().int().min(0).max(7).default(0),
@@ -99,6 +109,18 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       ...rawSettings,
       allowed_victory_conditions: mergedList,
     });
+
+    if (settings.era_advancement_enabled) {
+      if (settings.tutorial) {
+        return reply.status(400).send({ error: 'Era Advancement is not available in tutorial games' });
+      }
+      if (settings.is_campaign) {
+        return reply.status(400).send({ error: 'Era Advancement is not available in campaign games' });
+      }
+      if (era_id !== 'ancient') {
+        return reply.status(400).send({ error: 'Era Advancement PoC requires the Ancient era lobby preset' });
+      }
+    }
 
     const gameId = uuidv4();
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];

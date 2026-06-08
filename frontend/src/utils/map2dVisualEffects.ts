@@ -9,6 +9,7 @@ import {
   FORTIFY_COLOR,
   INFLUENCE_RING_RGB,
   INFLUENCE_BLOCKED_RGB,
+  ERA_ADVANCE_GOLD_RGB,
   MAP_VISUAL_DURATIONS,
   NAVAL_RING_RGB,
   REINFORCE_COLOR,
@@ -16,7 +17,14 @@ import {
   lerpRgb,
   rgbToPixi,
 } from '../utils/mapVisualStyles';
+
 import { eventDurationMs, resolveEventVisualMode } from '../utils/mapEventEffects';
+import {
+  eraAdvanceCapitalBurstPhase,
+  eraAdvanceCascadePhase,
+  eraAdvanceDisplayName,
+  sortIdsByDistanceFromOrigin,
+} from './eraAdvanceVisualUtils';
 
 export interface TerritoryCentroid {
   territoryId: string;
@@ -482,6 +490,158 @@ function runEventEffect(
   ticker.start();
 }
 
+function runEraAdvanceEffect(
+  layer: PIXI.Container,
+  event: MapVisualEvent,
+  centroids: Map<string, TerritoryCentroid>,
+  onDone: () => void,
+): void {
+  const territoryIds = new Set(
+    (event.affectedTerritories ?? []).map((row) => row.territory_id),
+  );
+  if (territoryIds.size === 0 && event.territoryId) {
+    territoryIds.add(event.territoryId);
+  }
+
+  const targets = [...centroids.values()].filter((c) => territoryIds.has(c.territoryId));
+  if (targets.length === 0) {
+    onDone();
+    return;
+  }
+
+  const playerRgb = hexToRgb(event.playerColor ?? '#f39c12');
+  const duration = MAP_VISUAL_DURATIONS.eraAdvance;
+  const primary = centroids.get(event.territoryId) ?? targets[0]!;
+  const origin = { x: primary.x, y: primary.y };
+  const sorted = sortIdsByDistanceFromOrigin(
+    targets.map((c) => ({ ...c, id: c.territoryId })),
+    origin,
+  );
+
+  const fillGraphics: PIXI.Graphics[] = [];
+  const shockGraphics: PIXI.Graphics[] = [];
+  const sparkGraphics: PIXI.Graphics[] = [];
+  for (const _ of sorted) {
+    const fill = new PIXI.Graphics();
+    layer.addChild(fill);
+    fillGraphics.push(fill);
+    const shock = new PIXI.Graphics();
+    layer.addChild(shock);
+    shockGraphics.push(shock);
+    const spark = new PIXI.Graphics();
+    layer.addChild(spark);
+    sparkGraphics.push(spark);
+  }
+
+  const burstGfx = new PIXI.Graphics();
+  layer.addChild(burstGfx);
+
+  const eraName = eraAdvanceDisplayName(event.variant);
+  const title = new PIXI.Text(`${eraName.toUpperCase()} ERA`, {
+    fontSize: 28,
+    fill: '#fff8dc',
+    fontWeight: 'bold',
+    stroke: '#5c4000',
+    strokeThickness: 5,
+  });
+  title.anchor.set(0.5);
+  title.position.set(origin.x, origin.y - 36);
+  title.alpha = 0;
+  layer.addChild(title);
+
+  const subtitle = new PIXI.Text('Civilization Ascends', {
+    fontSize: 13,
+    fill: '#ffd700',
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  });
+  subtitle.anchor.set(0.5);
+  subtitle.position.set(origin.x, origin.y - 62);
+  subtitle.alpha = 0;
+  layer.addChild(subtitle);
+
+  const goldColor = rgbToPixi(ERA_ADVANCE_GOLD_RGB);
+  const whiteColor = 0xffffff;
+
+  const started = Date.now();
+  const ticker = new PIXI.Ticker();
+  ticker.add(() => {
+    const elapsed = Date.now() - started;
+    const capitalPhase = eraAdvanceCapitalBurstPhase(elapsed);
+
+    burstGfx.clear();
+    if (capitalPhase > 0.02) {
+      for (let ring = 0; ring < 3; ring++) {
+        const lag = ring * 90;
+        const local = Math.max(0, elapsed - lag);
+        const expand = 18 + local * 0.14 + ring * 22;
+        const alpha = capitalPhase * (0.75 - ring * 0.18);
+        burstGfx.lineStyle(4 - ring, ring === 0 ? whiteColor : goldColor, alpha);
+        burstGfx.drawCircle(origin.x, origin.y, expand);
+      }
+      burstGfx.beginFill(whiteColor, capitalPhase * 0.35);
+      burstGfx.drawCircle(origin.x, origin.y, 14 + capitalPhase * 10);
+      burstGfx.endFill();
+    }
+
+    for (let i = 0; i < sorted.length; i++) {
+      const c = sorted[i]!;
+      const phase = eraAdvanceCascadePhase(elapsed, i, sorted.length, duration);
+      const fill = fillGraphics[i]!;
+      const shock = shockGraphics[i]!;
+      const spark = sparkGraphics[i]!;
+
+      fill.clear();
+      shock.clear();
+      spark.clear();
+
+      if (phase <= 0.02) continue;
+
+      const blend = lerpRgb(playerRgb, ERA_ADVANCE_GOLD_RGB, 0.4 + phase * 0.5);
+      const bright = lerpRgb(blend, [255, 255, 255], phase * 0.4);
+      const fillColor = rgbToPixi(bright);
+      drawPolygon(fill, c.polygon, fillColor, 0.55 + phase * 0.4, goldColor);
+
+      const shockRadius = 12 + phase * 38 + Math.sin(elapsed * 0.025 + i) * 6;
+      shock.lineStyle(3, whiteColor, phase * 0.85);
+      shock.drawCircle(c.x, c.y, shockRadius);
+      shock.lineStyle(2, goldColor, phase * 0.55);
+      shock.drawCircle(c.x, c.y, shockRadius + 10);
+
+      const sparkCount = 5;
+      for (let s = 0; s < sparkCount; s++) {
+        const angle = (s / sparkCount) * Math.PI * 2 + elapsed * 0.004;
+        const rise = ((elapsed * 0.06 + s * 17 + i * 11) % 40);
+        const sx = c.x + Math.cos(angle) * 8;
+        const sy = c.y - rise;
+        spark.beginFill(goldColor, phase * (1 - rise / 40));
+        spark.drawCircle(sx, sy, 2 + phase);
+        spark.endFill();
+      }
+    }
+
+    const titleIn = Math.min(1, Math.max(0, (elapsed - 350) / 400));
+    const titleOut = elapsed > duration - 700 ? Math.max(0, 1 - (elapsed - (duration - 700)) / 700) : 1;
+    const titleAlpha = titleIn * titleOut;
+    title.alpha = titleAlpha;
+    subtitle.alpha = titleAlpha * 0.9;
+    title.scale.set(0.9 + titleIn * 0.15);
+    subtitle.scale.set(0.95 + titleIn * 0.08);
+
+    if (elapsed >= duration) {
+      ticker.destroy();
+      burstGfx.destroy();
+      title.destroy();
+      subtitle.destroy();
+      for (const g of fillGraphics) g.destroy();
+      for (const g of shockGraphics) g.destroy();
+      for (const g of sparkGraphics) g.destroy();
+      onDone();
+    }
+  });
+  ticker.start();
+}
+
 export function playMap2dVisualEffect(
   layer: PIXI.Container,
   event: MapVisualEvent,
@@ -490,6 +650,11 @@ export function playMap2dVisualEffect(
 ): void {
   if (event.kind === 'strike') {
     onDone();
+    return;
+  }
+
+  if (event.kind === 'era_advance') {
+    runEraAdvanceEffect(layer, event, centroids, onDone);
     return;
   }
 

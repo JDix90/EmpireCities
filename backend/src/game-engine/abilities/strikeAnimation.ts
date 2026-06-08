@@ -51,7 +51,10 @@ export function shouldEmitMapOnlyStrike(abilityId: string, effect?: string): boo
 }
 
 export function shouldEmitAbilityStrikeVisuals(abilityId: string, effect?: string): boolean {
-  return shouldEmitFullScreenStrike(abilityId, effect) || shouldEmitMapOnlyStrike(abilityId, effect);
+  if (effect === 'atom_bomb_detonated') return true;
+  if (effect !== 'unit_reduction') return false;
+  const def = TERRITORY_ABILITY_DEFS[abilityId];
+  return (def?.unitReduction ?? 0) > 0;
 }
 
 export function findStrikeSourceTerritory(

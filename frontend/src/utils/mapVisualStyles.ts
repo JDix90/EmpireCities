@@ -12,7 +12,10 @@ export const MAP_VISUAL_DURATIONS = {
   influenceBlocked: 1200,
   event: 3400,
   eventGlobal: 3600,
+  eraAdvance: 4500,
 } as const;
+
+export const ERA_ADVANCE_GOLD_RGB: [number, number, number] = [255, 215, 100];
 
 export const REINFORCE_COLOR = '#4ade80';
 export const FORTIFY_COLOR = '#38bdf8';

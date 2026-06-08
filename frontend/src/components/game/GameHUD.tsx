@@ -6,9 +6,13 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
+import AdvanceEraPanel from './AdvanceEraPanel';
+import { ERA_LABELS } from '../../constants/gameLobbyLabels';
+import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
-import { getFactionGlobalAbilities, FACTION_ABILITY_UI } from '../../utils/factionAbilities';
+import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
+import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -33,7 +37,9 @@ interface GameHUDProps {
   isTutorial?: boolean;
   onOpenTechTree?: () => void;
   onOpenBonuses?: () => void;
+  onAdvanceEra?: () => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
+  techTree?: Array<{ tech_id: string; unlocks_ability?: string }>;
   lastCombatLog: string[];
   /** When set (in-progress game), chat renders at the bottom of this sidebar — never over the map. */
   gameId?: string;
@@ -72,7 +78,9 @@ export default function GameHUD({
   isTutorial,
   onOpenTechTree,
   onOpenBonuses,
+  onAdvanceEra,
   onUseAbility,
+  techTree = [],
   lastCombatLog,
   gameId,
   activeInteractionLabel,
@@ -230,6 +238,16 @@ export default function GameHUD({
         })()}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
+        {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && (
+          <div className="mt-3 -mx-1">
+            <AdvanceEraPanel
+              gameState={gameState}
+              myPlayer={myPlayer}
+              isMyTurn={isMyTurn}
+              onAdvanceEra={onAdvanceEra}
+            />
+          </div>
+        )}
         {tutorialActiveSettings && tutorialActiveSettings.length > 0 && (
           <div
             className="mt-3 rounded-lg border border-emerald-700/50 bg-emerald-950/40 px-3 py-2"
@@ -338,6 +356,17 @@ export default function GameHUD({
                 {player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
               </span>
               <span className="text-bf-muted text-xs">{player.territory_count}T</span>
+              {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
+                <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
+                  {ERA_LABELS[getEraIdForAdvancementIndex(player.current_era_index ?? 0)] ?? 'Ancient'}
+                </span>
+              )}
+              {gameState.settings.era_advancement_enabled
+                && (player.era_transition_turns_remaining ?? 0) > 0 && (
+                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 shrink-0">
+                  Vuln
+                </span>
+              )}
               {player.is_eliminated && (
                 <span className="text-red-500 text-xs">✗</span>
               )}
@@ -469,12 +498,48 @@ export default function GameHUD({
 
       </div>{/* end scrollable body */}
 
+      {/* Armed attack buffs (Knights Charge, Siege Assault, Testudo, etc.) */}
+      {isMyTurn && gameState.phase === 'attack' && myPlayer
+        && ARMED_BUFF_LABELS.some((entry) => entry.isActive(myPlayer)) && (
+        <div className="px-4 pt-2 space-y-1.5">
+          {ARMED_BUFF_LABELS.filter((entry) => entry.isActive(myPlayer)).map((entry) => (
+            <div
+              key={entry.label}
+              className="w-full text-center text-xs rounded border border-amber-500/55 bg-amber-950/45 text-amber-200 py-1.5 animate-pulse"
+            >
+              {entry.emoji} {entry.label}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isMyTurn && gameState.phase === 'attack' && gameState.blitzkrieg_active && (
+        <div className="px-4 pt-2">
+          <div className="w-full text-center text-xs rounded border border-amber-500/55 bg-amber-950/45 text-amber-200 py-1.5 animate-pulse">
+            ⚡ Blitz doctrine active
+            <span className="opacity-60">
+              {' '}— {gameState.blitzkrieg_bonus_attacks_remaining ?? 1} bonus attack
+              {(gameState.blitzkrieg_bonus_attacks_remaining ?? 1) === 1 ? '' : 's'} remaining
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* March to the Sea chain indicator (ACW Total War) */}
       {isMyTurn && gameState.phase === 'attack' && myPlayer?.march_to_sea_active && (
         <div className="px-4 pt-2">
           <div className="w-full text-center text-xs rounded border border-amber-600/50 bg-amber-950/40 text-amber-300 py-1.5">
             ⚔️ March to the Sea — chain {Math.min(myPlayer.march_to_sea_hops_used ?? 0, 3)}/3
             <span className="opacity-60"> (+1 attack die)</span>
+          </div>
+        </div>
+      )}
+
+      {isMyTurn && gameState.phase === 'fortify' && (myPlayer?.bonus_fortify_moves ?? 0) > 0 && (
+        <div className="px-4 pt-2">
+          <div className="w-full text-center text-xs rounded border border-blue-500/55 bg-blue-950/45 text-blue-200 py-1.5">
+            🚜 +{myPlayer?.bonus_fortify_moves} bonus fortify move
+            {(myPlayer?.bonus_fortify_moves ?? 0) === 1 ? '' : 's'} this turn
           </div>
         </div>
       )}
@@ -495,10 +560,10 @@ export default function GameHUD({
         <div className="px-4 pb-3 flex flex-col gap-1.5">
           {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff) */}
           {onUseAbility && gameState && myPlayer && (() => {
-            const globalAbils = getFactionGlobalAbilities(gameState, myPlayer);
+            const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree);
             if (globalAbils.length === 0) return null;
             return globalAbils.map((abilityId) => {
-              const def = FACTION_ABILITY_UI[abilityId];
+              const def = getAbilityUiDef(abilityId);
               if (!def) return null;
               const styleClass =
                 def.style === 'warning'

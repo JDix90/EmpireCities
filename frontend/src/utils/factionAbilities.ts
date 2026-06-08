@@ -277,7 +277,9 @@ export function getFactionTerritoryAbilities(
   if (!abilityId) return [];
 
   const def = FACTION_ABILITY_UI[abilityId];
-  if (!def || def.enemyTarget === null) return [];
+  if (!def) return [];
+  // Global self-buffs (Group D) also appear on owned territories during attack.
+  if (def.enemyTarget === null && !(def.phase === 'attack' && context.isMine)) return [];
 
   const phase = gameState.phase as string;
   if (def.phase !== 'any' && def.phase !== phase) return [];

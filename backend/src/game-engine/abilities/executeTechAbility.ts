@@ -1,6 +1,6 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { syncTerritoryCounts } from '../state/gameStateManager';
-import { getEraTechTree } from '../eras';
+import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../state/influenceManager';
 import { getWonderInfluenceRange } from '../state/wonderManager';
 import {
@@ -42,6 +42,9 @@ export function validateAbilityPhase(abilityId: string, phase: GameState['phase'
   if (!def) return null;
   if (def.phase === 'attack' && phase !== 'attack') {
     return `${def.label} can only be used during the attack phase`;
+  }
+  if (def.phase === 'fortify' && phase !== 'fortify') {
+    return `${def.label} can only be used during the fortify phase`;
   }
   if (def.phase === 'draft' && phase !== 'draft' && phase !== 'fortify') {
     return `${def.label} can only be used during the draft or fortify phase`;
@@ -134,7 +137,7 @@ export function executeTechAbility(params: {
     const hopLimit = getInfluenceHopLimit({
       baseHopLimit: state.era_modifiers?.influence_range ?? 1,
       unlockedTechs: currentPlayer.unlocked_techs ?? [],
-      techTree: state.settings.tech_trees_enabled ? getEraTechTree(state.era) : [],
+      techTree: state.settings.tech_trees_enabled ? getEraTechTreeForPlayer(state, playerId) : [],
       wonderRangeBonus: state.settings.economy_enabled ? getWonderInfluenceRange(state, playerId) : 0,
     });
     if (!isTerritoryReachableWithinHops({ map, ownedTerritoryIds: ownedIds, targetId: territoryId, hopLimit })) {
@@ -224,8 +227,8 @@ export function executeTechAbility(params: {
     return { success: true, effect: 'march_to_sea_active' };
   }
 
-  // ── Siege assault variants: next attack ignores defense building ──────────
-  if (abilityId === 'siege_assault' || abilityId === 'cannon_barrage') {
+  // ── Siege Assault: next attack ignores defense building (once per turn) ───
+  if (abilityId === 'siege_assault') {
     currentPlayer.pending_ignore_defense_building = true;
     return { success: true, effect: 'ignore_defense_building_ready' };
   }

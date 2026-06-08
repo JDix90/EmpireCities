@@ -8,7 +8,8 @@ export type MapVisualKind =
   | 'strike'
   | 'naval'
   | 'influence'
-  | 'event';
+  | 'event'
+  | 'era_advance';
 
 export interface MapVisualEvent {
   id: string;

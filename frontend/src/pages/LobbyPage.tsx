@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -294,6 +294,7 @@ function timeAgo(dateStr: string): string {
 export default function LobbyPage() {
   const { user, logout, accessToken, refreshUser } = useAuthStore();
   const mapEditorEnabled = useMapEditorEnabled();
+  const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -422,6 +423,11 @@ export default function LobbyPage() {
   const [stabilityEnabled, setStabilityEnabled] = useState(false);
   const [territorySelection, setTerritorySelection] = useState(false);
   const [coachingEnabled, setCoachingEnabled] = useState(false);
+  const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
+
+  useEffect(() => {
+    if (selectedEra !== 'ancient') setEraAdvancementEnabled(false);
+  }, [selectedEra]);
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   // Factions selection state
   const [_availableFactions, setAvailableFactions] = useState<FactionInfo[]>([]);
@@ -731,10 +737,17 @@ export default function LobbyPage() {
         stability_enabled: stabilityEnabled || undefined,
         territory_selection: territorySelection || undefined,
         coaching_enabled: coachingEnabled || undefined,
+        era_advancement_enabled:
+          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
       };
+      if (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient') {
+        settings.economy_enabled = true;
+        settings.tech_trees_enabled = true;
+        settings.stability_enabled = true;
+      }
       if (allowed.includes('threshold')) {
         settings.victory_threshold = victoryThresholdPct;
       }
@@ -1801,6 +1814,28 @@ export default function LobbyPage() {
                             <label htmlFor="create-game-coaching" className="contents cursor-pointer">
                               <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                               <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-bf-muted">(solo vs AI only)</span></span>
+                            </label>
+                          </div>
+                        )}
+                        {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
+                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                            <FeatureTooltip text="Optional: spend resources to advance your civilization to the next era mid-match. Stronger units and new options, but advancement weakens your army briefly and costs gold. Opponents choose their own pace." />
+                            <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
+                              <input
+                                id="create-game-era-advancement"
+                                type="checkbox"
+                                checked={eraAdvancementEnabled}
+                                onChange={(e) => {
+                                  setEraAdvancementEnabled(e.target.checked);
+                                  if (e.target.checked) {
+                                    setEconomyEnabled(true);
+                                    setTechTreesEnabled(true);
+                                    setStabilityEnabled(true);
+                                  }
+                                }}
+                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                              />
+                              <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(Ancient → Medieval)</span></span>
                             </label>
                           </div>
                         )}
