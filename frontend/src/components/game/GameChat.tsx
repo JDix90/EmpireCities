@@ -142,22 +142,24 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
           : 'fixed bottom-4 right-4 z-[80] w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-bf-border bg-bf-surface/95 shadow-xl backdrop-blur-sm',
       )}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm border-b border-bf-border/80 hover:bg-white/5"
-      >
-        <span className="font-display text-bf-gold">Chat</span>
-        <span className="text-bf-muted text-xs">{open ? '▾' : '▸'}</span>
-      </button>
-      {open && (
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-2 text-left text-sm border-b border-bf-border/80 hover:bg-white/5"
+        >
+          <span className="font-display text-bf-gold">Chat</span>
+          <span className="text-bf-muted text-xs">{open ? '▾' : '▸'}</span>
+        </button>
+      )}
+      {(embedded || open) && (
         <>
           {/* Messages */}
           <div
             ref={chatContainerRef}
             className={clsx(
               'overflow-y-auto px-3 py-2 space-y-1.5',
-              embedded ? 'max-h-[140px]' : 'h-[180px]',
+              embedded ? 'max-h-[min(28vh,200px)]' : 'h-[180px]',
             )}
           >
             {messages.map((m, i) => (

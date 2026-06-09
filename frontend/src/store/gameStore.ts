@@ -70,6 +70,7 @@ export interface GameState {
   map_id: string;
   phase: GamePhase;
   current_player_index: number;
+  starting_player_index?: number;
   turn_number: number;
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
@@ -107,6 +108,13 @@ export interface GameState {
     era_advancement_cost_escalation?: number;
     era_advancement_max_era_index?: number;
     era_advancement_tech_gate_pct?: number;
+    era_advancement_tech_gate_mode?: 'milestone' | 'percent';
+    era_advancement_min_tier1_techs?: number;
+    era_advancement_min_tier2_techs?: number;
+    era_advancement_min_buildings?: number;
+    economy_tech_starting_tech_points?: number;
+    economy_tech_starting_gold?: number;
+    era_advancement_stability_gate?: number;
     daily_challenge_date?: string;
     /** True when this game is an era of a solo campaign. Set server-side in campaign.routes.ts. */
     is_campaign?: boolean;

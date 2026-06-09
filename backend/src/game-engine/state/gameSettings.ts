@@ -1,5 +1,9 @@
 import type { GameSettings, VictoryType } from '../../types';
-import { getDefaultEraAdvancementSettings } from '../eraAdvancement/constants';
+import {
+  DEFAULT_ECONOMY_TECH_STARTING_GOLD,
+  DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
+  getDefaultEraAdvancementSettings,
+} from '../eraAdvancement/constants';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
@@ -107,6 +111,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     factions_enabled: factionsEnabled || undefined,
     economy_enabled: economyEnabled || undefined,
     tech_trees_enabled: techTreesEnabled || undefined,
+    economy_tech_starting_tech_points:
+      economyEnabled && techTreesEnabled
+        ? numSetting(raw.economy_tech_starting_tech_points, DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS)
+        : undefined,
+    economy_tech_starting_gold:
+      economyEnabled && techTreesEnabled
+        ? numSetting(raw.economy_tech_starting_gold, DEFAULT_ECONOMY_TECH_STARTING_GOLD)
+        : undefined,
     events_enabled: eventsEnabled || undefined,
     naval_enabled: navalEnabled || undefined,
     stability_enabled: stabilityEnabled || undefined,
@@ -133,6 +145,18 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     era_advancement_tech_gate_pct: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_tech_gate_pct, eraDefaults.era_advancement_tech_gate_pct)
+      : undefined,
+    era_advancement_tech_gate_mode: eraAdvancementEnabled
+      ? (raw.era_advancement_tech_gate_mode === 'percent' ? 'percent' : 'milestone')
+      : undefined,
+    era_advancement_min_tier1_techs: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_min_tier1_techs, eraDefaults.era_advancement_min_tier1_techs)
+      : undefined,
+    era_advancement_min_tier2_techs: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_min_tier2_techs, eraDefaults.era_advancement_min_tier2_techs)
+      : undefined,
+    era_advancement_min_buildings: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_min_buildings, eraDefaults.era_advancement_min_buildings)
       : undefined,
     era_advancement_vuln_defense_mult: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_vuln_defense_mult, eraDefaults.era_advancement_vuln_defense_mult)

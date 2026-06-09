@@ -97,7 +97,7 @@ Manual smoke (2 humans or 1 human + observe):
 
 | Item | Stage |
 |------|-------|
-| AI advance / stay heuristic | Stage 2 |
+| AI advance / stay heuristic | Stage 2 — see [stage2-spec.md](./stage2-spec.md) |
 | Discovery+ eras | Stage 3 |
 | Era-unique wonders | Stage 3 |
 | Cultural / Tech victory | Stage 4 |
@@ -152,9 +152,9 @@ Prevents silent AI parity bugs during human playtests.
 
 ## Sign-off checklist before merge
 
-- [ ] Toggle off regression: existing vitest green
-- [ ] `advanceEra.test.ts` ≥ 8 cases
-- [ ] `combatModifiers.test.ts` era gap cases added
-- [ ] Lobby creates game with flag persisted in `settings_json`
-- [ ] Manual smoke doc updated in PR description
-- [ ] No ranked / campaign combination allowed
+- [x] Toggle off regression: existing vitest green
+- [x] `advanceEra.test.ts` ≥ 8 cases (14 cases)
+- [x] `combatModifiers.test.ts` era gap cases added (gap 0, 1, 2 + vuln)
+- [x] Lobby creates game with flag persisted in `settings_json`
+- [x] Manual smoke doc: [stage1-playtest-notes.md](./stage1-playtest-notes.md)
+- [x] No ranked / campaign combination allowed

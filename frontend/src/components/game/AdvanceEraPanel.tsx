@@ -90,11 +90,27 @@ export default function AdvanceEraPanel({
               Advance mid-match for stronger era-tier combat. Costs scale with your production income.
             </p>
             <ul className="space-y-1 rounded-lg border border-bf-border bg-bf-dark/50 p-2">
-              {gameState.settings.tech_trees_enabled && (
+              {gameState.settings.tech_trees_enabled && status.gateMode === 'percent' && (
                 <GateRow
                   ok={status.techMet}
                   label={`Technologies researched: ${status.techUnlocked}/${status.techRequired}`}
                 />
+              )}
+              {gameState.settings.tech_trees_enabled && status.gateMode === 'milestone' && (
+                <>
+                  <GateRow
+                    ok={status.tier1Met}
+                    label={`Tier-1 technologies: ${status.tier1Current}/${status.tier1Required}`}
+                  />
+                  <GateRow
+                    ok={status.tier2Met}
+                    label={`Tier-2 technologies: ${status.tier2Current}/${status.tier2Required}`}
+                  />
+                  <GateRow
+                    ok={status.buildingsMet}
+                    label={`Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`}
+                  />
+                </>
               )}
               {status.stabilityGate != null && (
                 <GateRow

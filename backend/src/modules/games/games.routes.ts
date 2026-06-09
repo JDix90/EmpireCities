@@ -12,6 +12,12 @@ import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
+import { featureFlags } from '../../config/featureFlags';
+import { resolveMap } from '../../sockets/mapResolver';
+import {
+  buildMapMetaFromDoc,
+  evaluateEraMapCompatibility,
+} from '../../game-engine/lobby/lobbyEraMapCompatibility';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -49,6 +55,7 @@ const CreateGameSchema = z.object({
       async_mode: z.boolean().optional(),
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
+      is_ranked: z.boolean().optional(),
     })
     .superRefine((data, ctx) => {
       const list =
@@ -111,15 +118,38 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     if (settings.era_advancement_enabled) {
+      if (!featureFlags.eraAdvancementLobbyEnabled && !request.isAdmin) {
+        return reply.status(403).send({ error: 'Era Advancement is not enabled yet' });
+      }
       if (settings.tutorial) {
         return reply.status(400).send({ error: 'Era Advancement is not available in tutorial games' });
       }
       if (settings.is_campaign) {
         return reply.status(400).send({ error: 'Era Advancement is not available in campaign games' });
       }
+      if (rawSettings.is_ranked === true) {
+        return reply.status(400).send({ error: 'Era Advancement is not available in ranked games' });
+      }
       if (era_id !== 'ancient') {
         return reply.status(400).send({ error: 'Era Advancement PoC requires the Ancient era lobby preset' });
       }
+    }
+
+    const gameMap = await resolveMap(map_id);
+    if (!gameMap) {
+      return reply.status(400).send({ error: 'Map not found' });
+    }
+
+    const pairing = evaluateEraMapCompatibility({
+      era_id,
+      map_id,
+      settings: settings as unknown as Record<string, unknown>,
+      is_admin: request.isAdmin,
+      player_count: 1 + ai_count,
+      map_meta: buildMapMetaFromDoc(gameMap),
+    });
+    if (!pairing.allowed && pairing.hardBlock) {
+      return reply.status(400).send({ error: pairing.hardBlock });
     }
 
     const gameId = uuidv4();

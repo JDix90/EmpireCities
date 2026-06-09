@@ -455,10 +455,11 @@ describe('initializeGameState faction distribution', () => {
       makeSettings({ factions_enabled: true }),
     );
 
-    const firstPlayer = state.players[0]!;
-    const baseDraft = calculateReinforcements(firstPlayer.territory_count, 0, state.players.length);
+    const starter = state.players[state.starting_player_index ?? 0]!;
+    const baseDraft = calculateReinforcements(starter.territory_count, 0, state.players.length);
+    const passiveBonus = starter.faction_id === 'soviet_union' ? 2 : 0;
     expect(state.phase).toBe('draft');
-    expect(state.draft_units_remaining).toBe(baseDraft + 2);
+    expect(state.draft_units_remaining).toBe(baseDraft + passiveBonus);
   });
 
   describe('Space Age moon territory neutrality', () => {

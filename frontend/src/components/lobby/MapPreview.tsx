@@ -22,9 +22,18 @@ interface MapPreviewProps {
   width?: number;
   height?: number;
   className?: string;
+  /** When false, hides era badge, territory count, and region legend (parent provides chrome). */
+  showChrome?: boolean;
 }
 
-export default function MapPreview({ mapId, mapData, width = 480, height = 280, className = '' }: MapPreviewProps) {
+export default function MapPreview({
+  mapId,
+  mapData,
+  width = 480,
+  height = 280,
+  className = '',
+  showChrome = true,
+}: MapPreviewProps) {
   const [map, setMap]             = useState<GameMap | null>(mapData ?? null);
   const [loading, setLoading]     = useState(!mapData);
   const [hovered, setHovered]     = useState<string | null>(null);
@@ -82,16 +91,17 @@ export default function MapPreview({ mapId, mapData, width = 480, height = 280, 
       className={`relative rounded-lg overflow-hidden ${className}`}
       style={{ width, height, backgroundColor: meta.bgColor }}
     >
-      {/* Era label overlay */}
-      <div className="absolute top-2 left-2 z-10 text-xs font-bold px-2 py-1 rounded"
-           style={{ backgroundColor: meta.color + '33', color: meta.color }}>
-        {meta.label} · {meta.year}
-      </div>
-
-      {/* Territory count */}
-      <div className="absolute top-2 right-2 z-10 text-xs text-gray-400">
-        {map.territories.length} territories
-      </div>
+      {showChrome && (
+        <>
+          <div className="absolute top-2 left-2 z-10 text-xs font-bold px-2 py-1 rounded"
+               style={{ backgroundColor: meta.color + '33', color: meta.color }}>
+            {meta.label} · {meta.year}
+          </div>
+          <div className="absolute top-2 right-2 z-10 text-xs text-gray-400">
+            {map.territories.length} territories
+          </div>
+        </>
+      )}
 
       {/* SVG Map */}
       <svg
@@ -190,21 +200,22 @@ export default function MapPreview({ mapId, mapData, width = 480, height = 280, 
         )}
       </svg>
 
-      {/* Region legend */}
-      <div className="absolute bottom-2 left-2 flex flex-wrap gap-1 max-w-[70%]">
-        {map.regions.slice(0, 6).map((r, i) => (
-          <div key={r.region_id} className="flex items-center gap-1">
-            <div
-              className="w-2 h-2 rounded-sm"
-              style={{ backgroundColor: REGION_COLORS[i % REGION_COLORS.length] }}
-            />
-            <span className="text-[9px] text-gray-400 truncate max-w-[60px]">{r.name}</span>
-          </div>
-        ))}
-        {map.regions.length > 6 && (
-          <span className="text-[9px] text-gray-500">+{map.regions.length - 6} more</span>
-        )}
-      </div>
+      {showChrome && (
+        <div className="absolute bottom-2 left-2 flex flex-wrap gap-1 max-w-[70%]">
+          {map.regions.slice(0, 6).map((r, i) => (
+            <div key={r.region_id} className="flex items-center gap-1">
+              <div
+                className="w-2 h-2 rounded-sm"
+                style={{ backgroundColor: REGION_COLORS[i % REGION_COLORS.length] }}
+              />
+              <span className="text-[9px] text-gray-400 truncate max-w-[60px]">{r.name}</span>
+            </div>
+          ))}
+          {map.regions.length > 6 && (
+            <span className="text-[9px] text-gray-500">+{map.regions.length - 6} more</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

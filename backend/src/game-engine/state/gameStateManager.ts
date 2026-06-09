@@ -38,6 +38,52 @@ const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   galaxy_age:   {},
 };
 
+/** True when first-player seat should be randomized (normal multiplayer/solo/ranked). */
+export function shouldRandomizeStartingPlayer(settings: GameSettings): boolean {
+  if (settings.tutorial) return false;
+  if (settings.is_campaign) return false;
+  if (settings.daily_challenge_date) return false;
+  if (settings.daily_challenge_spec && typeof settings.daily_challenge_spec === 'object') return false;
+  return true;
+}
+
+type StartingPlayerRng = (min: number, max: number) => number;
+
+/** Seat index for the first turn; 0 when randomization is disabled. */
+export function pickStartingPlayerIndex(
+  playerCount: number,
+  settings: GameSettings,
+  rng: StartingPlayerRng = randomInt,
+): number {
+  if (playerCount <= 0) return 0;
+  if (!shouldRandomizeStartingPlayer(settings)) return 0;
+  return rng(0, playerCount);
+}
+
+export interface InitializeGameStateOptions {
+  /** Test/dev override — skips random draw when set. */
+  forceStartingPlayerIndex?: number;
+}
+
+/** Resolved starting seat for draft/territory-select transitions (persists after init). */
+export function getStartingPlayerIndex(state: GameState): number {
+  return state.starting_player_index ?? 0;
+}
+
+/** One production + tech income tick for every player at game start (economy+tech bootstrap). */
+export function applyOpeningEconomyTick(state: GameState): void {
+  for (const player of state.players) {
+    const goldIncome = collectProduction(state, player.player_id);
+    if (goldIncome > 0) {
+      player.special_resource = (player.special_resource ?? 0) + goldIncome;
+    }
+    const tpIncome = applyTechPointIncome(state, player.player_id);
+    if (tpIncome > 0) {
+      player.tech_points = (player.tech_points ?? 0) + tpIncome;
+    }
+  }
+}
+
 /**
  * Initialize a brand-new GameState from a map and player list.
  */
@@ -46,7 +92,8 @@ export function initializeGameState(
   era: EraId,
   map: GameMap,
   players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
-  settings: GameSettings
+  settings: GameSettings,
+  initOptions?: InitializeGameStateOptions,
 ): GameState {
   const settingsNorm = normalizeGameSettings(settings);
   const territories: Record<string, TerritoryState> = {};
@@ -187,6 +234,17 @@ export function initializeGameState(
     }
   }
 
+  const economyTechBootstrap =
+    settingsNorm.economy_enabled
+    && settingsNorm.tech_trees_enabled
+    && !settingsNorm.tutorial;
+  const startingTechPoints = economyTechBootstrap
+    ? (settingsNorm.economy_tech_starting_tech_points ?? 3)
+    : 0;
+  const startingGold = economyTechBootstrap
+    ? (settingsNorm.economy_tech_starting_gold ?? 4)
+    : 0;
+
   const playerStates: PlayerState[] = players.map((p) => ({
     ...p,
     territory_count: Object.values(territories).filter((t) => t.owner_id === p.player_id).length,
@@ -194,8 +252,10 @@ export function initializeGameState(
     capital_territory_id: null,
     secret_mission: null,
     // Economy / tech initial values
-    tech_points: settingsNorm.tech_trees_enabled ? 0 : undefined,
-    special_resource: (settingsNorm.tech_trees_enabled || settingsNorm.economy_enabled) ? 0 : undefined,
+    tech_points: settingsNorm.tech_trees_enabled ? startingTechPoints : undefined,
+    special_resource: (settingsNorm.tech_trees_enabled || settingsNorm.economy_enabled)
+      ? startingGold
+      : undefined,
     unlocked_techs: [],
     ability_uses: {},
     space_station_launched: p.faction_id === 'lunar_pioneers' ? true : undefined,
@@ -213,7 +273,9 @@ export function initializeGameState(
     }
   }
 
-  const firstPlayer = playerStates[0];
+  const startingPlayerIndex = initOptions?.forceStartingPlayerIndex
+    ?? pickStartingPlayerIndex(playerStates.length, settingsNorm);
+  const firstPlayer = playerStates[startingPlayerIndex];
   const isTerritorySelect = !!settingsNorm.territory_selection;
   const continentBonus = isTerritorySelect ? 0 : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
   const initialDraft = isTerritorySelect ? 0 : calculateReinforcements(
@@ -227,7 +289,8 @@ export function initializeGameState(
     era,
     map_id: map.map_id,
     phase: isTerritorySelect ? 'territory_select' : 'draft',
-    current_player_index: 0,
+    current_player_index: startingPlayerIndex,
+    starting_player_index: startingPlayerIndex,
     turn_number: 1,
     players: playerStates,
     territories,
@@ -274,6 +337,16 @@ export function initializeGameState(
   // Initialize stability values when stability feature is enabled
   if (settingsNorm.stability_enabled) {
     initializeStability(state);
+  }
+
+  // Opening economy tick: all players receive first production/tech income before turn 1.
+  if (
+    economyTechBootstrap
+    && !isTerritorySelect
+    && state.settings.economy_enabled
+    && state.settings.tech_trees_enabled
+  ) {
+    applyOpeningEconomyTick(state);
   }
 
   // Inject seasonal event cards into the game-start deck

@@ -6,6 +6,7 @@ import {
   getEraIdForAdvancementIndex,
   resolvePlayerEraId,
 } from './constants';
+import { evaluateEraAdvancementReadiness } from './eraAdvancementReadiness';
 
 export interface AdvanceEraGateResult {
   canAdvance: boolean;
@@ -85,11 +86,6 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return { canAdvance: false, error: 'Player not found' };
   if (player.is_eliminated) return { canAdvance: false, error: 'Eliminated players cannot advance' };
-  if (player.is_ai) {
-    // PoC: AI does not advance; humans only. See Stage 2.
-    return { canAdvance: false, error: 'AI players cannot advance in this mode' };
-  }
-
   const maxIndex = state.settings.era_advancement_max_era_index ?? 1;
   const currentIndex = player.current_era_index ?? 0;
   if (currentIndex >= maxIndex) {
@@ -110,15 +106,11 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
   }
 
   if (state.settings.tech_trees_enabled) {
-    const eraId = resolvePlayerEraId(state, player);
-    const treeLen = getEraTechTree(eraId).length;
-    const unlocked = (player.unlocked_techs ?? []).length;
-    const pct = state.settings.era_advancement_tech_gate_pct ?? 0.25;
-    if (treeLen > 0 && unlocked / treeLen < pct) {
-      const required = Math.ceil(treeLen * pct);
+    const readiness = evaluateEraAdvancementReadiness(state, playerId);
+    if (!readiness.met) {
       return {
         canAdvance: false,
-        error: `Research more technologies (${unlocked}/${required} required)`,
+        error: readiness.error ?? 'Research and economy requirements not met',
         cost,
       };
     }
@@ -177,6 +169,7 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
   nextEraId: string;
   stability?: number;
   techProgress?: { unlocked: number; required: number };
+  readiness?: ReturnType<typeof evaluateEraAdvancementReadiness>;
 } {
   const gate = canAdvanceEra(state, playerId);
   const player = state.players.find((p) => p.player_id === playerId);
@@ -187,14 +180,12 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
   );
 
   let techProgress: { unlocked: number; required: number } | undefined;
+  let readiness: ReturnType<typeof evaluateEraAdvancementReadiness> | undefined;
   if (player && state.settings.tech_trees_enabled) {
-    const eraId = resolvePlayerEraId(state, player);
-    const treeLen = getEraTechTree(eraId).length;
-    const pct = state.settings.era_advancement_tech_gate_pct ?? 0.25;
-    techProgress = {
-      unlocked: (player.unlocked_techs ?? []).length,
-      required: Math.ceil(treeLen * pct),
-    };
+    readiness = evaluateEraAdvancementReadiness(state, playerId);
+    if (readiness.mode === 'percent' && readiness.percent) {
+      techProgress = readiness.percent;
+    }
   }
 
   return {
@@ -207,5 +198,6 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
       ? getEmpireWeightedStability(state, playerId)
       : undefined,
     techProgress,
+    readiness,
   };
 }

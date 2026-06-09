@@ -1,6 +1,11 @@
 /**
- * Manual smoke driver for era advancement items 3–6 (socket-automated).
+ * Manual smoke driver for era advancement (socket-automated).
  * Run: pnpm -C backend exec tsx scripts/eraAdvancementPlaytest.ts
+ *
+ * Prerequisites:
+ * - Backend running at PLAYTEST_BASE_URL (default http://localhost:3001)
+ * - `era_advancement_lobby_enabled` true via Admin feature flags, OR admin account
+ * - Stage 2: ai_count >= 1 exercises AI advance/stay heuristic
  */
 import { io, type Socket } from 'socket.io-client';
 import type { GameState } from '../src/types';
@@ -45,7 +50,15 @@ async function createGame(token: string, eraAdvancement: boolean): Promise<strin
       },
     }),
   });
-  if (!res.ok) throw new Error(`create game failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 403 && body.includes('not enabled')) {
+      throw new Error(
+        'create game failed: Era Advancement feature flag is off. Enable era_advancement_lobby_enabled in Admin → Feature Flags, or use an admin account.',
+      );
+    }
+    throw new Error(`create game failed: ${res.status} ${body}`);
+  }
   const body = (await res.json()) as { game_id: string };
   return body.game_id;
 }

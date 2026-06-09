@@ -1,6 +1,6 @@
 # Era Advancement — Stage 1 Specification
 
-**Status:** Pre-implementation (post–Stage 0 validation)  
+**Status:** PoC shipped (human-only); Stage 2 adds AI parity  
 **Scope:** Resolves the eight open gaps from the architecture review before any PoC code.  
 **Prerequisite:** [stage0-pen-paper-validation.md](./stage0-pen-paper-validation.md) (§5.5 pass)
 
@@ -106,15 +106,29 @@ Store `last_turn_production_income` on `PlayerState` when production is applied 
 - `+1 fortify_moves` from a completed ancient tech → stored as `{ fortify_moves_bonus: 1 }`
 - Combat/attack bonuses already in `techManager` paths → re-applied via echo map in `getPlayerAttackBonus` / `getPlayerDefenseBonus`
 
-**Tech gate (50% of current era tree):**
+**Tech gate (milestone model — default):**
+
+Setting: `era_advancement_tech_gate_mode: 'milestone' | 'percent'` (default **`milestone`**).
+
+When `milestone` and `tech_trees_enabled`, all three must pass (AND):
+
+| Requirement | Default | Meaning |
+|-------------|---------|---------|
+| `era_advancement_min_tier1_techs` | **3** | Foundation tree engagement |
+| `era_advancement_min_tier2_techs` | **1** | At least one mid-tree branch |
+| `era_advancement_min_buildings` | **1** | Built any non-wonder building on owned territory |
+
+**Legacy percent mode** (`era_advancement_tech_gate_mode: 'percent'`):
 
 ```
-unlocked_count / era_tech_tree_length >= 0.5
+unlocked_count / era_tech_tree_length >= era_advancement_tech_gate_pct
 ```
 
-PoC: Ancient tree has 12 nodes → **6 unlocked** required. Medieval tree has 12 nodes → **6 unlocked** for 1→2 (Stage 3+).
+Default pct is **0.33** (4/12 Ancient). Use for A/B tuning only.
 
 When `tech_trees_enabled` is off: gate **skipped**.
+
+**Economy bootstrap (all economy + tech games):** Non-tutorial matches with `economy_enabled && tech_trees_enabled` start with `economy_tech_starting_tech_points` (default **3**) and `economy_tech_starting_gold` (default **4**), plus one opening production/tech income tick for all players at game start.
 
 ---
 

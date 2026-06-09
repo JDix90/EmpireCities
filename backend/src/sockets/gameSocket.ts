@@ -5,6 +5,7 @@ import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import {
   initializeGameState,
+  getStartingPlayerIndex,
   advanceToNextPlayer,
   checkVictory,
   drawCard,
@@ -45,6 +46,7 @@ import {
 } from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
+import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
 import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
 import { recordGameResults, computeRanks } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
@@ -98,6 +100,17 @@ import {
 } from './gameRoomManager';
 import { runWithGameLock } from './gameLock';
 import { resolveMap } from './mapResolver';
+import {
+  isSameLobbyMap,
+  lobbyMapChangeBlockedReason,
+  parseLobbyMapChangeValue,
+  type LobbyMapChangeValue,
+} from '../game-engine/lobby/lobbyMapChange';
+import {
+  buildMapMetaFromDoc,
+  formatRulesAndTheaterDisplay as formatLobbyMapChangeDisplay,
+  validateLobbyMapChangePair,
+} from '../game-engine/lobby/lobbyEraMapCompatibility';
 import {
   scheduleTurnTimeout,
   cancelTurnTimeout,
@@ -261,6 +274,7 @@ type WaitingLobbyGameRow = {
   status: string;
   settings_json: string | Record<string, unknown>;
   join_code: string | null;
+  is_ranked: boolean;
 };
 
 type WaitingLobbyDetails = {
@@ -276,7 +290,8 @@ type LobbyProposalSettingKey =
   | 'diplomacy_enabled'
   | 'initial_unit_count'
   | 'factions_enabled'
-  | 'naval_enabled';
+  | 'naval_enabled'
+  | 'map_change';
 
 type WaitingLobbyProposal = {
   id: string;
@@ -285,7 +300,7 @@ type WaitingLobbyProposal = {
   setting: LobbyProposalSettingKey;
   label: string;
   displayValue: string;
-  proposedValue: boolean | number;
+  proposedValue: boolean | number | LobbyMapChangeValue;
   yesVotes: string[];
   noVotes: string[];
   createdAt: number;
@@ -295,8 +310,8 @@ const lobbyProposalsByGame = new Map<string, WaitingLobbyProposal[]>();
 
 const LOBBY_PROPOSABLE_SETTINGS: Record<LobbyProposalSettingKey, {
   label: string;
-  parseValue: (value: unknown) => boolean | number | null;
-  displayValue: (value: boolean | number) => string;
+  parseValue: (value: unknown) => boolean | number | LobbyMapChangeValue | null;
+  displayValue: (value: boolean | number | LobbyMapChangeValue) => string;
 }> = {
   fog_of_war: {
     label: 'Fog of War',
@@ -340,6 +355,14 @@ const LOBBY_PROPOSABLE_SETTINGS: Record<LobbyProposalSettingKey, {
     parseValue: (value) => (typeof value === 'boolean' ? value : null),
     displayValue: (value) => (value ? 'On' : 'Off'),
   },
+  map_change: {
+    label: 'Map & Era',
+    parseValue: (value) => parseLobbyMapChangeValue(value),
+    displayValue: (value) => {
+      const v = value as LobbyMapChangeValue;
+      return formatLobbyMapChangeDisplay(v.era_id, v.map_id);
+    },
+  },
 };
 
 function parseLobbySettings(raw: string | Record<string, unknown>): Record<string, unknown> {
@@ -354,7 +377,9 @@ function parseLobbySettings(raw: string | Record<string, unknown>): Record<strin
 
 async function loadWaitingLobbyDetails(gameId: string): Promise<WaitingLobbyDetails | null> {
   const game = await queryOne<WaitingLobbyGameRow>(
-    'SELECT game_id, era_id, map_id, status, settings_json, join_code FROM games WHERE game_id = $1',
+    `SELECT game_id, era_id, map_id, status, settings_json, join_code,
+            COALESCE(is_ranked, false) AS is_ranked
+     FROM games WHERE game_id = $1`,
     [gameId],
   );
   if (!game) return null;
@@ -376,6 +401,32 @@ async function loadWaitingLobbyDetails(gameId: string): Promise<WaitingLobbyDeta
 
 function getLobbyProposalThreshold(humanCount: number): number {
   return Math.max(1, Math.floor(humanCount / 2) + 1);
+}
+
+async function applyApprovedLobbyMapChange(
+  io: Server,
+  gameId: string,
+  lobby: WaitingLobbyDetails,
+  value: LobbyMapChangeValue,
+): Promise<void> {
+  await query(
+    'UPDATE games SET era_id = $2, map_id = $3 WHERE game_id = $1',
+    [gameId, value.era_id, value.map_id],
+  );
+  await query('UPDATE game_players SET faction_id = NULL WHERE game_id = $1', [gameId]);
+
+  if (lobby.settings.era_advancement_enabled && value.era_id !== 'ancient') {
+    const nextSettings = normalizeGameSettings({
+      ...lobby.settings,
+      era_advancement_enabled: undefined,
+    });
+    await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
+  }
+
+  const gameMap = await resolveMap(value.map_id);
+  if (gameMap) {
+    io.to(gameId).emit('game:map', { mapId: value.map_id, map: gameMap });
+  }
 }
 
 function serializeLobbyProposals(gameId: string, humanPlayers: WaitingLobbyPlayerRow[], viewerId?: string) {
@@ -763,8 +814,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
       try {
         const game = await queryOne<WaitingLobbyGameRow>(
-          'SELECT game_id, era_id, map_id, status, settings_json, join_code FROM games WHERE game_id = $1',
-          [gameId]
+          `SELECT game_id, era_id, map_id, status, settings_json, join_code,
+                  COALESCE(is_ranked, false) AS is_ranked
+           FROM games WHERE game_id = $1`,
+          [gameId],
         );
         if (!game) return socket.emit('error', { message: 'Game not found' });
 
@@ -811,6 +864,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           };
           await emitWaitingLobbySnapshot(io, gameId, waitingDetails);
           await emitLobbyProposalUpdates(io, gameId, waitingDetails);
+          const waitingMap = await resolveMap(game.map_id);
+          if (waitingMap) {
+            socket.emit('game:map', { mapId: game.map_id, map: waitingMap });
+          }
         }
 
         // Load in-progress state from Redis (never serve a stale per-instance cache on join/reconnect).
@@ -1010,7 +1067,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           }
           getOrBuildAdjacency(room.map);
           await onPlayerConnected(gameId, socket.id, userId);
-          socket.emit('game:started', { gameId });
+          socket.emit('game:started', buildGameStartedPayload(gameId, room.state));
           socket.emit('game:map', { mapId: room.state.map_id, map: room.map });
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
           return;
@@ -1101,7 +1158,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         await flushGameState(gameId, state);
         lobbyProposalsByGame.delete(gameId);
 
-        io.to(gameId).emit('game:started', { gameId });
+        io.to(gameId).emit('game:started', buildGameStartedPayload(gameId, state));
         // Send the resolved map to every player in the room so client code
         // never has to re-fetch via REST during play (private/pending custom
         // maps would otherwise be invisible to non-creator participants).
@@ -1244,10 +1301,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // Transition to draft phase
         state.phase = 'draft';
         state.draft_placements_this_turn = {};
-        state.current_player_index = 0;
+        const starterIdx = getStartingPlayerIndex(state);
+        state.current_player_index = starterIdx;
         state.turn_number = 1;
         state.turn_started_at = Date.now();
-        const firstPlayer = state.players[0];
+        const firstPlayer = state.players[starterIdx];
         const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
         const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
         state.draft_units_remaining = calculateReinforcements(
@@ -2632,7 +2690,36 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const parsedValue = definition.parseValue(value);
       if (parsedValue == null) return socket.emit('error', { message: 'Invalid proposed value' });
 
-      if (String(lobby.settings[settingKey]) === String(parsedValue)) {
+      if (settingKey === 'map_change') {
+        const mapValue = parsedValue as LobbyMapChangeValue;
+        const blocked = lobbyMapChangeBlockedReason({
+          era_id: lobby.game.era_id,
+          map_id: lobby.game.map_id,
+          is_ranked: lobby.game.is_ranked,
+          settings: lobby.settings,
+        });
+        if (blocked) return socket.emit('error', { message: blocked });
+
+        const proposerAdmin = await queryOne<{ is_admin: boolean }>(
+          'SELECT COALESCE(is_admin, false) AS is_admin FROM users WHERE user_id = $1',
+          [userId],
+        );
+        const resolved = await resolveMap(mapValue.map_id);
+        if (!resolved) return socket.emit('error', { message: 'Map not found' });
+
+        const pairError = validateLobbyMapChangePair(mapValue, {
+          isAdmin: proposerAdmin?.is_admin === true,
+          settings: lobby.settings,
+          is_ranked: lobby.game.is_ranked,
+          player_count: lobby.players.length,
+          map_meta: buildMapMetaFromDoc(resolved),
+        });
+        if (pairError) return socket.emit('error', { message: pairError });
+
+        if (isSameLobbyMap({ era_id: lobby.game.era_id, map_id: lobby.game.map_id }, mapValue)) {
+          return socket.emit('error', { message: 'That map is already selected' });
+        }
+      } else if (String(lobby.settings[settingKey]) === String(parsedValue)) {
         return socket.emit('error', { message: 'That setting is already active' });
       }
 
@@ -2678,19 +2765,29 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const threshold = getLobbyProposalThreshold(lobby.humanPlayers.length);
       if (proposal.yesVotes.length >= threshold) {
-        const normalized = normalizeGameSettings({
-          ...lobby.settings,
-          [proposal.setting]: proposal.proposedValue,
-        });
-        const nextSettings = {
-          ...normalized,
-          max_players:
-            typeof lobby.settings.max_players === 'number'
-              ? lobby.settings.max_players
-              : lobby.players.length,
-        };
+        if (proposal.setting === 'map_change') {
+          await applyApprovedLobbyMapChange(
+            io,
+            gameId,
+            lobby,
+            proposal.proposedValue as LobbyMapChangeValue,
+          );
+        } else {
+          const normalized = normalizeGameSettings({
+            ...lobby.settings,
+            [proposal.setting]: proposal.proposedValue,
+          });
+          const nextSettings = {
+            ...normalized,
+            max_players:
+              typeof lobby.settings.max_players === 'number'
+                ? lobby.settings.max_players
+                : lobby.players.length,
+          };
 
-        await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
+          await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
+        }
+
         const remaining = proposals.filter((entry) => entry.id !== proposal.id);
         if (remaining.length > 0) lobbyProposalsByGame.set(gameId, remaining);
         else lobbyProposalsByGame.delete(gameId);
@@ -3238,6 +3335,20 @@ function emitAutoDraftMapVisuals(
       state,
     }));
   }
+}
+
+function buildGameStartedPayload(gameId: string, state: GameState): {
+  gameId: string;
+  startingPlayerIndex: number;
+  startingPlayerName?: string;
+} {
+  const idx = getStartingPlayerIndex(state);
+  const player = state.players[idx];
+  return {
+    gameId,
+    startingPlayerIndex: idx,
+    startingPlayerName: player?.username,
+  };
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
@@ -4042,10 +4153,11 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   if (remaining === 0) {
     state.phase = 'draft';
     state.draft_placements_this_turn = {};
-    state.current_player_index = 0;
+    const starterIdx = getStartingPlayerIndex(state);
+    state.current_player_index = starterIdx;
     state.turn_number = 1;
     state.turn_started_at = Date.now();
-    const firstPlayer = state.players[0];
+    const firstPlayer = state.players[starterIdx];
     const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
     const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
     state.draft_units_remaining = calculateReinforcements(
@@ -4137,6 +4249,25 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // ── Draft Phase ────────────────────────────────────────────────────────
   state.phase = 'draft';
+
+  if (
+    state.settings.era_advancement_enabled
+    && difficulty !== 'tutorial'
+    && evaluateAiEraAdvancement(state, map, currentPlayer.player_id, difficulty).shouldAdvance
+  ) {
+    const advanceResult = executeAdvanceEra(state, currentPlayer.player_id);
+    if (advanceResult.success) {
+      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
+        playerId: currentPlayer.player_id,
+        eraId: nextEraId,
+        state,
+      }));
+      broadcastState(io, gameId, state);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      await delay();
+    }
+  }
 
   if (difficulty !== 'tutorial') {
     for (;;) {
