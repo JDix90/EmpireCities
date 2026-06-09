@@ -4,6 +4,8 @@ import { calculateReinforcements } from '../combat/combatResolver';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getFactionById, getEraTechTree } from '../eras';
+import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild } from '../state/economyManager';
 import {
   connectionRequiresMoonAccess,
@@ -310,7 +312,8 @@ function selectAttacks(
       // Sea-lane attacks get a slight penalty for the reduced dice
       const seaPenalty = isSeaLane ? -0.5 : 0;
       const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
-      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + Math.random() * randomFactor * 3;
+      const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
+      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score });
         if (state.settings.naval_enabled && isSeaConn) {
@@ -567,7 +570,7 @@ export function selectAiBuildingPlacement(
 
   const checkTechUnlocked = (bType: BuildingType): boolean => {
     if (!state.settings.tech_trees_enabled) return true;
-    const tree = getEraTechTree(state.era);
+    const tree = getEraTechTree(resolvePlayerEraId(state, player));
     const requiring = tree.find((n) => n.unlocks_building === bType);
     if (!requiring) return true;
     return (player.unlocked_techs ?? []).includes(requiring.tech_id);
@@ -707,7 +710,8 @@ export function selectAiTechResearch(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
 
-  const tree = getEraTechTree(state.era);
+  const playerEra = resolvePlayerEraId(state, player);
+  const tree = getEraTechTree(playerEra);
   const unlocked = player.unlocked_techs ?? [];
   const techPoints = player.tech_points ?? 0;
 

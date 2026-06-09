@@ -117,10 +117,28 @@
   bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.25rem);
 }
 
-/* Landscape mobile: reduce bottom-sheet heights and hide tab bar */
+.mobile-sheet-peek {
+  max-height: 28vh;
+}
+
+.mobile-sheet-half {
+  max-height: 42vh;
+}
+
+.mobile-sheet-full {
+  max-height: 55vh;
+}
+
+/* Landscape mobile: cap full snap only */
 @media (max-width: 768px) and (orientation: landscape) {
-  .mobile-bottom-sheet {
+  .mobile-sheet-full {
     max-height: 35vh;
+  }
+  .mobile-sheet-half {
+    max-height: 32vh;
+  }
+  .mobile-sheet-peek {
+    max-height: 26vh;
   }
 }
 

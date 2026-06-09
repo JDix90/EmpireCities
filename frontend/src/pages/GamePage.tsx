@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
+import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
@@ -49,6 +50,7 @@ import CampaignIntroModal, { type CampaignIntroData } from '../components/game/C
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import LobbyProposals from '../components/game/LobbyProposals';
+import LobbyMapPreview from '../components/lobby/LobbyMapPreview';
 import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
 import { computeDraftPool } from '../utils/draftPool';
 import { generateActionId } from '../utils/actionId';
@@ -63,7 +65,7 @@ import {
   markEventCardVisualSeen,
   scheduleEventCardMapVisualBackup,
 } from '../utils/eventCardMapVisual';
-import { ERA_LABELS, formatLobbyMapLabel } from '../constants/gameLobbyLabels';
+import { ERA_LABELS, formatLobbyMapLabel, formatLobbyPairingLabel } from '../constants/gameLobbyLabels';
 import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
 import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
@@ -75,6 +77,7 @@ import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } fro
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
 import { prefersReducedMotion, isMobileViewport } from '../utils/device';
+import type { SheetSnap } from '../hooks/useBottomSheetSnap';
 import {
   getInitialMapView,
   persistMapView,
@@ -391,6 +394,9 @@ export default function GamePage() {
     () => getConnectionHintPreference(),
   );
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [isMobileLayout, setIsMobileLayout] = useState(() => isMobileViewport());
+  const [territorySheetSnap, setTerritorySheetSnap] = useState<SheetSnap>('half');
   const mapDataRef = useRef<MapData | null>(null);
   const resetViewRef = useRef<(() => void) | null>(null);
 
@@ -417,6 +423,13 @@ export default function GamePage() {
     setLiteModeEnabled(isLiteMode());
     setConnectionHintPreference(getConnectionHintPreference());
   }), []);
+
+  useEffect(() => {
+    const syncMobileLayout = () => setIsMobileLayout(isMobileViewport());
+    syncMobileLayout();
+    window.addEventListener('resize', syncMobileLayout);
+    return () => window.removeEventListener('resize', syncMobileLayout);
+  }, []);
 
   /** Prefetch globe vendor chunks when the user prefers globe or may switch soon. */
   useEffect(() => {
@@ -1008,10 +1021,14 @@ export default function GamePage() {
       }
     });
 
-    socket.on('game:started', () => {
+    socket.on('game:started', (data?: { startingPlayerName?: string }) => {
       setIsStartingGame(false);
       setGameStarted(true);
-      toast.success('Game started! Good luck, Commander!');
+      if (data?.startingPlayerName) {
+        toast.success(`${data.startingPlayerName} goes first`);
+      } else {
+        toast.success('Game started! Good luck, Commander!');
+      }
     });
 
     socket.on('game:puzzle_feedback', (payload: { gameId?: string; tier: string; message: string }) => {
@@ -1738,12 +1755,13 @@ export default function GamePage() {
   // game:start fires. For private/pending custom maps owned by another
   // player, this REST call will 404 (correct behaviour) and the user sees
   // the lobby until the host starts the game and the map is broadcast.
+  const activeMapId = gameState?.map_id ?? lobbySnapshot?.map_id ?? null;
   useEffect(() => {
-    if (!gameState?.map_id) return;
-    if (mapDataRef.current?.map_id === gameState.map_id) return;
-    api.get(`/maps/${gameState.map_id}`)
+    if (!activeMapId) return;
+    if (mapDataRef.current?.map_id === activeMapId) return;
+    api.get(`/maps/${activeMapId}`)
       .then((res) => {
-        if (mapDataRef.current?.map_id === gameState.map_id) return;
+        if (mapDataRef.current?.map_id === activeMapId) return;
         setMapData(res.data.map);
         mapDataRef.current = res.data.map;
       })
@@ -1752,7 +1770,7 @@ export default function GamePage() {
         // the player is fully joined to the room. Stay quiet rather than
         // toasting on every lobby preview for a private map.
       });
-  }, [gameState?.map_id]);
+  }, [activeMapId]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleStartGame = () => {
@@ -1778,6 +1796,13 @@ export default function GamePage() {
 
   const handleTerritoryClick = useCallback((territoryId: string) => {
     if (!gameState) return;
+
+    if (isMobileViewport() && selectedTerritory && territorySheetSnap !== 'peek') {
+      setTerritorySheetSnap('peek');
+      setSelectedTerritory(territoryId);
+      return;
+    }
+
     const socket = getSocket();
     const currentTurnPlayer = gameState.players[gameState.current_player_index];
     const myPid =
@@ -1848,6 +1873,8 @@ export default function GamePage() {
     showNotification,
     setFortifyUnits,
     setNavalSource,
+    selectedTerritory,
+    territorySheetSnap,
   ]);
 
   const handleFortifyTo = useCallback((fromId: string, toId: string) => {
@@ -2473,8 +2500,29 @@ export default function GamePage() {
     if (selectedTerritory) {
       setMobileCardsTrayOpen(false);
       setMobileHudOpen(false);
+      setMobileChatOpen(false);
     }
   }, [selectedTerritory]);
+
+  // Default territory sheet snap: peek during attack/fortify on your turn
+  useEffect(() => {
+    if (!selectedTerritory || !isMobileViewport() || !gameState) return;
+    const currentTurnPlayer = gameState.players[gameState.current_player_index];
+    const myPid =
+      resolvedViewerPlayerId ??
+      gameState.players.find(
+        (p) =>
+          p.player_id === user?.user_id ||
+          (!!user?.username && p.username === user.username),
+      )?.player_id ??
+      null;
+    const isMyTurnNow = !!myPid && currentTurnPlayer?.player_id === myPid;
+    if (isMyTurnNow && (gameState.phase === 'attack' || gameState.phase === 'fortify')) {
+      setTerritorySheetSnap('peek');
+    } else {
+      setTerritorySheetSnap('half');
+    }
+  }, [selectedTerritory, gameState, resolvedViewerPlayerId, user?.user_id, user?.username]);
 
   const hasMoonTerritories = useMemo(
     () =>
@@ -2625,10 +2673,14 @@ export default function GamePage() {
     const aiCount = roster.filter((p) => p.is_ai).length;
     const firstAi = roster.find((p) => p.is_ai);
     const hostPlayer = roster.find((p) => p.player_index === 0) ?? null;
-    const eraLabel = ERA_LABELS[lobby?.era_id ?? ''] ?? lobby?.era_id ?? '—';
-    const mapLabel =
+    const rulesLabel = ERA_LABELS[lobby?.era_id ?? ''] ?? lobby?.era_id ?? '—';
+    const theaterLabel =
       lobby?.map_id && lobby?.era_id
         ? formatLobbyMapLabel(lobby.map_id, lobby.era_id)
+        : '—';
+    const pairingLabel =
+      lobby?.map_id && lobby?.era_id
+        ? formatLobbyPairingLabel(lobby.era_id, lobby.map_id)
         : '—';
     const victorySummary = formatVictorySummary(settings);
     const seatsRemaining = Math.max(0, maxPlayers - roster.length);
@@ -2669,7 +2721,7 @@ export default function GamePage() {
             <DailyChallengeIntroModal
               spec={dailySpec}
               challengeDate={typeof settings.daily_challenge_date === 'string' ? settings.daily_challenge_date : undefined}
-              eraLabel={eraLabel}
+              eraLabel={rulesLabel}
               onBegin={dismissDailyIntro}
             />
           )}
@@ -2692,7 +2744,7 @@ export default function GamePage() {
                   {!lobby
                     ? 'Loading lobby…'
                     : lobby.status === 'waiting'
-                      ? 'Waiting for the host to start, or for more players to join. Chat, vote on rule changes, and share the room from here.'
+                      ? 'Waiting for the host to start, or for more players to join. Chat, vote on map or rule changes, and share the room from here.'
                       : 'Preparing game…'}
                 </p>
               </div>
@@ -2700,8 +2752,8 @@ export default function GamePage() {
               {lobby && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0 lg:min-w-[420px]">
                   <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
-                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Era</p>
-                    <p className="text-sm text-bf-text font-medium truncate">{eraLabel}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Rules</p>
+                    <p className="text-sm text-bf-text font-medium truncate">{rulesLabel}</p>
                   </div>
                   <div className="rounded-xl border border-bf-border bg-black/20 px-3 py-3">
                     <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Seats</p>
@@ -2730,18 +2782,28 @@ export default function GamePage() {
                       <h3 className="font-display text-xl text-bf-gold">Game Settings</h3>
                     </div>
                     <span className="text-xs px-2.5 py-1 rounded-full border border-bf-gold/20 bg-bf-gold/10 text-bf-gold">
-                      {mapLabel}
+                      {pairingLabel}
                     </span>
                   </div>
 
+                  {lobby.map_id && (
+                    <div className="mb-4 rounded-xl overflow-hidden border border-bf-border bg-black/25">
+                      <LobbyMapPreview
+                        mapId={lobby.map_id}
+                        height={240}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+
                   <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
                     <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Era</dt>
-                      <dd className="text-bf-text font-medium">{eraLabel}</dd>
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Rules Era</dt>
+                      <dd className="text-bf-text font-medium">{rulesLabel}</dd>
                     </div>
                     <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
-                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Map</dt>
-                      <dd className="text-bf-text font-medium">{mapLabel}</dd>
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Theater Map</dt>
+                      <dd className="text-bf-text font-medium">{theaterLabel}</dd>
                     </div>
                     <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
                       <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Players</dt>
@@ -2804,11 +2866,17 @@ export default function GamePage() {
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.24em] text-bf-muted mb-1">Consensus</p>
-                        <h3 className="font-display text-lg text-bf-gold">Vote on Settings</h3>
+                        <h3 className="font-display text-lg text-bf-gold">Vote on Map &amp; Settings</h3>
                       </div>
                       <span className="text-xs text-bf-muted">Majority approval required</span>
                     </div>
-                    <LobbyProposals gameId={gameId} currentSettings={lobby.settings_json ?? null} />
+                    <LobbyProposals
+                      gameId={gameId}
+                      currentSettings={lobby.settings_json ?? null}
+                      currentEraId={lobby.era_id}
+                      currentMapId={lobby.map_id}
+                      playerCount={roster.length}
+                    />
                   </div>
                 )}
 
@@ -2906,7 +2974,7 @@ export default function GamePage() {
                         Cancel Game
                       </button>
                       <p className="text-xs leading-relaxed text-bf-muted">
-                        Start immediately, or wait for more players to join and vote on any rule changes first.
+                        Start immediately, or wait for more players to join and vote on map or rule changes first.
                       </p>
                     </div>
                   ) : (
@@ -3336,6 +3404,16 @@ export default function GamePage() {
             </>
           )}
 
+          {/* Backdrop when territory sheet is fully expanded (tap to collapse to peek) */}
+          {selectedTerritory && territorySheetSnap === 'full' && (
+            <button
+              type="button"
+              className="fixed inset-0 z-[35] bg-black/20 md:hidden"
+              aria-label="Collapse territory panel"
+              onClick={() => setTerritorySheetSnap('peek')}
+            />
+          )}
+
           {/* Territory Info Panel */}
           {selectedTerritory && mapData && (
             <TerritoryPanel
@@ -3364,11 +3442,14 @@ export default function GamePage() {
               denseMap={mapDensityMetrics?.isDense ?? false}
               onFortifyTo={handleFortifyTo}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
+              sheetSnap={territorySheetSnap}
+              onSheetSnapChange={setTerritorySheetSnap}
               onClose={() => {
                 setSelectedTerritory(null);
                 setAttackSource(null);
                 setNavalSource(null);
                 setFortifyUnits(1);
+                setTerritorySheetSnap('half');
               }}
             />
           )}
@@ -3376,38 +3457,45 @@ export default function GamePage() {
           {/* (Game over handled via modal) */}
         </div>
 
-        {/* HUD Sidebar */}
-        <GameHUD
-          onAdvancePhase={handleAdvancePhase}
-          onRedeemCards={handleRedeemCards}
-          onResign={isTutorial ? undefined : handleResignRequest}
-          onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
-          isTutorial={isTutorial}
-          onExitTutorial={isTutorial ? handleTutorialExit : undefined}
-          onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
-          onOpenBonuses={handleOpenBonuses}
-          onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
-          onUseAbility={
-            (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
-              ? handleUseAbility
-              : undefined
-          }
-          techTree={techTree}
-          lastCombatLog={combatLog}
-          gameId={gameStarted && gameId ? gameId : undefined}
-          activeInteractionLabel={activeInteractionLabel}
-          resolvedViewerPlayerId={resolvedViewerPlayerId}
-          tutorialActiveSettings={
-            tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
-          }
-          mapNameLookup={mapData}
-          connectionHintPreference={connectionHintPreference}
-          onConnectionHintPreferenceChange={(next) => {
-            setConnectionHintPreference(next);
-            persistConnectionHintPreference(next);
-          }}
-          denseMap={mapDensityMetrics?.isDense ?? false}
-        />
+        {/* HUD Sidebar (desktop only — chat lives here too; see single mobile chat below) */}
+        {!isMobileLayout && (
+          <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 border-l border-bf-border">
+            <GameHUD
+              onAdvancePhase={handleAdvancePhase}
+              onRedeemCards={handleRedeemCards}
+              onResign={isTutorial ? undefined : handleResignRequest}
+              onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+              isTutorial={isTutorial}
+              onExitTutorial={isTutorial ? handleTutorialExit : undefined}
+              onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
+              onOpenBonuses={handleOpenBonuses}
+              onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
+              onUseAbility={
+                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                  ? handleUseAbility
+                  : undefined
+              }
+              techTree={techTree}
+              lastCombatLog={combatLog}
+              gameId={gameStarted && gameId ? gameId : undefined}
+              activeInteractionLabel={activeInteractionLabel}
+              resolvedViewerPlayerId={resolvedViewerPlayerId}
+              tutorialActiveSettings={
+                tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
+              }
+              mapNameLookup={mapData}
+              connectionHintPreference={connectionHintPreference}
+              onConnectionHintPreferenceChange={(next) => {
+                setConnectionHintPreference(next);
+                persistConnectionHintPreference(next);
+              }}
+              denseMap={mapDensityMetrics?.isDense ?? false}
+            />
+            {gameStarted && gameId && (
+              <GameChat gameId={gameId} embedded defaultOpen />
+            )}
+          </aside>
+        )}
       </div>
 
       {/* ── Mobile Bottom Bar ──────────────────────────────────────────────── */}
@@ -3503,6 +3591,18 @@ export default function GamePage() {
                 </span>
               </button>
             )}
+            {/* In-game chat */}
+            {gameStarted && gameId && (
+              <button
+                type="button"
+                onClick={() => setMobileChatOpen((open) => !open)}
+                className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border border-bf-border text-bf-muted hover:text-bf-text shrink-0"
+                aria-label={mobileChatOpen ? 'Close chat' : 'Open chat'}
+                aria-pressed={mobileChatOpen}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+            )}
             {/* HUD drawer toggle */}
             <button
               type="button"
@@ -3515,6 +3615,29 @@ export default function GamePage() {
           </div>
         );
       })()}
+
+      {/* ── Mobile Chat (single instance — stays mounted to preserve message history) ── */}
+      {isMobileLayout && gameStarted && gameId && (
+        <div
+          className={clsx(
+            'fixed mobile-sheet-above-nav inset-x-0 z-[38] max-h-[45vh] rounded-t-2xl border-t border-bf-border bg-bf-surface shadow-2xl flex flex-col',
+            !mobileChatOpen && 'hidden',
+          )}
+        >
+          <div className="flex items-center justify-between px-3 py-2 border-b border-bf-border shrink-0">
+            <span className="font-display text-sm text-bf-gold">Chat</span>
+            <button
+              type="button"
+              onClick={() => setMobileChatOpen(false)}
+              className="min-h-[40px] min-w-[40px] flex items-center justify-center text-bf-muted hover:text-bf-text"
+              aria-label="Close chat"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <GameChat gameId={gameId} embedded defaultOpen />
+        </div>
+      )}
 
       {/* ── Mobile Cards Tray ─────────────────────────────────────────────── */}
       {mobileCardsTrayOpen && mobileMyPlayer && mobileMyPlayer.cards.length > 0 && (

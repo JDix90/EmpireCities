@@ -2,14 +2,14 @@ import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, X, Anchor, Flag } from 'lucide-react';
+import { Shield, Sword, X, Anchor, Flag, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
-import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
+import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
@@ -51,6 +51,8 @@ interface TerritoryPanelProps {
   denseMap?: boolean;
   onFortifyTo?: (fromId: string, toId: string) => void;
   onClose: () => void;
+  sheetSnap?: SheetSnap;
+  onSheetSnapChange?: (snap: SheetSnap) => void;
 }
 
 export default function TerritoryPanel({
@@ -72,6 +74,8 @@ export default function TerritoryPanel({
   onFortifyTo,
   onClose,
   onClaimTerritory,
+  sheetSnap = 'half',
+  onSheetSnapChange,
 }: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
   const { gameState, draftUnitsRemaining } = useGameStore();
   const {
@@ -141,7 +145,19 @@ export default function TerritoryPanel({
     isMine &&
     gameState.phase === 'draft' &&
     draftPool > 0;
-  const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
+  const isMobileActionMode =
+    isMobile &&
+    isMyTurn &&
+    (gameState.phase === 'attack' || gameState.phase === 'fortify');
+  const isMobileCompactInfo = isMobileActionMode || isMobileDraftPlacementMode;
+  const useCompactUnitRow = isMobileActionMode || isAttackConfirmMode;
+
+  const handleSnapChange = onSheetSnapChange ?? (() => {});
+  const { sheetRef, handleProps, expandSnap, snapClassName } = useBottomSheetSnap({
+    snap: sheetSnap,
+    onSnapChange: handleSnapChange,
+    onDismiss: onClose,
+  });
 
   // Pre-compute the truce relationship with this territory's owner so both the Combat and
   // Diplomacy sections can share the result without redundant lookups.
@@ -196,13 +212,29 @@ export default function TerritoryPanel({
       className={clsx(
       'bg-bf-surface animate-fade-in',
       isMobile
-        ? 'fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up'
+        ? clsx(
+            'fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up',
+            snapClassName,
+          )
         : 'absolute bottom-4 left-4 w-72 border border-bf-border rounded-xl shadow-2xl',
     )}>
-      {/* Drag handle — mobile only (swipe-to-dismiss) */}
+      {/* Drag handle — mobile only (swipe / snap) */}
       {isMobile && (
-        <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-bf-surface z-10 cursor-grab">
+        <div {...handleProps} className="sticky top-0 flex items-center justify-center gap-2 py-2.5 bg-bf-surface z-10 cursor-grab">
           <div className="w-8 h-1 rounded-full bg-bf-border" />
+          {sheetSnap !== 'full' && (
+            <button
+              type="button"
+              className="absolute right-3 min-h-[32px] min-w-[32px] flex items-center justify-center text-bf-muted hover:text-bf-text"
+              aria-label="Expand panel"
+              onClick={(e) => {
+                e.stopPropagation();
+                expandSnap();
+              }}
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+          )}
         </div>
       )}
       {/* Content */}
@@ -280,7 +312,7 @@ export default function TerritoryPanel({
       {/* Galaxy lore — shown above the region badge for galaxy_age maps. Mirrors the
           per-territory flavor strings in `constants/galaxyLore.ts` so non-galaxy maps
           render nothing here (lookup returns null). */}
-      {!isAttackConfirmMode && !isMobileDraftPlacementMode && (() => {
+      {!isMobileCompactInfo && (() => {
         const territoryLore = getGalaxyTerritoryLoreDetail(mapTerritory.territory_id);
         const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
         if (!territoryLore && !worldLore) return null;
@@ -314,7 +346,7 @@ export default function TerritoryPanel({
       })()}
 
       {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
-      {!isAttackConfirmMode && !isMobileDraftPlacementMode && (() => {
+      {!isMobileCompactInfo && (() => {
         if (!mapRegions || !mapTerritory.region_id || mapTerritory.region_id === 'sea_routes') return null;
         const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
         if (!regionDef) return null;
@@ -358,13 +390,17 @@ export default function TerritoryPanel({
 
       {/* Unit Count — full detail; skipped in mobile draft placement (shown above). */}
       {!isMobileDraftPlacementMode && (
-        isAttackConfirmMode ? (
-        /* Compact inline unit display for attack-confirm mode */
+        useCompactUnitRow ? (
+        /* Compact inline unit display for mobile action / attack-confirm */
         <div className="flex items-center gap-2 mb-3 px-1">
           <Shield className={clsx('w-4 h-4 shrink-0', isViewingOwnAttacker ? 'text-bf-gold' : 'text-bf-muted')} />
           <span className="text-xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
           <span className="text-bf-muted text-sm">
-            {isViewingOwnAttacker ? 'units ready to attack' : 'defending units'}
+            {isMine && gameState.phase === 'attack'
+              ? 'units ready to attack'
+              : isMine
+                ? 'units'
+                : 'defending units'}
           </span>
           {!fogHidden && tState.naval_units != null && tState.naval_units > 0 && (
             <span className="ml-2 text-xs text-blue-300">· {tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''}</span>
@@ -480,6 +516,7 @@ export default function TerritoryPanel({
               sourceName={territoryNameById.get(attackNeighborSourceId) ?? attackNeighborSourceId}
               neighbors={attackNeighbors}
               denseMap={denseMap}
+              compact={isMobileActionMode}
               onSelect={(territoryId) => setSelectedTerritory(territoryId)}
               onAttack={(toTerritoryId) => onAttack(attackNeighborSourceId, toTerritoryId)}
             />
@@ -584,7 +621,7 @@ export default function TerritoryPanel({
           })()}
 
           {/* Diplomacy Section — shown for any enemy/unowned territory on your turn */}
-          {(isEnemy || isUnowned) &&
+          {!isMobileActionMode && (isEnemy || isUnowned) &&
            (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network || gameState.settings.diplomacy_enabled) && (
             <div className="mt-2 bg-bf-dark/30 border border-bf-border/50 rounded-lg p-2.5">
               <div className="text-xs font-bold text-purple-300 uppercase mb-2 tracking-wide">🤝 Diplomacy</div>
@@ -706,6 +743,7 @@ export default function TerritoryPanel({
               sourceName={territoryNameById.get(fortifyNeighborSourceId) ?? fortifyNeighborSourceId}
               neighbors={fortifyNeighbors}
               denseMap={denseMap}
+              compact={isMobileActionMode}
               onSelect={(territoryId) => {
                 if (onFortifyTo) {
                   setFortifyUnits(fortifyAmount);
@@ -718,7 +756,8 @@ export default function TerritoryPanel({
             />
           )}
 
-          {isMine && gameState.phase === 'fortify' && tState.unit_count > 1 && (
+          {isMine && gameState.phase === 'fortify' && tState.unit_count > 1
+            && !(isMobileActionMode && fortifyNeighbors.length > 0) && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">→ Fortify</div>
               <label className="label text-xs">Move Units to Adjacent Territory</label>
@@ -749,7 +788,7 @@ export default function TerritoryPanel({
           )}
 
           {/* Naval Section (collapsible) */}
-          {gameState.settings.naval_enabled && tState.naval_units != null && (
+          {!isMobileActionMode && gameState.settings.naval_enabled && tState.naval_units != null && (
             <details className="mt-2" open={!!navalSource}>
               <summary className="text-xs font-bold text-blue-300 uppercase mb-2 tracking-wide cursor-pointer select-none">
                 ⚓ Naval ({tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''})
@@ -831,7 +870,66 @@ export default function TerritoryPanel({
       )}
 
       {/* Economy buildings — hidden during attack-confirm to keep the attack flow distraction-free */}
-      {!isAttackConfirmMode && !isMobileDraftPlacementMode && gameState.settings.economy_enabled && onBuild && (() => {
+      {isMobileActionMode && (
+        <details className="mt-3 rounded-lg border border-bf-border/60 bg-bf-dark/40">
+          <summary className="px-3 py-2 text-xs font-semibold text-bf-muted cursor-pointer select-none">
+            Territory details
+          </summary>
+          <div className="px-3 pb-3 space-y-3 border-t border-bf-border/40 pt-2">
+            {(() => {
+              const territoryLore = getGalaxyTerritoryLoreDetail(mapTerritory.territory_id);
+              const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
+              if (!territoryLore && !worldLore) return null;
+              return (
+                <div className="px-2 py-2 rounded-lg border border-bf-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
+                  {worldLore && (
+                    <div className="text-[10px] uppercase tracking-wider text-bf-muted/80">
+                      <span className="text-bf-gold">{worldLore.display_name}</span>
+                      <span className="text-bf-muted"> · {worldLore.tagline}</span>
+                    </div>
+                  )}
+                  {territoryLore && (
+                    <p className="mt-1 text-[11px] text-bf-text/88">{territoryLore.hold}</p>
+                  )}
+                </div>
+              );
+            })()}
+            {mapRegions && mapTerritory.region_id && mapTerritory.region_id !== 'sea_routes' && (() => {
+              const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
+              if (!regionDef) return null;
+              const regionIdx = mapRegions.indexOf(regionDef);
+              const regionColors = getRegionCssColors();
+              const regionColor = regionColors[regionIdx % regionColors.length];
+              const regionTerritories = mapTerritories.filter((t) => t.region_id === mapTerritory.region_id);
+              const ownedInRegion = myPlayerId
+                ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
+                : 0;
+              return (
+                <div className="px-2 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: regionColor }} />
+                      {regionDef.name}
+                    </span>
+                    <span className="font-mono text-bf-gold">+{regionDef.bonus}</span>
+                  </div>
+                  {myPlayerId && (
+                    <p className="text-bf-muted mt-1 tabular-nums">{ownedInRegion}/{regionTerritories.length} owned</p>
+                  )}
+                </div>
+              );
+            })()}
+            {!fogHidden && gameState.settings.stability_enabled && tState.stability != null && (
+              <p className="text-xs text-bf-muted">Stability: {tState.stability}%</p>
+            )}
+            {!fogHidden && tState.naval_units != null && tState.naval_units > 0 && (
+              <p className="text-xs text-blue-300">{tState.naval_units} fleet{tState.naval_units !== 1 ? 's' : ''}</p>
+            )}
+          </div>
+        </details>
+      )}
+
+      {!isMobileCompactInfo && gameState.settings.economy_enabled && onBuild && (() => {
         // Compute era wonder state for this game
         const wonderMeta = gameState.era ? ERA_WONDERS[gameState.era] : undefined;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;

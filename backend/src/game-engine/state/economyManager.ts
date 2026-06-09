@@ -322,6 +322,18 @@ export function collectProduction(
   return { productionEarned, techPointsEarned };
 }
 
+/** Count non-wonder buildings across all territories owned by a player. */
+export function countPlayerBuildings(state: GameState, playerId: string): number {
+  let count = 0;
+  for (const territory of Object.values(state.territories)) {
+    if (territory.owner_id !== playerId) continue;
+    for (const building of territory.buildings ?? []) {
+      if (!isWonderId(building)) count += 1;
+    }
+  }
+  return count;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**

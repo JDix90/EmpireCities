@@ -196,6 +196,8 @@ interface GlobeMapProps {
   connectionHintMode?: ResolvedConnectionHintMode;
   /** Fires once when react-globe.gl has initialized and the globe is rendered. */
   onGlobeReady?: () => void;
+  /** Lobby / map-hub preview: region-colored caps without live game state. */
+  previewMode?: boolean;
 }
 
 /**
@@ -676,6 +678,7 @@ function GlobeMap({
   contestedBorders = [],
   connectionHintMode = 'full',
   onGlobeReady,
+  previewMode = false,
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -2334,7 +2337,7 @@ function GlobeMap({
   }, [onEventDone, scheduleAutoRotateResume, flushAnimationUi]);
 
   const showSkipAnimations =
-    animationUi.playing && animationUi.backlog > 0;
+    !previewMode && animationUi.playing && animationUi.backlog > 0;
 
   useEffect(() => {
     let hasNew = false;
@@ -2784,7 +2787,14 @@ function GlobeMap({
         : useSolidPlayerCaps
           ? 'rgb(45, 52, 72)'
           : 'rgba(45, 52, 72, 0.92)';
-      if (!gameState) return empty;
+      if (!gameState) {
+        if (previewMode) {
+          const regionId = territoryRegionMap.get(p.territory_id);
+          const regionColor = regionId ? regionColorMap.get(regionId) : undefined;
+          if (regionColor) return regionColor;
+        }
+        return empty;
+      }
 
       let base: string = empty;
       const tState = gameState.territories[p.territory_id];
@@ -2829,7 +2839,7 @@ function GlobeMap({
 
       return base;
     },
-    [gameState, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash],
+    [gameState, previewMode, territoryRegionMap, regionColorMap, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash],
   );
 
   const getPolygonStroke = useCallback(

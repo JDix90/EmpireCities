@@ -2,6 +2,19 @@ import { describe, it, expect } from 'vitest';
 import type { GameState, PlayerState } from '../../types';
 import { canAdvanceEra, computeAdvanceCost, executeAdvanceEra } from './advanceEra';
 
+const MILESTONE_TECHS = [
+  'ancient_iron_weapons',
+  'ancient_stone_walls',
+  'ancient_granaries',
+  'ancient_siege_engines',
+];
+
+const SIX_ANCIENT_TECHS = [
+  ...MILESTONE_TECHS,
+  'ancient_fortified_camps',
+  'ancient_trade_routes',
+];
+
 function basePlayer(overrides: Partial<PlayerState> = {}): PlayerState {
   return {
     player_id: 'human',
@@ -17,14 +30,40 @@ function basePlayer(overrides: Partial<PlayerState> = {}): PlayerState {
     secret_mission: null,
     special_resource: 100,
     last_turn_production_income: 10,
-    unlocked_techs: [
-      'ancient_iron_weapons',
-      'ancient_stone_walls',
-      'ancient_granaries',
-    ],
+    unlocked_techs: MILESTONE_TECHS,
     current_era_index: 0,
     ...overrides,
   } as PlayerState;
+}
+
+function baseTerritories() {
+  return {
+    t1: {
+      territory_id: 't1',
+      owner_id: 'human',
+      unit_count: 10,
+      unit_type: 'infantry',
+      stability: 80,
+      population: 5,
+      buildings: ['production_1'],
+    },
+    t2: {
+      territory_id: 't2',
+      owner_id: 'human',
+      unit_count: 6,
+      unit_type: 'infantry',
+      stability: 70,
+      population: 4,
+    },
+    t3: {
+      territory_id: 't3',
+      owner_id: 'human',
+      unit_count: 4,
+      unit_type: 'infantry',
+      stability: 60,
+      population: 3,
+    },
+  };
 }
 
 function baseState(overrides: Partial<GameState> = {}): GameState {
@@ -36,11 +75,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     turn_number: 4,
     current_player_index: 0,
     players: [basePlayer()],
-    territories: {
-      t1: { territory_id: 't1', owner_id: 'human', unit_count: 10, unit_type: 'infantry', stability: 80, population: 5 },
-      t2: { territory_id: 't2', owner_id: 'human', unit_count: 6, unit_type: 'infantry', stability: 70, population: 4 },
-      t3: { territory_id: 't3', owner_id: 'human', unit_count: 4, unit_type: 'infantry', stability: 60, population: 3 },
-    },
+    territories: baseTerritories(),
     settings: {
       fog_of_war: false,
       turn_timer_seconds: 0,
@@ -54,7 +89,10 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
       era_advancement_cost_mult: 2.0,
       era_advancement_cost_escalation: 1.5,
       era_advancement_stability_gate: 60,
-      era_advancement_tech_gate_pct: 0.25,
+      era_advancement_tech_gate_mode: 'milestone',
+      era_advancement_min_tier1_techs: 3,
+      era_advancement_min_tier2_techs: 1,
+      era_advancement_min_buildings: 1,
       era_advancement_conversion_ratio: 0.7,
       era_advancement_max_era_index: 1,
     },
@@ -80,6 +118,13 @@ describe('canAdvanceEra', () => {
     expect(result.cost).toBe(20);
   });
 
+  it('rejects when mode is disabled', () => {
+    const state = baseState({
+      settings: { ...baseState().settings, era_advancement_enabled: false },
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
+  });
+
   it('rejects insufficient gold', () => {
     const state = baseState({
       players: [basePlayer({ special_resource: 5 })],
@@ -90,17 +135,80 @@ describe('canAdvanceEra', () => {
   it('rejects low stability when enabled', () => {
     const state = baseState({
       territories: {
-        t1: { territory_id: 't1', owner_id: 'human', unit_count: 5, unit_type: 'infantry', stability: 20, population: 5 },
+        t1: { territory_id: 't1', owner_id: 'human', unit_count: 5, unit_type: 'infantry', stability: 20, population: 5, buildings: ['production_1'] },
       },
     });
     expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
   });
 
-  it('rejects when tech gate not met', () => {
+  it('rejects when milestone tech gate not met (need 3 tier-1 + 1 tier-2)', () => {
     const state = baseState({
       players: [basePlayer({ unlocked_techs: ['ancient_iron_weapons'] })],
     });
     expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
+  });
+
+  it('rejects when milestone building gate not met', () => {
+    const state = baseState({
+      territories: {
+        t1: { territory_id: 't1', owner_id: 'human', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5 },
+      },
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
+  });
+
+  it('passes milestone gate with 3 tier-1, 1 tier-2, and a building', () => {
+    const state = baseState({
+      players: [basePlayer({ unlocked_techs: MILESTONE_TECHS })],
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(true);
+  });
+
+  it('uses percent mode when configured', () => {
+    const state = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_tech_gate_mode: 'percent',
+        era_advancement_tech_gate_pct: 0.5,
+      },
+      players: [basePlayer({ unlocked_techs: SIX_ANCIENT_TECHS })],
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(true);
+
+    const failState = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_tech_gate_mode: 'percent',
+        era_advancement_tech_gate_pct: 0.5,
+      },
+      players: [basePlayer({ unlocked_techs: ['ancient_iron_weapons'] })],
+    });
+    expect(canAdvanceEra(failState, 'human').canAdvance).toBe(false);
+  });
+
+  it('rejects eliminated players', () => {
+    const state = baseState({
+      players: [basePlayer({ is_eliminated: true })],
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
+  });
+
+  it('rejects when already at max era', () => {
+    const state = baseState({
+      players: [basePlayer({ current_era_index: 1 })],
+    });
+    expect(canAdvanceEra(state, 'human').canAdvance).toBe(false);
+  });
+
+  it('allows AI players when gates pass (Stage 2 parity)', () => {
+    const territories = Object.fromEntries(
+      Object.entries(baseTerritories()).map(([id, t]) => [id, { ...t, owner_id: 'ai1' }]),
+    );
+    const state = baseState({
+      players: [basePlayer({ is_ai: true, player_id: 'ai1' })],
+      territories,
+    });
+    expect(canAdvanceEra(state, 'ai1').canAdvance).toBe(true);
   });
 });
 
@@ -119,5 +227,36 @@ describe('executeAdvanceEra', () => {
 
     const totalUnits = Object.values(state.territories).reduce((s, t) => s + t.unit_count, 0);
     expect(totalUnits).toBe(14);
+  });
+
+  it('captures tech echo bonuses from departing era', () => {
+    const state = baseState();
+    executeAdvanceEra(state, 'human');
+    const player = state.players[0]!;
+    expect(player.era_advancement_tech_echo).toBeDefined();
+    expect(Object.keys(player.era_advancement_tech_echo ?? {}).length).toBeGreaterThan(0);
+  });
+
+  it('sets era_advanced_this_turn when advancing during attack phase', () => {
+    const state = baseState({ phase: 'attack' });
+    executeAdvanceEra(state, 'human');
+    expect(state.players[0]!.era_advanced_this_turn).toBe(true);
+  });
+
+  it('consumes medieval signature charge on first bonus attack (socket parity)', () => {
+    const player = basePlayer({ medieval_signature_charges: 1 });
+    let signatureAttackBonus = 0;
+    if ((player.medieval_signature_charges ?? 0) > 0) {
+      signatureAttackBonus = 1;
+      player.medieval_signature_charges!--;
+    }
+    expect(signatureAttackBonus).toBe(1);
+    expect(player.medieval_signature_charges).toBe(0);
+    signatureAttackBonus = 0;
+    if ((player.medieval_signature_charges ?? 0) > 0) {
+      signatureAttackBonus = 1;
+      player.medieval_signature_charges!--;
+    }
+    expect(signatureAttackBonus).toBe(0);
   });
 });

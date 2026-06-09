@@ -111,12 +111,15 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   russia_west: [{ iso: 'RU', clip_bbox: [20, 50, 60, 75] }],
   russia_central: [{ iso: 'RU', clip_bbox: [60, 50, 100, 75] }],
   russia_east: [{ iso: 'RU', clip_bbox: [100, 50, 180, 72] }],
+  // China Theatre — three CN clip_bboxes tile without overlap; Korea is full
+  // KR/KP on manchuria only. north_china previously extended to lng 125 while
+  // manchuria CN started at 118, double-rendering northeast China on the globe.
   manchuria_ww2: [
-    { iso: 'CN', clip_bbox: [118, 38, 135, 55] },
+    { iso: 'CN', clip_bbox: [120, 38, 135, 50] },
     { iso: 'KP' },
     { iso: 'KR' },
   ],
-  north_china_ww2: [{ iso: 'CN', clip_bbox: [105, 32, 125, 42] }],
+  north_china_ww2: [{ iso: 'CN', clip_bbox: [98, 32, 120, 42] }],
   south_china_ww2: [{ iso: 'CN', clip_bbox: [98, 18, 120, 32] }],
 
   // ═══════════════════════════════════════════════════════════════════════════

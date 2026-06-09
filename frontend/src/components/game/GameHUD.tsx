@@ -4,7 +4,6 @@ import { useAuthStore } from '../../store/authStore';
 import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
-import GameChat from './GameChat';
 import EraModifierBadge from './EraModifierBadge';
 import AdvanceEraPanel from './AdvanceEraPanel';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -180,7 +179,7 @@ export default function GameHUD({
       'flex flex-col min-h-0 bg-bf-surface',
       mobile
         ? 'flex-1 overflow-y-auto'
-        : 'hidden md:flex h-full border-l border-bf-border w-72 shrink-0',
+        : 'flex flex-1 min-h-0 h-full',
     )}>
       {/* Phase Indicator — exposed as a polite live region so screen-reader
           users hear "Turn 4, attack phase, your turn" each time it changes,
@@ -704,7 +703,6 @@ export default function GameHUD({
         </div>
       )}
 
-      {gameId && <GameChat gameId={gameId} embedded />}
     </div>
   );
 }

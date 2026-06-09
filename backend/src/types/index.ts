@@ -239,6 +239,10 @@ export interface GameSettings {
   economy_enabled?: boolean;
   /** Enable per-era technology trees (Phase D). */
   tech_trees_enabled?: boolean;
+  /** Starting tech points when economy + tech trees are enabled (non-tutorial). */
+  economy_tech_starting_tech_points?: number;
+  /** Starting gold when economy + tech trees are enabled (non-tutorial). */
+  economy_tech_starting_gold?: number;
   /** Enable era-specific event cards that fire each game round. */
   events_enabled?: boolean;
   /** Enable naval warfare: fleets, ports, sea-lane gating. */
@@ -263,6 +267,10 @@ export interface GameSettings {
   era_advancement_cost_escalation?: number;
   era_advancement_stability_gate?: number;
   era_advancement_tech_gate_pct?: number;
+  era_advancement_tech_gate_mode?: 'milestone' | 'percent';
+  era_advancement_min_tier1_techs?: number;
+  era_advancement_min_tier2_techs?: number;
+  era_advancement_min_buildings?: number;
   era_advancement_vuln_defense_mult?: number;
   era_advancement_vuln_turns?: number;
   era_advancement_max_era_index?: number;
@@ -434,6 +442,8 @@ export interface GameState {
   map_id: string;
   phase: GamePhase;
   current_player_index: number;
+  /** Seat index chosen to act first at game start (randomized except tutorial/campaign/daily). */
+  starting_player_index?: number;
   turn_number: number;
   players: PlayerState[];
   territories: Record<string, TerritoryState>;

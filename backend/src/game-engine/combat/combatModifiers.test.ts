@@ -250,6 +250,32 @@ describe('recordMarchToSeaResult + getMarchToSeaBonus chain', () => {
 });
 
 describe('era advancement combat modifiers', () => {
+  it('applies no era gap bonus when attacker and defender share the same era index', () => {
+    const state = baseState({
+      settings: {
+        ...baseState().settings,
+        era_advancement_enabled: true,
+        era_advancement_combat_gap_dice: 1,
+      },
+      players: [
+        basePlayer({ player_id: 'p1', current_era_index: 1 }),
+        basePlayer({ player_id: 'p2', player_index: 1, current_era_index: 1 }),
+      ],
+    });
+    const mods = computeLandCombatModifiers({
+      state,
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 5,
+      defendingUnits: 3,
+      connection: landConn,
+    });
+    expect(mods.attackerBonusBreakdown.era_gap).toBe(0);
+    expect(mods.defenderBonusBreakdown.era_gap).toBe(0);
+  });
+
   it('grants +1 attacker die per era gap (gap 1)', () => {
     const state = baseState({
       settings: {

@@ -39,8 +39,22 @@ export function formatWeeklyScoring(scoring: string): string {
   return parts.join(', then ');
 }
 
+/** Rules era + theater map labels for lobby / pre-game displays. */
+export function formatLobbyPairingLabel(eraId: string, mapId: string): string {
+  const rules = ERA_LABELS[eraId] ?? eraId;
+  const theater = formatLobbyMapLabel(mapId, eraId);
+  const bundled = mapId === `era_${eraId}` || mapId.replace(/^era_/, '') === eraId;
+  if (bundled && COMMUNITY_MAP_TITLES[mapId] === undefined) {
+    return rules;
+  }
+  return `${theater} · ${rules} rules`;
+}
+
 /** Map document name when era is custom; otherwise a short label from map_id. */
 export function formatLobbyMapLabel(mapId: string, eraId: string): string {
+  if (COMMUNITY_MAP_TITLES[mapId]) {
+    return COMMUNITY_MAP_TITLES[mapId];
+  }
   if (eraId === 'custom') {
     return COMMUNITY_MAP_TITLES[mapId] ?? mapId;
   }

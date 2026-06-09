@@ -76,6 +76,10 @@ export default function HowToPlayPage() {
               </li>
             </ol>
             <p className="text-bf-muted/70 text-xs">
+              The first player each game is chosen at random (not lobby seat order), so creating
+              the match does not guarantee going first.
+            </p>
+            <p className="text-bf-muted/70 text-xs">
               Some games enable a <strong>Territory Selection</strong> phase before the first draft,
               where players take turns picking starting territories instead of receiving random ones.
             </p>

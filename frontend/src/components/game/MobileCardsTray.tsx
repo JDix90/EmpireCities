@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
-import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
+import { useBottomSheetSnap } from '../../hooks/useBottomSheetSnap';
 import { hapticNotification, NotificationType } from '../../utils/haptics';
 
 interface MobileCardsTrayProps {
@@ -20,7 +20,12 @@ function MobileCardsTray({
   onClose,
 }: MobileCardsTrayProps) {
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
-  const { sheetRef, handleProps } = useSwipeToDismiss({ onDismiss: onClose });
+  const [snap, setSnap] = useState<'peek' | 'half' | 'full'>('half');
+  const { sheetRef, handleProps, snapClassName } = useBottomSheetSnap({
+    snap,
+    onSnapChange: setSnap,
+    onDismiss: onClose,
+  });
 
   const toggleCard = (cardId: string) => {
     setSelectedCards((prev) =>
@@ -42,7 +47,7 @@ function MobileCardsTray({
   };
 
   return (
-    <div ref={sheetRef} className="fixed mobile-sheet-above-nav inset-x-0 max-h-[60vh] mobile-bottom-sheet overflow-y-auto rounded-t-2xl border-t border-bf-border z-30 animate-slide-up bg-bf-surface pb-safe">
+    <div ref={sheetRef} className={clsx('fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-30 animate-slide-up bg-bf-surface pb-safe', snapClassName)}>
       {/* Drag handle (swipe-to-dismiss) */}
       <div {...handleProps} className="sticky top-0 flex justify-center py-2.5 bg-bf-surface z-10 cursor-grab">
         <div className="w-8 h-1 rounded-full bg-bf-border" />

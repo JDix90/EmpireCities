@@ -19,6 +19,9 @@ export function getPlayerEraIndex(state: GameState, playerId: string): number {
   return player?.current_era_index ?? 0;
 }
 
+export const DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS = 3;
+export const DEFAULT_ECONOMY_TECH_STARTING_GOLD = 4;
+
 export function getDefaultEraAdvancementSettings(): {
   era_advancement_enabled: false;
   era_advancement_conversion_ratio: number;
@@ -28,6 +31,10 @@ export function getDefaultEraAdvancementSettings(): {
   era_advancement_cost_escalation: number;
   era_advancement_stability_gate: number;
   era_advancement_tech_gate_pct: number;
+  era_advancement_tech_gate_mode: 'milestone';
+  era_advancement_min_tier1_techs: number;
+  era_advancement_min_tier2_techs: number;
+  era_advancement_min_buildings: number;
   era_advancement_vuln_defense_mult: number;
   era_advancement_vuln_turns: number;
   era_advancement_max_era_index: number;
@@ -41,7 +48,11 @@ export function getDefaultEraAdvancementSettings(): {
     era_advancement_cost_mult: 2.0,
     era_advancement_cost_escalation: 1.5,
     era_advancement_stability_gate: 60,
-    era_advancement_tech_gate_pct: 0.25,
+    era_advancement_tech_gate_pct: 0.33,
+    era_advancement_tech_gate_mode: 'milestone',
+    era_advancement_min_tier1_techs: 3,
+    era_advancement_min_tier2_techs: 1,
+    era_advancement_min_buildings: 1,
     era_advancement_vuln_defense_mult: 0.75,
     era_advancement_vuln_turns: 1,
     era_advancement_max_era_index: 1,

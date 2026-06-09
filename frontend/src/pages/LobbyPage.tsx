@@ -25,7 +25,16 @@ import TopNavBar from '../components/ui/TopNavBar';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
-import { COMMUNITY_MAP_TITLES, ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
+import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
+import { isCommunityTheaterMap } from '../constants/lobbyMapOptions';
+import {
+  LOBBY_THEATER_OPTIONS,
+  buildMapMetaFromGameMap,
+  evaluateEraMapCompatibility,
+  recommendedRulesEraForTheater,
+} from '../utils/lobbyEraMapCompatibility';
+import { fetchMapById, type GameMap } from '../services/mapService';
+import LobbyEraMapWarnings from '../components/lobby/LobbyEraMapWarnings';
 import { advancedFeatureTooltip, getCustomMapImmersion } from '../data/customMapImmersion';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
 import StreakBadge from '../components/ui/StreakBadge';
@@ -400,9 +409,11 @@ export default function LobbyPage() {
 
   // Create game form state
   const [selectedEra, setSelectedEra] = useState(validEra ?? 'ww2');
-  const [selectedCommunityMapId, setSelectedCommunityMapId] = useState<string | null>(
-    isCommunityMap && presetMap ? presetMap : null,
+  const [selectedTheaterMapId, setSelectedTheaterMapId] = useState(
+    isCommunityMap && presetMap ? presetMap : ERA_MAP_IDS[validEra ?? 'ww2'],
   );
+  const [customPairingEnabled, setCustomPairingEnabled] = useState(isCommunityMap);
+  const [theaterMapDoc, setTheaterMapDoc] = useState<GameMap | null>(null);
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
@@ -452,15 +463,69 @@ export default function LobbyPage() {
   }, [user?.user_id]);
 
   const mapImmersion = React.useMemo(
-    () => getCustomMapImmersion(selectedCommunityMapId),
-    [selectedCommunityMapId],
+    () => (isCommunityTheaterMap(selectedTheaterMapId) ? getCustomMapImmersion(selectedTheaterMapId) : null),
+    [selectedTheaterMapId],
   );
 
-  /** When a curated custom / regional map is chosen, align rules era with its immersion profile. */
   useEffect(() => {
-    const imm = getCustomMapImmersion(selectedCommunityMapId);
+    if (!customPairingEnabled) {
+      setSelectedTheaterMapId(ERA_MAP_IDS[selectedEra] ?? selectedTheaterMapId);
+    }
+  }, [selectedEra, customPairingEnabled]);
+
+  useEffect(() => {
+    if (!customPairingEnabled || !isCommunityTheaterMap(selectedTheaterMapId)) return;
+    const imm = getCustomMapImmersion(selectedTheaterMapId);
     if (imm) setSelectedEra(imm.recommended_rules_era);
-  }, [selectedCommunityMapId]);
+  }, [selectedTheaterMapId, customPairingEnabled]);
+
+  useEffect(() => {
+    if (!selectedTheaterMapId) return;
+    let cancelled = false;
+    fetchMapById(selectedTheaterMapId)
+      .then((map) => { if (!cancelled) setTheaterMapDoc(map); })
+      .catch(() => { if (!cancelled) setTheaterMapDoc(null); });
+    return () => { cancelled = true; };
+  }, [selectedTheaterMapId]);
+
+  const createPairingCompatibility = React.useMemo(() => {
+    const settings: Record<string, unknown> = {
+      fog_of_war: fogOfWar,
+      diplomacy_enabled: diplomacyEnabled,
+      factions_enabled: factionsEnabled || undefined,
+      economy_enabled: economyEnabled || undefined,
+      tech_trees_enabled: techTreesEnabled || undefined,
+      events_enabled: eventsEnabled || undefined,
+      naval_enabled: navalEnabled || undefined,
+      stability_enabled: stabilityEnabled || undefined,
+      era_advancement_enabled:
+        eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+    };
+    return evaluateEraMapCompatibility({
+      era_id: selectedEra,
+      map_id: selectedTheaterMapId,
+      settings,
+      is_admin: user?.is_admin === true,
+      player_count: 1 + aiCount,
+      map_meta: theaterMapDoc ? buildMapMetaFromGameMap(theaterMapDoc) : null,
+    });
+  }, [
+    selectedEra,
+    selectedTheaterMapId,
+    fogOfWar,
+    diplomacyEnabled,
+    factionsEnabled,
+    economyEnabled,
+    techTreesEnabled,
+    eventsEnabled,
+    navalEnabled,
+    stabilityEnabled,
+    eraAdvancementLobbyEnabled,
+    eraAdvancementEnabled,
+    user?.is_admin,
+    aiCount,
+    theaterMapDoc,
+  ]);
 
   const searchParamBootstrapDone = useRef(false);
 
@@ -500,15 +565,18 @@ export default function LobbyPage() {
         const fromMap = Object.entries(ERA_MAP_IDS).find(([, v]) => v === map)?.[0];
         if (fromMap) {
           setSelectedEra(fromMap);
-          setSelectedCommunityMapId(null);
+          setSelectedTheaterMapId(map);
+          setCustomPairingEnabled(false);
         }
       } else {
-        setSelectedCommunityMapId(map);
+        setSelectedTheaterMapId(map);
+        setCustomPairingEnabled(true);
       }
       setShowCreate(true);
     } else if (era && ERAS.some((e) => e.id === era)) {
       setSelectedEra(era);
-      setSelectedCommunityMapId(null);
+      setSelectedTheaterMapId(ERA_MAP_IDS[era] ?? ERA_MAP_IDS.ww2);
+      setCustomPairingEnabled(false);
       setShowCreate(true);
     }
     if (searchParams.has('era') || searchParams.has('map')) {
@@ -528,7 +596,8 @@ export default function LobbyPage() {
     setShowCreate(true);
     setAiCount(3);
     setSelectedEra('ancient');
-    setSelectedCommunityMapId(null);
+    setSelectedTheaterMapId(ERA_MAP_IDS.ancient);
+    setCustomPairingEnabled(false);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('quickstart');
@@ -717,9 +786,13 @@ export default function LobbyPage() {
     }
     setCreating(true);
     try {
-      const mapId = selectedCommunityMapId ?? ERA_MAP_IDS[selectedEra];
-      // Community maps still run under a concrete era ruleset so advanced systems
-      // (factions, tech tree, events, naval, stability) are fully active.
+      if (createPairingCompatibility.hardBlock) {
+        toast.error(createPairingCompatibility.hardBlock);
+        setCreating(false);
+        return;
+      }
+
+      const mapId = selectedTheaterMapId;
       const eraId = selectedEra;
       const allowed = Array.from(victoryModes) as VictoryMode[];
       const settings: Record<string, unknown> = {
@@ -1602,21 +1675,35 @@ export default function LobbyPage() {
             {/* Create Game Modal */}
             <Modal
               open={lobbyTab === 'casual' && showCreate}
-              onClose={() => { setShowCreate(false); setSelectedCommunityMapId(null); }}
+              onClose={() => { setShowCreate(false); setCustomPairingEnabled(false); }}
               title="Configure New Game"
               className="max-w-2xl w-full"
               showCloseButton
             >
               <form onSubmit={handleCreateGame} className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  {selectedCommunityMapId && (
-                    <div className="md:col-span-2">
-                      <label className="label">Map</label>
-                      <p className="input bg-bf-dark/50 border-bf-border text-bf-text cursor-default">
-                        {COMMUNITY_MAP_TITLES[selectedCommunityMapId] ?? selectedCommunityMapId}
-                        <span className="text-bf-muted text-sm ml-2">(community)</span>
+                  <div className="md:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-bf-border bg-bf-dark/40 px-3 py-2.5">
+                    <div>
+                      <p className="text-xs font-medium text-bf-text">Custom rules + theater pairing</p>
+                      <p className="text-[11px] text-bf-muted mt-0.5">
+                        Mix any rules era with any theater map (e.g. WW2 rules on the Ancient world map).
                       </p>
                     </div>
-                  )}
+                    <label className="flex items-center gap-2 text-sm text-bf-text shrink-0 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={customPairingEnabled}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setCustomPairingEnabled(on);
+                          if (!on) {
+                            setSelectedTheaterMapId(ERA_MAP_IDS[selectedEra] ?? ERA_MAP_IDS.ww2);
+                          }
+                        }}
+                        className="accent-bf-gold"
+                      />
+                      Enable
+                    </label>
+                  </div>
                   {mapImmersion && (
                     <div className="md:col-span-2 rounded-lg border border-bf-gold/25 bg-gradient-to-br from-bf-gold/[0.08] to-transparent px-3 py-3">
                       <p className="text-bf-gold text-sm font-display tracking-wide">{mapImmersion.tagline}</p>
@@ -1632,7 +1719,7 @@ export default function LobbyPage() {
                   )}
                   <div>
                     <label className="label">
-                      {selectedCommunityMapId ? 'Rules Era' : 'Historical Era'}
+                      Rules Era
                       {activeSeasonal.some((s) => s.era_id === selectedEra) && (
                         <span className="ml-2 text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold">
                           🎯 Seasonal
@@ -1642,9 +1729,7 @@ export default function LobbyPage() {
                     <select
                       className="input"
                       value={selectedEra}
-                      onChange={(e) => {
-                        setSelectedEra(e.target.value);
-                      }}
+                      onChange={(e) => setSelectedEra(e.target.value)}
                     >
                       {ERAS.map((era) => (
                         <option
@@ -1656,6 +1741,44 @@ export default function LobbyPage() {
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-bf-muted mt-1">Factions, tech trees, events, and combat modifiers.</p>
+                  </div>
+                  {customPairingEnabled ? (
+                    <div>
+                      <label className="label">Theater Map</label>
+                      <select
+                        className="input"
+                        value={selectedTheaterMapId}
+                        onChange={(e) => {
+                          const mapId = e.target.value;
+                          setSelectedTheaterMapId(mapId);
+                          const suggested = recommendedRulesEraForTheater(mapId);
+                          if (suggested) setSelectedEra(suggested);
+                        }}
+                      >
+                        {LOBBY_THEATER_OPTIONS.map((opt) => (
+                          <option key={opt.map_id} value={opt.map_id}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-bf-muted mt-1">Territories, geography, and globe layout.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="label">Theater Map</label>
+                      <p className="input bg-bf-dark/50 border-bf-border text-bf-text cursor-default">
+                        {ERAS.find((e) => e.id === selectedEra)?.label ?? selectedEra}
+                        <span className="text-bf-muted text-sm ml-2">(bundled)</span>
+                      </p>
+                    </div>
+                  )}
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-bf-muted mb-2">
+                      Preview: <span className="text-bf-gold">{formatLobbyPairingLabel(selectedEra, selectedTheaterMapId)}</span>
+                    </p>
+                    <LobbyEraMapWarnings
+                      hardBlock={createPairingCompatibility.hardBlock}
+                      warnings={createPairingCompatibility.warnings}
+                    />
                   </div>
                   <div>
                     <label className="label">AI Opponents</label>
@@ -1720,7 +1843,7 @@ export default function LobbyPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
                     {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
                     <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                      <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'territory_draft')} />
+                      <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'territory_draft')} />
                       <label htmlFor="territory-draft-top" className="contents cursor-pointer">
                         <input
                           type="checkbox"
@@ -1734,7 +1857,7 @@ export default function LobbyPage() {
                       </label>
                     </div>
                     <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                      <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'asymmetric_factions')} />
+                      <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'asymmetric_factions')} />
                       <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
                         <input
                           type="checkbox"
@@ -1760,42 +1883,42 @@ export default function LobbyPage() {
                       )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'economy_buildings')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
                             <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'tech_trees')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
                             <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Technology Trees</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'historical_events')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'historical_events')} />
                           <label htmlFor="create-game-events" className="contents cursor-pointer">
                             <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Historical Events</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'naval_warfare')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'naval_warfare')} />
                           <label htmlFor="create-game-naval" className="contents cursor-pointer">
                             <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'population_stability')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'population_stability')} />
                           <label htmlFor="create-game-stability" className="contents cursor-pointer">
                             <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(selectedCommunityMapId, 'fog_of_war')} />
+                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'fog_of_war')} />
                           <label htmlFor="create-game-fog" className="contents cursor-pointer">
                             <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Fog of War</span>
@@ -1819,7 +1942,7 @@ export default function LobbyPage() {
                         )}
                         {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Optional: spend resources to advance your civilization to the next era mid-match. Stronger units and new options, but advancement weakens your army briefly and costs gold. Opponents choose their own pace." />
+                            <FeatureTooltip text="Optional: advance your civilization to the next era mid-match when you've built your economy and researched foundational tech. Stronger units and new options, but advancement weakens your army briefly and costs gold. Opponents choose their own pace." />
                             <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
                               <input
                                 id="create-game-era-advancement"
@@ -1886,11 +2009,15 @@ export default function LobbyPage() {
                       <button
                         type="button"
                         className="btn-secondary w-full sm:w-auto"
-                        onClick={() => { setShowCreate(false); setSelectedCommunityMapId(null); }}
+                        onClick={() => { setShowCreate(false); setCustomPairingEnabled(false); }}
                       >
                         Cancel
                       </button>
-                      <button type="submit" className="btn-primary w-full sm:flex-1" disabled={creating}>
+                      <button
+                        type="submit"
+                        className="btn-primary w-full sm:flex-1"
+                        disabled={creating || Boolean(createPairingCompatibility.hardBlock)}
+                      >
                       {creating ? 'Creating...' : 'Create & Enter Lobby'}
                       </button>
                     </div>
