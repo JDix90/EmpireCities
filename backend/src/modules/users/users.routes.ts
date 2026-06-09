@@ -7,6 +7,11 @@ import { query, queryOne } from '../../db/postgres';
 import { getLeaderboard, removeFromAllLeaderboards } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { formatZodError } from '../../utils/formatZodError';
+import {
+  friendRequestBlockedMessage,
+  isFriendRequestAllowed,
+  parseFriendRequestsPolicy,
+} from './friendRequestPolicy';
 
 const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account').max(128),
@@ -547,6 +552,40 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Cannot send a friend request to yourself' });
     }
 
+    const targetPrefs = await queryOne<{ friend_requests_policy: string }>(
+      `INSERT INTO user_preferences (user_id) VALUES ($1)
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING friend_requests_policy`,
+      [target.user_id],
+    ) ?? await queryOne<{ friend_requests_policy: string }>(
+      'SELECT friend_requests_policy FROM user_preferences WHERE user_id = $1',
+      [target.user_id],
+    );
+
+    const policy = parseFriendRequestsPolicy(targetPrefs?.friend_requests_policy);
+    if (policy !== 'everyone') {
+      let hasMutualFriend = false;
+      if (policy === 'friends_of_friends') {
+        const mutual = await queryOne<{ ok: number }>(
+          `SELECT 1 AS ok
+           FROM friendships f_req
+           JOIN friendships f_tgt ON f_req.status = 'accepted' AND f_tgt.status = 'accepted'
+           WHERE (f_req.user_id_a = $1 OR f_req.user_id_b = $1)
+             AND (f_tgt.user_id_a = $2 OR f_tgt.user_id_b = $2)
+             AND (
+               CASE WHEN f_req.user_id_a = $1 THEN f_req.user_id_b ELSE f_req.user_id_a END =
+               CASE WHEN f_tgt.user_id_a = $2 THEN f_tgt.user_id_b ELSE f_tgt.user_id_a END
+             )
+           LIMIT 1`,
+          [request.userId, target.user_id],
+        );
+        hasMutualFriend = Boolean(mutual);
+      }
+      if (!isFriendRequestAllowed(policy, hasMutualFriend)) {
+        return reply.status(403).send({ error: friendRequestBlockedMessage(policy) });
+      }
+    }
+
     const [a, b] = orderedPair(request.userId, target.user_id);
     const existing = await queryOne<{ status: string }>(
       'SELECT status FROM friendships WHERE user_id_a = $1 AND user_id_b = $2',
@@ -737,26 +776,39 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/users/me/preferences ──────────────────────────────────────
   fastify.get('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     // UPSERT default row if missing
-    const prefs = await queryOne<{ push_enabled: boolean; email_notifications: boolean }>(
+    const prefs = await queryOne<{
+      push_enabled: boolean;
+      email_notifications: boolean;
+      friend_requests_policy: string;
+    }>(
       `INSERT INTO user_preferences (user_id) VALUES ($1)
        ON CONFLICT (user_id) DO NOTHING
-       RETURNING push_enabled, email_notifications`,
+       RETURNING push_enabled, email_notifications, friend_requests_policy`,
       [request.userId],
     );
     if (prefs) return reply.send(prefs);
 
     // Row already existed — fetch it
-    const existing = await queryOne<{ push_enabled: boolean; email_notifications: boolean }>(
-      'SELECT push_enabled, email_notifications FROM user_preferences WHERE user_id = $1',
+    const existing = await queryOne<{
+      push_enabled: boolean;
+      email_notifications: boolean;
+      friend_requests_policy: string;
+    }>(
+      'SELECT push_enabled, email_notifications, friend_requests_policy FROM user_preferences WHERE user_id = $1',
       [request.userId],
     );
-    return reply.send(existing ?? { push_enabled: true, email_notifications: false });
+    return reply.send(existing ?? {
+      push_enabled: true,
+      email_notifications: false,
+      friend_requests_policy: 'everyone',
+    });
   });
 
   // ── PUT /api/users/me/preferences ──────────────────────────────────────
   const UpdatePreferencesSchema = z.object({
     push_enabled: z.boolean().optional(),
     email_notifications: z.boolean().optional(),
+    friend_requests_policy: z.enum(['everyone', 'friends_of_friends', 'nobody']).optional(),
   });
 
   fastify.put('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
@@ -777,6 +829,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       updates.push(`email_notifications = $${idx++}`);
       values.push(body.email_notifications);
     }
+    if (body.friend_requests_policy !== undefined) {
+      updates.push(`friend_requests_policy = $${idx++}`);
+      values.push(body.friend_requests_policy);
+    }
 
     if (updates.length === 0) {
       return reply.send({ ok: true });
@@ -784,8 +840,13 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
     updates.push(`updated_at = NOW()`);
 
+    const insertCols: string[] = [];
+    if (body.push_enabled !== undefined) insertCols.push('push_enabled');
+    if (body.email_notifications !== undefined) insertCols.push('email_notifications');
+    if (body.friend_requests_policy !== undefined) insertCols.push('friend_requests_policy');
+
     await query(
-      `INSERT INTO user_preferences (user_id, ${body.push_enabled !== undefined ? 'push_enabled,' : ''} ${body.email_notifications !== undefined ? 'email_notifications,' : ''} updated_at)
+      `INSERT INTO user_preferences (user_id, ${insertCols.length ? `${insertCols.join(', ')},` : ''} updated_at)
        VALUES ($1, ${values.map((_, i) => `$${i + 2}`).join(', ')}, NOW())
        ON CONFLICT (user_id) DO UPDATE SET ${updates.join(', ')}`,
       [request.userId, ...values],

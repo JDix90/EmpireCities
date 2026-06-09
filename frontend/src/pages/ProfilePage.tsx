@@ -5,7 +5,8 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Trophy, Sword, Map, Flame, Target, Users, Bot, Zap, Shield, Award, GraduationCap, Coins, Play, Bell, Mail } from 'lucide-react';
+import { Trophy, Sword, Map, Flame, Target, Users, Bot, Zap, Shield, Award, GraduationCap, Coins, Play } from 'lucide-react';
+import NotificationPreferences from '../components/settings/NotificationPreferences';
 import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
@@ -97,76 +98,6 @@ const CATEGORY_TABS = [
   { key: 'multi', label: 'Multiplayer', icon: Users },
   { key: 'hybrid', label: 'Hybrid', icon: Zap },
 ] as const;
-
-function NotificationPreferences() {
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get('/users/me/preferences')
-      .then((res) => {
-        setPushEnabled(res.data.push_enabled);
-        setEmailEnabled(res.data.email_notifications);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const update = (field: string, value: boolean) => {
-    api.put('/users/me/preferences', { [field]: value }).catch(() => {
-      toast.error('Failed to save preference');
-    });
-  };
-
-  if (loading) return null;
-
-  return (
-    <div className="card">
-      <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-3">
-        <Bell className="w-5 h-5" /> Notification Settings
-      </h3>
-      <div className="space-y-3">
-        <label className="flex items-center justify-between gap-3 cursor-pointer">
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-bf-muted" />
-            <div>
-              <span className="text-sm text-bf-text">Push Notifications</span>
-              <p className="text-xs text-bf-muted">Get notified when it's your turn in async games</p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={pushEnabled}
-            onChange={(e) => {
-              setPushEnabled(e.target.checked);
-              update('push_enabled', e.target.checked);
-            }}
-            className="w-5 h-5 accent-bf-gold"
-          />
-        </label>
-        <label className="flex items-center justify-between gap-3 cursor-pointer">
-          <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-bf-muted" />
-            <div>
-              <span className="text-sm text-bf-text">Email Notifications</span>
-              <p className="text-xs text-bf-muted">Receive an email when it's your turn in async games</p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={emailEnabled}
-            onChange={(e) => {
-              setEmailEnabled(e.target.checked);
-              update('email_notifications', e.target.checked);
-            }}
-            className="w-5 h-5 accent-bf-gold"
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
 
 export default function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();

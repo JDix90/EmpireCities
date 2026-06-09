@@ -1,22 +1,62 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Settings, Coins, Bell, Mail, Zap, User as UserIcon, KeyRound, ChevronRight } from 'lucide-react';
+import {
+  Settings,
+  Coins,
+  Bell,
+  Zap,
+  User as UserIcon,
+  KeyRound,
+  ChevronRight,
+  Monitor,
+  Volume2,
+  Eye,
+  Shield,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
+import NotificationPreferences from '../components/settings/NotificationPreferences';
+import {
+  SettingsSection,
+  SettingsRow,
+  SettingsToggle,
+  SettingsSelect,
+  SettingsSlider,
+  SettingsGuestNotice,
+} from '../components/settings/SettingsPrimitives';
+import {
+  getFastCombatPreference,
+  setFastCombatPreference,
+  getInitialMapView,
+  setMapViewPreference,
+  getGlobeSpinPreference,
+  setGlobeSpinPreference,
+  isLiteMode,
+  setLiteMode,
+  getConnectionHintPreference,
+  setConnectionHintPreference,
+  CONNECTION_HINT_LABELS,
+  getSfxVolume,
+  setSfxVolume,
+  isSfxMuted,
+  setSfxMuted,
+  isColorblindMode,
+  setColorblindMode,
+  isHighContrastMode,
+  setHighContrastMode,
+  subscribeUserPreferences,
+  type ConnectionHintPreference,
+  type MapViewPreference,
+  type FriendRequestsPolicy,
+} from '../utils/userPreferences';
 
-const FAST_COMBAT_KEY = 'cc-fast-combat';
-
-function readFastCombat(): boolean {
-  try {
-    const v = localStorage.getItem(FAST_COMBAT_KEY);
-    if (v !== null) return v === 'true';
-    return window.matchMedia('(pointer: coarse)').matches;
-  } catch {
-    return false;
-  }
-}
+const FRIEND_REQUEST_POLICY_LABELS: Record<FriendRequestsPolicy, string> = {
+  everyone: 'Everyone',
+  friends_of_friends: 'Friends of friends',
+  nobody: 'Nobody',
+};
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -25,46 +65,59 @@ export default function SettingsPage() {
   const logout = useAuthStore((s) => s.logout);
   const isGuest = Boolean(user?.is_guest);
 
-  // Notification preferences (server-backed)
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
+  const [mapView, setMapView] = useState<MapViewPreference>(getInitialMapView);
+  const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
+  const [liteMode, setLiteModeState] = useState(isLiteMode);
+  const [connectionHints, setConnectionHints] = useState<ConnectionHintPreference>(getConnectionHintPreference);
+  const [sfxVolume, setSfxVolumeState] = useState(getSfxVolume);
+  const [sfxMuted, setSfxMutedState] = useState(isSfxMuted);
+  const [colorblindMode, setColorblindModeState] = useState(isColorblindMode);
+  const [highContrast, setHighContrastState] = useState(isHighContrastMode);
 
-  // Gameplay (local only)
-  const [fastCombat, setFastCombat] = useState(readFastCombat);
+  const [friendRequestsPolicy, setFriendRequestsPolicy] = useState<FriendRequestsPolicy>('everyone');
+  const [privacyLoading, setPrivacyLoading] = useState(true);
 
-  // Change password (inline form). The endpoint revokes every session on
-  // success, so a successful change logs the user out and bounces to /login.
   const [showPwForm, setShowPwForm] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [pwSubmitting, setPwSubmitting] = useState(false);
 
+  useEffect(() => subscribeUserPreferences(() => {
+    setFastCombat(getFastCombatPreference());
+    setMapView(getInitialMapView());
+    setGlobeSpin(getGlobeSpinPreference());
+    setLiteModeState(isLiteMode());
+    setConnectionHints(getConnectionHintPreference());
+    setSfxVolumeState(getSfxVolume());
+    setSfxMutedState(isSfxMuted());
+    setColorblindModeState(isColorblindMode());
+    setHighContrastState(isHighContrastMode());
+  }), []);
+
   useEffect(() => {
+    if (isGuest) {
+      setPrivacyLoading(false);
+      return;
+    }
     api
       .get('/users/me/preferences')
       .then((res) => {
-        setPushEnabled(res.data.push_enabled);
-        setEmailEnabled(res.data.email_notifications);
+        const policy = res.data.friend_requests_policy as FriendRequestsPolicy | undefined;
+        if (policy === 'everyone' || policy === 'friends_of_friends' || policy === 'nobody') {
+          setFriendRequestsPolicy(policy);
+        }
       })
       .catch(() => {})
-      .finally(() => setPrefsLoading(false));
-  }, []);
+      .finally(() => setPrivacyLoading(false));
+  }, [isGuest]);
 
-  const updatePref = (field: 'push_enabled' | 'email_notifications', value: boolean) => {
-    api.put('/users/me/preferences', { [field]: value }).catch(() => {
-      toast.error('Failed to save preference');
+  const updateFriendRequestsPolicy = (policy: FriendRequestsPolicy) => {
+    setFriendRequestsPolicy(policy);
+    api.put('/users/me/preferences', { friend_requests_policy: policy }).catch(() => {
+      toast.error('Failed to save privacy setting');
     });
-  };
-
-  const updateFastCombat = (value: boolean) => {
-    setFastCombat(value);
-    try {
-      localStorage.setItem(FAST_COMBAT_KEY, String(value));
-    } catch {
-      /* noop */
-    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -93,6 +146,11 @@ export default function SettingsPage() {
     }
   };
 
+  const connectionHintOptions = (['auto', 'full', 'borders', 'off'] as const).map((value) => ({
+    value,
+    label: CONNECTION_HINT_LABELS[value],
+  }));
+
   return (
     <SubpageShell
       title="SETTINGS"
@@ -106,23 +164,12 @@ export default function SettingsPage() {
       )}
     >
       <div className="space-y-6">
-        {/* ── Account ── */}
-        <section className="card">
-          <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-3">
-            <UserIcon className="w-5 h-5" /> Account
-          </h3>
+        <SettingsSection title="Account" icon={UserIcon}>
           <div className="space-y-1">
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <span className="text-sm text-bf-text">Username</span>
-                <p className="text-xs text-bf-muted">Your commander name across Borderfall</p>
-              </div>
+            <SettingsRow label="Username" description="Your commander name across Borderfall">
               <span className="text-sm text-bf-text font-medium">{user?.username ?? '—'}</span>
-            </div>
-            <Link
-              to="/profile"
-              className="flex items-center justify-between py-2 group"
-            >
+            </SettingsRow>
+            <Link to="/profile" className="flex items-center justify-between py-2 group">
               <div className="flex items-center gap-2">
                 <UserIcon className="w-4 h-4 text-bf-muted" />
                 <span className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">View profile &amp; stats</span>
@@ -187,78 +234,179 @@ export default function SettingsPage() {
               </>
             )}
           </div>
-        </section>
+        </SettingsSection>
 
-        {/* ── Notifications ── */}
-        <section className="card">
-          <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-3">
-            <Bell className="w-5 h-5" /> Notifications
-          </h3>
-          {prefsLoading ? (
+        <SettingsSection title="Notifications" icon={Bell}>
+          {isGuest ? (
+            <SettingsGuestNotice message="Sign in with a full account to manage notification preferences." />
+          ) : (
+            <NotificationPreferences embedded />
+          )}
+        </SettingsSection>
+
+        <SettingsSection title="Display &amp; map" icon={Monitor}>
+          <div className="space-y-3">
+            <SettingsRow
+              label="Default map view"
+              description="Which view to open when entering a game"
+            >
+              <SettingsSelect<MapViewPreference>
+                aria-label="Default map view"
+                value={mapView}
+                onChange={(value) => {
+                  setMapView(value);
+                  setMapViewPreference(value);
+                }}
+                options={[
+                  { value: 'globe', label: '3D Globe' },
+                  { value: '2d', label: '2D Map' },
+                ]}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Globe auto-spin"
+              description="Slowly rotate the globe when idle (disabled on mobile by default)"
+            >
+              <SettingsToggle
+                label="Globe auto-spin"
+                checked={globeSpin}
+                onChange={(checked) => {
+                  setGlobeSpin(checked);
+                  setGlobeSpinPreference(checked);
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Connection hints"
+              description="How territory connections are shown during attack and fortify"
+            >
+              <SettingsSelect<ConnectionHintPreference>
+                aria-label="Connection hints"
+                value={connectionHints}
+                onChange={(value) => {
+                  setConnectionHints(value);
+                  setConnectionHintPreference(value);
+                }}
+                options={connectionHintOptions}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Reduced animations"
+              description="Lighter visuals for low-end devices; also respects OS reduce-motion"
+            >
+              <SettingsToggle
+                label="Reduced animations"
+                checked={liteMode}
+                onChange={(checked) => {
+                  setLiteModeState(checked);
+                  setLiteMode(checked);
+                }}
+              />
+            </SettingsRow>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Audio" icon={Volume2}>
+          <div className="space-y-3">
+            <SettingsRow
+              label="Sound effects"
+              description="Combat and ability sounds (music not yet available)"
+            >
+              <SettingsSlider
+                label="Sound effects volume"
+                value={sfxVolume}
+                disabled={sfxMuted}
+                onChange={(value) => {
+                  setSfxVolumeState(value);
+                  setSfxVolume(value);
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow label="Mute sound effects">
+              <SettingsToggle
+                label="Mute sound effects"
+                checked={sfxMuted}
+                onChange={(checked) => {
+                  setSfxMutedState(checked);
+                  setSfxMuted(checked);
+                }}
+              />
+            </SettingsRow>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Accessibility" icon={Eye}>
+          <div className="space-y-3">
+            <SettingsRow
+              label="Colorblind-friendly colors"
+              description="Use distinct player and region colors on the map"
+            >
+              <SettingsToggle
+                label="Colorblind-friendly colors"
+                checked={colorblindMode}
+                onChange={(checked) => {
+                  setColorblindModeState(checked);
+                  setColorblindMode(checked);
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="High contrast UI"
+              description="Stronger borders and text contrast in menus and panels"
+            >
+              <SettingsToggle
+                label="High contrast UI"
+                checked={highContrast}
+                onChange={(checked) => {
+                  setHighContrastState(checked);
+                  setHighContrastMode(checked);
+                }}
+              />
+            </SettingsRow>
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title="Gameplay" icon={Zap}>
+          <SettingsRow
+            icon={Zap}
+            label="Fast combat animations"
+            description="Skip drawn-out battle animations for quicker turns"
+          >
+            <SettingsToggle
+              label="Fast combat animations"
+              checked={fastCombat}
+              onChange={(checked) => {
+                setFastCombat(checked);
+                setFastCombatPreference(checked);
+              }}
+            />
+          </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection title="Privacy" icon={Shield}>
+          {isGuest ? (
+            <SettingsGuestNotice message="Sign in to manage who can send you friend requests." />
+          ) : privacyLoading ? (
             <p className="text-bf-muted text-sm py-2">Loading…</p>
           ) : (
-            <div className="space-y-3">
-              <label className="flex items-center justify-between gap-3 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-bf-muted" />
-                  <div>
-                    <span className="text-sm text-bf-text">Push Notifications</span>
-                    <p className="text-xs text-bf-muted">Get notified when it&apos;s your turn in async games</p>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={pushEnabled}
-                  onChange={(e) => {
-                    setPushEnabled(e.target.checked);
-                    updatePref('push_enabled', e.target.checked);
-                  }}
-                  className="w-5 h-5 accent-bf-gold"
-                />
-              </label>
-              <label className="flex items-center justify-between gap-3 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-bf-muted" />
-                  <div>
-                    <span className="text-sm text-bf-text">Email Notifications</span>
-                    <p className="text-xs text-bf-muted">Receive an email when it&apos;s your turn in async games</p>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={emailEnabled}
-                  onChange={(e) => {
-                    setEmailEnabled(e.target.checked);
-                    updatePref('email_notifications', e.target.checked);
-                  }}
-                  className="w-5 h-5 accent-bf-gold"
-                />
-              </label>
-            </div>
+            <SettingsRow
+              label="Friend requests"
+              description="Control who can send you a friend request"
+            >
+              <SettingsSelect<FriendRequestsPolicy>
+                aria-label="Friend request policy"
+                value={friendRequestsPolicy}
+                onChange={updateFriendRequestsPolicy}
+                options={(
+                  ['everyone', 'friends_of_friends', 'nobody'] as const
+                ).map((value) => ({
+                  value,
+                  label: FRIEND_REQUEST_POLICY_LABELS[value],
+                }))}
+              />
+            </SettingsRow>
           )}
-        </section>
-
-        {/* ── Gameplay ── */}
-        <section className="card">
-          <h3 className="font-display text-lg text-bf-gold flex items-center gap-2 mb-3">
-            <Zap className="w-5 h-5" /> Gameplay
-          </h3>
-          <label className="flex items-center justify-between gap-3 cursor-pointer">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-bf-muted" />
-              <div>
-                <span className="text-sm text-bf-text">Fast combat animations</span>
-                <p className="text-xs text-bf-muted">Skip drawn-out battle animations for quicker turns</p>
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={fastCombat}
-              onChange={(e) => updateFastCombat(e.target.checked)}
-              className="w-5 h-5 accent-bf-gold"
-            />
-          </label>
-        </section>
+        </SettingsSection>
       </div>
     </SubpageShell>
   );

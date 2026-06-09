@@ -10,6 +10,7 @@ import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import ErrorBoundary from './components/ErrorBoundary';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { APP_NAME_NAV } from './constants/brand';
+import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
 
 // Pages — every route uses `lazyWithChunkRetry` so a stale tab that requests
 // a hashed chunk filename that no longer exists (post-deploy) retries once
@@ -153,6 +154,11 @@ export default function App() {
   const user = useAuthStore((s) => s.user);
   const attemptedInitialSilentRefreshRef = useRef(false);
   const hydrated = useAuthStoreHydrated();
+
+  useEffect(() => {
+    applyAccessibilityDomPrefs();
+    return subscribeUserPreferences(applyAccessibilityDomPrefs);
+  }, []);
 
   // Bootstrap auth on app load. Because access tokens are no longer persisted
   // to localStorage (they live in memory only — see authStore.ts), every page

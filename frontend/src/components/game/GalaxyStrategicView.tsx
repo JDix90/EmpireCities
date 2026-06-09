@@ -15,7 +15,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { inferWorldId } from '@borderfall/shared';
-import { REGION_CSS_COLORS } from '../../constants/regionColors';
+import { getRegionCssColors } from '../../constants/accessibleColors';
 import type { GameState } from '../../store/gameStore';
 
 export interface GalaxyMapDatum {
@@ -46,7 +46,8 @@ const PROJECTION_LNG_HALF_RANGE = 70;
 
 function regionColor(regionIndex: Map<string, number>, regionId: string): string {
   const idx = regionIndex.get(regionId) ?? 0;
-  return REGION_CSS_COLORS[idx % REGION_CSS_COLORS.length]!;
+  const regionColors = getRegionCssColors();
+  return regionColors[idx % regionColors.length]!;
 }
 
 function fallbackGalaxyXY(

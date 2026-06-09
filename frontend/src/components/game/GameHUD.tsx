@@ -18,15 +18,14 @@ import {
   resolveTerritoryName,
   type MapNameLookup,
 } from '../../utils/mapDisplayNames';
-
-const FAST_COMBAT_KEY = 'cc-fast-combat';
-function readFastCombat() {
-  try {
-    const v = localStorage.getItem(FAST_COMBAT_KEY);
-    if (v !== null) return v === 'true';
-    return window.matchMedia('(pointer: coarse)').matches;
-  } catch { return false; }
-}
+import ConnectionHintsSetting from './ConnectionHintsSetting';
+import type { ConnectionHintPreference } from '../../utils/connectionHints';
+import {
+  getFastCombatPreference,
+  setFastCombatPreference,
+  subscribeUserPreferences,
+} from '../../utils/userPreferences';
+import { Link } from 'react-router-dom';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
@@ -52,6 +51,9 @@ interface GameHUDProps {
   tutorialActiveSettings?: string[];
   /** Labels for capital / secret-mission objectives (from loaded map JSON). */
   mapNameLookup?: MapNameLookup | null;
+  connectionHintPreference?: ConnectionHintPreference;
+  onConnectionHintPreferenceChange?: (value: ConnectionHintPreference) => void;
+  denseMap?: boolean;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -88,6 +90,9 @@ export default function GameHUD({
   resolvedViewerPlayerId,
   tutorialActiveSettings,
   mapNameLookup,
+  connectionHintPreference,
+  onConnectionHintPreferenceChange,
+  denseMap = false,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
   const { user } = useAuthStore();
@@ -95,7 +100,11 @@ export default function GameHUD({
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
-  const [fastCombat, setFastCombat] = useState(readFastCombat);
+  const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
+
+  useEffect(() => subscribeUserPreferences(() => {
+    setFastCombat(getFastCombatPreference());
+  }), []);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
   const myPlayer = resolvedViewerPlayerId
@@ -634,18 +643,34 @@ export default function GameHUD({
               <Save className="w-3 h-3" /> Save & Leave
             </button>
           )}
+          {connectionHintPreference && onConnectionHintPreferenceChange && (
+            <div className="px-1 py-1">
+              <ConnectionHintsSetting
+                value={connectionHintPreference}
+                onChange={onConnectionHintPreferenceChange}
+                denseMap={denseMap}
+                compact
+              />
+            </div>
+          )}
           <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
             <input
               type="checkbox"
               checked={fastCombat}
               onChange={(e) => {
                 setFastCombat(e.target.checked);
-                try { localStorage.setItem(FAST_COMBAT_KEY, String(e.target.checked)); } catch { /* noop */ }
+                setFastCombatPreference(e.target.checked);
               }}
               className="accent-bf-gold w-3 h-3"
             />
             Fast combat
           </label>
+          <Link
+            to="/settings"
+            className="block px-1 py-1 text-[11px] text-bf-muted hover:text-bf-gold transition-colors"
+          >
+            More in Settings →
+          </Link>
           {gameState.coaching_eligible && gameId && (
             <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
               <input

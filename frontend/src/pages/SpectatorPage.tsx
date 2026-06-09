@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Users } from 'lucide-react';
+import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
+import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+import { inferWorldId } from '@borderfall/shared';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
@@ -30,15 +32,19 @@ import {
 import type { EventCard } from '../components/game/EventCardModal';
 import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
-import { prefersReducedMotion } from '../utils/device';
+import { isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { isLiteMode } from '../utils/userPreferences';
 import { playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import {
   computeContestedBorders,
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
+import { resolveConnectionHintMode } from '../utils/connectionHints';
+import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 
 interface MapData {
+  map_kind?: 'standard' | 'galaxy';
   canvas_width?: number;
   canvas_height?: number;
   territories: Array<{
@@ -47,8 +53,19 @@ interface MapData {
     polygon: number[][];
     center_point: [number, number];
     region_id: string;
+    world_id?: string;
   }>;
   connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
+  worlds?: Array<{
+    world_id: string;
+    display_name: string;
+    globe_image_url?: string;
+    bump_image_url?: string;
+    show_atmosphere?: boolean;
+    atmosphere_color?: string;
+    atmosphere_altitude?: number;
+    background_color?: string;
+  }>;
 }
 
 export default function SpectatorPage() {
@@ -73,6 +90,7 @@ export default function SpectatorPage() {
   const cleanedUp = useRef(false);
   const {
     mapVisualEvents,
+    globeEvents,
     handleMapVisualEvent,
     pushMapVisualLocal,
     onMapVisualDone,
@@ -82,6 +100,52 @@ export default function SpectatorPage() {
   mapVisualEventsRef.current = mapVisualEvents;
   const seenEraAdvanceVisualsRef = useRef(new Set<string>());
   const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; label: string } | null>(null);
+  const [mapView, setMapView] = useState<'2d' | 'globe'>('globe');
+  const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
+  const [focusedWorldId, setFocusedWorldId] = useState('earth');
+  const mapAreaRef = useRef<HTMLDivElement>(null);
+  const [mapCanvasSize, setMapCanvasSize] = useState(() => {
+    if (typeof window === 'undefined') return { w: 900, h: 600 };
+    return {
+      w: Math.max(320, window.innerWidth),
+      h: Math.max(240, window.innerHeight - 130),
+    };
+  });
+
+  useLayoutEffect(() => {
+    const el = mapAreaRef.current;
+    if (!el) return;
+    const measure = () => {
+      const { width, height } = el.getBoundingClientRect();
+      const w = Math.max(320, Math.floor(width));
+      const h = Math.max(240, Math.floor(height));
+      setMapCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('resize', measure);
+    };
+  }, [connected, mapData, mapView]);
+
+  useEffect(() => {
+    if (mapView === 'globe') preloadGlobeChunks();
+  }, [mapView]);
+
+  useEffect(() => {
+    if (!mapData) return;
+    if (mapData.map_kind === 'galaxy') {
+      setGalaxyOverviewMode(true);
+      setFocusedWorldId('sol');
+    } else {
+      setFocusedWorldId('earth');
+    }
+  }, [mapData]);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
@@ -278,6 +342,15 @@ export default function SpectatorPage() {
     gameState.phase,
   );
   const phaseTint = phaseTintClass(gameState.phase, spectatorAmbientEnabled);
+  const reducedGlobe =
+    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
+  const connectionHintMode = resolveConnectionHintMode({
+    preference: 'auto',
+    isDenseMap: computeMapDensityMetrics(mapData).isDense,
+    reducedEffects: reducedGlobe,
+    globeView: mapView === 'globe',
+  });
+  const focusedWorldSkin = mapData.worlds?.find((w) => w.world_id === focusedWorldId) ?? null;
 
   return (
     <div className="min-h-screen bg-bf-dark flex flex-col">
@@ -303,6 +376,34 @@ export default function SpectatorPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onMouseEnter={preloadGlobeChunks}
+            onFocus={preloadGlobeChunks}
+            onClick={() => {
+              setMapView((v) => {
+                const next = v === 'globe' ? '2d' : 'globe';
+                if (next === 'globe') preloadGlobeChunks();
+                return next;
+              });
+            }}
+            aria-pressed={mapView === 'globe'}
+            aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+            title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-bf-border text-bf-muted hover:text-bf-text text-xs transition-colors"
+          >
+            {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
+            {mapView === 'globe' ? '2D' : 'Globe'}
+          </button>
+          {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
+            <button
+              type="button"
+              onClick={() => setGalaxyOverviewMode(true)}
+              className={`px-2.5 py-1 rounded-lg border text-xs transition-colors ${galaxyOverviewMode ? 'bg-bf-gold/15 border-bf-gold/30 text-bf-gold' : 'border-bf-border text-bf-muted hover:text-bf-text'}`}
+            >
+              Chart
+            </button>
+          )}
           <span className="text-xs text-bf-muted flex items-center gap-1">
             <Eye className="w-3 h-3" /> {spectatorCount} watching
           </span>
@@ -330,7 +431,10 @@ export default function SpectatorPage() {
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <div className={`flex-1 relative min-h-[50vh]${phaseTint ? ` ${phaseTint}` : ''}`}>
+        <div
+          ref={mapAreaRef}
+          className={`flex-1 relative min-h-[50vh]${phaseTint ? ` ${phaseTint}` : ''}`}
+        >
           {eraAdvanceVignette && (
             <EraAdvanceVignette
               key={eraAdvanceVignette.key}
@@ -339,19 +443,85 @@ export default function SpectatorPage() {
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}
-          <GameMap
-            mapData={mapData}
-            onTerritoryClick={() => {}}
-            width={window.innerWidth}
-            height={window.innerHeight - 130}
-            strikeFlash={mapStrikeFlash}
-            mapVisualEvents={mapVisualEvents}
-            onMapVisualDone={onMapVisualDone}
-            ambientEnabled={spectatorAmbientEnabled}
-            turnHolderPlayerId={currentPlayer?.player_id ?? null}
-            turnHolderColor={currentPlayer?.color}
-            contestedBorders={contestedBorders}
-          />
+          {mapView === 'globe' ? (
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-bf-muted animate-pulse">Loading globe…</p>
+                </div>
+              }
+            >
+              {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+                <GalaxyStrategicViewLazy
+                  mapData={mapData}
+                  gameState={gameState}
+                  selectedTerritoryId={null}
+                  onTerritoryClick={(tid) => {
+                    const t = mapData.territories.find((x) => x.territory_id === tid);
+                    if (t) {
+                      setFocusedWorldId(inferWorldId(t));
+                      setGalaxyOverviewMode(false);
+                    }
+                  }}
+                  width={mapCanvasSize.w}
+                  height={mapCanvasSize.h}
+                  orbitAccessAllowed={true}
+                  pulseWorldId={null}
+                  pulseKey={0}
+                  pulseLabel={null}
+                />
+              ) : (
+                <GlobeMapLazy
+                  mapData={mapData}
+                  onTerritoryClick={() => {}}
+                  width={mapCanvasSize.w}
+                  height={mapCanvasSize.h}
+                  events={globeEvents}
+                  onEventDone={onMapVisualDone}
+                  reducedEffects={reducedGlobe}
+                  autoSpin={!reducedGlobe}
+                  ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
+                  turnHolderPlayerId={currentPlayer?.player_id ?? null}
+                  contestedBorders={contestedBorders}
+                  connectionHintMode={connectionHintMode}
+                  activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
+                  globeImageUrl={
+                    mapData.map_kind === 'galaxy' ? focusedWorldSkin?.globe_image_url : undefined
+                  }
+                  bumpImageUrl={
+                    mapData.map_kind === 'galaxy' ? focusedWorldSkin?.bump_image_url : undefined
+                  }
+                  showAtmosphere={
+                    mapData.map_kind === 'galaxy'
+                      ? (focusedWorldSkin?.show_atmosphere ?? true)
+                      : true
+                  }
+                  {...(mapData.map_kind === 'galaxy'
+                    ? {
+                        atmosphereColor: focusedWorldSkin?.atmosphere_color ?? 'lightskyblue',
+                        atmosphereAltitude: focusedWorldSkin?.atmosphere_altitude ?? 0.15,
+                        backgroundColor: focusedWorldSkin?.background_color,
+                      }
+                    : {})}
+                />
+              )}
+            </Suspense>
+          ) : (
+            <GameMap
+              mapData={mapData}
+              onTerritoryClick={() => {}}
+              width={mapCanvasSize.w}
+              height={mapCanvasSize.h}
+              strikeFlash={mapStrikeFlash}
+              mapVisualEvents={mapVisualEvents}
+              onMapVisualDone={onMapVisualDone}
+              ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
+              turnHolderPlayerId={currentPlayer?.player_id ?? null}
+              turnHolderColor={currentPlayer?.color}
+              contestedBorders={contestedBorders}
+              connectionHintMode={connectionHintMode}
+            />
+          )}
 
           {emotes.length > 0 && (
             <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">

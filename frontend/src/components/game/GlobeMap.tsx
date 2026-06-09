@@ -19,7 +19,8 @@ import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolu
 import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
-import { REGION_CSS_COLORS } from '../../constants/regionColors';
+import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
+import { subscribeUserPreferences } from '../../utils/userPreferences';
 import {
   SPACE_AGE_WASTELANDS,
   wastelandColorRgb,
@@ -40,6 +41,12 @@ import {
   eraAdvancePolygonRgba,
   sortTerritoryIdsByLatLng,
 } from '../../utils/eraAdvanceVisualUtils';
+import {
+  shouldEmphasizeAdjacencyBorders,
+  shouldRenderConnectionArcs,
+  type ResolvedConnectionHintMode,
+} from '../../utils/connectionHints';
+import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -69,30 +76,6 @@ const BRITAIN_GEOJSON_URL = '/geo/britain_925_admin1.json';
 const HORN_AFRICA_GEOJSON_URL = '/geo/horn_africa_admin1.json';
 /** ne_10m admin-1 subset — 32 Mexican states for community_14_nations Mexico territories */
 const MEXICO_GEOJSON_URL = '/geo/mexico_admin1.json';
-/** Nearly opaque fills so adjacent territories do not read as “bleeding” through each other. */
-const PLAYER_COLORS: Record<string, string> = {
-  '#e74c3c': 'rgba(231, 76, 60, 0.96)',
-  '#3498db': 'rgba(52, 152, 219, 0.96)',
-  '#2ecc71': 'rgba(46, 204, 113, 0.96)',
-  '#f39c12': 'rgba(243, 156, 18, 0.96)',
-  '#9b59b6': 'rgba(155, 89, 182, 0.96)',
-  '#1abc9c': 'rgba(26, 188, 156, 0.96)',
-  '#e67e22': 'rgba(230, 126, 34, 0.96)',
-  '#ecf0f1': 'rgba(236, 240, 241, 0.96)',
-};
-
-/** Fully opaque caps for regional / locked-camera maps: semi-transparent meshes z-fight at shared borders and blend unpredictably (RGB “shard” noise). */
-const PLAYER_COLORS_SOLID: Record<string, string> = {
-  '#e74c3c': 'rgb(231, 76, 60)',
-  '#3498db': 'rgb(52, 152, 219)',
-  '#2ecc71': 'rgb(46, 204, 113)',
-  '#f39c12': 'rgb(243, 156, 18)',
-  '#9b59b6': 'rgb(155, 89, 182)',
-  '#1abc9c': 'rgb(26, 188, 156)',
-  '#e67e22': 'rgb(230, 126, 34)',
-  '#ecf0f1': 'rgb(236, 240, 241)',
-};
-
 /** Tiny altitude spread so coplanar caps do not z-fight at shared borders (react-globe extrusion). */
 function polygonAltitudeHash(territoryId: string): number {
   let h = 2166136261;
@@ -209,6 +192,8 @@ interface GlobeMapProps {
   ambientEnabled?: boolean;
   turnHolderPlayerId?: string | null;
   contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
+  /** How aggressively to render animated connection lines vs border highlights. */
+  connectionHintMode?: ResolvedConnectionHintMode;
   /** Fires once when react-globe.gl has initialized and the globe is rendered. */
   onGlobeReady?: () => void;
 }
@@ -689,6 +674,7 @@ function GlobeMap({
   ambientEnabled = false,
   turnHolderPlayerId,
   contestedBorders = [],
+  connectionHintMode = 'full',
   onGlobeReady,
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
@@ -697,6 +683,8 @@ function GlobeMap({
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState } = useGameStore();
   const { selectedTerritory, attackSource } = useUiStore();
+  const [, setPrefsRevision] = useState(0);
+  useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
   const [countriesGeo, setCountriesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   const [statesGeo, setStatesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   /** Italy province polygons for era_risorgimento */
@@ -2405,7 +2393,8 @@ function GlobeMap({
     const orderedIds = mapData.regions
       ? mapData.regions.map((r) => r.region_id)
       : [...new Set(mapData.territories.map((t) => t.region_id))].sort();
-    orderedIds.forEach((rid, i) => m.set(rid, REGION_CSS_COLORS[i % REGION_CSS_COLORS.length]));
+    const regionColors = getRegionCssColors();
+    orderedIds.forEach((rid, i) => m.set(rid, regionColors[i % regionColors.length]));
     return m;
   }, [mapData.regions, mapData.territories]);
 
@@ -2756,10 +2745,32 @@ function GlobeMap({
     ],
   );
 
-  const combinedArcs = useMemo(
-    () => [...seaLaneArcs, ...arcs, ...adjacencyArcs, ...contestedFrontierArcs],
-    [seaLaneArcs, arcs, adjacencyArcs, contestedFrontierArcs],
-  );
+  const adjacencyTargets = useMemo(() => {
+    const source = attackSource ?? selectedTerritory;
+    if (!gameState || !source) return new Set<string>();
+    return computePhaseAdjacencyTargets(gameState, mapData.connections, {
+      attackSource: source,
+      territoryFilter: (territoryId) => {
+        const terr = territoryById.get(territoryId);
+        return !!terr && inferWorldId(terr) === activeWorldId;
+      },
+    });
+  }, [
+    gameState,
+    attackSource,
+    selectedTerritory,
+    mapData.connections,
+    territoryById,
+    activeWorldId,
+  ]);
+
+  const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
+  const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
+
+  const combinedArcs = useMemo(() => {
+    if (!renderConnectionArcs) return arcs;
+    return [...seaLaneArcs, ...arcs, ...adjacencyArcs, ...contestedFrontierArcs];
+  }, [renderConnectionArcs, seaLaneArcs, arcs, adjacencyArcs, contestedFrontierArcs]);
 
   // ── Polygon accessors ──────────────────────────────────────────────────
 
@@ -2782,8 +2793,8 @@ function GlobeMap({
         if (player) {
           const raw = (player.color || '').trim();
           const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
-          const table = useSolidPlayerCaps ? PLAYER_COLORS_SOLID : PLAYER_COLORS;
-          base = table[lookupKey] ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
+          base = getPlayerGlobeColor(lookupKey, useSolidPlayerCaps)
+            ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
         }
       }
 
@@ -2821,15 +2832,6 @@ function GlobeMap({
     [gameState, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash],
   );
 
-  const adjacencyTargets = useMemo(() => {
-    const set = new Set<string>();
-    for (const arc of adjacencyArcs) {
-      const parts = arc.id.split('-');
-      set.add(parts[parts.length - 1]);
-    }
-    return set;
-  }, [adjacencyArcs]);
-
   const getPolygonStroke = useCallback(
     (polygon: object) => {
       const p = polygon as PolygonData;
@@ -2837,7 +2839,8 @@ function GlobeMap({
         return '#ffd700';
       }
       if (adjacencyTargets.has(p.territory_id)) {
-        return gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
+        const phaseColor = gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
+        return emphasizeAdjacencyBorders ? phaseColor : phaseColor;
       }
       if (
         ambientEnabled &&
@@ -2871,6 +2874,7 @@ function GlobeMap({
       useSolidPlayerCaps,
       territoryRegionMap,
       regionColorMap,
+      emphasizeAdjacencyBorders,
     ],
   );
 
@@ -3101,6 +3105,10 @@ function GlobeMapWithFallback(props: GlobeMapProps) {
             width={props.width}
             height={props.height}
             highlightTerritoryId={props.highlightTerritoryId}
+            connectionHintMode={props.connectionHintMode}
+            reducedEffects={props.reducedEffects}
+            ambientEnabled={props.ambientEnabled}
+            contestedBorders={props.contestedBorders}
           />
         </Suspense>
       </div>

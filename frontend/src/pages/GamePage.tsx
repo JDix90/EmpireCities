@@ -74,16 +74,24 @@ import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
+import { prefersReducedMotion, isMobileViewport } from '../utils/device';
 import {
   getInitialMapView,
   persistMapView,
-  prefersReducedMotion,
-  isMobileViewport,
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
   isLiteMode,
   persistLiteMode,
-} from '../utils/device';
+  getConnectionHintPreference,
+  persistConnectionHintPreference,
+  subscribeUserPreferences,
+} from '../utils/userPreferences';
+import {
+  resolveConnectionHintMode,
+  type ConnectionHintPreference,
+} from '../utils/connectionHints';
+import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
+import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId } from '@borderfall/shared';
 import {
   getOrbitAccessResult,
@@ -379,6 +387,9 @@ export default function GamePage() {
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
+  const [connectionHintPreference, setConnectionHintPreference] = useState<ConnectionHintPreference>(
+    () => getConnectionHintPreference(),
+  );
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const mapDataRef = useRef<MapData | null>(null);
   const resetViewRef = useRef<(() => void) | null>(null);
@@ -400,6 +411,12 @@ export default function GamePage() {
   /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
   const globeDefaultAppliedRef = useRef(false);
   const eraAdvancementAnnouncedRef = useRef(false);
+
+  useEffect(() => subscribeUserPreferences(() => {
+    setGlobeSpinEnabled(getGlobeSpinPreference());
+    setLiteModeEnabled(isLiteMode());
+    setConnectionHintPreference(getConnectionHintPreference());
+  }), []);
 
   /** Prefetch globe vendor chunks when the user prefers globe or may switch soon. */
   useEffect(() => {
@@ -559,6 +576,22 @@ export default function GamePage() {
       gameState.phase,
     );
   }, [gameState, mapData, mapAmbientEnabled, turnHolderPlayer?.player_id]);
+
+  const mapDensityMetrics = useMemo(
+    () => (mapData ? computeMapDensityMetrics(mapData) : null),
+    [mapData],
+  );
+
+  const connectionHintMode = useMemo(
+    () => resolveConnectionHintMode({
+      preference: connectionHintPreference,
+      isDenseMap: mapDensityMetrics?.isDense ?? false,
+      reducedEffects:
+        prefersReducedMotion() || liteModeEnabled || (isMobileViewport() && mapView === 'globe'),
+      globeView: mapView === 'globe',
+    }),
+    [connectionHintPreference, mapDensityMetrics?.isDense, liteModeEnabled, mapView],
+  );
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
@@ -1816,6 +1849,33 @@ export default function GamePage() {
     setFortifyUnits,
     setNavalSource,
   ]);
+
+  const handleFortifyTo = useCallback((fromId: string, toId: string) => {
+    if (!gameState || !gameId) return;
+    const socket = getSocket();
+    const fromState = gameState.territories[fromId];
+    const maxMove = Math.max(0, (fromState?.unit_count ?? 1) - 1);
+    const requested = useUiStore.getState().fortifyUnits;
+    const units = Math.max(1, Math.min(requested, maxMove));
+    socket.emit('game:fortify', { gameId, fromId, toId, units });
+
+    const fromName = mapDataRef.current?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
+    const toName = mapDataRef.current?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
+    ownTurnFortificationsRef.current.push({ fromName, toName, units });
+    showNotification({
+      type: 'fortify',
+      text: `Moved ${units} troops: ${fromName} → ${toName}`,
+      icon: 'arrow',
+      accentBg: 'bg-sky-500/20',
+      accentBorder: 'border-sky-500/30',
+      accentText: 'text-sky-400',
+    });
+
+    setAttackSource(null);
+    setFortifyUnits(1);
+    setNavalSource(null);
+    setSelectedTerritory(null);
+  }, [gameState, gameId, showNotification, setFortifyUnits, setNavalSource]);
 
   const handleGalaxyStrategicTerritoryClick = useCallback(
     (territoryId: string) => {
@@ -3158,6 +3218,7 @@ export default function GamePage() {
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                         contestedBorders={contestedBorders}
+                        connectionHintMode={connectionHintMode}
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                         globeImageUrl={
                           mapData.map_kind === 'galaxy'
@@ -3242,6 +3303,7 @@ export default function GamePage() {
                 turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                 turnHolderColor={turnHolderPlayer?.color}
                 contestedBorders={contestedBorders}
+                connectionHintMode={connectionHintMode}
                 resetViewRef={resetViewRef}
               />
             )
@@ -3298,6 +3360,9 @@ export default function GamePage() {
               techTree={techTree}
               orbitAccessHint={orbitAccessHint}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
+              mapConnections={mapData.connections}
+              denseMap={mapDensityMetrics?.isDense ?? false}
+              onFortifyTo={handleFortifyTo}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
               onClose={() => {
                 setSelectedTerritory(null);
@@ -3336,6 +3401,12 @@ export default function GamePage() {
             tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
           }
           mapNameLookup={mapData}
+          connectionHintPreference={connectionHintPreference}
+          onConnectionHintPreferenceChange={(next) => {
+            setConnectionHintPreference(next);
+            persistConnectionHintPreference(next);
+          }}
+          denseMap={mapDensityMetrics?.isDense ?? false}
         />
       </div>
 
@@ -3511,6 +3582,12 @@ export default function GamePage() {
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
               mapNameLookup={mapData}
+              connectionHintPreference={connectionHintPreference}
+              onConnectionHintPreferenceChange={(next) => {
+                setConnectionHintPreference(next);
+                persistConnectionHintPreference(next);
+              }}
+              denseMap={mapDensityMetrics?.isDense ?? false}
             />
             <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-2">
               <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-2">Map View</p>
@@ -3547,7 +3624,16 @@ export default function GamePage() {
               )}
             </div>
             {/* Lite-mode toggle — visible only in the mobile drawer */}
-            <div className="px-4 py-3 border-t border-bf-border shrink-0">
+            <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-3">
+              <ConnectionHintsSetting
+                value={connectionHintPreference}
+                onChange={(next) => {
+                  setConnectionHintPreference(next);
+                  persistConnectionHintPreference(next);
+                }}
+                denseMap={mapDensityMetrics?.isDense ?? false}
+                compact
+              />
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
