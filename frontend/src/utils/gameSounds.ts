@@ -1,11 +1,17 @@
-import { isLiteMode, prefersReducedMotion } from './device';
+import { prefersReducedMotion } from './device';
+import { getSfxMasterGain, isLiteMode } from './userPreferences';
 import { isMapStrikeAbility, type MapStrikeAbilityId } from './mapStrikeEffects';
 
 let audioCtx: AudioContext | null = null;
 
 function canPlaySounds(): boolean {
   if (typeof window === 'undefined') return false;
+  if (getSfxMasterGain() <= 0) return false;
   return !prefersReducedMotion() && !isLiteMode();
+}
+
+function scaleGain(base: number): number {
+  return base * getSfxMasterGain();
 }
 
 function getAudioContext(): AudioContext | null {
@@ -40,7 +46,7 @@ function playTone(
   const gainNode = ctx.createGain();
   const attack = options?.attack ?? 0.012;
   const decay = options?.decay ?? durationSec * 0.85;
-  const peak = options?.gain ?? 0.08;
+  const peak = scaleGain(options?.gain ?? 0.08);
 
   osc.type = options?.type ?? 'sine';
   osc.frequency.setValueAtTime(frequency, ctx.currentTime);
@@ -57,6 +63,7 @@ function playTone(
 }
 
 function playNoiseBurst(durationSec: number, gain = 0.06): void {
+  gain = scaleGain(gain);
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -112,7 +119,7 @@ export function playReconSound(): void {
   osc.frequency.setValueAtTime(280, ctx.currentTime);
   osc.frequency.exponentialRampToValueAtTime(920, ctx.currentTime + 0.35);
   gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-  gainNode.gain.exponentialRampToValueAtTime(0.04, ctx.currentTime + 0.05);
+  gainNode.gain.exponentialRampToValueAtTime(scaleGain(0.04), ctx.currentTime + 0.05);
   gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.38);
   osc.connect(gainNode);
   gainNode.connect(ctx.destination);

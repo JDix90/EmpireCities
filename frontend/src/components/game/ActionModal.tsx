@@ -11,6 +11,7 @@ import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
 import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
+import { getFastCombatPreference } from '../../utils/userPreferences';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -208,15 +209,8 @@ export interface NotificationData {
 
 // ─── Animated Die ──────────────────────────────────────────────────────────
 
-const FAST_COMBAT_KEY = 'cc-fast-combat';
-
 function getFastCombat(): boolean {
-  try {
-    const v = localStorage.getItem(FAST_COMBAT_KEY);
-    if (v !== null) return v === 'true';
-    // Default on for coarse-pointer (touch) devices
-    return window.matchMedia('(pointer: coarse)').matches;
-  } catch { return false; }
+  return getFastCombatPreference();
 }
 
 function AnimatedDie({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {

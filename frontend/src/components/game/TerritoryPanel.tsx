@@ -10,13 +10,15 @@ import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { isMobileViewport } from '../../utils/device';
 import { useSwipeToDismiss } from '../../hooks/useSwipeToDismiss';
-import { REGION_CSS_COLORS } from '../../constants/regionColors';
+import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
   getGalaxyTerritoryLoreDetail,
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
+import NeighborTerritoryPicker from './NeighborTerritoryPicker';
+import { listNeighborTargets, type MapConnection } from '../../utils/mapAdjacencyTargets';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -45,6 +47,9 @@ interface TerritoryPanelProps {
   orbitAccessHint?: string | null;
   /** Stable socket viewer id from `game:joined` — fixes draft UI when auth.user loads late */
   resolvedViewerPlayerId?: string | null;
+  mapConnections?: MapConnection[];
+  denseMap?: boolean;
+  onFortifyTo?: (fromId: string, toId: string) => void;
   onClose: () => void;
 }
 
@@ -62,6 +67,9 @@ export default function TerritoryPanel({
   techTree = [],
   orbitAccessHint,
   resolvedViewerPlayerId,
+  mapConnections = [],
+  denseMap = false,
+  onFortifyTo,
   onClose,
   onClaimTerritory,
 }: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
@@ -146,6 +154,41 @@ export default function TerritoryPanel({
     : undefined;
   const hasActiveTruce =
     activeTruceEntry?.status === 'truce' && (activeTruceEntry.truce_turns_remaining ?? 0) > 0;
+
+  const territoryNameById = React.useMemo(
+    () => new Map(mapTerritories.map((t) => [t.territory_id, t.name])),
+    [mapTerritories],
+  );
+
+  const attackNeighborSourceId = attackSource ?? (isMine && gameState.phase === 'attack' ? selectedTerritory : null);
+  const attackNeighbors = React.useMemo(() => {
+    if (!isMyTurn || gameState.phase !== 'attack' || !attackNeighborSourceId || !myPlayerId) return [];
+    const sourceOwner = gameState.territories[attackNeighborSourceId]?.owner_id;
+    if (sourceOwner !== myPlayerId) return [];
+    return listNeighborTargets(gameState, mapConnections, attackNeighborSourceId, territoryNameById, {
+      attackSource: attackNeighborSourceId,
+    });
+  }, [
+    isMyTurn,
+    gameState,
+    attackNeighborSourceId,
+    mapConnections,
+    territoryNameById,
+    myPlayerId,
+  ]);
+
+  const fortifyNeighborSourceId =
+    gameState.phase === 'fortify' && attackSource && gameState.territories[attackSource]?.owner_id === myPlayerId
+      ? attackSource
+      : gameState.phase === 'fortify' && isMine && (tState.unit_count > 1)
+        ? selectedTerritory
+        : null;
+  const fortifyNeighbors = React.useMemo(() => {
+    if (!isMyTurn || !fortifyNeighborSourceId || !myPlayerId) return [];
+    return listNeighborTargets(gameState, mapConnections, fortifyNeighborSourceId, territoryNameById, {
+      attackSource: fortifyNeighborSourceId,
+    });
+  }, [isMyTurn, gameState, fortifyNeighborSourceId, mapConnections, territoryNameById, myPlayerId]);
 
   return (
     <div
@@ -276,7 +319,8 @@ export default function TerritoryPanel({
         const regionDef = mapRegions.find((r) => r.region_id === mapTerritory.region_id);
         if (!regionDef) return null;
         const regionIdx = mapRegions.indexOf(regionDef);
-        const regionColor = REGION_CSS_COLORS[regionIdx % REGION_CSS_COLORS.length];
+        const regionColors = getRegionCssColors();
+        const regionColor = regionColors[regionIdx % regionColors.length];
         const regionTerritories = mapTerritories.filter((t) => t.region_id === mapTerritory.region_id);
         const totalInRegion = regionTerritories.length;
         const ownedInRegion = myPlayerId
@@ -430,6 +474,17 @@ export default function TerritoryPanel({
           )}
 
           {/* Combat Section */}
+          {gameState.phase === 'attack' && attackNeighbors.length > 0 && attackNeighborSourceId && (
+            <NeighborTerritoryPicker
+              phase="attack"
+              sourceName={territoryNameById.get(attackNeighborSourceId) ?? attackNeighborSourceId}
+              neighbors={attackNeighbors}
+              denseMap={denseMap}
+              onSelect={(territoryId) => setSelectedTerritory(territoryId)}
+              onAttack={(toTerritoryId) => onAttack(attackNeighborSourceId, toTerritoryId)}
+            />
+          )}
+
           {gameState.phase === 'attack' && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
@@ -645,6 +700,24 @@ export default function TerritoryPanel({
           )}
 
           {/* Fortify Section */}
+          {gameState.phase === 'fortify' && fortifyNeighbors.length > 0 && fortifyNeighborSourceId && (
+            <NeighborTerritoryPicker
+              phase="fortify"
+              sourceName={territoryNameById.get(fortifyNeighborSourceId) ?? fortifyNeighborSourceId}
+              neighbors={fortifyNeighbors}
+              denseMap={denseMap}
+              onSelect={(territoryId) => {
+                if (onFortifyTo) {
+                  setFortifyUnits(fortifyAmount);
+                  setAttackSource(fortifyNeighborSourceId);
+                  onFortifyTo(fortifyNeighborSourceId, territoryId);
+                } else {
+                  setSelectedTerritory(territoryId);
+                }
+              }}
+            />
+          )}
+
           {isMine && gameState.phase === 'fortify' && tState.unit_count > 1 && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">→ Fortify</div>

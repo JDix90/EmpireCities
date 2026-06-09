@@ -5,7 +5,7 @@ import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { hapticImpact } from '../../utils/haptics';
-import { REGION_PIXI_COLORS } from '../../constants/regionColors';
+import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
 import {
   STRIKE_MAP_STYLES,
   type MapStrikeFlashProps,
@@ -14,6 +14,13 @@ import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 import { playMap2dVisualEffect, type TerritoryCentroid } from '../../utils/map2dVisualEffects';
 import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
+import { subscribeUserPreferences } from '../../utils/userPreferences';
+import {
+  shouldEmphasizeAdjacencyBorders,
+  shouldRenderConnectionArcs,
+  type ResolvedConnectionHintMode,
+} from '../../utils/connectionHints';
+import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
 
 interface MapTerritory {
   territory_id: string;
@@ -59,21 +66,12 @@ interface GameMapProps {
   contestedBorders?: ContestedBorder[];
   /** If provided, GameMap writes a reset-view callback into this ref. */
   resetViewRef?: React.MutableRefObject<(() => void) | null>;
+  /** How aggressively to render connection overlays vs border highlights. */
+  connectionHintMode?: ResolvedConnectionHintMode;
 }
 
-const PLAYER_COLORS: Record<string, number> = {
-  '#e74c3c': 0xe74c3c,
-  '#3498db': 0x3498db,
-  '#2ecc71': 0x2ecc71,
-  '#f39c12': 0xf39c12,
-  '#9b59b6': 0x9b59b6,
-  '#1abc9c': 0x1abc9c,
-  '#e67e22': 0xe67e22,
-  '#ecf0f1': 0xecf0f1,
-};
-
 function hexToPixi(hex: string): number {
-  return PLAYER_COLORS[hex] ?? 0x888888;
+  return getPlayerPixiColor(hex);
 }
 
 export default function GameMap({
@@ -91,7 +89,11 @@ export default function GameMap({
   turnHolderPlayerId,
   turnHolderColor,
   contestedBorders = [],
+  connectionHintMode = 'full',
 }: GameMapProps) {
+  const [, setPrefsRevision] = useState(0);
+  useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
@@ -170,17 +172,23 @@ export default function GameMap({
     const mapContainer = new PIXI.Container();
     mapContainerRef.current = mapContainer;
     const capitalLayer = new PIXI.Container();
+    capitalLayer.eventMode = 'none';
     capitalLayerRef.current = capitalLayer;
     const labelContainer = new PIXI.Container();
+    labelContainer.eventMode = 'none';
     labelContainerRef.current = labelContainer;
     const buildingLayer = new PIXI.Container();
+    buildingLayer.eventMode = 'none';
     buildingLayerRef.current = buildingLayer;
     buildingTextMapRef.current.clear();
     const effectsLayer = new PIXI.Container();
+    effectsLayer.eventMode = 'none';
     effectsLayerRef.current = effectsLayer;
     const turnGlowLayer = new PIXI.Container();
+    turnGlowLayer.eventMode = 'none';
     turnGlowLayerRef.current = turnGlowLayer;
     const borderLayer = new PIXI.Container();
+    borderLayer.eventMode = 'none';
     borderLayerRef.current = borderLayer;
     stage.addChild(mapContainer);
     stage.addChild(labelContainer);
@@ -200,9 +208,10 @@ export default function GameMap({
     const orderedRegionIds = mapData.regions
       ? mapData.regions.map((r) => r.region_id)
       : [...regionTerritoryMap.keys()].sort();
+    const regionColors = getRegionPixiColors();
     const regionColorMap = new Map<string, number>();
     orderedRegionIds.forEach((rid, i) => {
-      regionColorMap.set(rid, REGION_PIXI_COLORS[i % REGION_PIXI_COLORS.length]);
+      regionColorMap.set(rid, regionColors[i % regionColors.length]);
     });
 
     for (const [regionId, territories] of regionTerritoryMap.entries()) {
@@ -470,6 +479,18 @@ export default function GameMap({
     }
   }, [gameState, mapData, canvasW, canvasH, width, height]);
 
+  const adjacencyTargets = useMemo(() => {
+    if (!gameState) return new Set<string>();
+    const source = attackSource ?? selectedTerritory;
+    if (!source) return new Set<string>();
+    return computePhaseAdjacencyTargets(gameState, mapData.connections, {
+      attackSource: source,
+    });
+  }, [gameState, attackSource, selectedTerritory, mapData.connections]);
+
+  const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
+  const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
+
   // ── Update territory colors when game state changes ────────────────────────
   useEffect(() => {
     if (!gameState || !appRef.current) return;
@@ -504,6 +525,8 @@ export default function GameMap({
       // Highlight selected territory
       if (territory.territory_id === selectedTerritory || territory.territory_id === attackSource) {
         borderColor = 0xffd700;
+      } else if (adjacencyTargets.has(territory.territory_id)) {
+        borderColor = gameState.phase === 'attack' ? 0xf87171 : 0x4ade80;
       }
 
       // Wonder glow: thick golden border for territories with a wonder building
@@ -522,7 +545,14 @@ export default function GameMap({
         }
         borderColor = 0xffd700;
       }
-      drawTerritory(g, scaledPolygon, fillColor, borderColor, isTurnHolder ? 3 : hasWonder ? 4 : 1.5);
+      const adjacencyBorderWidth = adjacencyTargets.has(territory.territory_id) && emphasizeAdjacencyBorders
+        ? 3.25
+        : isTurnHolder
+          ? 3
+          : hasWonder
+            ? 4
+            : 1.5;
+      drawTerritory(g, scaledPolygon, fillColor, borderColor, adjacencyBorderWidth);
     }
 
     // ── Building icons ─────────────────────────────────────────────────────
@@ -564,7 +594,21 @@ export default function GameMap({
         }
       }
     }
-  }, [gameState, selectedTerritory, attackSource, mapData, canvasW, canvasH, width, height, ambientEnabled, turnHolderPlayerId, turnHolderColor]);
+  }, [
+    gameState,
+    selectedTerritory,
+    attackSource,
+    adjacencyTargets,
+    emphasizeAdjacencyBorders,
+    mapData,
+    canvasW,
+    canvasH,
+    width,
+    height,
+    ambientEnabled,
+    turnHolderPlayerId,
+    turnHolderColor,
+  ]);
 
   // ── Tutorial highlight ring ────────────────────────────────────────────────
   useEffect(() => {
@@ -709,7 +753,7 @@ export default function GameMap({
     glowLayer.removeChildren();
     borderLayer.removeChildren();
 
-    if (!ambientEnabled || prefersReducedMotion() || reducedEffects) return;
+    if (!ambientEnabled || prefersReducedMotion() || reducedEffects || !renderConnectionArcs) return;
 
     let phase = 0;
     const ticker = new PIXI.Ticker();
@@ -759,6 +803,7 @@ export default function GameMap({
     ambientEnabled,
     reducedEffects,
     contestedBorders,
+    renderConnectionArcs,
     turnHolderPlayerId,
     turnHolderColor,
     gameState,

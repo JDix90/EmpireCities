@@ -167,3 +167,21 @@
 .map-phase-tint-fortify::after {
   background: radial-gradient(ellipse at center, rgba(74, 222, 128, 0.06) 0%, transparent 72%);
 }
+
+/* User-enabled high contrast (Settings → Accessibility) */
+html[data-high-contrast='true'] .card {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+html[data-high-contrast='true'] .text-bf-muted {
+  color: #c8cdd8;
+}
+
+html[data-high-contrast='true'] .input,
+html[data-high-contrast='true'] select {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+html[data-high-contrast='true'] .btn-secondary {
+  border-color: rgba(255, 255, 255, 0.28);
+}

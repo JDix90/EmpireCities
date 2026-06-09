@@ -34,7 +34,8 @@ import {
   buildTimeLapseIndices,
   nextTimeLapseIndex,
 } from '../utils/replayTimeLapse';
-import { isLiteMode, isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { isLiteMode } from '../utils/userPreferences';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
@@ -106,9 +107,8 @@ export default function ReplayPage() {
   const [searchParams] = useSearchParams();
   const fromDaily = searchParams.get('source') === 'daily';
   // `source=match` is set by GamePage's "Watch Replay" CTA on GameOverView.
-  // We tune defaults and the back button differently than the daily flow so
-  // a player landing here straight from their match gets a normal-paced
-  // 2D replay rather than a 4x globe time-lapse.
+  // Match replays still open on the globe by default; playback stays 1x (not
+  // the daily time-lapse cadence).
   const fromMatch = searchParams.get('source') === 'match';
   // Shared links append ?source=share. Those open straight into the condensed
   // Highlights reel so a first-time viewer sees the best moments immediately.
@@ -130,9 +130,8 @@ export default function ReplayPage() {
   const [playbackMode, setPlaybackMode] = useState<'all' | 'timelapse' | 'highlights'>(
     fromShare ? 'highlights' : fromDaily ? 'timelapse' : 'all',
   );
-  // Daily replays open in the cinematic 3D globe view; match replays open in
-  // 2D so the local player sees the familiar board they just played on.
-  const [mapView, setMapView] = useState<'2d' | 'globe'>(fromMatch ? '2d' : 'globe');
+  // Replays default to the 3D globe; viewers can switch to 2D from the toolbar.
+  const [mapView, setMapView] = useState<'2d' | 'globe'>('globe');
   const [isPublic, setIsPublic] = useState(false);
   const [loadedPublic, setLoadedPublic] = useState(false);
   const [copied, setCopied] = useState(false);
