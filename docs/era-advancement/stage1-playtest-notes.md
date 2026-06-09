@@ -18,6 +18,71 @@
 
 ---
 
+## 30–45 min playtest session (copy this checklist)
+
+**Before you start**
+
+1. Backend + frontend running locally (or staging).
+2. Admin → Feature Flags → enable `era_advancement_lobby_enabled`.
+3. Log in as a non-guest account (admin also works).
+4. Open a notes row per game: `Game #`, `First tech turn`, `First build turn`, `Advance eligible turn`, `Who won`, `Advanced? Y/N`.
+
+**Recommended lobby (Game A — era advancement ON)**
+
+| Setting | Value |
+|---------|-------|
+| Era | Ancient |
+| Map | `era_ancient` |
+| Players | 2 humans, or 1 human + 1 AI (medium) |
+| Era Advancement | **On** (auto-enables Economy, Tech Trees, Stability) |
+| Territory Selection | Off (faster session) |
+| Turn timer | Off (or 120s if you want pressure) |
+
+Confirm at start: toast shows **"{username} goes first"** (random first player, not host).
+
+**Quick path to advance (milestone gate)**
+
+Research **3 tier-1** + **1 tier-2** tech, build **1** non-wonder building, keep empire stability ≥ 60%, save gold for advance cost (scales with production income).
+
+---
+
+### Per-scenario checklist (~5–7 min each)
+
+| # | Do this | Pass if | Your result |
+|---|---------|---------|-------------|
+| 1 | Create **Game B** identical to A but **Era Advancement off**. Play 2–3 turns. | No Advance Era panel; no era fields in UI; normal draft/attack flow | ☐ |
+| 2 | **Game A**: open Advance Era panel during draft/attack. | Three milestone rows (tier-1, tier-2, buildings) + gold + stability; blockers update as you research/build | ☐ |
+| 3 | Meet all gates; click **Advance to Medieval** on your turn. | Gold deducted; units reduced (~70%); `current_era_index` → 1; tech list cleared; medieval tree available | ☐ |
+| 4 | After you advance, end turn; opponent attacks you **before your next turn**. | Defender fights at vulnerability penalty (−25% effective defense); combat feels harder than usual | ☐ |
+| 5 | As Medieval player, make **one attack** with signature charge available. | +1 attack die once; charge consumed (`medieval_signature_charges` → 0) | ☐ |
+| 6 | **Game C**: same lobby as A; **do not advance**; push domination/threshold win at era 0. | You can still win without advancing | ☐ |
+
+**Record tuning metrics (Game A)**
+
+| Metric | Target | Your turn # |
+|--------|--------|-------------|
+| First tech researched | 1–2 | |
+| First building placed | 2–3 | |
+| First advance attempt (all gates met) | 6–10 | |
+| Winner advanced? | Either outcome OK | |
+
+**Red flags (note and stop if severe)**
+
+- Still cannot research/build until turn 4+ → bootstrap regression.
+- Everyone eligible to advance by turn 5 → milestone or bootstrap too loose.
+- Nobody eligible by turn 12 → milestone too tight or gold cost too high.
+- Host always goes first → random start not working.
+
+**Optional automation (after manual pass)**
+
+```bash
+pnpm -C backend exec tsx scripts/eraAdvancementPlaytest.ts
+```
+
+Requires server at `PLAYTEST_BASE_URL` (default `http://localhost:3001`) and flag on or admin account.
+
+---
+
 ## Manual smoke scenarios (Phase E)
 
 Run with `era_advancement_lobby_enabled` enabled via Admin → Feature Flags.
