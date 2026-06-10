@@ -1114,7 +1114,7 @@ export default function LobbyPage() {
           <div>
             <h2 className="font-display text-xl sm:text-2xl text-bf-gold">Welcome, {user?.username}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-bf-muted text-sm">Level {user?.level} · Ranked {(user as any)?.ratings?.ranked?.display ?? user?.mmr ?? '—'} · {user?.xp} XP</p>
+              <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>
               {(user?.win_streak ?? 0) > 0 && <StreakBadge type="win" count={user!.win_streak!} />}
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>

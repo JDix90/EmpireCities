@@ -104,6 +104,8 @@ export interface PlayerState {
   is_ai: boolean;
   ai_difficulty?: AiDifficulty;
   is_eliminated: boolean;
+  /** True when the player voluntarily resigned (ranks below other eliminated players). */
+  has_resigned?: boolean;
   territory_count: number;
   cards: TerritoryCard[];
   mmr: number;

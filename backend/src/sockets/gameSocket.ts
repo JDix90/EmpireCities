@@ -3002,6 +3002,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!player || player.is_eliminated) return socket.emit('error', { message: 'Cannot resign' });
 
       player.is_eliminated = true;
+      player.has_resigned = true;
 
       // Make all their territories neutral (unowned)
       for (const t of Object.values(state.territories)) {

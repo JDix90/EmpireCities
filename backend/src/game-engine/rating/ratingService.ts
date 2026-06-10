@@ -64,6 +64,23 @@ export function placementScore(rank: number, totalPlayers: number): number {
   return (totalPlayers - rank) / (totalPlayers - 1);
 }
 
+/**
+ * Score for a single Glicko comparison. Against humans, placement carries
+ * partial credit (FFA semantics). Against synthetic AI opponents, only a win
+ * counts — anything else scores 0 so defeats and resignations in solo/hybrid
+ * games can never gain rating from AI padding.
+ */
+export function scoreVsOpponent(params: {
+  rank: number;
+  totalPlayers: number;
+  isWinner: boolean;
+  opponentIsAi: boolean;
+}): number {
+  const { rank, totalPlayers, isWinner, opponentIsAi } = params;
+  if (opponentIsAi) return isWinner ? 1 : 0;
+  return placementScore(rank, totalPlayers);
+}
+
 export function displayRating(mu: number, phi: number): { display: number; provisional: boolean } {
   return { display: Math.round(mu), provisional: phi > 150 };
 }
