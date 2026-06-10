@@ -7,7 +7,7 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
-import { getGameIo } from '../../sockets/gameSocket';
+import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
@@ -90,6 +90,11 @@ const CreateGameSchema = z.object({
     }),
   ai_count: z.number().int().min(0).max(7).default(0),
   ai_difficulty: z.enum(['easy', 'medium', 'hard', 'expert']).default('medium'),
+  /**
+   * Start immediately after creation — only honored when every non-host seat
+   * is filled by AI (nothing to wait for). Used by Quick Match.
+   */
+  auto_start: z.boolean().default(false),
 });
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
@@ -99,7 +104,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
     }
-    const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty } = body.data;
+    const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty, auto_start } = body.data;
 
     const isGalacticAge = era_id === 'galaxy_age' || map_id === 'era_galaxy';
     if (isGalacticAge && !request.isAdmin) {
@@ -197,7 +202,24 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType, join_code: assignedJoinCode });
+    // Auto-start: the host is the sole human at creation and asked to play
+    // immediately against AI — equivalent to clicking Start the instant the
+    // lobby opens, so there is no pre-game room to wait in. Requires at least
+    // one AI opponent; human-only lobbies always wait for joiners.
+    let startedStatus: 'waiting' | 'in_progress' = 'waiting';
+    if (auto_start && ai_count > 0) {
+      const io = getGameIo();
+      if (io) {
+        const started = await startWaitingGame(io, gameId);
+        if (started.ok) {
+          startedStatus = 'in_progress';
+        } else {
+          console.error('[Games] Auto-start failed for', gameId, started.error);
+        }
+      }
+    }
+
+    return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType, join_code: assignedJoinCode, status: startedStatus });
   });
 
   // ── POST /api/games/tutorial/start ────────────────────────────────────────

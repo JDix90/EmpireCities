@@ -1038,9 +1038,12 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: 'ancient',
         map_id: ERA_MAP_IDS['ancient'],
-        max_players: 8,
+        max_players: 4,
         ai_count: 3,
         ai_difficulty: 'medium',
+        // "Quick" means quick: the server starts the match before responding,
+        // so the player lands directly in turn 1 instead of a pre-game room.
+        auto_start: true,
         settings: {
           turn_timer_seconds: 300,
           allowed_victory_conditions: ['domination'],
