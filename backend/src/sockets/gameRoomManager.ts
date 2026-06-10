@@ -190,7 +190,16 @@ export async function loadAuthoritativeRoom(gameId: string, mapId?: string): Pro
     const fromPg = await loadGameRoomFromPostgres(gameId, mapId);
     if (fromPg) return fromPg;
   }
-  return getCachedRoom(gameId) ?? null;
+  const cached = getCachedRoom(gameId) ?? null;
+  if (!cached) {
+    // Every load layer missed — surfaced to players as GAME_NOT_FOUND.
+    // Log which layers were consulted so eviction/persistence gaps are diagnosable.
+    console.warn(
+      '[Room] Authoritative load failed for', gameId,
+      `(redis: miss, postgres: ${mapId ? 'miss' : 'skipped — no mapId'}, cache: miss)`,
+    );
+  }
+  return cached;
 }
 
 /**

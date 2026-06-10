@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
+import { emitGameError, GameErrorCode } from './socketErrors';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -243,16 +244,22 @@ async function mutateLockedRoom(
   socket: Socket,
   durationMs: number,
   fn: (room: ActiveGameRoom) => Promise<unknown>,
+  action?: string,
 ): Promise<void> {
   try {
     await withLockedRoom(gameId, fn, { durationMs });
   } catch (err) {
     if (err instanceof GameRoomNotFoundError) {
-      socket.emit('error', { message: 'Game not found' });
+      console.warn('[Socket] Room unavailable for', action ?? 'action', 'on', gameId);
+      emitGameError(
+        socket,
+        GameErrorCode.GAME_NOT_FOUND,
+        'This game is no longer available — it may have ended or been removed.',
+      );
       return;
     }
-    console.error('[Socket] Locked mutation failed for', gameId, err);
-    socket.emit('error', { message: 'Action failed — please try again' });
+    console.error('[Socket] Locked mutation failed for', action ?? 'action', 'on', gameId, err);
+    emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Action failed — please try again');
   }
 }
 
@@ -819,7 +826,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
            FROM games WHERE game_id = $1`,
           [gameId],
         );
-        if (!game) return socket.emit('error', { message: 'Game not found' });
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
 
         const players = await query<WaitingLobbyPlayerRow>(
           `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
@@ -961,7 +968,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'SELECT game_id, status, map_id FROM games WHERE game_id = $1',
           [gameId],
         );
-        if (!game) return socket.emit('error', { message: 'Game not found' });
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
         if (game.status !== 'in_progress') return socket.emit('error', { message: 'Game is not in progress' });
 
         const spectatorRoom = `${gameId}:spectators`;
@@ -1049,7 +1056,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           [gameId]
         );
         if (!game) {
-          return socket.emit('error', { message: 'Game not found' });
+          return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
         }
         const startAuthError = getStartGameAuthorizationError({
           callerSeat,
@@ -1878,7 +1885,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const fortifyMoveLimit = getFortifyMoveLimit(state, userId);
       const movesUsed = state.fortify_moves_used ?? 0;
       if (movesUsed >= fortifyMoveLimit) {
-        return socket.emit('error', { message: `Fortify limit reached (${fortifyMoveLimit} moves per turn)` });
+        return socket.emit('error', {
+          message: fortifyMoveLimit === 1
+            ? 'You can only fortify once per turn.'
+            : `Fortify limit reached (${fortifyMoveLimit} moves per turn)`,
+        });
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
@@ -2675,7 +2686,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);
@@ -2748,7 +2759,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_vote', async ({ gameId, proposalId, approve }: { gameId: string; proposalId: string; approve: boolean }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);

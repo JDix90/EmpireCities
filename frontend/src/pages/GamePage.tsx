@@ -1424,12 +1424,13 @@ export default function GamePage() {
       });
     });
 
-    socket.on('error', ({ message }: { message: string }) => {
+    socket.on('error', ({ message, code }: { message: string; code?: string }) => {
+      const isGameNotFound = code === 'GAME_NOT_FOUND' || message === 'Game not found';
       if (
         message === 'Failed to start game' ||
-        message === 'Game not found' ||
         message === 'Game cannot be started' ||
-        message === 'Map not found'
+        message === 'Map not found' ||
+        isGameNotFound
       ) {
         setIsStartingGame(false);
       }
@@ -1440,7 +1441,7 @@ export default function GamePage() {
       if (!useGameStore.getState().gameState) {
         if (
           message === 'Not a participant in this game' ||
-          message === 'Game not found'
+          isGameNotFound
         ) {
           if (lobbyTimeoutRef.current) {
             clearTimeout(lobbyTimeoutRef.current);
@@ -1453,6 +1454,12 @@ export default function GamePage() {
           );
           return;
         }
+      } else if (isGameNotFound) {
+        // The room vanished mid-game (evicted/finished server-side). A toast
+        // alone leaves the player acting on a dead board — send them home.
+        toast.error(message);
+        navigate('/lobby');
+        return;
       }
       // Many gameplay errors (invalid attack target, not enough units,
       // territory not adjacent, build prereqs not met, etc.) come back here
