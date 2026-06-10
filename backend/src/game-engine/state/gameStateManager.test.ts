@@ -751,3 +751,57 @@ describe('checkVictory', () => {
     expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'threshold' });
   });
 });
+
+describe('checkVictory turn cap (max_turns)', () => {
+  it('is off by default — no winner past turn 150 without the setting', () => {
+    const state = makeState({
+      turn_number: 400,
+      players: [
+        makePlayer('p1', 0, { territory_count: 2 }),
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+    });
+    expect(checkVictory(state, victoryMap)).toBeNull();
+  });
+
+  it('awards turn_limit to the territory leader once the cap is exceeded', () => {
+    const state = makeState({
+      turn_number: 151,
+      settings: makeSettings({ max_turns: 150 }),
+      players: [
+        makePlayer('p1', 0, { territory_count: 2 }),
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+    });
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'turn_limit' });
+  });
+
+  it('does not trigger at exactly the cap turn', () => {
+    const state = makeState({
+      turn_number: 150,
+      settings: makeSettings({ max_turns: 150 }),
+      players: [
+        makePlayer('p1', 0, { territory_count: 2 }),
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+    });
+    expect(checkVictory(state, victoryMap)).toBeNull();
+  });
+
+  it('breaks territory ties by total unit count', () => {
+    const state = makeState({
+      turn_number: 151,
+      settings: makeSettings({ max_turns: 150 }),
+      players: [
+        makePlayer('p1', 0, { territory_count: 1 }),
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+      territories: {
+        t1: makeTerritory('t1', 'p1', 3),
+        t2: makeTerritory('t2', 'p2', 9),
+        t3: makeTerritory('t3', null, 1),
+      },
+    });
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p2'], condition: 'turn_limit' });
+  });
+});

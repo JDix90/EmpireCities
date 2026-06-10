@@ -1038,15 +1038,21 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: 'ancient',
         map_id: ERA_MAP_IDS['ancient'],
-        max_players: 8,
+        max_players: 4,
         ai_count: 3,
         ai_difficulty: 'medium',
+        // "Quick" means quick: the server starts the match before responding,
+        // so the player lands directly in turn 1 instead of a pre-game room.
+        auto_start: true,
         settings: {
           turn_timer_seconds: 300,
           allowed_victory_conditions: ['domination'],
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: true,
+          // Stalemate guard: most territories wins at the cap, so a solo
+          // match can't grind on for hundreds of turns.
+          max_turns: 150,
         },
       });
       navigate(`/game/${res.data.game_id}`);
@@ -1114,7 +1120,7 @@ export default function LobbyPage() {
           <div>
             <h2 className="font-display text-xl sm:text-2xl text-bf-gold">Welcome, {user?.username}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-bf-muted text-sm">Level {user?.level} · Ranked {(user as any)?.ratings?.ranked?.display ?? user?.mmr ?? '—'} · {user?.xp} XP</p>
+              <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>
               {(user?.win_streak ?? 0) > 0 && <StreakBadge type="win" count={user!.win_streak!} />}
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>

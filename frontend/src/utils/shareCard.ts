@@ -24,6 +24,7 @@ const VICTORY_LABELS: Record<string, string> = {
   capital: 'Capital Capture',
   secret_mission: 'Secret Mission',
   alliance_victory: 'Alliance Victory',
+  turn_limit: 'Turn Limit Victory',
 };
 
 export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {

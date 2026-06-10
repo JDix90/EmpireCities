@@ -239,6 +239,28 @@ function selectDraftTarget(
   return bestTid;
 }
 
+/**
+ * Endgame finisher: weight attacks that can knock a crippled opponent out of
+ * the game so 1–2 territory players don't linger for hundreds of turns.
+ * Easy (and tutorial) AI stays forgiving and gets no bonus.
+ */
+export function eliminationAttackBonus(
+  state: GameState,
+  defenderOwnerId: string | null,
+  difficulty: AiDifficulty,
+): number {
+  if (!defenderOwnerId || difficulty === 'easy' || difficulty === 'tutorial') return 0;
+  const owner = state.players.find((p) => p.player_id === defenderOwnerId);
+  if (!owner || owner.is_eliminated) return 0;
+  const remaining = owner.territory_count ?? 0;
+  if (remaining === 1) return 5;
+  if (remaining === 2) return 2.5;
+  return 0;
+}
+
+/** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
+const FINISHER_OVERCAP = 4;
+
 function selectAttacks(
   state: GameState,
   map: GameMap,
@@ -261,7 +283,7 @@ function selectAttacks(
     : true;
 
   // Build list of viable attacks sorted by favorability
-  const candidates: { from: string; to: string; score: number }[] = [];
+  const candidates: { from: string; to: string; score: number; isFinisher: boolean }[] = [];
 
   // Track planned sea-attack count per source so we don't over-commit fleets.
   // (Each sea attack consumes 1 fleet; the runtime aborts attacks beyond the
@@ -313,9 +335,10 @@ function selectAttacks(
       const seaPenalty = isSeaLane ? -0.5 : 0;
       const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
       const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
-      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + Math.random() * randomFactor * 3;
+      const finisherBonus = eliminationAttackBonus(state, nOwner, difficulty);
+      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
-        candidates.push({ from: tid, to: nid, score });
+        candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {
           plannedSeaAttacksFrom.set(tid, (plannedSeaAttacksFrom.get(tid) ?? 0) + 1);
         }
@@ -325,12 +348,22 @@ function selectAttacks(
 
   candidates.sort((a, b) => b.score - a.score);
 
-  for (let i = 0; i < Math.min(maxAttacks, candidates.length); i++) {
-    const { from, to } = candidates[i];
+  // Kill-shots may exceed the per-turn attack budget (except easy/tutorial):
+  // leaving a 1-territory opponent alive because the cap ran out is the main
+  // way solo games dragged into hundreds of turns.
+  const allowFinisherOvercap = difficulty !== 'easy' && difficulty !== 'tutorial';
+  let picked = 0;
+  for (const candidate of candidates) {
+    const overCap = picked >= maxAttacks;
+    if (overCap && !(allowFinisherOvercap && candidate.isFinisher && picked < maxAttacks + FINISHER_OVERCAP)) {
+      continue;
+    }
+    const { from, to } = candidate;
     const fromState = state.territories[from];
     if (!fromState || fromState.unit_count < 2) continue;
     const attackUnits = Math.min(fromState.unit_count - 1, 3);
     actions.push({ type: 'attack', from, to, units: attackUnits });
+    picked++;
   }
 
   return actions;

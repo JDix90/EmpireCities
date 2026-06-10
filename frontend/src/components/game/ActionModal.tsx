@@ -71,7 +71,7 @@ export interface GameOverModalData {
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
@@ -1001,6 +1001,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
       case 'secret_mission':  return 'Secret Mission completed';
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
       case 'abandoned':       return 'Game ended — no human players remained';
+      case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
       default:                return null;
     }
   };

@@ -875,6 +875,24 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
   const activePlayers = state.players.filter((p) => !p.is_eliminated);
   if (activePlayers.length === 1) return { winnerIds: [activePlayers[0].player_id], condition: 'last_standing' };
 
+  // Stalemate guard: past the configured turn cap, the strongest position
+  // wins outright — most territories, tiebreak most total units. Prevents
+  // solo games from grinding on for hundreds of turns.
+  const maxTurns = state.settings.max_turns;
+  if (typeof maxTurns === 'number' && maxTurns > 0 && state.turn_number > maxTurns) {
+    const unitsByOwner = new Map<string, number>();
+    for (const t of Object.values(state.territories)) {
+      if (!t.owner_id) continue;
+      unitsByOwner.set(t.owner_id, (unitsByOwner.get(t.owner_id) ?? 0) + t.unit_count);
+    }
+    const leader = [...activePlayers].sort((a, b) => {
+      const territoryDiff = (b.territory_count ?? 0) - (a.territory_count ?? 0);
+      if (territoryDiff !== 0) return territoryDiff;
+      return (unitsByOwner.get(b.player_id) ?? 0) - (unitsByOwner.get(a.player_id) ?? 0);
+    })[0];
+    if (leader) return { winnerIds: [leader.player_id], condition: 'turn_limit' };
+  }
+
   const settings = normalizeGameSettings(state.settings);
   const allowed = getAllowedVictoryConditions(settings);
   const totalTerritories = Object.keys(state.territories).length;

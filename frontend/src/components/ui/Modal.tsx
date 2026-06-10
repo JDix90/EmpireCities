@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+import { useEscapeClose } from '../../hooks/useEscapeClose';
 
 interface ModalProps {
   open: boolean;
@@ -9,6 +10,8 @@ interface ModalProps {
   children: React.ReactNode;
   className?: string;
   showCloseButton?: boolean;
+  /** Set false for confirmations that should not be casually dismissed. */
+  closeOnEscape?: boolean;
 }
 
 export default function Modal({
@@ -18,7 +21,9 @@ export default function Modal({
   children,
   className,
   showCloseButton = true,
+  closeOnEscape = true,
 }: ModalProps) {
+  useEscapeClose(onClose, open && closeOnEscape);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto animate-modal-backdrop px-3 py-4 pt-safe pb-safe sm:px-4">

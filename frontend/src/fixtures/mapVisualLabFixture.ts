@@ -5,19 +5,21 @@ export const MAP_VISUAL_LAB_FIXTURE = {
   map_id: 'map-visual-lab',
   map_kind: 'standard' as const,
   projection_bounds: {
-    minLng: -10,
-    maxLng: 20,
-    minLat: 40,
+    minLng: -45,
+    maxLng: 50,
+    minLat: -40,
     maxLat: 55,
   },
   territories: [
+    // Geo boxes are deliberately large so globe tap/click tests can hit them
+    // on small (mobile-sized) canvases.
     {
       territory_id: 'lab_t1',
       name: 'Alpha',
       region_id: 'lab_region',
       polygon: [[50, 50], [250, 50], [250, 180], [50, 180]],
       center_point: [150, 115] as [number, number],
-      geo_polygon: [[0, 50], [10, 50], [10, 52], [0, 52]] as [number, number][],
+      geo_polygon: [[-40, 5], [0, 5], [0, 50], [-40, 50]] as [number, number][],
     },
     {
       territory_id: 'lab_t2',
@@ -25,7 +27,7 @@ export const MAP_VISUAL_LAB_FIXTURE = {
       region_id: 'lab_region',
       polygon: [[260, 50], [460, 50], [460, 180], [260, 180]],
       center_point: [360, 115] as [number, number],
-      geo_polygon: [[11, 50], [20, 50], [20, 52], [11, 52]] as [number, number][],
+      geo_polygon: [[5, 5], [45, 5], [45, 50], [5, 50]] as [number, number][],
     },
     {
       territory_id: 'lab_t3',
@@ -33,7 +35,7 @@ export const MAP_VISUAL_LAB_FIXTURE = {
       region_id: 'lab_region',
       polygon: [[150, 200], [350, 200], [350, 350], [150, 350]],
       center_point: [250, 275] as [number, number],
-      geo_polygon: [[5, 48], [15, 48], [15, 46], [5, 46]] as [number, number][],
+      geo_polygon: [[-20, -35], [20, -35], [20, 0], [-20, 0]] as [number, number][],
     },
   ],
   connections: [

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
+import { emitGameError, GameErrorCode } from './socketErrors';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -243,16 +244,22 @@ async function mutateLockedRoom(
   socket: Socket,
   durationMs: number,
   fn: (room: ActiveGameRoom) => Promise<unknown>,
+  action?: string,
 ): Promise<void> {
   try {
     await withLockedRoom(gameId, fn, { durationMs });
   } catch (err) {
     if (err instanceof GameRoomNotFoundError) {
-      socket.emit('error', { message: 'Game not found' });
+      console.warn('[Socket] Room unavailable for', action ?? 'action', 'on', gameId);
+      emitGameError(
+        socket,
+        GameErrorCode.GAME_NOT_FOUND,
+        'This game is no longer available — it may have ended or been removed.',
+      );
       return;
     }
-    console.error('[Socket] Locked mutation failed for', gameId, err);
-    socket.emit('error', { message: 'Action failed — please try again' });
+    console.error('[Socket] Locked mutation failed for', action ?? 'action', 'on', gameId, err);
+    emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Action failed — please try again');
   }
 }
 
@@ -747,16 +754,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (adv.autoDraft.total > 0) {
           emitAutoDraftMapVisuals(io, gameId, room.state, adv.autoDraft.placements);
         }
+        // Same player continues into the next phase — re-arm their timer first
+        // so the saved/broadcast state carries the fresh phase_deadline_at.
+        startTurnTimer(io, gameId, room.state, room.map);
         io.to(gameId).emit('game:turn_timeout', {
           phaseAdvanced: adv.newPhase,
           appliedDraft: adv.autoDraft.total > 0,
           unitsPlaced: adv.autoDraft.total,
+          deadline_at: room.state.phase_deadline_at ?? null,
         });
         await saveGameState(gameId, room.state);
         broadcastState(io, gameId, room.state);
         maybeEmitCoachingTip(io, gameId, room.state, room.map);
-        // Same player continues into the next phase — restart their timer.
-        startTurnTimer(io, gameId, room.state, room.map);
         return;
       }
 
@@ -819,7 +828,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
            FROM games WHERE game_id = $1`,
           [gameId],
         );
-        if (!game) return socket.emit('error', { message: 'Game not found' });
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
 
         const players = await query<WaitingLobbyPlayerRow>(
           `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
@@ -961,7 +970,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'SELECT game_id, status, map_id FROM games WHERE game_id = $1',
           [gameId],
         );
-        if (!game) return socket.emit('error', { message: 'Game not found' });
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
         if (game.status !== 'in_progress') return socket.emit('error', { message: 'Game is not in progress' });
 
         const spectatorRoom = `${gameId}:spectators`;
@@ -1049,7 +1058,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           [gameId]
         );
         if (!game) {
-          return socket.emit('error', { message: 'Game not found' });
+          return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
         }
         const startAuthError = getStartGameAuthorizationError({
           callerSeat,
@@ -1076,111 +1085,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (game.status !== 'waiting') {
           return socket.emit('error', { message: 'Game cannot be started' });
         }
-        const players = await query<{
-          player_index: number; user_id: string | null; username: string | null;
-          player_color: string; is_ai: boolean; ai_difficulty: string | null;
-          faction_id: string | null;
-        }>(
-          `SELECT gp.player_index, gp.user_id, u.username, gp.player_color, gp.is_ai, gp.ai_difficulty,
-                  gp.faction_id
-           FROM game_players gp
-           LEFT JOIN users u ON u.user_id = gp.user_id
-           WHERE gp.game_id = $1
-           ORDER BY gp.player_index`,
-          [gameId]
-        );
-
-        // Load map (tutorial maps are hardcoded; others from Postgres via getMapById)
-        const gameMap = await resolveMap(game.map_id);
-        if (!gameMap) return socket.emit('error', { message: 'Map not found' });
-
-        const playerStates = players.map((p) => ({
-          player_id: p.user_id ?? `ai_${p.player_index}`,
-          player_index: p.player_index,
-          username: p.username ?? `AI Bot ${p.player_index}`,
-          color: p.player_color,
-          is_ai: p.is_ai,
-          ai_difficulty: (p.ai_difficulty as AiDifficulty) ?? undefined,
-          is_eliminated: false,
-          mmr: 1000,
-          faction_id: p.faction_id ?? undefined,
-        }));
-
-        const settings = game.settings_json as GameState['settings'];
-        const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings);
-
-        const puzzleSpec = getDailyPuzzleSpec(state);
-        if (puzzleSpec) {
-          const humanId = playerStates.find((p) => !p.is_ai)?.player_id;
-          const aiP = playerStates.find((p) => p.is_ai);
-          const aiId = aiP?.player_id ?? `ai_${aiP?.player_index ?? 1}`;
-          if (humanId) {
-            applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanId, aiId);
-          }
-        }
-
-        applyTutorialModuleBoost(state);
-
-        const socketsInRoom = await io.in(gameId).fetchSockets();
-        getOrBuildAdjacency(gameMap);
-        setCachedRoom(gameId, state, gameMap);
-        for (const s of socketsInRoom) {
-          const remoteUserId = s.data?.userId as string | undefined;
-          if (remoteUserId) {
-            await onPlayerConnected(gameId, s.id, remoteUserId);
-          }
-        }
-
-        // Compute game_type based on actual player composition at start
-        const humanCount = players.filter((p) => !p.is_ai).length;
-        const aiPlayerCount = players.filter((p) => p.is_ai).length;
-        const gameType = aiPlayerCount === 0 ? 'multiplayer' : humanCount <= 1 ? 'solo' : 'hybrid';
-
-        // Stamp the game-start time once, used by the post-game modal to
-        // display total duration. Must come before save below so reconnects
-        // see the same value.
-        state.game_started_at = Date.now();
-
-        // In-turn coaching eligibility — locked at game start so it can't be
-        // weaponised mid-game by replacing humans with AI. Eligibility requires:
-        //   • exactly one human player (to prevent giving one of two humans an edge),
-        //   • every other seat is AI,
-        //   • the game is not ranked (coaching is a casual aid).
-        state.coaching_eligible = humanCount === 1 && aiPlayerCount >= 1 && !game.is_ranked;
-        if (!state.coaching_eligible && state.settings.coaching_enabled) {
-          // Player asked for coaching but game doesn't qualify — clear the flag.
-          state.settings.coaching_enabled = undefined;
-        }
-
-        // Update DB
-        await query('UPDATE games SET status = $1, started_at = NOW(), game_type = $2 WHERE game_id = $3', ['in_progress', gameType, gameId]);
-        await saveGameMapAuthoritative(gameId, gameMap);
-        await flushGameState(gameId, state);
-        lobbyProposalsByGame.delete(gameId);
-
-        io.to(gameId).emit('game:started', buildGameStartedPayload(gameId, state));
-        // Send the resolved map to every player in the room so client code
-        // never has to re-fetch via REST during play (private/pending custom
-        // maps would otherwise be invisible to non-creator participants).
-        io.to(gameId).emit('game:map', { mapId: state.map_id, map: gameMap });
-        broadcastState(io, gameId, state);
-
-        // Increment play count for community/era maps. Server-triggered only:
-        // the public REST endpoint that used to do this was unauthenticated
-        // and could be hammered to inflate counts.
-        void incrementPlayCount(game.map_id).catch((err) => {
-          console.error('[Socket] Failed to increment map play count:', err);
-        });
-
-        // If first player is AI, trigger AI turn (or AI territory select); otherwise start turn timer
-        if (state.players[state.current_player_index].is_ai) {
-          if (state.phase === 'territory_select') {
-            setTimeout(() => processAiTerritorySelect(io, gameId), 800);
-          } else {
-            setTimeout(() => processAiTurn(io, gameId), 1500);
-          }
-        } else {
-          startTurnTimer(io, gameId, state, gameMap);
+        const result = await startWaitingGameLocked(io, gameId);
+        if (!result.ok) {
+          return socket.emit('error', { message: result.error });
         }
         });
       } catch (err) {
@@ -1878,7 +1785,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const fortifyMoveLimit = getFortifyMoveLimit(state, userId);
       const movesUsed = state.fortify_moves_used ?? 0;
       if (movesUsed >= fortifyMoveLimit) {
-        return socket.emit('error', { message: `Fortify limit reached (${fortifyMoveLimit} moves per turn)` });
+        return socket.emit('error', {
+          message: fortifyMoveLimit === 1
+            ? 'You can only fortify once per turn.'
+            : `Fortify limit reached (${fortifyMoveLimit} moves per turn)`,
+        });
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
@@ -2675,7 +2586,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);
@@ -2748,7 +2659,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_vote', async ({ gameId, proposalId, approve }: { gameId: string; proposalId: string; approve: boolean }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return socket.emit('error', { message: 'Game not found' });
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);
@@ -3002,6 +2913,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!player || player.is_eliminated) return socket.emit('error', { message: 'Cannot resign' });
 
       player.is_eliminated = true;
+      player.has_resigned = true;
 
       // Make all their territories neutral (unowned)
       for (const t of Object.values(state.territories)) {
@@ -3351,6 +3263,147 @@ function buildGameStartedPayload(gameId: string, state: GameState): {
   };
 }
 
+export type StartGameResult =
+  | { ok: true }
+  | { ok: false; code: 'NOT_FOUND' | 'ALREADY_STARTED' | 'INVALID_STATUS' | 'MAP_NOT_FOUND'; error: string };
+
+/**
+ * Transition a waiting game to in_progress: initialize state, cache the room,
+ * broadcast game:started/map/state, and kick off the first AI turn or the
+ * human turn timer. Caller must hold the game lock (see startWaitingGame).
+ * Shared by the game:start socket handler and auto-start game creation.
+ */
+async function startWaitingGameLocked(io: Server, gameId: string): Promise<StartGameResult> {
+  const game = await queryOne<{
+    game_id: string; era_id: string; map_id: string; status: string; settings_json: object;
+    is_ranked: boolean;
+  }>(
+    'SELECT game_id, era_id, map_id, status, settings_json, COALESCE(is_ranked, false) AS is_ranked FROM games WHERE game_id = $1',
+    [gameId],
+  );
+  if (!game) return { ok: false, code: 'NOT_FOUND', error: 'Game not found' };
+  if (game.status === 'in_progress') return { ok: false, code: 'ALREADY_STARTED', error: 'Game already started' };
+  if (game.status !== 'waiting') return { ok: false, code: 'INVALID_STATUS', error: 'Game cannot be started' };
+
+  const players = await query<{
+    player_index: number; user_id: string | null; username: string | null;
+    player_color: string; is_ai: boolean; ai_difficulty: string | null;
+    faction_id: string | null;
+  }>(
+    `SELECT gp.player_index, gp.user_id, u.username, gp.player_color, gp.is_ai, gp.ai_difficulty,
+            gp.faction_id
+     FROM game_players gp
+     LEFT JOIN users u ON u.user_id = gp.user_id
+     WHERE gp.game_id = $1
+     ORDER BY gp.player_index`,
+    [gameId],
+  );
+
+  // Load map (tutorial maps are hardcoded; others from Postgres via getMapById)
+  const gameMap = await resolveMap(game.map_id);
+  if (!gameMap) return { ok: false, code: 'MAP_NOT_FOUND', error: 'Map not found' };
+
+  const playerStates = players.map((p) => ({
+    player_id: p.user_id ?? `ai_${p.player_index}`,
+    player_index: p.player_index,
+    username: p.username ?? `AI Bot ${p.player_index}`,
+    color: p.player_color,
+    is_ai: p.is_ai,
+    ai_difficulty: (p.ai_difficulty as AiDifficulty) ?? undefined,
+    is_eliminated: false,
+    mmr: 1000,
+    faction_id: p.faction_id ?? undefined,
+  }));
+
+  const settings = game.settings_json as GameState['settings'];
+  const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings);
+
+  const puzzleSpec = getDailyPuzzleSpec(state);
+  if (puzzleSpec) {
+    const humanId = playerStates.find((p) => !p.is_ai)?.player_id;
+    const aiP = playerStates.find((p) => p.is_ai);
+    const aiId = aiP?.player_id ?? `ai_${aiP?.player_index ?? 1}`;
+    if (humanId) {
+      applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanId, aiId);
+    }
+  }
+
+  applyTutorialModuleBoost(state);
+
+  const socketsInRoom = await io.in(gameId).fetchSockets();
+  getOrBuildAdjacency(gameMap);
+  setCachedRoom(gameId, state, gameMap);
+  for (const s of socketsInRoom) {
+    const remoteUserId = s.data?.userId as string | undefined;
+    if (remoteUserId) {
+      await onPlayerConnected(gameId, s.id, remoteUserId);
+    }
+  }
+
+  // Compute game_type based on actual player composition at start
+  const humanCount = players.filter((p) => !p.is_ai).length;
+  const aiPlayerCount = players.filter((p) => p.is_ai).length;
+  const gameType = aiPlayerCount === 0 ? 'multiplayer' : humanCount <= 1 ? 'solo' : 'hybrid';
+
+  // Stamp the game-start time once, used by the post-game modal to
+  // display total duration. Must come before save below so reconnects
+  // see the same value.
+  state.game_started_at = Date.now();
+
+  // In-turn coaching eligibility — locked at game start so it can't be
+  // weaponised mid-game by replacing humans with AI. Eligibility requires:
+  //   • exactly one human player (to prevent giving one of two humans an edge),
+  //   • every other seat is AI,
+  //   • the game is not ranked (coaching is a casual aid).
+  state.coaching_eligible = humanCount === 1 && aiPlayerCount >= 1 && !game.is_ranked;
+  if (!state.coaching_eligible && state.settings.coaching_enabled) {
+    // Player asked for coaching but game doesn't qualify — clear the flag.
+    state.settings.coaching_enabled = undefined;
+  }
+
+  // Update DB
+  await query('UPDATE games SET status = $1, started_at = NOW(), game_type = $2 WHERE game_id = $3', ['in_progress', gameType, gameId]);
+  await saveGameMapAuthoritative(gameId, gameMap);
+  await flushGameState(gameId, state);
+  lobbyProposalsByGame.delete(gameId);
+
+  io.to(gameId).emit('game:started', buildGameStartedPayload(gameId, state));
+  // Send the resolved map to every player in the room so client code
+  // never has to re-fetch via REST during play (private/pending custom
+  // maps would otherwise be invisible to non-creator participants).
+  io.to(gameId).emit('game:map', { mapId: state.map_id, map: gameMap });
+  broadcastState(io, gameId, state);
+
+  // Increment play count for community/era maps. Server-triggered only:
+  // the public REST endpoint that used to do this was unauthenticated
+  // and could be hammered to inflate counts.
+  void incrementPlayCount(game.map_id).catch((err) => {
+    console.error('[Socket] Failed to increment map play count:', err);
+  });
+
+  // If first player is AI, trigger AI turn (or AI territory select); otherwise start turn timer
+  if (state.players[state.current_player_index].is_ai) {
+    if (state.phase === 'territory_select') {
+      setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+    } else {
+      setTimeout(() => processAiTurn(io, gameId), 1500);
+    }
+  } else {
+    startTurnTimer(io, gameId, state, gameMap);
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Lock-acquiring wrapper for callers outside the socket layer (e.g. the
+ * auto-start path in POST /api/games). The game:start handler calls the
+ * locked variant directly because it already holds the game lock.
+ */
+export async function startWaitingGame(io: Server, gameId: string): Promise<StartGameResult> {
+  return runWithGameLock(gameId, () => startWaitingGameLocked(io, gameId));
+}
+
 function broadcastState(io: Server, gameId: string, state: GameState): void {
     // Runtime tripwire: no owned territory should ever have 0 units. If this
     // ever fires, a game-engine path wrote an illegal state (leave-1 rule
@@ -3404,6 +3457,12 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 
   const human = state.players.find((p) => !p.is_ai);
   if (!human) return;
+
+  if (tip.category === 'resign_suggestion') {
+    // One-shot per game — stamped on the cached room state and persisted by
+    // the next save, so the prompt never nags.
+    state.resign_suggestion_shown = true;
+  }
 
   io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
 }
@@ -4928,6 +4987,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
   clearTurnTimer(gameId, state);
+  state.phase_deadline_at = null;
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
   const currentPlayer = state.players[state.current_player_index];
@@ -4936,6 +4996,8 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   // ── Async mode: use persistent BullMQ job instead of in-memory timer ──
   if (state.settings.async_mode) {
     const deadlineSec = state.settings.async_turn_deadline_seconds ?? seconds;
+    state.phase_deadline_at = Date.now() + deadlineSec * 1000;
+    emitPhaseDeadline(io, gameId, state);
     // Write deadline to DB for querying
     query(
       'UPDATE games SET async_turn_deadline = NOW() + INTERVAL \'1 second\' * $1 WHERE game_id = $2',
@@ -4954,8 +5016,23 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   }
 
   // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
+  state.phase_deadline_at = Date.now() + seconds * 1000;
+  emitPhaseDeadline(io, gameId, state);
   scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
     console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
+  });
+}
+
+/**
+ * Push the freshly-armed timer deadline to connected clients. State broadcasts
+ * carry `phase_deadline_at` too, but several flows broadcast before the timer
+ * is re-armed — this keeps countdowns accurate without reordering every caller.
+ */
+function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
+  io.to(gameId).emit('game:phase_deadline', {
+    deadline_at: state.phase_deadline_at,
+    phase: state.phase,
+    turn_number: state.turn_number,
   });
 }
 

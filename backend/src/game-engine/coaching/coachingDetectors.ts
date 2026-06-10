@@ -31,6 +31,10 @@ import type {
 
 const PROBABILITY_DROP_THRESHOLD = 0.05;
 const REGION_PROGRESS_THRESHOLD = 0.7;
+/** Resign suggestion: win probability below this … */
+const RESIGN_PROBABILITY_THRESHOLD = 0.05;
+/** … for this many consecutive snapshots (one per round). */
+const RESIGN_SNAPSHOT_STREAK = 10;
 
 interface DetectorContext {
   state: GameState;
@@ -51,6 +55,33 @@ function buildOwnedByPlayer(state: GameState): Map<string, Set<string>> {
   }
   return result;
 }
+
+/**
+ * Detector 0 — The game has been effectively lost for a long stretch:
+ * win probability under RESIGN_PROBABILITY_THRESHOLD for the last
+ * RESIGN_SNAPSHOT_STREAK consecutive snapshots. Fires at most once per game
+ * (the dispatcher stamps `resign_suggestion_shown` after emitting). The tip
+ * only ever *suggests* — resigning stays a player decision with the normal
+ * confirmation flow.
+ */
+const resignSuggestionDetector: Detector = ({ state, human }) => {
+  if (state.resign_suggestion_shown) return null;
+  const history = state.win_probability_history ?? [];
+  if (history.length < RESIGN_SNAPSHOT_STREAK) return null;
+
+  const recent = history.slice(-RESIGN_SNAPSHOT_STREAK);
+  for (const snapshot of recent) {
+    const prob = snapshot.probabilities[human.player_id];
+    if (prob == null || prob >= RESIGN_PROBABILITY_THRESHOLD) return null;
+  }
+
+  return {
+    turn: state.turn_number,
+    category: 'resign_suggestion',
+    title: 'This one looks out of reach',
+    body: `Your win probability has been under ${Math.round(RESIGN_PROBABILITY_THRESHOLD * 100)}% for ${RESIGN_SNAPSHOT_STREAK} rounds. Fighting on is always your call — comebacks happen — but resigning ends it cleanly and gets you into a fresh match sooner.`,
+  };
+};
 
 /** Detector 1 — Win probability dropped meaningfully last turn. */
 const probabilityDropDetector: Detector = ({ state, human }) => {
@@ -222,6 +253,7 @@ const thinBorderDetector: Detector = ({ state, map, human }) => {
 
 /** Detectors in priority order. The first one that produces a tip wins. */
 const DETECTORS: Detector[] = [
+  resignSuggestionDetector,
   probabilityDropDetector,
   opponentRegionThreatDetector,
   regionOpportunityDetector,
@@ -261,6 +293,7 @@ export function evaluateCoachingTip(state: GameState, map: GameMap): CoachingTip
 
 /** Test helper: list all category ids in priority order. */
 export const DETECTOR_PRIORITY: CoachingTipCategory[] = [
+  'resign_suggestion',
   'probability_drop',
   'opponent_region_threat',
   'region_opportunity',

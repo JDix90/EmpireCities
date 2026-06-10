@@ -2,7 +2,7 @@ import { pgPool } from '../../db/postgres';
 import type { GameState, PlayerState } from '../../types';
 import {
   glickoUpdate,
-  placementScore,
+  scoreVsOpponent,
   syntheticAiOpponent,
   getInitialRatings,
 } from '../rating/ratingService';
@@ -30,19 +30,26 @@ export function computeRanks(players: PlayerState[], winnerId: string): Map<stri
   const ranks = new Map<string, number>();
   ranks.set(winnerId, 1);
 
-  const eliminated = players
-    .filter((p) => p.is_eliminated && p.player_id !== winnerId)
+  // Survivors (non-eliminated, non-winner) outrank the eliminated.
+  const survivors = players
+    .filter((p) => !p.is_eliminated && p.player_id !== winnerId)
     .sort((a, b) => (b.territory_count ?? 0) - (a.territory_count ?? 0));
 
+  // Resigners always rank below players who fought until elimination,
+  // regardless of how many territories they abandoned.
+  const eliminated = players
+    .filter((p) => p.is_eliminated && p.player_id !== winnerId)
+    .sort((a, b) => {
+      if (!!a.has_resigned !== !!b.has_resigned) return a.has_resigned ? 1 : -1;
+      return (b.territory_count ?? 0) - (a.territory_count ?? 0);
+    });
+
   let rank = 2;
-  for (const p of eliminated) {
+  for (const p of survivors) {
     ranks.set(p.player_id, rank++);
   }
-
-  for (const p of players) {
-    if (!ranks.has(p.player_id)) {
-      ranks.set(p.player_id, rank++);
-    }
+  for (const p of eliminated) {
+    ranks.set(p.player_id, rank++);
   }
 
   return ranks;
@@ -122,6 +129,8 @@ export async function recordGameResults(
 
       const current = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
 
+      const isWinner = p.player_id === winnerId;
+
       // Build opponent list
       const opponents = [];
       for (const other of humanPlayers) {
@@ -130,16 +139,18 @@ export async function recordGameResults(
         opponents.push({
           mu: otherRating.mu,
           phi: otherRating.phi,
-          score: placementScore(rank, totalPlayers),
+          score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: false }),
         });
       }
-      // For solo/hybrid games, treat AI bots as synthetic opponents
+      // For solo/hybrid games, treat AI bots as synthetic opponents.
+      // Only a win scores against AI — losses and resignations cannot
+      // farm rating from AI placement padding.
       for (const ai of aiPlayers) {
         const aiOp = syntheticAiOpponent(ai.ai_difficulty ?? 'medium');
         opponents.push({
           mu: aiOp.mu,
           phi: aiOp.phi,
-          score: placementScore(rank, totalPlayers),
+          score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: true }),
         });
       }
 

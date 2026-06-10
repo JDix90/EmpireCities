@@ -37,6 +37,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    username?: string; email?: string; password?: string; confirm?: string;
+  }>({});
   const [ageGateVisible, setAgeGateVisible] = useState(false);
   const [ageDenied, setAgeDenied] = useState(false);
   const { register, isLoading } = useAuthStore();
@@ -73,10 +76,20 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirm) {
-      toast.error('Passwords do not match');
-      return;
-    }
+    // Styled inline validation instead of native browser bubbles.
+    const errors: typeof fieldErrors = {};
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) errors.username = 'Choose a commander name.';
+    else if (trimmedUsername.length < 3 || trimmedUsername.length > 32) errors.username = 'Username must be 3–32 characters.';
+    else if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) errors.username = 'Letters, numbers, and underscores only.';
+    if (!email.trim()) errors.email = 'Enter your email address.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = 'Enter a valid email address.';
+    if (!password) errors.password = 'Choose a password.';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters.';
+    if (!confirm) errors.confirm = 'Repeat your password.';
+    else if (password && password !== confirm) errors.confirm = 'Passwords do not match.';
+    setFieldErrors(errors);
+    if (Object.values(errors).some(Boolean)) return;
     const cleanedUsername = normalizeIdentifier(username);
     const cleanedEmail = normalizeEmail(email);
     try {
@@ -144,14 +157,17 @@ export default function RegisterPage() {
                 className="input"
                 placeholder="YourCommanderName"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                minLength={3}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (fieldErrors.username) setFieldErrors((f) => ({ ...f, username: undefined }));
+                }}
                 maxLength={32}
-                pattern="^[a-zA-Z0-9_]+$"
-                title="Letters, numbers, and underscores only"
+                aria-invalid={!!fieldErrors.username}
                 autoComplete="username"
               />
+              {fieldErrors.username && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.username}</p>
+              )}
               <p className="text-xs text-bf-muted mt-1">Letters, numbers, and underscores only (3–32 characters)</p>
             </div>
             <div>
@@ -161,10 +177,16 @@ export default function RegisterPage() {
                 className="input"
                 placeholder="commander@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: undefined }));
+                }}
+                aria-invalid={!!fieldErrors.email}
                 autoComplete="email"
               />
+              {fieldErrors.email && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.email}</p>
+              )}
             </div>
             <div>
               <label className="label">Password</label>
@@ -174,9 +196,11 @@ export default function RegisterPage() {
                   className="input pr-11"
                   placeholder="Minimum 8 characters"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }));
+                  }}
+                  aria-invalid={!!fieldErrors.password}
                   autoComplete="new-password"
                 />
                 <button
@@ -188,6 +212,9 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.password}</p>
+              )}
             </div>
             <div>
               <label className="label">Confirm Password</label>
@@ -197,8 +224,11 @@ export default function RegisterPage() {
                   className="input pr-11"
                   placeholder="Repeat your password"
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setConfirm(e.target.value);
+                    if (fieldErrors.confirm) setFieldErrors((f) => ({ ...f, confirm: undefined }));
+                  }}
+                  aria-invalid={!!fieldErrors.confirm}
                   autoComplete="new-password"
                 />
                 <button
@@ -210,6 +240,9 @@ export default function RegisterPage() {
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {fieldErrors.confirm && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.confirm}</p>
+              )}
             </div>
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>
               {isLoading ? 'Creating account...' : 'Create Account'}

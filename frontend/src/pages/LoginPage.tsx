@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({});
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -29,6 +30,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Styled inline validation instead of the browser's native bubbles,
+    // matching the rest of the app's error presentation.
+    const errors: { identifier?: string; password?: string } = {};
+    if (!emailOrUsername.trim()) errors.identifier = 'Enter your email or username.';
+    if (!password) errors.password = 'Enter your password.';
+    setFieldErrors(errors);
+    if (errors.identifier || errors.password) return;
     // Trim whitespace and lowercase if the user pasted an email — copy/paste
     // from email clients routinely adds a trailing space or "Name <email>"
     // wrappers; we can't fix the latter but the former silently produced a
@@ -80,10 +88,16 @@ export default function LoginPage() {
                 className="input"
                 placeholder="commander@example.com or username"
                 value={emailOrUsername}
-                onChange={(e) => setEmailOrUsername(e.target.value)}
-                required
+                onChange={(e) => {
+                  setEmailOrUsername(e.target.value);
+                  if (fieldErrors.identifier) setFieldErrors((f) => ({ ...f, identifier: undefined }));
+                }}
+                aria-invalid={!!fieldErrors.identifier}
                 autoComplete="username"
               />
+              {fieldErrors.identifier && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.identifier}</p>
+              )}
             </div>
             <div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
@@ -104,8 +118,11 @@ export default function LoginPage() {
                   className="input pr-11"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }));
+                  }}
+                  aria-invalid={!!fieldErrors.password}
                   autoComplete="current-password"
                 />
                 <button
@@ -117,6 +134,9 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.password}</p>
+              )}
             </div>
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}

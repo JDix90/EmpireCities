@@ -18,15 +18,17 @@ export default function ConnectionHintsSetting({
   denseMap = false,
   compact = false,
 }: ConnectionHintsSettingProps) {
+  const explainer = denseMap
+    ? 'This map is dense — Auto uses border highlights instead of animated lines.'
+    : 'Control animated lines between territories during attack and fortify.';
+
   return (
-    <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
+    <div className={compact ? 'space-y-1.5' : 'space-y-2'} title={compact ? explainer : undefined}>
       <div>
         <p className="text-sm text-bf-muted">Connection hints</p>
         {!compact && (
           <p className="text-[11px] text-bf-muted/80 mt-0.5 leading-snug">
-            {denseMap
-              ? 'This map is dense — Auto uses border highlights instead of animated lines.'
-              : 'Control animated lines between territories during attack and fortify.'}
+            {explainer}
           </p>
         )}
       </div>

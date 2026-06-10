@@ -38,6 +38,7 @@ function buildLabGameState(): GameState {
       player_id: p.player_id,
       user_id: `u${i + 1}`,
       username: i === 0 ? 'Attacker' : 'Defender',
+      color: p.color,
       color_hex: p.color,
       territory_count: 2,
       cards: [],
@@ -138,6 +139,9 @@ export default function MapVisualLabPage() {
   }, [searchParams, trigger]);
 
   const mapHeight = useMemo(() => Math.max(360, window.innerHeight - 180), []);
+  const mapWidth = useMemo(() => Math.min(900, Math.max(280, window.innerWidth - 32)), []);
+  // Last clicked/tapped territory — exposed for e2e tests (mobile tap regression).
+  const [lastTerritoryClick, setLastTerritoryClick] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-bf-dark text-bf-text flex flex-col">
@@ -180,13 +184,17 @@ export default function MapVisualLabPage() {
         ))}
       </div>
 
-      <div className="flex-1 min-h-0 p-4">
+      <div
+        className="flex-1 min-h-0 p-4"
+        data-testid="lab-map-wrap"
+        data-last-territory-click={lastTerritoryClick ?? undefined}
+      >
         <div className="h-full max-h-[calc(100vh-180px)] rounded-lg overflow-hidden">
           {view === '2d' ? (
             <GameMap
               mapData={MAP_VISUAL_LAB_FIXTURE}
-              onTerritoryClick={() => {}}
-              width={900}
+              onTerritoryClick={setLastTerritoryClick}
+              width={mapWidth}
               height={mapHeight}
               mapVisualEvents={mapVisualEvents}
               onMapVisualDone={onMapVisualDone}
@@ -196,8 +204,8 @@ export default function MapVisualLabPage() {
             <Suspense fallback={<div className="text-bf-muted animate-pulse p-8">Loading globe…</div>}>
               <GlobeMapLazy
                 mapData={MAP_VISUAL_LAB_FIXTURE}
-                onTerritoryClick={() => {}}
-                width={900}
+                onTerritoryClick={setLastTerritoryClick}
+                width={mapWidth}
                 height={mapHeight}
                 events={globeEvents}
                 onEventDone={onMapVisualDone}

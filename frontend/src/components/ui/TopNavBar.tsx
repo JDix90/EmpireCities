@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  HelpCircle, Map, Calendar, PenSquare, Users, Trophy, Eye, User, FileText, Home, LogOut, Swords, Shield, Settings, Coins
+  Map, Calendar, PenSquare, Users, Trophy, Eye, Home, Swords, Shield, Coins
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
+import UserMenu from './UserMenu';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
 import { useMapEditorEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
@@ -91,14 +92,6 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
             <span className="tabular-nums">{gold.toLocaleString()}</span>
           </Link>
         )}
-        <Link
-          to="/profile"
-          className={isActive('/profile') ? `${styles.navLink} ${styles.active}` : styles.navLink}
-          aria-current={isActive('/profile') ? 'page' : undefined}
-          title="Profile"
-        >
-          <User className={styles.icon} /> {user?.username ?? 'Profile'}
-        </Link>
         {!user?.is_guest && (
           <Link
             to="/friends"
@@ -109,35 +102,14 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
             <Users className={styles.icon} /> Friends
           </Link>
         )}
-        <Link
-          to="/privacy"
-          className={isActive('/privacy') ? `${styles.navLink} ${styles.active}` : styles.navLink}
-          aria-current={isActive('/privacy') ? 'page' : undefined}
-          title="Privacy"
-        >
-          <FileText className={styles.icon} /> Privacy
-        </Link>
-        <Link
-          to="/how-to-play"
-          className={isActive('/how-to-play') ? `${styles.navLink} ${styles.active}` : styles.navLink}
-          aria-current={isActive('/how-to-play') ? 'page' : undefined}
-          title="How to Play"
-        >
-          <HelpCircle className={styles.icon} /> Help
-        </Link>
-        {!user?.is_guest && (
-          <Link
-            to="/settings"
-            className={isActive('/settings') ? `${styles.navLink} ${styles.active}` : styles.navLink}
-            aria-current={isActive('/settings') ? 'page' : undefined}
-            title="Settings"
-          >
-            <Settings className={styles.icon} /> Settings
-          </Link>
-        )}
-        <button type="button" onClick={onLogout} className={styles.navLink + ' hover:text-red-400'} title="Logout">
-          <LogOut className={styles.icon} /> Logout
-        </button>
+        {/* Profile/Settings/Help/Privacy/Logout collapse into the account menu. */}
+        <UserMenu
+          username={user?.username ?? 'Profile'}
+          isGuest={!!user?.is_guest}
+          onLogout={onLogout}
+          triggerClassName={isActive('/profile') ? `${styles.navLink} ${styles.active}` : styles.navLink}
+          iconClassName={styles.icon}
+        />
       </div>
     </nav>
   );

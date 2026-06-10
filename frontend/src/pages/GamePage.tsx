@@ -6,6 +6,8 @@ import { useGameStore, CombatResult, type GameState as ClientGameState } from '.
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
+import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
+import { plural } from '../utils/plural';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
@@ -17,6 +19,7 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
+import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
@@ -608,6 +611,8 @@ export default function GamePage() {
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
+  /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
+  const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
   const [notifState, setNotifState] = useState<{ data: NotificationData; key: number } | null>(null);
   const notifCounter = useRef(0);
   const [coachingTip, setCoachingTip] = useState<{
@@ -914,15 +919,19 @@ export default function GamePage() {
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
           ownTurnFortificationsRef.current = [];
+          // My turn just ended — recaps gathered for it are stale now.
+          setAiRecaps([]);
         } else if (prevPlayer && !prevPlayer.is_eliminated) {
+          // Other players' turns accumulate into the non-blocking
+          // "While you were away" panel instead of queued modals that
+          // intercept input while the local player's clock runs.
           const combats = [...otherTurnCombatsRef.current];
-          setModalQueue(q => [...q, {
-            type: 'turn_summary' as const,
+          setAiRecaps(prev => appendRecap(prev, {
             playerName: prevPlayer.username,
             playerColor: prevPlayer.color,
             turnNumber: state.turn_number,
             combats,
-          }]);
+          }));
         }
         otherTurnCombatsRef.current = [];
       }
@@ -1105,7 +1114,9 @@ export default function GamePage() {
       // Always append to combat log sidebar
       let logEntry = `${attackerName} attacked ${toName} from ${fromName}`;
       if (attacker_losses > 0 && defender_losses > 0) {
-        logEntry += ` — both sides lost ${attacker_losses === defender_losses ? `${attacker_losses}` : `${attacker_losses} and ${defender_losses}`} troops`;
+        logEntry += attacker_losses === defender_losses
+          ? ` — both sides lost ${plural(attacker_losses, 'troop')}`
+          : ` — both sides lost troops (${attacker_losses} attacking, ${defender_losses} defending)`;
       } else if (attacker_losses > 0) {
         logEntry += ` — lost ${attacker_losses} troop${attacker_losses > 1 ? 's' : ''}`;
       } else if (defender_losses > 0) {
@@ -1153,7 +1164,7 @@ export default function GamePage() {
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
+      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
       combat_stats?: Record<string, {
@@ -1424,12 +1435,38 @@ export default function GamePage() {
       });
     });
 
-    socket.on('error', ({ message }: { message: string }) => {
+    // Timer re-armed server-side (fresh phase clock after a timeout, new turn,
+    // etc.) — refresh the countdown immediately rather than waiting for the
+    // next full state broadcast.
+    socket.on('game:phase_deadline', ({ deadline_at }: { deadline_at: number | null }) => {
+      const gs = useGameStore.getState().gameState;
+      if (gs) setGameState({ ...gs, phase_deadline_at: deadline_at });
+    });
+
+    // The active player's clock ran out and the server auto-advanced a phase
+    // (or ended the turn). Tell the affected player what just happened — the
+    // event arrives before the state broadcast, so the local current player
+    // is still the one who timed out.
+    socket.on('game:turn_timeout', (payload: TurnTimeoutPayload) => {
+      const gs = useGameStore.getState().gameState;
+      const myId = userRef.current?.user_id;
+      const seatPid =
+        joinPlayerIndexRef.current != null && gs
+          ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
+          : null;
+      const currentPid = gs?.players[gs.current_player_index]?.player_id;
+      if (!currentPid || (currentPid !== myId && currentPid !== seatPid)) return;
+      const message = turnTimeoutToastMessage(payload);
+      if (message) toast(message, { icon: '⏰', duration: 6000 });
+    });
+
+    socket.on('error', ({ message, code }: { message: string; code?: string }) => {
+      const isGameNotFound = code === 'GAME_NOT_FOUND' || message === 'Game not found';
       if (
         message === 'Failed to start game' ||
-        message === 'Game not found' ||
         message === 'Game cannot be started' ||
-        message === 'Map not found'
+        message === 'Map not found' ||
+        isGameNotFound
       ) {
         setIsStartingGame(false);
       }
@@ -1440,7 +1477,7 @@ export default function GamePage() {
       if (!useGameStore.getState().gameState) {
         if (
           message === 'Not a participant in this game' ||
-          message === 'Game not found'
+          isGameNotFound
         ) {
           if (lobbyTimeoutRef.current) {
             clearTimeout(lobbyTimeoutRef.current);
@@ -1453,6 +1490,12 @@ export default function GamePage() {
           );
           return;
         }
+      } else if (isGameNotFound) {
+        // The room vanished mid-game (evicted/finished server-side). A toast
+        // alone leaves the player acting on a dead board — send them home.
+        toast.error(message);
+        navigate('/lobby');
+        return;
       }
       // Many gameplay errors (invalid attack target, not enough units,
       // territory not adjacent, build prereqs not met, etc.) come back here
@@ -1623,6 +1666,8 @@ export default function GamePage() {
       socket.off('game:truce_proposal');
       socket.off('game:truce_result');
       socket.off('game:truce_broken');
+      socket.off('game:phase_deadline');
+      socket.off('game:turn_timeout');
       socket.off('error');
       socket.off('game:wonder_built');
       socket.off('game:strike_animation');
@@ -1846,7 +1891,7 @@ export default function GamePage() {
       ownTurnFortificationsRef.current.push({ fromName, toName, units });
       showNotification({
         type: 'fortify',
-        text: `Moved ${units} troops: ${fromName} → ${toName}`,
+        text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
         icon: 'arrow',
         accentBg: 'bg-sky-500/20',
         accentBorder: 'border-sky-500/30',
@@ -3404,6 +3449,9 @@ export default function GamePage() {
             </>
           )}
 
+          {/* Non-blocking recap of other players' turns (replaces queued modals) */}
+          <AiTurnRecapPanel recaps={aiRecaps} onDismiss={() => setAiRecaps([])} />
+
           {/* Backdrop when territory sheet is fully expanded (tap to collapse to peek) */}
           {selectedTerritory && territorySheetSnap === 'full' && (
             <button
@@ -3950,6 +3998,25 @@ export default function GamePage() {
                 <p className="text-amber-200 text-xs font-semibold uppercase tracking-wider">Coaching</p>
                 <p className="text-sm text-white/90 font-medium mt-1">{coachingTip.title}</p>
                 <p className="text-xs text-white/70 mt-1">{coachingTip.body}</p>
+                {coachingTip.category === 'resign_suggestion' && (
+                  <div className="flex gap-2 mt-2.5">
+                    <button
+                      onClick={() => setCoachingTip(null)}
+                      className="btn-secondary text-xs px-3 py-1.5"
+                    >
+                      Keep playing
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCoachingTip(null);
+                        handleResignRequest();
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                    >
+                      Resign…
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setCoachingTip(null)}

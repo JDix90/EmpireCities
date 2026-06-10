@@ -17,7 +17,7 @@ export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | '
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
-export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory' | 'abandoned';
+export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory' | 'abandoned' | 'turn_limit';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =
@@ -104,6 +104,8 @@ export interface PlayerState {
   is_ai: boolean;
   ai_difficulty?: AiDifficulty;
   is_eliminated: boolean;
+  /** True when the player voluntarily resigned (ranks below other eliminated players). */
+  has_resigned?: boolean;
   territory_count: number;
   cards: TerritoryCard[];
   mmr: number;
@@ -217,6 +219,12 @@ export interface GameSettings {
   /** OR semantics: a player wins if they satisfy any listed condition (plus universal elimination). */
   allowed_victory_conditions?: VictoryType[];
   victory_threshold?: number;    // for 'threshold' mode (1–99 %)
+  /**
+   * Stalemate guard: when set, the game ends after this many turns and the
+   * player with the most territories (tiebreak: most units) wins. Null/absent
+   * = no cap (default for custom and multiplayer lobbies; quick match sets 150).
+   */
+  max_turns?: number | null;
   turn_timer_seconds: number;    // 0 = no timer
   initial_unit_count: number;
   card_set_escalating: boolean;
@@ -419,6 +427,7 @@ export interface ActionDecision {
 
 /** Categories of in-turn coaching tips, ranked by display priority (lower = higher priority). */
 export type CoachingTipCategory =
+  | 'resign_suggestion'      // Win prob has been hopeless for many turns — gentle exit prompt
   | 'probability_drop'      // Win prob dropped meaningfully last turn — diagnostic
   | 'opponent_region_threat' // Opponent close to completing a region — defensive warning
   | 'region_opportunity'     // Player close to completing a region — offensive opportunity
@@ -457,6 +466,15 @@ export interface GameState {
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
   draft_placements_this_turn?: Record<string, number>;
   turn_started_at: number;       // Unix timestamp ms
+  /**
+   * Server-authoritative deadline (Unix ms) for the current phase's turn timer.
+   * Reset every time the timer is (re)armed — including the fresh per-phase timer
+   * granted after a timeout auto-advance — so client countdowns never go stale.
+   * Null/absent when no timer is running (timer disabled or AI turn).
+   */
+  phase_deadline_at?: number | null;
+  /** One-shot guard: the resign-suggestion coaching tip fires at most once per game. */
+  resign_suggestion_shown?: boolean;
   /** Unix ms timestamp when the game first transitioned to `in_progress`. Used for post-game duration. */
   game_started_at?: number;
   winner_id?: string;

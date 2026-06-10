@@ -144,13 +144,15 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     return reply.send(result);
   });
 
-  // ── GET /api/leaderboards/rating ─────────────────────────────────────────
+  // ── GET /api/leaderboards/rating?type=ranked|solo ────────────────────────
   fastify.get('/rating', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
-    const qs = request.query as { limit?: string; offset?: string };
+    const qs = request.query as { limit?: string; offset?: string; type?: string };
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
+    // Whitelisted — anything else falls back to the ranked board.
+    const ratingType = qs.type === 'solo' ? 'solo' : 'ranked';
 
-    const cacheKey = `lb:rating:${limit}:${offset}`;
+    const cacheKey = `lb:rating:${ratingType}:${limit}:${offset}`;
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -163,14 +165,15 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
                WHERE gp.user_id = u.user_id AND g.status = 'completed') AS games_played
        FROM user_ratings ur
        JOIN users u ON u.user_id = ur.user_id
-       WHERE ur.rating_type = 'ranked' AND u.is_guest = false
+       WHERE ur.rating_type = $3 AND u.is_guest = false
        ORDER BY ur.mu DESC
        LIMIT $1 OFFSET $2`,
-      [limit, offset],
+      [limit, offset, ratingType],
     );
 
     const result = {
       type: 'rating',
+      rating_type: ratingType,
       entries: rows.map((r, i) => ({
         rank: offset + i + 1,
         user_id: r.user_id,
