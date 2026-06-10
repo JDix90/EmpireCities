@@ -7,6 +7,26 @@ import { getApiBaseUrl } from '../config/env';
 
 const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
 
+/**
+ * Outcome of a refresh-token attempt:
+ * - 'ok': new access token issued.
+ * - 'invalid': the server processed the request and rejected the cookie —
+ *   the session is genuinely over; clear it and surface the login screen.
+ * - 'unreachable': we never got an answer (network error, timeout, 5xx) —
+ *   e.g. a reload racing a backend restart/deploy. The cookie may be
+ *   perfectly valid, so the session must NOT be cleared; callers retry.
+ */
+export type RefreshOutcome = 'ok' | 'invalid' | 'unreachable';
+
+/** Exported for tests. Only an explicit auth rejection invalidates the session. */
+export function classifyRefreshFailure(err: unknown): Exclude<RefreshOutcome, 'ok'> {
+  if (axios.isAxiosError(err)) {
+    const status = err.response?.status;
+    if (status === 401 || status === 403) return 'invalid';
+  }
+  return 'unreachable';
+}
+
 export interface RatingInfo {
   mu: number;
   phi: number;
@@ -68,7 +88,7 @@ interface AuthState {
   register: (username: string, email: string, password: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: (options?: { silent?: boolean }) => Promise<boolean>;
+  refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
   setUser: (user: AuthUser) => void;
   setAccessToken: (token: string) => void;
   setBootstrapped: (bootstrapped: boolean) => void;
@@ -155,22 +175,28 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: async (options) => {
         const silent = options?.silent ?? false;
         if (get().user?.is_guest) {
-          return false;
+          // Guest sessions have no refresh cookie; nothing to retry.
+          return 'invalid';
         }
         try {
           const res = await rawHttp.post('/auth/refresh');
           const { accessToken } = res.data;
           set({ accessToken, isAuthenticated: true });
           resyncSocketAuth();
-          return true;
-        } catch {
-          set({ user: null, accessToken: null, isAuthenticated: false });
-          if (!silent && typeof window !== 'undefined') {
-            try {
-              sessionStorage.setItem('cc-auth-notice', 'session_expired');
-            } catch { /* ignore */ }
+          return 'ok';
+        } catch (err) {
+          const outcome = classifyRefreshFailure(err);
+          if (outcome === 'invalid') {
+            set({ user: null, accessToken: null, isAuthenticated: false });
+            if (!silent && typeof window !== 'undefined') {
+              try {
+                sessionStorage.setItem('cc-auth-notice', 'session_expired');
+              } catch { /* ignore */ }
+            }
           }
-          return false;
+          // 'unreachable' keeps the session: the cookie may still be valid
+          // and a backend restart must not log every player out.
+          return outcome;
         }
       },
 
