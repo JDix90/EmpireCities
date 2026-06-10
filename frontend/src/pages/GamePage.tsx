@@ -21,6 +21,7 @@ import {
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
+import GameStartModal from '../components/game/GameStartModal';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
@@ -537,6 +538,15 @@ export default function GamePage() {
 
   const turnHolderPlayer = gameState?.players[gameState.current_player_index ?? 0];
 
+  // ── Game-start modal (turn order + starting resources) ──────────────────
+  // The first player is randomized, so without a beat to orient, a player
+  // who isn't first can be watching AI combat before they know who acts
+  // when. Shown once per game (sessionStorage guard survives remounts) for
+  // participants of non-tutorial games entering turn 1.
+  const [showStartModal, setShowStartModal] = useState(false);
+  const startModalOpenRef = useRef(false);
+  const startModalShownRef = useRef(false);
+
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
   // globe can take a beat to initialize on slower devices, so the HUD
@@ -550,6 +560,9 @@ export default function GamePage() {
 
   const maybeEmitTurnReady = useCallback(() => {
     if (!globeReadyRef.current || !gameId) return;
+    // While the game-start modal is up the player can't see the map; hold the
+    // ack so the server realigns the clock when they actually start playing.
+    if (startModalOpenRef.current) return;
     const gs = useGameStore.getState().gameState;
     if (!gs || !gs.settings.turn_timer_seconds || gs.settings.async_mode) return;
     const myPid = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
@@ -572,7 +585,35 @@ export default function GamePage() {
   useEffect(() => {
     globeReadyRef.current = false;
     turnReadyAckRef.current = null;
+    startModalShownRef.current = false;
+    startModalOpenRef.current = false;
+    setShowStartModal(false);
   }, [gameId]);
+
+  const dismissStartModal = useCallback(() => {
+    startModalOpenRef.current = false;
+    setShowStartModal(false);
+    // The player can finally see the map — realign the turn clock now.
+    maybeEmitTurnReady();
+  }, [maybeEmitTurnReady]);
+
+  // Open the start modal on the first turn-1 state of a fresh game.
+  useEffect(() => {
+    if (!gameState || !gameId || startModalShownRef.current) return;
+    if (gameState.settings.tutorial) return; // tutorial has its own guided intro
+    if (gameState.turn_number !== 1) return;
+    if (gameState.phase !== 'territory_select' && gameState.phase !== 'draft') return;
+    const viewerId = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
+    if (!viewerId || !gameState.players.some((p) => p.player_id === viewerId)) return;
+    startModalShownRef.current = true;
+    const storageKey = `bf-start-modal:${gameId}`;
+    try {
+      if (sessionStorage.getItem(storageKey)) return; // already seen (e.g. mid-turn-1 reload)
+      sessionStorage.setItem(storageKey, '1');
+    } catch { /* storage unavailable — still show the modal */ }
+    startModalOpenRef.current = true;
+    setShowStartModal(true);
+  }, [gameState, gameId]);
 
   // 2D map and galaxy overview render immediately (no WebGL init), so treat
   // them as "map ready" for the turn-timer ack without waiting on onGlobeReady.
@@ -1042,14 +1083,11 @@ export default function GamePage() {
       }
     });
 
-    socket.on('game:started', (data?: { startingPlayerName?: string }) => {
+    socket.on('game:started', () => {
       setIsStartingGame(false);
       setGameStarted(true);
-      if (data?.startingPlayerName) {
-        toast.success(`${data.startingPlayerName} goes first`);
-      } else {
-        toast.success('Game started! Good luck, Commander!');
-      }
+      // No toast: the game-start modal announces turn order (including who
+      // goes first) with room to read it, which the toast used to race past.
     });
 
     socket.on('game:puzzle_feedback', (payload: { gameId?: string; tier: string; message: string }) => {
@@ -3470,6 +3508,16 @@ export default function GamePage() {
 
           {/* Non-blocking recap of other players' turns (replaces queued modals) */}
           <AiTurnRecapPanel recaps={aiRecaps} onDismiss={() => setAiRecaps([])} />
+
+          {/* One-time game-start briefing: turn order + starting resources */}
+          {gameState && (
+            <GameStartModal
+              open={showStartModal}
+              onClose={dismissStartModal}
+              gameState={gameState}
+              viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+            />
+          )}
 
           {/* Backdrop when territory sheet is fully expanded (tap to collapse to peek) */}
           {selectedTerritory && territorySheetSnap === 'full' && (
