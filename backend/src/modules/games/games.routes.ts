@@ -202,19 +202,25 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    // Auto-start: the host is the sole human at creation and asked to play
-    // immediately against AI — equivalent to clicking Start the instant the
-    // lobby opens, so there is no pre-game room to wait in. Requires at least
-    // one AI opponent; human-only lobbies always wait for joiners.
+    // Auto-start: only when AI fills every non-host seat, so nobody could
+    // ever join the pre-game room anyway. Under-filled lobbies (open human
+    // seats) always wait — otherwise an instant start would strand invitees
+    // holding a join code for a game that is already in progress.
     let startedStatus: 'waiting' | 'in_progress' = 'waiting';
-    if (auto_start && ai_count > 0) {
+    if (auto_start && ai_count > 0 && ai_count === max_players - 1) {
       const io = getGameIo();
       if (io) {
-        const started = await startWaitingGame(io, gameId);
-        if (started.ok) {
-          startedStatus = 'in_progress';
-        } else {
-          console.error('[Games] Auto-start failed for', gameId, started.error);
+        try {
+          const started = await startWaitingGame(io, gameId);
+          if (started.ok) {
+            startedStatus = 'in_progress';
+          } else {
+            console.error('[Games] Auto-start failed for', gameId, started.error);
+          }
+        } catch (err) {
+          // The game rows are already committed; degrade to the normal
+          // waiting lobby instead of 500ing the whole creation.
+          console.error('[Games] Auto-start threw for', gameId, err);
         }
       }
     }

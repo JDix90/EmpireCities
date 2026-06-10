@@ -20,6 +20,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
+import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import {
@@ -51,32 +52,6 @@ import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-// NE 50m admin-0 (vs 110m): ~238 ISO codes incl. Samoa, Tonga, Micronesian
-// states, Caribbean micro-states, Hong Kong, Macau, Singapore, Malta — needed
-// to render Space Age Pacific territories and AU 1337 Tui Manu'a/Tonga.
-const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
-
-/** US states/provinces (admin-1) — used for ACW territory outlines along real state borders */
-const STATES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_1_states_provinces.geojson';
-
-/** Admin-1 for Canada (and other non-US) — community_14_nations merges with US states */
-const ADMIN50_STATES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_1_states_provinces.geojson';
-
-/** Pre-extracted NE 10m Italy + San Marino + Vatican provinces (built from Natural Earth) */
-const RISORGIMENTO_GEOJSON_URL = '/geo/risorgimento_admin1.json';
-
-/** ne_10m admin-1 subset — IR/AE/OM/QA/BH provinces for community_strait_hormuz globe coastlines */
-const STRAIT_HORMUZ_GEOJSON_URL = '/geo/strait_hormuz_admin1.json';
-
-
-const AUSTRALIA_GEOJSON_URL = '/geo/australia_1337_admin1.json';
-const BRITAIN_GEOJSON_URL = '/geo/britain_925_admin1.json';
-const HORN_AFRICA_GEOJSON_URL = '/geo/horn_africa_admin1.json';
-/** ne_10m admin-1 subset — 32 Mexican states for community_14_nations Mexico territories */
-const MEXICO_GEOJSON_URL = '/geo/mexico_admin1.json';
 /** Tiny altitude spread so coplanar caps do not z-fight at shared borders (react-globe extrusion). */
 function polygonAltitudeHash(territoryId: string): number {
   let h = 2166136261;
@@ -689,22 +664,20 @@ function GlobeMap({
   const { selectedTerritory, attackSource } = useUiStore();
   const [, setPrefsRevision] = useState(0);
   useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
-  const [countriesGeo, setCountriesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  const [statesGeo, setStatesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** Italy province polygons for era_risorgimento */
-  const [risorgimentoGeo, setRisorgimentoGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** ne_50m admin-1 — Canadian provinces for community_14_nations */
-  const [admin50Geo, setAdmin50Geo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** Gulf admin-1 — community_strait_hormuz */
-  const [straitHormuzGeo, setStraitHormuzGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** AU/NZ admin-1 — community_australia_1337 */
-  const [australiaGeo, setAustraliaGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** GB admin-1 — community_britain_925 */
-  const [britainGeo, setBritainGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** Horn of Africa admin-1 — community_horn_africa */
-  const [hornAfricaGeo, setHornAfricaGeo] = useState<GeoJSON.FeatureCollection | null>(null);
-  /** ne_10m Mexican states admin-1 — community_14_nations Mexico tile */
-  const [mexicoGeo, setMexicoGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  // GeoJSON sources load through the shared module-cached loader, so the 2D
+  // map and the globe download each Natural Earth file once per session and
+  // the per-map trigger conditions live in exactly one place
+  // (useTerritoryGeoSources). Null until every required source resolves.
+  const geoSources = useTerritoryGeoSources(mapData);
+  const countriesGeo = geoSources?.countriesGeo ?? null;
+  const statesGeo = geoSources?.statesGeo ?? null;
+  const risorgimentoGeo = geoSources?.risorgimentoGeo ?? null;
+  const admin50Geo = geoSources?.admin50Geo ?? null;
+  const straitHormuzGeo = geoSources?.straitHormuzGeo ?? null;
+  const australiaGeo = geoSources?.australiaGeo ?? null;
+  const britainGeo = geoSources?.britainGeo ?? null;
+  const hornAfricaGeo = geoSources?.hornAfricaGeo ?? null;
+  const mexicoGeo = geoSources?.mexicoGeo ?? null;
   /** Bumps when react-globe.gl calls onGlobeReady so we can apply camera after the ref exists */
   const [globeReadyTick, setGlobeReadyTick] = useState(0);
 
@@ -750,125 +723,6 @@ function GlobeMap({
       backlog: eventQueueRef.current.length,
     });
   }, []);
-
-  useEffect(() => {
-    fetch(COUNTRIES_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setCountriesGeo)
-      .catch((err) => console.warn('Failed to load countries GeoJSON:', err));
-  }, []);
-
-  useEffect(() => {
-    fetch(STATES_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setStatesGeo)
-      .catch((err) => {
-        console.warn('Failed to load US states GeoJSON:', err);
-        setStatesGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, []);
-
-  const needsRisorgimentoGeo =
-    mapData.map_id === 'era_risorgimento' ||
-    mapData.territories.some((t) => t.territory_id.startsWith('ris_'));
-
-  useEffect(() => {
-    if (!needsRisorgimentoGeo) {
-      setRisorgimentoGeo(null);
-      return;
-    }
-    fetch(RISORGIMENTO_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setRisorgimentoGeo)
-      .catch((err) => {
-        console.warn('Failed to load Risorgimento GeoJSON:', err);
-        setRisorgimentoGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsRisorgimentoGeo]);
-
-  const needsAdmin50Geo =
-    mapData.map_id === 'community_14_nations' ||
-    mapData.territories.some((t) => t.territory_id.startsWith('na_'));
-
-  useEffect(() => {
-    if (!needsAdmin50Geo) {
-      setAdmin50Geo(null);
-      return;
-    }
-    fetch(ADMIN50_STATES_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setAdmin50Geo)
-      .catch((err) => {
-        console.warn('Failed to load ne_50m admin-1 GeoJSON:', err);
-        setAdmin50Geo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsAdmin50Geo]);
-
-  const needsStraitHormuzGeo =
-    mapData.map_id === 'community_strait_hormuz' ||
-    mapData.territories.some((t) => t.territory_id.startsWith('hz_'));
-
-  useEffect(() => {
-    if (!needsStraitHormuzGeo) {
-      setStraitHormuzGeo(null);
-      return;
-    }
-    fetch(STRAIT_HORMUZ_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setStraitHormuzGeo)
-      .catch((err) => {
-        console.warn('Failed to load Strait of Hormuz admin-1 GeoJSON:', err);
-        setStraitHormuzGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsStraitHormuzGeo]);
-
-  const needsAustraliaGeo = mapData.map_id === 'community_australia_1337';
-  useEffect(() => {
-    if (!needsAustraliaGeo) { setAustraliaGeo(null); return; }
-    fetch(AUSTRALIA_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setAustraliaGeo)
-      .catch((err) => {
-        console.warn('Failed to load Australia admin-1 GeoJSON:', err);
-        setAustraliaGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsAustraliaGeo]);
-
-  const needsBritainGeo = mapData.map_id === 'community_britain_925';
-  useEffect(() => {
-    if (!needsBritainGeo) { setBritainGeo(null); return; }
-    fetch(BRITAIN_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setBritainGeo)
-      .catch((err) => {
-        console.warn('Failed to load Britain admin-1 GeoJSON:', err);
-        setBritainGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsBritainGeo]);
-
-  const needsHornAfricaGeo = mapData.map_id === 'community_horn_africa';
-  useEffect(() => {
-    if (!needsHornAfricaGeo) { setHornAfricaGeo(null); return; }
-    fetch(HORN_AFRICA_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setHornAfricaGeo)
-      .catch((err) => {
-        console.warn('Failed to load Horn of Africa admin-1 GeoJSON:', err);
-        setHornAfricaGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsHornAfricaGeo]);
-
-  const needsMexicoGeo = mapData.map_id === 'community_14_nations';
-  useEffect(() => {
-    if (!needsMexicoGeo) { setMexicoGeo(null); return; }
-    fetch(MEXICO_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setMexicoGeo)
-      .catch((err) => {
-        console.warn('Failed to load Mexico admin-1 GeoJSON:', err);
-        setMexicoGeo({ type: 'FeatureCollection', features: [] });
-      });
-  }, [needsMexicoGeo]);
 
   // ── Polygon data (territories) ─────────────────────────────────────────
 
@@ -2959,6 +2813,11 @@ function GlobeMap({
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     isDragRef.current = false;
+    // New gesture: any pending fallback from the previous tap is stale.
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
   }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -2973,8 +2832,18 @@ function GlobeMap({
 
   /** True once react-globe.gl's own raycast handled the current gesture. */
   const polygonClickFiredRef = useRef(false);
+  /** Pending fallback hit-test — cancelled by the next pointerdown/unmount. */
+  const fallbackTimerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (fallbackTimerRef.current !== null) window.clearTimeout(fallbackTimerRef.current);
+  }, []);
 
   const guardedTerritoryClick = useCallback((territoryId: string) => {
+    // The library's raycast resolved this gesture — also suppresses a
+    // late-arriving fallback (and vice versa: once the fallback has fired,
+    // a slow raycast landing afterwards must not double-click).
+    if (polygonClickFiredRef.current) return;
     polygonClickFiredRef.current = true;
     if (isDragRef.current) return;
     onTerritoryClick(territoryId);
@@ -2991,6 +2860,10 @@ function GlobeMap({
     // (hover, momentum) kept measuring against a stale down-position.
     pointerDownPosRef.current = null;
     if (!wasTap || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    // Only taps that land on the WebGL canvas count — pointerups bubbling
+    // from overlay controls (Skip animations, HTML labels) must not select
+    // the territory that happens to sit behind them.
+    if (!(e.target instanceof HTMLCanvasElement)) return;
 
     // Fallback hit-test: three.js polygon raycasting is unreliable on small
     // canvases (mobile viewports), so when no onPolygonClick arrives for this
@@ -2999,7 +2872,8 @@ function GlobeMap({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     polygonClickFiredRef.current = false;
-    window.setTimeout(() => {
+    fallbackTimerRef.current = window.setTimeout(() => {
+      fallbackTimerRef.current = null;
       if (polygonClickFiredRef.current) return;
       const globe = globeRef.current as
         | (GlobeMethods & { toGlobeCoords?: (x: number, y: number) => { lat: number; lng: number } | null })
@@ -3010,7 +2884,12 @@ function GlobeMap({
       const hit = renderedPolygonsRef.current.find((p) =>
         booleanPointInPolygon(point, { type: 'Feature', geometry: p.geometry, properties: {} }),
       );
-      if (hit) onTerritoryClickRef.current(hit.territory_id);
+      if (hit) {
+        // Mark the gesture handled so a raycast that resolves late (>200ms
+        // on a janky frame) cannot fire a second click for the same tap.
+        polygonClickFiredRef.current = true;
+        onTerritoryClickRef.current(hit.territory_id);
+      }
     }, 200);
   }, []);
 

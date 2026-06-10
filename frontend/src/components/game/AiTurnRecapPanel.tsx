@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Sword, Flag, Skull, ChevronDown, ChevronUp, History } from 'lucide-react';
 import clsx from 'clsx';
 import type { CombatResult } from '../../store/gameStore';
@@ -10,13 +10,22 @@ export interface TurnRecapEntry {
   combats: CombatResult[];
 }
 
+/** Oldest entries roll off so the panel can't grow unbounded for players whose turn never comes back (eliminated, spectating). */
+const MAX_RECAP_ENTRIES = 12;
+
 /**
  * Coalesce another player's finished turn into the recap list.
  * Quiet turns (no battles) are skipped — the panel only reports action.
  */
 export function appendRecap(list: TurnRecapEntry[], entry: TurnRecapEntry): TurnRecapEntry[] {
   if (entry.combats.length === 0) return list;
-  return [...list, entry];
+  const next = [...list, entry];
+  return next.length > MAX_RECAP_ENTRIES ? next.slice(next.length - MAX_RECAP_ENTRIES) : next;
+}
+
+/** Stable identity for per-entry UI state — array indexes shift as batches change. */
+function recapKey(recap: TurnRecapEntry): string {
+  return `${recap.turnNumber}:${recap.playerName}`;
 }
 
 export function summarizeRecap(combats: CombatResult[]): {
@@ -45,14 +54,23 @@ export default function AiTurnRecapPanel({
   onDismiss: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [openEntries, setOpenEntries] = useState<Record<number, boolean>>({});
+  const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
+
+  // Dismissal/turn-end empties the list while the component stays mounted —
+  // drop the previous batch's expansion state so it can't leak into the next.
+  useEffect(() => {
+    if (recaps.length === 0) {
+      setExpanded(false);
+      setOpenEntries({});
+    }
+  }, [recaps.length]);
 
   if (recaps.length === 0) return null;
 
   const totalCaptures = recaps.reduce((s, r) => s + summarizeRecap(r.combats).captures, 0);
 
   return (
-    <div className="absolute top-3 right-3 z-20 w-[290px] max-w-[85vw] rounded-xl border border-bf-border bg-bf-surface/95 backdrop-blur-sm shadow-xl text-sm">
+    <div className="absolute top-16 right-3 z-20 w-[290px] max-w-[85vw] rounded-xl border border-bf-border bg-bf-surface/95 backdrop-blur-sm shadow-xl text-sm">
       <div className="flex items-center gap-2 px-3 py-2">
         <History className="w-4 h-4 text-bf-gold shrink-0" aria-hidden />
         <button
@@ -83,15 +101,16 @@ export default function AiTurnRecapPanel({
 
       {expanded && (
         <div className="max-h-64 overflow-y-auto border-t border-bf-border/70 divide-y divide-bf-border/50">
-          {recaps.map((recap, i) => {
+          {recaps.map((recap) => {
             const stats = summarizeRecap(recap.combats);
-            const open = !!openEntries[i];
+            const key = recapKey(recap);
+            const open = !!openEntries[key];
             return (
-              <div key={i} className="px-3 py-2">
+              <div key={key} className="px-3 py-2">
                 <button
                   type="button"
                   className="w-full flex items-center gap-2 text-left"
-                  onClick={() => setOpenEntries((m) => ({ ...m, [i]: !m[i] }))}
+                  onClick={() => setOpenEntries((m) => ({ ...m, [key]: !m[key] }))}
                   aria-expanded={open}
                 >
                   <span

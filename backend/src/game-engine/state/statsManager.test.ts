@@ -27,7 +27,7 @@ describe('computeRanks', () => {
       makePlayer({ player_id: 'a', is_eliminated: true, territory_count: 5 }),
       makePlayer({ player_id: 'b', is_eliminated: true, territory_count: 9 }),
     ];
-    const ranks = computeRanks(players, 'win');
+    const ranks = computeRanks(players, ['win']);
     expect(ranks.get('win')).toBe(1);
     expect(ranks.get('b')).toBe(2);
     expect(ranks.get('a')).toBe(3);
@@ -39,9 +39,21 @@ describe('computeRanks', () => {
       makePlayer({ player_id: 'fought', is_eliminated: true, territory_count: 1 }),
       makePlayer({ player_id: 'quit', is_eliminated: true, has_resigned: true, territory_count: 12 }),
     ];
-    const ranks = computeRanks(players, 'win');
+    const ranks = computeRanks(players, ['win']);
     expect(ranks.get('fought')).toBe(2);
     expect(ranks.get('quit')).toBe(3);
+  });
+
+  it('gives all alliance winners rank 1 and starts others below them', () => {
+    const players = [
+      makePlayer({ player_id: 'ally1', territory_count: 10 }),
+      makePlayer({ player_id: 'ally2', territory_count: 8 }),
+      makePlayer({ player_id: 'loser', territory_count: 4 }),
+    ];
+    const ranks = computeRanks(players, ['ally1', 'ally2']);
+    expect(ranks.get('ally1')).toBe(1);
+    expect(ranks.get('ally2')).toBe(1);
+    expect(ranks.get('loser')).toBe(3);
   });
 
   it('ranks survivors above eliminated players on non-domination wins', () => {
@@ -50,7 +62,7 @@ describe('computeRanks', () => {
       makePlayer({ player_id: 'alive', territory_count: 8 }),
       makePlayer({ player_id: 'dead', is_eliminated: true, territory_count: 0 }),
     ];
-    const ranks = computeRanks(players, 'win');
+    const ranks = computeRanks(players, ['win']);
     expect(ranks.get('alive')).toBe(2);
     expect(ranks.get('dead')).toBe(3);
   });

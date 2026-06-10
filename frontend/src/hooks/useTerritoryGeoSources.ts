@@ -46,7 +46,9 @@ export interface GeoSourceMapInfo {
 }
 
 /** Which sources a map needs, mirroring GlobeMap's trigger conditions. */
-export function requiredGeoSourceUrls(mapData: GeoSourceMapInfo): Record<string, string | null> {
+export function requiredGeoSourceUrls(
+  mapData: GeoSourceMapInfo,
+): Record<keyof GlobeGeometryInputs, string | null> {
   const hasPrefix = (prefix: string) =>
     mapData.territories.some((t) => t.territory_id.startsWith(prefix));
   return {
@@ -71,24 +73,30 @@ export function requiredGeoSourceUrls(mapData: GeoSourceMapInfo): Record<string,
  * this map has resolved (failures resolve to empty collections, so the hook
  * always settles).
  */
-export function useTerritoryGeoSources(mapData: GeoSourceMapInfo): GlobeGeometryInputs | null {
+export function useTerritoryGeoSources(
+  mapData: GeoSourceMapInfo,
+  enabled = true,
+): GlobeGeometryInputs | null {
   const [sources, setSources] = useState<GlobeGeometryInputs | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setSources(null);
+    // Gated: galaxy/canvas-only maps never consume these sources — don't
+    // download megabytes of Natural Earth data they provably discard.
+    if (!enabled) return;
     const urls = requiredGeoSourceUrls(mapData);
-    const keys = Object.keys(urls);
+    const keys = Object.keys(urls) as Array<keyof GlobeGeometryInputs>;
     Promise.all(keys.map((k) => (urls[k] ? fetchGeo(urls[k]!) : Promise.resolve(null))))
       .then((results) => {
         if (cancelled) return;
-        const out: Record<string, GeoJSON.FeatureCollection | null> = {};
+        const out = {} as GlobeGeometryInputs;
         keys.forEach((k, i) => { out[k] = results[i]; });
-        setSources(out as unknown as GlobeGeometryInputs);
+        setSources(out);
       });
     return () => { cancelled = true; };
     // mapData identity changes when the map changes; territories list is stable per map.
-  }, [mapData]);
+  }, [mapData, enabled]);
 
   return sources;
 }
