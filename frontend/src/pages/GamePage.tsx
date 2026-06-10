@@ -3516,6 +3516,7 @@ export default function GamePage() {
               onClose={dismissStartModal}
               gameState={gameState}
               viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+              mapNameLookup={mapData}
             />
           )}
 
