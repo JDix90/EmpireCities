@@ -7,6 +7,7 @@ import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
+import { plural } from '../utils/plural';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
@@ -1113,7 +1114,9 @@ export default function GamePage() {
       // Always append to combat log sidebar
       let logEntry = `${attackerName} attacked ${toName} from ${fromName}`;
       if (attacker_losses > 0 && defender_losses > 0) {
-        logEntry += ` — both sides lost ${attacker_losses === defender_losses ? `${attacker_losses}` : `${attacker_losses} and ${defender_losses}`} troops`;
+        logEntry += attacker_losses === defender_losses
+          ? ` — both sides lost ${plural(attacker_losses, 'troop')}`
+          : ` — both sides lost troops (${attacker_losses} attacking, ${defender_losses} defending)`;
       } else if (attacker_losses > 0) {
         logEntry += ` — lost ${attacker_losses} troop${attacker_losses > 1 ? 's' : ''}`;
       } else if (defender_losses > 0) {
@@ -1888,7 +1891,7 @@ export default function GamePage() {
       ownTurnFortificationsRef.current.push({ fromName, toName, units });
       showNotification({
         type: 'fortify',
-        text: `Moved ${units} troops: ${fromName} → ${toName}`,
+        text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
         icon: 'arrow',
         accentBg: 'bg-sky-500/20',
         accentBorder: 'border-sky-500/30',

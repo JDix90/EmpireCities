@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { api } from '../../services/api';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
+import { useEscapeClose } from '../../hooks/useEscapeClose';
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export interface BonusesModalProps {
 }
 
 export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
+  useEscapeClose(onClose);
   const { gameState } = useGameStore();
   const { user } = useAuthStore();
   const [factionData, setFactionData] = useState<FactionInfo | null>(null);
