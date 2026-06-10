@@ -132,21 +132,26 @@ export default function GameHUD({
     (lastCombatResult.defenderId === myPlayer.player_id) &&
     defenderFactionBonus > 0;
 
-  // Turn timer countdown
+  // Turn timer countdown. Prefers the server-authoritative phase deadline
+  // (re-armed on every phase, including timeout auto-advances) and recomputes
+  // from the clock each tick so the display can't drift or go stale at 0:00.
+  // Falls back to turn_started_at math against older servers.
   useEffect(() => {
     if (!gameState?.settings.turn_timer_seconds || gameState.settings.turn_timer_seconds === 0) {
       setTimeLeft(null);
       return;
     }
-    const elapsed = Math.floor((Date.now() - gameState.turn_started_at) / 1000);
-    const remaining = gameState.settings.turn_timer_seconds - elapsed;
-    setTimeLeft(Math.max(0, remaining));
+    const deadline =
+      gameState.phase_deadline_at ??
+      gameState.turn_started_at + gameState.settings.turn_timer_seconds * 1000;
+    const compute = () => Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    setTimeLeft(compute());
 
     const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+      setTimeLeft(compute());
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.turn_started_at, gameState?.settings.turn_timer_seconds]);
+  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds]);
 
   useEffect(() => {
     if (!gameId) return;

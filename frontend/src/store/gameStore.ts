@@ -162,6 +162,12 @@ export interface GameState {
   /** Server-authoritative; may be absent on older saved games. */
   draft_units_remaining?: number;
   turn_started_at: number;
+  /**
+   * Server-authoritative deadline (Unix ms) for the current phase's timer.
+   * Re-armed per phase (including timeout auto-advances). Absent on older
+   * servers — fall back to turn_started_at + turn_timer_seconds.
+   */
+  phase_deadline_at?: number | null;
   winner_id?: string;
   win_probability_history?: Array<{
     step: number;

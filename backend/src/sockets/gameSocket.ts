@@ -754,16 +754,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (adv.autoDraft.total > 0) {
           emitAutoDraftMapVisuals(io, gameId, room.state, adv.autoDraft.placements);
         }
+        // Same player continues into the next phase — re-arm their timer first
+        // so the saved/broadcast state carries the fresh phase_deadline_at.
+        startTurnTimer(io, gameId, room.state, room.map);
         io.to(gameId).emit('game:turn_timeout', {
           phaseAdvanced: adv.newPhase,
           appliedDraft: adv.autoDraft.total > 0,
           unitsPlaced: adv.autoDraft.total,
+          deadline_at: room.state.phase_deadline_at ?? null,
         });
         await saveGameState(gameId, room.state);
         broadcastState(io, gameId, room.state);
         maybeEmitCoachingTip(io, gameId, room.state, room.map);
-        // Same player continues into the next phase — restart their timer.
-        startTurnTimer(io, gameId, room.state, room.map);
         return;
       }
 
@@ -4940,6 +4942,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
   clearTurnTimer(gameId, state);
+  state.phase_deadline_at = null;
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
   const currentPlayer = state.players[state.current_player_index];
@@ -4948,6 +4951,8 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   // ── Async mode: use persistent BullMQ job instead of in-memory timer ──
   if (state.settings.async_mode) {
     const deadlineSec = state.settings.async_turn_deadline_seconds ?? seconds;
+    state.phase_deadline_at = Date.now() + deadlineSec * 1000;
+    emitPhaseDeadline(io, gameId, state);
     // Write deadline to DB for querying
     query(
       'UPDATE games SET async_turn_deadline = NOW() + INTERVAL \'1 second\' * $1 WHERE game_id = $2',
@@ -4966,8 +4971,23 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   }
 
   // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
+  state.phase_deadline_at = Date.now() + seconds * 1000;
+  emitPhaseDeadline(io, gameId, state);
   scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
     console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
+  });
+}
+
+/**
+ * Push the freshly-armed timer deadline to connected clients. State broadcasts
+ * carry `phase_deadline_at` too, but several flows broadcast before the timer
+ * is re-armed — this keeps countdowns accurate without reordering every caller.
+ */
+function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
+  io.to(gameId).emit('game:phase_deadline', {
+    deadline_at: state.phase_deadline_at,
+    phase: state.phase,
+    turn_number: state.turn_number,
   });
 }
 

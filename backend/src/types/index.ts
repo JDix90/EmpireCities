@@ -459,6 +459,13 @@ export interface GameState {
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
   draft_placements_this_turn?: Record<string, number>;
   turn_started_at: number;       // Unix timestamp ms
+  /**
+   * Server-authoritative deadline (Unix ms) for the current phase's turn timer.
+   * Reset every time the timer is (re)armed — including the fresh per-phase timer
+   * granted after a timeout auto-advance — so client countdowns never go stale.
+   * Null/absent when no timer is running (timer disabled or AI turn).
+   */
+  phase_deadline_at?: number | null;
   /** Unix ms timestamp when the game first transitioned to `in_progress`. Used for post-game duration. */
   game_started_at?: number;
   winner_id?: string;

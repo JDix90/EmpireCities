@@ -6,6 +6,7 @@ import { useGameStore, CombatResult, type GameState as ClientGameState } from '.
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
+import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
@@ -1424,6 +1425,31 @@ export default function GamePage() {
       });
     });
 
+    // Timer re-armed server-side (fresh phase clock after a timeout, new turn,
+    // etc.) — refresh the countdown immediately rather than waiting for the
+    // next full state broadcast.
+    socket.on('game:phase_deadline', ({ deadline_at }: { deadline_at: number | null }) => {
+      const gs = useGameStore.getState().gameState;
+      if (gs) setGameState({ ...gs, phase_deadline_at: deadline_at });
+    });
+
+    // The active player's clock ran out and the server auto-advanced a phase
+    // (or ended the turn). Tell the affected player what just happened — the
+    // event arrives before the state broadcast, so the local current player
+    // is still the one who timed out.
+    socket.on('game:turn_timeout', (payload: TurnTimeoutPayload) => {
+      const gs = useGameStore.getState().gameState;
+      const myId = userRef.current?.user_id;
+      const seatPid =
+        joinPlayerIndexRef.current != null && gs
+          ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
+          : null;
+      const currentPid = gs?.players[gs.current_player_index]?.player_id;
+      if (!currentPid || (currentPid !== myId && currentPid !== seatPid)) return;
+      const message = turnTimeoutToastMessage(payload);
+      if (message) toast(message, { icon: '⏰', duration: 6000 });
+    });
+
     socket.on('error', ({ message, code }: { message: string; code?: string }) => {
       const isGameNotFound = code === 'GAME_NOT_FOUND' || message === 'Game not found';
       if (
@@ -1630,6 +1656,8 @@ export default function GamePage() {
       socket.off('game:truce_proposal');
       socket.off('game:truce_result');
       socket.off('game:truce_broken');
+      socket.off('game:phase_deadline');
+      socket.off('game:turn_timeout');
       socket.off('error');
       socket.off('game:wonder_built');
       socket.off('game:strike_animation');
