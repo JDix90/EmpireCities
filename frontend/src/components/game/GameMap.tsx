@@ -74,6 +74,14 @@ function hexToPixi(hex: string): number {
   return getPlayerPixiColor(hex);
 }
 
+/** Multiply each RGB channel — used for owner-shaded borders and badge fills. */
+function shadePixi(color: number, factor: number): number {
+  const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor));
+  const g = Math.min(255, Math.round(((color >> 8) & 0xff) * factor));
+  const b = Math.min(255, Math.round((color & 0xff) * factor));
+  return (r << 16) | (g << 8) | b;
+}
+
 export default function GameMap({
   mapData,
   onTerritoryClick,
@@ -98,6 +106,8 @@ export default function GameMap({
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
   const labelContainerRef = useRef<PIXI.Container | null>(null);
+  const unitBadgeLayerRef = useRef<PIXI.Container | null>(null);
+  const unitBadgeMapRef = useRef<Map<string, { bg: PIXI.Graphics; text: PIXI.Text; holder: PIXI.Container }>>(new Map());
   const mapContainerRef = useRef<PIXI.Container | null>(null);
   const capitalLayerRef = useRef<PIXI.Container | null>(null);
   const buildingLayerRef = useRef<PIXI.Container | null>(null);
@@ -177,6 +187,12 @@ export default function GameMap({
     const labelContainer = new PIXI.Container();
     labelContainer.eventMode = 'none';
     labelContainerRef.current = labelContainer;
+    // Unit-count badges live inside the label container so they pan/zoom with it.
+    const unitBadgeLayer = new PIXI.Container();
+    unitBadgeLayer.eventMode = 'none';
+    unitBadgeLayerRef.current = unitBadgeLayer;
+    labelContainer.addChild(unitBadgeLayer);
+    unitBadgeMapRef.current.clear();
     const buildingLayer = new PIXI.Container();
     buildingLayer.eventMode = 'none';
     buildingLayerRef.current = buildingLayer;
@@ -450,6 +466,8 @@ export default function GameMap({
       effectsLayerRef.current = null;
       buildingTextMapRef.current.clear();
       territoryGraphicsRef.current.clear();
+      unitBadgeLayerRef.current = null;
+      unitBadgeMapRef.current.clear();
     };
   }, [mapData, canvasW, canvasH, width, height]);
 
@@ -491,6 +509,18 @@ export default function GameMap({
   const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
   const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
 
+  /** territory_id → neighbor ids, for contested-border detection. */
+  const neighborMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const conn of mapData.connections) {
+      if (!m.has(conn.from)) m.set(conn.from, []);
+      if (!m.has(conn.to)) m.set(conn.to, []);
+      m.get(conn.from)!.push(conn.to);
+      m.get(conn.to)!.push(conn.from);
+    }
+    return m;
+  }, [mapData.connections]);
+
   // ── Update territory colors when game state changes ────────────────────────
   useEffect(() => {
     if (!gameState || !appRef.current) return;
@@ -505,11 +535,21 @@ export default function GameMap({
       let fillColor = 0x2d3448; // unowned
       let borderColor = 0x4a5568;
 
+      // Contested borders (any neighbor under a different owner) read brighter
+      // and thicker than interior ones, so frontlines pop at a glance.
+      const neighbors = neighborMap.get(territory.territory_id) ?? [];
+      const isContested = neighbors.some((nid) => {
+        const nState = gameState.territories[nid];
+        return nState && nState.owner_id !== tState.owner_id;
+      });
+
       if (tState.owner_id) {
         const player = gameState.players.find((p) => p.player_id === tState.owner_id);
         if (player) {
           fillColor = hexToPixi(player.color);
-          borderColor = 0xffffff;
+          // Interior territories take a quieter owner-shaded outline; the
+          // bright white edge is reserved for the frontline.
+          borderColor = isContested ? 0xffffff : shadePixi(fillColor, 1.35);
         }
       }
 
@@ -551,8 +591,50 @@ export default function GameMap({
           ? 3
           : hasWonder
             ? 4
-            : 1.5;
+            : isContested
+              ? 2.25
+              : 1.25;
       drawTerritory(g, scaledPolygon, fillColor, borderColor, adjacencyBorderWidth);
+
+      // ── Unit-count badge (Risk-style army counter at the territory center) ──
+      const badgeLayer = unitBadgeLayerRef.current;
+      if (badgeLayer) {
+        const hidden = isFogHidden(tState);
+        let badge = unitBadgeMapRef.current.get(territory.territory_id);
+        if (!badge) {
+          const holder = new PIXI.Container();
+          const bg = new PIXI.Graphics();
+          const fontSize = Math.min(13, Math.max(10, Math.round(canvasW / 90)));
+          const text = new PIXI.Text('', {
+            fontSize,
+            fill: 0xffffff,
+            fontWeight: 'bold',
+            align: 'center',
+          });
+          text.anchor.set(0.5);
+          holder.addChild(bg);
+          holder.addChild(text);
+          const [bx, by] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+          holder.position.set(bx, by + 8);
+          badgeLayer.addChild(holder);
+          badge = { bg, text, holder };
+          unitBadgeMapRef.current.set(territory.territory_id, badge);
+        }
+        if (hidden) {
+          badge.holder.visible = false;
+        } else {
+          badge.holder.visible = true;
+          const count = tState.unit_count ?? 0;
+          const label = String(count);
+          if (badge.text.text !== label) badge.text.text = label;
+          const radius = label.length >= 3 ? 13 : 10;
+          badge.bg.clear();
+          badge.bg.lineStyle(1.5, 0xffffff, tState.owner_id ? 0.85 : 0.4);
+          badge.bg.beginFill(tState.owner_id ? shadePixi(fillColor, 0.5) : 0x1b2233, 0.92);
+          badge.bg.drawCircle(0, 0, radius);
+          badge.bg.endFill();
+        }
+      }
     }
 
     // ── Building icons ─────────────────────────────────────────────────────
@@ -600,6 +682,7 @@ export default function GameMap({
     attackSource,
     adjacencyTargets,
     emphasizeAdjacencyBorders,
+    neighborMap,
     mapData,
     canvasW,
     canvasH,
