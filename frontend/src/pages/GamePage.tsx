@@ -7,6 +7,7 @@ import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
+import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { plural } from '../utils/plural';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -463,13 +464,14 @@ export default function GamePage() {
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
   userRef.current = user;
-  /** Timestamp of the last mid-game GAME_NOT_FOUND — two within 30s confirm a dead game. */
-  const gameNotFoundAtRef = useRef(0);
+  /** Classifies mid-game GAME_NOT_FOUND errors: silent rejoin first, eject only when unrecoverable. */
+  const gameNotFoundTrackerRef = useRef(new GameNotFoundTracker());
   const resolvedViewerPlayerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setJoinPlayerIndex(null);
     joinPlayerIndexRef.current = null;
+    gameNotFoundTrackerRef.current.reset();
   }, [gameId]);
 
   useEffect(() => {
@@ -856,6 +858,9 @@ export default function GamePage() {
       setIsHost(playerIndex === 0);
       setJoinPlayerIndex(playerIndex);
       joinPlayerIndexRef.current = playerIndex;
+      // A completed (re)join repairs the server-side room; stop attributing
+      // GAME_NOT_FOUND misses to the outage that triggered the resync.
+      gameNotFoundTrackerRef.current.onRejoined();
     });
 
     // The server embeds the resolved map in the game-join handshake and again
@@ -1465,7 +1470,10 @@ export default function GamePage() {
     });
 
     socket.on('error', ({ message, code }: { message: string; code?: string }) => {
-      const isGameNotFound = code === 'GAME_NOT_FOUND' || message === 'Game not found';
+      // GAME_DELETED = the games row is gone (permanent); GAME_NOT_FOUND = the
+      // live room failed to load (often a transient miss a rejoin repairs).
+      const isGameDeleted = code === 'GAME_DELETED' || message === 'Game not found';
+      const isGameNotFound = code === 'GAME_NOT_FOUND' || isGameDeleted;
       if (
         message === 'Failed to start game' ||
         message === 'Game cannot be started' ||
@@ -1496,18 +1504,21 @@ export default function GamePage() {
           return;
         }
       } else if (isGameNotFound) {
-        // The room failed to load mid-game. A single miss can be transient
-        // (Redis eviction racing a reload), so the first one asks the player
-        // to retry; only a repeat within a short window treats the game as
-        // genuinely gone and sends them home.
-        const now = Date.now();
-        if (now - gameNotFoundAtRef.current < 30_000) {
-          gameNotFoundAtRef.current = 0;
-          toast.error(message);
+        // The room failed to load mid-game. The repair is a rejoin (game:join
+        // reloads the room from the database), so do that silently instead of
+        // asking the player to retry — a retry fired before the repair lands
+        // would just manufacture a second failure. The tracker swallows the
+        // buffered duplicate misses socket.io flushes after a reconnect, and
+        // ejects only when the game is genuinely unrecoverable.
+        const decision = gameNotFoundTrackerRef.current.decide(Date.now(), {
+          fatal: isGameDeleted,
+        });
+        if (decision === 'eject') {
+          toast.error('This game is no longer available.');
           navigate('/lobby');
-        } else {
-          gameNotFoundAtRef.current = now;
-          toast.error('Could not reach this game — try that action again.');
+        } else if (decision === 'resync') {
+          socket.emit('game:join', { gameId });
+          toast('Connection hiccup — resyncing the game…', { icon: '🔄', duration: 4000 });
         }
         return;
       }

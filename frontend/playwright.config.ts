@@ -33,6 +33,9 @@ export default defineConfig({
       use: {
         ...devices['iPhone 13'],
       },
+      // The tap-to-select regression guard runs in its own chromium-mobile-touch
+      // project (Pixel 5); on WebKit it's flaky and adds no coverage.
+      testIgnore: '**/mobile-territory-tap.spec.ts',
     },
     {
       name: 'chromium-mobile-touch',

@@ -190,16 +190,39 @@ export async function loadAuthoritativeRoom(gameId: string, mapId?: string): Pro
     const fromPg = await loadGameRoomFromPostgres(gameId, mapId);
     if (fromPg) return fromPg;
   }
-  const cached = getCachedRoom(gameId) ?? null;
-  if (!cached) {
-    // Every load layer missed — surfaced to players as GAME_NOT_FOUND.
-    // Log which layers were consulted so eviction/persistence gaps are diagnosable.
-    console.warn(
-      '[Room] Authoritative load failed for', gameId,
-      `(redis: miss, postgres: ${mapId ? 'miss' : 'skipped — no mapId'}, cache: miss)`,
-    );
+  const cached = getCachedRoom(gameId);
+  if (cached) return cached;
+
+  // Last-resort self-heal: most action paths don't know the map id, which
+  // used to mean any total miss (backend restart + Redis flush) failed every
+  // action with GAME_NOT_FOUND even though the game was safe in Postgres —
+  // only game:join could repair the room. Look the map id up ourselves and
+  // retry. In-progress games only: a finished game's eviction must stay final,
+  // or a stray action could resurrect its pre-victory state from the backups.
+  if (!mapId) {
+    const row = await queryOne<{ map_id: string }>(
+      `SELECT map_id FROM games WHERE game_id = $1 AND status = 'in_progress'`,
+      [gameId],
+    ).catch((err) => {
+      console.error('[Room] Self-heal map_id lookup failed for', gameId, err);
+      return null;
+    });
+    if (row) {
+      const recovered = await loadGameRoomFromPostgres(gameId, row.map_id);
+      if (recovered) {
+        console.warn('[Room] Recovered game', gameId, 'from Postgres after redis+cache miss');
+        return recovered;
+      }
+    }
   }
-  return cached;
+
+  // Every load layer missed — surfaced to players as GAME_NOT_FOUND.
+  // Log which layers were consulted so eviction/persistence gaps are diagnosable.
+  console.warn(
+    '[Room] Authoritative load failed for', gameId,
+    `(redis: miss, postgres: ${mapId ? 'miss' : 'miss via self-heal lookup'}, cache: miss)`,
+  );
+  return null;
 }
 
 /**

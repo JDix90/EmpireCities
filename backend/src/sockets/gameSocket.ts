@@ -863,7 +863,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
            FROM games WHERE game_id = $1`,
           [gameId],
         );
-        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
 
         const players = await query<WaitingLobbyPlayerRow>(
           `SELECT gp.player_index, gp.user_id, u.username, gp.player_color,
@@ -1005,7 +1005,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'SELECT game_id, status, map_id FROM games WHERE game_id = $1',
           [gameId],
         );
-        if (!game) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
+        if (!game) return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
         if (game.status !== 'in_progress') return socket.emit('error', { message: 'Game is not in progress' });
 
         const spectatorRoom = `${gameId}:spectators`;
@@ -1093,7 +1093,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           [gameId]
         );
         if (!game) {
-          return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
+          return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
         }
         const startAuthError = getStartGameAuthorizationError({
           callerSeat,
@@ -2636,7 +2636,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_propose', async ({ gameId, setting, value }: { gameId: string; setting: string; value: unknown }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);
@@ -2709,7 +2709,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:lobby_vote', async ({ gameId, proposalId, approve }: { gameId: string; proposalId: string; approve: boolean }) => {
       await runWithGameLock(gameId, async () => {
       const lobby = await loadWaitingLobbyDetails(gameId);
-      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Game not found');
+      if (!lobby) return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
       if (lobby.game.status !== 'waiting') return socket.emit('error', { message: 'Lobby voting is only available before the game starts' });
 
       const player = lobby.players.find((entry) => entry.user_id === userId);
@@ -4164,6 +4164,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 }
 
 async function processAiTerritorySelect(io: Server, gameId: string): Promise<void> {
+  try {
   await withLockedRoom(gameId, async (room) => {
   const { state, map } = room;
 
@@ -4293,6 +4294,15 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
     startTurnTimer(io, gameId, state, map);
   }
   }, { durationMs: 10000 });
+  } catch (err) {
+    // Fire-and-forget caller (setTimeout) — see processAiTurn for why a
+    // rethrow here would crash the process.
+    if (err instanceof GameRoomNotFoundError) {
+      console.warn('[AI] Room unavailable for AI territory select on', gameId);
+    } else {
+      console.error('[AI] AI territory select failed for', gameId, err);
+    }
+  }
 }
 
 /**
@@ -5034,6 +5044,17 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     startTurnTimer(io, gameId, state, map);
   }
   }, { durationMs: 15000 });
+  } catch (err) {
+    // Every call site is a fire-and-forget setTimeout, so a rethrow here
+    // becomes an unhandled rejection that takes down the whole process —
+    // one bad AI turn must never end every other game on the server.
+    // Recovery: the in-flight lock is released below, and any player
+    // reconnect re-triggers the AI turn via the game:join resume path.
+    if (err instanceof GameRoomNotFoundError) {
+      console.warn('[AI] Room unavailable for AI turn on', gameId);
+    } else {
+      console.error('[AI] AI turn failed for', gameId, err);
+    }
   } finally {
     await releaseAiTurn(gameId);
   }
