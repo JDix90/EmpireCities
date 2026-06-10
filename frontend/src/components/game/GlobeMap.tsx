@@ -20,6 +20,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import {
   SPACE_AGE_WASTELANDS,
@@ -2964,13 +2965,54 @@ function GlobeMap({
     if (!pointerDownPosRef.current) return;
     const dx = e.clientX - pointerDownPosRef.current.x;
     const dy = e.clientY - pointerDownPosRef.current.y;
-    if (Math.hypot(dx, dy) > 8) isDragRef.current = true;
+    // Fingertips jitter more than mice — give touch a looser threshold so
+    // ordinary taps aren't misread as drags and silently swallowed.
+    const threshold = e.pointerType === 'touch' ? 14 : 8;
+    if (Math.hypot(dx, dy) > threshold) isDragRef.current = true;
   }, []);
 
+  /** True once react-globe.gl's own raycast handled the current gesture. */
+  const polygonClickFiredRef = useRef(false);
+
   const guardedTerritoryClick = useCallback((territoryId: string) => {
+    polygonClickFiredRef.current = true;
     if (isDragRef.current) return;
     onTerritoryClick(territoryId);
   }, [onTerritoryClick]);
+
+  const renderedPolygonsRef = useRef<PolygonData[]>([]);
+  renderedPolygonsRef.current = renderedPolygonsData;
+  const onTerritoryClickRef = useRef(onTerritoryClick);
+  onTerritoryClickRef.current = onTerritoryClick;
+
+  const handlePointerEnd = useCallback((e: React.PointerEvent) => {
+    const wasTap = pointerDownPosRef.current !== null && !isDragRef.current;
+    // Stop tracking once the gesture ends; without this, later pointer moves
+    // (hover, momentum) kept measuring against a stale down-position.
+    pointerDownPosRef.current = null;
+    if (!wasTap || (e.pointerType === 'mouse' && e.button !== 0)) return;
+
+    // Fallback hit-test: three.js polygon raycasting is unreliable on small
+    // canvases (mobile viewports), so when no onPolygonClick arrives for this
+    // tap we resolve the territory ourselves from screen → globe coords.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    polygonClickFiredRef.current = false;
+    window.setTimeout(() => {
+      if (polygonClickFiredRef.current) return;
+      const globe = globeRef.current as
+        | (GlobeMethods & { toGlobeCoords?: (x: number, y: number) => { lat: number; lng: number } | null })
+        | undefined;
+      const coords = globe?.toGlobeCoords?.(x, y);
+      if (!coords) return;
+      const point: [number, number] = [coords.lng, coords.lat];
+      const hit = renderedPolygonsRef.current.find((p) =>
+        booleanPointInPolygon(point, { type: 'Feature', geometry: p.geometry, properties: {} }),
+      );
+      if (hit) onTerritoryClickRef.current(hit.territory_id);
+    }, 200);
+  }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -2983,6 +3025,8 @@ function GlobeMap({
       data-globe-playing={animationUi.playing ? 'true' : undefined}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
     >
       <style dangerouslySetInnerHTML={{ __html: ANIMATION_STYLES }} />
       {showSkipAnimations && (

@@ -34,5 +34,12 @@ export default defineConfig({
         ...devices['iPhone 13'],
       },
     },
+    {
+      name: 'chromium-mobile-touch',
+      use: {
+        ...devices['Pixel 5'],
+      },
+      testMatch: '**/mobile-territory-tap.spec.ts',
+    },
   ],
 });

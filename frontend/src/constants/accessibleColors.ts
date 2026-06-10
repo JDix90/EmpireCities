@@ -121,7 +121,10 @@ const STANDARD_PLAYER_ORDER = [
   '#ecf0f1',
 ] as const;
 
-function normalizePlayerHex(hex: string): string {
+function normalizePlayerHex(hex: string | null | undefined): string {
+  // Missing colors (malformed fixtures, partial states) fall back to neutral
+  // grey rather than crashing the whole map render.
+  if (!hex) return '#888888';
   const trimmed = hex.trim();
   return trimmed.startsWith('#') ? trimmed.toLowerCase() : trimmed;
 }

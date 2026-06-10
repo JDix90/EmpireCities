@@ -180,6 +180,9 @@ importers:
       '@turf/boolean-intersects':
         specifier: ^7.3.4
         version: 7.3.4
+      '@turf/boolean-point-in-polygon':
+        specifier: ^7.3.4
+        version: 7.3.4
       '@turf/boolean-touches':
         specifier: ^7.3.4
         version: 7.3.4
