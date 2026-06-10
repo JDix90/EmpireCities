@@ -176,20 +176,40 @@ export default function App() {
         useAuthStore.getState().setBootstrapped(true);
         return;
       }
-      try {
-        const ok = await state.refreshToken({ silent: true });
-        if (ok) {
-          try {
-            const res = await api.get('/users/me');
-            useAuthStore.getState().setUser(res.data);
-            // Merge server-side tutorial module completions into localStorage so
-            // TutorialPage reflects accurate completion state on any device.
-            if (Array.isArray(res.data.tutorial_modules_completed)) {
-              mergeServerTutorialModules(res.data.tutorial_modules_completed);
-            }
-          } catch {
-            /* best-effort profile re-fetch — flags like is_admin will reflect on next nav */
+      const syncProfile = async () => {
+        try {
+          const res = await api.get('/users/me');
+          useAuthStore.getState().setUser(res.data);
+          // Merge server-side tutorial module completions into localStorage so
+          // TutorialPage reflects accurate completion state on any device.
+          if (Array.isArray(res.data.tutorial_modules_completed)) {
+            mergeServerTutorialModules(res.data.tutorial_modules_completed);
           }
+        } catch {
+          /* best-effort profile re-fetch — flags like is_admin will reflect on next nav */
+        }
+      };
+      try {
+        let outcome = await state.refreshToken({ silent: true });
+        if (outcome === 'ok') {
+          await syncProfile();
+          return;
+        }
+        if (outcome === 'invalid') return;
+        // 'unreachable': the reload may have raced a backend restart/deploy.
+        // Don't hold the splash screen hostage — mark bootstrapped now (the
+        // session is still marked authenticated, so the user stays on their
+        // page) and keep retrying in the background. The session only clears
+        // if the server, once reachable, actually rejects the refresh cookie.
+        useAuthStore.getState().setBootstrapped(true);
+        for (const delayMs of [1500, 3000, 6000, 12000]) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          outcome = await useAuthStore.getState().refreshToken({ silent: true });
+          if (outcome === 'ok') {
+            await syncProfile();
+            return;
+          }
+          if (outcome === 'invalid') return;
         }
       } finally {
         useAuthStore.getState().setBootstrapped(true);
