@@ -70,16 +70,19 @@ export function getStartingPlayerIndex(state: GameState): number {
   return state.starting_player_index ?? 0;
 }
 
-/** One production + tech income tick for every player at game start (economy+tech bootstrap). */
+/**
+ * One production + tech income tick for every player at game start
+ * (economy+tech bootstrap). Both helpers credit the player internally
+ * (special_resource / tech_points), mirroring the per-turn tick in
+ * advanceToNextPlayer — adding their return values again double-counts.
+ */
 export function applyOpeningEconomyTick(state: GameState): void {
   for (const player of state.players) {
-    const goldIncome = collectProduction(state, player.player_id);
-    if (goldIncome > 0) {
-      player.special_resource = (player.special_resource ?? 0) + goldIncome;
+    if (state.settings.economy_enabled) {
+      collectProduction(state, player.player_id);
     }
-    const tpIncome = applyTechPointIncome(state, player.player_id);
-    if (tpIncome > 0) {
-      player.tech_points = (player.tech_points ?? 0) + tpIncome;
+    if (state.settings.tech_trees_enabled) {
+      applyTechPointIncome(state, player.player_id);
     }
   }
 }

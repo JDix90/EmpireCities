@@ -41,7 +41,7 @@ import { startChallengeSweep, stopChallengeSweep } from './game-engine/progressi
 import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleService';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
-import { initSentry } from './services/sentry';
+import { initSentry, captureException } from './services/sentry';
 import { refreshAdminConfigCache } from './services/adminConfig';
 
 /**
@@ -86,6 +86,16 @@ function sentryIngestHosts(dsn: string): string[] {
 async function bootstrap(): Promise<void> {
   validateProductionEnv();
   initSentry();
+
+  // Backstop for fire-and-forget async paths (AI turn chains, disconnect
+  // cleanup): without a listener, Node kills the process on any unhandled
+  // rejection — ending every in-progress game on this instance because one
+  // promise was dropped. Log + report instead; the per-path catch blocks
+  // remain the first line of defense.
+  process.on('unhandledRejection', (reason) => {
+    console.error('[Process] Unhandled promise rejection (process kept alive):', reason);
+    captureException(reason);
+  });
 
   await connectPostgres();
   await connectRedis();

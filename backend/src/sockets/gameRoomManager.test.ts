@@ -6,6 +6,10 @@ vi.mock('../db/postgres', () => ({
   queryOne: vi.fn(),
 }));
 
+vi.mock('./mapResolver', () => ({
+  resolveMap: vi.fn(),
+}));
+
 vi.mock('./redisGameStore', () => ({
   getGameState: vi.fn(),
   getGameMap: vi.fn(),
@@ -21,6 +25,8 @@ vi.mock('./redisGameStore', () => ({
   isAiInFlight: vi.fn(),
 }));
 
+import { queryOne } from '../db/postgres';
+import { resolveMap } from './mapResolver';
 import { getGameState, getGameMap, setGameState } from './redisGameStore';
 import {
   loadAuthoritativeRoom,
@@ -72,6 +78,7 @@ describe('loadAuthoritativeRoom', () => {
     deleteCachedRoom('game-auth-1');
     vi.mocked(getGameState).mockReset();
     vi.mocked(getGameMap).mockReset();
+    vi.mocked(queryOne).mockReset();
   });
 
   it('prefers Redis over stale local cache', async () => {
@@ -97,6 +104,32 @@ describe('loadAuthoritativeRoom', () => {
 
     const room = await loadAuthoritativeRoom('game-auth-1');
     expect(room?.state.turn_number).toBe(2);
+  });
+
+  it('self-heals from Postgres when every layer misses and no mapId was passed', async () => {
+    vi.mocked(getGameState).mockResolvedValue(null);
+    vi.mocked(queryOne).mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM games')) return { map_id: 'test_map' };
+      if (sql.includes('FROM game_states')) return { state_json: makeState('game-auth-1', 7) };
+      return null;
+    });
+    vi.mocked(resolveMap).mockResolvedValue(makeMap());
+
+    const room = await loadAuthoritativeRoom('game-auth-1');
+    expect(room?.state.turn_number).toBe(7);
+    // Recovery warms Redis so the next action takes the fast path again.
+    expect(setGameState).toHaveBeenCalled();
+  });
+
+  it('does not resurrect games that are no longer in progress', async () => {
+    vi.mocked(getGameState).mockResolvedValue(null);
+    // Status filter excludes the finished game → games lookup returns null.
+    vi.mocked(queryOne).mockResolvedValue(null);
+
+    const room = await loadAuthoritativeRoom('game-auth-1');
+    expect(room).toBeNull();
+    // It must never have tried to load state backups without the games row.
+    expect(vi.mocked(queryOne).mock.calls.every(([sql]) => !String(sql).includes('FROM game_states'))).toBe(true);
   });
 });
 

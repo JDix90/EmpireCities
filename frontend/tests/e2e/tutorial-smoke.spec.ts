@@ -17,10 +17,12 @@ test.describe('Training Academy page', () => {
   test('renders module cards and headers', async ({ page }) => {
     await page.goto('/tutorial');
     await expect(page.getByRole('heading', { name: /training academy/i })).toBeVisible();
-    await expect(page.getByText(/Core Tutorial/i)).toBeVisible();
-    await expect(page.getByText(/Advanced Settings/i)).toBeVisible();
-    await expect(page.getByText(/Faction Abilities/i)).toBeVisible();
-    await expect(page.getByText(/Technology Tree/i)).toBeVisible();
+    // Scope to the cards: the page intro copy also mentions the module
+    // names, which breaks bare getByText under strict mode.
+    await expect(page.getByTestId('module-card-core').getByText(/Core Tutorial/i)).toBeVisible();
+    await expect(page.getByTestId('module-card-advanced_settings').getByText(/Advanced Settings/i)).toBeVisible();
+    await expect(page.getByTestId('module-card-faction_ability').getByText(/Faction Abilities/i)).toBeVisible();
+    await expect(page.getByTestId('module-card-tech_tree').getByText(/Technology Tree/i)).toBeVisible();
   });
 
   test('shows Start Lesson button on each module card', async ({ page }) => {
