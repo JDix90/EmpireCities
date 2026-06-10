@@ -1,8 +1,11 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
+import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
+import { buildTerritoryGlobeGeometries, type GlobeMapDataForGeometry } from '../../utils/globeTerritoryGeometry';
+import { buildGeoLayout2d } from '../../utils/map2dProjection';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { hapticImpact } from '../../utils/haptics';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
@@ -37,8 +40,11 @@ interface MapConnection {
 }
 
 interface GameMapData {
+  map_id?: string;
+  map_kind?: string;
   canvas_width?: number;
   canvas_height?: number;
+  projection_bounds?: { minLng: number; maxLng: number; minLat: number; maxLat: number };
   territories: MapTerritory[];
   connections: MapConnection[];
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
@@ -154,6 +160,42 @@ export default function GameMap({
     return { canvasW: w, canvasH: h };
   }, [mapData]);
 
+  // ── Real territory shapes (Stage B) ───────────────────────────────────────
+  // Project the same lon/lat geometries the 3D globe renders into this map's
+  // canvas coordinate space. All-or-nothing per map: until every territory
+  // resolves a geometry the seed rectangles render (and remain the fallback
+  // for maps with no geo data at all, e.g. galaxy worlds).
+  const geoSources = useTerritoryGeoSources(mapData);
+  const geoLayout = useMemo(() => {
+    if (!geoSources || mapData.map_kind === 'galaxy') return null;
+    try {
+      const polys = buildTerritoryGlobeGeometries(
+        mapData as unknown as GlobeMapDataForGeometry,
+        geoSources,
+      );
+      const eligibleIds = mapData.territories
+        .filter((t) => t.region_id !== 'sea_routes')
+        .map((t) => t.territory_id);
+      return buildGeoLayout2d(polys, eligibleIds, canvasW, canvasH, mapData.projection_bounds ?? null);
+    } catch (err) {
+      console.warn('[GameMap] Geo layout unavailable, falling back to seed polygons:', err);
+      return null;
+    }
+  }, [mapData, geoSources, canvasW, canvasH]);
+
+  /** Rings (canvas coords) for a territory — real shape when available, seed rectangle otherwise. */
+  const territoryRings = useCallback(
+    (t: MapTerritory): [number, number][][] =>
+      geoLayout?.rings.get(t.territory_id) ?? [t.polygon as [number, number][]],
+    [geoLayout],
+  );
+  /** Label/badge anchor (canvas coords) — geo centroid when available. */
+  const territoryCenter = useCallback(
+    (t: MapTerritory): [number, number] =>
+      geoLayout?.centers.get(t.territory_id) ?? t.center_point,
+    [geoLayout],
+  );
+
   // ── Initialize PixiJS Application ─────────────────────────────────────────
   useEffect(() => {
     if (!canvasRef.current || appRef.current) return;
@@ -235,23 +277,25 @@ export default function GameMap({
       const color = regionColorMap.get(regionId) ?? 0x888888;
 
       for (const territory of territories) {
-        const scaledPoly = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
-        if (scaledPoly.length < 3) continue;
+        const tintRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
         const g = new PIXI.Graphics();
-        g.lineStyle(2.5, color, 0.55);
-        g.beginFill(color, 0.10);
-        g.moveTo(scaledPoly[0][0], scaledPoly[0][1]);
-        for (let i = 1; i < scaledPoly.length; i++) g.lineTo(scaledPoly[i][0], scaledPoly[i][1]);
-        g.closePath();
-        g.endFill();
+        for (const scaledPoly of tintRings) {
+          if (scaledPoly.length < 3) continue;
+          g.lineStyle(2.5, color, 0.55);
+          g.beginFill(color, 0.10);
+          g.moveTo(scaledPoly[0][0], scaledPoly[0][1]);
+          for (let i = 1; i < scaledPoly.length; i++) g.lineTo(scaledPoly[i][0], scaledPoly[i][1]);
+          g.closePath();
+          g.endFill();
+        }
         regionTintLayer.addChild(g);
       }
 
       // Region centroid label (name + bonus) floats above the group
       const region = mapData.regions?.find((r) => r.region_id === regionId);
       if (region && territories.length >= 2) {
-        const cx = territories.reduce((s, t) => s + t.center_point[0], 0) / territories.length;
-        const cy = territories.reduce((s, t) => s + t.center_point[1], 0) / territories.length;
+        const cx = territories.reduce((s, t) => s + territoryCenter(t)[0], 0) / territories.length;
+        const cy = territories.reduce((s, t) => s + territoryCenter(t)[1], 0) / territories.length;
         const [lcx, lcy] = scalePolygon([[cx, cy]], canvasW, canvasH, width, height)[0];
         const fontSize = Math.min(13, Math.max(8, Math.round(canvasW / 85)));
         const regionLabel = new PIXI.Text(`${region.name}  +${region.bonus}`, {
@@ -276,8 +320,8 @@ export default function GameMap({
       const to = mapData.territories.find((t) => t.territory_id === conn.to);
       if (!from || !to) continue;
 
-      const [fx, fy] = scalePolygon([from.center_point], canvasW, canvasH, width, height)[0];
-      const [tx, ty] = scalePolygon([to.center_point], canvasW, canvasH, width, height)[0];
+      const [fx, fy] = scalePolygon([territoryCenter(from)], canvasW, canvasH, width, height)[0];
+      const [tx, ty] = scalePolygon([territoryCenter(to)], canvasW, canvasH, width, height)[0];
 
       connectionGraphics.lineStyle(1, conn.type === 'sea' ? 0x2e7d9e : 0x2d3448, 0.5);
       connectionGraphics.moveTo(fx, fy);
@@ -290,10 +334,10 @@ export default function GameMap({
       g.eventMode = 'static';
       g.cursor = 'pointer';
 
-      const scaledPolygon = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
-      const [cx, cy] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+      const scaledRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+      const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
 
-      drawTerritory(g, scaledPolygon, 0x2d3448, 0x4a5568);
+      drawTerritory(g, scaledRings, 0x2d3448, 0x4a5568);
 
       // Tap detection: only fire click if pointer hasn't moved far (avoids conflict with pan)
       let tapDownPos: { x: number; y: number } | null = null;
@@ -469,7 +513,7 @@ export default function GameMap({
       unitBadgeLayerRef.current = null;
       unitBadgeMapRef.current.clear();
     };
-  }, [mapData, canvasW, canvasH, width, height]);
+  }, [mapData, canvasW, canvasH, width, height, territoryRings, territoryCenter]);
 
   // Capital markers (2D map)
   useEffect(() => {
@@ -481,7 +525,7 @@ export default function GameMap({
       if (!capId) continue;
       const territory = mapData.territories.find((t) => t.territory_id === capId);
       if (!territory) continue;
-      const [cx, cy] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+      const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
       const g = new PIXI.Graphics();
       const fill = hexToPixi(player.color);
       g.lineStyle(2, 0xffd700, 1);
@@ -495,7 +539,7 @@ export default function GameMap({
       g.endFill();
       layer.addChild(g);
     }
-  }, [gameState, mapData, canvasW, canvasH, width, height]);
+  }, [gameState, mapData, canvasW, canvasH, width, height, territoryCenter]);
 
   const adjacencyTargets = useMemo(() => {
     if (!gameState) return new Set<string>();
@@ -571,11 +615,12 @@ export default function GameMap({
 
       // Wonder glow: thick golden border for territories with a wonder building
       const hasWonder = (tState.buildings ?? []).some((b: string) => b.startsWith('wonder_'));
-      const scaledPolygon = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
+      const scaledRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
       if (hasWonder) {
         // Draw an extra golden ring behind the territory
         g.clear();
-        if (scaledPolygon.length >= 3) {
+        for (const scaledPolygon of scaledRings) {
+          if (scaledPolygon.length < 3) continue;
           g.lineStyle(4, 0xffd700, 0.75);
           g.beginFill(0, 0);
           g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
@@ -594,7 +639,7 @@ export default function GameMap({
             : isContested
               ? 2.25
               : 1.25;
-      drawTerritory(g, scaledPolygon, fillColor, borderColor, adjacencyBorderWidth);
+      drawTerritory(g, scaledRings, fillColor, borderColor, adjacencyBorderWidth);
 
       // ── Unit-count badge (Risk-style army counter at the territory center) ──
       const badgeLayer = unitBadgeLayerRef.current;
@@ -614,7 +659,7 @@ export default function GameMap({
           text.anchor.set(0.5);
           holder.addChild(bg);
           holder.addChild(text);
-          const [bx, by] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+          const [bx, by] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
           holder.position.set(bx, by + 8);
           badgeLayer.addChild(holder);
           badge = { bg, text, holder };
@@ -661,7 +706,7 @@ export default function GameMap({
           })
           .join('');
 
-        const [cx, cy] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+        const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
 
         if (existing) {
           existing.text = icons;
@@ -683,6 +728,8 @@ export default function GameMap({
     adjacencyTargets,
     emphasizeAdjacencyBorders,
     neighborMap,
+    territoryRings,
+    territoryCenter,
     mapData,
     canvasW,
     canvasH,
@@ -720,7 +767,7 @@ export default function GameMap({
     const territory = mapData.territories.find((t) => t.territory_id === highlightTerritoryId);
     if (!territory) return;
 
-    const [cx, cy] = scalePolygon([territory.center_point], canvasW, canvasH, width, height)[0];
+    const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
     const ring = new PIXI.Graphics();
     layer.addChild(ring);
     highlightRingRef.current = ring;
@@ -744,7 +791,7 @@ export default function GameMap({
       ticker.destroy();
       pulseTickerRef.current = null;
     };
-  }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height]);
+  }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height, territoryCenter]);
 
   // ── Strike ability territory flash (2D map) ───────────────────────────────
   useEffect(() => {
@@ -772,7 +819,8 @@ export default function GameMap({
     if (!territory) return;
 
     const style = STRIKE_MAP_STYLES[strikeFlash.abilityId];
-    const scaledPolygon = scalePolygon(territory.polygon as [number, number][], canvasW, canvasH, width, height);
+    const strikeRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+    const scaledPolygon = strikeRings.reduce((a, b) => (b.length > a.length ? b : a), strikeRings[0] ?? []);
     if (scaledPolygon.length < 3) return;
 
     const g = new PIXI.Graphics();
@@ -810,18 +858,19 @@ export default function GameMap({
       ticker.destroy();
       strikeTickerRef.current = null;
     };
-  }, [strikeFlash, mapData, canvasW, canvasH, width, height]);
+  }, [strikeFlash, mapData, canvasW, canvasH, width, height, territoryRings]);
 
   // ── Map visual event queue (reinforce / combat / fortify) ─────────────────
   const territoryCentroids = useMemo(() => {
     const m = new Map<string, TerritoryCentroid>();
     for (const t of mapData.territories) {
-      const scaledPolygon = scalePolygon(t.polygon as [number, number][], canvasW, canvasH, width, height);
-      const [x, y] = scalePolygon([t.center_point], canvasW, canvasH, width, height)[0]!;
+      const ringsForT = scaleRings(territoryRings(t), canvasW, canvasH, width, height);
+      const scaledPolygon = ringsForT.reduce((a, b) => (b.length > a.length ? b : a), ringsForT[0] ?? []);
+      const [x, y] = scalePolygon([territoryCenter(t)], canvasW, canvasH, width, height)[0]!;
       m.set(t.territory_id, { territoryId: t.territory_id, regionId: t.region_id, x, y, polygon: scaledPolygon });
     }
     return m;
-  }, [mapData, canvasW, canvasH, width, height]);
+  }, [mapData, canvasW, canvasH, width, height, territoryRings, territoryCenter]);
 
   // ── Ambient contested borders + turn-holder shimmer ───────────────────────
   useEffect(() => {
@@ -943,20 +992,32 @@ export default function GameMap({
 
 function drawTerritory(
   g: PIXI.Graphics,
-  points: [number, number][],
+  rings: [number, number][][],
   fillColor: number,
   borderColor: number,
   borderWidth = 1.5,
 ): void {
   g.clear();
-  if (points.length < 3) return;
-
-  g.lineStyle(borderWidth, borderColor, 1);
-  g.beginFill(fillColor, 0.85);
-  g.moveTo(points[0][0], points[0][1]);
-  for (let i = 1; i < points.length; i++) {
-    g.lineTo(points[i][0], points[i][1]);
+  for (const points of rings) {
+    if (points.length < 3) continue;
+    g.lineStyle(borderWidth, borderColor, 1);
+    g.beginFill(fillColor, 0.85);
+    g.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) {
+      g.lineTo(points[i][0], points[i][1]);
+    }
+    g.closePath();
+    g.endFill();
   }
-  g.closePath();
-  g.endFill();
+}
+
+/** Scale every ring of a territory from canvas to screen coordinates. */
+function scaleRings(
+  rings: [number, number][][],
+  canvasW: number,
+  canvasH: number,
+  width: number,
+  height: number,
+): [number, number][][] {
+  return rings.map((ring) => scalePolygon(ring, canvasW, canvasH, width, height));
 }
