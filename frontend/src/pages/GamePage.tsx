@@ -1164,7 +1164,7 @@ export default function GamePage() {
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned';
+      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
       combat_stats?: Record<string, {
@@ -3998,6 +3998,25 @@ export default function GamePage() {
                 <p className="text-amber-200 text-xs font-semibold uppercase tracking-wider">Coaching</p>
                 <p className="text-sm text-white/90 font-medium mt-1">{coachingTip.title}</p>
                 <p className="text-xs text-white/70 mt-1">{coachingTip.body}</p>
+                {coachingTip.category === 'resign_suggestion' && (
+                  <div className="flex gap-2 mt-2.5">
+                    <button
+                      onClick={() => setCoachingTip(null)}
+                      className="btn-secondary text-xs px-3 py-1.5"
+                    >
+                      Keep playing
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCoachingTip(null);
+                        handleResignRequest();
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10"
+                    >
+                      Resign…
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => setCoachingTip(null)}

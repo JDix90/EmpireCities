@@ -1050,6 +1050,9 @@ export default function LobbyPage() {
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: true,
+          // Stalemate guard: most territories wins at the cap, so a solo
+          // match can't grind on for hundreds of turns.
+          max_turns: 150,
         },
       });
       navigate(`/game/${res.data.game_id}`);

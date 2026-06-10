@@ -89,6 +89,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     victory_type: vt,
     allowed_victory_conditions: allowed,
     victory_threshold: threshold,
+    max_turns:
+      typeof raw.max_turns === 'number' && Number.isInteger(raw.max_turns) && raw.max_turns >= 10
+        ? raw.max_turns
+        : null,
     turn_timer_seconds: turnTimer,
     initial_unit_count: initialUnits,
     card_set_escalating: cardEsc,

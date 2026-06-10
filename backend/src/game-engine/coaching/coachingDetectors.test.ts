@@ -218,3 +218,62 @@ describe('evaluateCoachingTip', () => {
     expect(evaluateCoachingTip(state, makeMap())).toBeNull();
   });
 });
+
+describe('resign suggestion detector', () => {
+  const hopelessOwnership = {
+    a1: 'hum', a2: 'ai', a3: 'hum', a4: 'ai', s1: 'hum', s2: 'ai', s3: 'hum',
+  } as const;
+  const evenUnits = { a1: 5, a2: 5, a3: 5, a4: 5, s1: 5, s2: 5, s3: 5 };
+
+  function hopelessHistory(streak: number, prob = 0.03) {
+    return Array.from({ length: streak }, (_, i) => ({
+      step: i,
+      turn: i + 1,
+      probabilities: { hum: prob, ai: 1 - prob },
+    }));
+  }
+
+  it('fires after 10 consecutive snapshots under 5%', () => {
+    const state = makeState({
+      ownership: { ...hopelessOwnership },
+      units: evenUnits,
+      history: hopelessHistory(10),
+    });
+    const tip = evaluateCoachingTip(state, makeMap());
+    expect(tip).not.toBeNull();
+    expect(tip!.category).toBe('resign_suggestion');
+  });
+
+  it('does not fire at 9 snapshots', () => {
+    const state = makeState({
+      ownership: { ...hopelessOwnership },
+      units: evenUnits,
+      history: hopelessHistory(9),
+    });
+    const tip = evaluateCoachingTip(state, makeMap());
+    expect(tip?.category).not.toBe('resign_suggestion');
+  });
+
+  it('does not fire if any recent snapshot recovered above the threshold', () => {
+    const history = hopelessHistory(10);
+    history[7] = { step: 7, turn: 8, probabilities: { hum: 0.2, ai: 0.8 } };
+    const state = makeState({
+      ownership: { ...hopelessOwnership },
+      units: evenUnits,
+      history,
+    });
+    const tip = evaluateCoachingTip(state, makeMap());
+    expect(tip?.category).not.toBe('resign_suggestion');
+  });
+
+  it('never fires twice — suppressed by the one-shot flag', () => {
+    const state = makeState({
+      ownership: { ...hopelessOwnership },
+      units: evenUnits,
+      history: hopelessHistory(12),
+    });
+    state.resign_suggestion_shown = true;
+    const tip = evaluateCoachingTip(state, makeMap());
+    expect(tip?.category).not.toBe('resign_suggestion');
+  });
+});

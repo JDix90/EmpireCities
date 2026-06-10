@@ -3458,6 +3458,12 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
   const human = state.players.find((p) => !p.is_ai);
   if (!human) return;
 
+  if (tip.category === 'resign_suggestion') {
+    // One-shot per game — stamped on the cached room state and persisted by
+    // the next save, so the prompt never nags.
+    state.resign_suggestion_shown = true;
+  }
+
   io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
 }
 
