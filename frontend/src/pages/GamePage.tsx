@@ -384,6 +384,12 @@ export default function GamePage() {
   /** Socket `game:joined` seat — resolves viewer player_id before auth.user hydrates */
   const [joinPlayerIndex, setJoinPlayerIndex] = useState<number | null>(null);
   const joinPlayerIndexRef = useRef<number | null>(null);
+  /** Player id of the seat this client joined as (tutorial/seat-join games), or null. */
+  const seatPidFor = useCallback((gs: ClientGameState | null | undefined): string | null => (
+    joinPlayerIndexRef.current != null && gs
+      ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
+      : null
+  ), []);
   const [focusedWorldId, setFocusedWorldId] = useState<string>('earth');
   /** Brief lore header when drilling into a galaxy world (or switching world tabs). */
   const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{
@@ -457,6 +463,8 @@ export default function GamePage() {
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
   userRef.current = user;
+  /** Timestamp of the last mid-game GAME_NOT_FOUND — two within 30s confirm a dead game. */
+  const gameNotFoundAtRef = useRef(0);
   const resolvedViewerPlayerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -613,6 +621,11 @@ export default function GamePage() {
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
   /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
   const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
+  const gamePhase = gameState?.phase;
+  useEffect(() => {
+    // Don't leave the recap overlay floating over the results screen.
+    if (gamePhase === 'game_over') setAiRecaps([]);
+  }, [gamePhase]);
   const [notifState, setNotifState] = useState<{ data: NotificationData; key: number } | null>(null);
   const notifCounter = useRef(0);
   const [coachingTip, setCoachingTip] = useState<{
@@ -886,10 +899,7 @@ export default function GamePage() {
       const myId = userRef.current?.user_id;
       const myName = userRef.current?.username;
       const prevDraft = useGameStore.getState().draftUnitsRemaining;
-      const seatPid =
-        joinPlayerIndexRef.current != null
-          ? state.players[joinPlayerIndexRef.current]?.player_id ?? null
-          : null;
+      const seatPid = seatPidFor(state);
       setDraftUnitsRemaining(computeDraftPool(state, myId, myName, prevDraft, seatPid));
 
       // ── Turn change detection ────────────────────────────────────────
@@ -1002,10 +1012,7 @@ export default function GamePage() {
           state.phase === 'draft' &&
           !!me &&
           state.players[state.current_player_index]?.player_id === me.player_id;
-        const seatPidTut =
-          joinPlayerIndexRef.current != null
-            ? state.players[joinPlayerIndexRef.current]?.player_id ?? null
-            : null;
+        const seatPidTut = seatPidFor(state);
         const draftLeft = isMyDraftTurn
           ? computeDraftPool(state, myId, myName, state.draft_units_remaining ?? 0, seatPidTut)
           : -1;
@@ -1118,9 +1125,9 @@ export default function GamePage() {
           ? ` — both sides lost ${plural(attacker_losses, 'troop')}`
           : ` — both sides lost troops (${attacker_losses} attacking, ${defender_losses} defending)`;
       } else if (attacker_losses > 0) {
-        logEntry += ` — lost ${attacker_losses} troop${attacker_losses > 1 ? 's' : ''}`;
+        logEntry += ` — lost ${plural(attacker_losses, 'troop')}`;
       } else if (defender_losses > 0) {
-        logEntry += ` — destroyed ${defender_losses} defender${defender_losses > 1 ? 's' : ''}`;
+        logEntry += ` — destroyed ${plural(defender_losses, 'defender')}`;
       }
       if (territory_captured) {
         logEntry += ` and captured ${toName}!`;
@@ -1450,10 +1457,7 @@ export default function GamePage() {
     socket.on('game:turn_timeout', (payload: TurnTimeoutPayload) => {
       const gs = useGameStore.getState().gameState;
       const myId = userRef.current?.user_id;
-      const seatPid =
-        joinPlayerIndexRef.current != null && gs
-          ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
-          : null;
+      const seatPid = seatPidFor(gs);
       const currentPid = gs?.players[gs.current_player_index]?.player_id;
       if (!currentPid || (currentPid !== myId && currentPid !== seatPid)) return;
       const message = turnTimeoutToastMessage(payload);
@@ -1474,9 +1478,10 @@ export default function GamePage() {
       // otherwise leave the user stuck on the "preparing…"/lobby screen with
       // only a transient toast. Surface the actionable "Game unavailable"
       // screen so they can get back to the lobby instead.
+      const isNotParticipant = code === 'NOT_PARTICIPANT' || message === 'Not a participant in this game';
       if (!useGameStore.getState().gameState) {
         if (
-          message === 'Not a participant in this game' ||
+          isNotParticipant ||
           isGameNotFound
         ) {
           if (lobbyTimeoutRef.current) {
@@ -1484,17 +1489,26 @@ export default function GamePage() {
             lobbyTimeoutRef.current = null;
           }
           setLobbyLoadError(
-            message === 'Not a participant in this game'
+            isNotParticipant
               ? 'You are not a participant in this game. Try returning to the lobby and reopening it.'
               : 'This game could not be found. It may have ended or been removed.',
           );
           return;
         }
       } else if (isGameNotFound) {
-        // The room vanished mid-game (evicted/finished server-side). A toast
-        // alone leaves the player acting on a dead board — send them home.
-        toast.error(message);
-        navigate('/lobby');
+        // The room failed to load mid-game. A single miss can be transient
+        // (Redis eviction racing a reload), so the first one asks the player
+        // to retry; only a repeat within a short window treats the game as
+        // genuinely gone and sends them home.
+        const now = Date.now();
+        if (now - gameNotFoundAtRef.current < 30_000) {
+          gameNotFoundAtRef.current = 0;
+          toast.error(message);
+          navigate('/lobby');
+        } else {
+          gameNotFoundAtRef.current = now;
+          toast.error('Could not reach this game — try that action again.');
+        }
         return;
       }
       // Many gameplay errors (invalid attack target, not enough units,
@@ -1517,10 +1531,7 @@ export default function GamePage() {
       const gs = useGameStore.getState().gameState;
       const uid = userRef.current?.user_id;
       const uname = userRef.current?.username;
-      const seatPid =
-        joinPlayerIndexRef.current != null && gs
-          ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
-          : null;
+      const seatPid = seatPidFor(gs);
       if (gs?.phase === 'draft') {
         setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, 0, seatPid));
         ownTurnReinforcementsRef.current.pop();
@@ -1936,7 +1947,7 @@ export default function GamePage() {
     ownTurnFortificationsRef.current.push({ fromName, toName, units });
     showNotification({
       type: 'fortify',
-      text: `Moved ${units} troops: ${fromName} → ${toName}`,
+      text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
       icon: 'arrow',
       accentBg: 'bg-sky-500/20',
       accentBorder: 'border-sky-500/30',
@@ -2099,10 +2110,7 @@ export default function GamePage() {
     const gs = useGameStore.getState().gameState;
     const uid = useAuthStore.getState().user?.user_id;
     const uname = useAuthStore.getState().user?.username;
-    const seatPid =
-      joinPlayerIndexRef.current != null && gs
-        ? gs.players[joinPlayerIndexRef.current]?.player_id ?? null
-        : null;
+    const seatPid = seatPidFor(gs);
     const curr = computeDraftPool(
       gs,
       uid,

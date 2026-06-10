@@ -5,7 +5,8 @@ import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import { buildTerritoryGlobeGeometries, type GlobeMapDataForGeometry } from '../../utils/globeTerritoryGeometry';
-import { buildGeoLayout2d } from '../../utils/map2dProjection';
+import { buildGeoLayout2d, type GeoLayout2d } from '../../utils/map2dProjection';
+import { hasGeoMapping } from '../../data/territoryGeoMapping';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { hapticImpact } from '../../utils/haptics';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
@@ -79,6 +80,9 @@ interface GameMapProps {
 function hexToPixi(hex: string): number {
   return getPlayerPixiColor(hex);
 }
+
+/** Projected geo layouts are pure functions of (map, canvas) — cached so view toggles don't redo the turf clipping pass. */
+const geoLayoutCache = new Map<string, GeoLayout2d | null>();
 
 /** Multiply each RGB channel — used for owner-shaded borders and badge fills. */
 function shadePixi(color: number, factor: number): number {
@@ -165,9 +169,28 @@ export default function GameMap({
   // canvas coordinate space. All-or-nothing per map: until every territory
   // resolves a geometry the seed rectangles render (and remain the fallback
   // for maps with no geo data at all, e.g. galaxy worlds).
-  const geoSources = useTerritoryGeoSources(mapData);
+  // Maps with no geo hints at all (galaxy worlds, canvas-only custom maps)
+  // skip the multi-MB Natural Earth downloads entirely.
+  const geoEligible = useMemo(() => {
+    if (mapData.map_kind === 'galaxy') return false;
+    return mapData.territories.some((t) => {
+      const geoFields = t as Partial<{
+        geo_polygon: unknown; geo_multipolygon: unknown; iso_codes: unknown; geo_config: unknown;
+      }>;
+      return Boolean(
+        geoFields.geo_polygon || geoFields.geo_multipolygon || geoFields.iso_codes || geoFields.geo_config,
+      ) || hasGeoMapping(t.territory_id);
+    });
+  }, [mapData]);
+  const geoSources = useTerritoryGeoSources(mapData, geoEligible);
   const geoLayout = useMemo(() => {
-    if (!geoSources || mapData.map_kind === 'galaxy') return null;
+    if (!geoEligible) return null;
+    // The turf clipping/union pass is expensive — cache per map+canvas so
+    // toggling 2D↔globe (which unmounts this component) doesn't recompute it.
+    const cacheKey = `${mapData.map_id ?? 'unknown'}:${canvasW}x${canvasH}`;
+    const cached = geoLayoutCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    if (!geoSources) return null;
     try {
       const polys = buildTerritoryGlobeGeometries(
         mapData as unknown as GlobeMapDataForGeometry,
@@ -176,12 +199,15 @@ export default function GameMap({
       const eligibleIds = mapData.territories
         .filter((t) => t.region_id !== 'sea_routes')
         .map((t) => t.territory_id);
-      return buildGeoLayout2d(polys, eligibleIds, canvasW, canvasH, mapData.projection_bounds ?? null);
+      const layout = buildGeoLayout2d(polys, eligibleIds, canvasW, canvasH, mapData.projection_bounds ?? null);
+      if (geoLayoutCache.size >= 12) geoLayoutCache.clear();
+      geoLayoutCache.set(cacheKey, layout);
+      return layout;
     } catch (err) {
       console.warn('[GameMap] Geo layout unavailable, falling back to seed polygons:', err);
       return null;
     }
-  }, [mapData, geoSources, canvasW, canvasH]);
+  }, [geoEligible, mapData, geoSources, canvasW, canvasH]);
 
   /** Rings (canvas coords) for a territory — real shape when available, seed rectangle otherwise. */
   const territoryRings = useCallback(
@@ -194,6 +220,25 @@ export default function GameMap({
     (t: MapTerritory): [number, number] =>
       geoLayout?.centers.get(t.territory_id) ?? t.center_point,
     [geoLayout],
+  );
+
+  /**
+   * Screen-space rings, computed once per (layout, viewport). Real geo rings
+   * carry tens of thousands of vertices — re-projecting them per territory on
+   * every state broadcast caused measurable GC churn, so all consumers
+   * (scene build, color updates, strike flashes, visual-event centroids)
+   * share this map instead of calling scaleRings inline.
+   */
+  const scaledRingsByTerritory = useMemo(() => {
+    const m = new Map<string, [number, number][][]>();
+    for (const t of mapData.territories) {
+      m.set(t.territory_id, scaleRings(territoryRings(t), canvasW, canvasH, width, height));
+    }
+    return m;
+  }, [mapData, territoryRings, canvasW, canvasH, width, height]);
+  const ringsFor = useCallback(
+    (territoryId: string): [number, number][][] => scaledRingsByTerritory.get(territoryId) ?? [],
+    [scaledRingsByTerritory],
   );
 
   // ── Initialize PixiJS Application ─────────────────────────────────────────
@@ -277,7 +322,7 @@ export default function GameMap({
       const color = regionColorMap.get(regionId) ?? 0x888888;
 
       for (const territory of territories) {
-        const tintRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+        const tintRings = ringsFor(territory.territory_id);
         const g = new PIXI.Graphics();
         for (const scaledPoly of tintRings) {
           if (scaledPoly.length < 3) continue;
@@ -334,7 +379,7 @@ export default function GameMap({
       g.eventMode = 'static';
       g.cursor = 'pointer';
 
-      const scaledRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+      const scaledRings = ringsFor(territory.territory_id);
       const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
 
       drawTerritory(g, scaledRings, 0x2d3448, 0x4a5568);
@@ -513,7 +558,7 @@ export default function GameMap({
       unitBadgeLayerRef.current = null;
       unitBadgeMapRef.current.clear();
     };
-  }, [mapData, canvasW, canvasH, width, height, territoryRings, territoryCenter]);
+  }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter]);
 
   // Capital markers (2D map)
   useEffect(() => {
@@ -615,7 +660,7 @@ export default function GameMap({
 
       // Wonder glow: thick golden border for territories with a wonder building
       const hasWonder = (tState.buildings ?? []).some((b: string) => b.startsWith('wonder_'));
-      const scaledRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+      const scaledRings = ringsFor(territory.territory_id);
       if (hasWonder) {
         // Draw an extra golden ring behind the territory
         g.clear();
@@ -728,7 +773,7 @@ export default function GameMap({
     adjacencyTargets,
     emphasizeAdjacencyBorders,
     neighborMap,
-    territoryRings,
+    ringsFor,
     territoryCenter,
     mapData,
     canvasW,
@@ -819,7 +864,7 @@ export default function GameMap({
     if (!territory) return;
 
     const style = STRIKE_MAP_STYLES[strikeFlash.abilityId];
-    const strikeRings = scaleRings(territoryRings(territory), canvasW, canvasH, width, height);
+    const strikeRings = ringsFor(territory.territory_id);
     const scaledPolygon = strikeRings.reduce((a, b) => (b.length > a.length ? b : a), strikeRings[0] ?? []);
     if (scaledPolygon.length < 3) return;
 
@@ -858,19 +903,19 @@ export default function GameMap({
       ticker.destroy();
       strikeTickerRef.current = null;
     };
-  }, [strikeFlash, mapData, canvasW, canvasH, width, height, territoryRings]);
+  }, [strikeFlash, mapData, canvasW, canvasH, width, height, ringsFor]);
 
   // ── Map visual event queue (reinforce / combat / fortify) ─────────────────
   const territoryCentroids = useMemo(() => {
     const m = new Map<string, TerritoryCentroid>();
     for (const t of mapData.territories) {
-      const ringsForT = scaleRings(territoryRings(t), canvasW, canvasH, width, height);
+      const ringsForT = ringsFor(t.territory_id);
       const scaledPolygon = ringsForT.reduce((a, b) => (b.length > a.length ? b : a), ringsForT[0] ?? []);
       const [x, y] = scalePolygon([territoryCenter(t)], canvasW, canvasH, width, height)[0]!;
       m.set(t.territory_id, { territoryId: t.territory_id, regionId: t.region_id, x, y, polygon: scaledPolygon });
     }
     return m;
-  }, [mapData, canvasW, canvasH, width, height, territoryRings, territoryCenter]);
+  }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter]);
 
   // ── Ambient contested borders + turn-holder shimmer ───────────────────────
   useEffect(() => {

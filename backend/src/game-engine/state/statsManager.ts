@@ -26,25 +26,31 @@ export function resolveXpConfig(state: GameState) {
   };
 }
 
-export function computeRanks(players: PlayerState[], winnerId: string): Map<string, number> {
+/**
+ * Rank every player for stats/XP/rating. All winners share rank 1 —
+ * alliance_victory produces two — then survivors by territory count, then
+ * the eliminated (resigners last).
+ */
+export function computeRanks(players: PlayerState[], winnerIds: string[]): Map<string, number> {
   const ranks = new Map<string, number>();
-  ranks.set(winnerId, 1);
+  const winners = new Set(winnerIds);
+  for (const id of winnerIds) ranks.set(id, 1);
 
   // Survivors (non-eliminated, non-winner) outrank the eliminated.
   const survivors = players
-    .filter((p) => !p.is_eliminated && p.player_id !== winnerId)
+    .filter((p) => !p.is_eliminated && !winners.has(p.player_id))
     .sort((a, b) => (b.territory_count ?? 0) - (a.territory_count ?? 0));
 
   // Resigners always rank below players who fought until elimination,
   // regardless of how many territories they abandoned.
   const eliminated = players
-    .filter((p) => p.is_eliminated && p.player_id !== winnerId)
+    .filter((p) => p.is_eliminated && !winners.has(p.player_id))
     .sort((a, b) => {
       if (!!a.has_resigned !== !!b.has_resigned) return a.has_resigned ? 1 : -1;
       return (b.territory_count ?? 0) - (a.territory_count ?? 0);
     });
 
-  let rank = 2;
+  let rank = Math.max(2, winnerIds.length + 1);
   for (const p of survivors) {
     ranks.set(p.player_id, rank++);
   }
@@ -87,7 +93,7 @@ export interface GameResultContext {
 export async function recordGameResults(
   gameId: string,
   state: GameState,
-  winnerId: string,
+  winnerIds: string[],
 ): Promise<GameResultContext> {
   const ctx: GameResultContext = { isRanked: false, ratingDeltas: new Map(), xpEarnedByPlayer: {} };
   const xpConfig = resolveXpConfig(state);
@@ -106,7 +112,8 @@ export async function recordGameResults(
 
     const ratingType = isRanked ? 'ranked' : 'solo';
 
-    const ranks = computeRanks(state.players, winnerId);
+    const ranks = computeRanks(state.players, winnerIds);
+    const winners = new Set(winnerIds);
     const humanPlayers = state.players.filter((p) => !p.is_ai);
     const totalPlayers = state.players.length;
 
@@ -129,7 +136,9 @@ export async function recordGameResults(
 
       const current = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
 
-      const isWinner = p.player_id === winnerId;
+      // Membership, not identity: alliance_victory has two winners and the
+      // co-winner must not be scored as a loss against AI opponents.
+      const isWinner = winners.has(p.player_id);
 
       // Build opponent list
       const opponents = [];

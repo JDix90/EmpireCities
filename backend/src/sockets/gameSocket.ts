@@ -707,10 +707,31 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (autoDraft.total > 0) {
         emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
         broadcastState(io, gameId, state);
-        io.to(gameId).emit('game:turn_timeout', { appliedDraft: true, unitsPlaced: autoDraft.total });
       }
+      // Emitted before advanceToNextPlayer so clients can attribute the
+      // timeout to the player whose deadline lapsed. phaseAdvanced drives the
+      // explanation toast — async deadlines always forfeit the whole turn.
+      io.to(gameId).emit('game:turn_timeout', {
+        phaseAdvanced: 'next_turn',
+        appliedDraft: autoDraft.total > 0,
+        unitsPlaced: autoDraft.total,
+      });
 
       advanceToNextPlayer(state, map);
+      {
+        // Turn-passing can end the game (turn-cap stalemate guard).
+        const asyncVictory = checkVictory(state, map);
+        if (asyncVictory) {
+          const { winnerIds, condition } = asyncVictory;
+          state.phase = 'game_over';
+          state.winner_id = winnerIds[0]!;
+          state.winner_ids = winnerIds;
+          state.victory_condition = condition;
+          await finalizeGame(io, gameId, state, winnerIds);
+          broadcastState(io, gameId, state);
+          return;
+        }
+      }
       await saveGameState(gameId, state);
       broadcastEventCard(io, gameId, state, map);
       broadcastState(io, gameId, state);
@@ -772,6 +793,20 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Fortify timed out → turn handed to the next player (advanceToNextPlayer
       // already ran inside advancePhaseOnTimeout).
       io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: 'next_turn' });
+      {
+        // Turn-passing can end the game (turn-cap stalemate guard).
+        const timeoutVictory = checkVictory(room.state, room.map);
+        if (timeoutVictory) {
+          const { winnerIds, condition } = timeoutVictory;
+          room.state.phase = 'game_over';
+          room.state.winner_id = winnerIds[0]!;
+          room.state.winner_ids = winnerIds;
+          room.state.victory_condition = condition;
+          await finalizeGame(io, gameId, room.state, winnerIds);
+          broadcastState(io, gameId, room.state);
+          return;
+        }
+      }
       await saveGameState(gameId, room.state);
       broadcastEventCard(io, gameId, room.state, room.map);
       broadcastState(io, gameId, room.state);
@@ -842,7 +877,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         // Verify this user is a participant
         const isParticipant = players.some((p) => p.user_id === userId);
-        if (!isParticipant) return socket.emit('error', { message: 'Not a participant in this game' });
+        if (!isParticipant) return emitGameError(socket, GameErrorCode.NOT_PARTICIPANT, 'Not a participant in this game');
 
         // A client socket is a singleton, so navigating between games can leave
         // it subscribed to a previous game's room. Leave any stale game/spectator
@@ -1693,6 +1728,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
         broadcastEventCard(io, gameId, state, map);
+
+        // Turn-passing can itself end the game (turn-cap stalemate guard,
+        // start-of-turn eliminations) — without this check a max_turns game
+        // only ends when someone happens to attack or resign.
+        const turnPassVictory = checkVictory(state, map);
+        if (turnPassVictory) {
+          const { winnerIds, condition } = turnPassVictory;
+          state.phase = 'game_over';
+          state.winner_id = winnerIds[0]!;
+          state.winner_ids = winnerIds;
+          state.victory_condition = condition;
+          await finalizeGame(io, gameId, state, winnerIds);
+          broadcastState(io, gameId, state);
+          return;
+        }
 
         if (maybeResolveDailyPuzzle(io, gameId, room, null, userId, finalizeGame)) {
           broadcastState(io, gameId, state);
@@ -3459,9 +3509,13 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
   if (!human) return;
 
   if (tip.category === 'resign_suggestion') {
-    // One-shot per game — stamped on the cached room state and persisted by
-    // the next save, so the prompt never nags.
+    // One-shot per game. Persist immediately — call sites run this after
+    // their own save, so without an explicit write an eviction or restart
+    // would forget the flag and the prompt would nag again.
     state.resign_suggestion_shown = true;
+    void persistGameStateAfterMutation(gameId, state).catch((err) =>
+      console.error('[Coaching] Failed to persist resign-suggestion flag:', gameId, err),
+    );
   }
 
   io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
@@ -3793,7 +3847,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Post-game stats (non-critical — failures logged but game:over still sent)
   let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
   try {
-    resultCtx = await recordGameResults(gameId, state, winnerId);
+    resultCtx = await recordGameResults(gameId, state, winnerIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
     resultCtx = { ratingDeltas: new Map(), isRanked: false, xpEarnedByPlayer: {} };
@@ -3801,7 +3855,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   const unlockedByPlayer: Record<string, string[]> = {};
   const humanPlayers = state.players.filter((p) => !p.is_ai);
-  const ranks = computeRanks(state.players, winnerId);
+  const ranks = computeRanks(state.players, winnerIds);
 
   if (resultCtx.isRanked && humanPlayers.length > 0) {
     for (const player of humanPlayers) {
@@ -4987,7 +5041,6 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
   clearTurnTimer(gameId, state);
-  state.phase_deadline_at = null;
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
   const currentPlayer = state.players[state.current_player_index];
@@ -4998,6 +5051,7 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     const deadlineSec = state.settings.async_turn_deadline_seconds ?? seconds;
     state.phase_deadline_at = Date.now() + deadlineSec * 1000;
     emitPhaseDeadline(io, gameId, state);
+    persistArmedDeadline(gameId, state);
     // Write deadline to DB for querying
     query(
       'UPDATE games SET async_turn_deadline = NOW() + INTERVAL \'1 second\' * $1 WHERE game_id = $2',
@@ -5018,9 +5072,24 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
   state.phase_deadline_at = Date.now() + seconds * 1000;
   emitPhaseDeadline(io, gameId, state);
+  persistArmedDeadline(gameId, state);
   scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
     console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
   });
+}
+
+/**
+ * Persist the freshly-armed deadline regardless of where the caller sits in
+ * its save/broadcast sequence. Several flows save state BEFORE arming the
+ * timer; without this, Redis-first reloads (reconnects, next locked mutation)
+ * would resurrect the previous, already-expired deadline and clients would
+ * show a frozen 0:00 clock. One extra Redis write per armed turn is cheap
+ * insurance against that whole ordering class.
+ */
+function persistArmedDeadline(gameId: string, state: GameState): void {
+  void persistGameStateAfterMutation(gameId, state).catch((err) =>
+    console.error('[TurnTimer] Failed to persist armed deadline:', gameId, err),
+  );
 }
 
 /**
@@ -5039,6 +5108,10 @@ function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
 function clearTurnTimer(gameId: string, state?: GameState): void {
   cancelTurnTimeout(gameId).catch(() => {});
   if (state) {
+    // No timer running means no deadline — otherwise AI turns and event
+    // pauses keep broadcasting the previous human's expired clock and the
+    // HUD counts down a dead timer to a frozen 0:00.
+    state.phase_deadline_at = null;
     cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
   }
 }

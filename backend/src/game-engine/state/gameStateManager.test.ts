@@ -805,3 +805,31 @@ describe('checkVictory turn cap (max_turns)', () => {
     expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p2'], condition: 'turn_limit' });
   });
 });
+
+describe('checkVictory turn cap precedence', () => {
+  it('a real victory condition on the cap turn beats turn_limit', () => {
+    const state = makeState({
+      turn_number: 151,
+      settings: makeSettings({ max_turns: 150 }),
+      players: [
+        makePlayer('p1', 0, { territory_count: 3 }),
+        makePlayer('p2', 1, { territory_count: 0 }),
+      ],
+    });
+    // p1 owns every territory → domination, not turn_limit.
+    expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'domination' });
+  });
+
+  it('non-normalized max_turns values are ignored (treated as no cap)', () => {
+    const state = makeState({
+      turn_number: 9,
+      settings: makeSettings({ max_turns: 2 as unknown as number }),
+      players: [
+        makePlayer('p1', 0, { territory_count: 2 }),
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+    });
+    // normalizeGameSettings floors max_turns at 10; a raw 2 must not end games.
+    expect(checkVictory(state, victoryMap)).toBeNull();
+  });
+});
