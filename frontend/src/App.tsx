@@ -295,6 +295,8 @@ export default function App() {
         <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
         <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />
+        {/* Natural guess for the nav's "Live" item — redirect instead of a 404. */}
+        <Route path="/live" element={<Navigate to="/live-games" replace />} />
         <Route path="/spectate/:gameId" element={<PrivateRoute><SpectatorPage /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><AdminRoute><AdminPage /></AdminRoute></PrivateRoute>} />
         <Route path="/codex" element={<CodexPage />} />

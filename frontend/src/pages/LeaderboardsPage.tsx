@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Trophy, Flame, Star, TrendingUp, ChevronLeft, ChevronRight, Crown, CalendarDays } from 'lucide-react';
+import { Trophy, Flame, Star, TrendingUp, ChevronLeft, ChevronRight, Crown, CalendarDays, Bot } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import type { TierInfo } from '@borderfall/shared';
 
-type LeaderboardTab = 'rating' | 'level' | 'season' | 'weekly' | 'streaks';
+type LeaderboardTab = 'rating' | 'solo' | 'level' | 'season' | 'weekly' | 'streaks';
 
 interface RatingEntry {
   rank: number;
@@ -61,7 +61,8 @@ interface MyRankResponse {
 }
 
 const TABS: { id: LeaderboardTab; label: string; icon: typeof Trophy }[] = [
-  { id: 'rating', label: 'Rating', icon: Trophy },
+  { id: 'rating', label: 'Ranked', icon: Trophy },
+  { id: 'solo', label: 'Solo', icon: Bot },
   { id: 'level', label: 'Level', icon: Star },
   { id: 'season', label: 'Season', icon: Crown },
   { id: 'weekly', label: 'Weekly', icon: CalendarDays },
@@ -109,15 +110,20 @@ export default function LeaderboardsPage() {
       ? myRank?.streak
         ? { title: 'Your Streak Rank', rank: myRank.streak.rank, value: `${myRank.streak.win_streak}W / ${myRank.streak.daily_streak}D` }
         : null
-      : myRank?.rating
-        ? { title: activeTab === 'weekly' ? 'Your Rated Rank' : 'Your Rating Rank', rank: myRank.rating.rank, value: `${myRank.rating.value}` }
-        : null;
+      : activeTab === 'solo'
+        ? null // my-rank endpoint covers the ranked board only
+        : myRank?.rating
+          ? { title: activeTab === 'weekly' ? 'Your Rated Rank' : 'Your Rating Rank', rank: myRank.rating.rank, value: `${myRank.rating.value}` }
+          : null;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    api.get<{ entries?: unknown[]; season?: { season_id: string; label: string } }>(`/leaderboards/${activeTab}`, { params: { limit: PAGE_SIZE, offset: page * PAGE_SIZE } })
+    const endpoint = activeTab === 'solo' ? 'rating' : activeTab;
+    const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
+    if (activeTab === 'solo') params.type = 'solo';
+    api.get<{ entries?: unknown[]; season?: { season_id: string; label: string } }>(`/leaderboards/${endpoint}`, { params })
       .then((res) => {
         if (cancelled) return;
         setData(res.data.entries ?? []);
@@ -174,10 +180,16 @@ export default function LeaderboardsPage() {
           {loading ? (
             <div className="py-16 text-center text-bf-muted animate-pulse">Loading leaderboard…</div>
           ) : data.length === 0 ? (
-            <div className="py-16 text-center text-bf-muted">No entries yet</div>
+            <div className="py-16 text-center text-bf-muted">
+              {activeTab === 'rating'
+                ? 'No ranked games yet — queue for a ranked match to appear here.'
+                : activeTab === 'solo'
+                  ? 'No solo ratings yet — finish a game against the AI to appear here.'
+                  : 'No entries yet'}
+            </div>
           ) : (
             <div className="divide-y divide-bf-border">
-              {activeTab === 'rating' && (data as RatingEntry[]).map((entry) => (
+              {(activeTab === 'rating' || activeTab === 'solo') && (data as RatingEntry[]).map((entry) => (
                 <Link
                   key={entry.user_id}
                   to={`/profile/${entry.user_id}`}

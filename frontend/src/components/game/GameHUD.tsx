@@ -657,7 +657,10 @@ export default function GameHUD({
               />
             </div>
           )}
-          <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
+          <label
+            className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+            title="Shorten dice-roll animations so battles resolve almost instantly."
+          >
             <input
               type="checkbox"
               checked={fastCombat}

@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import Modal from '../components/ui/Modal';
 import { RARITY_COLORS } from '@borderfall/shared';
 import type { CosmeticRarity } from '@borderfall/shared';
 
@@ -70,6 +71,8 @@ export default function StorePage() {
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [loadingOwned, setLoadingOwned] = useState(false);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  /** Paid item awaiting purchase confirmation. */
+  const [confirmItem, setConfirmItem] = useState<CosmeticItem | null>(null);
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [gold, setGold] = useState<number>(user?.gold ?? 0);
   const [equippedFrame, setEquippedFrame] = useState<string | null>(user?.equipped_frame ?? null);
@@ -129,8 +132,19 @@ export default function StorePage() {
     if (tab === 'loadout') fetchOwned();
   }, [tab, fetchOwned]);
 
+  /** Paid items go through a confirm step; free items collect immediately. */
+  const requestBuy = (item: CosmeticItem) => {
+    if (buyingId) return;
+    if (item.price_gems > 0) {
+      setConfirmItem(item);
+      return;
+    }
+    void handleBuy(item);
+  };
+
   const handleBuy = async (item: CosmeticItem) => {
     if (buyingId) return;
+    setConfirmItem(null);
     setBuyingId(item.cosmetic_id);
     try {
       const res = await api.post('/store/buy', { cosmetic_id: item.cosmetic_id });
@@ -352,7 +366,7 @@ export default function StorePage() {
                         </span>
                       ) : (
                         <button
-                          onClick={() => handleBuy(item)}
+                          onClick={() => requestBuy(item)}
                           disabled={buyingId === item.cosmetic_id}
                           className="btn-primary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
@@ -445,6 +459,42 @@ export default function StorePage() {
             )}
           </>
         )}
+
+        {/* Purchase confirmation — one tap shouldn't spend saved-up gold. */}
+        <Modal
+          open={!!confirmItem}
+          onClose={() => setConfirmItem(null)}
+          title="Confirm purchase"
+          className="max-w-sm"
+        >
+          {confirmItem && (
+            <div className="space-y-4">
+              <p className="text-sm text-bf-text">
+                Buy <span className="text-bf-gold font-medium">{confirmItem.name}</span> for{' '}
+                <span className="text-bf-gold font-medium tabular-nums">
+                  {confirmItem.price_gems.toLocaleString()} gold
+                </span>
+                ?
+              </p>
+              <p className="text-xs text-bf-muted">
+                Balance after purchase:{' '}
+                <span className="tabular-nums">{Math.max(0, gold - confirmItem.price_gems).toLocaleString()} gold</span>
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button className="btn-secondary text-sm px-4 py-2" onClick={() => setConfirmItem(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
+                  disabled={!!buyingId}
+                  onClick={() => void handleBuy(confirmItem)}
+                >
+                  {buyingId ? 'Buying…' : 'Buy'}
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
     </SubpageShell>
   );
 }

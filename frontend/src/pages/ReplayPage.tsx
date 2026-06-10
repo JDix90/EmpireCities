@@ -30,6 +30,7 @@ import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCond
 import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
 import ReplayTipToast from '../components/game/ReplayTipToast';
+import Modal from '../components/ui/Modal';
 import {
   buildTimeLapseIndices,
   nextTimeLapseIndex,
@@ -136,6 +137,8 @@ export default function ReplayPage() {
   const [loadedPublic, setLoadedPublic] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+  /** Make-public confirmation gate — sharing publishes the replay. */
+  const [confirmShare, setConfirmShare] = useState(false);
   const [clipExporterOpen, setClipExporterOpen] = useState(false);
   const [highlights, setHighlights] = useState<Array<{ turn: number; label: string; type: string }>>([]);
   const [insights, setInsights] = useState<ReplayInsight[]>([]);
@@ -605,8 +608,15 @@ export default function ReplayPage() {
     );
   }, [activeReplayState, mapData, replayAmbientEnabled, replayTurnHolder?.player_id]);
 
+  /** Already-public replays just re-copy the link; first share asks first. */
+  const requestShareReplay = () => {
+    if (isPublic) { void handleShareReplay(); return; }
+    setConfirmShare(true);
+  };
+
   const handleShareReplay = async () => {
     if (!gameId) return;
+    setConfirmShare(false);
     setSharing(true);
     try {
       await api.post(`/share/${gameId}/make-public`);
@@ -834,7 +844,7 @@ export default function ReplayPage() {
         ) : (
           <>
             <button
-              onClick={handleShareReplay}
+              onClick={requestShareReplay}
               disabled={sharing}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
             >
@@ -1228,6 +1238,34 @@ export default function ReplayPage() {
           }}
         />
       )}
+
+      {/* Publishing gate: one click used to make the replay public instantly. */}
+      <Modal
+        open={confirmShare}
+        onClose={() => setConfirmShare(false)}
+        title="Share this replay?"
+        className="max-w-sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-bf-text">
+            Sharing makes this replay <span className="text-bf-gold font-medium">publicly viewable</span> by
+            anyone with the link, and copies the link to your clipboard.
+          </p>
+          <p className="text-xs text-bf-muted">You can switch it back with “Make Private” at any time.</p>
+          <div className="flex gap-2 justify-end">
+            <button className="btn-secondary text-sm px-4 py-2" onClick={() => setConfirmShare(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
+              disabled={sharing}
+              onClick={() => void handleShareReplay()}
+            >
+              {sharing ? 'Sharing…' : 'Share publicly'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
