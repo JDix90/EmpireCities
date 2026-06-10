@@ -96,6 +96,8 @@ export interface GameState {
     victory_type?: string;
     allowed_victory_conditions?: string[];
     victory_threshold?: number;
+    /** Turn cap: most territory when this turn ends wins (null/absent = off). */
+    max_turns?: number | null;
     factions_enabled?: boolean;
     economy_enabled?: boolean;
     tech_trees_enabled?: boolean;

@@ -29,7 +29,8 @@ const TutorialStartSchema = z.object({
 
 const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold']);
 
-const CreateGameSchema = z.object({
+/** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
+export const CreateGameSchema = z.object({
   era_id: z.enum(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age', 'custom']),
   map_id: z.string().min(1).max(128),
   max_players: z.number().int().min(2).max(8),
@@ -56,6 +57,9 @@ const CreateGameSchema = z.object({
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
       is_ranked: z.boolean().optional(),
+      /** Turn cap: most territory when this turn ends wins. Without this entry
+       * zod strips the field, which silently disabled Quick Match's 150-turn cap. */
+      max_turns: z.number().int().min(10).max(1000).optional(),
     })
     .superRefine((data, ctx) => {
       const list =

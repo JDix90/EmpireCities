@@ -1,6 +1,9 @@
-import { Crown, Swords } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Crown, Swords, Trophy, Target, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import Modal from '../ui/Modal';
+import { api } from '../../services/api';
+import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
 /**
@@ -30,6 +33,51 @@ function difficultyLabel(difficulty?: string | null): string {
 }
 
 /**
+ * Player-facing win-condition phrases from the game settings. Mirrors the
+ * server's resolution order in normalizeGameSettings (allowed list → single
+ * victory_type → domination default; OR semantics between conditions).
+ */
+export function describeWinConditions(settings: GameState['settings']): {
+  conditions: string[];
+  turnCap: string | null;
+} {
+  const raw =
+    Array.isArray(settings.allowed_victory_conditions) && settings.allowed_victory_conditions.length > 0
+      ? settings.allowed_victory_conditions
+      : typeof settings.victory_type === 'string' && settings.victory_type
+        ? [settings.victory_type]
+        : ['domination'];
+  const conditions = raw.map((kind) => {
+    switch (kind) {
+      case 'domination':
+        return 'Control every territory';
+      case 'threshold':
+        return typeof settings.victory_threshold === 'number'
+          ? `Control ${settings.victory_threshold}% of the map`
+          : 'Control most of the map';
+      case 'capital':
+        return 'Hold your capital and capture every enemy capital';
+      case 'secret_mission':
+        return 'Complete your secret mission';
+      default:
+        return kind;
+    }
+  });
+  const turnCap =
+    typeof settings.max_turns === 'number' && settings.max_turns > 0
+      ? `Most territory when turn ${settings.max_turns} ends also wins`
+      : null;
+  return { conditions, turnCap };
+}
+
+interface FactionInfo {
+  faction_id: string;
+  name: string;
+  description?: string;
+  ability_description?: string;
+}
+
+/**
  * Shown once when a game begins: turn order (the first player is randomized,
  * so without this players could be mid-combat before they had any idea who
  * acts when) and the viewer's starting resources. Purely informational —
@@ -41,17 +89,41 @@ export default function GameStartModal({
   onClose,
   gameState,
   viewerPlayerId,
+  mapNameLookup,
 }: {
   open: boolean;
   onClose: () => void;
   gameState: GameState;
   viewerPlayerId: string | null;
+  mapNameLookup?: MapNameLookup | null;
 }) {
   const order = turnOrderFrom(gameState.players, gameState.starting_player_index ?? 0);
   const positionLine = describeViewerPosition(order, viewerPlayerId);
   const viewer = gameState.players.find((p) => p.player_id === viewerPlayerId);
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
+  const { conditions, turnCap } = describeWinConditions(gameState.settings);
+
+  // Faction name + ability come from the era endpoint (same source the
+  // in-game Bonuses modal uses). Best-effort: the section simply doesn't
+  // render until/unless the fetch succeeds.
+  const [faction, setFaction] = useState<FactionInfo | null>(null);
+  const factionId = gameState.settings.factions_enabled ? viewer?.faction_id ?? null : null;
+  useEffect(() => {
+    if (!open || !factionId) return;
+    let cancelled = false;
+    api
+      .get(`/eras/${gameState.era}/factions`)
+      .then((res) => {
+        if (cancelled) return;
+        const all: FactionInfo[] = res.data?.factions ?? [];
+        setFaction(all.find((f) => f.faction_id === factionId) ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, factionId, gameState.era]);
 
   return (
     <Modal open={open} onClose={onClose} title="The battle begins" showCloseButton={false}>
@@ -94,6 +166,43 @@ export default function GameStartModal({
           );
         })}
       </ol>
+
+      <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">How to win</h4>
+      <ul className="space-y-1 mb-1.5">
+        {conditions.map((line) => (
+          <li key={line} className="flex items-start gap-2 text-sm text-bf-text">
+            <Trophy className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+      {turnCap && <p className="text-xs text-bf-muted mb-4 pl-[22px]">{turnCap}.</p>}
+      {!turnCap && <div className="mb-4" />}
+
+      {viewer?.secret_mission && (
+        <>
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your secret mission</h4>
+          <p className="flex items-start gap-2 text-sm text-bf-text mb-4">
+            <Target className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+            <span>{describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup)}</span>
+          </p>
+        </>
+      )}
+
+      {faction && (
+        <>
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your faction</h4>
+          <p className="flex items-start gap-2 text-sm text-bf-text mb-4">
+            <Shield className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+            <span>
+              <span className="font-medium">{faction.name}</span>
+              {(faction.ability_description || faction.description) && (
+                <span className="text-bf-muted"> — {faction.ability_description ?? faction.description}</span>
+              )}
+            </span>
+          </p>
+        </>
+      )}
 
       {viewer && (showGold || showTech) && (
         <>
