@@ -18,6 +18,7 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
+import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
@@ -609,6 +610,8 @@ export default function GamePage() {
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
+  /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
+  const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
   const [notifState, setNotifState] = useState<{ data: NotificationData; key: number } | null>(null);
   const notifCounter = useRef(0);
   const [coachingTip, setCoachingTip] = useState<{
@@ -915,15 +918,19 @@ export default function GamePage() {
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
           ownTurnFortificationsRef.current = [];
+          // My turn just ended — recaps gathered for it are stale now.
+          setAiRecaps([]);
         } else if (prevPlayer && !prevPlayer.is_eliminated) {
+          // Other players' turns accumulate into the non-blocking
+          // "While you were away" panel instead of queued modals that
+          // intercept input while the local player's clock runs.
           const combats = [...otherTurnCombatsRef.current];
-          setModalQueue(q => [...q, {
-            type: 'turn_summary' as const,
+          setAiRecaps(prev => appendRecap(prev, {
             playerName: prevPlayer.username,
             playerColor: prevPlayer.color,
             turnNumber: state.turn_number,
             combats,
-          }]);
+          }));
         }
         otherTurnCombatsRef.current = [];
       }
@@ -3438,6 +3445,9 @@ export default function GamePage() {
               </button>
             </>
           )}
+
+          {/* Non-blocking recap of other players' turns (replaces queued modals) */}
+          <AiTurnRecapPanel recaps={aiRecaps} onDismiss={() => setAiRecaps([])} />
 
           {/* Backdrop when territory sheet is fully expanded (tap to collapse to peek) */}
           {selectedTerritory && territorySheetSnap === 'full' && (
