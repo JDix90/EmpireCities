@@ -373,6 +373,11 @@ export default function GameMap({
       connectionGraphics.lineTo(tx, ty);
     }
 
+    // Collected during the territory loop, decluttered after it: on dense
+    // maps (Risorgimento, WW2 Europe) centroids sit so close that name
+    // labels overlap into an unreadable smear.
+    const territoryLabels: Array<{ label: PIXI.Text; area: number }> = [];
+
     // Draw territories with scaled coordinates
     for (const territory of mapData.territories) {
       const g = new PIXI.Graphics();
@@ -425,6 +430,45 @@ export default function GameMap({
       label.anchor.set(0.5);
       label.position.set(cx, cy - 12);
       labelContainer.addChild(label);
+      // Bounding-box area of the territory shape — the declutter pass keeps
+      // big territories' names and hides occluded labels of small ones.
+      let area = 0;
+      for (const ring of scaledRings) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const [px, py] of ring) {
+          if (px < minX) minX = px;
+          if (py < minY) minY = py;
+          if (px > maxX) maxX = px;
+          if (py > maxY) maxY = py;
+        }
+        area = Math.max(area, (maxX - minX) * (maxY - minY));
+      }
+      territoryLabels.push({ label, area });
+    }
+
+    // Label declutter: greedy keep-the-biggest. Hidden names stay one tap
+    // away (TerritoryPanel); a smear of overlapping text helps nobody.
+    // Positions and fonts share the container's uniform zoom scale, so an
+    // overlap decision made once holds at every zoom level.
+    {
+      const kept: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+      const byArea = [...territoryLabels].sort((a, b) => b.area - a.area);
+      for (const { label } of byArea) {
+        const halfW = label.width / 2;
+        const halfH = label.height / 2;
+        const rect = {
+          x1: label.x - halfW, y1: label.y - halfH,
+          x2: label.x + halfW, y2: label.y + halfH,
+        };
+        const collides = kept.some(
+          (k) => rect.x1 < k.x2 && rect.x2 > k.x1 && rect.y1 < k.y2 && rect.y2 > k.y1,
+        );
+        if (collides) {
+          label.visible = false;
+        } else {
+          kept.push(rect);
+        }
+      }
     }
 
     mapContainer.addChild(turnGlowLayer);

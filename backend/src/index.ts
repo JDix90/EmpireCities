@@ -168,8 +168,12 @@ async function bootstrap(): Promise<void> {
   await app.register(fastifyRateLimit, {
     max: 100,
     timeWindow: '1 minute',
+    // statusCode is REQUIRED here: without it @fastify/rate-limit's thrown
+    // error has no status and the global handler surfaces a 500 instead of
+    // a 429 (real users saw "Internal server error" when rate-limited).
     errorResponseBuilder: () => ({
-      error: 'Too many requests. Please slow down.',
+      statusCode: 429,
+      message: 'Too many requests. Please slow down.',
     }),
   });
 
@@ -179,7 +183,8 @@ async function bootstrap(): Promise<void> {
         max: 30,
         timeWindow: '1 minute',
         errorResponseBuilder: () => ({
-          error: 'Too many authentication attempts. Please wait and try again.',
+          statusCode: 429,
+          message: 'Too many authentication attempts. Please wait and try again.',
         }),
       });
       await scope.register(authRoutes);
@@ -208,7 +213,8 @@ async function bootstrap(): Promise<void> {
         max: 30,
         timeWindow: '1 minute',
         errorResponseBuilder: () => ({
-          error: 'Too many admin requests. Please wait and try again.',
+          statusCode: 429,
+          message: 'Too many admin requests. Please wait and try again.',
         }),
       });
       await scope.register(adminRoutes);
