@@ -87,6 +87,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   loginAsGuest: () => Promise<void>;
+  /** Convert the current guest session into a full account in place (keeps user_id and all progression). */
+  upgradeAccount: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
   setUser: (user: AuthUser) => void;
@@ -147,6 +149,23 @@ export const useAuthStore = create<AuthState>()(
           const res = await rawHttp.post('/auth/guest');
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          resyncSocketAuth();
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
+      },
+
+      upgradeAccount: async (username, email, password) => {
+        set({ isLoading: true });
+        try {
+          // Converts the guest's users row IN PLACE — same user_id, so XP,
+          // level, streaks, and (now-visible) ratings all carry over.
+          const res = await api.post('/auth/upgrade', { username, email, password });
+          const { accessToken, user } = res.data;
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          // The singleton socket still authenticates with the guest JWT;
+          // reconnect so the server sees the full-account identity.
           resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });

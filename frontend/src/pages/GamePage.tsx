@@ -2350,6 +2350,14 @@ export default function GamePage() {
     navigate('/lobby');
   };
 
+  // Guest "Create Free Account" CTA on the game-over screen: same modal/queue
+  // cleanup as a normal dismissal, but routed to the in-place upgrade flow
+  // (one navigation — never raced against handleGameOverDismiss's own).
+  const handleGameOverUpgrade = () => {
+    dismissModal();
+    navigate('/upgrade');
+  };
+
   // Post-tutorial activation: spin up an instant solo match vs AI.
   const startSoloFromTutorial = useCallback(async () => {
     setPostTutorialStarting(true);
@@ -4084,6 +4092,7 @@ export default function GamePage() {
         onRematch={handleRematch}
         onWatchReplay={handleWatchReplay}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
+        onUpgradeAccount={user?.is_guest ? handleGameOverUpgrade : undefined}
         mapNameLookup={mapData}
         players={gameState?.players}
       />
@@ -4160,7 +4169,11 @@ export default function GamePage() {
           onCreateAccount={() => {
             const next = tutorialAccountPrompt;
             setTutorialAccountPrompt(null);
-            navigate('/register?redirect=/lobby');
+            // /upgrade converts the guest row in place (keeps the XP earned
+            // in the tutorial). The old /register destination bounced
+            // logged-in guests straight back to /lobby via PublicOnlyRoute —
+            // the CTA silently never showed a form.
+            navigate('/upgrade');
             // Also run the original continuation so any cleanup
             // (game abandon, socket leave) still happens.
             try { next?.onContinue(); } catch { /* navigate already replaced */ }

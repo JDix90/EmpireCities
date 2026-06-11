@@ -931,12 +931,13 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFriend }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFriend, onUpgradeAccount }: {
   data: GameOverModalData;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   onWatchReplay?: (gameId: string) => void;
   onChallengeFriend?: () => void;
+  onUpgradeAccount?: () => void;
 }) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
@@ -1210,6 +1211,28 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
           </div>
         )}
       </div>
+
+      {/* Guest conversion: progression is the part guests keep — make the
+          claim explicit at the exact moment it was just earned. Skipped in
+          tutorial games, which run their own account prompt. */}
+      {user?.is_guest && onUpgradeAccount && !data.rematchConfig?.settings?.tutorial && (
+        <div className={clsx(
+          'mb-6 p-4 rounded-xl bg-bf-gold/10 border border-bf-gold/30 transition-all duration-500 delay-450',
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        )}>
+          <p className="text-sm text-bf-text mb-3">
+            Your XP, level, and streaks are saved to this guest session —{' '}
+            <span className="text-bf-gold font-medium">create a free account to make them permanent.</span>
+          </p>
+          <button
+            type="button"
+            onClick={onUpgradeAccount}
+            className="w-full py-2.5 rounded-lg bg-bf-gold text-bf-dark font-display hover:bg-bf-gold/90 transition-colors"
+          >
+            Create Free Account
+          </button>
+        </div>
+      )}
 
       {probHistory && probHistory.length >= 2 && (
         <div className={clsx(
@@ -1696,6 +1719,8 @@ interface ActionModalProps {
   onWatchReplay?: (gameId: string) => void;
   /** Open the "Challenge a friend" flow (rendered as a CTA on GameOverView). */
   onChallengeFriend?: () => void;
+  /** Guest viewers only: leave the game cleanly and open the account-upgrade page. */
+  onUpgradeAccount?: () => void;
   mapNameLookup?: MapNameLookup | null;
   players?: Array<{ player_id: string; username: string }>;
 }
@@ -1708,6 +1733,7 @@ export default function ActionModal({
   onRematch,
   onWatchReplay,
   onChallengeFriend,
+  onUpgradeAccount,
   mapNameLookup,
   players,
 }: ActionModalProps) {
@@ -1768,7 +1794,7 @@ export default function ActionModal({
             onDismiss={onDismiss}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onChallengeFriend={onChallengeFriend} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}

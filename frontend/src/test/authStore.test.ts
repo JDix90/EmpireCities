@@ -1,5 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('../services/api', () => ({
+  api: { post: vi.fn(), get: vi.fn() },
+}));
+vi.mock('../services/socket', () => ({
+  resyncSocketAuth: vi.fn(),
+  disconnectSocket: vi.fn(),
+}));
+
 import { useAuthStore } from '../store/authStore';
+import { api } from '../services/api';
+import { resyncSocketAuth } from '../services/socket';
 
 describe('authStore', () => {
   beforeEach(() => {
@@ -52,6 +63,54 @@ describe('authStore', () => {
     expect(state.accessToken).toBeNull();
     expect(state.isAuthenticated).toBe(false);
     expect(state.bootstrapped).toBe(true);
+  });
+
+  it('upgradeAccount swaps in the full-account identity in place', async () => {
+    useAuthStore.setState({
+      user: { user_id: 'u1', username: 'Guest_abcd1234', level: 3, xp: 900, mmr: 1000, is_guest: true },
+      accessToken: 'guest-token',
+      isAuthenticated: true,
+      bootstrapped: true,
+    });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        accessToken: 'full-token',
+        user: { user_id: 'u1', username: 'RealCommander', level: 3, xp: 900, mmr: 1000, is_guest: false },
+      },
+    });
+
+    await useAuthStore.getState().upgradeAccount('RealCommander', 'cmd@example.com', 'long-password');
+
+    const state = useAuthStore.getState();
+    expect(api.post).toHaveBeenCalledWith('/auth/upgrade', {
+      username: 'RealCommander', email: 'cmd@example.com', password: 'long-password',
+    });
+    // Same user_id (in-place conversion), progression intact, flag flipped.
+    expect(state.user?.user_id).toBe('u1');
+    expect(state.user?.xp).toBe(900);
+    expect(state.user?.is_guest).toBe(false);
+    expect(state.user?.username).toBe('RealCommander');
+    expect(state.accessToken).toBe('full-token');
+    // The singleton socket must drop the guest JWT for the new identity.
+    expect(resyncSocketAuth).toHaveBeenCalled();
+  });
+
+  it('upgradeAccount leaves state untouched on failure', async () => {
+    useAuthStore.setState({
+      user: { user_id: 'u1', username: 'Guest_abcd1234', level: 1, xp: 0, mmr: 1000, is_guest: true },
+      accessToken: 'guest-token',
+      isAuthenticated: true,
+    });
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('409'));
+
+    await expect(
+      useAuthStore.getState().upgradeAccount('Taken', 't@example.com', 'long-password'),
+    ).rejects.toThrow();
+
+    const state = useAuthStore.getState();
+    expect(state.user?.is_guest).toBe(true);
+    expect(state.accessToken).toBe('guest-token');
+    expect(state.isLoading).toBe(false);
   });
 
   it('does NOT persist accessToken to localStorage (XSS hardening)', async () => {

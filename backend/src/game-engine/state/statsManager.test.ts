@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { GameState, PlayerState } from '../../types';
-import { computeRanks, resolveXpConfig } from './statsManager';
+import { computeRanks, resolveXpConfig, redactGuestRatings, type GameResultContext } from './statsManager';
 import { resetAdminConfigCacheForTests, setAdminConfigCacheForTests } from '../../services/adminConfig';
 
 function makePlayer(overrides: Partial<PlayerState>): PlayerState {
@@ -65,6 +65,36 @@ describe('computeRanks', () => {
     const ranks = computeRanks(players, ['win']);
     expect(ranks.get('alive')).toBe(2);
     expect(ranks.get('dead')).toBe(3);
+  });
+});
+
+describe('redactGuestRatings', () => {
+  function ctx(overrides: Partial<GameResultContext> = {}): GameResultContext {
+    return {
+      isRanked: false,
+      ratingDeltas: new Map([['guest1', -263], ['reg1', 12]]),
+      ratingProvisional: new Map([['guest1', true], ['reg1', false]]),
+      guestPlayerIds: new Set(['guest1']),
+      xpEarnedByPlayer: { guest1: 25, reg1: 40 },
+      ...overrides,
+    };
+  }
+
+  it('removes guest players from both emitted rating maps', () => {
+    const out = redactGuestRatings(ctx());
+    expect(out.rating_deltas).toEqual({ reg1: 12 });
+    expect(out.rating_provisional).toEqual({ reg1: false });
+  });
+
+  it('passes everything through when no guests played', () => {
+    const out = redactGuestRatings(ctx({ guestPlayerIds: new Set() }));
+    expect(out.rating_deltas).toEqual({ guest1: -263, reg1: 12 });
+  });
+
+  it('never touches the XP map — progression is the part guests keep', () => {
+    const c = ctx();
+    redactGuestRatings(c);
+    expect(c.xpEarnedByPlayer).toEqual({ guest1: 25, reg1: 40 });
   });
 });
 
