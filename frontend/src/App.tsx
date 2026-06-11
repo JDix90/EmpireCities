@@ -44,6 +44,7 @@ const SpectatorPage = lazyWithChunkRetry(() => import('./pages/SpectatorPage'));
 const ModalLabPage = lazyWithChunkRetry(() => import('./pages/ModalLabPage'));
 const MapVisualLabPage = lazyWithChunkRetry(() => import('./pages/MapVisualLabPage'));
 const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
+const UpgradePage = lazyWithChunkRetry(() => import('./pages/UpgradePage'));
 const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
@@ -119,6 +120,29 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
     }
   }
   return <Navigate to="/lobby" replace />;
+}
+
+/**
+ * Route for the guest→account upgrade flow ONLY. /register can't serve it:
+ * that's a PublicOnlyRoute, which bounces every authenticated user (guests
+ * included) to /lobby — the historical reason the guest "Create Free
+ * Account" CTAs silently went nowhere.
+ */
+function GuestOnlyRoute({ children }: { children: React.ReactNode }) {
+  const hydrated = useAuthStoreHydrated();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const bootstrapped = useAuthStore((s) => s.bootstrapped);
+  const isGuest = useAuthStore((s) => s.user?.is_guest === true);
+  if (!hydrated || !bootstrapped) {
+    return <RouteLoadingFallback />;
+  }
+  if (!isAuthenticated) {
+    return <Navigate to="/register" replace />;
+  }
+  if (!isGuest) {
+    return <Navigate to="/lobby" replace />;
+  }
+  return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -294,6 +318,7 @@ export default function App() {
         <Route path="/replay/:gameId" element={<ReplayPage />} />
         <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+        <Route path="/upgrade" element={<GuestOnlyRoute><UpgradePage /></GuestOnlyRoute>} />
         <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 

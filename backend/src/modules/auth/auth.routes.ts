@@ -4,11 +4,12 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import zxcvbn from 'zxcvbn';
-import { query, queryOne, withTransaction } from '../../db/postgres';
+import { query, queryOne, withTransaction, pgPool } from '../../db/postgres';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
 import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
+import { requireGuest } from '../../middleware/requireGuest';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 
@@ -134,6 +135,18 @@ const RegisterSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
 });
+
+/**
+ * Guest → full-account upgrade body. Same identity rules as register, plus:
+ * `@guest.local` emails are rejected — that domain is reserved for the
+ * synthetic guest rows, and login's email resolution explicitly excludes it,
+ * so an upgraded account using one could never sign in by email.
+ * Exported for tests.
+ */
+export const UpgradeSchema = RegisterSchema.refine(
+  (data) => !data.email.toLowerCase().endsWith('@guest.local'),
+  { message: 'Please use a real email address', path: ['email'] },
+);
 
 /** Login body field remains `email` for API compatibility; value may be email or username. */
 const LoginSchema = z.object({
@@ -295,6 +308,116 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     return reply.status(201).send({ accessToken, user });
+  });
+
+  // ── POST /api/auth/upgrade ───────────────────────────────────────────────
+  /**
+   * Convert the authenticated guest's existing users row into a full account
+   * IN PLACE: set a real username/email/password and flip is_guest. Because
+   * the row keeps its user_id, every progression artifact — XP, level, gold,
+   * streaks, user_ratings, achievements, cosmetics — carries over with zero
+   * migration, and the 48h guest sweep (is_guest = true only) spares it.
+   */
+  fastify.post('/upgrade', {
+    preHandler: [authenticate, requireGuest],
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
+    const body = UpgradeSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send(formatZodError(body.error));
+    }
+    const { username, email, password } = body.data;
+
+    const weak = passwordStrengthError(password, [username, email]);
+    if (weak) {
+      return reply.status(400).send({ error: weak });
+    }
+
+    // Pre-check excluding the guest's own row (their auto-generated
+    // Guest_xxxxxxxx name and @guest.local email must not self-conflict).
+    const existing = await queryOne<{ user_id: string }>(
+      'SELECT user_id FROM users WHERE (email = $1 OR username = $2) AND user_id <> $3',
+      [email, username, request.userId],
+    );
+    if (existing) {
+      return reply.status(409).send({ error: 'Username or email already in use' });
+    }
+
+    const password_hash = await bcrypt.hash(password, config.bcryptRounds);
+
+    type UpgradedRow = {
+      user_id: string; username: string; level: number; xp: number; mmr: number;
+      gold: number; win_streak: number; daily_streak: number; onboarding_stage: number;
+      is_admin: boolean;
+    };
+
+    const client = await pgPool.connect();
+    let upgraded: UpgradedRow | null = null;
+    const tokenId = uuidv4();
+    let refreshToken: string;
+    try {
+      await client.query('BEGIN');
+
+      // The is_guest predicate makes concurrent or replayed upgrades fail
+      // closed: only one caller ever sees a row come back.
+      const { rows } = await client.query<UpgradedRow>(
+        `UPDATE users
+         SET username = $1, email = $2, password_hash = $3, is_guest = false
+         WHERE user_id = $4 AND COALESCE(is_guest, false) = true
+         RETURNING user_id, username, level, xp, mmr,
+                   COALESCE(gold, 0) AS gold,
+                   COALESCE(win_streak, 0) AS win_streak,
+                   COALESCE(daily_streak, 0) AS daily_streak,
+                   COALESCE(onboarding_stage, 0) AS onboarding_stage,
+                   COALESCE(is_admin, false) AS is_admin`,
+        [username, email, password_hash, request.userId],
+      );
+      upgraded = rows[0] ?? null;
+      if (!upgraded) {
+        await client.query('ROLLBACK');
+        return reply.status(409).send({ error: 'This account has already been upgraded' });
+      }
+
+      // The guest's old refresh chain must die with the guest identity.
+      await client.query(
+        'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+        [request.userId],
+      );
+
+      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId });
+      const refreshHash = hashRefreshToken(refreshToken);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      await client.query(
+        'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+        [tokenId, upgraded.user_id, refreshHash, expiresAt],
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      // Unique violation racing past the pre-check — same answer as register.
+      if ((err as { code?: string }).code === '23505') {
+        return reply.status(409).send({ error: 'Username or email already in use' });
+      }
+      request.log.error({ err, userId: request.userId }, 'guest upgrade failed');
+      return reply.status(500).send({ error: 'Upgrade failed' });
+    } finally {
+      client.release();
+    }
+
+    // Full-account token: no guest claim, standard expiry (not the guest 4h).
+    const accessToken = signAccessToken({
+      sub: upgraded.user_id,
+      username: upgraded.username,
+      admin: upgraded.is_admin,
+    });
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+
+    return reply.send({
+      accessToken,
+      user: { ...upgraded, is_guest: false },
+    });
   });
 
   // ── POST /api/auth/login ─────────────────────────────────────────────────
