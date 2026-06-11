@@ -66,4 +66,29 @@ describe('AiTurnRecapPanel', () => {
     fireEvent.click(screen.getByLabelText('Dismiss recap'));
     expect(dismissed).toBe(true);
   });
+
+  it('shows an attacked badge and red row when the viewer was the defender', () => {
+    const recaps = [entry('AI Bot 1', [combat({ defenderId: 'me', fromName: 'Gaul', toName: 'Italia' })])];
+    render(<AiTurnRecapPanel recaps={recaps} onDismiss={() => {}} viewerPlayerId="me" />);
+    // Header badge counts attacks on the viewer.
+    expect(screen.getByText('1')).toBeTruthy();
+    fireEvent.click(screen.getByText(/While you were away/)); // expand panel
+    fireEvent.click(screen.getByText('AI Bot 1')); // expand the entry detail
+    expect(screen.getByText('(you)')).toBeTruthy();
+  });
+
+  it('auto-expands when the viewer lost a territory', () => {
+    const recaps = [
+      entry('AI Bot 1', [combat({ defenderId: 'me', territory_captured: true, fromName: 'Gaul', toName: 'Italia' })]),
+    ];
+    render(<AiTurnRecapPanel recaps={recaps} onDismiss={() => {}} viewerPlayerId="me" />);
+    // No click needed: the panel and the entry open themselves, marked "Lost!".
+    expect(screen.getByText('Lost!')).toBeTruthy();
+  });
+
+  it('stays collapsed for routine chip damage against the viewer', () => {
+    const recaps = [entry('AI Bot 1', [combat({ defenderId: 'me', territory_captured: false })])];
+    render(<AiTurnRecapPanel recaps={recaps} onDismiss={() => {}} viewerPlayerId="me" />);
+    expect(screen.queryByText('AI Bot 1')).toBeNull(); // detail list not rendered
+  });
 });

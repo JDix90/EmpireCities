@@ -260,18 +260,26 @@ function DieFace({ value, index, variant, fast }: { value: number; index: number
 
 // ─── Combat Result View ────────────────────────────────────────────────────
 
-function CombatResultView({
+/**
+ * Exported for DefenderBattleTheater, which replays incoming attacks live
+ * (non-blocking, auto-advancing) during the attacker's turn instead of
+ * queueing blocking modals for the defender's turn start.
+ */
+export function CombatResultView({
   result,
   perspective,
   onDismiss,
   repeatAttack,
   onRepeatAttack,
+  autoAdvance = false,
 }: {
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
   onDismiss: () => void;
   repeatAttack?: { fromId: string; toId: string };
   onRepeatAttack?: () => void;
+  /** Auto-dismiss after the dice settle plus a short read window (theater mode). */
+  autoAdvance?: boolean;
 }) {
   const [showResult, setShowResult] = useState(false);
   const fast = getFastCombat();
@@ -286,6 +294,17 @@ function CombatResultView({
     }, settleTime);
     return () => clearTimeout(timer);
   }, [result]);
+
+  // Theater mode: linger long enough to read the outcome, then move on. A
+  // lost territory earns extra dwell; fast-combat players get a tighter loop.
+  useEffect(() => {
+    if (!autoAdvance) return;
+    const maxDice = Math.max(result.attacker_rolls.length, result.defender_rolls.length);
+    const settleTime = fast ? 300 : (8 + (maxDice - 1) * 4) * 55 + 500;
+    const linger = (fast ? 1_200 : 2_200) + (result.territory_captured ? 800 : 0);
+    const timer = setTimeout(onDismiss, settleTime + linger);
+    return () => clearTimeout(timer);
+  }, [autoAdvance, result, fast, onDismiss]);
 
   const isDefending = perspective === 'defender';
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
@@ -431,7 +450,9 @@ function CombatResultView({
               {isDefending ? (
                 <>
                   <Skull className="w-5 h-5 text-red-400" />
-                  <span className="text-red-300 font-bold text-lg tracking-wide font-display">Territory Lost!</span>
+                  <span className="text-red-300 font-bold text-lg tracking-wide font-display">
+                    {result.capitalLost ? 'Your Capital Has Fallen!' : 'Territory Lost!'}
+                  </span>
                   <Skull className="w-5 h-5 text-red-400" />
                 </>
               ) : (
@@ -459,17 +480,29 @@ function CombatResultView({
           </button>
         )}
 
-        {/* Continue */}
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
-                     text-white font-medium transition-all duration-200
-                     flex items-center justify-center gap-2 group"
-        >
-          Continue
-          <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-        </button>
+        {/* Continue (manual) / Skip hint (theater auto-advances on its own) */}
+        {autoAdvance ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="w-full py-2 rounded-xl text-white/40 hover:text-white/80 text-sm
+                       transition-colors flex items-center justify-center gap-1.5"
+          >
+            Tap to skip
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
+                       text-white font-medium transition-all duration-200
+                       flex items-center justify-center gap-2 group"
+          >
+            Continue
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        )}
       </div>
     </div>
   );
