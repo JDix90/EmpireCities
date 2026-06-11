@@ -4,6 +4,8 @@ import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import { emitGameError, GameErrorCode } from './socketErrors';
+import { armEvictionTimer, cancelEvictionTimer, pendingEvictionCount } from './evictionTimers';
+import { decideTurnTimerRearm } from './turnTimerRearm';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -117,6 +119,7 @@ import {
   cancelTurnTimeout,
   setTurnTimerProcessor,
   stopTurnTimerWorker,
+  turnTimerQueue,
 } from '../workers/gameTimerWorker';
 import {
   scheduleAsyncDeadline,
@@ -234,8 +237,8 @@ function recordElimination(gameId: string, eliminatorId: string): void {
 }
 
 /** For GET /metrics/json — count of in-memory game rooms (ops signal, not player count). */
-export function getActiveGameMetrics(): { activeGameRooms: number } {
-  return { activeGameRooms: getCachedRoomCount() };
+export function getActiveGameMetrics(): { activeGameRooms: number; pendingEvictions: number } {
+  return { activeGameRooms: getCachedRoomCount(), pendingEvictions: pendingEvictionCount() };
 }
 
 /** Locked mutation with Redis reload, user-visible errors on failure. */
@@ -542,6 +545,50 @@ function clearAllTakeoverTimers(gameId: string): void {
     for (const t of byPlayer.values()) clearTimeout(t);
     takeoverTimers.delete(gameId);
   }
+}
+
+const EVICTION_DELAY_MS = 5 * 60 * 1000;
+
+/**
+ * Arm the no-humans eviction check for a game.
+ *
+ * The timer is tracked per game (any game:join cancels it via
+ * cancelEvictionTimer) and the final check trusts actual socket.io room
+ * membership over the hand-rolled presence sets. The presence sets can be
+ * corrupted by leave/rejoin races: a transient GamePage remount (StrictMode,
+ * suspense flip, navigation) emits game:leave and rejoins within
+ * milliseconds, but the leave handler's late presence decrement lands after
+ * the rejoin's increment — making a connected player invisible. That race
+ * used to get LIVE games evicted five minutes later: turn timer cancelled
+ * (clock dead at 0:00), Redis state deleted, AI processing stalled.
+ */
+function armGameEviction(io: Server, gameId: string, mapId: string, reason: string): void {
+  armEvictionTimer(gameId, EVICTION_DELAY_MS, () => {
+    void (async () => {
+      try {
+        // Authoritative liveness: any socket still in the game room (resolved
+        // across instances by the adapter) means the game is not abandoned.
+        const liveSockets = await io.in(gameId).fetchSockets();
+        if (liveSockets.length > 0) return;
+
+        const current = await loadAuthoritativeRoom(gameId, mapId);
+        if (!current) return;
+        if (await hasHumanConnections(gameId, current.state)) return;
+
+        if (!current.state.settings.async_mode) {
+          clearTurnTimer(gameId, current.state);
+        }
+        void evictGameRoom(gameId);
+        clearAllTakeoverTimers(gameId);
+        clearActionIdempotency(gameId);
+        spectatorSeqCounters.delete(gameId);
+        spectatorStateBuffers.delete(gameId);
+        console.log(`[Socket] Evicted inactive game ${gameId} from memory (${reason})`);
+      } catch (err) {
+        console.error('[Socket] Eviction check failed for', gameId, err);
+      }
+    })();
+  });
 }
 
 /**
@@ -928,6 +975,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (room) {
           await onPlayerConnected(gameId, socket.id, userId);
           cancelTakeoverTimer(gameId, userId);
+          // A player is here — any pending no-humans eviction is now wrong.
+          cancelEvictionTimer(gameId);
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
           // Embed the map directly in the join handshake so private/pending
           // custom maps don't have to be re-fetched via the public REST
@@ -965,6 +1014,37 @@ export function initGameSocket(httpServer: HttpServer): Server {
               setTimeout(() => processAiTerritorySelect(io, gameId), 800);
             } else {
               setTimeout(() => processAiTurn(io, gameId), 1500);
+            }
+          }
+
+          // Real-time games: an eviction race or restart can cancel the BullMQ
+          // timeout while clients keep an armed deadline — the HUD clock dies
+          // at 0:00 and the phase never advances. Restore it on (re)join: an
+          // unexpired deadline is kept (a reconnect must never grant extra
+          // clock), a missing/expired one gets a fresh timer.
+          if (!room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
+            try {
+              const job = await turnTimerQueue.getJob(`turn-${gameId}`);
+              const decision = decideTurnTimerRearm({
+                hasScheduledJob: !!job,
+                phase: room.state.phase,
+                asyncMode: !!room.state.settings.async_mode,
+                turnTimerSeconds: room.state.settings.turn_timer_seconds,
+                currentPlayerIsAi: !!currentAiPlayer?.is_ai,
+                deadlineAt: room.state.phase_deadline_at,
+                now: Date.now(),
+              });
+              if (decision.kind === 'remaining') {
+                scheduleTurnTimeout(gameId, decision.delayMs).catch((err) =>
+                  console.error('[Socket] Turn-timer re-arm (remaining) failed for', gameId, err),
+                );
+              } else if (decision.kind === 'fresh') {
+                console.warn('[Socket] Re-arming lost turn timer for', gameId, '(deadline missing or expired)');
+                startTurnTimer(io, gameId, room.state, room.map);
+                broadcastState(io, gameId, room.state);
+              }
+            } catch (err) {
+              console.error('[Socket] Turn-timer re-arm check failed for', gameId, err);
             }
           }
 
@@ -2791,6 +2871,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       socket.leave(gameId);
       socket.emit('game:left', { gameId });
 
+      // Decrement presence FIRST — before any other await. A leave emitted by
+      // a transient remount is chased by a rejoin within milliseconds; if our
+      // decrement lands after that rejoin's increment, the player becomes
+      // invisible to every later presence check. Doing it first preserves the
+      // leave→join event order in the presence store too.
+      await onPlayerDisconnected(gameId, socket.id, userId);
+
       const gameMeta = await queryOne<{ map_id: string; status: string }>(
         'SELECT map_id, status FROM games WHERE game_id = $1',
         [gameId],
@@ -2806,35 +2893,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state } = room;
 
       if (state.phase === 'game_over') {
-        await onPlayerDisconnected(gameId, socket.id, userId);
         return;
       }
 
       await saveGameState(gameId, state);
-      await onPlayerDisconnected(gameId, socket.id, userId);
 
       const humansConnected = await hasHumanConnections(gameId, state);
       if (!humansConnected) {
-        const mapId = state.map_id;
-        const evictionTimer = setTimeout(() => {
-          void (async () => {
-            const current = await loadAuthoritativeRoom(gameId, mapId);
-            if (!current) return;
-            const stillNoHumans = await hasHumanConnections(gameId, current.state);
-            if (stillNoHumans) {
-              if (!current.state.settings.async_mode) {
-                clearTurnTimer(gameId, current.state);
-              }
-              void evictGameRoom(gameId);
-              clearAllTakeoverTimers(gameId);
-              clearActionIdempotency(gameId);
-              spectatorSeqCounters.delete(gameId);
-              spectatorStateBuffers.delete(gameId);
-              console.log(`[Socket] Evicted inactive game ${gameId} from memory`);
-            }
-          })();
-        }, 5 * 60 * 1000);
-        evictionTimer.unref();
+        armGameEviction(io, gameId, state.map_id, 'after leave');
       }
     });
 
@@ -3166,23 +3232,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           const humansConnected = await hasHumanConnections(gameId, room.state);
           if (!humansConnected) {
             await saveGameState(gameId, room.state);
-            const mapId = room.state.map_id;
-            const evictionTimer = setTimeout(() => {
-              void (async () => {
-                const current = await loadAuthoritativeRoom(gameId, mapId);
-                if (!current) return;
-                const stillNoHumans = await hasHumanConnections(gameId, current.state);
-                if (!stillNoHumans) return;
-                if (!current.state.settings.async_mode) {
-                  clearTurnTimer(gameId, current.state);
-                }
-                clearAllTakeoverTimers(gameId);
-                void evictGameRoom(gameId);
-                clearActionIdempotency(gameId);
-                console.log(`[Socket] Evicted inactive game ${gameId} from memory after disconnect`);
-              })();
-            }, 5 * 60 * 1000);
-            evictionTimer.unref();
+            armGameEviction(io, gameId, room.state.map_id, 'after disconnect');
           } else if (
             departedPlayerId &&
             !room.state.settings.async_mode &&
@@ -4158,6 +4208,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Clean up after a delay so clients can see final state
   setTimeout(() => {
     clearAllTakeoverTimers(gameId);
+    cancelEvictionTimer(gameId);
     void evictGameRoom(gameId);
     clearActionIdempotency(gameId);
   }, 30000);

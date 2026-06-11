@@ -321,11 +321,12 @@ async function bootstrap(): Promise<void> {
       return reply.code(404).send({ error: 'Not found' });
     }
     const mem = process.memoryUsage();
-    const { activeGameRooms } = getActiveGameMetrics();
+    const { activeGameRooms, pendingEvictions } = getActiveGameMetrics();
     const migration = getMigrationMetrics();
     return reply.send({
       uptime_seconds: process.uptime(),
       active_game_rooms: activeGameRooms,
+      pending_evictions: pendingEvictions,
       redis_migration: migration,
       rss_bytes: mem.rss,
       heap_used_bytes: mem.heapUsed,
