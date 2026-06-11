@@ -20,6 +20,19 @@ const STATEMENT_TIMEOUT_MS = Math.max(
   parseInt(process.env.PG_STATEMENT_TIMEOUT_MS || '8000', 10),
 );
 
+/**
+ * How long a checkout may wait for a (possibly brand-new) connection. Under a
+ * game-creation burst the event loop and Postgres both lag for a few seconds;
+ * the previous 2s ceiling turned that transient queueing into user-facing
+ * 500s ("Connection terminated due to connection timeout") at just 16
+ * concurrent quick-match creations (found by scripts/loadTestSoloBurst.ts).
+ * Waiting briefly and succeeding beats failing fast here.
+ */
+const CONNECT_TIMEOUT_MS = Math.max(
+  1_000,
+  parseInt(process.env.PG_CONNECT_TIMEOUT_MS || '15000', 10),
+);
+
 export const pgPool = new Pool({
   host: config.postgres.host,
   port: config.postgres.port,
@@ -28,7 +41,7 @@ export const pgPool = new Pool({
   database: config.postgres.database,
   max: POOL_MAX,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
   // Belt-and-suspenders cancellation: cap the time a TCP connection can sit
   // mid-query without progress (defends against half-open NAT/proxy idle
   // resets that leave the client thinking a query is still running).
