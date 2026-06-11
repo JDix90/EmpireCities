@@ -4,16 +4,36 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Superseded runs on the same branch are wasted compute — cancel them.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # NOTE: `services` is a JOB-level key. It was previously nested under the
+    # "Backend tests" step, which made the whole workflow file invalid — every
+    # run "failed" in 0s without executing anything, on every push since the
+    # file was added.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 10.9.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -28,34 +48,26 @@ jobs:
       - name: Backend tests
         run: pnpm run test:backend
         env:
+          # Opt into the real-Redis integration tier in redisGameStore.test.ts
+          # (unit tests mock Redis/Postgres and need no services).
           REDIS_TEST: '1'
           REDIS_HOST: localhost
           REDIS_PASSWORD: ''
-        services:
-          redis:
-            image: redis:7-alpine
-            ports:
-              - 6379:6379
-            options: >-
-              --health-cmd "redis-cli ping"
-              --health-interval 10s
-              --health-timeout 5s
-              --health-retries 5
 
       - name: Validate maps
         run: pnpm run validate:maps
 
       - name: ESLint (backend)
-        run: pnpm run lint
+        run: pnpm run lint:backend
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 10.9.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -67,6 +79,9 @@ jobs:
       - name: Frontend type-check
         run: pnpm -C frontend exec tsc --noEmit
 
+      - name: ESLint (frontend)
+        run: pnpm run lint:frontend
+
       - name: Frontend unit tests
         run: pnpm run test:frontend
 
@@ -76,6 +91,8 @@ jobs:
       - name: Install Playwright (Chromium)
         run: pnpm -C frontend exec playwright install chromium --with-deps
 
+      # Playwright self-hosts the built app via `vite preview` (see webServer
+      # in frontend/playwright.config.ts), so these need the build above.
       - name: E2E smoke (Chromium)
         env:
           CI: true
