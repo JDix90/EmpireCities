@@ -65,7 +65,8 @@ interface TurnAggregate {
  *   - falls back to territory-count deltas when an older game state has no
  *     probability history attached.
  */
-function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightItem[] {
+/** Exported for tests — production callers go through generateAndStorePostMatchAnalysis. */
+export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightItem[] {
   if (rows.length < 2) return [];
   const lastState = parseState(rows[rows.length - 1]);
   const humanPlayer = lastState.players.find((p) => !p.is_ai);
@@ -132,6 +133,15 @@ function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightItem[] {
       agg.probDelta = endProb - baseline;
       byTurn.set(t, agg);
     }
+  }
+
+  // A resignation zeroes the player's territories and cliffs their win
+  // probability in the final snapshot. That's a bookkeeping artifact, not a
+  // strategic turning point — without this exclusion the top-ranked insight
+  // on every resigned game was "You lost N territories this turn, weakening
+  // your position", which misreads quitting as a catastrophic combat loss.
+  if (humanPlayer.has_resigned) {
+    byTurn.delete(lastState.turn_number);
   }
 
   // ── Rank turns by combined impact and keep the top 3 ──────────────────

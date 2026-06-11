@@ -3107,6 +3107,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             victory_condition: 'abandoned' as const,
             win_probability_history: state.win_probability_history ?? [],
             rating_deltas: {},
+            rating_provisional: {},
             is_ranked: false,
             achievements_unlocked: {},
             xp_earned_by_player: {},
@@ -3117,11 +3118,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         // Out of grace window: credit the leading surviving AI with the win
         // and run the normal finalize path so the resigner takes a real loss.
+        // The condition is 'resignation', not 'last_standing' — nobody was
+        // eliminated, and the defeat screen should say what actually happened.
         const aiWinner = survivingAi[0]!;
         state.phase = 'game_over';
         state.winner_id = aiWinner.player_id;
         state.winner_ids = [aiWinner.player_id];
-        state.victory_condition = 'last_standing';
+        state.victory_condition = 'resignation';
         await finalizeGame(io, gameId, state, [aiWinner.player_id]);
         broadcastState(io, gameId, state);
         return;
@@ -3900,7 +3903,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     resultCtx = await recordGameResults(gameId, state, winnerIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
-    resultCtx = { ratingDeltas: new Map(), isRanked: false, xpEarnedByPlayer: {} };
+    resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), isRanked: false, xpEarnedByPlayer: {} };
   }
 
   const unlockedByPlayer: Record<string, string[]> = {};
@@ -4173,6 +4176,9 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     })),
     win_probability_history: state.win_probability_history ?? [],
     rating_deltas: Object.fromEntries(resultCtx.ratingDeltas),
+    // Additive: lets the defeat screen frame large early-game swings as
+    // "calibrating" instead of presenting them as settled judgements.
+    rating_provisional: Object.fromEntries(resultCtx.ratingProvisional),
     is_ranked: resultCtx.isRanked,
     achievements_unlocked: unlockedByPlayer,
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,

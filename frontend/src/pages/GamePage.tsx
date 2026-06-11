@@ -1233,10 +1233,11 @@ export default function GamePage() {
       }>;
       win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
       rating_deltas?: Record<string, number>;
+      rating_provisional?: Record<string, boolean>;
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit';
+      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation';
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
       combat_stats?: Record<string, {
@@ -1273,6 +1274,7 @@ export default function GamePage() {
         players: stats.players,
         win_probability_history: stats.win_probability_history,
         rating_change: myId && stats.rating_deltas ? stats.rating_deltas[myId] : undefined,
+        rating_provisional: myId ? stats.rating_provisional?.[myId] : undefined,
         is_ranked: stats.is_ranked,
         achievements_unlocked: myId && stats.achievements_unlocked ? stats.achievements_unlocked[myId] : undefined,
         xpEarned,

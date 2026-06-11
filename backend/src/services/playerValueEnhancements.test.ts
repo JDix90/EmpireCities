@@ -1,6 +1,79 @@
 import { describe, it, expect } from 'vitest';
-import { buildInsightsFromDecisionLog } from './playerValueEnhancements';
-import type { ActionDecision } from '../types';
+import { buildInsightsFromDecisionLog, buildInsightsFromSnapshots } from './playerValueEnhancements';
+import type { ActionDecision, GameState } from '../types';
+
+function snapshotState(turn: number, humanTerritories: number, hasResigned = false): GameState {
+  const territories: GameState['territories'] = {};
+  for (let i = 0; i < 12; i++) {
+    territories[`t${i}`] = {
+      owner_id: i < humanTerritories ? 'human' : 'bot',
+      unit_count: 1,
+    } as GameState['territories'][string];
+  }
+  return {
+    game_id: 'g1',
+    era: 'ancient',
+    map_id: 'm1',
+    phase: 'attack',
+    current_player_index: 0,
+    turn_number: turn,
+    players: [
+      {
+        player_id: 'human', player_index: 0, username: 'Me', color: '#fff',
+        is_ai: false, is_eliminated: hasResigned, has_resigned: hasResigned,
+        territory_count: humanTerritories, cards: [], mmr: 1000,
+        capital_territory_id: null, secret_mission: null,
+      },
+      {
+        player_id: 'bot', player_index: 1, username: 'Bot', color: '#f00',
+        is_ai: true, is_eliminated: false,
+        territory_count: 12 - humanTerritories, cards: [], mmr: 1000,
+        capital_territory_id: null, secret_mission: null,
+      },
+    ],
+    territories,
+    card_deck: [],
+    card_set_redemption_count: 0,
+    diplomacy: [],
+    settings: { fog_of_war: false, turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: true, diplomacy_enabled: false },
+    draft_units_remaining: 0,
+    turn_started_at: 0,
+  } as unknown as GameState;
+}
+
+describe('buildInsightsFromSnapshots — resignation handling', () => {
+  it('does not turn the resignation territory-zeroing into a combat insight', () => {
+    const rows = [
+      { turn_number: 1, state_json: snapshotState(1, 4) },
+      { turn_number: 2, state_json: snapshotState(2, 4) },
+      // Final snapshot: the player resigned — territories zeroed by bookkeeping.
+      { turn_number: 3, state_json: snapshotState(3, 0, true) },
+    ];
+    const insights = buildInsightsFromSnapshots(rows);
+    expect(insights.every((i) => i.turn !== 3)).toBe(true);
+    expect(insights.every((i) => !/You lost \d+ territor/.test(i.explanation))).toBe(true);
+  });
+
+  it('still reports genuine swings on earlier turns of a resigned game', () => {
+    const rows = [
+      { turn_number: 1, state_json: snapshotState(1, 7) },
+      { turn_number: 2, state_json: snapshotState(2, 3) }, // real combat loss of 4
+      { turn_number: 3, state_json: snapshotState(3, 0, true) }, // resignation artifact
+    ];
+    const insights = buildInsightsFromSnapshots(rows);
+    expect(insights.some((i) => i.turn === 2)).toBe(true);
+    expect(insights.every((i) => i.turn !== 3)).toBe(true);
+  });
+
+  it('keeps final-turn insights for games that ended without resignation', () => {
+    const rows = [
+      { turn_number: 1, state_json: snapshotState(1, 7) },
+      { turn_number: 2, state_json: snapshotState(2, 3) },
+    ];
+    const insights = buildInsightsFromSnapshots(rows);
+    expect(insights.some((i) => i.turn === 2)).toBe(true);
+  });
+});
 
 function decision(overrides: Partial<ActionDecision> = {}): ActionDecision {
   return {
