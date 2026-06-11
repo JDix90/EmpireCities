@@ -53,10 +53,9 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      if (useAuthStore.getState().user?.is_guest) {
-        useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false });
-        return Promise.reject(error);
-      }
+      // Guests go through the same refresh path as registered users — their
+      // 4h access token can expire mid-session, and the refresh cookie
+      // recovers it without destroying the (unrecoverable) guest identity.
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           refreshQueue.push({

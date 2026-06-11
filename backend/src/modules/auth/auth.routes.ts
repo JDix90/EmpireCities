@@ -210,6 +210,24 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: userId, username, guest: true, admin: false }, '4h');
 
+    // Guests get the same refresh-cookie session as registered users so a
+    // page reload (or 4h token expiry mid-game) doesn't destroy their
+    // identity — guests are exactly the players we can't ask to log back in.
+    // The rotation handler preserves the `guest` claim, so refreshed tokens
+    // never escalate a guest past rejectGuest-protected routes. Stale no-game
+    // guests are deleted by guestCleanupService; their refresh then 401s
+    // (`no_user`) and the client logs out cleanly.
+    const tokenId = uuidv4();
+    const refreshToken = signRefreshToken({ sub: userId, tokenId });
+    const refreshHash = hashRefreshToken(refreshToken);
+    const refreshExpiresAt = new Date();
+    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7);
+    await query(
+      'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [tokenId, userId, refreshHash, refreshExpiresAt],
+    );
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+
     return reply.send({
       accessToken,
       guestId: userId,
@@ -492,7 +510,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     type RotationResult =
-      | { code: 'ok'; username: string; is_admin: boolean }
+      | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean }
       | { code: 'invalid' }
       | { code: 'no_user' };
 
@@ -510,8 +528,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           return { code: 'invalid' };
         }
 
-        const { rows: userRows } = await client.query<{ username: string; is_admin: boolean }>(
-          'SELECT username, is_admin FROM users WHERE user_id = $1',
+        const { rows: userRows } = await client.query<{ username: string; is_admin: boolean; is_guest: boolean }>(
+          'SELECT username, is_admin, COALESCE(is_guest, false) AS is_guest FROM users WHERE user_id = $1',
           [payload.sub],
         );
         if (userRows.length === 0) {
@@ -527,7 +545,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           [newTokenId, payload.sub, newRefreshHash, expiresAt],
         );
 
-        return { code: 'ok', username: userRows[0].username, is_admin: userRows[0].is_admin };
+        return {
+          code: 'ok',
+          username: userRows[0].username,
+          is_admin: userRows[0].is_admin,
+          is_guest: userRows[0].is_guest,
+        };
       });
     } catch (err) {
       request.log.error({ err, userId: payload.sub }, 'refresh rotation failed');
@@ -541,10 +564,13 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'User not found' });
     }
 
+    // Preserve the guest claim across rotation: without it, a guest's first
+    // refresh would mint a token that walks straight past rejectGuest routes.
     const newAccessToken = signAccessToken({
       sub: payload.sub,
       username: rotation.username,
       admin: rotation.is_admin,
+      ...(rotation.is_guest ? { guest: true } : {}),
     });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 

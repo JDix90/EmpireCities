@@ -155,11 +155,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        const isGuest = get().user?.is_guest;
         try {
-          if (!isGuest) {
-            await api.post('/auth/logout');
-          }
+          // Guests included: they hold a refresh cookie now, and logout is
+          // what revokes it server-side and clears it from the browser.
+          await api.post('/auth/logout');
+        } catch {
+          // Best-effort — local state is cleared regardless.
         } finally {
           try {
             sessionStorage.removeItem('cc-auth-notice');
@@ -174,10 +175,8 @@ export const useAuthStore = create<AuthState>()(
 
       refreshToken: async (options) => {
         const silent = options?.silent ?? false;
-        if (get().user?.is_guest) {
-          // Guest sessions have no refresh cookie; nothing to retry.
-          return 'invalid';
-        }
+        // Guests refresh like everyone else: POST /api/auth/guest issues the
+        // same HttpOnly refresh cookie, and rotation preserves the guest claim.
         try {
           const res = await rawHttp.post('/auth/refresh');
           const { accessToken } = res.data;

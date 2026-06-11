@@ -171,8 +171,9 @@ export default function App() {
     attemptedInitialSilentRefreshRef.current = true;
     void (async () => {
       const state = useAuthStore.getState();
-      // Logged-out, or a transient guest session that did not survive reload — nothing to do.
-      if (!state.isAuthenticated || !state.user || state.user.is_guest) {
+      // Logged out — nothing to recover. (Guests recover like registered
+      // users now: their refresh cookie survives the reload.)
+      if (!state.isAuthenticated || !state.user) {
         useAuthStore.getState().setBootstrapped(true);
         return;
       }
