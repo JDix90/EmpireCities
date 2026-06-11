@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Sword, Flag, Skull, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { X, Sword, Flag, Skull, ChevronDown, ChevronUp, History, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import type { CombatResult } from '../../store/gameStore';
 
@@ -49,9 +49,12 @@ export function summarizeRecap(combats: CombatResult[]): {
 export default function AiTurnRecapPanel({
   recaps,
   onDismiss,
+  viewerPlayerId = null,
 }: {
   recaps: TurnRecapEntry[];
   onDismiss: () => void;
+  /** Highlights entries where this player was attacked; auto-expands on territory loss. */
+  viewerPlayerId?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
@@ -65,9 +68,27 @@ export default function AiTurnRecapPanel({
     }
   }, [recaps.length]);
 
+  // Losing a territory is the one recap event worth surfacing unprompted:
+  // pop the panel open with that entry expanded. Routine chip damage stays
+  // collapsed — the header badge already shows you were attacked.
+  useEffect(() => {
+    if (!viewerPlayerId || recaps.length === 0) return;
+    const latest = recaps[recaps.length - 1];
+    const lostTerritory = latest.combats.some(
+      (c) => c.defenderId === viewerPlayerId && c.territory_captured,
+    );
+    if (lostTerritory) {
+      setExpanded(true);
+      setOpenEntries((m) => ({ ...m, [recapKey(latest)]: true }));
+    }
+  }, [recaps, viewerPlayerId]);
+
   if (recaps.length === 0) return null;
 
   const totalCaptures = recaps.reduce((s, r) => s + summarizeRecap(r.combats).captures, 0);
+  const attacksOnViewer = viewerPlayerId
+    ? recaps.reduce((s, r) => s + r.combats.filter((c) => c.defenderId === viewerPlayerId).length, 0)
+    : 0;
 
   return (
     <div className="absolute top-16 right-3 z-20 w-[290px] max-w-[85vw] rounded-xl border border-bf-border bg-bf-surface/95 backdrop-blur-sm shadow-xl text-sm">
@@ -83,6 +104,12 @@ export default function AiTurnRecapPanel({
             While you were away ({recaps.length} {recaps.length === 1 ? 'turn' : 'turns'}
             {totalCaptures > 0 ? `, ${totalCaptures} ${totalCaptures === 1 ? 'capture' : 'captures'}` : ''})
           </span>
+          {attacksOnViewer > 0 && (
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-300 text-[10px] font-medium">
+              <Shield className="w-2.5 h-2.5" aria-hidden />
+              {attacksOnViewer}
+            </span>
+          )}
           {expanded ? (
             <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden />
           ) : (
@@ -105,8 +132,9 @@ export default function AiTurnRecapPanel({
             const stats = summarizeRecap(recap.combats);
             const key = recapKey(recap);
             const open = !!openEntries[key];
+            const attackedViewer = !!viewerPlayerId && recap.combats.some((c) => c.defenderId === viewerPlayerId);
             return (
-              <div key={key} className="px-3 py-2">
+              <div key={key} className={clsx('px-3 py-2', attackedViewer && 'border-l-2 border-l-red-500/60 bg-red-500/[0.04]')}>
                 <button
                   type="button"
                   className="w-full flex items-center gap-2 text-left"
@@ -129,20 +157,26 @@ export default function AiTurnRecapPanel({
                 </button>
                 {open && (
                   <div className="mt-1.5 space-y-1 pl-4">
-                    {recap.combats.map((c, j) => (
-                      <div key={j} className="flex items-center gap-2 text-xs text-bf-muted">
-                        <span className="truncate flex-1">
-                          {c.fromName ?? '?'} → {c.toName ?? '?'}
-                        </span>
-                        {c.territory_captured ? (
-                          <span className="text-yellow-400 shrink-0">Captured</span>
-                        ) : c.defender_losses > 0 ? (
-                          <span className="shrink-0">−{c.defender_losses} def</span>
-                        ) : c.attacker_losses > 0 ? (
-                          <span className="shrink-0">−{c.attacker_losses} atk</span>
-                        ) : null}
-                      </div>
-                    ))}
+                    {recap.combats.map((c, j) => {
+                      const vsViewer = !!viewerPlayerId && c.defenderId === viewerPlayerId;
+                      return (
+                        <div key={j} className={clsx('flex items-center gap-2 text-xs', vsViewer ? 'text-red-300' : 'text-bf-muted')}>
+                          <span className="truncate flex-1">
+                            {c.fromName ?? '?'} → {c.toName ?? '?'}
+                            {vsViewer && <span className="text-red-400/80"> (you)</span>}
+                          </span>
+                          {c.territory_captured ? (
+                            <span className={clsx('shrink-0', vsViewer ? 'text-red-400 font-medium' : 'text-yellow-400')}>
+                              {vsViewer ? 'Lost!' : 'Captured'}
+                            </span>
+                          ) : c.defender_losses > 0 ? (
+                            <span className="shrink-0">−{c.defender_losses} def</span>
+                          ) : c.attacker_losses > 0 ? (
+                            <span className="shrink-0">−{c.attacker_losses} atk</span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

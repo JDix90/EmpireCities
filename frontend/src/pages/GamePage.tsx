@@ -22,6 +22,7 @@ import {
 import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import GameStartModal from '../components/game/GameStartModal';
+import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
@@ -664,6 +665,8 @@ export default function GamePage() {
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
   /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
   const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
+  /** Incoming attacks shown live during the attacker's turn (non-blocking dice theater). */
+  const [defenderTheaterQueue, setDefenderTheaterQueue] = useState<CombatResult[]>([]);
   const gamePhase = gameState?.phase;
   useEffect(() => {
     // Don't leave the recap overlay floating over the results screen.
@@ -996,6 +999,12 @@ export default function GamePage() {
       const isMyTurn = state.players[newIndex]?.player_id === myId;
       const prevPhase = prevPhaseRef.current;
 
+      // My turn begins clean: any battles still queued in the live theater
+      // were already watched (or skipped) and live on in the recap panel.
+      if (playerChanged && isMyTurn) {
+        setDefenderTheaterQueue([]);
+      }
+
       if (
         !draftSummaryShownRef.current &&
         prevPhase === 'territory_select' &&
@@ -1155,7 +1164,20 @@ export default function GamePage() {
         ]);
         ownTurnCombatsRef.current.push(enriched);
       } else if (isMyDefense) {
-        setModalQueue(q => [...q, { type: 'combat' as const, result: enriched, perspective: 'defender' as const }]);
+        // Incoming attacks play as a live, auto-advancing dice theater during
+        // the attacker's turn (the moment the roll happens) instead of
+        // stacking blocking modals for the defender's turn start. Losing the
+        // capital is the exception — that still stops the world.
+        const myCapital = state?.players.find(p => p.player_id === userRef.current?.user_id)?.capital_territory_id;
+        if (territory_captured && myCapital && data.toId === myCapital) {
+          setModalQueue(q => [...q, {
+            type: 'combat' as const,
+            result: { ...enriched, capitalLost: true },
+            perspective: 'defender' as const,
+          }]);
+        } else {
+          setDefenderTheaterQueue(q => [...q, enriched]);
+        }
         otherTurnCombatsRef.current.push(enriched);
       } else {
         otherTurnCombatsRef.current.push(enriched);
@@ -3507,7 +3529,17 @@ export default function GamePage() {
           )}
 
           {/* Non-blocking recap of other players' turns (replaces queued modals) */}
-          <AiTurnRecapPanel recaps={aiRecaps} onDismiss={() => setAiRecaps([])} />
+          <AiTurnRecapPanel
+            recaps={aiRecaps}
+            onDismiss={() => setAiRecaps([])}
+            viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+          />
+
+          {/* Live dice theater for attacks against the local player */}
+          <DefenderBattleTheater
+            queue={defenderTheaterQueue}
+            onAdvance={() => setDefenderTheaterQueue(q => q.slice(1))}
+          />
 
           {/* One-time game-start briefing: turn order + starting resources */}
           {gameState && (

@@ -227,6 +227,8 @@ export interface CombatResult {
   defenderId?: string | null;
   attackerName?: string;
   defenderName?: string;
+  /** Client enrichment: the captured territory was the viewer's capital. */
+  capitalLost?: boolean;
 }
 
 interface GameStoreState {
