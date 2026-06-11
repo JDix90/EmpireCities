@@ -57,6 +57,10 @@ export function registerErrorHandler(app: FastifyInstance): void {
       clientMessage = isDev ? error.message : 'Internal server error';
     } else if (isDev) {
       clientMessage = error.message;
+    } else if (statusCode === 429 && error.message) {
+      // Rate-limit messages come exclusively from our own errorResponseBuilder
+      // copy (index.ts) — user-facing guidance, safe to surface in production.
+      clientMessage = error.message;
     } else {
       clientMessage = defaultClientMessage(statusCode);
     }

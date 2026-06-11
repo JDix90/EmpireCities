@@ -135,9 +135,19 @@ export default function GameHUD({
   // Turn timer countdown. Prefers the server-authoritative phase deadline
   // (re-armed on every phase, including timeout auto-advances) and recomputes
   // from the clock each tick so the display can't drift or go stale at 0:00.
-  // Falls back to turn_started_at math against older servers.
+  //
+  // Null-vs-undefined matters: a server that KNOWS the timer is off right now
+  // (AI turns, choice-event pauses) sends phase_deadline_at: null — show no
+  // clock rather than a ghost countdown ticking toward a timeout that will
+  // never fire. Only `undefined` (a pre-deadline server) falls back to
+  // turn_started_at math, and then only on a human's turn.
   useEffect(() => {
     if (!gameState?.settings.turn_timer_seconds || gameState.settings.turn_timer_seconds === 0) {
+      setTimeLeft(null);
+      return;
+    }
+    const currentPlayer = gameState.players[gameState.current_player_index];
+    if (gameState.phase === 'game_over' || currentPlayer?.is_ai || gameState.phase_deadline_at === null) {
       setTimeLeft(null);
       return;
     }
@@ -151,7 +161,7 @@ export default function GameHUD({
       setTimeLeft(compute());
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds]);
+  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds, gameState?.phase, gameState?.current_player_index, gameState?.players]);
 
   useEffect(() => {
     if (!gameId) return;
