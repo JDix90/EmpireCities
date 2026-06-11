@@ -51,7 +51,7 @@ import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
 import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
-import { recordGameResults, computeRanks } from '../game-engine/state/statsManager';
+import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
 import { getInitialRatings } from '../game-engine/rating/ratingService';
@@ -3903,7 +3903,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     resultCtx = await recordGameResults(gameId, state, winnerIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
-    resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), isRanked: false, xpEarnedByPlayer: {} };
+    resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
   }
 
   const unlockedByPlayer: Record<string, string[]> = {};
@@ -4175,10 +4175,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       is_ai: p.is_ai,
     })),
     win_probability_history: state.win_probability_history ?? [],
-    rating_deltas: Object.fromEntries(resultCtx.ratingDeltas),
-    // Additive: lets the defeat screen frame large early-game swings as
-    // "calibrating" instead of presenting them as settled judgements.
-    rating_provisional: Object.fromEntries(resultCtx.ratingProvisional),
+    // Guests are redacted from both rating maps: competitive numbers are a
+    // registered-account feature (their ratings still accrue silently in the
+    // DB and carry over on upgrade). The provisional flag lets the defeat
+    // screen frame large early-game swings as "calibrating".
+    ...redactGuestRatings(resultCtx),
     is_ranked: resultCtx.isRanked,
     achievements_unlocked: unlockedByPlayer,
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,

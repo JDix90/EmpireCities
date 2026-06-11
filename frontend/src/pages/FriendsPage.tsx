@@ -123,8 +123,8 @@ export default function FriendsPage() {
     return (
       <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg">
         <div className="text-center py-12 space-y-4">
-          <p className="text-bf-muted">Register an account to use friends.</p>
-          <Link to="/register" className="btn-primary">Create Account</Link>
+          <p className="text-bf-muted">Create a free account to use friends — your progress carries over.</p>
+          <Link to="/upgrade" className="btn-primary">Create Account</Link>
         </div>
       </SubpageShell>
     );

@@ -70,6 +70,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       daily_streak: number;
       prestige: number;
       is_admin: boolean;
+      is_guest: boolean;
     };
 
     let user: UserRow | null = null;
@@ -81,7 +82,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
                 COALESCE(win_streak, 0) AS win_streak,
                 COALESCE(daily_streak, 0) AS daily_streak,
                 COALESCE(prestige, 0) AS prestige,
-                COALESCE(is_admin, false) AS is_admin
+                COALESCE(is_admin, false) AS is_admin,
+                COALESCE(is_guest, false) AS is_guest
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
@@ -90,14 +92,21 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
                 COALESCE(gold, 0) AS gold,
                 0 AS onboarding_stage, 0 AS win_streak, 0 AS daily_streak, 0 AS prestige,
-                COALESCE(is_admin, false) AS is_admin
+                COALESCE(is_admin, false) AS is_admin,
+                COALESCE(is_guest, false) AS is_guest
          FROM users WHERE user_id = $1`,
         [request.userId],
       );
     }
     if (!user) return reply.status(404).send({ error: 'User not found' });
 
-    const ratings = await fetchUserRatingsSafe(request.userId);
+    // Competitive ratings are a registered-account feature: guests accrue
+    // them silently (so an upgrade inherits history) but never see numbers.
+    // Gate on the DB flag, not the JWT — a pre-upgrade access token stays
+    // valid for hours, and ratings should appear the moment the row flips.
+    // `{}` rather than omission: the client merges /me shallowly, and an
+    // empty object overwrites any previously cached ratings.
+    const ratings = user.is_guest ? {} : await fetchUserRatingsSafe(request.userId);
     const tutorialRow = await queryOne<{ cnt: string }>(
       `SELECT COUNT(*) AS cnt FROM user_achievements
        WHERE user_id = $1 AND achievement_id = 'tutorial_complete'`,

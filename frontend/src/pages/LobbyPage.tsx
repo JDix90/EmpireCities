@@ -1120,7 +1120,14 @@ export default function LobbyPage() {
           <div>
             <h2 className="font-display text-xl sm:text-2xl text-bf-gold">Welcome, {user?.username}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>
+              {user?.is_guest ? (
+                <p className="text-bf-muted text-sm">
+                  Level {user?.level} · {user?.xp} XP · Guest{' '}
+                  <Link to="/upgrade" className="text-bf-gold hover:underline">— create an account to keep it</Link>
+                </p>
+              ) : (
+                <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>
+              )}
               {(user?.win_streak ?? 0) > 0 && <StreakBadge type="win" count={user!.win_streak!} />}
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>
@@ -1203,7 +1210,7 @@ export default function LobbyPage() {
                 </div>
               </div>
               <Link
-                to="/register"
+                to="/upgrade"
                 className="btn-secondary self-start sm:self-center shrink-0 min-h-[44px] inline-flex items-center justify-center px-4 touch-manipulation"
               >
                 Create account

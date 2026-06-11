@@ -93,8 +93,35 @@ export interface GameResultContext {
    * provisional rather than presenting "-263" as a settled judgement.
    */
   ratingProvisional: Map<string, boolean>;
+  /**
+   * Human players whose users row is a guest account. Their ratings are
+   * computed and stored like everyone's (so an account upgrade inherits the
+   * history) but are REDACTED from client-facing payloads — competitive
+   * numbers are a registered-account feature. See redactGuestRatings.
+   */
+  guestPlayerIds: Set<string>;
   /** XP awarded per human player_id (for UI). */
   xpEarnedByPlayer: Record<string, number>;
+}
+
+/**
+ * Client-facing rating maps with guest players removed. The game-over modal
+ * hides its rating cell when the viewer's delta is absent and the match
+ * stats table shows '—' — both gate automatically off this redaction.
+ * XP is intentionally NOT redacted: progression is the part guests keep.
+ */
+export function redactGuestRatings(ctx: GameResultContext): {
+  rating_deltas: Record<string, number>;
+  rating_provisional: Record<string, boolean>;
+} {
+  return {
+    rating_deltas: Object.fromEntries(
+      [...ctx.ratingDeltas].filter(([id]) => !ctx.guestPlayerIds.has(id)),
+    ),
+    rating_provisional: Object.fromEntries(
+      [...ctx.ratingProvisional].filter(([id]) => !ctx.guestPlayerIds.has(id)),
+    ),
+  };
 }
 
 export async function recordGameResults(
@@ -106,6 +133,7 @@ export async function recordGameResults(
     isRanked: false,
     ratingDeltas: new Map(),
     ratingProvisional: new Map(),
+    guestPlayerIds: new Set(),
     xpEarnedByPlayer: {},
   };
   const xpConfig = resolveXpConfig(state);
@@ -138,6 +166,17 @@ export async function recordGameResults(
         )).rows
       : [];
     const ratingMap = new Map(ratingRows.map((r) => [r.user_id, { mu: r.mu, phi: r.phi }]));
+
+    // Identify guest seats so the emitted rating maps can redact them
+    // (DB writes below remain identical for guests and registered users).
+    if (humanPlayers.length > 0) {
+      const guestRows = await client.query<{ user_id: string }>(
+        `SELECT user_id FROM users
+         WHERE user_id = ANY($1) AND COALESCE(is_guest, false) = true`,
+        [humanPlayers.map((p) => p.player_id)],
+      );
+      for (const row of guestRows.rows) ctx.guestPlayerIds.add(row.user_id);
+    }
 
     // Build AI opponents for solo rating
     const aiPlayers = state.players.filter((p) => p.is_ai);

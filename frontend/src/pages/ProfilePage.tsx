@@ -214,6 +214,13 @@ export default function ProfilePage() {
             <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
+            {isOwnProfile && currentUser?.is_guest ? (
+              <p className="text-bf-muted text-xs mt-1">
+                Guest account —{' '}
+                <Link to="/upgrade" className="text-bf-gold hover:underline">create a free account</Link>
+                {' '}to track competitive ratings.
+              </p>
+            ) : (
             <div className="flex flex-col sm:flex-row items-center gap-4 mt-1">
               <span className="text-bf-muted text-xs flex items-center gap-1">
                 <Bot className="w-3 h-3" /> Solo {profile.ratings?.solo?.display ?? '—'}
@@ -240,6 +247,7 @@ export default function ProfilePage() {
                 )}
               </span>
             </div>
+            )}
             <div className="mt-3">
               <XpBar xp={profile.xp ?? 0} />
               {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
@@ -427,7 +435,11 @@ export default function ProfilePage() {
         {!stats && (
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'MMR Rating', value: profile.mmr, icon: Trophy },
+              // Competitive numbers are gated for the viewer's own guest
+              // profile — show gold (progression) in the tile instead.
+              isOwnProfile && currentUser?.is_guest
+                ? { label: 'Gold', value: (profile.gold ?? 0).toLocaleString(), icon: Trophy }
+                : { label: 'MMR Rating', value: profile.mmr, icon: Trophy },
               { label: 'Level', value: profile.level, icon: Sword },
               { label: 'Total XP', value: (profile.xp ?? 0).toLocaleString(), icon: Map },
             ].map(({ label, value, icon: Icon }) => (
