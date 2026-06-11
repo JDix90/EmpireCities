@@ -66,12 +66,14 @@ export interface GameOverModalData {
   }>;
   win_probability_history?: WinProbabilitySnapshot[];
   rating_change?: number;
+  /** True while the local player's rating is still calibrating (high RD) — early deltas swing widely. */
+  rating_provisional?: boolean;
   is_ranked?: boolean;
   achievements_unlocked?: string[];
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
@@ -1035,6 +1037,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
       case 'abandoned':       return 'Game ended — no human players remained';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
+      case 'resignation':     return 'Resignation — the last commander conceded the field';
       default:                return null;
     }
   };
@@ -1185,10 +1188,25 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
         </div>
         {data.rating_change != null && (
           <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-            <p className={clsx('text-2xl font-bold tabular-nums', data.rating_change >= 0 ? 'text-green-400' : 'text-red-400')}>
+            <p className={clsx(
+              'font-bold tabular-nums flex items-center justify-center gap-1.5 flex-wrap',
+              data.rating_provisional ? 'text-xl' : 'text-2xl',
+              data.rating_change >= 0 ? 'text-green-400' : 'text-red-400',
+            )}>
               {data.rating_change >= 0 ? '+' : ''}{data.rating_change}
+              {data.rating_provisional && (
+                <span
+                  className="text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                  title="Early ratings swing widely while the system calibrates — they settle after a few games."
+                >
+                  Calibrating
+                </span>
+              )}
             </p>
-            <p className="text-white/35 text-xs">{data.is_ranked ? 'Ranked' : 'Solo'} Rating</p>
+            <p className="text-white/35 text-xs">
+              {data.is_ranked ? 'Ranked' : 'Solo'} Rating
+              {data.rating_provisional ? ' · settles after a few games' : ''}
+            </p>
           </div>
         )}
       </div>

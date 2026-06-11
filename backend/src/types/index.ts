@@ -17,7 +17,14 @@ export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | '
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
 export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
-export type VictoryConditionKey = VictoryType | 'last_standing' | 'alliance_victory' | 'abandoned' | 'turn_limit';
+export type VictoryConditionKey =
+  | VictoryType
+  | 'last_standing'
+  | 'alliance_victory'
+  | 'abandoned'
+  | 'turn_limit'
+  /** The last human conceded past the grace window; the leading AI is credited. */
+  | 'resignation';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =

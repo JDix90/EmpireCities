@@ -5,6 +5,7 @@ import {
   scoreVsOpponent,
   syntheticAiOpponent,
   getInitialRatings,
+  displayRating,
 } from '../rating/ratingService';
 import { getXpConfig } from '../../services/adminConfig';
 
@@ -86,6 +87,12 @@ export function computeLevel(totalXp: number): number {
 export interface GameResultContext {
   isRanked: boolean;
   ratingDeltas: Map<string, number>;
+  /**
+   * True while the player's rating is still calibrating (high RD): early
+   * games swing by hundreds of points, and the UI should frame the delta as
+   * provisional rather than presenting "-263" as a settled judgement.
+   */
+  ratingProvisional: Map<string, boolean>;
   /** XP awarded per human player_id (for UI). */
   xpEarnedByPlayer: Record<string, number>;
 }
@@ -95,7 +102,12 @@ export async function recordGameResults(
   state: GameState,
   winnerIds: string[],
 ): Promise<GameResultContext> {
-  const ctx: GameResultContext = { isRanked: false, ratingDeltas: new Map(), xpEarnedByPlayer: {} };
+  const ctx: GameResultContext = {
+    isRanked: false,
+    ratingDeltas: new Map(),
+    ratingProvisional: new Map(),
+    xpEarnedByPlayer: {},
+  };
   const xpConfig = resolveXpConfig(state);
   const initialRatings = getInitialRatings();
   const client = await pgPool.connect();
@@ -169,6 +181,7 @@ export async function recordGameResults(
 
       const muDelta = Math.round(updated.mu - current.mu);
       ctx.ratingDeltas.set(p.player_id, muDelta);
+      ctx.ratingProvisional.set(p.player_id, displayRating(updated.mu, updated.phi).provisional);
 
       // Write Glicko rating
       await client.query(
