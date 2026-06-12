@@ -1,5 +1,12 @@
 # Privacy Policy — Borderfall
 
+> **Status: store-submission draft — NOT the canonical policy.**
+> The policy users see and agree to lives at https://borderfall.gg/privacy
+> (source: `frontend/src/pages/PrivacyPage.tsx`). This template retains the
+> long-form structure for future app-store submissions; complete the
+> bracketed placeholders with counsel before submitting it anywhere.
+
+
 **Effective date:** March 31, 2026  
 
 This Privacy Policy describes how **Borderfall** (“**we**,” “**us**,” or “**our**”) collects, uses, stores, and shares information when you use our websites, games, and related services (collectively, the “**Services**”).  

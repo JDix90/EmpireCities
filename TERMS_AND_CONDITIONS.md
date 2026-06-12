@@ -1,5 +1,12 @@
 # Terms & Conditions — Borderfall
 
+> **Status: store-submission draft — NOT the canonical terms.**
+> The terms users see and agree to live at https://borderfall.gg/terms
+> (source: `frontend/src/pages/TermsPage.tsx`). This template retains the
+> long-form structure for future app-store submissions; complete the
+> bracketed placeholders with counsel before submitting it anywhere.
+
+
 **Effective date:** March 31, 2026  
 
 Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **[Your legal name or company name]** (“**we**,” “**us**,” or “**our**”).  

@@ -28,8 +28,19 @@ export default function PrivacyPage() {
           <p className="text-sm text-bf-muted leading-relaxed">
             When you create an account, we store your email address, username, and a secure hash of your password.
             We also store game-related data (matches, stats, ratings, and saved game state) tied to your account so you can
-            resume play and view your history. If you enable push notifications, we store a device token to deliver alerts.
-            Guest sessions may create temporary accounts with limited persistence.
+            resume play and view your history, along with sign-in timestamps. If you enable push notifications, we store
+            a device token to deliver alerts. Like most online services, our servers also process technical data needed to
+            operate and secure the Service: IP addresses, browser type, and diagnostic logs (including for rate limiting
+            and abuse prevention).
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <span className="text-bf-text">Guest accounts:</span> playing as a guest creates a temporary account.
+            Guest accounts that never play a game are deleted automatically within about 48 hours; creating a free
+            account converts your guest account in place so your progress is kept.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <span className="text-bf-text">In-game chat is ephemeral:</span> chat messages are delivered to players
+            in your game and are not stored on our servers.
           </p>
         </section>
 
@@ -39,6 +50,18 @@ export default function PrivacyPage() {
             Data is used to operate the game, authenticate you, compute rankings and statistics, deliver optional
             notifications (async turns, invites), and improve stability. We do not sell your personal information.
             Error reports may be sent to our monitoring provider (e.g. Sentry) when configured.
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="font-display text-lg text-bf-gold">Service providers and content delivery</h2>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            Some features rely on third parties that receive limited data as part of how the web works:
+            map graphics and fonts are loaded from content delivery networks (jsDelivr, Google Fonts), which see
+            your IP address when your browser fetches them; GIF search in chat sends your search terms to Tenor;
+            push notifications are delivered through Firebase Cloud Messaging; and transactional email (such as
+            password resets) is sent through our email provider. These providers process data only to deliver
+            their function — none of them receive your account credentials.
           </p>
         </section>
 
@@ -53,9 +76,11 @@ export default function PrivacyPage() {
         <section className="space-y-3">
           <h2 className="font-display text-lg text-bf-gold">Your choices</h2>
           <p className="text-sm text-bf-muted leading-relaxed">
-            You may delete your account from your profile while logged in. That removes your user record and revokes
-            sessions; some anonymized game rows may remain for integrity of historical matches.
-            Registered users may export their data via the profile/API where enabled.
+            Registered users may delete their account from the profile page while logged in. That removes your user
+            record and revokes sessions; some anonymized game rows may remain for integrity of historical matches.
+            Guest accounts have no self-service deletion: guests who never played are removed automatically as
+            described above, and guests with game history can contact us to request removal.
+            Registered users may also export their data via the profile/API where enabled.
           </p>
         </section>
 

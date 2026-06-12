@@ -72,8 +72,8 @@ export default function TermsPage() {
           <h2 className="font-display text-lg text-bf-gold">Service availability</h2>
           <p className="text-sm text-bf-muted leading-relaxed">
             We provide the Service on an &ldquo;as is&rdquo; basis. Maintenance, updates, or outages may interrupt
-            play. Live multiplayer sessions may be affected by server restarts; we use snapshots and reconnect
-            logic where possible but do not guarantee uninterrupted real-time play.
+            play. Game state is persisted so that sessions can survive server restarts, and clients reconnect and
+            resynchronize automatically where possible — but we do not guarantee uninterrupted real-time play.
           </p>
         </section>
 
