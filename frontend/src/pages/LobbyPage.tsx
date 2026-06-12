@@ -591,19 +591,10 @@ export default function LobbyPage() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (searchParams.get('quickstart') !== 'true') return;
-    setShowCreate(true);
-    setAiCount(3);
-    setSelectedEra('ancient');
-    setSelectedTheaterMapId(ERA_MAP_IDS.ancient);
-    setCustomPairingEnabled(false);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('quickstart');
-      return next;
-    }, { replace: true });
-  }, [searchParams, setSearchParams]);
+  // (The old ?quickstart=true handler lived here. It auto-opened the
+  // Configure New Game form for fresh guests — stacked on top of the welcome
+  // modal, which now owns first-visit triage. Era/map deep links (?era=,
+  // ?map=) still pre-open the form above; that path is an explicit choice.)
 
   useEffect(() => {
     fetchPublicGames();

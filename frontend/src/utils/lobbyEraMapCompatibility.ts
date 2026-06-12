@@ -162,7 +162,11 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     });
   }
 
-  if (era_id !== LOBBY_ERA_MAP_IDS[era_id] || map_id !== LOBBY_ERA_MAP_IDS[era_id]) {
+  // Only a genuinely mismatched map deserves the note. The previous condition
+  // also compared the ERA id against its MAP id (`'ancient' !== 'era_ancient'`,
+  // true for every era), so the "custom pairing" warning showed on every game
+  // — including the defaults a brand-new player creates.
+  if (map_id !== LOBBY_ERA_MAP_IDS[era_id]) {
     warnings.push({
       tier: 'info',
       message: 'Custom pairing — event card text may reference theaters other than this map.',
