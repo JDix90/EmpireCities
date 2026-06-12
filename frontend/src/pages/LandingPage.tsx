@@ -320,8 +320,11 @@ function GetStartedModal({
       <div
         className="bg-bf-surface border border-bf-border rounded-2xl p-6 sm:p-8 w-full max-w-sm shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="get-started-title"
       >
-        <p className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
+        <p id="get-started-title" className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
         <p className="text-bf-muted text-sm text-center mb-6">
           Create a free account to save progress and climb the leaderboards, or jump straight in as a guest.
         </p>
@@ -367,7 +370,11 @@ export default function LandingPage() {
     setGuestLoading(true);
     try {
       await loginAsGuest();
-      navigate('/lobby?quickstart=true');
+      // Plain /lobby: the welcome modal owns first-visit triage (Start
+      // Tutorial / Quick Match / lobby). The old ?quickstart=true param
+      // auto-opened the dense Configure New Game form ON TOP of that modal,
+      // making the config form every new guest's first screen.
+      navigate('/lobby');
     } catch {
       toast.error('Could not start guest session');
       setGuestLoading(false);
