@@ -32,6 +32,28 @@ export const LOBBY_ERA_MAP_IDS: Record<string, string> = {
   galaxy_age: 'era_galaxy',
 };
 
+/**
+ * Eras eligible for Quick Match's random rotation: the seven "Global"
+ * world maps. Regional theaters (ACW, Risorgimento) are excluded — they're
+ * smaller-scope by design — and Galactic Age is admin-gated.
+ */
+export const QUICK_MATCH_ERAS = [
+  'ancient',
+  'medieval',
+  'discovery',
+  'ww2',
+  'coldwar',
+  'modern',
+  'space_age',
+] as const;
+export type QuickMatchEra = (typeof QUICK_MATCH_ERAS)[number];
+
+/** Random Quick Match era; `random` is injectable for tests. */
+export function pickQuickMatchEra(random: () => number = Math.random): QuickMatchEra {
+  const i = Math.min(QUICK_MATCH_ERAS.length - 1, Math.max(0, Math.floor(random() * QUICK_MATCH_ERAS.length)));
+  return QUICK_MATCH_ERAS[i];
+}
+
 export const CURATED_COMMUNITY_MAP_IDS = [
   'community_14_nations',
   'community_strait_hormuz',
