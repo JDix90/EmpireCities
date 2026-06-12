@@ -614,6 +614,12 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  /**
+   * Units remaining on the attacking territory after this exchange
+   * (additive; lets the client's "Attack again" affordance use server truth
+   * instead of racing the game:state broadcast).
+   */
+  source_units_after?: number;
   /** Optional server-computed attribution for why extra attack dice were granted. */
   attacker_bonus_breakdown?: {
     tech?: number;

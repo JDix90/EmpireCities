@@ -9,6 +9,11 @@ import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from 
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { plural } from '../utils/plural';
+import { phaseAdvanceLabel } from '../constants/phaseLabels';
+import { colorDisplayName } from '../utils/colorName';
+
+/** Minimum time an auto-advancing tutorial card stays readable (see opponent_turn). */
+const TUTORIAL_MIN_DWELL_MS = 4000;
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
@@ -692,6 +697,16 @@ export default function GamePage() {
   tutorialStepRef.current = tutorialStep;
   const tutorialStepsRef = useRef(tutorialSteps);
   tutorialStepsRef.current = tutorialSteps;
+  /** When the current tutorial step became visible — auto-advance steps hold a minimum dwell. */
+  const tutorialStepShownAtRef = useRef(Date.now());
+  const tutorialDwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    tutorialStepShownAtRef.current = Date.now();
+    if (tutorialDwellTimerRef.current) {
+      clearTimeout(tutorialDwellTimerRef.current);
+      tutorialDwellTimerRef.current = null;
+    }
+  }, [tutorialStep]);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   // Track the last disconnect reason so we can show different banner copy for
   // "your network dropped" (transient) vs "the server forced us off" (likely
@@ -1087,7 +1102,23 @@ export default function GamePage() {
             isMyDraftTurn,
             draftLeft,
           });
-          return shouldAdvance ? cur + 1 : cur;
+          if (!shouldAdvance) return cur;
+          // The practice AI's turn resolves in ~2s, which used to yank the
+          // "watch your opponent's turn" card away before a human could read
+          // it. Hold auto-advancing steps until they've been visible for a
+          // minimum dwell; the condition (it's our turn again) stays true,
+          // so the delayed advance is safe.
+          const visibleMs = Date.now() - tutorialStepShownAtRef.current;
+          if (step.id === 'opponent_turn' && visibleMs < TUTORIAL_MIN_DWELL_MS) {
+            if (!tutorialDwellTimerRef.current) {
+              tutorialDwellTimerRef.current = setTimeout(() => {
+                tutorialDwellTimerRef.current = null;
+                setTutorialStep((c) => (c === cur ? c + 1 : c));
+              }, TUTORIAL_MIN_DWELL_MS - visibleMs);
+            }
+            return cur;
+          }
+          return cur + 1;
         });
       }
     });
@@ -1114,6 +1145,7 @@ export default function GamePage() {
         attacker_losses: number;
         defender_losses: number;
         territory_captured: boolean;
+        source_units_after?: number;
         attacker_bonus_breakdown?: { tech?: number; faction?: number; event?: number; total?: number };
         defender_bonus_breakdown?: { building?: number; tech?: number; faction?: number; event?: number; wonder?: number; sea?: number; total?: number };
       };
@@ -1145,8 +1177,12 @@ export default function GamePage() {
       const isMyDefense = defenderOwner === userRef.current?.user_id;
 
       const { attacker_losses, defender_losses, territory_captured } = data.result;
+      // Prefer the server's count: deriving it locally double-subtracted
+      // losses whenever the game:state broadcast landed before this event,
+      // making "Attack again" vanish mid-battle. Fallback covers old servers.
       const preFromUnits = state?.territories[data.fromId]?.unit_count ?? 0;
-      const unitsAfterOnSource = preFromUnits - attacker_losses;
+      const unitsAfterOnSource =
+        data.result.source_units_after ?? (preFromUnits - attacker_losses);
       const canRepeatAttack =
         isMyAttack &&
         !territory_captured &&
@@ -3732,7 +3768,7 @@ export default function GamePage() {
                 onClick={handleAdvancePhase}
                 className="btn-primary text-xs px-3 py-2 min-h-[40px]"
               >
-                {gameState.phase === 'draft' ? 'End Draft' : gameState.phase === 'attack' ? 'End Attack' : 'End Turn'}
+                {phaseAdvanceLabel(gameState.phase)}
               </button>
             )}
             {/* Cards badge */}
@@ -4216,6 +4252,10 @@ export default function GamePage() {
           onOpenBonuses={handleOpenBonuses}
           onOpenSettingsLab={() => setShowSettingsLab(true)}
           onMarkModuleComplete={handleTutorialMarkModuleComplete}
+          onSkipToEnd={() => setTutorialStep(Math.max(0, tutorialSteps.length - 1))}
+          playerColorName={colorDisplayName(
+            gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
+          )}
           centered={isTutorialStepCentered(tutorialSteps[tutorialStep])}
         />
       )}

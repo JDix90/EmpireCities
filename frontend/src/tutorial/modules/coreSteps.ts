@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../constants/brand';
+import { phaseAdvanceLabel } from '../../constants/phaseLabels';
 import type { TutorialStep } from '../types';
 
 /** Required foundation path — same flow as legacy tutorial plus advanced primers. */
@@ -7,7 +8,7 @@ export const CORE_TUTORIAL_STEPS: TutorialStep[] = [
     id: 'welcome',
     title: 'Welcome, Commander!',
     message: `${APP_NAME} is a strategy game of territory control. Each turn has three phases: Draft → Attack → Fortify. Your goal is to conquer the map — or complete a secret mission.`,
-    hint: 'Played Risk before? You\'ll feel right at home. Click "Next" to learn the details, or "Skip" to jump straight in.',
+    hint: 'Played Risk before? You\'ll feel right at home. Click "Next" to learn the details, or "Skip to the end" to jump straight in.',
   },
   {
     id: 'draft_explain',
@@ -18,14 +19,14 @@ export const CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'draft_do',
     title: 'Place Your Units',
-    message: 'Click one of your territories on the map to place reinforcements there. You can spread them across multiple territories or stack them on one.',
+    message: 'Click one of your territories — shown in **{playerColor}** on the map — to place reinforcements there. You can spread them across multiple territories or stack them on one.',
     requireAction: 'draft',
   },
   {
     id: 'advance_draft',
     title: 'Move to Combat',
-    message: 'Units placed! Click the **Begin Attack Phase →** button in the sidebar on the right to move to the combat phase.',
-    hint: 'Look for the gold button in the right-hand sidebar.',
+    message: `Units placed! Click the gold **${phaseAdvanceLabel('draft')}** button to move to the combat phase.`,
+    hint: 'It is the gold button — in the sidebar on desktop, in the bottom bar on phones.',
     requireAction: 'end_phase',
   },
   {
@@ -38,14 +39,14 @@ export const CORE_TUTORIAL_STEPS: TutorialStep[] = [
     id: 'attack_do',
     title: 'Launch an Attack!',
     message: 'Try attacking an adjacent enemy territory now. Attack as many times as you like — or skip straight to fortify.',
-    hint: 'When you\'re done attacking, click **Begin Fortify Phase →** in the sidebar to continue.',
+    hint: `When you're done attacking, click the gold **${phaseAdvanceLabel('attack')}** button to continue.`,
     requireAction: 'end_phase',
   },
   {
     id: 'fortify_explain',
     title: 'Fortify Phase — Reposition',
     message: 'Move units between your connected territories to shore up defenses or prepare for next turn. You can move once, or skip.',
-    hint: 'When you\'re done, click **End Turn →** in the sidebar to finish your turn.',
+    hint: `When you're done, click the gold **${phaseAdvanceLabel('fortify')}** button to finish your turn.`,
     requireAction: 'end_phase',
   },
   {

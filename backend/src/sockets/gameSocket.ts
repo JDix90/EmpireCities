@@ -1628,6 +1628,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
         isSea: connection?.type === 'sea',
       });
 
+      // Server-authoritative remaining units on the attacking territory.
+      // The client's "Attack again" button used to derive this from its
+      // local store, which double-subtracted losses whenever game:state
+      // arrived before game:combat_result — hiding the button mid-battle.
+      // (A capture moves more units below, but the button never shows on
+      // captures, so the pre-capture value is the one that matters.)
+      result.source_units_after = fromTerritory.unit_count;
+
       let cardEarned = false;
       let defenderEliminated = false;
       if (result.territory_captured) {

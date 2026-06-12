@@ -188,6 +188,8 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  /** Server-authoritative units left on the attacking territory (newer servers). */
+  source_units_after?: number;
   attacker_bonus_breakdown?: {
     tech?: number;
     faction?: number;
