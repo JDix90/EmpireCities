@@ -1,5 +1,7 @@
 # Codebase status vs common code-review assumptions
 
+> **Point-in-time document.** Accurate when written; not continuously updated. For current system design, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 External reviews sometimes assume an early stub. The following are **already implemented** in this repository (verify in source if upgrading):
 
 | Topic | Location |

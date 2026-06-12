@@ -41,18 +41,19 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 | Real-time server | Socket.io |
 | Auth | Custom **JWT** (access + refresh), refresh rotation |
 | PostgreSQL | Drizzle ORM — users, games, snapshots, achievements, **maps (JSONB)**, etc. |
-| Redis | Sessions, leaderboards, caching |
+| Redis | **Authoritative live game state**, per-game locks, BullMQ queues, sessions, leaderboards |
 | AI | Server-side minimax / alpha-beta style heuristics |
 
 ### 4. Architecture invariants
 
 - **Server-authoritative gameplay:** Dice and combat outcomes are computed on the server (e.g. `crypto.randomInt`). Clients never decide battle results.
-- **Live game state:** Active matches are held **in memory** on the game server for low latency; state is **snapshotted to PostgreSQL** for persistence and reconnection. Do not assume the full live state is only in Postgres or only in Redis without reading the code path.
+- **Live game state is Redis-authoritative:** per-process hot cache → **Redis truth** (every mutation under a per-game redlock, persisted to Redis immediately) → **debounced Postgres backups** (`game_states`). A backend restart does NOT lose live games. Turn timers are BullMQ jobs in Redis. Ground truth: `backend/src/sockets/gameRoomManager.ts` / `redisGameStore.ts` / `gameLock.ts`, and `docs/ARCHITECTURE.md` §Game state authority model.
 - **Maps vs games:** **Map definitions** (territories, geometry, connections) live in **PostgreSQL** (`maps` table, JSONB). **Game sessions** and **metadata** live in the same Postgres instance (`games`, `game_states`). When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
 - **Fog of war:** When enabled, the server may **filter** state before sending to each client.
 
 ### 5. Codebase map (where to look)
 
+- **Architecture ground truth:** `docs/ARCHITECTURE.md` (state model, resilience, workers, CI); **config:** `docs/CONFIGURATION.md`
 - **Backend entry:** `backend/src/index.ts`
 - **REST modules:** `backend/src/modules/` — auth, users, games, maps
 - **WebSockets:** `backend/src/sockets/gameSocket.ts` — join, state sync, phase actions
@@ -87,4 +88,4 @@ Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connect
 
 ## One-line reminder for short contexts
 
-Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres+Drizzle for users/games/snapshots/maps (JSONB), Redis, JWT auth. Server-authoritative combat; in-memory game state with Postgres snapshots. Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.
+Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres+Drizzle for users/games/snapshots/maps (JSONB), Redis, JWT auth. Server-authoritative combat; live game state is Redis-authoritative (hot cache → Redis truth → debounced Postgres backups; see docs/ARCHITECTURE.md). Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.
