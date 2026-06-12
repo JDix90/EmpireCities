@@ -12,6 +12,20 @@ import { getCompletedTutorialModules } from '../../tutorial/progression';
 
 export type { TutorialStep };
 
+/**
+ * Render tutorial copy with **bold** emphasis and the {playerColor} token.
+ * The step definitions use markdown-style bold; rendering the asterisks
+ * literally looked broken at the exact moment we're trying to build trust.
+ */
+export function renderTutorialText(text: string, playerColorName?: string): React.ReactNode {
+  const withColor = playerColorName ? text.split('{playerColor}').join(playerColorName) : text;
+  const parts = withColor.split('**');
+  if (parts.length === 1) return withColor;
+  return parts.map((part: string, i: number) =>
+    i % 2 === 1 ? <strong key={i} className="text-bf-text font-semibold">{part}</strong> : part,
+  );
+}
+
 const OPTIONAL_MODULES: TutorialLessonModule[] = [
   'advanced_settings',
   'faction_ability',
@@ -31,6 +45,10 @@ interface TutorialOverlayProps {
   onOpenBonuses?: () => void;
   onOpenSettingsLab?: () => void;
   onMarkModuleComplete?: () => void;
+  /** Jump straight to the wrap-up step (rendered on the welcome step only). */
+  onSkipToEnd?: () => void;
+  /** Human-readable name of the local player's color (fills {playerColor} in step copy). */
+  playerColorName?: string;
   centered?: boolean;
 }
 
@@ -47,6 +65,8 @@ export default function TutorialOverlay({
   onOpenBonuses,
   onOpenSettingsLab,
   onMarkModuleComplete,
+  onSkipToEnd,
+  playerColorName,
   centered = false,
 }: TutorialOverlayProps) {
   const step = steps[stepIndex];
@@ -64,7 +84,9 @@ export default function TutorialOverlay({
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none" data-testid="tutorial-overlay">
-      <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
+      {!step.requireAction && (
+        <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
+      )}
       <div
         className={clsx(
           'pointer-events-auto w-full px-4',
@@ -102,7 +124,7 @@ export default function TutorialOverlay({
               centered ? 'text-lg' : anchorTop ? 'text-xs' : 'text-sm',
             )}
           >
-            {step.message}
+            {renderTutorialText(step.message, playerColorName)}
           </p>
           {step.detail && (
             <p
@@ -111,7 +133,7 @@ export default function TutorialOverlay({
                 centered ? 'text-sm mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
-              {step.detail}
+              {renderTutorialText(step.detail, playerColorName)}
             </p>
           )}
           {step.whyItMatters && (
@@ -136,7 +158,7 @@ export default function TutorialOverlay({
                 centered ? 'text-base mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
-              {step.hint}
+              {renderTutorialText(step.hint, playerColorName)}
             </p>
           )}
 
@@ -212,14 +234,26 @@ export default function TutorialOverlay({
               )}
             </div>
           ) : !step.requireAction ? (
-            <button
-              type="button"
-              data-testid="tutorial-next-btn"
-              onClick={onAdvance}
-              className="btn-primary text-base w-full"
-            >
-              Next
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                data-testid="tutorial-next-btn"
+                onClick={onAdvance}
+                className="btn-primary text-base w-full"
+              >
+                Next
+              </button>
+              {step.id === 'welcome' && onSkipToEnd && (
+                <button
+                  type="button"
+                  data-testid="tutorial-skip-btn"
+                  onClick={onSkipToEnd}
+                  className="btn-secondary text-sm w-full"
+                >
+                  Skip to the end
+                </button>
+              )}
+            </div>
           ) : (
             <p
               className={clsx(
@@ -235,9 +269,7 @@ export default function TutorialOverlay({
                     ? 'Open the Bonuses panel to continue…'
                     : step.requireAction === 'tech_tree_opened'
                       ? 'Open the Tech Tree to continue…'
-                      : anchorTop
-                        ? 'Use the panel below to continue…'
-                        : 'Perform the action above to continue…'}
+                      : 'Complete the action to continue…'}
             </p>
           )}
 

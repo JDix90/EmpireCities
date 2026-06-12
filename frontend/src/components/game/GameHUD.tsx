@@ -7,6 +7,7 @@ import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
 import AdvanceEraPanel from './AdvanceEraPanel';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
+import { phaseAdvanceLabel } from '../../constants/phaseLabels';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
@@ -571,9 +572,7 @@ export default function GameHUD({
       {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
         <div className="p-4 border-t border-bf-border">
           <button onClick={onAdvancePhase} className="btn-primary w-full">
-            {gameState.phase === 'draft' && 'Begin Attack Phase →'}
-            {gameState.phase === 'attack' && 'Begin Fortify Phase →'}
-            {gameState.phase === 'fortify' && 'End Turn →'}
+            {phaseAdvanceLabel(gameState.phase)}
           </button>
         </div>
       )}
