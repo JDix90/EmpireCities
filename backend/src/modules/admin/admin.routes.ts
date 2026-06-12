@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { requireAdmin } from '../../middleware/requireAdmin';
 import { query, queryOne, withTransaction } from '../../db/postgres';
+import { removeFromAllLeaderboards } from '../../db/redis';
 import { getInitialRatings } from '../../game-engine/rating/ratingService';
 import {
   getAdminConfigSnapshot,
@@ -546,10 +547,17 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const limit = parsed.data.limit ?? 25;
     const search = `%${(parsed.data.search ?? '').trim()}%`;
     const rows = await query(
-      `SELECT user_id, username, email, level, xp, mmr, is_banned, is_admin, created_at
-       FROM users
-       WHERE ($1 = '%%' OR username ILIKE $1 OR email ILIKE $1)
-       ORDER BY created_at DESC
+      `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
+              COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
+              COALESCE(gp.games_played, 0)::int AS games_played
+       FROM users u
+       LEFT JOIN (
+         SELECT user_id, COUNT(*) AS games_played
+         FROM game_players
+         GROUP BY user_id
+       ) gp ON gp.user_id = u.user_id
+       WHERE ($1 = '%%' OR u.username ILIKE $1 OR u.email ILIKE $1)
+       ORDER BY u.created_at DESC
        LIMIT $2`,
       [search, limit],
     );
@@ -558,8 +566,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.get<{ Params: { userId: string } }>('/users/:userId', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
     const user = await queryOne(
-      `SELECT user_id, username, email, level, xp, mmr, is_banned, is_admin, created_at
-       FROM users WHERE user_id = $1`,
+      `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
+              COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
+              (SELECT COUNT(*)::int FROM game_players gp WHERE gp.user_id = u.user_id) AS games_played
+       FROM users u WHERE u.user_id = $1`,
       [request.params.userId],
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
@@ -585,6 +595,43 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     ]);
 
     return reply.send({ user, recent_games: recentGames, gold_transactions: goldTransactions });
+  });
+
+  /**
+   * Permanently delete a user (cascades per migration 003; Redis leaderboard
+   * entries purged separately). Guard rails: admins cannot be deleted through
+   * this endpoint (demote first) and an admin cannot delete themselves — both
+   * prevent fat-finger lockouts. The action is audit-logged with the deleted
+   * identity so the log survives the row.
+   */
+  fastify.delete<{ Params: { userId: string } }>('/users/:userId', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const { userId } = request.params;
+    if (userId === request.userId) {
+      return reply.status(400).send({ error: 'You cannot delete your own account from the admin panel' });
+    }
+    const target = await queryOne<{ user_id: string; username: string; email: string; is_admin: boolean }>(
+      'SELECT user_id, username, email, COALESCE(is_admin, false) AS is_admin FROM users WHERE user_id = $1',
+      [userId],
+    );
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    if (target.is_admin) {
+      return reply.status(403).send({ error: 'Admins cannot be deleted — remove admin status first' });
+    }
+
+    await query('DELETE FROM users WHERE user_id = $1', [userId]);
+
+    // Non-critical cleanup: orphaned Redis leaderboard entries would otherwise
+    // show the deleted user until manually purged (same pattern as self-delete).
+    removeFromAllLeaderboards(userId).catch((err) => {
+      console.error('[Admin] Failed to purge leaderboard entries on user delete:', err);
+    });
+
+    await writeAuditLog(request.userId!, 'user_delete', {
+      user_id: target.user_id,
+      username: target.username,
+      email: target.email,
+    });
+    return reply.send({ ok: true });
   });
 
   fastify.get('/audit-log', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
