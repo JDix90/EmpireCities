@@ -375,7 +375,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       // closed: only one caller ever sees a row come back.
       const { rows } = await client.query<UpgradedRow>(
         `UPDATE users
-         SET username = $1, email = $2, password_hash = $3, is_guest = false
+         SET username = $1, email = $2, password_hash = $3, is_guest = false,
+             upgraded_at = NOW()
          WHERE user_id = $4 AND COALESCE(is_guest, false) = true
          RETURNING user_id, username, level, xp, mmr,
                    COALESCE(gold, 0) AS gold,

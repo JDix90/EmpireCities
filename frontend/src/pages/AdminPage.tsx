@@ -100,6 +100,21 @@ function rankedBucketLabel(bucket: number): string {
 
 interface OverviewPayload {
   total_users: number;
+  user_breakdown?: {
+    registered: number;
+    guests: number;
+    upgraded: number;
+    active_24h: number;
+    active_7d: number;
+  };
+  ops?: {
+    active_game_rooms: number;
+    redis_save_failures: number;
+    postgres_backup_failures: number;
+    lock_acquisition_failures: number;
+    rss_mb: number;
+    uptime_seconds: number;
+  };
   games_created: number;
   games_completed: number;
   games_in_progress: number;
@@ -396,6 +411,33 @@ export default function AdminPage() {
     await loadTab('users');
   }
 
+  interface UserDetailPayload {
+    user: {
+      user_id: string; username: string; email: string; level: number; xp: number; mmr: number;
+      is_banned: boolean; is_admin: boolean; is_guest: boolean; created_at: string;
+      last_login_at: string | null; games_played: number;
+    };
+    recent_games: Array<{
+      game_id: string; era_id: string; status: string; created_at: string; ended_at: string | null;
+      final_rank: number | null; xp_earned: number | null; mmr_change: number | null;
+    }>;
+    gold_transactions: Array<{ amount: number; reason: string; created_at: string }>;
+  }
+  const [userDetail, setUserDetail] = useState<UserDetailPayload | null>(null);
+  const [userDetailLoading, setUserDetailLoading] = useState(false);
+
+  async function openUserDetail(userId: string): Promise<void> {
+    setUserDetailLoading(true);
+    try {
+      const res = await api.get<UserDetailPayload>(`/admin/users/${userId}`);
+      setUserDetail(res.data);
+    } catch {
+      toast.error('Failed to load user details');
+    } finally {
+      setUserDetailLoading(false);
+    }
+  }
+
   const [deleteTargetUser, setDeleteTargetUser] = useState<{ user_id: string; username: string } | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
@@ -583,7 +625,16 @@ export default function AdminPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Kpi label="Registered users" value={overview.total_users.toLocaleString()} hint="All-time accounts" />
+              <Kpi
+                label="Registered users"
+                value={(overview.user_breakdown?.registered ?? overview.total_users).toLocaleString()}
+                hint={`+ ${overview.user_breakdown?.guests ?? 0} guests · ${overview.user_breakdown?.upgraded ?? 0} upgraded from guest`}
+              />
+              <Kpi
+                label="Active players"
+                value={(overview.user_breakdown?.active_24h ?? 0).toLocaleString()}
+                hint={`24h · ${overview.user_breakdown?.active_7d ?? 0} in 7 days (last_login_at)`}
+              />
               <Kpi
                 label="Games created (range)"
                 value={overview.games_created.toLocaleString()}
@@ -602,7 +653,11 @@ export default function AdminPage() {
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
-              <Kpi label="In progress (range)" value={overview.games_in_progress} hint="Sessions currently running" />
+              <Kpi
+                label="In progress (range)"
+                value={overview.games_in_progress}
+                hint="Rows with status in_progress — includes abandoned games awaiting cleanup"
+              />
               <Kpi label="Waiting lobbies (range)" value={overview.games_waiting} hint="Pre-start lobbies" />
               <Kpi
                 label="Completion vs created"
@@ -614,6 +669,31 @@ export default function AdminPage() {
                 hint="Completed ÷ created in the same filter"
               />
             </div>
+
+            {overview.ops && (
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+                <p className="text-sm font-semibold text-bf-text">Ops health (live, this instance)</p>
+                <p className="text-xs text-bf-muted mb-3">
+                  Resilience counters reset on restart. Any non-zero failure count is worth a look at the server logs.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  <Kpi label="Live game rooms" value={overview.ops.active_game_rooms} hint="In-memory hot cache" />
+                  <Kpi
+                    label="Lock failures"
+                    value={overview.ops.lock_acquisition_failures}
+                    hint="Redlock contention"
+                  />
+                  <Kpi label="Redis save fails" value={overview.ops.redis_save_failures} hint="State persists" />
+                  <Kpi
+                    label="PG backup fails"
+                    value={overview.ops.postgres_backup_failures}
+                    hint="Snapshot writes"
+                  />
+                  <Kpi label="Memory" value={`${overview.ops.rss_mb} MB`} hint="Process RSS" />
+                  <Kpi label="Uptime" value={formatDuration(overview.ops.uptime_seconds)} hint="Since last restart" />
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4 lg:col-span-2">
@@ -1041,7 +1121,16 @@ export default function AdminPage() {
                 <tbody className="divide-y divide-bf-border bg-cc-panel/40">
                   {users.map((u) => (
                     <tr key={u.user_id} className="hover:bg-bf-surface/40">
-                      <td className="px-3 py-2 font-medium text-bf-text">{u.username}</td>
+                      <td className="px-3 py-2 font-medium text-bf-text">
+                        <button
+                          type="button"
+                          className="hover:text-bf-gold hover:underline text-left"
+                          onClick={() => void openUserDetail(u.user_id)}
+                          title="View recent games and gold history"
+                        >
+                          {u.username}
+                        </button>
+                      </td>
                       <td className="px-3 py-2 text-bf-muted">{u.email}</td>
                       <td className="px-3 py-2 tabular-nums">{u.level}</td>
                       <td className="px-3 py-2 text-xs tabular-nums text-bf-muted">
@@ -1133,6 +1222,81 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!userDetail || userDetailLoading}
+        onClose={() => setUserDetail(null)}
+        title={userDetail ? `${userDetail.user.username} — details` : 'Loading…'}
+        className="max-w-2xl w-full"
+      >
+        {userDetail ? (
+          <div className="space-y-5 text-sm">
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              <div><p className="text-bf-muted">Level / XP</p><p className="text-bf-text">{userDetail.user.level} · {userDetail.user.xp.toLocaleString()}</p></div>
+              <div><p className="text-bf-muted">Games played</p><p className="text-bf-text">{userDetail.user.games_played}</p></div>
+              <div><p className="text-bf-muted">Joined</p><p className="text-bf-text">{new Date(userDetail.user.created_at).toLocaleDateString()}</p></div>
+              <div><p className="text-bf-muted">Last login</p><p className="text-bf-text">{userDetail.user.last_login_at ? new Date(userDetail.user.last_login_at).toLocaleString() : '—'}</p></div>
+            </div>
+
+            <div>
+              <p className="mb-2 font-semibold text-bf-text">Recent games</p>
+              {userDetail.recent_games.length === 0 ? (
+                <p className="text-xs text-bf-muted">No games yet.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-bf-border">
+                  <table className="min-w-full divide-y divide-bf-border text-xs">
+                    <thead className="bg-bf-surface/80 text-left text-bf-muted">
+                      <tr>
+                        <th className="px-2 py-1.5">Era</th>
+                        <th className="px-2 py-1.5">Status</th>
+                        <th className="px-2 py-1.5">Rank</th>
+                        <th className="px-2 py-1.5">XP</th>
+                        <th className="px-2 py-1.5">Rating Δ</th>
+                        <th className="px-2 py-1.5">Started</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-bf-border">
+                      {userDetail.recent_games.map((g) => (
+                        <tr key={g.game_id}>
+                          <td className="px-2 py-1.5">{g.era_id}</td>
+                          <td className="px-2 py-1.5">{g.status}</td>
+                          <td className="px-2 py-1.5 tabular-nums">{g.final_rank ?? '—'}</td>
+                          <td className="px-2 py-1.5 tabular-nums">{g.xp_earned ?? '—'}</td>
+                          <td className={`px-2 py-1.5 tabular-nums ${(g.mmr_change ?? 0) > 0 ? 'text-emerald-300' : (g.mmr_change ?? 0) < 0 ? 'text-red-300' : 'text-bf-muted'}`}>
+                            {g.mmr_change != null ? (g.mmr_change > 0 ? `+${g.mmr_change}` : g.mmr_change) : '—'}
+                          </td>
+                          <td className="px-2 py-1.5 text-bf-muted">{new Date(g.created_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 font-semibold text-bf-text">Gold transactions</p>
+              {userDetail.gold_transactions.length === 0 ? (
+                <p className="text-xs text-bf-muted">No gold activity.</p>
+              ) : (
+                <ul className="space-y-1 text-xs">
+                  {userDetail.gold_transactions.map((t, i) => (
+                    <li key={i} className="flex items-center justify-between gap-3">
+                      <span className="text-bf-muted">{t.reason}</span>
+                      <span className={`tabular-nums ${t.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                        {t.amount >= 0 ? `+${t.amount}` : t.amount}
+                      </span>
+                      <span className="text-bf-muted">{new Date(t.created_at).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-bf-muted">Loading…</p>
+        )}
+      </Modal>
 
       <Modal
         open={!!deleteTargetUser}

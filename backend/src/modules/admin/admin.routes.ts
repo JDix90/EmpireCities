@@ -4,6 +4,8 @@ import { authenticate } from '../../middleware/authenticate';
 import { requireAdmin } from '../../middleware/requireAdmin';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { removeFromAllLeaderboards } from '../../db/redis';
+import { getActiveGameMetrics } from '../../sockets/gameSocket';
+import { getMigrationMetrics } from '../../sockets/migrationMetrics';
 import { getInitialRatings } from '../../game-engine/rating/ratingService';
 import {
   getAdminConfigSnapshot,
@@ -100,7 +102,22 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const dw = dateWhere(parsed.data);
 
     const [users, games, completed, queue, byStatus, inProgress, waiting] = await Promise.all([
-      queryOne<{ c: string }>('SELECT COUNT(*)::text AS c FROM users'),
+      // Audience split + activity in one pass. "Registered" excludes guests;
+      // "upgraded" (subset of registered) measures the guest→account funnel
+      // via users.upgraded_at (migration 034). active_24h/7d come from
+      // last_login_at (migration 033), which refresh rotation keeps fresh.
+      queryOne<{
+        total: string; registered: string; guests: string; upgraded: string;
+        active_24h: string; active_7d: string;
+      }>(
+        `SELECT COUNT(*)::text AS total,
+                COUNT(*) FILTER (WHERE COALESCE(is_guest, false) = false)::text AS registered,
+                COUNT(*) FILTER (WHERE COALESCE(is_guest, false) = true)::text AS guests,
+                COUNT(*) FILTER (WHERE upgraded_at IS NOT NULL)::text AS upgraded,
+                COUNT(*) FILTER (WHERE last_login_at > NOW() - INTERVAL '24 hours')::text AS active_24h,
+                COUNT(*) FILTER (WHERE last_login_at > NOW() - INTERVAL '7 days')::text AS active_7d
+         FROM users`,
+      ),
       queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM games g WHERE 1=1 ${dw.clause}`, dw.values),
       queryOne<{ c: string }>(
         `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'completed' ${dw.clause}`,
@@ -137,7 +154,23 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     return reply.send({
-      total_users: Number(users?.c ?? 0),
+      total_users: Number(users?.total ?? 0),
+      user_breakdown: {
+        registered: Number(users?.registered ?? 0),
+        guests: Number(users?.guests ?? 0),
+        upgraded: Number(users?.upgraded ?? 0),
+        active_24h: Number(users?.active_24h ?? 0),
+        active_7d: Number(users?.active_7d ?? 0),
+      },
+      // Live process signals (not range-filtered): the in_progress row count
+      // above includes abandoned games awaiting the cleanup sweep, so it is
+      // NOT "sessions currently running" — active_game_rooms is.
+      ops: {
+        active_game_rooms: getActiveGameMetrics().activeGameRooms,
+        ...getMigrationMetrics(),
+        rss_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        uptime_seconds: Math.round(process.uptime()),
+      },
       games_created: Number(games?.c ?? 0),
       games_completed: Number(completed?.c ?? 0),
       games_in_progress: Number(inProgress?.c ?? 0),
