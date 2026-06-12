@@ -15,6 +15,6 @@ export const STORE_DESCRIPTION =
 
 /** Public support / privacy contact — override via VITE_SUPPORT_EMAIL at build time if needed. */
 export const SUPPORT_EMAIL =
-  (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || 'support@borderfall.com';
+  (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || 'support@borderfall.gg';
 
-export const LEGAL_LAST_UPDATED = 'March 31, 2026';
+export const LEGAL_LAST_UPDATED = 'June 12, 2026';
