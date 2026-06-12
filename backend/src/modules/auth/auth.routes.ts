@@ -177,6 +177,16 @@ function refreshCookieOpts(maxAgeSeconds: number) {
   } as const;
 }
 
+/**
+ * Best-effort "last seen" stamp for the admin dashboard (migration 033).
+ * Fire-and-forget: a stamp failure must never fail an auth flow. Called on
+ * login, register, guest creation, upgrade, and refresh rotation — the
+ * rotation stamp gives ~hourly last-active granularity for returning users.
+ */
+function stampLastLogin(userId: string): void {
+  query('UPDATE users SET last_login_at = NOW() WHERE user_id = $1', [userId]).catch(() => {});
+}
+
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /**
@@ -240,6 +250,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, userId, refreshHash, refreshExpiresAt],
     );
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+
+    stampLastLogin(userId);
 
     return reply.send({
       accessToken,
@@ -307,6 +319,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
+    stampLastLogin(user.user_id);
     return reply.status(201).send({ accessToken, user });
   });
 
@@ -414,6 +427,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
+    stampLastLogin(upgraded.user_id);
     return reply.send({
       accessToken,
       user: { ...upgraded, is_guest: false },
@@ -488,6 +502,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
+    stampLastLogin(user.user_id);
     return reply.send({ accessToken, user: safeUser });
   });
 
@@ -697,6 +712,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
+    stampLastLogin(payload.sub);
     return reply.send({ accessToken: newAccessToken });
   });
 

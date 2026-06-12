@@ -180,7 +180,10 @@ export default function AdminPage() {
       mmr: number;
       is_banned: boolean;
       is_admin: boolean;
+      is_guest: boolean;
       created_at: string;
+      last_login_at: string | null;
+      games_played: number;
     }>
   >([]);
   const [audit, setAudit] = useState<
@@ -391,6 +394,25 @@ export default function AdminPage() {
     if (!ok) return;
     await postAction(banned ? '/admin/actions/ban' : '/admin/actions/unban', { user_id: userId });
     await loadTab('users');
+  }
+
+  const [deleteTargetUser, setDeleteTargetUser] = useState<{ user_id: string; username: string } | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  async function confirmDeleteUser(): Promise<void> {
+    if (!deleteTargetUser) return;
+    setDeleteSubmitting(true);
+    try {
+      await api.delete(`/admin/users/${deleteTargetUser.user_id}`);
+      toast.success(`Deleted ${deleteTargetUser.username}`);
+      setDeleteTargetUser(null);
+      await loadTab('users');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error ?? 'Failed to delete user');
+    } finally {
+      setDeleteSubmitting(false);
+    }
   }
 
   function openResetModal(userId: string, username: string): void {
@@ -1009,8 +1031,10 @@ export default function AdminPage() {
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">Level</th>
                     <th className="px-3 py-2">XP / MMR</th>
+                    <th className="px-3 py-2">Games</th>
                     <th className="px-3 py-2">Flags</th>
                     <th className="px-3 py-2">Joined</th>
+                    <th className="px-3 py-2">Last login</th>
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1023,11 +1047,16 @@ export default function AdminPage() {
                       <td className="px-3 py-2 text-xs tabular-nums text-bf-muted">
                         {u.xp.toLocaleString()} / {u.mmr.toLocaleString()}
                       </td>
+                      <td className="px-3 py-2 tabular-nums">{u.games_played}</td>
                       <td className="px-3 py-2 text-xs">
                         {u.is_admin ? <span className="mr-1 text-bf-gold">admin</span> : null}
+                        {u.is_guest ? <span className="mr-1 text-sky-300">guest</span> : null}
                         {u.is_banned ? <span className="text-red-300">banned</span> : <span className="text-bf-muted">ok</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-bf-muted">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="px-3 py-2 text-xs text-bf-muted">
+                        {u.last_login_at ? new Date(u.last_login_at).toLocaleString() : '—'}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex flex-wrap justify-end gap-2 text-xs">
                           {u.is_banned ? (
@@ -1054,6 +1083,15 @@ export default function AdminPage() {
                           >
                             Reset stats…
                           </button>
+                          {!u.is_admin && (
+                            <button
+                              type="button"
+                              className="text-red-400 hover:underline"
+                              onClick={() => setDeleteTargetUser({ user_id: u.user_id, username: u.username })}
+                            >
+                              Delete…
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1095,6 +1133,41 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!deleteTargetUser}
+        onClose={() => setDeleteTargetUser(null)}
+        title="Delete User"
+        className="max-w-md"
+        closeOnEscape={!deleteSubmitting}
+      >
+        <p className="text-sm text-bf-text mb-2">
+          Permanently delete <span className="font-semibold text-bf-gold">{deleteTargetUser?.username}</span>?
+        </p>
+        <p className="text-xs text-bf-muted mb-5">
+          This removes the account, ratings, progression, cosmetics, and leaderboard entries.
+          Finished games keep their records with the player removed. This cannot be undone —
+          the action is written to the audit log.
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="btn-secondary flex-1"
+            disabled={deleteSubmitting}
+            onClick={() => setDeleteTargetUser(null)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="flex-1 rounded-lg bg-red-500/90 hover:bg-red-500 text-white font-semibold py-2 disabled:opacity-60"
+            disabled={deleteSubmitting}
+            onClick={() => void confirmDeleteUser()}
+          >
+            {deleteSubmitting ? 'Deleting…' : 'Delete permanently'}
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={resetModalOpen} onClose={closeResetModal} title="Reset User Stats" className="max-w-xl">
         {resetTargetUser ? (
