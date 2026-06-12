@@ -41,7 +41,7 @@ type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'audit';
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
   { key: 'balance', label: 'Balance', description: 'Factions, eras, maps, pace' },
-  { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
+  { key: 'ranked', label: 'Ratings', description: 'Solo & ranked distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
   { key: 'audit', label: 'Audit', description: 'Admin actions log' },
@@ -163,6 +163,9 @@ function Kpi({
 export default function AdminPage() {
   type ResetScope = 'all' | 'era' | 'map' | 'era_map';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [ratingType, setRatingType] = useState<'solo' | 'ranked'>('solo');
+  const [turnCounts, setTurnCounts] = useState<number[]>([]);
+  const [includeGuests, setIncludeGuests] = useState(false);
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesPayload | null>(null);
@@ -262,27 +265,29 @@ export default function AdminPage() {
           setOverview(ovRes.data);
           setTimeseries(tsRes.data);
         } else if (tab === 'balance') {
-          const [factionRes, eraRes, mapRes, durationRes, settingsTogglesRes] = await Promise.all([
+          const [factionRes, eraRes, mapRes, durationRes, settingsTogglesRes, turnsRes] = await Promise.all([
             api.get('/admin/metrics/factions'),
             api.get('/admin/metrics/eras'),
             api.get('/admin/metrics/maps'),
             api.get('/admin/metrics/duration'),
             api.get<SettingsToggleUsagePayload>('/admin/metrics/settings-toggles'),
+            api.get<{ turn_counts: number[] }>('/admin/metrics/turn-distribution'),
           ]);
           setFactions(factionRes.data ?? []);
           setEras(eraRes.data ?? []);
           setMaps(mapRes.data ?? []);
           setDurations(durationRes.data ?? []);
           setSettingsToggleUsage(settingsTogglesRes.data ?? null);
+          setTurnCounts(turnsRes.data?.turn_counts ?? []);
         } else if (tab === 'ranked') {
-          const res = await api.get('/admin/metrics/ranked-distribution');
+          const res = await api.get('/admin/metrics/ranked-distribution', { params: { type: ratingType } });
           setRankedDist(res.data ?? []);
         } else if (tab === 'config') {
           const res = await api.get('/admin/config');
           setConfig(res.data ?? null);
         } else if (tab === 'users') {
           const [usersRes, optionsRes] = await Promise.all([
-            api.get('/admin/users', { params: { search } }),
+            api.get('/admin/users', { params: { search, include_guests: includeGuests ? 'true' : 'false' } }),
             api.get<{ era_ids: string[]; map_ids: string[] }>('/admin/metrics/stat-options'),
           ]);
           setUsers(usersRes.data ?? []);
@@ -301,7 +306,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     },
-    [overviewParams, search, trendDays],
+    [overviewParams, search, trendDays, ratingType, includeGuests],
   );
 
   useEffect(() => {
@@ -328,6 +333,21 @@ export default function AdminPage() {
       })),
     [rankedDist],
   );
+
+  const turnHistogram = useMemo(() => {
+    if (turnCounts.length === 0) return [];
+    const bucketWidth = 10;
+    const buckets = new Map<number, number>();
+    for (const t of turnCounts) {
+      const b = Math.min(15, Math.floor(Math.max(0, t - 1) / bucketWidth)); // 15 = "150+"
+      buckets.set(b, (buckets.get(b) ?? 0) + 1);
+    }
+    const maxBucket = Math.max(...buckets.keys());
+    return Array.from({ length: maxBucket + 1 }, (_, b) => ({
+      label: b === 15 ? '150+' : `${b * bucketWidth + 1}–${(b + 1) * bucketWidth}`,
+      games: buckets.get(b) ?? 0,
+    }));
+  }, [turnCounts]);
 
   const durationSeries = useMemo(
     () =>
@@ -830,6 +850,26 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'balance' && (
           <div className="mt-6 space-y-6">
+            {turnHistogram.length > 0 && (
+              <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+                <p className="text-sm font-semibold text-bf-text">Game length in turns</p>
+                <p className="text-xs text-bf-muted mb-3">
+                  Final turn of each completed game ({turnCounts.length} games). Quick Match caps at turn 150 —
+                  a heavy 150+ bar means games are ending on the cap, not by conquest.
+                </p>
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={turnHistogram} margin={{ bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2d3448" />
+                      <XAxis dataKey="label" tick={{ fill: '#9aa3b5', fontSize: 10 }} interval={0} />
+                      <YAxis allowDecimals={false} tick={{ fill: '#9aa3b5', fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: '#1a1f2e', border: '1px solid #2d3448', borderRadius: 8 }} />
+                      <Bar dataKey="games" name="Games" fill="#c9a84c" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-bf-muted">
               Faction stats are from completed games with a recorded <code className="text-bf-gold/90">faction_id</code>.
               Era and map charts use completed games with known duration.
@@ -979,9 +1019,26 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'ranked' && (
           <div className="mt-6 space-y-3">
-            <p className="text-sm text-bf-muted">
-              Buckets are <code className="text-bf-gold/90">WIDTH_BUCKET(mu, 800, 2400, 8)</code> on ranked Glicko μ.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-bf-muted">
+                Buckets are <code className="text-bf-gold/90">WIDTH_BUCKET(mu, 800, 2400, 8)</code> on {ratingType} Glicko μ
+                (guest accounts excluded).
+              </p>
+              <div className="flex rounded-lg border border-bf-border overflow-hidden text-xs">
+                {(['solo', 'ranked'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setRatingType(t)}
+                    className={`px-3 py-1.5 font-semibold capitalize ${
+                      ratingType === t ? 'bg-bf-gold text-black' : 'bg-cc-panel/50 text-bf-muted hover:text-bf-text'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="h-[420px] rounded-xl border border-bf-border bg-cc-panel/50 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={rankedChartData} margin={{ bottom: 56 }}>
@@ -1099,6 +1156,14 @@ export default function AdminPage() {
                 placeholder="Search username or email"
                 className="min-w-[200px] flex-1 rounded-lg border border-bf-border bg-cc-panel px-3 py-2 text-sm"
               />
+              <label className="flex items-center gap-2 rounded-lg border border-bf-border px-3 py-2 text-sm text-bf-muted">
+                <input
+                  type="checkbox"
+                  checked={includeGuests}
+                  onChange={(e) => setIncludeGuests(e.target.checked)}
+                />
+                Show guests
+              </label>
               <button type="button" onClick={() => loadTab('users')} className="rounded-lg bg-bf-gold px-4 py-2 text-sm font-semibold text-black">
                 Search
               </button>

@@ -59,6 +59,13 @@ const ResetUserStatsSchema = z
 const UserSearchSchema = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  /**
+   * Default false: synthetic Guest_* rows drown out real accounts.
+   * Strict string enum, NOT z.coerce.boolean() — coercion turns the query
+   * string "false" into true (any non-empty string is truthy), which would
+   * make the filter impossible to switch off.
+   */
+  include_guests: z.enum(['true', 'false']).optional(),
 });
 
 async function writeAuditLog(adminUserId: string, action: string, payload: unknown): Promise<void> {
@@ -346,15 +353,41 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     });
   });
 
-  fastify.get('/metrics/ranked-distribution', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+  fastify.get('/metrics/ranked-distribution', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    // Whitelisted, never interpolated: same pattern as the public leaderboard
+    // route. Solo is where all early-population rating data lives; ranked
+    // stays the default for API compatibility.
+    const raw = (request.query as { type?: string }).type;
+    const ratingType = raw === 'solo' ? 'solo' : 'ranked';
     const rows = await query(
-      `SELECT WIDTH_BUCKET(mu, 800, 2400, 8) AS bucket, COUNT(*)::int AS count
-       FROM user_ratings
-       WHERE rating_type = 'ranked'
+      `SELECT WIDTH_BUCKET(ur.mu, 800, 2400, 8) AS bucket, COUNT(*)::int AS count
+       FROM user_ratings ur
+       JOIN users u ON u.user_id = ur.user_id
+       WHERE ur.rating_type = $1 AND COALESCE(u.is_guest, false) = false
        GROUP BY bucket
        ORDER BY bucket`,
+      [ratingType],
     );
     return reply.send(rows);
+  });
+
+  /**
+   * Final turn counts for completed games (latest snapshot per game), for the
+   * Balance tab's pacing histogram. Raw counts, bucketed client-side — at
+   * launch scale this is a few hundred rows; add an indexed column on games
+   * if it ever isn't.
+   */
+  fastify.get('/metrics/turn-distribution', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+    const rows = await query<{ turns: number }>(
+      `SELECT MAX(gs.turn_number)::int AS turns
+       FROM game_states gs
+       JOIN games g ON g.game_id = gs.game_id
+       WHERE g.status = 'completed'
+       GROUP BY gs.game_id
+       ORDER BY turns
+       LIMIT 2000`,
+    );
+    return reply.send({ turn_counts: rows.map((r) => r.turns) });
   });
 
   fastify.get('/config', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
@@ -590,9 +623,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
          GROUP BY user_id
        ) gp ON gp.user_id = u.user_id
        WHERE ($1 = '%%' OR u.username ILIKE $1 OR u.email ILIKE $1)
+         AND ($3 OR COALESCE(u.is_guest, false) = false)
        ORDER BY u.created_at DESC
        LIMIT $2`,
-      [search, limit],
+      [search, limit, parsed.data.include_guests === 'true'],
     );
     return reply.send(rows);
   });
