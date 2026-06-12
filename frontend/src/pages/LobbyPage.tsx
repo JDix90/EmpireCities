@@ -26,7 +26,7 @@ import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
-import { isCommunityTheaterMap } from '../constants/lobbyMapOptions';
+import { isCommunityTheaterMap, pickQuickMatchEra } from '../constants/lobbyMapOptions';
 import {
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
@@ -1026,9 +1026,12 @@ export default function LobbyPage() {
     if (quickSoloLoading) return;
     setQuickSoloLoading(true);
     try {
+      // Random era each match — always-Ancient got repetitive (player
+      // feedback). Pool: the seven global world maps; see QUICK_MATCH_ERAS.
+      const era = pickQuickMatchEra();
       const res = await api.post('/games', {
-        era_id: 'ancient',
-        map_id: ERA_MAP_IDS['ancient'],
+        era_id: era,
+        map_id: ERA_MAP_IDS[era],
         max_players: 4,
         ai_count: 3,
         ai_difficulty: 'medium',
@@ -1449,7 +1452,7 @@ export default function LobbyPage() {
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">
                       {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                     </p>
-                    <p className="text-bf-muted text-xs mt-1">3 AI opponents ready — start now. Ancient World.</p>
+                    <p className="text-bf-muted text-xs mt-1">3 AI opponents ready — start now. Random era map.</p>
                   </button>
                   <button
                     onClick={() => navigate('/daily')}

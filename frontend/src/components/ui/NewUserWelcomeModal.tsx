@@ -100,7 +100,7 @@ export default function NewUserWelcomeModal({
           <div className="min-w-0">
             <p className="font-display text-bf-gold text-base mb-0.5">Quick Match</p>
             <p className="text-bf-muted text-xs leading-relaxed">
-              3 AI opponents ready in the Ancient World — start now, no waiting. Best if you already know Risk.
+              3 AI opponents on a random era map — start now, no waiting. Best if you already know Risk.
             </p>
           </div>
         </button>
