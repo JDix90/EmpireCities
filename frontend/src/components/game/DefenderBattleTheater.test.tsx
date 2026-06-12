@@ -42,7 +42,7 @@ describe('DefenderBattleTheater', () => {
     render(<DefenderBattleTheater queue={[combat()]} onAdvance={() => {}} />);
     expect(screen.getByText('Incoming Attack!')).toBeTruthy();
     expect(screen.queryByText('Continue')).toBeNull();
-    expect(screen.getByText(/Tap to skip/)).toBeTruthy();
+    expect(screen.getByText(/Tap or press Enter to skip/)).toBeTruthy();
   });
 
   it('auto-advances after the dice settle and the read window passes', () => {
@@ -60,6 +60,38 @@ describe('DefenderBattleTheater', () => {
     render(<DefenderBattleTheater queue={[combat()]} onAdvance={onAdvance} />);
     fireEvent.click(screen.getByText('Incoming Attack!'));
     expect(onAdvance).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips ahead on Enter, Space, and Escape (keyboard parity with modals)', () => {
+    const onAdvance = vi.fn();
+    render(<DefenderBattleTheater queue={[combat()]} onAdvance={onAdvance} />);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    fireEvent.keyDown(window, { key: ' ' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onAdvance).toHaveBeenCalledTimes(3);
+    // Unrelated keys do nothing.
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(onAdvance).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not steal Enter from chat or other text inputs', () => {
+    const onAdvance = vi.fn();
+    render(
+      <>
+        <input data-testid="chat" />
+        <DefenderBattleTheater queue={[combat()]} onAdvance={onAdvance} />
+      </>,
+    );
+    fireEvent.keyDown(screen.getByTestId('chat'), { key: 'Enter' });
+    expect(onAdvance).not.toHaveBeenCalled();
+  });
+
+  it('removes the key listener when the queue empties', () => {
+    const onAdvance = vi.fn();
+    const { rerender } = render(<DefenderBattleTheater queue={[combat()]} onAdvance={onAdvance} />);
+    rerender(<DefenderBattleTheater queue={[]} onAdvance={onAdvance} />);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onAdvance).not.toHaveBeenCalled();
   });
 
   it('shows how many battles are still queued', () => {

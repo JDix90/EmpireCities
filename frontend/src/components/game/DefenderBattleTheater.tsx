@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CombatResultView } from './ActionModal';
 import type { CombatResult } from '../../store/gameStore';
 
@@ -24,6 +25,27 @@ export default function DefenderBattleTheater({
   onAdvance: () => void;
 }) {
   const current = queue[0];
+
+  // Keyboard parity with the blocking combat modals (which dismiss on
+  // Enter/Space/Escape): desktop players expect the same keys to skip the
+  // theater. Guards: never steal keys from chat or other inputs, and yield
+  // to a blocking modal that already handled the event (those handlers
+  // call preventDefault before dismissing).
+  useEffect(() => {
+    if (!current) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+        e.preventDefault();
+        onAdvance();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [current, onAdvance]);
+
   if (!current) return null;
 
   return (
