@@ -648,14 +648,15 @@ Browser (React + PixiJS / react-globe.gl)
         ├── HTTP (REST)  ──→  Fastify API  ──→  PostgreSQL (users, games, maps, rankings, campaign)
         │                                   ──→  Redis (cache, leaderboards)
         │
-        └── WebSocket  ──→  Socket.io Server  ──→  In-Memory Game State
+        └── WebSocket  ──→  Socket.io Server  ──→  Redis (authoritative live game state,
+                                               │      per-game locks, BullMQ turn timers)
                                                ──→  AI Bot Engine (worker + timeout guard)
-                                               ──→  PostgreSQL (snapshots for reconnection + replay)
+                                               ──→  PostgreSQL (debounced state backups + replay)
 ```
 
 **Key Design Decisions:**
 
-- **In-memory game state:** Active game states are held in server memory for low-latency real-time updates. State is snapshotted to PostgreSQL at the end of each turn for persistence and reconnection recovery.
+- **Redis-authoritative game state:** Live games persist to Redis on every mutation (under a per-game redlock), with debounced PostgreSQL backups for cold storage and replay. A backend restart does not lose live games; turn timers are BullMQ jobs that survive the process. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **JWT rotation:** Refresh tokens are rotated on every use and stored as bcrypt hashes, preventing token theft via database compromise.
 - **Server-authoritative combat:** All dice rolls occur on the server using `crypto.randomInt()` — clients never control combat outcomes. Event card effects, tech benefits, and faction abilities are all resolved server-side.
 - **Fog of War filtering:** When enabled, the server filters the game state before broadcasting to each player, hiding enemy unit counts in non-adjacent territories.
@@ -748,6 +749,12 @@ The game engine is fully decoupled from the socket layer:
 - `events/eventCardManager.ts` — Deck drawing and server-side effect application
 - `victory/missions.ts` — Deterministic seeded mission assignment and evaluation
 - `eras/index.ts` — Barrel export for era factions, tech trees, and wonders
+
+---
+
+## Documentation Map
+
+This README covers setup and the high-level picture. For everything else, start at the **[documentation index](docs/README.md)** — it routes by audience (developer / AI agent / ops / game rules) and tags each doc's freshness. The three load-bearing references: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how the system works), [docs/CONFIGURATION.md](docs/CONFIGURATION.md) (every env var, flag, and port), [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) (third-party connections).
 
 ---
 

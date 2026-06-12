@@ -7,7 +7,7 @@ This document implements the **staged release** plan: host the app on the intern
 **Single VPS + Docker Compose** (implemented in [docker/docker-compose.prod.yml](docker/docker-compose.prod.yml)):
 
 - **nginx** serves the Vite SPA and proxies `/api/*` and `/socket.io/*` to the Node backend (same browser origin — no `VITE_*` build args required).
-- **Backend** (Fastify + Socket.io) — **one instance** only; game state is in-memory ([backend/src/sockets/gameSocket.ts](backend/src/sockets/gameSocket.ts)).
+- **Backend** (Fastify + Socket.io) — **one instance** in this stack. Live game state is Redis-authoritative with per-game redlocks ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)), so multi-instance is architecturally possible, but single-instance keeps ops simple for beta.
 - **Postgres, Redis** as containers with named volumes (data survives container restarts).
 
 **Alternative:** Managed databases (Neon, Atlas, Upstash) + backend on Railway/Render/Fly + static frontend on Netlify/Vercel. Set `VITE_API_URL` and `VITE_SOCKET_URL` at frontend build time ([frontend/src/config/env.ts](frontend/src/config/env.ts)) and set `FRONTEND_URL` / `CORS_ORIGINS` on the backend ([backend/src/config/index.ts](backend/src/config/index.ts)).
@@ -84,7 +84,7 @@ Update **`FRONTEND_URL`** to `https://…` after HTTPS is live.
 - **Restart policy:** Compose uses `restart: unless-stopped` so processes come back after reboot (with Docker enabled on boot).
 - **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod`). Schedule with `./scripts/setup-backup-cron.sh`.
 - **Monitoring:** Poll `GET /health` and `GET /ready` from UptimeRobot, Better Stack, etc.
-- **Deploys:** `./scripts/deploy-production.sh` — restarting the **backend** clears **in-memory games**. Schedule deploys when no active playtests, or accept brief resets during beta.
+- **Deploys:** `./scripts/deploy-production.sh` — backend restarts do **not** lose live games (state reloads from Redis; turn timers survive in BullMQ; clients resync automatically — see [docs/OPERATIONS.md](docs/OPERATIONS.md)). Players see a brief reconnect, nothing more.
 - **QA sign-off:** [docs/LAUNCH_QA_SIGNOFF.md](docs/LAUNCH_QA_SIGNOFF.md) before each go-live.
 
 ## 6. Split frontend / API (optional)
