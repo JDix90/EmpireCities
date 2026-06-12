@@ -490,7 +490,7 @@ export function CombatResultView({
             className="w-full py-2 rounded-xl text-white/40 hover:text-white/80 text-sm
                        transition-colors flex items-center justify-center gap-1.5"
           >
-            Tap to skip
+            Tap or press Enter to skip
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         ) : (
