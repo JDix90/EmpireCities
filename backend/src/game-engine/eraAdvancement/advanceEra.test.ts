@@ -134,6 +134,43 @@ describe('computeAdvanceCost', () => {
   });
 });
 
+describe('era_advancement_max_lead anti-steamroll cap', () => {
+  // Isolate the cap: tech + stability gates off so only gold + the lead cap apply.
+  function capState(maxLead: number | undefined, leaderEra: number) {
+    return baseState({
+      players: [
+        basePlayer({ player_id: 'leader', current_era_index: leaderEra, special_resource: 100000, last_turn_production_income: 10 }),
+        basePlayer({ player_id: 'laggard', player_index: 1, current_era_index: 0 }),
+      ],
+      settings: {
+        ...baseState().settings,
+        tech_trees_enabled: false,
+        stability_enabled: false,
+        era_advancement_spine_id: 'classic', // 6 eras, so era 2 isn't already at max
+        era_advancement_max_era_index: undefined, // let the classic spine bound it (5)
+        era_advancement_max_lead: maxLead,
+      },
+    });
+  }
+
+  it('blocks advancing more than max_lead eras ahead of the trailing player', () => {
+    // leader at era 2 advancing → era 3, which is 3 ahead of the laggard (era 0) > cap 1.
+    const result = canAdvanceEra(capState(1, 2), 'leader');
+    expect(result.canAdvance).toBe(false);
+    expect(result.error).toMatch(/ahead of the trailing/);
+  });
+
+  it('allows advancing within the cap', () => {
+    // leader at era 0 advancing → era 1, which is 1 ahead of the laggard (era 0) = cap 1.
+    expect(canAdvanceEra(capState(1, 0), 'leader').canAdvance).toBe(true);
+  });
+
+  it('imposes no cap when the setting is absent', () => {
+    // leader 3 eras ahead of the laggard, but no cap set → allowed.
+    expect(canAdvanceEra(capState(undefined, 3), 'leader').canAdvance).toBe(true);
+  });
+});
+
 describe('canAdvanceEra', () => {
   it('passes when all gates are met', () => {
     const result = canAdvanceEra(baseState(), 'human');

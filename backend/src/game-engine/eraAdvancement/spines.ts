@@ -126,11 +126,15 @@ export function getEffectiveMilestoneGate(state: GameState, playerId: string): E
     min_tier3_techs: override.min_tier3_techs ?? state.settings.era_advancement_min_tier3_techs ?? 0,
     min_buildings: override.min_buildings ?? state.settings.era_advancement_min_buildings ?? 1,
   };
-  if (!player || getCatchupGap(state, player) === 0) return base;
+  const gap = player ? getCatchupGap(state, player) : 0;
+  if (gap === 0) return base;
+  // Relax one rank per era behind the leader: a far-behind player faces an
+  // almost-trivial gate so a suppressed economy can't lock them out of catching
+  // up. tier-1 keeps a floor of 1 so the gate never fully vanishes.
   return {
-    min_tier1_techs: Math.max(1, base.min_tier1_techs - 1),
-    min_tier2_techs: Math.max(0, base.min_tier2_techs - 1),
-    min_tier3_techs: Math.max(0, base.min_tier3_techs - 1),
-    min_buildings: Math.max(0, base.min_buildings - 1),
+    min_tier1_techs: Math.max(1, base.min_tier1_techs - gap),
+    min_tier2_techs: Math.max(0, base.min_tier2_techs - gap),
+    min_tier3_techs: Math.max(0, base.min_tier3_techs - gap),
+    min_buildings: Math.max(0, base.min_buildings - gap),
   };
 }

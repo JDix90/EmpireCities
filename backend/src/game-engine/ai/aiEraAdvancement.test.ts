@@ -198,6 +198,15 @@ describe('evaluateAiEraAdvancement', () => {
     expect(behind2.shouldAdvance).toBe(true);
   });
 
+  it('rubber-bands a trailing bot to advance whenever gated — even on easy', () => {
+    // baseState: ai1 at era 0, opponent at era 1 (gap 1), all gates pass. The
+    // rubber-band must override easy's high threshold + 85% skip so the bot
+    // catches up instead of being steamrolled.
+    const result = evaluateAiEraAdvancement(baseState(), map, 'ai1', 'easy');
+    expect(result.gatePassed).toBe(true);
+    expect(result.shouldAdvance).toBe(true);
+  });
+
   it('applies end-spine restraint to the final advance (vs a non-final step)', () => {
     const solo = (spine: Array<{ era_id: string }>) =>
       baseState({ era_spine: spine, players: [basePlayer()] } as Partial<GameState>);

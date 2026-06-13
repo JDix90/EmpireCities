@@ -183,4 +183,15 @@ describe('getEffectiveMilestoneGate', () => {
       min_buildings: 1,
     });
   });
+
+  it('scales the relaxation with the era gap (2 behind → relax 2 ranks)', () => {
+    // ww2 step base gate is 3/2/1/2; a player 2 eras behind the leader relaxes by 2.
+    const state = gateState(3, [p('a', 3), p('leader', 5)]);
+    expect(getEffectiveMilestoneGate(state, 'a')).toEqual({
+      min_tier1_techs: 1, // 3 - 2, floored at 1
+      min_tier2_techs: 0, // 2 - 2
+      min_tier3_techs: 0, // 1 - 2, floored at 0
+      min_buildings: 0,   // 2 - 2
+    });
+  });
 });

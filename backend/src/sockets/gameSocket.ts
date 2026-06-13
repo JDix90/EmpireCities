@@ -4366,6 +4366,28 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // ── Draft Phase ────────────────────────────────────────────────────────
   state.phase = 'draft';
 
+  // Economy FIRST: build + research before evaluating advancement, so a bot that
+  // satisfies the milestone gate this turn can advance the SAME turn (previously
+  // the advance check ran before that turn's research, costing a turn each climb).
+  if (state.settings.economy_enabled || state.settings.tech_trees_enabled) {
+    if (state.settings.economy_enabled) {
+      const buildDecision = selectAiBuildingPlacement(state, map, currentPlayer.player_id, difficulty);
+      if (buildDecision) {
+        applyBuild(state, currentPlayer.player_id, buildDecision.territoryId, buildDecision.buildingType);
+      }
+    }
+    if (state.settings.tech_trees_enabled) {
+      const techId = selectAiTechResearch(state, currentPlayer.player_id, difficulty);
+      if (techId) {
+        const techValidation = validateResearch(state, currentPlayer.player_id, techId);
+        if (techValidation.valid && techValidation.node) {
+          applyResearch(state, currentPlayer.player_id, techValidation.node);
+        }
+      }
+    }
+    broadcastState(io, gameId, state);
+  }
+
   if (
     state.settings.era_advancement_enabled
     && difficulty !== 'tutorial'
@@ -4536,25 +4558,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     broadcastState(io, gameId, state);
   }
 
-  // ── AI Economy: difficulty-gated strategic build and research ──────────
-  if (state.settings.economy_enabled || state.settings.tech_trees_enabled) {
-    if (state.settings.economy_enabled) {
-      const buildDecision = selectAiBuildingPlacement(state, map, currentPlayer.player_id, difficulty);
-      if (buildDecision) {
-        applyBuild(state, currentPlayer.player_id, buildDecision.territoryId, buildDecision.buildingType);
-      }
-    }
-    if (state.settings.tech_trees_enabled) {
-      const techId = selectAiTechResearch(state, currentPlayer.player_id, difficulty);
-      if (techId) {
-        const techValidation = validateResearch(state, currentPlayer.player_id, techId);
-        if (techValidation.valid && techValidation.node) {
-          applyResearch(state, currentPlayer.player_id, techValidation.node);
-        }
-      }
-    }
-    broadcastState(io, gameId, state);
-  }
+  // (AI build + research run at the top of the draft phase, before the advance check.)
 
   // ── Attack Phase ───────────────────────────────────────────────────────
   state.draft_units_remaining = 0;
