@@ -251,7 +251,7 @@ export interface GameSettings {
   tutorial?: boolean;
   tutorial_step?: number;
   /** Active lesson pack when `tutorial` is true (core, advanced_settings, faction_ability, tech_tree). */
-  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree';
+  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
   tutorial_grant_tech_points?: number;
   /** True after Settings Lab choices are applied in the advanced_settings lesson. */

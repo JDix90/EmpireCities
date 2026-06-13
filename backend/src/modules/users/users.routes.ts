@@ -144,7 +144,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
-  const VALID_MODULES = new Set(['core', 'advanced_settings', 'faction_ability', 'tech_tree']);
+  const VALID_MODULES = new Set(['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement']);
   fastify.post('/me/tutorial-modules/:moduleId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const { moduleId } = request.params as { moduleId: string };
     if (!VALID_MODULES.has(moduleId)) {

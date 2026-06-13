@@ -10,7 +10,7 @@ import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
 
-const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree'] as const;
+const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'] as const;
 
 function isVictoryType(v: unknown): v is VictoryType {
   return typeof v === 'string' && (VICTORY_TYPES as readonly string[]).includes(v);

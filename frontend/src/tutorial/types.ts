@@ -10,7 +10,8 @@ export type TutorialLessonModule =
   | 'core'
   | 'advanced_settings'
   | 'faction_ability'
-  | 'tech_tree';
+  | 'tech_tree'
+  | 'era_advancement';
 
 export type TutorialRequireAction =
   | 'draft'
@@ -20,7 +21,8 @@ export type TutorialRequireAction =
   | 'ability_used'
   | 'settings_explored'
   | 'bonuses_opened'
-  | 'tech_tree_opened';
+  | 'tech_tree_opened'
+  | 'era_advanced';
 
 export type TutorialStepVariant = 'wrapup' | 'module_complete';
 
@@ -72,6 +74,12 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     id: 'tech_tree',
     title: 'Technology Tree',
     description: 'Research costs, prerequisites, and combat upgrades.',
+    estimatedMinutes: 5,
+  },
+  {
+    id: 'era_advancement',
+    title: 'Era Advancement',
+    description: 'Climb from Ancient to Medieval: clear the gate, advance, and ride out the vulnerability window.',
     estimatedMinutes: 5,
   },
 ];

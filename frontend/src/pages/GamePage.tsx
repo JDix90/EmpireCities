@@ -1394,6 +1394,13 @@ export default function GamePage() {
         `Advanced to ${label}! New tech tree unlocked — research fresh Medieval technologies.`,
         { icon: '✨', duration: 6000 },
       );
+      const gs = useGameStore.getState().gameState;
+      if (gs?.settings?.tutorial) {
+        const step = tutorialStepsRef.current[tutorialStepRef.current];
+        if (step?.requireAction === 'era_advanced') {
+          setTutorialStep((s) => s + 1);
+        }
+      }
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
