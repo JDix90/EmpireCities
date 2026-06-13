@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import {
+  countBorderStrength,
   countBorderThreat,
   evaluateAiEraAdvancement,
   maxOpponentEraIndex,
@@ -98,6 +99,11 @@ describe('aiEraAdvancement helpers', () => {
     expect(maxOpponentEraIndex(baseState(), 'ai1')).toBe(1);
   });
 
+  it('sums own units on enemy-bordering territories', () => {
+    // t1 (12) and t2 (8) both border the enemy t3.
+    expect(countBorderStrength(baseState(), map, 'ai1')).toBe(20);
+  });
+
   it('returns vulnerability attack bonus for hard difficulty', () => {
     const state = baseState({
       players: [
@@ -145,6 +151,20 @@ describe('evaluateAiEraAdvancement', () => {
     });
     const result = evaluateAiEraAdvancement(state, map, 'ai1', 'medium');
     expect(result.shouldAdvance).toBe(false);
+  });
+
+  it('advances a strong empire at border parity (relative threat, not absolute)', () => {
+    // Big symmetric armies: an absolute cap would freeze this out, but the ratio
+    // is ~1.0 so it is not hard-blocked, and the AI takes the window.
+    const state = baseState({
+      territories: {
+        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 20, unit_type: 'infantry', stability: 80, population: 5, buildings: ['production_1'] },
+        t3: { territory_id: 't3', owner_id: 'human', unit_count: 20, unit_type: 'infantry', stability: 70, population: 3 },
+      },
+    });
+    const result = evaluateAiEraAdvancement(state, map, 'ai1', 'expert');
+    expect(result.gatePassed).toBe(true);
+    expect(result.shouldAdvance).toBe(true);
   });
 
   it('hard-blocks advancing while a heavy enemy force sits on the border (even expert)', () => {
