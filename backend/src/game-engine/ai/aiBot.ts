@@ -6,8 +6,10 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { getEffectiveMilestoneGate } from '../eraAdvancement/spines';
+import { countUnlockedTechsByTier } from '../eraAdvancement/eraAdvancementReadiness';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
-import { validateBuild } from '../state/economyManager';
+import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import {
   connectionRequiresMoonAccess,
   getOrbitAccessResult,
@@ -591,8 +593,11 @@ export function selectAiBuildingPlacement(
   playerId: string,
   difficulty: AiDifficulty,
 ): { territoryId: string; buildingType: BuildingType } | null {
-  if (difficulty === 'easy' || difficulty === 'tutorial') return null;
+  if (difficulty === 'tutorial') return null;
   if (!state.settings.economy_enabled) return null;
+  // Easy stays passive in normal games, but must build in era-advancement games
+  // or it can never satisfy the gate's building requirement (steamroll bug).
+  if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
 
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
@@ -622,6 +627,24 @@ export function selectAiBuildingPlacement(
     }
     return null;
   };
+
+  const leastDeveloped = (): string[] => [...owned].sort(
+    (a, b) =>
+      (state.territories[a].buildings?.length ?? 0) -
+      (state.territories[b].buildings?.length ?? 0),
+  );
+
+  // Easy bots (only reachable here in era-advancement games): build the cheapest
+  // available building until the milestone gate's requirement is met, then stop.
+  if (difficulty === 'easy') {
+    const gate = getEffectiveMilestoneGate(state, playerId);
+    if (countPlayerBuildings(state, playerId) >= gate.min_buildings) return null;
+    for (const bType of ['production_1', 'tech_gen_1', 'defense_1'] as BuildingType[]) {
+      const result = tryBuild(bType, leastDeveloped());
+      if (result) return result;
+    }
+    return null;
+  }
 
   // ── Naval priority ────────────────────────────────────────────────────────
   // When naval warfare is enabled, the AI must build ports before it can
@@ -727,19 +750,56 @@ export function selectAiBuildingPlacement(
   return null;
 }
 
+type AvailableTech = ReturnType<typeof getEraTechTree>[number];
+
+/**
+ * Era-advancement gate-directed research: pick the cheapest affordable tech that
+ * advances the player toward the milestone gate (fill tier-1 to the requirement,
+ * then tier-2, then tier-3). Returns null once the gate's TECH requirements are
+ * met, so the caller can fall back to its normal strategic/cheapest selection.
+ *
+ * Without this, low/medium AIs research cheapest-first and may never accumulate
+ * the specific tier-2/tier-3 techs the gate demands — leaving them frozen in the
+ * starting era while a human climbs.
+ */
+function selectGateDirectedTech(
+  state: GameState,
+  playerId: string,
+  available: AvailableTech[],
+): string | null {
+  const gate = getEffectiveMilestoneGate(state, playerId);
+  const t1 = countUnlockedTechsByTier(state, playerId, 1, 1);
+  const t2 = countUnlockedTechsByTier(state, playerId, 2, 2);
+  const t3 = countUnlockedTechsByTier(state, playerId, 3, 3);
+  const cheapestOfTier = (tier: number): string | undefined =>
+    available.filter((n) => n.tier === tier).sort((a, b) => a.cost - b.cost)[0]?.tech_id;
+
+  if (t1 < gate.min_tier1_techs) return cheapestOfTier(1) ?? null;
+  // Need tier-2: take an available tier-2, else research more tier-1 to unlock its prerequisites.
+  if (t2 < gate.min_tier2_techs) return cheapestOfTier(2) ?? cheapestOfTier(1) ?? null;
+  if (gate.min_tier3_techs > 0 && t3 < gate.min_tier3_techs) {
+    return cheapestOfTier(3) ?? cheapestOfTier(2) ?? cheapestOfTier(1) ?? null;
+  }
+  return null;
+}
+
 /**
  * Choose a tech node to research this AI turn, or null to skip.
- * Easy/tutorial never researches.
- * Hard/expert selects strategically based on era aggression profile;
- * medium picks the cheapest affordable node.
+ * Tutorial never researches. Easy researches only in era-advancement games
+ * (gate-directed, so it can actually climb). Hard/expert select strategically;
+ * medium picks the cheapest affordable node. In era-advancement games every
+ * researching difficulty prioritizes the advancement gate first.
  */
 export function selectAiTechResearch(
   state: GameState,
   playerId: string,
   difficulty: AiDifficulty,
 ): string | null {
-  if (difficulty === 'easy' || difficulty === 'tutorial') return null;
+  if (difficulty === 'tutorial') return null;
   if (!state.settings.tech_trees_enabled) return null;
+  // Easy stays passive in normal games, but must research in era-advancement
+  // games or it can never pass the gate (steamroll bug).
+  if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
 
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
@@ -756,6 +816,14 @@ export function selectAiTechResearch(
       (!node.prerequisite || unlocked.includes(node.prerequisite)),
   );
   if (available.length === 0) return null;
+
+  // Era advancement: climb the milestone gate before anything else.
+  if (state.settings.era_advancement_enabled) {
+    const gateTech = selectGateDirectedTech(state, playerId, available);
+    if (gateTech) return gateTech;
+    // Easy bots only research toward the gate — stay simple once it's satisfied.
+    if (difficulty === 'easy') return null;
+  }
 
   // Galactic Age priority hook: Hyperspace Chart has no raw combat numbers, so
   // the score-based path below would never pick it; without it the AI is

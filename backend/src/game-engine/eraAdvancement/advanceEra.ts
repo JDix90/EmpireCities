@@ -13,6 +13,9 @@ export interface AdvanceEraGateResult {
   cost?: number;
 }
 
+/** Stability-gate relief (percentage points) granted per era a player trails the leader. */
+const CATCHUP_STABILITY_RELIEF = 20;
+
 /**
  * Multiplier knocked off a trailing player's advance cost: `discount^gap`,
  * clamped to the configured floor. 1.0 when leading or tied.
@@ -95,7 +98,11 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
   }
 
   if (state.settings.stability_enabled) {
-    const gate = state.settings.era_advancement_stability_gate ?? 60;
+    // Far-behind players get a lower stability bar (−20% per era behind the
+    // leader), so a war-torn empire can still catch up rather than being locked
+    // out of advancement by the very pressure that put it behind.
+    const baseGate = state.settings.era_advancement_stability_gate ?? 60;
+    const gate = Math.max(0, baseGate - CATCHUP_STABILITY_RELIEF * getCatchupGap(state, player));
     const stability = getEmpireWeightedStability(state, playerId);
     if (stability < gate) {
       return { canAdvance: false, error: `Empire stability too low (${stability.toFixed(0)}%; need ${gate})`, cost };
@@ -108,6 +115,24 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
       return {
         canAdvance: false,
         error: readiness.error ?? 'Research and economy requirements not met',
+        cost,
+      };
+    }
+  }
+
+  // Anti-steamroll cap: a player can't advance more than `max_lead` eras ahead of
+  // the lowest-era living player, so the field never gets left multiple eras
+  // behind (esp. AI bots vs an optimizing human). Null/absent = no cap.
+  const maxLead = state.settings.era_advancement_max_lead;
+  if (typeof maxLead === 'number') {
+    const livingEras = state.players
+      .filter((p) => !p.is_eliminated)
+      .map((p) => p.current_era_index ?? 0);
+    const lowest = livingEras.length > 0 ? Math.min(...livingEras) : 0;
+    if ((player.current_era_index ?? 0) + 1 - lowest > maxLead) {
+      return {
+        canAdvance: false,
+        error: `Hold for the field — you can't advance more than ${maxLead} era${maxLead === 1 ? '' : 's'} ahead of the trailing player`,
         cost,
       };
     }

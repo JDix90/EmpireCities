@@ -42,6 +42,11 @@ const DIFFICULTY = (process.env.SIM_DIFFICULTY ?? 'expert') as AiDifficulty;
 const MAX_TURNS = Number(process.env.SIM_MAX_TURNS ?? 70);
 const MASTER_SEED = process.env.SIM_SEED ?? 'borderfall-era-balance';
 const CSV_PATH = process.env.SIM_CSV ?? '';
+// Human-proxy mode: player 0 climbs as fast as possible (expert economy +
+// advances whenever gated), the rest use SIM_DIFFICULTY. Measures whether the
+// rubber-band keeps trailing bots within ~1 era of a steamrolling human.
+const PROXY_LEADER = process.env.SIM_PROXY_LEADER === '1';
+const MAX_LEAD = process.env.SIM_MAX_LEAD != null ? Number(process.env.SIM_MAX_LEAD) : null;
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 
 function loadMap(): GameMap {
@@ -64,6 +69,7 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: true,
     era_advancement_preset: 'standard', // classic spine
+    ...(MAX_LEAD != null ? { era_advancement_max_lead: MAX_LEAD } : {}),
     allowed_victory_conditions: ['domination'],
     victory_type: 'domination',
     max_turns: MAX_TURNS,
@@ -111,19 +117,13 @@ function playAiTurn(
   difficulty: AiDifficulty,
   dieRoll: () => number,
   advances: AdvanceEvent[],
+  aggressiveAdvance = false,
 ): void {
   state.phase = 'draft';
   const plan = computeAiTurn(state, map, difficulty); // planned pre-advance, like the socket
 
-  if (state.settings.era_advancement_enabled) {
-    const decision = evaluateAiEraAdvancement(state, map, pid, difficulty);
-    if (decision.shouldAdvance && executeAdvanceEra(state, pid).success) {
-      advances.push({ pid, turn: state.turn_number });
-    }
-  }
-
-  applyDraft(state, pid, plan);
-
+  // Economy FIRST (matches processAiTurn): build + research before the advance
+  // check so a bot that just met the gate can advance the same turn.
   const build = selectAiBuildingPlacement(state, map, pid, difficulty);
   if (build) applyBuild(state, pid, build.territoryId, build.buildingType);
   const techId = selectAiTechResearch(state, pid, difficulty);
@@ -131,6 +131,19 @@ function playAiTurn(
     const v = validateResearch(state, pid, techId);
     if (v.valid && v.node) applyResearch(state, pid, v.node);
   }
+
+  if (state.settings.era_advancement_enabled) {
+    // The human proxy advances whenever it is gated (optimal player); bots use
+    // the AI heuristic, which the rubber-band pushes hard when trailing.
+    const shouldAdvance = aggressiveAdvance
+      ? canAdvanceEra(state, pid).canAdvance
+      : evaluateAiEraAdvancement(state, map, pid, difficulty).shouldAdvance;
+    if (shouldAdvance && executeAdvanceEra(state, pid).success) {
+      advances.push({ pid, turn: state.turn_number });
+    }
+  }
+
+  applyDraft(state, pid, plan);
 
   state.phase = 'attack';
   for (const a of plan) {
@@ -165,6 +178,7 @@ interface GameStat {
   maxStability: number;
   techMetEver: boolean;
   stabilityMetEver: boolean;
+  maxEraSpread: number;
 }
 
 /** Per-player diagnostic snapshot of how close anyone got to the advance gate. */
@@ -211,15 +225,24 @@ function runGame(map: GameMap, gameIndex: number): GameStat {
   let t10Captured = false;
   let gateEverPassed = false, techMetEver = false, stabilityMetEver = false;
   let maxTechs = 0, maxBuildings = 0, maxStability = 0;
+  let maxEraSpread = 0;
 
   let guard = 0;
   while (state.phase !== 'game_over' && guard < (MAX_TURNS + 2) * PLAYERS + 5) {
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, advances);
+      const isProxy = PROXY_LEADER && player.player_index === 0;
+      playAiTurn(state, map, player.player_id, isProxy ? 'expert' : DIFFICULTY, dieRoll, advances, isProxy);
     }
     advanceToNextPlayer(state, map);
+
+    // Era spread among living players — the steamroll signal. With the rubber-band
+    // a trailing bot should stay within ~1 era of a fast-advancing leader.
+    const livingEras = state.players.filter((p) => !p.is_eliminated).map((p) => p.current_era_index ?? 0);
+    if (livingEras.length > 1) {
+      maxEraSpread = Math.max(maxEraSpread, Math.max(...livingEras) - Math.min(...livingEras));
+    }
 
     if (!t10Captured && state.turn_number >= 10) {
       t10Captured = true;
@@ -267,6 +290,7 @@ function runGame(map: GameMap, gameIndex: number): GameStat {
     maxStability,
     techMetEver,
     stabilityMetEver,
+    maxEraSpread,
   };
 }
 
@@ -316,6 +340,11 @@ function main(): void {
   console.log(`  stability gate met ever:        ${pct(stats.filter((s) => s.stabilityMetEver).length, GAMES)}`);
   console.log(`Avg peak techs / peak buildings:  ${(stats.reduce((a, s) => a + s.maxTechs, 0) / GAMES).toFixed(1)} techs · ${(stats.reduce((a, s) => a + s.maxBuildings, 0) / GAMES).toFixed(1)} bldg`);
   console.log(`Avg peak empire stability:        ${(stats.reduce((a, s) => a + s.maxStability, 0) / GAMES).toFixed(0)}%`);
+  const avgSpread = stats.reduce((a, s) => a + s.maxEraSpread, 0) / GAMES;
+  const withinOne = stats.filter((s) => s.maxEraSpread <= 1).length;
+  console.log(`\n— Steamroll / rubber-band${PROXY_LEADER ? ' (human proxy = player 0)' : ''} —`);
+  console.log(`Avg peak era spread (leader−laggard): ${avgSpread.toFixed(2)} eras`);
+  console.log(`Games where pack stayed within 1 era: ${pct(withinOne, GAMES)}`);
 
   if (CSV_PATH) {
     const header = 'game,seed,turns,winner,winner_era,victory,first_advancer,first_advance_turn,first_advancer_won,era_leader_t10,era_leader_t10_won,any_reached_final,advance_count';

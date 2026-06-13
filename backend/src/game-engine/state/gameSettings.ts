@@ -200,6 +200,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_combat_gap_dice: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_combat_gap_dice, eraDefaults.era_advancement_combat_gap_dice)
       : undefined,
+    // Provide-only: absent means no anti-steamroll cap (preserves existing balance).
+    era_advancement_max_lead: eraAdvancementEnabled && typeof raw.era_advancement_max_lead === 'number'
+      ? raw.era_advancement_max_lead
+      : undefined,
     era_advancement_catchup_discount: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_catchup_discount, eraDefaults.era_advancement_catchup_discount)
       : undefined,
