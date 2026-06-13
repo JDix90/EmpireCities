@@ -7,11 +7,22 @@ import { computeLandCombatModifiers } from './combatModifiers';
 import { resolveCombat } from './combatResolver';
 import { applyDefenderPostCombatReactions, consumeDefenderPreCombatCharges } from './defenderReactions';
 
+type ConsumedAttackBuffs = ReturnType<typeof consumeAttackBuffs>;
+type ConsumedDefenderCharges = ReturnType<typeof consumeDefenderPreCombatCharges>;
+
 export interface ExecuteLandAttackOptions {
   /** Seeded dice for reproducibility; defaults to the engine's CSPRNG. */
   dieRoll?: () => number;
   /** Land connection (used only for sea detection; land-only callers omit it). */
   connection?: MapConnection;
+  /**
+   * Caller-derived attacker dice bonuses merged with the internally-consumed
+   * `pending` (extra attack die) and `era_signature` charge. The socket passes
+   * blitzkrieg / march_to_sea / truce_retaliation here; the sim omits them.
+   */
+  extraAttackBonuses?: Record<string, number>;
+  /** Caller-derived defender dice bonuses merged with the internal `great_wall`. */
+  extraDefenseBonuses?: Record<string, number>;
   /** Called once after a successful capture (e.g. to draw a card). */
   onCapture?: (state: GameState, attackerId: string, toId: string) => void;
 }
@@ -20,22 +31,36 @@ export interface LandAttackOutcome {
   result: CombatResult;
   captured: boolean;
   defenderEliminated: boolean;
+  /** Buffs consumed this exchange — exposed so socket callers can drive visuals/callouts. */
+  attackBuffs: ConsumedAttackBuffs;
+  /** Era signature attack-die bonus applied this exchange. */
+  signatureAttackBonus: number;
+  /** Defender pre-combat charges consumed this exchange. */
+  defenderCharges: ConsumedDefenderCharges;
+  /** Attacker losses BEFORE Testudo negation — the figure combat-ability callouts read. */
+  rawAttackerLosses: number;
+  /** Pre-attack (precision-strike/air-strike) damage applied to the defender. */
+  preAttackDamageApplied: number;
+  /** Attacker territory unit count after losses, before any capture move-in. */
+  sourceUnitsAfter: number;
 }
 
 /**
- * Resolve and apply ONE land combat exchange to game state — the pure-engine
- * extraction of the socket attack handler's land path. It runs the same
- * pipeline (attack buffs + era signature charge, defender pre-combat charges,
- * the full combat modifiers incl. era-gap dice and the vulnerability window,
- * resolveCombat, defender post-combat reactions, capture + stability penalty +
- * elimination) so headless callers (the balance simulator) see combat identical
- * to a real game for the land ruleset.
+ * Resolve and apply ONE land combat exchange to game state — the single source
+ * of truth for the land path, used by BOTH the socket attack handlers (human +
+ * AI) and the headless balance simulator. It runs the full pipeline: attack
+ * buffs + era signature charge, defender pre-combat charges, the combat
+ * modifiers (incl. era-gap dice and the vulnerability window) merged with any
+ * caller-supplied bonuses, resolveCombat, defender post-combat reactions, and
+ * capture + stability penalty + elimination.
+ *
+ * Socket-only concerns stay with the caller, wrapped around this call using the
+ * returned metadata: naval crossings, influence, blitzkrieg/march-to-sea state
+ * machines, daily-puzzle snapshots, visuals, stat recording, broadcasts, and the
+ * once-per-turn card draw (pass `onCapture`).
  *
  * Returns null if the attack is structurally invalid (wrong owner, < 2 units,
- * non-enemy target). Deliberately NOT modeled here (socket-only / out of scope
- * for the land sim): naval crossings, influence, blitzkrieg chains, truce
- * retaliation, daily-puzzle dice, visuals/stat recording, and card draws (pass
- * `onCapture` to add the latter).
+ * non-enemy target).
  */
 export function executeLandAttack(
   state: GameState,
@@ -60,28 +85,32 @@ export function executeLandAttack(
     from.unit_count = Math.max(1, from.unit_count - defReactions.greekFirePreDamage);
   }
 
-  const { finalAttackerDiceOverride, defenderDiceOverride } = computeLandCombatModifiers({
-    state,
-    fromId,
-    toId,
-    attackerId,
-    defenderId,
-    attackingUnits: from.unit_count,
-    defendingUnits: to.unit_count,
-    connection: opts.connection,
-    ignoreDefenseBuilding: attackBuffs.ignoreDefenseBuilding,
-    extraAttackBonuses: {
-      pending: attackBuffs.extraAttackDie ? 1 : 0,
-      era_signature: signatureAttackBonus,
-    },
-    extraDefenseBonuses: {
-      great_wall: defReactions.greatWallDefenseDice,
-    },
-  });
+  const { finalAttackerDiceOverride, defenderDiceOverride, attackerBonusBreakdown, defenderBonusBreakdown } =
+    computeLandCombatModifiers({
+      state,
+      fromId,
+      toId,
+      attackerId,
+      defenderId,
+      attackingUnits: from.unit_count,
+      defendingUnits: to.unit_count,
+      connection: opts.connection,
+      ignoreDefenseBuilding: attackBuffs.ignoreDefenseBuilding,
+      extraAttackBonuses: {
+        ...(opts.extraAttackBonuses ?? {}),
+        pending: attackBuffs.extraAttackDie ? 1 : 0,
+        era_signature: signatureAttackBonus,
+      },
+      extraDefenseBonuses: {
+        ...(opts.extraDefenseBonuses ?? {}),
+        great_wall: defReactions.greatWallDefenseDice,
+      },
+    });
 
   // Precision-strike style pre-attack damage (e.g. the Modern era signature).
-  if (attackBuffs.preAttackDamage > 0) {
-    to.unit_count = Math.max(1, to.unit_count - attackBuffs.preAttackDamage);
+  const preAttackDamageApplied = attackBuffs.preAttackDamage;
+  if (preAttackDamageApplied > 0) {
+    to.unit_count = Math.max(1, to.unit_count - preAttackDamageApplied);
   }
 
   const result = resolveCombat(
@@ -92,13 +121,33 @@ export function executeLandAttack(
     opts.dieRoll,
     state.era_modifiers,
   );
-  if (result.error) return { result, captured: false, defenderEliminated: false };
+  // Mirror the socket: surface the dice-bonus breakdowns for client display.
+  result.attacker_bonus_breakdown = attackerBonusBreakdown;
+  result.defender_bonus_breakdown = defenderBonusBreakdown;
 
+  const base = {
+    attackBuffs,
+    signatureAttackBonus,
+    defenderCharges: defReactions,
+    preAttackDamageApplied,
+  };
+  if (result.error) {
+    return {
+      result, captured: false, defenderEliminated: false,
+      rawAttackerLosses: 0, sourceUnitsAfter: from.unit_count, ...base,
+    };
+  }
+
+  const rawAttackerLosses = result.attacker_losses;
   if (attackBuffs.negateAttackerLosses) result.attacker_losses = 0;
   from.unit_count -= result.attacker_losses;
   to.unit_count -= result.defender_losses;
 
   applyDefenderPostCombatReactions({ state, defenderId, fromTerritory: from, toTerritory: to, result });
+
+  // Captured by the socket as `result.source_units_after` (the "Attack again"
+  // unit count) — taken after losses, before the capture move-in.
+  const sourceUnitsAfter = from.unit_count;
 
   let defenderEliminated = false;
   if (result.territory_captured) {
@@ -109,8 +158,8 @@ export function executeLandAttack(
     if (state.settings.stability_enabled) onCaptureStabilityPenalty(state, toId);
 
     // Keep territory_count current for BOTH involved players — reinforcements
-    // (advanceToNextPlayer) and victory checks read it. The socket handler calls
-    // syncTerritoryCounts here; only these two players' counts change per attack.
+    // (advanceToNextPlayer) and victory checks read it. The socket handler also
+    // calls syncTerritoryCounts; only these two players' counts change per attack.
     for (const pid of [attackerId, defenderId]) {
       const pl = state.players.find((p) => p.player_id === pid);
       if (pl) pl.territory_count = Object.values(state.territories).filter((t) => t.owner_id === pid).length;
@@ -125,5 +174,8 @@ export function executeLandAttack(
     opts.onCapture?.(state, attackerId, toId);
   }
 
-  return { result, captured: result.territory_captured, defenderEliminated };
+  return {
+    result, captured: result.territory_captured, defenderEliminated,
+    rawAttackerLosses, sourceUnitsAfter, ...base,
+  };
 }

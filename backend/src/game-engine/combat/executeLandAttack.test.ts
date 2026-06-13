@@ -80,4 +80,73 @@ describe('executeLandAttack', () => {
     // 4 defenders would normally roll 2 dice; the vulnerability multiplier floors it to 1.
     expect(out?.result.defender_rolls).toHaveLength(1);
   });
+
+  it('merges caller attack-dice bonuses (blitzkrieg / march-to-sea) into the pool', () => {
+    const make = () => state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 4) },
+      [player('p1'), player('p2')],
+    );
+    const base = executeLandAttack(make(), 'p1', 'a', 'b', { dieRoll: () => 3 });
+    const blitz = executeLandAttack(make(), 'p1', 'a', 'b', { dieRoll: () => 3, extraAttackBonuses: { blitzkrieg: 1 } });
+    const both = executeLandAttack(make(), 'p1', 'a', 'b', { dieRoll: () => 3, extraAttackBonuses: { blitzkrieg: 1, march_to_sea: 1 } });
+    expect(base?.result.attacker_rolls).toHaveLength(3);
+    expect(blitz?.result.attacker_rolls).toHaveLength(4);
+    expect(both?.result.attacker_rolls).toHaveLength(5);
+    // Breakdown surfaces both the caller keys and the internal ones.
+    expect(both?.result.attacker_bonus_breakdown).toMatchObject({ blitzkrieg: 1, march_to_sea: 1, era_signature: 0 });
+  });
+
+  it('merges caller defense-dice bonuses (truce break) into the defender pool', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 4) },
+      [player('p1'), player('p2')],
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: () => 3, extraDefenseBonuses: { truce_break: 1 } });
+    expect(out?.result.defender_rolls).toHaveLength(3); // base 2 + 1 truce_break
+  });
+
+  it('consumes an era-signature charge and reports it in the outcome', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 4) },
+      [player('p1', { era_signature_charges: { levy_of_knights: 1 } }), player('p2')],
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: () => 3 });
+    expect(out?.signatureAttackBonus).toBe(1);
+    expect(s.players[0].era_signature_charges?.levy_of_knights).toBe(0);
+    expect(out?.result.attacker_rolls).toHaveLength(4); // base 3 + 1 signature die
+  });
+
+  it('applies and reports precision-strike pre-attack damage', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 6) },
+      [player('p1', { pending_pre_attack_damage: 2 }), player('p2')],
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: () => 1 }); // defender wins exchanges
+    expect(out?.preAttackDamageApplied).toBe(2);
+    expect(s.territories.b.unit_count).toBeLessThanOrEqual(4); // 6 - 2 pre-damage, then combat
+  });
+
+  it('exposes raw attacker losses and post-loss source units for the caller', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 5) },
+      [player('p1'), player('p2')],
+    );
+    // Defender wins both comparisons → attacker takes 2 losses, no capture.
+    const out = executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: () => 1 });
+    expect(out?.captured).toBe(false);
+    expect(out?.rawAttackerLosses).toBe(2);
+    expect(out?.sourceUnitsAfter).toBe(8); // 10 - 2 losses, no capture move-in
+    expect(s.territories.a.unit_count).toBe(8);
+  });
+
+  it('fires the onCapture hook exactly once on a capture', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), b: terr('b', 'p2', 1) },
+      [player('p1'), player('p2')],
+    );
+    let calls = 0;
+    const out = executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: diceFrom([6, 6, 6, 1]), onCapture: () => { calls += 1; } });
+    expect(out?.captured).toBe(true);
+    expect(calls).toBe(1);
+  });
 });
