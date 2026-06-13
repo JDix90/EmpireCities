@@ -176,15 +176,23 @@ export function evaluateAiEraAdvancement(
   if (threatRatio >= 1.25) score -= 5;
   else if (threatRatio >= 1.0) score -= 3;
 
-  if (difficulty === 'easy') {
+  // Easy dawdles (85% skip) only when it is NOT behind. A trailing easy bot must
+  // catch up or it gets steamrolled, so the skip is suppressed when gap >= 1.
+  if (difficulty === 'easy' && gap <= 0) {
     const roll = randomInt(0, 100);
     if (roll > 15) {
       return { shouldAdvance: false, score, threshold, gatePassed: true };
     }
   }
 
+  // Rubber-band: a bot trailing the era leader advances whenever it is gated and
+  // not heavily threatened (the hard block above already vetoed the dangerous
+  // case), so it never falls more than ~1 era behind a climbing human. The
+  // leader (and tied players) still climb on the normal score threshold.
+  const shouldAdvance = gap >= 1 ? true : score >= threshold;
+
   return {
-    shouldAdvance: score >= threshold,
+    shouldAdvance,
     score,
     threshold,
     gatePassed: true,

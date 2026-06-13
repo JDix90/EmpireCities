@@ -313,6 +313,8 @@ export interface GameSettings {
   era_advancement_vuln_defense_mult?: number;
   era_advancement_vuln_turns?: number;
   era_advancement_max_era_index?: number;
+  /** Anti-steamroll cap: no player may advance more than this many eras ahead of the trailing living player (null = no cap). */
+  era_advancement_max_lead?: number | null;
   era_advancement_combat_gap_dice?: number;
   /** Per-era cost discount for trailing players (`discount^gap`, clamped to the floor). */
   era_advancement_catchup_discount?: number;

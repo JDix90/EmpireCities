@@ -82,3 +82,56 @@ numbers moved < 3 points — the conclusions are robust.
 
 These are observations to validate with real games — the sim models the land
 ruleset and AI play, not human strategy, fog, factions, or naval.
+
+---
+
+## AI advancement fix (2026-06-13) — bots were frozen in the start era
+
+**Bug found in playtest:** AI bots stayed in the Ancient era while a human
+climbed, enabling a steamroll. The sim had only ever run `expert`, hiding it.
+
+### Root cause (sim across all difficulties, pre-fix)
+
+| difficulty | reached final era | advances/game |
+|---|---|---|
+| easy | **0%** (frozen) | 0.00 |
+| medium *(casual default)* | 35% | 7.3 |
+| hard | 47% | 7.4 |
+| expert | 47% | 9.4 |
+
+Easy/tutorial bots `return null` from `selectAiTechResearch` + `selectAiBuildingPlacement`
+→ never satisfy the gate. Medium researched cheapest-first (not gate-aware), and
+the advance check ran *before* that turn's economy (one-turn tax).
+
+### Fix
+
+- **Gate-directed research** (`selectGateDirectedTech`): fill tier-1 → tier-2 →
+  tier-3 toward the milestone before strategic/cheapest picks.
+- **Un-freeze easy/medium economy** in era-advancement games (tutorial stays passive).
+- **Economy before the advance check** in `processAiTurn` + the sim loop (advance same turn).
+- **Rubber-band**: a bot trailing the leader advances whenever gated (easy's
+  85% skip suppressed when behind); catch-up gate relaxation + stability relief
+  now scale with the era gap.
+- **`era_advancement_max_lead`** (new setting): hard cap — no player may advance
+  more than N eras ahead of the trailing living player.
+
+Post-fix: medium reaches final ~62%, all researching difficulties climb.
+
+### The parity/progression tension (important)
+
+The peak era spread (leader − laggard) is driven by the **FFA territorial
+snowball**, not the gate — relaxing the gate to near-trivial did **not** compress
+it. Strict "within 1 era" is only *guaranteed* by the lead cap, which trades away
+climbing:
+
+| `era_advancement_max_lead` | peak spread | reached final | feel |
+|---|---|---|---|
+| 1 | 1.0 (100% within 1) | ~0–8% | field stalls — one straggler gates everyone |
+| 2 | 2.0 | ~8% | leader reaches era 2–3, bounded runaway |
+| 3 | ~2.9 | ~20% | ≈ uncapped |
+| off (null, default) | ~3.5 | 47–62% | competitive leader allowed |
+
+**Recommendation:** default `era_advancement_max_lead` OFF (competitive). Offer
+`= 2` as a "fair/anti-steamroll" option; `= 1` only for strict-parity modes
+(accepts suppressed climbing). The +1-die combat clamp (EA-203) already limits
+the *mechanical* edge of any era lead regardless of spread.
