@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import clsx from 'clsx';
 import { X, Lock, CheckCircle, Zap } from 'lucide-react';
 import type { GameState } from '../../store/gameStore';
+import TechTreeEraProgress from './TechTreeEraProgress';
 
 // Matches the backend TechNode shape
 export interface TechNode {
@@ -103,6 +104,9 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Era advancement continuity: gate progress + carried-forward echo */}
+        <TechTreeEraProgress gameState={gameState} player={player} />
 
         {/* Info banner */}
         <div className="px-4 pt-4 pb-2">
