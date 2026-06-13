@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sparkles, AlertTriangle, Check, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Sparkles, AlertTriangle, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -30,7 +30,28 @@ export default function AdvanceEraPanel({
   onAdvanceEra,
   variant = 'sidebar',
 }: AdvanceEraPanelProps) {
+  // Collapsed by default: the full requirements checklist is reference
+  // material consulted occasionally, but it lives in the FIXED part of the
+  // sidebar — expanded it crushed the scrollable section below (cards,
+  // players, resources) to a sliver. One summary row earns its place;
+  // details are a click away.
+  const [expanded, setExpanded] = useState(false);
+  const wasReadyRef = useRef(false);
+
   const status = getAdvanceEraClientStatus(gameState, myPlayer);
+
+  // Auto-expand exactly once when advancement first becomes available —
+  // the moment the player actually needs the panel.
+  useEffect(() => {
+    if (status?.ready && !wasReadyRef.current) {
+      wasReadyRef.current = true;
+      setExpanded(true);
+    }
+    if (status && !status.ready) {
+      wasReadyRef.current = false;
+    }
+  }, [status?.ready, status]);
+
   if (!status) return null;
 
   const vulnerable = (myPlayer.era_transition_turns_remaining ?? 0) > 0;
@@ -61,12 +82,52 @@ export default function AdvanceEraPanel({
     );
   }
 
+  // Terse on purpose: this shares one sidebar row with the section label,
+  // and a long phrase truncates the label into "ERA A…".
+  const summaryStatus = status.atMaxEra
+    ? 'Max era'
+    : status.ready
+      ? 'Ready!'
+      : `${status.blockers.length} to go`;
+
   return (
-    <div className="p-4 border-b border-bf-gold/30 bg-bf-gold/5">
-      <h3 className="text-xs font-medium text-bf-gold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5" /> Era Advancement Active
-      </h3>
-      <div className="text-sm text-bf-text space-y-2">
+    <div className="border-b border-bf-gold/30 bg-bf-gold/5">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left"
+      >
+        <Sparkles className="w-3.5 h-3.5 text-bf-gold shrink-0" />
+        <span className="text-xs font-medium text-bf-gold truncate">
+          Era Advancement
+        </span>
+        <span
+          className={clsx(
+            'ml-auto text-xs shrink-0 rounded-full px-2 py-0.5',
+            status.ready && !status.atMaxEra
+              ? 'bg-bf-gold/20 text-bf-gold font-semibold'
+              : 'text-bf-muted',
+          )}
+        >
+          {summaryStatus}
+        </span>
+        {expanded
+          ? <ChevronUp className="w-3.5 h-3.5 text-bf-muted shrink-0" />
+          : <ChevronDown className="w-3.5 h-3.5 text-bf-muted shrink-0" />}
+      </button>
+
+      {/* The vulnerability warning is a live combat modifier — never hide it
+          behind the collapse. */}
+      {vulnerable && (
+        <p className="mx-4 mb-2 flex items-start gap-1.5 text-amber-400 text-xs rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          Vulnerable window — opponents hit harder until your next turn.
+        </p>
+      )}
+
+      {expanded && (
+      <div className="px-4 pb-4 text-sm text-bf-text space-y-2">
         <p>
           Your civilization:{' '}
           <span className="text-bf-gold font-medium">
@@ -78,12 +139,6 @@ export default function AdvanceEraPanel({
             </span>
           )}
         </p>
-        {vulnerable && (
-          <p className="flex items-start gap-1.5 text-amber-400 text-xs rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            Vulnerable window — opponents hit harder until your next turn.
-          </p>
-        )}
         {!status.atMaxEra && (
           <>
             <p className="text-xs text-bf-muted">
@@ -148,6 +203,7 @@ export default function AdvanceEraPanel({
           <p className="text-xs text-bf-muted">Maximum era reached for this match.</p>
         )}
       </div>
+      )}
     </div>
   );
 }
