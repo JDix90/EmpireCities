@@ -57,11 +57,49 @@ export interface PlayerState {
   current_era_index?: number;
   era_transition_turns_remaining?: number;
   last_turn_production_income?: number;
-  era_advancement_tech_echo?: Record<string, number>;
-  medieval_signature_charges?: number;
+  /** Era-keyed tech echo (`{ ancient: { attack_bonus: 2 } }`); legacy saves may be flat. */
+  era_advancement_tech_echo?: Record<string, number> | Record<string, Record<string, number>>;
+  /** Era signature payoff charges keyed by signature_id. */
+  era_signature_charges?: Record<string, number>;
   era_advanced_this_turn?: boolean;
   bonus_fortify_moves?: number;
   pending_tech_discount?: number;
+}
+
+/** One readiness checklist item inside `AdvanceEraClientPreview`. */
+export interface AdvanceEraReadinessCheckView {
+  met: boolean;
+  current: number;
+  required: number;
+  label: string;
+}
+
+/**
+ * Server-computed era advancement status for the viewing player, attached to
+ * each `game:state` payload when era advancement is enabled. Render verbatim —
+ * the server is the single source of truth for gate math.
+ */
+export interface AdvanceEraClientPreview {
+  cost: number;
+  /** All server gates pass (gold, tech, stability, max era) — phase/turn checks stay client-side. */
+  can_advance: boolean;
+  error?: string;
+  current_era_index: number;
+  max_era_index: number;
+  current_era_id: string;
+  next_era_id: string;
+  stability?: number;
+  stability_gate?: number;
+  gate_mode: 'milestone' | 'percent';
+  readiness?: {
+    met: boolean;
+    mode: 'milestone' | 'percent';
+    error?: string;
+    tier1?: AdvanceEraReadinessCheckView;
+    tier2?: AdvanceEraReadinessCheckView;
+    buildings?: AdvanceEraReadinessCheckView;
+    percent?: { unlocked: number; required: number };
+  };
 }
 
 export interface GameState {
@@ -150,6 +188,10 @@ export interface GameState {
       player_count?: number;
     };
   };
+  /** Era advancement spine snapshot (ordered rules eras for this match). */
+  era_spine?: Array<{ era_id: string; signature_id?: string }>;
+  /** Viewer-scoped era advancement status — present when era advancement is enabled. */
+  era_advancement_preview?: AdvanceEraClientPreview;
   era_modifiers?: {
     legion_reroll?: boolean;
     castle_fortification?: boolean;

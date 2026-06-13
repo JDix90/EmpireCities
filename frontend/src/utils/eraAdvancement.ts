@@ -1,44 +1,21 @@
-import type { GameState, PlayerState, TerritoryState } from '../store/gameStore';
+import type { GameState, PlayerState } from '../store/gameStore';
 
-/** PoC advancement spine — mirrors backend ERA_ADVANCEMENT_SEQUENCE. */
-const ERA_ADVANCEMENT_SEQUENCE = ['ancient', 'medieval'] as const;
-
-/** Tech tier lookup for client-side milestone gate preview (mirrors backend era trees). */
-const ERA_TECH_TIERS: Record<string, Record<string, number>> = {
-  ancient: {
-    ancient_iron_weapons: 1,
-    ancient_stone_walls: 1,
-    ancient_granaries: 1,
-    ancient_roads: 1,
-    ancient_siege_engines: 2,
-    ancient_fortified_camps: 2,
-    ancient_trade_routes: 2,
-    ancient_cavalry: 2,
-    ancient_legion_tactics: 3,
-    ancient_fortresses: 3,
-    ancient_great_library: 3,
-    ancient_pax_romana: 4,
-  },
-  medieval: {
-    medieval_feudalism: 1,
-    medieval_castle_keep: 1,
-    medieval_guilds: 1,
-    medieval_metallurgy: 1,
-    medieval_siege_warfare: 2,
-    medieval_concentric_castle: 2,
-    medieval_banking: 2,
-    medieval_chivalry: 2,
-    medieval_gunpowder: 3,
-    medieval_citadel: 3,
-    medieval_renaissance: 3,
-    medieval_dominion: 4,
-  },
-};
+/**
+ * Era advancement display helpers. All gate math (cost, tech tiers, stability)
+ * is server-authoritative: the backend attaches a viewer-scoped
+ * `era_advancement_preview` to every `game:state` payload and broadcasts the
+ * spine snapshot as `era_spine`. This module only reshapes that data for the
+ * UI — it deliberately contains no mirrored rules or tech-tier tables.
+ */
 
 export type EraAdvancementTechGateMode = 'milestone' | 'percent';
 
-export function getEraIdForAdvancementIndex(index: number): string {
-  return ERA_ADVANCEMENT_SEQUENCE[index] ?? ERA_ADVANCEMENT_SEQUENCE[ERA_ADVANCEMENT_SEQUENCE.length - 1];
+/** Era id at `index` along the match's spine snapshot, clamped to the final step. */
+export function getEraIdForAdvancementIndex(gameState: GameState, index: number): string {
+  const steps = gameState.era_spine ?? [];
+  if (steps.length === 0) return gameState.era;
+  const clamped = Math.min(Math.max(index, 0), steps.length - 1);
+  return steps[clamped].era_id;
 }
 
 /** Which era's tech tree / rules apply to this player right now. */
@@ -47,63 +24,7 @@ export function resolvePlayerTechEraId(
   player: PlayerState | null | undefined,
 ): string {
   if (!gameState.settings.era_advancement_enabled || !player) return gameState.era;
-  return getEraIdForAdvancementIndex(player.current_era_index ?? 0);
-}
-
-export function computeClientAdvanceCost(gameState: GameState, player: PlayerState): number {
-  const fromIndex = player.current_era_index ?? 0;
-  const mult = gameState.settings.era_advancement_cost_mult ?? 2;
-  const escalation = gameState.settings.era_advancement_cost_escalation ?? 1.5;
-  const income = player.last_turn_production_income ?? 0;
-  return Math.ceil(income * mult * escalation ** fromIndex);
-}
-
-export function getEmpireWeightedStability(
-  territories: Record<string, TerritoryState>,
-  playerId: string,
-): number {
-  let weightedSum = 0;
-  let popSum = 0;
-  for (const territory of Object.values(territories)) {
-    if (territory.owner_id !== playerId || territory.stability == null) continue;
-    const pop = Math.max(1, territory.population ?? 1);
-    weightedSum += territory.stability * pop;
-    popSum += pop;
-  }
-  return popSum > 0 ? weightedSum / popSum : 100;
-}
-
-function countUnlockedTechsByTier(
-  gameState: GameState,
-  player: PlayerState,
-  minTier: number,
-  maxTier: number,
-): number {
-  const eraId = resolvePlayerTechEraId(gameState, player);
-  const tiers = ERA_TECH_TIERS[eraId] ?? {};
-  const unlocked = player.unlocked_techs ?? [];
-  return unlocked.filter((techId) => {
-    const tier = tiers[techId];
-    return tier != null && tier >= minTier && tier <= maxTier;
-  }).length;
-}
-
-function countClientPlayerBuildings(
-  territories: Record<string, TerritoryState>,
-  playerId: string,
-): number {
-  let count = 0;
-  for (const territory of Object.values(territories)) {
-    if (territory.owner_id !== playerId) continue;
-    for (const building of territory.buildings ?? []) {
-      if (!building.startsWith('wonder_')) count += 1;
-    }
-  }
-  return count;
-}
-
-function resolveTechGateMode(gameState: GameState): EraAdvancementTechGateMode {
-  return gameState.settings.era_advancement_tech_gate_mode === 'percent' ? 'percent' : 'milestone';
+  return getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0);
 }
 
 export interface AdvanceEraClientStatus {
@@ -135,66 +56,53 @@ export interface AdvanceEraClientStatus {
   nextEraId: string;
 }
 
+/**
+ * Reshape the server's era advancement preview into the panel/banner status.
+ * Only phase and turn awareness are layered in client-side; every gate value
+ * comes from the server. Returns null when the mode is off or no preview has
+ * arrived yet (e.g. mid-deploy against an older server).
+ */
 export function getAdvanceEraClientStatus(
   gameState: GameState,
   player: PlayerState | null | undefined,
 ): AdvanceEraClientStatus | null {
   if (!gameState.settings.era_advancement_enabled || !player) return null;
+  const preview = gameState.era_advancement_preview;
+  if (!preview) return null;
 
-  const currentIndex = player.current_era_index ?? 0;
-  const maxIndex = gameState.settings.era_advancement_max_era_index ?? 1;
-  const atMaxEra = currentIndex >= maxIndex;
+  const atMaxEra = preview.current_era_index >= preview.max_era_index;
   const canPhase = gameState.phase === 'draft' || gameState.phase === 'attack';
-  const cost = computeClientAdvanceCost(gameState, player);
+  const cost = preview.cost;
   const gold = player.special_resource ?? 0;
-  const gateMode = resolveTechGateMode(gameState);
+  const gateMode = preview.gate_mode;
+  const readiness = preview.readiness;
 
-  const tier1Required = gameState.settings.era_advancement_min_tier1_techs ?? 3;
-  const tier2Required = gameState.settings.era_advancement_min_tier2_techs ?? 1;
-  const buildingsRequired = gameState.settings.era_advancement_min_buildings ?? 1;
+  const tier1Current = readiness?.tier1?.current ?? 0;
+  const tier1Required = readiness?.tier1?.required ?? 0;
+  const tier2Current = readiness?.tier2?.current ?? 0;
+  const tier2Required = readiness?.tier2?.required ?? 0;
+  const buildingsCurrent = readiness?.buildings?.current ?? 0;
+  const buildingsRequired = readiness?.buildings?.required ?? 0;
+  const techUnlocked = readiness?.percent?.unlocked ?? 0;
+  const techRequired = readiness?.percent?.required ?? 0;
 
-  const tier1Current = countUnlockedTechsByTier(gameState, player, 1, 1);
-  const tier2Current = countUnlockedTechsByTier(gameState, player, 2, 2);
-  const buildingsCurrent = countClientPlayerBuildings(gameState.territories, player.player_id);
+  const tier1Met = readiness?.tier1?.met ?? true;
+  const tier2Met = readiness?.tier2?.met ?? true;
+  const buildingsMet = readiness?.buildings?.met ?? true;
+  const techMet = readiness?.met ?? true;
 
-  let techUnlocked = 0;
-  let techRequired = 0;
-  let techMet = true;
-  let tier1Met = true;
-  let tier2Met = true;
-  let buildingsMet = true;
-
-  if (gameState.settings.tech_trees_enabled) {
-    if (gateMode === 'percent') {
-      const departingEraId = resolvePlayerTechEraId(gameState, player);
-      const treeSize = Object.keys(ERA_TECH_TIERS[departingEraId] ?? {}).length || 12;
-      const techGatePct = gameState.settings.era_advancement_tech_gate_pct ?? 0.33;
-      techRequired = Math.ceil(treeSize * techGatePct);
-      techUnlocked = (player.unlocked_techs ?? []).length;
-      techMet = techUnlocked >= techRequired;
-    } else {
-      tier1Met = tier1Current >= tier1Required;
-      tier2Met = tier2Current >= tier2Required;
-      buildingsMet = buildingsCurrent >= buildingsRequired;
-      techMet = tier1Met && tier2Met && buildingsMet;
-    }
-  }
-
-  const stabilityGate = gameState.settings.stability_enabled
-    ? (gameState.settings.era_advancement_stability_gate ?? 60)
-    : undefined;
-  const stability = gameState.settings.stability_enabled
-    ? getEmpireWeightedStability(gameState.territories, player.player_id)
-    : undefined;
+  const stability = preview.stability;
+  const stabilityGate = preview.stability_gate;
   const stabilityMet = stabilityGate == null || (stability ?? 0) >= stabilityGate;
   const goldMet = gold >= cost && cost > 0;
+
   const blockers: string[] = [];
   if (atMaxEra) blockers.push('Already at maximum era');
   if (!canPhase) blockers.push('Available during Reinforcement or Attack phase');
-  if (gameState.settings.tech_trees_enabled) {
-    if (gateMode === 'percent' && !techMet) {
+  if (readiness && !readiness.met) {
+    if (gateMode === 'percent') {
       blockers.push(`Research ${techRequired} technologies (${techUnlocked}/${techRequired})`);
-    } else if (gateMode === 'milestone') {
+    } else {
       if (!tier1Met) {
         blockers.push(`Research ${tier1Required} tier-1 technologies (${tier1Current}/${tier1Required})`);
       }
@@ -236,8 +144,10 @@ export function getAdvanceEraClientStatus(
     stabilityMet,
     goldMet,
     blockers,
-    ready: !atMaxEra && canPhase && techMet && stabilityMet && goldMet,
-    currentEraId: getEraIdForAdvancementIndex(currentIndex),
-    nextEraId: getEraIdForAdvancementIndex(currentIndex + 1),
+    // cost > 0 mirrors the legacy client rule: a free advance (no income yet)
+    // stays locked even though the server's gold gate trivially passes.
+    ready: canPhase && cost > 0 && preview.can_advance,
+    currentEraId: preview.current_era_id,
+    nextEraId: preview.next_era_id,
   };
 }

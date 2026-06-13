@@ -32,8 +32,9 @@ import {
   onTerritoryCapture,
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
-import { executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
+import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
+import { consumeSignatureAttackBonus } from '../game-engine/eraAdvancement/signatures';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
@@ -1494,11 +1495,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // this AFTER the sea-lane/naval gate prevents a "no fleet" rejection or a
       // naval defeat from silently burning the buffs for no benefit.
       const attackBuffs = consumeAttackBuffs(currentPlayer);
-      let signatureAttackBonus = 0;
-      if ((currentPlayer.medieval_signature_charges ?? 0) > 0) {
-        signatureAttackBonus = 1;
-        currentPlayer.medieval_signature_charges!--;
-      }
+      const signatureAttackBonus = consumeSignatureAttackBonus(currentPlayer);
 
       // Blitzkrieg: this attack qualifies as the bonus follow-up if the source
       // matches the territory we just captured from while the doctrine was
@@ -2189,7 +2186,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: result.error ?? 'Cannot advance era' });
       }
 
-      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
         playerId: userId,
         eraId: nextEraId,
@@ -3640,6 +3637,15 @@ function stopSpectatorBroadcastLoop(gameId: string): void {
 }
 
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
+  // Viewer-scoped era advancement status (transport-only). Computed from the
+  // unfiltered state — it describes the viewer's own empire, which fog never
+  // hides from them.
+  const attachEraPreview = (s: GameState): GameState => {
+    if (!playerId || !state.settings.era_advancement_enabled) return s;
+    const preview = buildAdvanceEraClientPreview(state, playerId);
+    return preview ? { ...s, era_advancement_preview: preview } : s;
+  };
+
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
     // mission_seed_salt is server-only; leaking it would let a client
@@ -3653,7 +3659,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     ),
   });
 
-  if (!fogOfWar || !playerId) return stripSecretMissions(state);
+  if (!fogOfWar || !playerId) return attachEraPreview(stripSecretMissions(state));
 
   // Owned territories are always visible
   const visibleIds = new Set<string>();
@@ -3696,7 +3702,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     p.player_id === playerId ? p : { ...p, cards: [] },
   );
 
-  return stripSecretMissions(filtered);
+  return attachEraPreview(stripSecretMissions(filtered));
 }
 
 async function saveGameState(gameId: string, state: GameState): Promise<void> {
@@ -4446,7 +4452,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   ) {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id);
     if (advanceResult.success) {
-      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
         playerId: currentPlayer.player_id,
         eraId: nextEraId,

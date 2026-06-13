@@ -198,9 +198,19 @@ export interface PlayerState {
   era_transition_turns_remaining?: number;
   /** Gross production income from the prior economy tick (advancement cost basis). */
   last_turn_production_income?: number;
-  /** Permanent passive bonuses echoed from prior-era completed tech. */
-  era_advancement_tech_echo?: Record<string, number>;
-  /** PoC signature payoff: +1 attack die on next land combat. */
+  /**
+   * Permanent passive bonuses echoed from prior-era completed tech, keyed by
+   * departed era id (`{ ancient: { attack_bonus: 2 } }`). Pre-era-keyed saves
+   * store it flat (stat -> number); `repairLegacyGameState` wraps those under
+   * the decay-exempt `legacy` key (see `eraAdvancement/techEcho.ts`).
+   */
+  era_advancement_tech_echo?: Record<string, number> | Record<string, Record<string, number>>;
+  /** Era signature payoff charges keyed by signature_id, granted on arriving in an era. */
+  era_signature_charges?: Record<string, number>;
+  /**
+   * @deprecated Pre-spine saves only — migrated into
+   * `era_signature_charges.levy_of_knights` by `repairLegacyGameState`.
+   */
   medieval_signature_charges?: number;
   /** Set when advancing during attack phase — blocks further attacks this turn. */
   era_advanced_this_turn?: boolean;
@@ -275,6 +285,8 @@ export interface GameSettings {
   coaching_enabled?: boolean;
   /** Mid-match per-player era advancement (PoC: Ancient → Medieval). */
   era_advancement_enabled?: boolean;
+  /** Which spine from the registry governs this game (default 'poc'). */
+  era_advancement_spine_id?: string;
   era_advancement_conversion_ratio?: number;
   era_advancement_strength_step?: number;
   era_advancement_cost_step?: number;
@@ -452,6 +464,53 @@ export interface CoachingTip {
   body: string;
 }
 
+/** One readiness checklist item inside `AdvanceEraClientPreview`. */
+export interface AdvanceEraReadinessCheckView {
+  met: boolean;
+  current: number;
+  required: number;
+  label: string;
+}
+
+/**
+ * Server-computed era advancement status for the viewing player, attached to
+ * each `game:state` emit (transport-only — never persisted). The client
+ * renders this verbatim instead of mirroring gate math and tech-tier tables.
+ */
+export interface AdvanceEraClientPreview {
+  cost: number;
+  /** All server gates pass (gold, tech, stability, max era) — phase/turn checks stay client-side. */
+  can_advance: boolean;
+  error?: string;
+  current_era_index: number;
+  max_era_index: number;
+  current_era_id: EraId;
+  next_era_id: EraId;
+  stability?: number;
+  stability_gate?: number;
+  gate_mode: 'milestone' | 'percent';
+  readiness?: {
+    met: boolean;
+    mode: 'milestone' | 'percent';
+    error?: string;
+    tier1?: AdvanceEraReadinessCheckView;
+    tier2?: AdvanceEraReadinessCheckView;
+    buildings?: AdvanceEraReadinessCheckView;
+    percent?: { unlocked: number; required: number };
+  };
+}
+
+/**
+ * One step of an era advancement spine — the ordered sequence of rules eras a
+ * game climbs through. Resolved from the spine registry at game creation and
+ * snapshotted onto `GameState.era_spine` so in-flight games never see config drift.
+ */
+export interface EraSpineStep {
+  era_id: EraId;
+  /** Signature payoff granted on arriving in this era (dispatched by signature_id). */
+  signature_id?: string;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -496,6 +555,17 @@ export interface GameState {
    * game start; the human can still opt in/out via `settings.coaching_enabled`.
    */
   coaching_eligible?: boolean;
+  /**
+   * Era advancement spine snapshot taken at game creation (or synthesized by
+   * `repairLegacyGameState` for pre-spine saves). Present only when
+   * `settings.era_advancement_enabled`.
+   */
+  era_spine?: EraSpineStep[];
+  /**
+   * Viewer-scoped era advancement status, attached per-player at broadcast by
+   * `buildClientState`. Transport-only: never set on the authoritative state.
+   */
+  era_advancement_preview?: AdvanceEraClientPreview;
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;

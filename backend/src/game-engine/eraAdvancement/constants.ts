@@ -1,16 +1,15 @@
 import type { EraId, GameState, PlayerState } from '../../types';
+import { DEFAULT_ERA_SPINE_ID, getSpineEraIdAtIndex } from './spines';
 
-/** PoC advancement spine: Ancient → Medieval only. */
-export const ERA_ADVANCEMENT_SEQUENCE: EraId[] = ['ancient', 'medieval'];
-
-export function getEraIdForAdvancementIndex(index: number): EraId {
-  return ERA_ADVANCEMENT_SEQUENCE[index] ?? ERA_ADVANCEMENT_SEQUENCE[ERA_ADVANCEMENT_SEQUENCE.length - 1];
+/** Era id at `index` along the game's spine snapshot, clamped to the final step. */
+export function getEraIdForAdvancementIndex(state: GameState, index: number): EraId {
+  return getSpineEraIdAtIndex(state, index);
 }
 
 export function resolvePlayerEraId(state: GameState, player: PlayerState): EraId {
   if (!state.settings.era_advancement_enabled) return state.era;
   const idx = player.current_era_index ?? 0;
-  return getEraIdForAdvancementIndex(idx);
+  return getEraIdForAdvancementIndex(state, idx);
 }
 
 export function getPlayerEraIndex(state: GameState, playerId: string): number {
@@ -24,6 +23,7 @@ export const DEFAULT_ECONOMY_TECH_STARTING_GOLD = 4;
 
 export function getDefaultEraAdvancementSettings(): {
   era_advancement_enabled: false;
+  era_advancement_spine_id: string;
   era_advancement_conversion_ratio: number;
   era_advancement_strength_step: number;
   era_advancement_cost_step: number;
@@ -42,6 +42,7 @@ export function getDefaultEraAdvancementSettings(): {
 } {
   return {
     era_advancement_enabled: false,
+    era_advancement_spine_id: DEFAULT_ERA_SPINE_ID,
     era_advancement_conversion_ratio: 0.7,
     era_advancement_strength_step: 1.4,
     era_advancement_cost_step: 1.25,

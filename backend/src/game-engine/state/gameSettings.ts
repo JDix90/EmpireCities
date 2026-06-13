@@ -4,6 +4,7 @@ import {
   DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
   getDefaultEraAdvancementSettings,
 } from '../eraAdvancement/constants';
+import { isValidSpineId } from '../eraAdvancement/spines';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
@@ -129,6 +130,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     territory_selection: territorySelection || undefined,
     coaching_enabled: coachingEnabled || undefined,
     era_advancement_enabled: eraAdvancementEnabled || undefined,
+    era_advancement_spine_id: eraAdvancementEnabled
+      ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)
+      : undefined,
     era_advancement_conversion_ratio: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
       : undefined,

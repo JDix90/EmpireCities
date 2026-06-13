@@ -1,12 +1,10 @@
-import type { GameState, PlayerState } from '../../types';
-import { getEraTechTree } from '../eras';
+import type { AdvanceEraClientPreview, GameState, PlayerState } from '../../types';
 import { getEmpireWeightedStability } from '../state/stabilityManager';
-import {
-  ERA_ADVANCEMENT_SEQUENCE,
-  getEraIdForAdvancementIndex,
-  resolvePlayerEraId,
-} from './constants';
-import { evaluateEraAdvancementReadiness } from './eraAdvancementReadiness';
+import { getEraIdForAdvancementIndex, resolvePlayerEraId } from './constants';
+import { evaluateEraAdvancementReadiness, resolveTechGateMode } from './eraAdvancementReadiness';
+import { grantEraSignature } from './signatures';
+import { getMaxEraIndex, getStateSpineSteps } from './spines';
+import { captureTechEcho, storeTechEcho } from './techEcho';
 
 export interface AdvanceEraGateResult {
   canAdvance: boolean;
@@ -20,26 +18,6 @@ export function computeAdvanceCost(state: GameState, player: PlayerState): numbe
   const escalation = state.settings.era_advancement_cost_escalation ?? 1.5;
   const income = player.last_turn_production_income ?? 0;
   return Math.ceil(income * mult * escalation ** fromIndex);
-}
-
-function captureTechEcho(state: GameState, player: PlayerState): Record<string, number> {
-  const departingEra = resolvePlayerEraId(state, player);
-  const tree = getEraTechTree(departingEra);
-  const unlocked = player.unlocked_techs ?? [];
-  const echo: Record<string, number> = {};
-
-  for (const techId of unlocked) {
-    const node = tree.find((n) => n.tech_id === techId);
-    if (!node) continue;
-    if (node.attack_bonus) echo.attack_bonus = (echo.attack_bonus ?? 0) + node.attack_bonus;
-    if (node.defense_bonus) echo.defense_bonus = (echo.defense_bonus ?? 0) + node.defense_bonus;
-    if (node.reinforce_bonus) echo.reinforce_bonus = (echo.reinforce_bonus ?? 0) + node.reinforce_bonus;
-    if (node.tech_point_income) {
-      echo.tech_point_income = (echo.tech_point_income ?? 0) + node.tech_point_income;
-    }
-  }
-
-  return echo;
 }
 
 function distributeConvertedUnits(
@@ -86,7 +64,7 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return { canAdvance: false, error: 'Player not found' };
   if (player.is_eliminated) return { canAdvance: false, error: 'Eliminated players cannot advance' };
-  const maxIndex = state.settings.era_advancement_max_era_index ?? 1;
+  const maxIndex = getMaxEraIndex(state);
   const currentIndex = player.current_era_index ?? 0;
   if (currentIndex >= maxIndex) {
     return { canAdvance: false, error: 'Already at the maximum era for this match' };
@@ -138,20 +116,17 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
     state.territories[territory_id].unit_count = unit_count;
   }
 
-  const departingEcho = captureTechEcho(state, player);
-  player.era_advancement_tech_echo = {
-    ...(player.era_advancement_tech_echo ?? {}),
-    ...departingEcho,
-  };
+  const departingEraId = resolvePlayerEraId(state, player);
+  storeTechEcho(player, departingEraId, captureTechEcho(state, player));
   player.unlocked_techs = [];
 
   const nextIndex = (player.current_era_index ?? 0) + 1;
   player.current_era_index = nextIndex;
   player.era_transition_turns_remaining = state.settings.era_advancement_vuln_turns ?? 1;
 
-  const nextEraId = getEraIdForAdvancementIndex(nextIndex);
-  if (nextEraId === 'medieval') {
-    player.medieval_signature_charges = (player.medieval_signature_charges ?? 0) + 1;
+  const arrivalStep = getStateSpineSteps(state)[nextIndex];
+  if (arrivalStep?.signature_id) {
+    grantEraSignature(player, arrivalStep.signature_id);
   }
 
   if (state.phase === 'attack') {
@@ -174,10 +149,7 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
   const gate = canAdvanceEra(state, playerId);
   const player = state.players.find((p) => p.player_id === playerId);
   const currentIndex = player?.current_era_index ?? 0;
-  const nextIndex = Math.min(
-    currentIndex + 1,
-    state.settings.era_advancement_max_era_index ?? ERA_ADVANCEMENT_SEQUENCE.length - 1,
-  );
+  const nextIndex = Math.min(currentIndex + 1, getMaxEraIndex(state));
 
   let techProgress: { unlocked: number; required: number } | undefined;
   let readiness: ReturnType<typeof evaluateEraAdvancementReadiness> | undefined;
@@ -193,11 +165,45 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
     error: gate.error,
     cost: gate.cost ?? (player ? computeAdvanceCost(state, player) : 0),
     currentEraIndex: currentIndex,
-    nextEraId: getEraIdForAdvancementIndex(nextIndex),
+    nextEraId: getEraIdForAdvancementIndex(state, nextIndex),
     stability: state.settings.stability_enabled && player
       ? getEmpireWeightedStability(state, playerId)
       : undefined,
     techProgress,
     readiness,
+  };
+}
+
+/**
+ * Viewer-facing era advancement status attached to each `game:state` emit.
+ * The single source of truth for the client's Advance Era panel — the
+ * frontend renders these numbers verbatim instead of mirroring gate math.
+ */
+export function buildAdvanceEraClientPreview(
+  state: GameState,
+  playerId: string,
+): AdvanceEraClientPreview | null {
+  if (!state.settings.era_advancement_enabled) return null;
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return null;
+
+  const preview = getAdvanceEraPreview(state, playerId);
+  return {
+    cost: preview.cost,
+    can_advance: preview.canAdvance,
+    error: preview.error,
+    current_era_index: preview.currentEraIndex,
+    max_era_index: getMaxEraIndex(state),
+    current_era_id: getEraIdForAdvancementIndex(state, preview.currentEraIndex),
+    next_era_id: getEraIdForAdvancementIndex(
+      state,
+      Math.min(preview.currentEraIndex + 1, getMaxEraIndex(state)),
+    ),
+    stability: preview.stability,
+    stability_gate: state.settings.stability_enabled
+      ? (state.settings.era_advancement_stability_gate ?? 60)
+      : undefined,
+    gate_mode: resolveTechGateMode(state),
+    readiness: preview.readiness,
   };
 }

@@ -24,6 +24,8 @@ import {
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
+import { getSpineById } from '../eraAdvancement/spines';
+import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
@@ -266,7 +268,7 @@ export function initializeGameState(
     era_transition_turns_remaining: settingsNorm.era_advancement_enabled ? 0 : undefined,
     last_turn_production_income: settingsNorm.era_advancement_enabled ? 0 : undefined,
     era_advancement_tech_echo: settingsNorm.era_advancement_enabled ? {} : undefined,
-    medieval_signature_charges: settingsNorm.era_advancement_enabled ? 0 : undefined,
+    era_signature_charges: settingsNorm.era_advancement_enabled ? {} : undefined,
   }));
 
   // Initialize buildings array on territories when economy is enabled
@@ -305,6 +307,9 @@ export function initializeGameState(
     draft_placements_this_turn: {},
     turn_started_at: Date.now(),
     win_probability_history: [],
+    era_spine: settingsNorm.era_advancement_enabled
+      ? getSpineById(settingsNorm.era_advancement_spine_id).steps
+      : undefined,
     era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
     fortify_moves_used: 0,
     influence_cooldown_remaining: 0,
@@ -417,6 +422,29 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
   // Patch era_modifiers to ensure new eras have defaults applied
   if (!state.era_modifiers && state.era) {
     state.era_modifiers = { ...(ERA_DEFAULTS[state.era] ?? {}) };
+  }
+  // Era advancement: synthesize the spine snapshot for pre-spine saves and
+  // migrate the legacy medieval charge field into the generalized store.
+  // Idempotent — the legacy field is deleted once migrated.
+  if (state.settings.era_advancement_enabled) {
+    if (!state.era_spine || state.era_spine.length === 0) {
+      state.era_spine = getSpineById(state.settings.era_advancement_spine_id).steps;
+    }
+    for (const p of state.players) {
+      if (p.medieval_signature_charges !== undefined) {
+        if (p.medieval_signature_charges > 0) {
+          p.era_signature_charges = {
+            ...(p.era_signature_charges ?? {}),
+            levy_of_knights:
+              (p.era_signature_charges?.levy_of_knights ?? 0) + p.medieval_signature_charges,
+          };
+        }
+        delete p.medieval_signature_charges;
+      }
+      if (p.era_signature_charges === undefined) p.era_signature_charges = {};
+      // Wrap pre-era-keyed flat echoes under the decay-exempt `legacy` key.
+      if (p.era_advancement_tech_echo) ensureEraKeyedEcho(p);
+    }
   }
   // Patch buildings field on territories
   if (state.settings.economy_enabled) {

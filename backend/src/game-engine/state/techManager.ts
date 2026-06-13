@@ -6,6 +6,7 @@ import type { EraId, GameState } from '../../types';
 import type { TechNode } from '../eras/types';
 import { getEraTechTree, getFactionById, getTechNodeById } from '../eras';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { getTechEchoBonus } from '../eraAdvancement/techEcho';
 import { getWonderTechCostMultiplier } from './wonderManager';
 
 function getPlayerTechEra(state: GameState, playerId: string): EraId {
@@ -119,10 +120,7 @@ export function getPlayerAttackBonus(state: GameState, playerId: string): number
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.attack_bonus ?? 0);
   }, 0);
-  const echo = state.settings.era_advancement_enabled
-    ? (player.era_advancement_tech_echo?.attack_bonus ?? 0)
-    : 0;
-  return fromTech + echo;
+  return fromTech + getTechEchoBonus(state, player, 'attack_bonus');
 }
 
 /**
@@ -138,10 +136,7 @@ export function getPlayerDefenseBonus(state: GameState, playerId: string): numbe
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.defense_bonus ?? 0);
   }, 0);
-  const echo = state.settings.era_advancement_enabled
-    ? (player.era_advancement_tech_echo?.defense_bonus ?? 0)
-    : 0;
-  return fromTech + echo;
+  return fromTech + getTechEchoBonus(state, player, 'defense_bonus');
 }
 
 /**
@@ -167,9 +162,7 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
       const node = tree.find((n) => n.tech_id === tid);
       return sum + (node?.reinforce_bonus ?? 0);
     }, 0);
-    if (state.settings.era_advancement_enabled) {
-      bonus += player.era_advancement_tech_echo?.reinforce_bonus ?? 0;
-    }
+    bonus += getTechEchoBonus(state, player, 'reinforce_bonus');
   }
 
   return bonus;
@@ -188,10 +181,7 @@ export function getPlayerTechPointIncome(state: GameState, playerId: string): nu
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.tech_point_income ?? 0);
   }, 0);
-  const echo = state.settings.era_advancement_enabled
-    ? (player.era_advancement_tech_echo?.tech_point_income ?? 0)
-    : 0;
-  return fromTech + echo;
+  return fromTech + getTechEchoBonus(state, player, 'tech_point_income');
 }
 
 /**

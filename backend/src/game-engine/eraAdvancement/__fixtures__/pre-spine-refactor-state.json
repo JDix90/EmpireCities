@@ -1,0 +1,586 @@
+{
+  "game_id": "legacy-ea-fixture",
+  "era": "ancient",
+  "map_id": "era_ancient",
+  "phase": "draft",
+  "current_player_index": 0,
+  "starting_player_index": 0,
+  "turn_number": 6,
+  "players": [
+    {
+      "player_id": "p1",
+      "player_index": 0,
+      "username": "Advancer",
+      "color": "#e74c3c",
+      "is_ai": false,
+      "is_eliminated": false,
+      "mmr": 1000,
+      "territory_count": 14,
+      "cards": [],
+      "capital_territory_id": null,
+      "secret_mission": null,
+      "tech_points": 5,
+      "special_resource": 80,
+      "unlocked_techs": [],
+      "ability_uses": {},
+      "current_era_index": 1,
+      "era_transition_turns_remaining": 1,
+      "last_turn_production_income": 10,
+      "era_advancement_tech_echo": {
+        "attack_bonus": 2
+      },
+      "medieval_signature_charges": 1
+    },
+    {
+      "player_id": "p2",
+      "player_index": 1,
+      "username": "Trailer",
+      "color": "#3498db",
+      "is_ai": true,
+      "is_eliminated": false,
+      "mmr": 1000,
+      "territory_count": 14,
+      "cards": [],
+      "capital_territory_id": null,
+      "secret_mission": null,
+      "tech_points": 5,
+      "special_resource": 7,
+      "unlocked_techs": [
+        "ancient_iron_weapons",
+        "ancient_granaries"
+      ],
+      "ability_uses": {},
+      "current_era_index": 0,
+      "era_transition_turns_remaining": 0,
+      "last_turn_production_income": 6,
+      "era_advancement_tech_echo": {},
+      "medieval_signature_charges": 0
+    }
+  ],
+  "territories": {
+    "britannia": {
+      "territory_id": "britannia",
+      "owner_id": "p1",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_west",
+      "buildings": [
+        "production_1"
+      ],
+      "stability": 80,
+      "population": 5
+    },
+    "gaul": {
+      "territory_id": "gaul",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_west",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "hispania": {
+      "territory_id": "hispania",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_west",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "italia": {
+      "territory_id": "italia",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_west",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "north_africa": {
+      "territory_id": "north_africa",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_west",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "greece": {
+      "territory_id": "greece",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_east",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "anatolia": {
+      "territory_id": "anatolia",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_east",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "levant": {
+      "territory_id": "levant",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_east",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "egypt": {
+      "territory_id": "egypt",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "roman_east",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "mesopotamia": {
+      "territory_id": "mesopotamia",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "parthia",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "persia": {
+      "territory_id": "persia",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "parthia",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "bactria": {
+      "territory_id": "bactria",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "parthia",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "arabia": {
+      "territory_id": "arabia",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "parthia",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "pontic_steppe": {
+      "territory_id": "pontic_steppe",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "steppe",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "central_steppe": {
+      "territory_id": "central_steppe",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "steppe",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "eastern_steppe": {
+      "territory_id": "eastern_steppe",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "steppe",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "northern_china": {
+      "territory_id": "northern_china",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "han_china",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "central_china": {
+      "territory_id": "central_china",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "han_china",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "southern_china": {
+      "territory_id": "southern_china",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "han_china",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "manchuria": {
+      "territory_id": "manchuria",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "han_china",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "kushan": {
+      "territory_id": "kushan",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "india",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "northern_india": {
+      "territory_id": "northern_india",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "india",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "southern_india": {
+      "territory_id": "southern_india",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "india",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "aksum": {
+      "territory_id": "aksum",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "africa",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "west_africa": {
+      "territory_id": "west_africa",
+      "owner_id": "p1",
+      "unit_count": 2,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "africa",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "central_africa": {
+      "territory_id": "central_africa",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "africa",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "germania": {
+      "territory_id": "germania",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "germanic",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    },
+    "sarmatia": {
+      "territory_id": "sarmatia",
+      "owner_id": "p2",
+      "unit_count": 3,
+      "unit_type": "infantry",
+      "world_id": "earth",
+      "region_id": "germanic",
+      "buildings": [],
+      "stability": 80,
+      "population": 5
+    }
+  },
+  "card_deck": [
+    {
+      "card_id": "72a39748-72ad-490b-8cdc-452351c269d5",
+      "territory_id": "central_steppe",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "843d9a8e-4aa0-41a3-b49e-d60fa15ed842",
+      "territory_id": "southern_india",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "978b37ac-7dd1-4e32-8de8-72b3f8a554bb",
+      "territory_id": "bactria",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "fca4d05a-0160-44e8-a61d-fa2b7ef64d42",
+      "territory_id": "pontic_steppe",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "e887fb4f-fb7a-4df8-9b92-fde7ae2a22e9",
+      "territory_id": "central_china",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "fcf7bd8a-4b60-46dc-bfdf-c023b744a6da",
+      "territory_id": null,
+      "symbol": "wild"
+    },
+    {
+      "card_id": "0700bcfa-fe19-42fd-8b10-b0e11d39fc5c",
+      "territory_id": "mesopotamia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "bb28365f-9dca-4d02-bd7c-0c9ab025d6ea",
+      "territory_id": "west_africa",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "57ffa31f-6419-4100-8268-e5dcbd8a1701",
+      "territory_id": "germania",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "22ff584c-d712-425d-a494-0268c2a58b62",
+      "territory_id": "gaul",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "7fbd97f1-2b82-4fc3-b6a2-f835bef2136c",
+      "territory_id": "levant",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "c66a13f3-1eec-4845-9077-eacc209dce76",
+      "territory_id": "persia",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "be206e29-451c-4029-976e-ec16a7547608",
+      "territory_id": "anatolia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "a537818a-d36c-4684-84f5-00eacf2308f3",
+      "territory_id": "kushan",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "2e33e83f-c6c3-4df8-b1e7-aedc213c391f",
+      "territory_id": "britannia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "5541d443-8475-4668-a089-233dd8f133bf",
+      "territory_id": "egypt",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "0b56a6f4-3f27-4efe-b16e-6cd11bfcdc1d",
+      "territory_id": null,
+      "symbol": "wild"
+    },
+    {
+      "card_id": "ed493d68-5c51-46e1-be19-8ee20478e07f",
+      "territory_id": "manchuria",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "edd91b59-4eba-42f0-8991-029c6b0be007",
+      "territory_id": "hispania",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "dc7606be-005b-44ec-8aad-bcf6c5b71f51",
+      "territory_id": "central_africa",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "e93ec34c-b071-4c78-b542-75584ec794f5",
+      "territory_id": "greece",
+      "symbol": "artillery"
+    },
+    {
+      "card_id": "cc5e9777-75c1-4724-a868-900fd88d820a",
+      "territory_id": "southern_china",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "a8855e18-d49b-44a5-9df2-b044565b41e5",
+      "territory_id": "italia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "1a97da1c-a0b3-4ca2-9497-c4692933f843",
+      "territory_id": "northern_china",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "04fc126a-b4a0-4905-b27c-fdc0618297de",
+      "territory_id": "north_africa",
+      "symbol": "cavalry"
+    },
+    {
+      "card_id": "d97ace75-4eac-418b-944d-b2650bef4970",
+      "territory_id": "arabia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "d1b84b81-1dd7-40f7-8db3-ce877d0f512a",
+      "territory_id": "eastern_steppe",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "1ae52c38-58c3-42e2-8b39-4810ce56e01e",
+      "territory_id": "sarmatia",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "db5caebc-5474-46c7-8245-61d115d188c9",
+      "territory_id": "northern_india",
+      "symbol": "infantry"
+    },
+    {
+      "card_id": "bc7beef4-a565-46ba-89be-77b51fd51d25",
+      "territory_id": "aksum",
+      "symbol": "artillery"
+    }
+  ],
+  "card_set_redemption_count": 0,
+  "diplomacy": [
+    {
+      "player_index_a": 0,
+      "player_index_b": 1,
+      "status": "neutral",
+      "truce_turns_remaining": 0
+    }
+  ],
+  "settings": {
+    "fog_of_war": false,
+    "victory_type": "domination",
+    "allowed_victory_conditions": [
+      "domination"
+    ],
+    "max_turns": null,
+    "turn_timer_seconds": 0,
+    "initial_unit_count": 3,
+    "card_set_escalating": true,
+    "diplomacy_enabled": false,
+    "economy_enabled": true,
+    "tech_trees_enabled": true,
+    "economy_tech_starting_tech_points": 3,
+    "economy_tech_starting_gold": 4,
+    "stability_enabled": true,
+    "era_advancement_enabled": true,
+    "era_advancement_conversion_ratio": 0.7,
+    "era_advancement_strength_step": 1.4,
+    "era_advancement_cost_step": 1.25,
+    "era_advancement_cost_mult": 2,
+    "era_advancement_cost_escalation": 1.5,
+    "era_advancement_stability_gate": 60,
+    "era_advancement_tech_gate_pct": 0.33,
+    "era_advancement_tech_gate_mode": "milestone",
+    "era_advancement_min_tier1_techs": 3,
+    "era_advancement_min_tier2_techs": 1,
+    "era_advancement_min_buildings": 1,
+    "era_advancement_vuln_defense_mult": 0.75,
+    "era_advancement_vuln_turns": 1,
+    "era_advancement_max_era_index": 1,
+    "era_advancement_combat_gap_dice": 1
+  },
+  "draft_units_remaining": 5,
+  "draft_placements_this_turn": {},
+  "turn_started_at": 1781304148955,
+  "win_probability_history": [
+    {
+      "step": 0,
+      "turn": 1,
+      "probabilities": {
+        "p1": 0.5,
+        "p2": 0.5
+      }
+    }
+  ],
+  "era_modifiers": {
+    "legion_reroll": true
+  },
+  "fortify_moves_used": 0,
+  "influence_cooldown_remaining": 0,
+  "blitzkrieg_attacked": false,
+  "mission_seed_salt": "85785d67bcf797b24ddb0dcd36effd04"
+}
