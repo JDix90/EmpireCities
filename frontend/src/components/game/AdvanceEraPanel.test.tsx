@@ -33,6 +33,25 @@ function state(overrides: Partial<GameState['settings']> = {}): GameState {
     players: [player()],
     territories: {},
     card_set_redemption_count: 0,
+    era_spine: [{ era_id: 'ancient' }, { era_id: 'medieval', signature_id: 'levy_of_knights' }],
+    // Gate math is server-authoritative: the panel renders the viewer-scoped
+    // preview the backend attaches to each game:state payload.
+    era_advancement_preview: {
+      cost: 10,
+      can_advance: false,
+      current_era_index: 0,
+      max_era_index: 1,
+      current_era_id: 'ancient',
+      next_era_id: 'medieval',
+      gate_mode: 'milestone',
+      readiness: {
+        met: false,
+        mode: 'milestone',
+        tier1: { met: false, current: 0, required: 3, label: 'tier-1 technologies' },
+        tier2: { met: false, current: 0, required: 1, label: 'tier-2 technologies' },
+        buildings: { met: false, current: 0, required: 1, label: 'buildings' },
+      },
+    },
     settings: {
       fog_of_war: false,
       turn_timer_seconds: 0,

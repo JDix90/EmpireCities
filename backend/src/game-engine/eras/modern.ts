@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const MODERN_FACTIONS: Faction[] = [
   {
     faction_id: 'western_power',
+    lineage_id: 'expansionist',
     name: 'Western Bloc',
     description: 'Precision warfare — precision_strike is always active; +1 defense die from advanced body armor.',
     lore: 'Satellite eyes, expeditionary logistics, and precision doctrine define a bloc that wins by seeing and striking first.',
@@ -18,6 +19,7 @@ export const MODERN_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'eastern_bloc',
+    lineage_id: 'imperial',
     name: 'Eastern Coalition',
     description: 'Armored mass — +2 reinforcements per turn; tanks let you move 2 extra units in fortify.',
     lore: 'Centralized command and armored depth give the coalition raw staying power once the battlefield hardens into fronts.',
@@ -30,6 +32,7 @@ export const MODERN_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'rogue_state',
+    lineage_id: 'bastion',
     name: 'Rogue State',
     description: 'Asymmetric tactics — +1 defense die and immune to precision_strike attacker bonus.',
     lore: 'Sanctioned, isolated, and unpredictable, the Rogue State survives by turning every invasion into a trap of attrition and ambiguity.',
@@ -42,6 +45,7 @@ export const MODERN_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'emerging_power',
+    lineage_id: 'mercantile',
     name: 'Emerging Economy',
     description: 'Rapid industrialization — earn 2 extra production units per turn from every territory with a production building.',
     lore: 'Factories, ports, and swelling cities let the Emerging Power convert growth itself into strategic momentum.',
@@ -54,6 +58,7 @@ export const MODERN_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'petro_state',
+    lineage_id: 'maritime',
     name: 'Petrostate',
     description: 'Oil wealth — +3 tech points per turn; can buy an extra reinforcement for every 3 owned resource territories.',
     lore: 'Energy rents and patronage networks give the Petrostate immense bursts of leverage so long as the wells stay secure.',
@@ -65,6 +70,7 @@ export const MODERN_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'cyber_power',
+    lineage_id: 'insurgent',
     name: 'Cyber State',
     description: 'Digital warfare — once per turn, sabotage an adjacent enemy territory (remove 1 unit before combat).',
     lore: 'A state built on code, surveillance, and disruption, it weakens enemies by corrupting the systems that coordinate them.',

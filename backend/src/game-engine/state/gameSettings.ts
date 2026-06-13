@@ -4,11 +4,13 @@ import {
   DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
   getDefaultEraAdvancementSettings,
 } from '../eraAdvancement/constants';
+import { isValidSpineId } from '../eraAdvancement/spines';
+import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
-const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
+const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold', 'transcendence'];
 
-const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree'] as const;
+const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'] as const;
 
 function isVictoryType(v: unknown): v is VictoryType {
   return typeof v === 'string' && (VICTORY_TYPES as readonly string[]).includes(v);
@@ -45,6 +47,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
     : eraDefaults.era_advancement_enabled;
+  // Resolve a lobby preset into concrete era settings (explicit knobs still win)
+  // before normalizing, so the rest of the function reads the merged values.
+  if (eraAdvancementEnabled) {
+    raw = applyEraAdvancementPreset(raw);
+  }
+  const eraPreset = isEraAdvancementPreset(raw.era_advancement_preset)
+    ? raw.era_advancement_preset
+    : undefined;
   const numSetting = (value: unknown, fallback: number) =>
     typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
@@ -129,6 +139,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     territory_selection: territorySelection || undefined,
     coaching_enabled: coachingEnabled || undefined,
     era_advancement_enabled: eraAdvancementEnabled || undefined,
+    era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
+    era_advancement_spine_id: eraAdvancementEnabled
+      ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)
+      : undefined,
     era_advancement_conversion_ratio: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
       : undefined,
@@ -143,6 +157,12 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     era_advancement_cost_escalation: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_cost_escalation, eraDefaults.era_advancement_cost_escalation)
+      : undefined,
+    era_advancement_cost_escalation_cap: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_escalation_cap, eraDefaults.era_advancement_cost_escalation_cap)
+      : undefined,
+    era_advancement_cost_income_floor: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_income_floor, eraDefaults.era_advancement_cost_income_floor)
       : undefined,
     era_advancement_stability_gate: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_stability_gate, eraDefaults.era_advancement_stability_gate)
@@ -159,6 +179,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_min_tier2_techs: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_min_tier2_techs, eraDefaults.era_advancement_min_tier2_techs)
       : undefined,
+    era_advancement_min_tier3_techs: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_min_tier3_techs, eraDefaults.era_advancement_min_tier3_techs)
+      : undefined,
     era_advancement_min_buildings: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_min_buildings, eraDefaults.era_advancement_min_buildings)
       : undefined,
@@ -168,11 +191,35 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_vuln_turns: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_vuln_turns, eraDefaults.era_advancement_vuln_turns)
       : undefined,
-    era_advancement_max_era_index: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_max_era_index, eraDefaults.era_advancement_max_era_index)
+    // Left undefined unless explicitly capped: getMaxEraIndex then bounds it by
+    // the resolved spine length, so the classic spine reaches Modern while the
+    // PoC spine stays at Medieval. Legacy saves carry an explicit 1.
+    era_advancement_max_era_index: eraAdvancementEnabled && typeof raw.era_advancement_max_era_index === 'number'
+      ? raw.era_advancement_max_era_index
       : undefined,
     era_advancement_combat_gap_dice: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_combat_gap_dice, eraDefaults.era_advancement_combat_gap_dice)
+      : undefined,
+    era_advancement_catchup_discount: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_catchup_discount, eraDefaults.era_advancement_catchup_discount)
+      : undefined,
+    era_advancement_catchup_discount_floor: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_catchup_discount_floor, eraDefaults.era_advancement_catchup_discount_floor)
+      : undefined,
+    era_advancement_echo_decay: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_decay, eraDefaults.era_advancement_echo_decay)
+      : undefined,
+    era_advancement_echo_cap_attack: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_attack, eraDefaults.era_advancement_echo_cap_attack)
+      : undefined,
+    era_advancement_echo_cap_defense: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_defense, eraDefaults.era_advancement_echo_cap_defense)
+      : undefined,
+    era_advancement_echo_cap_reinforce: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_reinforce, eraDefaults.era_advancement_echo_cap_reinforce)
+      : undefined,
+    era_advancement_echo_cap_tech: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_tech, eraDefaults.era_advancement_echo_cap_tech)
       : undefined,
   };
 

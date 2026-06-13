@@ -24,6 +24,9 @@ import {
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
+import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
+import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
+import { migrateAdvancedFactions } from '../eras/factionLineage';
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
@@ -266,7 +269,7 @@ export function initializeGameState(
     era_transition_turns_remaining: settingsNorm.era_advancement_enabled ? 0 : undefined,
     last_turn_production_income: settingsNorm.era_advancement_enabled ? 0 : undefined,
     era_advancement_tech_echo: settingsNorm.era_advancement_enabled ? {} : undefined,
-    medieval_signature_charges: settingsNorm.era_advancement_enabled ? 0 : undefined,
+    era_signature_charges: settingsNorm.era_advancement_enabled ? {} : undefined,
   }));
 
   // Initialize buildings array on territories when economy is enabled
@@ -305,6 +308,9 @@ export function initializeGameState(
     draft_placements_this_turn: {},
     turn_started_at: Date.now(),
     win_probability_history: [],
+    era_spine: settingsNorm.era_advancement_enabled
+      ? getSpineById(settingsNorm.era_advancement_spine_id).steps
+      : undefined,
     era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
     fortify_moves_used: 0,
     influence_cooldown_remaining: 0,
@@ -417,6 +423,32 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
   // Patch era_modifiers to ensure new eras have defaults applied
   if (!state.era_modifiers && state.era) {
     state.era_modifiers = { ...(ERA_DEFAULTS[state.era] ?? {}) };
+  }
+  // Era advancement: synthesize the spine snapshot for pre-spine saves and
+  // migrate the legacy medieval charge field into the generalized store.
+  // Idempotent — the legacy field is deleted once migrated.
+  if (state.settings.era_advancement_enabled) {
+    if (!state.era_spine || state.era_spine.length === 0) {
+      state.era_spine = getSpineById(state.settings.era_advancement_spine_id).steps;
+    }
+    for (const p of state.players) {
+      if (p.medieval_signature_charges !== undefined) {
+        if (p.medieval_signature_charges > 0) {
+          p.era_signature_charges = {
+            ...(p.era_signature_charges ?? {}),
+            levy_of_knights:
+              (p.era_signature_charges?.levy_of_knights ?? 0) + p.medieval_signature_charges,
+          };
+        }
+        delete p.medieval_signature_charges;
+      }
+      if (p.era_signature_charges === undefined) p.era_signature_charges = {};
+      // Wrap pre-era-keyed flat echoes under the decay-exempt `legacy` key.
+      if (p.era_advancement_tech_echo) ensureEraKeyedEcho(p);
+    }
+    // Remap advanced players still holding a base-era faction_id onto their
+    // lineage's current-era faction (pre-lineage saves).
+    migrateAdvancedFactions(state);
   }
   // Patch buildings field on territories
   if (state.settings.economy_enabled) {
@@ -606,8 +638,11 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
 
   const nextPlayer = state.players[next];
+  // Tick down the post-advance vulnerability window at the start of the
+  // advancer's turn. Decrement (not zero) so era_advancement_vuln_turns > 1
+  // genuinely lasts multiple turns.
   if (state.settings.era_advancement_enabled && (nextPlayer.era_transition_turns_remaining ?? 0) > 0) {
-    nextPlayer.era_transition_turns_remaining = 0;
+    nextPlayer.era_transition_turns_remaining = Math.max(0, (nextPlayer.era_transition_turns_remaining ?? 0) - 1);
   }
   if (map) {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
@@ -925,6 +960,22 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
 
     if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {
       if (player.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, player)) condition = 'secret_mission';
+    }
+
+    // Transcendence (opt-in, era-advancement only): reach the final era of the
+    // spine AND hold a wonder — converting a tech/era lead into an alternate win
+    // without a full conquest. "A wonder" is era-agnostic (any wonder_* building
+    // the player owns) since the base-era wonder helper wouldn't track later eras.
+    if (
+      condition == null
+      && allowed.includes('transcendence')
+      && settings.era_advancement_enabled
+      && (player.current_era_index ?? 0) >= getMaxEraIndex(state)
+      && Object.values(state.territories).some(
+        (t) => t.owner_id === player.player_id && (t.buildings ?? []).some((b) => b.startsWith('wonder_')),
+      )
+    ) {
+      condition = 'transcendence';
     }
 
     if (condition != null) winners.push({ winnerIds: [player.player_id], condition });

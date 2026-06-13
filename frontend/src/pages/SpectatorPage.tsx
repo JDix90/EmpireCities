@@ -39,7 +39,6 @@ import {
   computeContestedBorders,
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
-import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
 import { resolveConnectionHintMode } from '../utils/connectionHints';
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 
@@ -99,7 +98,7 @@ export default function SpectatorPage() {
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
   const seenEraAdvanceVisualsRef = useRef(new Set<string>());
-  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; label: string } | null>(null);
+  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; eraId?: string } | null>(null);
   const [mapView, setMapView] = useState<'2d' | 'globe'>('globe');
   const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
   const [focusedWorldId, setFocusedWorldId] = useState('earth');
@@ -152,7 +151,7 @@ export default function SpectatorPage() {
     for (const ev of mapVisualEvents) {
       if (ev.kind !== 'era_advance' || seenEraAdvanceVisualsRef.current.has(ev.id)) continue;
       seenEraAdvanceVisualsRef.current.add(ev.id);
-      setEraAdvanceVignette({ key: Date.now(), label: eraAdvanceDisplayName(ev.variant) });
+      setEraAdvanceVignette({ key: Date.now(), eraId: ev.variant });
     }
   }, [mapVisualEvents]);
 
@@ -439,7 +438,7 @@ export default function SpectatorPage() {
             <EraAdvanceVignette
               key={eraAdvanceVignette.key}
               active
-              eraLabel={eraAdvanceVignette.label}
+              eraId={eraAdvanceVignette.eraId}
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}

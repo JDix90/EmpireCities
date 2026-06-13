@@ -19,7 +19,7 @@ import { getPlayerEraIndex } from '../eraAdvancement/constants';
 import { getBuildingDefenseBonus, getSeaDefenseBonus } from '../state/economyManager';
 import { getPlayerAttackBonus, getPlayerDefenseBonus } from '../state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice } from '../state/wonderManager';
-import { getEraFactions } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import {
   attackerIgnoresDefenseBuilding,
@@ -56,6 +56,18 @@ function sumBonuses(bonuses?: Record<string, number>): number {
   let total = 0;
   for (const value of Object.values(bonuses)) total += value;
   return total;
+}
+
+/**
+ * EA-203: the era-gap combat bonus is capped at one era step in each direction.
+ * Being 3 eras ahead grants the same dice as being 1 ahead, so a runaway leader
+ * can't compound an era lead into an unbounded dice advantage. Returns the
+ * signed, clamped gap (positive = attacker ahead).
+ */
+const MAX_ERA_GAP_STEPS = 1;
+function clampedEraGap(state: GameState, attackerId: string, defenderId: string): number {
+  const gap = getPlayerEraIndex(state, attackerId) - getPlayerEraIndex(state, defenderId);
+  return Math.max(-MAX_ERA_GAP_STEPS, Math.min(MAX_ERA_GAP_STEPS, gap));
 }
 
 /**
@@ -118,7 +130,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const defenderFaction = state.settings.factions_enabled
     ? (() => {
         const dp = state.players.find((p) => p.player_id === defenderId);
-        return dp?.faction_id ? getEraFactions(state.era).find((f) => f.faction_id === dp.faction_id) : undefined;
+        return dp ? getPlayerFaction(state, dp) : undefined;
       })()
     : undefined;
   const factionDefenseBonus = defenderFaction?.passive_defense_bonus ?? 0;
@@ -135,10 +147,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     : undefined;
   let eraGapDefenseBonus = 0;
   if (state.settings.era_advancement_enabled && defenderId) {
-    const attackerIndex = getPlayerEraIndex(state, attackerId);
-    const defenderIndex = getPlayerEraIndex(state, defenderId);
     const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
-    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    const effectiveGap = clampedEraGap(state, attackerId, defenderId);
     eraGapDefenseBonus = Math.max(0, -effectiveGap) * gapDice;
   }
 
@@ -176,8 +186,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
 
   // ── Attacker dice ──────────────────────────────────────────────────────────
   const attackerPlayer = state.players.find((p) => p.player_id === attackerId);
-  const attackerFaction = state.settings.factions_enabled && attackerPlayer?.faction_id
-    ? getEraFactions(state.era).find((f) => f.faction_id === attackerPlayer.faction_id)
+  const attackerFaction = state.settings.factions_enabled && attackerPlayer
+    ? getPlayerFaction(state, attackerPlayer)
     : undefined;
 
   // Structural override: Modern precision strike (3 dice) or Discovery sea-lane cap.
@@ -209,10 +219,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, attackerId, defendingUnits);
   let eraGapAttackBonus = 0;
   if (state.settings.era_advancement_enabled && defenderId) {
-    const attackerIndex = getPlayerEraIndex(state, attackerId);
-    const defenderIndex = getPlayerEraIndex(state, defenderId);
     const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
-    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    const effectiveGap = clampedEraGap(state, attackerId, defenderId);
     eraGapAttackBonus = Math.max(0, effectiveGap) * gapDice;
   }
   const extraAttackTotal = sumBonuses(extraAttackBonuses);

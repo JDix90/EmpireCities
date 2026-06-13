@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const WW2_FACTIONS: Faction[] = [
   {
     faction_id: 'germany',
+    lineage_id: 'imperial',
     name: 'Third Reich',
     description: 'Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.',
     lore: 'A mechanized war machine built on shock and tempo, Germany seeks to collapse fronts before attrition can catch up.',
@@ -16,6 +17,7 @@ export const WW2_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'soviet_union',
+    lineage_id: 'insurgent',
     name: 'Soviet Union',
     description: 'Vast reserves — +2 reinforcements per turn; wartime_logistics allows 3 fortify moves.',
     lore: 'Factories beyond the Urals and endless manpower let the Soviet state trade land for time and return with crushing mass.',
@@ -28,6 +30,7 @@ export const WW2_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'usa',
+    lineage_id: 'mercantile',
     name: 'United States',
     description: 'Industrial supremacy — +1 production unit from every owned territory per turn.',
     lore: 'Protected by oceans and powered by industry, the United States converts economic depth into global military reach.',
@@ -40,6 +43,7 @@ export const WW2_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'uk',
+    lineage_id: 'maritime',
     name: 'United Kingdom',
     description: 'Island fortress and global empire — +1 defense die; sea-lane fortify is free.',
     lore: 'Britain survives through naval control, imperial links, and the stubborn advantage of making every approach expensive.',
@@ -53,6 +57,7 @@ export const WW2_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'japan',
+    lineage_id: 'expansionist',
     name: 'Imperial Japan',
     description: 'Pacific supremacy — sea-lane attacks use 3 dice; +1 attack die in Pacific or Asia regions.',
     lore: 'Fast carrier warfare and aggressive expansion define Japan at its peak, where initiative matters more than margin for error.',
@@ -65,6 +70,7 @@ export const WW2_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'china_ww2',
+    lineage_id: 'bastion',
     name: 'Chinese Nationalists',
     description: 'Guerrilla resistance — +1 defense die; can spend production to place hidden reserve units.',
     lore: 'Fighting across fractured provinces, Chinese resistance depends on endurance, local knowledge, and refusing decisive collapse.',

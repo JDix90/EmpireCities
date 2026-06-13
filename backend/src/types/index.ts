@@ -15,7 +15,7 @@ export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccess
 
 export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
-export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
+export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -31,7 +31,9 @@ export type SecretMission =
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_player'; target_player_id: string }
   | { kind: 'control_regions'; region_ids: string[] }
-  | { kind: 'alliance'; ally_player_id: string; territory_threshold: number };
+  | { kind: 'alliance'; ally_player_id: string; territory_threshold: number }
+  /** Era-advancement mode: climb to the target era. era_id is the resolved era for display. */
+  | { kind: 'reach_era'; era_index: number; era_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -198,9 +200,21 @@ export interface PlayerState {
   era_transition_turns_remaining?: number;
   /** Gross production income from the prior economy tick (advancement cost basis). */
   last_turn_production_income?: number;
-  /** Permanent passive bonuses echoed from prior-era completed tech. */
-  era_advancement_tech_echo?: Record<string, number>;
-  /** PoC signature payoff: +1 attack die on next land combat. */
+  /**
+   * Permanent passive bonuses echoed from prior-era completed tech, keyed by
+   * departed era id (`{ ancient: { attack_bonus: 2 } }`). Pre-era-keyed saves
+   * store it flat (stat -> number); `repairLegacyGameState` wraps those under
+   * the decay-exempt `legacy` key (see `eraAdvancement/techEcho.ts`).
+   */
+  era_advancement_tech_echo?: Record<string, number> | Record<string, Record<string, number>>;
+  /** Era signature payoff charges keyed by signature_id, granted on arriving in an era. */
+  era_signature_charges?: Record<string, number>;
+  /** Faction lineage archetype, set on advance so faction_id can remap across eras. */
+  faction_lineage_id?: string;
+  /**
+   * @deprecated Pre-spine saves only — migrated into
+   * `era_signature_charges.levy_of_knights` by `repairLegacyGameState`.
+   */
   medieval_signature_charges?: number;
   /** Set when advancing during attack phase — blocks further attacks this turn. */
   era_advanced_this_turn?: boolean;
@@ -239,7 +253,7 @@ export interface GameSettings {
   tutorial?: boolean;
   tutorial_step?: number;
   /** Active lesson pack when `tutorial` is true (core, advanced_settings, faction_ability, tech_tree). */
-  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree';
+  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
   tutorial_grant_tech_points?: number;
   /** True after Settings Lab choices are applied in the advanced_settings lesson. */
@@ -275,21 +289,41 @@ export interface GameSettings {
   coaching_enabled?: boolean;
   /** Mid-match per-player era advancement (PoC: Ancient → Medieval). */
   era_advancement_enabled?: boolean;
+  /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
+  era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
+  /** Which spine from the registry governs this game (default 'poc'). */
+  era_advancement_spine_id?: string;
   era_advancement_conversion_ratio?: number;
   era_advancement_strength_step?: number;
   era_advancement_cost_step?: number;
   era_advancement_cost_mult?: number;
   era_advancement_cost_escalation?: number;
+  /** Cap on the escalation term (`min(escalation^index, cap)`) so late advances stay reachable. */
+  era_advancement_cost_escalation_cap?: number;
+  /** Income floor used in the cost basis — kills the "starve income before advancing" exploit. */
+  era_advancement_cost_income_floor?: number;
   era_advancement_stability_gate?: number;
   era_advancement_tech_gate_pct?: number;
   era_advancement_tech_gate_mode?: 'milestone' | 'percent';
   era_advancement_min_tier1_techs?: number;
   era_advancement_min_tier2_techs?: number;
+  /** Global fallback for the per-step tier-3 milestone requirement (default 0 = none). */
+  era_advancement_min_tier3_techs?: number;
   era_advancement_min_buildings?: number;
   era_advancement_vuln_defense_mult?: number;
   era_advancement_vuln_turns?: number;
   era_advancement_max_era_index?: number;
   era_advancement_combat_gap_dice?: number;
+  /** Per-era cost discount for trailing players (`discount^gap`, clamped to the floor). */
+  era_advancement_catchup_discount?: number;
+  era_advancement_catchup_discount_floor?: number;
+  /** Decay applied to each departed era's tech echo per era of distance (default 0.5). */
+  era_advancement_echo_decay?: number;
+  /** Per-stat caps on the (decayed) era-keyed echo total. Legacy echoes are exempt. */
+  era_advancement_echo_cap_attack?: number;
+  era_advancement_echo_cap_defense?: number;
+  era_advancement_echo_cap_reinforce?: number;
+  era_advancement_echo_cap_tech?: number;
   /** True when this game is part of a campaign sequence. */
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
@@ -452,6 +486,74 @@ export interface CoachingTip {
   body: string;
 }
 
+/** One readiness checklist item inside `AdvanceEraClientPreview`. */
+export interface AdvanceEraReadinessCheckView {
+  met: boolean;
+  current: number;
+  required: number;
+  label: string;
+}
+
+/**
+ * Server-computed era advancement status for the viewing player, attached to
+ * each `game:state` emit (transport-only — never persisted). The client
+ * renders this verbatim instead of mirroring gate math and tech-tier tables.
+ */
+export interface AdvanceEraClientPreview {
+  cost: number;
+  /** All server gates pass (gold, tech, stability, max era) — phase/turn checks stay client-side. */
+  can_advance: boolean;
+  error?: string;
+  current_era_index: number;
+  max_era_index: number;
+  current_era_id: EraId;
+  next_era_id: EraId;
+  stability?: number;
+  stability_gate?: number;
+  gate_mode: 'milestone' | 'percent';
+  /** Eras the player trails the match leader by (0 = leading/tied). Drives the catch-up badge. */
+  catchup_gap?: number;
+  /** Percentage knocked off the advance cost while catching up (omitted when 0). */
+  catchup_discount_pct?: number;
+  /** Signature payoff granted on arriving in the next era (omitted when the step has none). */
+  next_signature?: { id: string; name: string; description: string };
+  readiness?: {
+    met: boolean;
+    mode: 'milestone' | 'percent';
+    error?: string;
+    tier1?: AdvanceEraReadinessCheckView;
+    tier2?: AdvanceEraReadinessCheckView;
+    tier3?: AdvanceEraReadinessCheckView;
+    buildings?: AdvanceEraReadinessCheckView;
+    percent?: { unlocked: number; required: number };
+  };
+}
+
+/**
+ * Milestone tech/building requirements to advance out of an era. The global
+ * `era_advancement_min_*` settings are the defaults; a spine step may override
+ * any subset to make later transitions demand deeper tech.
+ */
+export interface EraMilestoneGate {
+  min_tier1_techs: number;
+  min_tier2_techs: number;
+  min_tier3_techs: number;
+  min_buildings: number;
+}
+
+/**
+ * One step of an era advancement spine — the ordered sequence of rules eras a
+ * game climbs through. Resolved from the spine registry at game creation and
+ * snapshotted onto `GameState.era_spine` so in-flight games never see config drift.
+ */
+export interface EraSpineStep {
+  era_id: EraId;
+  /** Signature payoff granted on arriving in this era (dispatched by signature_id). */
+  signature_id?: string;
+  /** Per-step overrides for the milestone gate to advance OUT of this era. */
+  gate_overrides?: Partial<EraMilestoneGate>;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -496,6 +598,17 @@ export interface GameState {
    * game start; the human can still opt in/out via `settings.coaching_enabled`.
    */
   coaching_eligible?: boolean;
+  /**
+   * Era advancement spine snapshot taken at game creation (or synthesized by
+   * `repairLegacyGameState` for pre-spine saves). Present only when
+   * `settings.era_advancement_enabled`.
+   */
+  era_spine?: EraSpineStep[];
+  /**
+   * Viewer-scoped era advancement status, attached per-player at broadcast by
+   * `buildClientState`. Transport-only: never set on the authoritative state.
+   */
+  era_advancement_preview?: AdvanceEraClientPreview;
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;

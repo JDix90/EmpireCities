@@ -126,4 +126,19 @@ describe('evaluateEraAdvancementReadiness', () => {
     });
     expect(evaluateEraAdvancementReadiness(state, 'human').met).toBe(true);
   });
+
+  it('omits the tier-3 check when no tier-3 is required', () => {
+    const result = evaluateEraAdvancementReadiness(baseState(), 'human');
+    expect(result.tier3).toBeUndefined();
+  });
+
+  it('surfaces a tier-3 requirement and blocks until it is met', () => {
+    const state = baseState({
+      settings: { ...baseState().settings, era_advancement_min_tier3_techs: 1 },
+    });
+    const result = evaluateEraAdvancementReadiness(state, 'human');
+    expect(result.tier3).toMatchObject({ required: 1, current: 0, met: false });
+    expect(result.met).toBe(false);
+    expect(result.error).toContain('tier-3');
+  });
 });

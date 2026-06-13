@@ -435,6 +435,7 @@ export default function LobbyPage() {
   const [territorySelection, setTerritorySelection] = useState(false);
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
+  const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
 
   useEffect(() => {
     if (selectedEra !== 'ancient') setEraAdvancementEnabled(false);
@@ -803,6 +804,8 @@ export default function LobbyPage() {
         coaching_enabled: coachingEnabled || undefined,
         era_advancement_enabled:
           eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+        era_advancement_preset:
+          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? eraAdvancementPreset : undefined,
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
@@ -1965,8 +1968,42 @@ export default function LobbyPage() {
                                 }}
                                 className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                               />
-                              <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(Ancient → Medieval)</span></span>
+                              <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(advance through the ages mid-match)</span></span>
                             </label>
+                            {eraAdvancementEnabled && (
+                              <div className="col-start-2 col-span-2 mt-2">
+                                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Era advancement preset">
+                                  {([
+                                    ['skirmish', 'Skirmish', 'Ancient → Medieval, faster & forgiving'],
+                                    ['standard', 'Standard', 'Ancient → Modern, balanced'],
+                                    ['epic', 'Epic', 'Ancient → Space Age, steeper & longer'],
+                                  ] as const).map(([id, label, desc]) => (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={eraAdvancementPreset === id}
+                                      data-testid={`era-preset-${id}`}
+                                      title={desc}
+                                      onClick={() => setEraAdvancementPreset(id)}
+                                      className={clsx(
+                                        'px-2.5 py-1 text-xs rounded-md border transition-colors',
+                                        eraAdvancementPreset === id
+                                          ? 'border-bf-gold/60 bg-bf-gold/15 text-bf-gold'
+                                          : 'border-bf-border bg-bf-dark/60 text-bf-muted hover:text-bf-text',
+                                      )}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                                <p className="text-[11px] text-bf-muted mt-1">
+                                  {eraAdvancementPreset === 'skirmish' && 'Two-era climb with cheaper, lighter gates — quick games.'}
+                                  {eraAdvancementPreset === 'standard' && 'Full six-era timeline with balanced costs and gates.'}
+                                  {eraAdvancementPreset === 'epic' && 'The full Ancient → Space Age climb with steeper costs and a stricter stability gate — long or async play.'}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

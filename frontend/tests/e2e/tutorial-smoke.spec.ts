@@ -23,6 +23,7 @@ test.describe('Training Academy page', () => {
     await expect(page.getByTestId('module-card-advanced_settings').getByText(/Advanced Settings/i)).toBeVisible();
     await expect(page.getByTestId('module-card-faction_ability').getByText(/Faction Abilities/i)).toBeVisible();
     await expect(page.getByTestId('module-card-tech_tree').getByText(/Technology Tree/i)).toBeVisible();
+    await expect(page.getByTestId('module-card-era_advancement').getByText(/Era Advancement/i)).toBeVisible();
   });
 
   test('shows Start Lesson button on each module card', async ({ page }) => {

@@ -8,11 +8,21 @@
  * - Stage 2: ai_count >= 1 exercises AI advance/stay heuristic
  */
 import { io, type Socket } from 'socket.io-client';
-import type { GameState } from '../src/types';
+import type { GameState, PlayerState } from '../src/types';
+import { computeAdvanceCost } from '../src/game-engine/eraAdvancement/advanceEra';
+import { resolvePlayerEraId } from '../src/game-engine/eraAdvancement/constants';
+import { getEraTechTree } from '../src/game-engine/eras';
 
 const BASE = process.env.PLAYTEST_BASE_URL ?? 'http://localhost:3001';
 const USER = process.env.PLAYTEST_USER ?? 'manus_test';
 const PASS = process.env.PLAYTEST_PASS ?? 'Manus123!';
+/** 'poc' (Ancient→Medieval) by default; set 'classic' to exercise the full climb. */
+const SPINE = process.env.PLAYTEST_SPINE ?? 'poc';
+
+/** Charges of the medieval arrival signature, via the generalized store. */
+function levyCharges(p: PlayerState): number {
+  return p.era_signature_charges?.levy_of_knights ?? 0;
+}
 
 async function login(): Promise<{ token: string; userId: string }> {
   const res = await fetch(`${BASE}/api/auth/login`, {
@@ -37,6 +47,7 @@ async function createGame(token: string, eraAdvancement: boolean): Promise<strin
       ai_difficulty: 'easy',
       settings: {
         era_advancement_enabled: eraAdvancement,
+        era_advancement_spine_id: SPINE,
         economy_enabled: true,
         tech_trees_enabled: true,
         stability_enabled: true,
@@ -183,28 +194,35 @@ async function researchTech(socket: Socket, gameId: string, techId: string) {
 }
 
 async function researchWhenAffordable(socket: Socket, gameId: string, state: GameState, userId: string) {
-  const order = ['ancient_granaries', 'ancient_iron_weapons', 'ancient_stone_walls', 'ancient_roads'] as const;
-  const player = me(state, userId);
-  for (const techId of order) {
-    if ((player.unlocked_techs ?? []).includes(techId)) continue;
-    const cost = techId === 'ancient_granaries' ? 3 : 4;
-    if ((player.tech_points ?? 0) >= cost) {
-      await researchTech(socket, gameId, techId);
-      const fresh = await onState(socket, (s) => (me(s, userId).unlocked_techs ?? []).includes(techId), 10_000);
-      Object.assign(player, me(fresh, userId));
-    }
+  // Era-agnostic: research affordable nodes from the player's CURRENT era tree,
+  // lowest tier first so prerequisites unlock before their children. Works for
+  // any spine step, not just Ancient.
+  let player = me(state, userId);
+  const tree = [...getEraTechTree(resolvePlayerEraId(state, player))].sort((a, b) => a.tier - b.tier);
+  for (const node of tree) {
+    const unlocked = new Set(player.unlocked_techs ?? []);
+    if (unlocked.has(node.tech_id)) continue;
+    if (node.prerequisite && !unlocked.has(node.prerequisite)) continue;
+    if ((player.tech_points ?? 0) < node.cost) continue;
+    await researchTech(socket, gameId, node.tech_id);
+    const fresh = await onState(socket, (s) => (me(s, userId).unlocked_techs ?? []).includes(node.tech_id), 10_000)
+      .catch(() => state);
+    player = me(fresh, userId);
   }
 }
 
 async function tryBuildProduction(socket: Socket, gameId: string, state: GameState, userId: string) {
   const player = me(state, userId);
-  if (!(player.unlocked_techs ?? []).includes('ancient_granaries')) return;
   const owned = ownedTerritories(state, userId);
-  const withProd = owned.find((t) => t.buildings.some((b) => b.startsWith('production_')));
-  if (withProd) return;
+  if (owned.some((t) => t.buildings.some((b) => !b.startsWith('wonder_')))) return;
+  // Build whatever non-wonder building an unlocked current-era tech grants.
+  const unlocked = new Set(player.unlocked_techs ?? []);
+  const node = getEraTechTree(resolvePlayerEraId(state, player)).find(
+    (n) => n.unlocks_building && !n.unlocks_building.startsWith('wonder_') && unlocked.has(n.tech_id),
+  );
   const target = owned[0]?.id;
-  if (!target) return;
-  socket.emit('game:build', { gameId, territoryId: target, buildingType: 'production_1' });
+  if (!node?.unlocks_building || !target) return;
+  socket.emit('game:build', { gameId, territoryId: target, buildingType: node.unlocks_building });
   await sleep(500);
 }
 
@@ -231,7 +249,7 @@ async function playHumanTurn(socket: Socket, gameId: string, state: GameState, u
 function logPlayer(state: GameState, userId: string) {
   const p = me(state, userId);
   console.log(
-    `  turn ${state.turn_number} phase=${state.phase} gold=${p.special_resource ?? 0} tp=${p.tech_points ?? 0} techs=${(p.unlocked_techs ?? []).length} income=${p.last_turn_production_income ?? 0} era=${p.current_era_index ?? 0} vuln=${p.era_transition_turns_remaining ?? 0} sig=${p.medieval_signature_charges ?? 0}`,
+    `  turn ${state.turn_number} phase=${state.phase} gold=${p.special_resource ?? 0} tp=${p.tech_points ?? 0} techs=${(p.unlocked_techs ?? []).length} income=${p.last_turn_production_income ?? 0} era=${p.current_era_index ?? 0} vuln=${p.era_transition_turns_remaining ?? 0} sig=${levyCharges(p)}`,
   );
 }
 
@@ -263,10 +281,7 @@ async function runAdvancementGame(token: string, userId: string, existingGameId?
     const techOk = (player.unlocked_techs ?? []).length >= 3;
     const gold = player.special_resource ?? 0;
     const income = player.last_turn_production_income ?? 0;
-    const mult = state.settings.era_advancement_cost_mult ?? 2;
-    const escalation = state.settings.era_advancement_cost_escalation ?? 1.5;
-    const fromIndex = player.current_era_index ?? 0;
-    const cost = income > 0 ? Math.ceil(income * mult * escalation ** fromIndex) : 9999;
+    const cost = income > 0 ? computeAdvanceCost(state, player) : 9999;
 
     if (state.phase === 'draft' || state.phase === 'attack') {
       if (techOk && gold >= cost && income > 0 && (player.current_era_index ?? 0) === 0) {
@@ -287,7 +302,7 @@ async function runAdvancementGame(token: string, userId: string, existingGameId?
   const postUnits = ownedTerritories(state, userId).reduce((s, t) => s + t.units, 0);
   console.log(`  units before/after advance: ${preAdvanceUnits} → ${postUnits}`);
   console.log(`  vulnerability turns: ${postAdvance.era_transition_turns_remaining ?? 0}`);
-  console.log(`  signature charges: ${postAdvance.medieval_signature_charges ?? 0}`);
+  console.log(`  signature charges: ${levyCharges(postAdvance)}`);
 
   // Item 4: let AI take turn while vulnerable
   state = await onState(socket, (s) => s.players[s.current_player_index].is_ai, 120_000);
@@ -299,7 +314,7 @@ async function runAdvancementGame(token: string, userId: string, existingGameId?
 
   // Item 5: attempt attack with signature charge if still present
   let state5 = afterAi;
-  if ((me(state5, userId).medieval_signature_charges ?? 0) > 0 && state5.phase === 'draft') {
+  if (levyCharges(me(state5, userId)) > 0 && state5.phase === 'draft') {
     state5 = await playHumanTurn(socket, gameId, state5, userId, { research: false });
     state5 = await onState(socket, (s) => s.phase === 'attack' && s.players[s.current_player_index].player_id === userId, 60_000);
     const from = ownedTerritories(state5, userId).sort((a, b) => b.units - a.units)[0];
@@ -309,12 +324,45 @@ async function runAdvancementGame(token: string, userId: string, existingGameId?
       socket.emit('game:attack', { gameId, fromTerritoryId: from.id, toTerritoryId: toId, units: Math.min(3, from.units - 1) });
       await sleep(2000);
       state5 = await onState(socket, (s) => s.players[s.current_player_index].player_id === userId, 60_000);
-      console.log(`  signature charges after first attack: ${me(state5, userId).medieval_signature_charges ?? 0}`);
+      console.log(`  signature charges after first attack: ${levyCharges(me(state5, userId))}`);
     }
+  }
+
+  // Multi-era climb: drive the rest of the spine using the server's own
+  // readiness flag (era_advancement_preview.can_advance) attached to state.
+  if (SPINE !== 'poc') {
+    await climbRemainingSpine(socket, gameId, state5, userId);
   }
 
   socket.disconnect();
   return gameId;
+}
+
+/**
+ * Best-effort climb through the remaining spine steps. Plays turns (research +
+ * build + draft) and advances whenever the server reports the player is ready,
+ * stopping at the spine's max era index. Requires the economy to actually reach
+ * each era's gates, so it logs the final era it managed to reach.
+ */
+async function climbRemainingSpine(socket: Socket, gameId: string, state: GameState, userId: string) {
+  for (let round = 0; round < 40; round++) {
+    state = await onState(socket, (s) => isHumanTurn(s, userId), 180_000, state);
+    const idx = me(state, userId).current_era_index ?? 0;
+    const preview = state.era_advancement_preview;
+    if (preview && idx >= preview.max_era_index) {
+      console.log(`  ✓ reached final era index ${idx} (${resolvePlayerEraId(state, me(state, userId))})`);
+      return;
+    }
+    if ((state.phase === 'draft' || state.phase === 'attack') && preview?.can_advance) {
+      socket.emit('game:advance_era', { gameId });
+      state = await onState(socket, (s) => (me(s, userId).current_era_index ?? 0) > idx, 30_000).catch(() => state);
+      const now = me(state, userId);
+      console.log(`  ✓ advanced to index ${now.current_era_index ?? 0} (${resolvePlayerEraId(state, now)})`);
+      continue;
+    }
+    state = await playHumanTurn(socket, gameId, state, userId, { research: true });
+  }
+  console.log(`  climb hit round budget; final era index ${me(state, userId).current_era_index ?? 0}`);
 }
 
 async function runStayerGame(token: string, userId: string) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical } from 'lucide-react';
+import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
@@ -19,6 +19,7 @@ const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   advanced_settings: Settings2,
   faction_ability: Swords,
   tech_tree: FlaskConical,
+  era_advancement: Sparkles,
 };
 
 /**

@@ -21,24 +21,24 @@ import {
   autoPlaceDraftUnits,
   advancePhaseOnTimeout,
 } from '../game-engine/state/gameStateManager';
-import { resolveCombat, calculateReinforcements } from '../game-engine/combat/combatResolver';
-import { computeLandCombatModifiers, getMarchToSeaBonus, recordMarchToSeaResult } from '../game-engine/combat/combatModifiers';
-import { consumeDefenderPreCombatCharges, applyDefenderPostCombatReactions } from '../game-engine/combat/defenderReactions';
+import { calculateReinforcements } from '../game-engine/combat/combatResolver';
+import { getMarchToSeaBonus, recordMarchToSeaResult } from '../game-engine/combat/combatModifiers';
 import {
   validateBuild,
   applyBuild,
   getBuildingDefenseBonus,
   getSeaDefenseBonus,
-  onTerritoryCapture,
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
-import { executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
+import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
+import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
-import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
+import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
+import { getPlayerFaction } from '../game-engine/eras/factionLineage';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
-import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
+import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import {
   connectionRequiresMoonAccess,
@@ -160,7 +160,6 @@ import {
   emitMapVisual,
 } from '../game-engine/visuals/mapVisualEvents';
 import {
-  consumeAttackBuffs,
   executeTechAbility,
   isGameScopedAbility,
 } from '../game-engine/abilities/executeTechAbility';
@@ -1493,17 +1492,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // defense building) only once the attack is committed to land combat. Doing
       // this AFTER the sea-lane/naval gate prevents a "no fleet" rejection or a
       // naval defeat from silently burning the buffs for no benefit.
-      const attackBuffs = consumeAttackBuffs(currentPlayer);
-      let signatureAttackBonus = 0;
-      if ((currentPlayer.medieval_signature_charges ?? 0) > 0) {
-        signatureAttackBonus = 1;
-        currentPlayer.medieval_signature_charges!--;
-      }
-
       // Blitzkrieg: this attack qualifies as the bonus follow-up if the source
-      // matches the territory we just captured from while the doctrine was
-      // active. The bonus grants +1 attack die for a single attack and is
-      // consumed after this resolution (success or failure).
+      // matches the territory we just captured from while the doctrine was active.
       const isBlitzkriegBonusAttack =
         !!state.blitzkrieg_active
         && (state.blitzkrieg_bonus_attacks_remaining ?? 0) > 0
@@ -1511,41 +1501,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // March to the Sea (ACW): +1 attack die on up to 3 consecutive chain captures.
       const marchToSeaBonus = getMarchToSeaBonus(currentPlayer, fromId);
-
-      // Defender first-attack charges: Greek Fire burns 1 attacker pre-dice; Great
-      // Wall adds +2 defender dice. Consumed once per attacking-player turn.
-      const defReactions = consumeDefenderPreCombatCharges(state, toTerritory.owner_id);
-      if (defReactions.greekFirePreDamage > 0) {
-        fromTerritory.unit_count = Math.max(1, fromTerritory.unit_count - defReactions.greekFirePreDamage);
-      }
-
-      const {
-        finalAttackerDiceOverride,
-        defenderDiceOverride,
-        attackerBonusBreakdown,
-        defenderBonusBreakdown,
-      } = computeLandCombatModifiers({
-        state,
-        fromId,
-        toId,
-        attackerId: userId,
-        defenderId: toTerritory.owner_id,
-        attackingUnits: fromTerritory.unit_count,
-        defendingUnits: toTerritory.unit_count,
-        connection,
-        ignoreDefenseBuilding: attackBuffs.ignoreDefenseBuilding,
-        extraAttackBonuses: {
-          truce_retaliation: truceRetaliationBonus,
-          blitzkrieg: isBlitzkriegBonusAttack ? 1 : 0,
-          pending: attackBuffs.extraAttackDie ? 1 : 0,
-          march_to_sea: marchToSeaBonus,
-          era_signature: signatureAttackBonus,
-        },
-        extraDefenseBonuses: {
-          truce_break: truceBrokenDefenseBonus,
-          great_wall: defReactions.greatWallDefenseDice,
-        },
-      });
 
       const puzzleSpecPre = getDailyPuzzleSpec(state);
       const stateBeforePuzzle =
@@ -1558,97 +1513,76 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const defenderIdBeforeCombat = toTerritory.owner_id;
       const attackerUnitsCommitted = fromTerritory.unit_count;
 
-      if (attackBuffs.preAttackDamage > 0) {
-        toTerritory.unit_count = Math.max(1, toTerritory.unit_count - attackBuffs.preAttackDamage);
+      // Single source of truth for the land exchange — shared with the AI handler
+      // and the balance sim. Socket-only concerns (visuals, callouts, stat
+      // recording, blitzkrieg state, elimination broadcast) stay here, around it.
+      const landOutcome = executeLandAttack(state, userId, fromId, toId, {
+        connection,
+        dieRoll: puzzleDieRoll,
+        extraAttackBonuses: {
+          truce_retaliation: truceRetaliationBonus,
+          blitzkrieg: isBlitzkriegBonusAttack ? 1 : 0,
+          march_to_sea: marchToSeaBonus,
+        },
+        extraDefenseBonuses: {
+          truce_break: truceBrokenDefenseBonus,
+        },
+        onCapture: (s) => {
+          // Classic Risk: at most one territory card per turn (reset in advanceToNextPlayer).
+          if (!currentPlayer.card_earned_this_turn) {
+            drawCard(s, userId);
+            currentPlayer.card_earned_this_turn = true;
+          }
+        },
+      });
+      if (!landOutcome) {
+        return socket.emit('error', { message: 'Invalid attack' });
+      }
+      const result = landOutcome.result;
+      // Bail out if combat was invalid (e.g. defender hit 0 units via a race).
+      // executeLandAttack left state unmutated in this case.
+      if (result.error) {
+        return socket.emit('error', { message: result.error });
+      }
+
+      // Air-strike pre-attack damage visual (the damage was applied inside
+      // executeLandAttack; this still precedes game:combat_result below).
+      if (landOutcome.preAttackDamageApplied > 0) {
         emitPreAttackAirStrikeVisuals(io, gameId, {
-          preAttackDamage: attackBuffs.preAttackDamage,
+          preAttackDamage: landOutcome.preAttackDamageApplied,
           fromTerritoryId: fromId,
           targetTerritoryId: toId,
-          attacker: {
-            player_id: userId,
-            username: currentPlayer.username,
-            color: currentPlayer.color,
-          },
+          attacker: { player_id: userId, username: currentPlayer.username, color: currentPlayer.color },
           defenderId: defenderIdBeforeCombat,
           state,
           map,
         });
       }
 
-      const result = resolveCombat(
-      fromTerritory.unit_count,
-      toTerritory.unit_count,
-      finalAttackerDiceOverride,
-      defenderDiceOverride,
-      puzzleDieRoll,
-      state.era_modifiers,
-    );
-      // Bail out before mutating state if combat was invalid (e.g. defender hit 0
-      // units via an event/ability/race). Mirrors the AI attack path's guard so a
-      // bogus "capture" can't award a card or corrupt counts.
-      if (result.error) {
-        return socket.emit('error', { message: result.error });
-      }
-      result.attacker_bonus_breakdown = attackerBonusBreakdown;
-      result.defender_bonus_breakdown = defenderBonusBreakdown;
-
-      const rawAttackerLosses = result.attacker_losses;
       attachCombatAbilityCallouts(
         result,
         buildCombatAbilityCallouts({
           state,
           attackerId: userId,
           toId,
-          attackBuffs,
+          attackBuffs: landOutcome.attackBuffs,
           abilityUses: currentPlayer.ability_uses,
-          rawAttackerLosses,
+          rawAttackerLosses: landOutcome.rawAttackerLosses,
         }),
       );
 
-      // Testudo: the formation absorbs all attacker casualties for this exchange.
-      if (attackBuffs.negateAttackerLosses) result.attacker_losses = 0;
-
-      fromTerritory.unit_count -= result.attacker_losses;
-      toTerritory.unit_count -= result.defender_losses;
-
-      // Defender post-combat reactions (parting_shot, nuclear_deterrence,
-      // bourbon_resistance) run before the capture block so a negated capture is
-      // honored downstream.
-      applyDefenderPostCombatReactions({
-        state,
-        defenderId: toTerritory.owner_id,
-        fromTerritory,
-        toTerritory,
-        result,
-      });
-
       // Accumulate per-player combat stats for post-game breakdown
-      const defenderId = toTerritory.owner_id;
+      const defenderId = defenderIdBeforeCombat;
       recordCombatResult(gameId, userId, defenderId ?? null, result, {
         isSea: connection?.type === 'sea',
       });
 
-      // Server-authoritative remaining units on the attacking territory.
-      // The client's "Attack again" button used to derive this from its
-      // local store, which double-subtracted losses whenever game:state
-      // arrived before game:combat_result — hiding the button mid-battle.
-      // (A capture moves more units below, but the button never shows on
-      // captures, so the pre-capture value is the one that matters.)
-      result.source_units_after = fromTerritory.unit_count;
+      // Server-authoritative remaining units on the attacking territory (drives
+      // the client's "Attack again" button) — taken before any capture move-in.
+      result.source_units_after = landOutcome.sourceUnitsAfter;
 
-      let cardEarned = false;
       let defenderEliminated = false;
       if (result.territory_captured) {
-        toTerritory.owner_id = userId;
-        toTerritory.unit_count = Math.min(fromTerritory.unit_count - 1, 3);
-        fromTerritory.unit_count = Math.max(1, fromTerritory.unit_count - toTerritory.unit_count);
-        cardEarned = true;
-        // Raze buildings on capture
-        onTerritoryCapture(state, toId);
-        // Stability penalty on captured territory
-        if (state.settings.stability_enabled) {
-          onCaptureStabilityPenalty(state, toId);
-        }
         // Track for blitzkrieg achievement
         const capturingPlayer = state.players.find((p) => p.player_id === userId);
         if (capturingPlayer) {
@@ -1658,24 +1592,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
           }
         }
 
-        // ── Blitzkrieg ability: arm bonus attack ──────────────────────────────
-        // If the active player has Blitzkrieg active and has not yet fired their
-        // bonus attack this turn, the capture they just performed unlocks one
-        // bonus attack from the SAME source territory. The next attack
-        // originating from `blitzkrieg_bonus_source_id` is treated as the bonus
-        // (see attack-handler entry below) and clears the gate.
+        // Blitzkrieg: a capture arms one bonus attack from the same source territory.
         if (state.blitzkrieg_active && (state.blitzkrieg_bonus_attacks_remaining ?? 0) > 0) {
           state.blitzkrieg_bonus_source_id = fromId;
         }
 
-        const defenderPlayer = state.players.find((p) => p.player_id === defenderId);
-        if (defenderPlayer) {
-          syncTerritoryCounts(state);
-          if (defenderPlayer.territory_count === 0) {
-            defenderPlayer.is_eliminated = true;
-            defenderEliminated = true;
-            currentPlayer.cards.push(...defenderPlayer.cards);
-            defenderPlayer.cards = [];
+        // Elimination broadcast (cards transferred + is_eliminated set in executeLandAttack).
+        if (landOutcome.defenderEliminated) {
+          defenderEliminated = true;
+          const defenderPlayer = state.players.find((p) => p.player_id === defenderId);
+          if (defenderPlayer) {
             recordElimination(gameId, userId);
             io.to(gameId).emit('game:player_eliminated', {
               playerId: defenderId,
@@ -1688,19 +1614,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      // Classic Risk rule: at most one territory card per turn, regardless of
-      // how many captures you make. `card_earned_this_turn` is reset in
-      // `advanceToNextPlayer` so multi-attack turns can't farm extra cards.
-      if (cardEarned && !currentPlayer.card_earned_this_turn) {
-        drawCard(state, userId);
-        currentPlayer.card_earned_this_turn = true;
-      }
-
       // Consume one Blitzkrieg bonus once the follow-up attack resolves (success
-      // or failure). Double Blitz allows the chain to continue: if this bonus
-      // attack itself captured, the capture block above re-armed the bonus
-      // source so the next attack from there is the second bonus. A failed bonus
-      // clears the source, so another capture is needed to re-arm.
+      // or failure). Double Blitz: if this bonus attack captured, the block above
+      // re-armed the source; a failed bonus clears it so another capture re-arms.
       if (isBlitzkriegBonusAttack) {
         const remaining = (state.blitzkrieg_bonus_attacks_remaining ?? 1) - 1;
         state.blitzkrieg_bonus_attacks_remaining = remaining;
@@ -1716,6 +1632,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Advance/break the March to the Sea chain based on whether this eligible
       // hop captured. Only counts when the +1 chain die was actually applied.
       recordMarchToSeaResult(currentPlayer, marchToSeaBonus > 0, toId, result.territory_captured);
+      // Keep all players' territory_count authoritative after the exchange.
+      syncTerritoryCounts(state);
 
       const attackSummary = (() => {
         const fromName = territoryName(map, fromId);
@@ -2189,7 +2107,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: result.error ?? 'Cannot advance era' });
       }
 
-      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
         playerId: userId,
         eraId: nextEraId,
@@ -2276,7 +2194,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // Validate ability ownership — must come from faction or unlocked tech
       const faction = state.settings.factions_enabled && currentPlayer.faction_id
-        ? getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id)
+        ? getPlayerFaction(state, currentPlayer)
         : undefined;
       const hasFactionAbility = faction?.ability_id === abilityId;
 
@@ -2470,8 +2388,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // each turn is rejected outright. The charge refreshes every turn.
       if (target.owner_id && state.settings.factions_enabled) {
         const defender = state.players.find((p) => p.player_id === target.owner_id);
-        const defFaction = defender?.faction_id
-          ? getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id)
+        const defFaction = defender
+          ? getPlayerFaction(state, defender)
           : undefined;
         if (defFaction?.ability_id === 'papal_dispensation' && defender && !defender.influence_block_used_this_turn) {
           defender.influence_block_used_this_turn = true;
@@ -3640,6 +3558,15 @@ function stopSpectatorBroadcastLoop(gameId: string): void {
 }
 
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
+  // Viewer-scoped era advancement status (transport-only). Computed from the
+  // unfiltered state — it describes the viewer's own empire, which fog never
+  // hides from them.
+  const attachEraPreview = (s: GameState): GameState => {
+    if (!playerId || !state.settings.era_advancement_enabled) return s;
+    const preview = buildAdvanceEraClientPreview(state, playerId);
+    return preview ? { ...s, era_advancement_preview: preview } : s;
+  };
+
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
     // mission_seed_salt is server-only; leaking it would let a client
@@ -3653,7 +3580,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     ),
   });
 
-  if (!fogOfWar || !playerId) return stripSecretMissions(state);
+  if (!fogOfWar || !playerId) return attachEraPreview(stripSecretMissions(state));
 
   // Owned territories are always visible
   const visibleIds = new Set<string>();
@@ -3696,7 +3623,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     p.player_id === playerId ? p : { ...p, cards: [] },
   );
 
-  return stripSecretMissions(filtered);
+  return attachEraPreview(stripSecretMissions(filtered));
 }
 
 async function saveGameState(gameId: string, state: GameState): Promise<void> {
@@ -4380,7 +4307,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
  */
 function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: PlayerState): void {
   if (!state.settings.factions_enabled || !player.faction_id) return;
-  const faction = getEraFactions(state.era).find((f) => f.faction_id === player.faction_id);
+  const faction = getPlayerFaction(state, player);
   const abilityId = faction?.ability_id;
   if (!abilityId) return;
   const def = TERRITORY_ABILITY_DEFS[abilityId];
@@ -4446,7 +4373,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   ) {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id);
     if (advanceResult.success) {
-      const nextEraId = getEraIdForAdvancementIndex(currentPlayer.current_era_index ?? 0);
+      const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
         playerId: currentPlayer.player_id,
         eraId: nextEraId,
@@ -4481,7 +4408,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // imperial_diet) get placed this turn. Reuses executeTechAbility for exact
   // human/bot parity; these effects only ever help, so eager use is safe.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     const factionAbilityId = aiFaction?.ability_id;
     const factionDef = factionAbilityId ? TERRITORY_ABILITY_DEFS[factionAbilityId] : undefined;
     const draftAbilityIds = new Set([
@@ -4652,7 +4579,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // planned enemy attack target to soften it before assaulting — reuses
   // executeTechAbility so reduction / range / coastal rules match the human path.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     const strikeId = aiFaction?.ability_id;
     const strikeDef = strikeId ? TERRITORY_ABILITY_DEFS[strikeId] : undefined;
     if (
@@ -4683,7 +4610,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // executeTechAbility enforces the influence-range reachability check, so the AI
   // scans neutral territories and takes the first one it can legally unify.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'unification_drive' && !(currentPlayer.ability_uses ?? {})['unification_drive']) {
       for (const tid of Object.keys(state.territories)) {
         if (state.territories[tid].owner_id != null) continue;
@@ -4720,8 +4647,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       // attempt against it each turn (consumes the per-turn charge).
       if (target.owner_id && state.settings.factions_enabled) {
         const defender = state.players.find((p) => p.player_id === target.owner_id);
-        const defFaction = defender?.faction_id
-          ? getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id)
+        const defFaction = defender
+          ? getPlayerFaction(state, defender)
           : undefined;
         if (defFaction?.ability_id === 'papal_dispensation' && defender && !defender.influence_block_used_this_turn) {
           defender.influence_block_used_this_turn = true;
@@ -4874,129 +4801,66 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       }
     }
 
-    // Attack self-buff parity: activate the faction attack buff once per turn,
-    // then consume it on this attack exactly as the human handler does.
+    // Attack self-buff parity: activate the faction attack buff once per turn
+    // (executeLandAttack then consumes it, exactly as the human handler does).
     maybeActivateAiAttackSelfBuff(state, map, currentPlayer);
-    const aiAttackBuffs = consumeAttackBuffs(currentPlayer);
-
-    // Defender first-attack charges (greek_fire pre-damage, great_wall +2 dice)
-    // — parity with the human attack handler.
-    const aiDefReactions = consumeDefenderPreCombatCharges(state, aiDefenderId);
-    if (aiDefReactions.greekFirePreDamage > 0) {
-      from.unit_count = Math.max(1, from.unit_count - aiDefReactions.greekFirePreDamage);
-    }
-
-    // Combat modifier parity: derive the same state-based attacker/defender dice
-    // overrides the human handler uses (sea-lane cap, Lighthouse, precision strike,
-    // wonder/event/faction bonuses, underdefended bonus, March to the Sea chain).
     const aiMarchToSeaBonus = getMarchToSeaBonus(currentPlayer, action.from);
-    const {
-      finalAttackerDiceOverride: aiAttackerDiceOverride,
-      defenderDiceOverride: aiDefenderDiceOverride,
-      attackerBonusBreakdown: aiAttackerBonusBreakdown,
-      defenderBonusBreakdown: aiDefenderBonusBreakdown,
-    } = computeLandCombatModifiers({
-      state,
-      fromId: action.from,
-      toId: action.to,
-      attackerId: currentPlayer.player_id,
-      defenderId: aiDefenderId,
-      attackingUnits: from.unit_count,
-      defendingUnits: to.unit_count,
+    const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
+
+    // Single source of truth for the land exchange — shared with the human
+    // handler and the balance sim. Socket-only concerns (callouts, stat
+    // recording, elimination broadcast, visuals) stay here, around the call.
+    const aiOutcome = executeLandAttack(state, currentPlayer.player_id, action.from, action.to, {
       connection: aiConnection,
-      ignoreDefenseBuilding: aiAttackBuffs.ignoreDefenseBuilding,
+      dieRoll: aiPuzzleDieRoll,
       extraAttackBonuses: {
         march_to_sea: aiMarchToSeaBonus,
         truce_retaliation: aiTruceRetaliationBonus,
-        pending: aiAttackBuffs.extraAttackDie ? 1 : 0,
       },
-      extraDefenseBonuses: { great_wall: aiDefReactions.greatWallDefenseDice },
+      onCapture: (s, pid) => {
+        // One card per turn — gated by state flag (see advanceToNextPlayer reset).
+        if (!currentPlayer.card_earned_this_turn) {
+          drawCard(s, pid);
+          currentPlayer.card_earned_this_turn = true;
+        }
+      },
     });
+    if (!aiOutcome) continue;
+    const result = aiOutcome.result;
 
-    if (aiAttackBuffs.preAttackDamage > 0) {
-      to.unit_count = Math.max(1, to.unit_count - aiAttackBuffs.preAttackDamage);
-    }
-
-    const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
-
-    const result = resolveCombat(
-      from.unit_count,
-      to.unit_count,
-      aiAttackerDiceOverride,
-      aiDefenderDiceOverride,
-      aiPuzzleDieRoll,
-      state.era_modifiers,
-    );
-    result.attacker_bonus_breakdown = aiAttackerBonusBreakdown;
-    result.defender_bonus_breakdown = aiDefenderBonusBreakdown;
-
-    const aiRawAttackerLosses = result.attacker_losses;
     attachCombatAbilityCallouts(
       result,
       buildCombatAbilityCallouts({
         state,
         attackerId: currentPlayer.player_id,
         toId: action.to,
-        attackBuffs: aiAttackBuffs,
+        attackBuffs: aiOutcome.attackBuffs,
         abilityUses: currentPlayer.ability_uses,
-        rawAttackerLosses: aiRawAttackerLosses,
+        rawAttackerLosses: aiOutcome.rawAttackerLosses,
       }),
     );
 
-    // Testudo: the formation absorbs all attacker casualties for this exchange.
-    if (aiAttackBuffs.negateAttackerLosses) result.attacker_losses = 0;
-    // If resolveCombat returns an error, skip this attack
+    // If resolveCombat returned an error, skip this attack (state was not mutated).
     if (result.error) {
-      // Optionally emit a warning or log for debugging
       console.warn?.('AI attempted invalid combat:', result.error, { from: from.unit_count, to: to.unit_count });
       continue;
     }
-    from.unit_count -= result.attacker_losses;
-    to.unit_count -= result.defender_losses;
-    // Defender post-combat reactions (parting_shot, nuclear_deterrence,
-    // bourbon_resistance) — parity with the human attack handler.
-    applyDefenderPostCombatReactions({
-      state,
-      defenderId: aiDefenderId,
-      fromTerritory: from,
-      toTerritory: to,
-      result,
-    });
     recordCombatResult(gameId, currentPlayer.player_id, aiDefenderId ?? null, result, {
       isSea: aiConnection?.type === 'sea',
     });
     recordMarchToSeaResult(currentPlayer, aiMarchToSeaBonus > 0, action.to, result.territory_captured);
-    if (result.territory_captured) {
-      to.owner_id = currentPlayer.player_id;
-      to.unit_count = Math.min(from.unit_count - 1, 3);
-      from.unit_count = Math.max(1, from.unit_count - to.unit_count);
-      // One card per turn — gated by state flag (see human handler + advanceToNextPlayer).
-      if (!currentPlayer.card_earned_this_turn) {
-        drawCard(state, currentPlayer.player_id);
-        currentPlayer.card_earned_this_turn = true;
-      }
-      // Raze buildings and apply stability penalty on AI capture
-      onTerritoryCapture(state, action.to);
-      if (state.settings.stability_enabled) {
-        onCaptureStabilityPenalty(state, action.to);
-      }
-
+    // Elimination broadcast (cards already transferred + is_eliminated set inside executeLandAttack).
+    if (aiOutcome.defenderEliminated) {
       const defenderPlayer = state.players.find((p) => p.player_id === aiDefenderId);
       if (defenderPlayer) {
-        syncTerritoryCounts(state);
-        if (defenderPlayer.territory_count === 0) {
-          defenderPlayer.is_eliminated = true;
-          currentPlayer.cards.push(...defenderPlayer.cards);
-          defenderPlayer.cards = [];
-          recordElimination(gameId, currentPlayer.player_id);
-          io.to(gameId).emit('game:player_eliminated', {
-            playerId: aiDefenderId,
-            eliminatorId: currentPlayer.player_id,
-            eliminatorName: currentPlayer.username,
-            eliminatedName: defenderPlayer.username,
-            secretMission: defenderPlayer.secret_mission ?? null,
-          });
-        }
+        recordElimination(gameId, currentPlayer.player_id);
+        io.to(gameId).emit('game:player_eliminated', {
+          playerId: aiDefenderId,
+          eliminatorId: currentPlayer.player_id,
+          eliminatorName: currentPlayer.username,
+          eliminatedName: defenderPlayer.username,
+          secretMission: defenderPlayer.secret_mission ?? null,
+        });
       }
     }
     syncTerritoryCounts(state);
@@ -5028,7 +4892,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // has more fortify moves planned than its base limit allows, so the extra move
   // is actually used. Reuses executeTechAbility for human/bot parity.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'armored_push' && !(currentPlayer.ability_uses ?? {})['armored_push']) {
       const plannedFortifies = actions.filter(
         (a) => a.type === 'fortify' && a.from && a.to && a.units,

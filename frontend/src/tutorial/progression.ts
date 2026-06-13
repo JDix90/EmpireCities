@@ -2,6 +2,7 @@ import { ADVANCED_SETTINGS_STEPS } from './modules/advancedSettingsSteps';
 import { CORE_TUTORIAL_STEPS } from './modules/coreSteps';
 import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
+import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
 import { TUTORIAL_V2_ENABLED } from './types';
 import { api } from '../services/api';
@@ -16,6 +17,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return FACTION_ABILITY_STEPS;
     case 'tech_tree':
       return TECH_TREE_STEPS;
+    case 'era_advancement':
+      return ERA_ADVANCEMENT_STEPS;
     case 'core':
     default: {
       if (TUTORIAL_V2_ENABLED) return CORE_TUTORIAL_STEPS;
@@ -33,7 +36,7 @@ export function getCompletedTutorialModules(): TutorialLessonModule[] {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((m): m is TutorialLessonModule =>
-      ['core', 'advanced_settings', 'faction_ability', 'tech_tree'].includes(m as string),
+      ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'].includes(m as string),
     );
   } catch {
     return [];
@@ -60,7 +63,7 @@ export function mergeServerTutorialModules(serverModules: string[]): void {
   const local = new Set(getCompletedTutorialModules());
   let changed = false;
   for (const mod of serverModules) {
-    if (['core', 'advanced_settings', 'faction_ability', 'tech_tree'].includes(mod) && !local.has(mod as TutorialLessonModule)) {
+    if (['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'].includes(mod) && !local.has(mod as TutorialLessonModule)) {
       local.add(mod as TutorialLessonModule);
       changed = true;
     }
@@ -79,6 +82,7 @@ export function getRecommendedTutorialModule(): TutorialLessonModule | null {
   if (!done.has('advanced_settings')) return 'advanced_settings';
   if (!done.has('faction_ability')) return 'faction_ability';
   if (!done.has('tech_tree')) return 'tech_tree';
+  if (!done.has('era_advancement')) return 'era_advancement';
   return null;
 }
 
@@ -111,6 +115,11 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'tt_points',
     'tt_open',
     'tt_complete',
+    'ea_welcome',
+    'ea_progress',
+    'ea_gate',
+    'ea_signature',
+    'ea_complete',
   ]);
   return centeredIds.has(step.id);
 }
@@ -178,6 +187,7 @@ export function isActionOnlyRequireAction(action: TutorialRequireAction | undefi
     action === 'ability_used' ||
     action === 'settings_explored' ||
     action === 'bonuses_opened' ||
-    action === 'tech_tree_opened'
+    action === 'tech_tree_opened' ||
+    action === 'era_advanced'
   );
 }

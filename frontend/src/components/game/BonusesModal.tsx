@@ -7,6 +7,7 @@ import { api } from '../../services/api';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
+import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -120,12 +121,15 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
 
   const myPlayer = gameState?.players.find((p) => p.player_id === user?.user_id);
 
-  // Fetch faction info on open when factions are enabled
+  // Fetch faction info on open when factions are enabled. Resolve the player's
+  // CURRENT era so a faction that has evolved along its lineage (era advancement)
+  // is fetched from the right roster rather than the static game era.
+  const factionEraId = gameState && myPlayer ? resolvePlayerTechEraId(gameState, myPlayer) : undefined;
   useEffect(() => {
-    if (!gameState || !myPlayer?.faction_id || !gameState.settings.factions_enabled) return;
+    if (!gameState || !myPlayer?.faction_id || !gameState.settings.factions_enabled || !factionEraId) return;
     setFactionLoading(true);
     api
-      .get(`/eras/${gameState.era}/factions`)
+      .get(`/eras/${factionEraId}/factions`)
       .then((res) => {
         const factions: FactionInfo[] = res.data.factions ?? [];
         const mine = factions.find((f) => f.faction_id === myPlayer.faction_id);
@@ -133,7 +137,7 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
       })
       .catch(() => {})
       .finally(() => setFactionLoading(false));
-  }, [gameState?.era, myPlayer?.faction_id, gameState?.settings.factions_enabled]);
+  }, [factionEraId, myPlayer?.faction_id, gameState?.settings.factions_enabled]);
 
   if (!gameState || !myPlayer) return null;
 

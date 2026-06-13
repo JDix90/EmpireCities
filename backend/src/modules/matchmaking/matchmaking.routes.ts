@@ -6,6 +6,7 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import type { Server } from 'socket.io';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
+import { featureFlags } from '../../config/featureFlags';
 import { applyAdminSnapshotsToSettings, getMatchmakingConfig } from '../../services/adminConfig';
 import { formatZodError } from '../../utils/formatZodError';
 
@@ -175,6 +176,15 @@ async function createRankedGameTx(
   if (bucketCfg.async_mode) {
     settings.async_mode = true;
     settings.async_turn_deadline_seconds = bucketCfg.turn_timer_seconds;
+  }
+  // Ranked Era Advancement: opt-in via flag (default OFF — product decision).
+  // Only ancient-start buckets are eligible, since the spine begins in Ancient.
+  if (featureFlags.rankedEraAdvancementEnabled && eraId === 'ancient') {
+    settings.era_advancement_enabled = true;
+    settings.era_advancement_preset = 'standard';
+    settings.economy_enabled = true;
+    settings.tech_trees_enabled = true;
+    settings.stability_enabled = true;
   }
 
   const eraMapIds: Record<string, string> = {

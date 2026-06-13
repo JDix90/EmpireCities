@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
 import AdvanceEraPanel from './AdvanceEraPanel';
+import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { phaseAdvanceLabel } from '../../constants/phaseLabels';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
@@ -263,7 +264,8 @@ export default function GameHUD({
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
         {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && (
-          <div className="mt-3 -mx-1">
+          <div className="mt-3 -mx-1 rounded-lg overflow-hidden border border-bf-border/60">
+            <EraTimelineStrip gameState={gameState} myPlayer={myPlayer} />
             <AdvanceEraPanel
               gameState={gameState}
               myPlayer={myPlayer}
@@ -382,7 +384,7 @@ export default function GameHUD({
               <span className="text-bf-muted text-xs">{player.territory_count}T</span>
               {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
                 <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
-                  {ERA_LABELS[getEraIdForAdvancementIndex(player.current_era_index ?? 0)] ?? 'Ancient'}
+                  {ERA_LABELS[getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0)] ?? 'Ancient'}
                 </span>
               )}
               {gameState.settings.era_advancement_enabled

@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const COLDWAR_FACTIONS: Faction[] = [
   {
     faction_id: 'usa_cw',
+    lineage_id: 'mercantile',
     name: 'United States',
     description: 'Global superpower — +1 tech point per ally-adjacent territory; influence ability range extended to 2 hops.',
     lore: 'Carrier groups, development aid, and alliance architecture let Washington project power without occupying every frontline directly.',
@@ -17,6 +18,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'ussr',
+    lineage_id: 'imperial',
     name: 'Soviet Union',
     description: 'Iron Curtain — influence ability can target territories within 2 hops; +1 defense die in Eastern Bloc territories.',
     lore: 'The Soviet bloc hardens its perimeter through ideology, armor, and a security state built to absorb existential pressure.',
@@ -30,6 +32,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'china_cw',
+    lineage_id: 'bastion',
     name: "People's Republic of China",
     description: 'Vast army — +2 reinforcements per turn; guerrilla tactics grant +1 defense die in Asia.',
     lore: 'Revolutionary legitimacy and mass mobilization give China resilience, especially when the fight becomes one of exhaustion.',
@@ -43,6 +46,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'uk_cw',
+    lineage_id: 'maritime',
     name: 'United Kingdom',
     description: 'Nuclear deterrent — if attacked in your capital territory, attacker loses 1 extra unit.',
     lore: 'Postwar Britain holds disproportionate leverage through diplomacy, intelligence, and the menace of strategic reprisal.',
@@ -55,6 +59,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'decolonization_movement',
+    lineage_id: 'insurgent',
     name: 'Non-Aligned Movement',
     description: 'Guerrilla movements challenge both superpowers — territories you own cannot be influenced (immune to influence_spread).',
     lore: 'Newly independent states and insurgent movements refuse to become pawns, thriving in the gaps between the blocs.',
@@ -67,6 +72,7 @@ export const COLDWAR_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'nato_proxy',
+    lineage_id: 'expansionist',
     name: 'NATO Alliance',
     description: 'Collective defense pact — if any NATO territory is attacked, adjacent NATO territories each add +1 defense die.',
     lore: 'Interoperability, shared planning, and mutual guarantees make NATO strongest when it fights as a network instead of a nation.',

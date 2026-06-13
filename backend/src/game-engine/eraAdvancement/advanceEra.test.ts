@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState, PlayerState } from '../../types';
-import { canAdvanceEra, computeAdvanceCost, executeAdvanceEra } from './advanceEra';
+import { buildAdvanceEraClientPreview, canAdvanceEra, computeAdvanceCost, executeAdvanceEra } from './advanceEra';
+import { consumeSignatureAttackBonus } from './signatures';
 
 const MILESTONE_TECHS = [
   'ancient_iron_weapons',
@@ -108,6 +109,28 @@ describe('computeAdvanceCost', () => {
 
     player.current_era_index = 1;
     expect(computeAdvanceCost(state, player)).toBe(30);
+  });
+
+  it('applies the income floor so a player cannot starve income to advance cheaply', () => {
+    const state = baseState();
+    const player = basePlayer({ last_turn_production_income: 3, current_era_index: 0 });
+    // max(3, floor 8) × 2.0 × 1.5^0 = 16
+    expect(computeAdvanceCost(state, player)).toBe(16);
+  });
+
+  it('caps the escalation term so late advances stay reachable', () => {
+    const state = baseState();
+    const player = basePlayer({ last_turn_production_income: 10, current_era_index: 4 });
+    // 1.5^4 ≈ 5.06 capped to 4.0 → 10 × 2.0 × 4.0 = 80 (uncapped would be 102)
+    expect(computeAdvanceCost(state, player)).toBe(80);
+  });
+
+  it('discounts a trailing player\'s cost (catch-up)', () => {
+    const trailer = basePlayer({ player_id: 'trailer', last_turn_production_income: 10, current_era_index: 0 });
+    const leader = basePlayer({ player_id: 'leader', player_index: 1, current_era_index: 2 });
+    const state = baseState({ players: [trailer, leader] });
+    // gap 2 → 0.85^2 = 0.7225 → ceil(10 × 2.0 × 1 × 0.7225) = 15
+    expect(computeAdvanceCost(state, trailer)).toBe(15);
   });
 });
 
@@ -222,7 +245,7 @@ describe('executeAdvanceEra', () => {
     expect(player.special_resource).toBe(80);
     expect(player.current_era_index).toBe(1);
     expect(player.era_transition_turns_remaining).toBe(1);
-    expect(player.medieval_signature_charges).toBe(1);
+    expect(player.era_signature_charges?.levy_of_knights).toBe(1);
     expect(player.unlocked_techs).toEqual([]);
 
     const totalUnits = Object.values(state.territories).reduce((s, t) => s + t.unit_count, 0);
@@ -243,20 +266,52 @@ describe('executeAdvanceEra', () => {
     expect(state.players[0]!.era_advanced_this_turn).toBe(true);
   });
 
-  it('consumes medieval signature charge on first bonus attack (socket parity)', () => {
-    const player = basePlayer({ medieval_signature_charges: 1 });
-    let signatureAttackBonus = 0;
-    if ((player.medieval_signature_charges ?? 0) > 0) {
-      signatureAttackBonus = 1;
-      player.medieval_signature_charges!--;
-    }
-    expect(signatureAttackBonus).toBe(1);
-    expect(player.medieval_signature_charges).toBe(0);
-    signatureAttackBonus = 0;
-    if ((player.medieval_signature_charges ?? 0) > 0) {
-      signatureAttackBonus = 1;
-      player.medieval_signature_charges!--;
-    }
-    expect(signatureAttackBonus).toBe(0);
+  it('consumes the signature charge on first bonus attack only (socket parity)', () => {
+    const player = basePlayer({ era_signature_charges: { levy_of_knights: 1 } });
+    expect(consumeSignatureAttackBonus(player)).toBe(1);
+    expect(player.era_signature_charges?.levy_of_knights).toBe(0);
+    expect(consumeSignatureAttackBonus(player)).toBe(0);
+  });
+});
+
+describe('buildAdvanceEraClientPreview', () => {
+  it('returns the full viewer payload for an advance-ready player', () => {
+    const preview = buildAdvanceEraClientPreview(baseState(), 'human');
+    expect(preview).toEqual({
+      cost: 20,
+      can_advance: true,
+      error: undefined,
+      current_era_index: 0,
+      max_era_index: 1,
+      current_era_id: 'ancient',
+      next_era_id: 'medieval',
+      stability: expect.any(Number),
+      stability_gate: 60,
+      gate_mode: 'milestone',
+      catchup_gap: 0,
+      next_signature: { id: 'levy_of_knights', name: 'Levy of Knights', description: expect.any(String) },
+      readiness: expect.objectContaining({
+        met: true,
+        mode: 'milestone',
+        tier1: expect.objectContaining({ met: true, current: 3, required: 3 }),
+        tier2: expect.objectContaining({ met: true, current: 1, required: 1 }),
+        buildings: expect.objectContaining({ met: true, current: 1, required: 1 }),
+      }),
+    });
+  });
+
+  it('reports blocked gates for a player short on gold', () => {
+    const state = baseState({ players: [basePlayer({ special_resource: 5 })] });
+    const preview = buildAdvanceEraClientPreview(state, 'human');
+    expect(preview?.can_advance).toBe(false);
+    expect(preview?.error).toMatch(/gold/i);
+    expect(preview?.cost).toBe(20);
+  });
+
+  it('returns null when era advancement is disabled or the player is unknown', () => {
+    const disabled = baseState();
+    disabled.settings.era_advancement_enabled = false;
+    expect(buildAdvanceEraClientPreview(disabled, 'human')).toBeNull();
+    expect(buildAdvanceEraClientPreview(baseState(), 'ghost')).toBeNull();
   });
 });

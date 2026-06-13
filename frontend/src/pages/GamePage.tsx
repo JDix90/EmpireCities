@@ -78,7 +78,6 @@ import {
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel, formatLobbyPairingLabel } from '../constants/gameLobbyLabels';
 import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
-import { eraAdvanceDisplayName } from '../utils/eraAdvanceVisualUtils';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { formatEraLabel } from '../utils/mapDisplayNames';
@@ -524,14 +523,14 @@ export default function GamePage() {
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
   const seenEraAdvanceVisualsRef = useRef(new Set<string>());
-  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; label: string } | null>(null);
+  const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; eraId?: string } | null>(null);
 
   useEffect(() => {
     if (prefersReducedMotion() || liteModeEnabled) return;
     for (const ev of mapVisualEvents) {
       if (ev.kind !== 'era_advance' || seenEraAdvanceVisualsRef.current.has(ev.id)) continue;
       seenEraAdvanceVisualsRef.current.add(ev.id);
-      setEraAdvanceVignette({ key: Date.now(), label: eraAdvanceDisplayName(ev.variant) });
+      setEraAdvanceVignette({ key: Date.now(), eraId: ev.variant });
     }
   }, [mapVisualEvents, liteModeEnabled]);
 
@@ -1395,6 +1394,13 @@ export default function GamePage() {
         `Advanced to ${label}! New tech tree unlocked — research fresh Medieval technologies.`,
         { icon: '✨', duration: 6000 },
       );
+      const gs = useGameStore.getState().gameState;
+      if (gs?.settings?.tutorial) {
+        const step = tutorialStepsRef.current[tutorialStepRef.current];
+        if (step?.requireAction === 'era_advanced') {
+          setTutorialStep((s) => s + 1);
+        }
+      }
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
@@ -3404,7 +3410,7 @@ export default function GamePage() {
             <EraAdvanceVignette
               key={eraAdvanceVignette.key}
               active
-              eraLabel={eraAdvanceVignette.label}
+              eraId={eraAdvanceVignette.eraId}
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}

@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const MEDIEVAL_FACTIONS: Faction[] = [
   {
     faction_id: 'hre',
+    lineage_id: 'imperial',
     name: 'Holy Roman Empire',
     description: 'Central European power — entrenched defensive doctrine with +1 defense die from faction bonuses.',
     lore: 'A patchwork empire of princes, bishops, and free cities, the Reich survives by fortifying passes and bargaining for allegiance.',
@@ -17,6 +18,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'mongol_empire',
+    lineage_id: 'expansionist',
     name: 'Mongol Khanate',
     description: 'Devastating cavalry charges — +1 attack die on territories with fewer than 3 defenders.',
     lore: 'Mounted couriers, disciplined tumens, and ruthless speed let the Mongols turn open ground into an empire-spanning highway.',
@@ -29,6 +31,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'byzantine',
+    lineage_id: 'bastion',
     name: 'Byzantine Empire',
     description: 'Sophisticated bureaucracy and Greek fire — +1 defense die in your capital region.',
     lore: 'Heir to Rome in ceremony and statecraft, Byzantium outlasts stronger foes through coin, diplomacy, and fortified capitals.',
@@ -42,6 +45,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'caliphate',
+    lineage_id: 'mercantile',
     name: 'Abbasid Caliphate',
     description: 'Intellectual hub and trade mastery — +2 tech points per turn passively.',
     lore: 'Centered on great cities of scholarship and trade, the Abbasid world links caravan wealth to scientific ambition.',
@@ -54,6 +58,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'france',
+    lineage_id: 'insurgent',
     name: 'Kingdom of France',
     description: 'Chivalric knights — cavalry units grant +1 attack die when attacking from a territory you also hold a neighbor of.',
     lore: 'Feudal levies and ambitious nobles give France explosive striking power once its domains are stitched into a coherent realm.',
@@ -66,6 +71,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'england',
+    lineage_id: 'maritime',
     name: 'Kingdom of England',
     description: 'Longbowmen add +1 attack die when attacking across a sea connection.',
     lore: 'An island kingdom of fleets, bowmen, and stubborn kings, England fights best when it controls the narrow points of approach.',

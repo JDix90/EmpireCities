@@ -1,13 +1,8 @@
 import { ERA_ADVANCE_GOLD_RGB, lerpRgb } from './mapVisualStyles';
-
-const ERA_DISPLAY: Record<string, string> = {
-  ancient: 'Ancient',
-  medieval: 'Medieval',
-  discovery: 'Discovery',
-};
+import { eraMeta } from '../constants/eraMeta';
 
 export function eraAdvanceDisplayName(variant?: string): string {
-  return ERA_DISPLAY[variant ?? ''] ?? 'New Era';
+  return eraMeta(variant).short;
 }
 
 export function sortIdsByDistanceFromOrigin<T extends { x: number; y: number; id: string }>(

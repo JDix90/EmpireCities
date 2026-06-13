@@ -23,11 +23,11 @@ import {
 const TutorialStartSchema = z.object({
   era: z.enum(['ancient', 'ww2']).optional(),
   lesson_module: z
-    .enum(['core', 'advanced_settings', 'faction_ability', 'tech_tree'])
+    .enum(['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'])
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold']);
+const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence']);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -37,7 +37,7 @@ export const CreateGameSchema = z.object({
   settings: z
     .object({
       fog_of_war: z.boolean().default(false),
-      allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(4).optional(),
+      allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(5).optional(),
       /** Legacy single-select; ignored when `allowed_victory_conditions` is set. */
       victory_type: victoryConditionEnum.optional(),
       victory_threshold: z.number().min(1).max(99).optional(),
@@ -56,6 +56,7 @@ export const CreateGameSchema = z.object({
       async_mode: z.boolean().optional(),
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
+      era_advancement_preset: z.enum(['skirmish', 'standard', 'epic', 'custom']).optional(),
       is_ranked: z.boolean().optional(),
       /** Turn cap: most territory when this turn ends wins. Without this entry
        * zod strips the field, which silently disabled Quick Match's 150-turn cap. */
@@ -140,7 +141,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'Era Advancement is not available in ranked games' });
       }
       if (era_id !== 'ancient') {
-        return reply.status(400).send({ error: 'Era Advancement PoC requires the Ancient era lobby preset' });
+        return reply.status(400).send({ error: 'Era Advancement must start in the Ancient era' });
       }
     }
 
@@ -239,10 +240,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send(formatZodError(parsed.error));
     }
     const lessonModule = parsed.data.lesson_module ?? 'core';
-    // All tutorial modules use the WW2 globe — it provides a rich, realistic
-    // playing surface for every lesson and keeps the experience consistent.
-    const mapId = 'era_ww2';
-    const eraId = 'ww2';
+    // Most tutorial modules use the WW2 globe for a consistent surface. Era
+    // Advancement is the exception: it must start in the Ancient era (the spine's
+    // first step), so it runs on the Ancient map.
+    const isEraAdvancement = lessonModule === 'era_advancement';
+    const mapId = isEraAdvancement ? 'era_ancient' : 'era_ww2';
+    const eraId = isEraAdvancement ? 'ancient' : 'ww2';
 
     const gameId = uuidv4();
     const tutorialSettings: Record<string, unknown> = {
@@ -265,6 +268,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (lessonModule === 'tech_tree') {
       tutorialSettings.tech_trees_enabled = true;
       tutorialSettings.tutorial_grant_tech_points = 8;
+    }
+    if (isEraAdvancement) {
+      // The short 2-era PoC spine (Skirmish preset) with a tech-only gate so the
+      // lesson stays focused on research → advance. Stability and the building
+      // requirement are dropped, and we grant generous research points + gold so
+      // the player reaches the advancement in a couple of turns, not by grinding.
+      tutorialSettings.economy_enabled = true;
+      tutorialSettings.tech_trees_enabled = true;
+      tutorialSettings.stability_enabled = false;
+      tutorialSettings.era_advancement_enabled = true;
+      tutorialSettings.era_advancement_preset = 'skirmish';
+      tutorialSettings.era_advancement_min_buildings = 0;
+      tutorialSettings.tutorial_grant_tech_points = 24;
+      tutorialSettings.economy_tech_starting_gold = 60;
     }
 
     // china_ww2 has "guerrilla_warfare" — a draft-phase ability the tutorial explicitly demos.
