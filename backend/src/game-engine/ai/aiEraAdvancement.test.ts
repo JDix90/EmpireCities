@@ -146,4 +146,49 @@ describe('evaluateAiEraAdvancement', () => {
     const result = evaluateAiEraAdvancement(state, map, 'ai1', 'medium');
     expect(result.shouldAdvance).toBe(false);
   });
+
+  it('hard-blocks advancing while a heavy enemy force sits on the border (even expert)', () => {
+    const state = baseState({
+      territories: {
+        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5 },
+        t3: { territory_id: 't3', owner_id: 'human', unit_count: 16, unit_type: 'infantry', stability: 70, population: 3 },
+      },
+    });
+    const result = evaluateAiEraAdvancement(state, map, 'ai1', 'expert');
+    expect(result.gatePassed).toBe(true);
+    expect(result.shouldAdvance).toBe(false);
+    expect(result.score).toBe(0);
+  });
+
+  it('scales catch-up urgency with the era gap', () => {
+    const CLASSIC = [
+      { era_id: 'ancient' }, { era_id: 'medieval' }, { era_id: 'discovery' },
+      { era_id: 'ww2' }, { era_id: 'coldwar' }, { era_id: 'modern' },
+    ];
+    const make = (oppEra: number) => baseState({
+      era_spine: CLASSIC,
+      players: [
+        basePlayer(),
+        basePlayer({ player_id: 'human', player_index: 1, is_ai: false, current_era_index: oppEra }),
+      ],
+    } as Partial<GameState>);
+    const behind2 = evaluateAiEraAdvancement(make(2), map, 'ai1', 'medium');
+    const level = evaluateAiEraAdvancement(make(0), map, 'ai1', 'medium');
+    expect(behind2.score).toBeGreaterThan(level.score);
+    expect(behind2.shouldAdvance).toBe(true);
+  });
+
+  it('applies end-spine restraint to the final advance (vs a non-final step)', () => {
+    const solo = (spine: Array<{ era_id: string }>) =>
+      baseState({ era_spine: spine, players: [basePlayer()] } as Partial<GameState>);
+    const final = evaluateAiEraAdvancement(
+      solo([{ era_id: 'ancient' }, { era_id: 'medieval' }]), // advancing to the last era
+      map, 'ai1', 'expert',
+    );
+    const nonFinal = evaluateAiEraAdvancement(
+      solo([{ era_id: 'ancient' }, { era_id: 'medieval' }, { era_id: 'discovery' }]),
+      map, 'ai1', 'expert',
+    );
+    expect(final.score).toBe(nonFinal.score - 2);
+  });
 });

@@ -2,6 +2,8 @@ import { randomInt } from 'crypto';
 import type { AiDifficulty, GameMap, GameState } from '../../types';
 import { canAdvanceEra } from '../eraAdvancement/advanceEra';
 import { getPlayerEraIndex } from '../eraAdvancement/constants';
+import { ERA_SIGNATURES } from '../eraAdvancement/signatures';
+import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 import { getEmpireWeightedStability } from '../state/stabilityManager';
 
 /** Minimum advance_score to trigger era climb by difficulty. */
@@ -12,6 +14,12 @@ const ADVANCE_THRESHOLDS: Record<AiDifficulty, number> = {
   hard: 4,
   expert: 3,
 };
+
+/** Enemy border units above which advancing into the vulnerability window is reckless. */
+const HEAVY_BORDER_THREAT = 15;
+/** Pacing prior: target the first advance around this turn, then every PACE turns. */
+const FIRST_ADVANCE_TURN = 4;
+const ADVANCE_PACE = 5;
 
 function buildAdjacency(map: GameMap): Record<string, string[]> {
   const adjacency: Record<string, string[]> = {};
@@ -87,19 +95,50 @@ export function evaluateAiEraAdvancement(
 
   const myEra = getPlayerEraIndex(state, playerId);
   const maxOppEra = maxOpponentEraIndex(state, playerId);
+  const gap = maxOppEra - myEra;
+  const maxIndex = getMaxEraIndex(state);
   const cost = gate.cost ?? 0;
   const goldAfter = (player.special_resource ?? 0) - cost;
   const income = Math.max(1, player.last_turn_production_income ?? 0);
   const goldBuffer = goldAfter / income;
   const borderThreat = countBorderThreat(state, map, playerId);
 
+  // Hard safety: advancing opens a one-turn vulnerability window, so never do it
+  // with a heavy enemy force on the border no matter how tempting the climb.
+  if (borderThreat >= HEAVY_BORDER_THREAT) {
+    return { shouldAdvance: false, score: 0, threshold, gatePassed: true };
+  }
+
   let score = 0;
-  if (maxOppEra > myEra) score += 4;
+
+  // Catch-up: trailing the era leader is urgent, and the trailing-player cost
+  // discount makes the climb cheaper the further behind you are.
+  if (gap >= 1) score += 4;
+  if (gap >= 2) score += 4;
+
+  // Keep a gold cushion after paying the cost.
   if (goldBuffer >= 1) score += 3;
   if (goldBuffer >= 2) score += 2;
+
+  // Calm borders favor taking the vulnerability window now.
   if (borderThreat < 5) score += 3;
   if (borderThreat < 2) score += 2;
-  if (myEra === 0 && state.turn_number >= 6) score += 2;
+
+  // Pacing prior — generalizes across the spine: advance roughly on schedule for
+  // the current step rather than only racing the first transition.
+  const targetTurn = FIRST_ADVANCE_TURN + myEra * ADVANCE_PACE;
+  if (state.turn_number >= targetTurn) score += 2;
+  if (state.turn_number >= targetTurn + ADVANCE_PACE) score += 2;
+
+  // Signature awareness: an offensive arrival payoff is worth more with targets.
+  const nextSignatureId = getStateSpineSteps(state)[myEra + 1]?.signature_id;
+  if (nextSignatureId && ERA_SIGNATURES[nextSignatureId]?.attack_die_bonus && borderThreat >= 2) {
+    score += 1;
+  }
+
+  // End-spine restraint: the final advance resets tech for the apex aura — don't
+  // rush it (and lose the research) unless you are behind and need the parity.
+  if (myEra + 1 >= maxIndex && gap <= 0) score -= 2;
 
   if (state.settings.stability_enabled) {
     const stabilityGate = state.settings.era_advancement_stability_gate ?? 60;
@@ -107,8 +146,8 @@ export function evaluateAiEraAdvancement(
     if (stability < stabilityGate + 10) score -= 3;
   }
 
+  // Moderate border threat still discourages advancing.
   if (borderThreat >= 10) score -= 5;
-  if (borderThreat >= 15) score -= 3;
 
   if (difficulty === 'easy') {
     const roll = randomInt(0, 100);
