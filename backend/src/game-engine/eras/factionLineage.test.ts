@@ -41,6 +41,13 @@ describe('lineage grid', () => {
       }
     }
   });
+
+  it('extends the grid into the Space Age so full_ascension keeps factions intact', () => {
+    const factions = getEraFactions('space_age');
+    for (const lineage of LINEAGES) {
+      expect(factions.filter((f) => f.lineage_id === lineage), `space_age:${lineage}`).toHaveLength(1);
+    }
+  });
 });
 
 describe('getPlayerFaction', () => {

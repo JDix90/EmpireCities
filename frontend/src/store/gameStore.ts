@@ -15,10 +15,12 @@ export interface TerritoryState {
 }
 
 export interface SecretMissionPayload {
-  kind: 'capture_territories' | 'eliminate_player' | 'control_regions';
+  kind: 'capture_territories' | 'eliminate_player' | 'control_regions' | 'reach_era';
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
+  era_index?: number;
+  era_id?: string;
 }
 
 export interface PlayerState {

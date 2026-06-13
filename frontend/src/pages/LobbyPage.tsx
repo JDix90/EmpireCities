@@ -1976,7 +1976,7 @@ export default function LobbyPage() {
                                   {([
                                     ['skirmish', 'Skirmish', 'Ancient → Medieval, faster & forgiving'],
                                     ['standard', 'Standard', 'Ancient → Modern, balanced'],
-                                    ['epic', 'Epic', 'Ancient → Modern, steeper & longer'],
+                                    ['epic', 'Epic', 'Ancient → Space Age, steeper & longer'],
                                   ] as const).map(([id, label, desc]) => (
                                     <button
                                       key={id}
@@ -2000,7 +2000,7 @@ export default function LobbyPage() {
                                 <p className="text-[11px] text-bf-muted mt-1">
                                   {eraAdvancementPreset === 'skirmish' && 'Two-era climb with cheaper, lighter gates — quick games.'}
                                   {eraAdvancementPreset === 'standard' && 'Full six-era timeline with balanced costs and gates.'}
-                                  {eraAdvancementPreset === 'epic' && 'Full timeline with steeper costs and a stricter stability gate — long or async play.'}
+                                  {eraAdvancementPreset === 'epic' && 'The full Ancient → Space Age climb with steeper costs and a stricter stability gate — long or async play.'}
                                 </p>
                               </div>
                             )}

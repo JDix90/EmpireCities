@@ -8,7 +8,7 @@ import { isValidSpineId } from '../eraAdvancement/spines';
 import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
-const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
+const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold', 'transcendence'];
 
 const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'] as const;
 

@@ -24,9 +24,10 @@ const PRESET_BUNDLES: Record<'skirmish' | 'standard' | 'epic', Partial<GameSetti
   standard: {
     era_advancement_spine_id: 'classic',
   },
-  // Classic spine with steeper costs and a stricter stability gate — long/async.
+  // The full Ascension spine (Ancient → Space Age) with steeper costs and a
+  // stricter stability gate — long / async marathons.
   epic: {
-    era_advancement_spine_id: 'classic',
+    era_advancement_spine_id: 'full_ascension',
     era_advancement_cost_mult: 2.2,
     era_advancement_stability_gate: 65,
   },

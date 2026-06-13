@@ -6,6 +6,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const SPACE_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'terran_federation',
+    lineage_id: 'imperial',
     name: 'Terran Federation',
     description: 'Satellite-backed democracies — +1 attack die from surveillance dominance; precision doctrine always active.',
     lore: 'A confederation of North Atlantic and European megastates bound together by shared orbital infrastructure and open data networks.',
@@ -20,6 +21,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'sino_hegemony',
+    lineage_id: 'insurgent',
     name: 'Sino-Pacific Hegemony',
     description: 'Automated industry + AI command — +2 reinforcements per turn; additional production from every tech_gen building.',
     lore: 'A tightly integrated Asia-Pacific bloc where AI planners schedule factory output, logistics, and troop rotations with ruthless efficiency.',
@@ -32,6 +34,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'climate_alliance',
+    lineage_id: 'bastion',
     name: 'Climate Alliance',
     description: 'Terraforming doctrine — +2 stability recovery per turn; territories recover population faster.',
     lore: 'Born from the flooded coastlines and dust belts of the late 21st century, the Alliance treats ecological repair as a strategic weapon.',
@@ -45,6 +48,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'corpo_enclave',
+    lineage_id: 'mercantile',
     name: 'Corporate Enclave',
     description: 'Private militaries and techno-capitalism — +4 tech points per turn; can purchase mercenaries.',
     lore: 'Post-state megacorporations ruling sovereign coastal cities, blurring the boundary between shareholders and citizens.',
@@ -56,6 +60,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'solar_caliphate',
+    lineage_id: 'expansionist',
     name: 'Solar Caliphate',
     description: 'Vast solar arrays + hydrogen economy — +3 tech points per turn; extra reinforcement for every 3 owned resource territories.',
     lore: 'A post-petroleum coalition of Gulf and Central Asian states that turned their deserts into the energy heart of the 22nd century.',
@@ -68,6 +73,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'lunar_pioneers',
+    lineage_id: 'maritime',
     name: 'Lunar Pioneers',
     description: 'Moon-native colonists — start with Moon access unlocked; +2 defense dice on all lunar territories.',
     lore: 'Descendants of the first permanent lunar settlers, the Pioneers see Earth as a gravity well they are no longer obligated to return to.',

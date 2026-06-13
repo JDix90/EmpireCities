@@ -124,6 +124,17 @@ export function redactGuestRatings(ctx: GameResultContext): {
   };
 }
 
+/**
+ * Glicko rating bucket for a finished game. Era Advancement is a meaningfully
+ * different skill (macro pacing across eras), so ranked era-advancement games
+ * get their OWN key rather than diluting the base ranked ladder. Casual games
+ * always use 'solo'.
+ */
+export function resolveRatingType(isRanked: boolean, eraAdvancementEnabled: boolean): string {
+  if (!isRanked) return 'solo';
+  return eraAdvancementEnabled ? 'ranked_era_advancement' : 'ranked';
+}
+
 export async function recordGameResults(
   gameId: string,
   state: GameState,
@@ -150,7 +161,7 @@ export async function recordGameResults(
     const isRanked = gameRow.rows[0]?.is_ranked ?? false;
     ctx.isRanked = isRanked;
 
-    const ratingType = isRanked ? 'ranked' : 'solo';
+    const ratingType = resolveRatingType(isRanked, !!state.settings.era_advancement_enabled);
 
     const ranks = computeRanks(state.players, winnerIds);
     const winners = new Set(winnerIds);

@@ -28,4 +28,10 @@ describe('featureFlags', () => {
     expect(featureFlags.eraAdvancementLobbyEnabled).toBe(true);
     expect(getClientFeatureFlags().era_advancement_lobby_enabled).toBe(true);
   });
+
+  it('ranked_era_advancement_enabled defaults to off and is admin-overridable', () => {
+    expect(featureFlags.rankedEraAdvancementEnabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { ranked_era_advancement_enabled: true } });
+    expect(featureFlags.rankedEraAdvancementEnabled).toBe(true);
+  });
 });

@@ -1,4 +1,5 @@
 import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
+import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 
 /**
  * Deterministic 32-bit seed from an arbitrary string (FNV-1a). Used together
@@ -74,7 +75,13 @@ export function assignSecretMissions(
     const roll = rng();
     let mission: SecretMission;
 
-    if (roll < 0.34 && enemyOwned.length >= 2) {
+    if (state.settings.era_advancement_enabled && roll < 0.25) {
+      // Era-themed objective: reach a mid-spine era (capped by the spine length).
+      // Gated on era advancement so the RNG stream for non-era games is unchanged.
+      const targetIndex = Math.min(2, getMaxEraIndex(state));
+      const eraId = getStateSpineSteps(state)[targetIndex]?.era_id ?? 'medieval';
+      mission = { kind: 'reach_era', era_index: Math.max(1, targetIndex), era_id: eraId };
+    } else if (roll < 0.34 && enemyOwned.length >= 2) {
       const [a, b] = pickManyUnique(enemyOwned, 2, rng);
       mission = { kind: 'capture_territories', territory_ids: [a, b] };
     } else if (roll < 0.67 && others.length > 0) {
@@ -156,6 +163,8 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
     }
     case 'control_regions':
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);
+    case 'reach_era':
+      return (player.current_era_index ?? 0) >= m.era_index;
     case 'alliance':
       // Alliance victory is handled in checkVictory directly (requires both players)
       return false;

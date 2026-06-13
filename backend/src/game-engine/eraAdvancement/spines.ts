@@ -42,6 +42,22 @@ export const ERA_ADVANCEMENT_SPINES: Record<string, EraAdvancementSpine> = {
       { era_id: 'modern', signature_id: 'precision_strike' },
     ],
   },
+  // Full Ascension: the classic timeline extended into the Space Age. The
+  // orbital_window signature is map-independent, so reaching space_age works on
+  // any theater — lunar mechanics simply stay inert on moonless maps.
+  full_ascension: {
+    spine_id: 'full_ascension',
+    label: 'Ancient → Space Age',
+    steps: [
+      { era_id: 'ancient' },
+      { era_id: 'medieval', signature_id: 'levy_of_knights' },
+      { era_id: 'discovery', signature_id: 'age_of_sail', gate_overrides: { min_tier2_techs: 2, min_buildings: 2 } },
+      { era_id: 'ww2', signature_id: 'mobilization', gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 2 } },
+      { era_id: 'coldwar', signature_id: 'intelligence_coup', gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 3 } },
+      { era_id: 'modern', signature_id: 'precision_strike', gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 3 } },
+      { era_id: 'space_age', signature_id: 'orbital_window' },
+    ],
+  },
 };
 
 export function getSpineById(spineId: string | undefined): EraAdvancementSpine {

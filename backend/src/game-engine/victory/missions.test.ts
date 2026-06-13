@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { isMissionComplete } from './missions';
+import { assignSecretMissions, isMissionComplete } from './missions';
+import { checkVictory } from '../state/gameStateManager';
 import type { GameMap, GameState, PlayerState } from '../../types';
+
+function mkPlayer(id: string, overrides: Partial<PlayerState> = {}): PlayerState {
+  return {
+    player_id: id, player_index: 0, username: id, color: '#fff', is_ai: false,
+    is_eliminated: false, territory_count: 1, cards: [], mmr: 1000,
+    capital_territory_id: null, secret_mission: null, ...overrides,
+  } as PlayerState;
+}
 
 const miniMap: GameMap = {
   map_id: 'm',
@@ -95,5 +104,52 @@ describe('isMissionComplete', () => {
     };
     const state = baseState([p1, p2]);
     expect(isMissionComplete(state, miniMap, p1)).toBe(true);
+  });
+
+  it('reach_era completes once the player hits the target era index', () => {
+    const below = mkPlayer('p1', { current_era_index: 1, secret_mission: { kind: 'reach_era', era_index: 2, era_id: 'discovery' } });
+    const state = baseState([below, mkPlayer('p2')]);
+    expect(isMissionComplete(state, miniMap, below)).toBe(false);
+    below.current_era_index = 2;
+    expect(isMissionComplete(state, miniMap, below)).toBe(true);
+  });
+});
+
+describe('assignSecretMissions — era missions', () => {
+  it('assigns a reach_era objective when era advancement is on', () => {
+    const state = baseState([mkPlayer('p1'), mkPlayer('p2')]);
+    state.settings.era_advancement_enabled = true;
+    assignSecretMissions(state, miniMap, () => 0.1); // roll < 0.25 → era branch
+    expect(state.players[0].secret_mission?.kind).toBe('reach_era');
+  });
+
+  it('does not assign era missions in non-era games (RNG stream unchanged)', () => {
+    const state = baseState([mkPlayer('p1'), mkPlayer('p2')]);
+    assignSecretMissions(state, miniMap, () => 0.1);
+    expect(state.players[0].secret_mission?.kind).not.toBe('reach_era');
+  });
+});
+
+describe('transcendence victory', () => {
+  function transcendState(p1Era: number, wonderOwner: string | null): GameState {
+    const state = baseState([mkPlayer('p1', { current_era_index: p1Era }), mkPlayer('p2', { current_era_index: 0 })]);
+    state.settings.allowed_victory_conditions = ['transcendence'];
+    state.settings.era_advancement_enabled = true;
+    if (wonderOwner) state.territories.a.buildings = ['wonder_great_library'];
+    state.territories.a.owner_id = wonderOwner ?? 'p1';
+    return state;
+  }
+
+  it('wins when at the final era AND holding the wonder', () => {
+    // poc spine → max era index 1; p1 at era 1 owns the wonder on territory a.
+    expect(checkVictory(transcendState(1, 'p1'), miniMap)).toEqual({ winnerIds: ['p1'], condition: 'transcendence' });
+  });
+
+  it('does not win without the wonder', () => {
+    expect(checkVictory(transcendState(1, null), miniMap)).toBeNull();
+  });
+
+  it('does not win before reaching the final era', () => {
+    expect(checkVictory(transcendState(0, 'p1'), miniMap)).toBeNull();
   });
 });

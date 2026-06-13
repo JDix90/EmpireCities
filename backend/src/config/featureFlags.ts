@@ -56,6 +56,16 @@ export const featureFlags = {
   get eraAdvancementLobbyEnabled(): boolean {
     return overrideBool('era_advancement_lobby_enabled', false);
   },
+
+  /**
+   * When true, ranked matchmaking creates Era Advancement games (credited to the
+   * dedicated 'ranked_era_advancement' rating key). Default OFF — flipping this on
+   * is a product decision pending balance review (see scripts/eraBalanceTuning.md
+   * on the 1v1 snowball). Server-side only.
+   */
+  get rankedEraAdvancementEnabled(): boolean {
+    return overrideBool('ranked_era_advancement_enabled', false);
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */

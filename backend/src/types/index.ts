@@ -15,7 +15,7 @@ export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccess
 
 export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
-export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold';
+export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -31,7 +31,9 @@ export type SecretMission =
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_player'; target_player_id: string }
   | { kind: 'control_regions'; region_ids: string[] }
-  | { kind: 'alliance'; ally_player_id: string; territory_threshold: number };
+  | { kind: 'alliance'; ally_player_id: string; territory_threshold: number }
+  /** Era-advancement mode: climb to the target era. era_id is the resolved era for display. */
+  | { kind: 'reach_era'; era_index: number; era_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 

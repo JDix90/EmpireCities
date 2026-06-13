@@ -24,7 +24,7 @@ import {
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
-import { getSpineById } from '../eraAdvancement/spines';
+import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
 
@@ -957,6 +957,22 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
 
     if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {
       if (player.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, player)) condition = 'secret_mission';
+    }
+
+    // Transcendence (opt-in, era-advancement only): reach the final era of the
+    // spine AND hold a wonder — converting a tech/era lead into an alternate win
+    // without a full conquest. "A wonder" is era-agnostic (any wonder_* building
+    // the player owns) since the base-era wonder helper wouldn't track later eras.
+    if (
+      condition == null
+      && allowed.includes('transcendence')
+      && settings.era_advancement_enabled
+      && (player.current_era_index ?? 0) >= getMaxEraIndex(state)
+      && Object.values(state.territories).some(
+        (t) => t.owner_id === player.player_id && (t.buildings ?? []).some((b) => b.startsWith('wonder_')),
+      )
+    ) {
+      condition = 'transcendence';
     }
 
     if (condition != null) winners.push({ winnerIds: [player.player_id], condition });

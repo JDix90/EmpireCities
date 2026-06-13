@@ -57,9 +57,9 @@ describe('normalizeGameSettings — preset resolution', () => {
     expect(s.era_advancement_stability_gate).toBe(50);
   });
 
-  it('epic preset resolves the classic spine with steeper tuning', () => {
+  it('epic preset resolves the full ascension spine with steeper tuning', () => {
     const s = normalizeGameSettings({ ...base, era_advancement_preset: 'epic' } as Partial<GameSettings>);
-    expect(s.era_advancement_spine_id).toBe('classic');
+    expect(s.era_advancement_spine_id).toBe('full_ascension');
     expect(s.era_advancement_cost_mult).toBe(2.2);
     expect(s.era_advancement_stability_gate).toBe(65);
   });

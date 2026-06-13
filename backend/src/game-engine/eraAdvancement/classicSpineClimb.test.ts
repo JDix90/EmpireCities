@@ -13,7 +13,7 @@ import { ERA_ADVANCEMENT_SPINES, getEffectiveMilestoneGate } from './spines';
  * later steps) is actually satisfiable from that era's tree.
  */
 
-function climbState(): GameState {
+function climbState(spineId: 'classic' | 'full_ascension' = 'classic'): GameState {
   const territories: Record<string, TerritoryState> = {
     cap: {
       territory_id: 'cap',
@@ -41,13 +41,13 @@ function climbState(): GameState {
     phase: 'draft',
     players: [player],
     territories,
-    era_spine: ERA_ADVANCEMENT_SPINES.classic.steps,
+    era_spine: ERA_ADVANCEMENT_SPINES[spineId].steps,
     settings: {
       era_advancement_enabled: true,
       economy_enabled: true,
       tech_trees_enabled: true,
       stability_enabled: false,
-      era_advancement_spine_id: 'classic',
+      era_advancement_spine_id: spineId,
     },
   } as GameState;
 }
@@ -97,6 +97,21 @@ describe('classic spine climb (EA-201 end-to-end)', () => {
     // Precision Strike (modern arrival) armed a pending pre-attack strike.
     expect(player.pending_pre_attack_damage).toBe(2);
     // Cannot advance past the final era.
+    expect(canAdvanceEra(state, 'climber').canAdvance).toBe(false);
+  });
+
+  it('climbs the full_ascension spine all the way to the Space Age', () => {
+    const state = climbState('full_ascension');
+    const player = state.players[0];
+    const visited: string[] = [resolvePlayerEraId(state, player)];
+    for (let step = 0; step < 6; step++) {
+      satisfyGate(state, player);
+      expect(canAdvanceEra(state, 'climber').canAdvance, `full step ${step}`).toBe(true);
+      expect(executeAdvanceEra(state, 'climber').success).toBe(true);
+      visited.push(resolvePlayerEraId(state, player));
+    }
+    expect(visited).toEqual(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'space_age']);
+    expect(player.current_era_index).toBe(6);
     expect(canAdvanceEra(state, 'climber').canAdvance).toBe(false);
   });
 

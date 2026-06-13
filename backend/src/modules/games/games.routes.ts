@@ -27,7 +27,7 @@ const TutorialStartSchema = z.object({
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold']);
+const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence']);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -37,7 +37,7 @@ export const CreateGameSchema = z.object({
   settings: z
     .object({
       fog_of_war: z.boolean().default(false),
-      allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(4).optional(),
+      allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(5).optional(),
       /** Legacy single-select; ignored when `allowed_victory_conditions` is set. */
       victory_type: victoryConditionEnum.optional(),
       victory_threshold: z.number().min(1).max(99).optional(),

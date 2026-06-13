@@ -60,6 +60,9 @@ export function describeSecretMission(
     const names = mission.region_ids.map((id) => resolveRegionName(id, lookup));
     return `Control ${names.join(', ')}`;
   }
+  if (mission.kind === 'reach_era' && mission.era_id) {
+    return `Advance to the ${formatEraLabel(mission.era_id)}`;
+  }
   return 'Complete your secret objective';
 }
 
@@ -69,6 +72,7 @@ export type SecretMissionLike = {
   target_player_id?: string;
   region_ids?: string[];
   ally_player_id?: string;
+  era_id?: string;
 };
 
 export type PlayerNameLookup = Pick<PlayerState, 'player_id' | 'username'>;
@@ -95,6 +99,8 @@ export function formatSecretMissionReveal(
       const ally = players?.find((p) => p.player_id === mission.ally_player_id);
       return `Form alliance with ${ally?.username ?? 'another player'}`;
     }
+    case 'reach_era':
+      return `Advance to the ${formatEraLabel(mission.era_id)}`;
     default:
       return 'Unknown mission';
   }

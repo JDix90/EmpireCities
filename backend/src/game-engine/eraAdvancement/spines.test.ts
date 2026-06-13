@@ -111,6 +111,26 @@ describe('classic spine shape', () => {
   });
 });
 
+describe('full_ascension spine', () => {
+  it('extends the classic timeline into the Space Age (index 6)', () => {
+    const state = stateWith({
+      era_spine: ERA_ADVANCEMENT_SPINES.full_ascension.steps,
+      settings: { era_advancement_enabled: true },
+    } as Partial<GameState>);
+    expect(getMaxEraIndex(state)).toBe(6);
+    expect(getSpineEraIdAtIndex(state, 6)).toBe('space_age');
+  });
+
+  it('grants the orbital_window signature on arriving in the Space Age', () => {
+    expect(ERA_ADVANCEMENT_SPINES.full_ascension.steps[6]).toMatchObject({
+      era_id: 'space_age',
+      signature_id: 'orbital_window',
+    });
+    // modern is no longer terminal here, so it carries an exit gate
+    expect(ERA_ADVANCEMENT_SPINES.full_ascension.steps[5].gate_overrides?.min_tier3_techs).toBe(1);
+  });
+});
+
 describe('catch-up helpers', () => {
   it('reports the leader index from non-eliminated players', () => {
     const state = stateWith({ players: [p('a', 2), p('b', 4, true), p('c', 1)] });
