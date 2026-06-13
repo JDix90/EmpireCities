@@ -3,7 +3,8 @@ import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types
 import { calculateReinforcements } from '../combat/combatResolver';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
-import { getFactionById, getEraTechTree } from '../eras';
+import { getEraTechTree } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild } from '../state/economyManager';
@@ -210,7 +211,7 @@ function selectDraftTarget(
   const player = state.players.find((p) => p.player_id === playerId);
   const factionHomeRegions: string[] = [];
   if (state.settings.factions_enabled && player?.faction_id) {
-    const faction = getFactionById(state.era, player.faction_id);
+    const faction = getPlayerFaction(state, player);
     if (faction) factionHomeRegions.push(...faction.home_region_ids);
   }
 

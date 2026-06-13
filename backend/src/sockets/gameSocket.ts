@@ -36,7 +36,8 @@ import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { consumeSignatureAttackBonus } from '../game-engine/eraAdvancement/signatures';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
-import { getTechNodeById, getEraFactions, getEraTechTree } from '../game-engine/eras';
+import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
+import { getPlayerFaction } from '../game-engine/eras/factionLineage';
 import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
 import { onCaptureStabilityPenalty, onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
@@ -2273,7 +2274,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // Validate ability ownership — must come from faction or unlocked tech
       const faction = state.settings.factions_enabled && currentPlayer.faction_id
-        ? getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id)
+        ? getPlayerFaction(state, currentPlayer)
         : undefined;
       const hasFactionAbility = faction?.ability_id === abilityId;
 
@@ -2467,8 +2468,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // each turn is rejected outright. The charge refreshes every turn.
       if (target.owner_id && state.settings.factions_enabled) {
         const defender = state.players.find((p) => p.player_id === target.owner_id);
-        const defFaction = defender?.faction_id
-          ? getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id)
+        const defFaction = defender
+          ? getPlayerFaction(state, defender)
           : undefined;
         if (defFaction?.ability_id === 'papal_dispensation' && defender && !defender.influence_block_used_this_turn) {
           defender.influence_block_used_this_turn = true;
@@ -4386,7 +4387,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
  */
 function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: PlayerState): void {
   if (!state.settings.factions_enabled || !player.faction_id) return;
-  const faction = getEraFactions(state.era).find((f) => f.faction_id === player.faction_id);
+  const faction = getPlayerFaction(state, player);
   const abilityId = faction?.ability_id;
   if (!abilityId) return;
   const def = TERRITORY_ABILITY_DEFS[abilityId];
@@ -4487,7 +4488,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // imperial_diet) get placed this turn. Reuses executeTechAbility for exact
   // human/bot parity; these effects only ever help, so eager use is safe.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     const factionAbilityId = aiFaction?.ability_id;
     const factionDef = factionAbilityId ? TERRITORY_ABILITY_DEFS[factionAbilityId] : undefined;
     const draftAbilityIds = new Set([
@@ -4658,7 +4659,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // planned enemy attack target to soften it before assaulting — reuses
   // executeTechAbility so reduction / range / coastal rules match the human path.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     const strikeId = aiFaction?.ability_id;
     const strikeDef = strikeId ? TERRITORY_ABILITY_DEFS[strikeId] : undefined;
     if (
@@ -4689,7 +4690,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // executeTechAbility enforces the influence-range reachability check, so the AI
   // scans neutral territories and takes the first one it can legally unify.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'unification_drive' && !(currentPlayer.ability_uses ?? {})['unification_drive']) {
       for (const tid of Object.keys(state.territories)) {
         if (state.territories[tid].owner_id != null) continue;
@@ -4726,8 +4727,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       // attempt against it each turn (consumes the per-turn charge).
       if (target.owner_id && state.settings.factions_enabled) {
         const defender = state.players.find((p) => p.player_id === target.owner_id);
-        const defFaction = defender?.faction_id
-          ? getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id)
+        const defFaction = defender
+          ? getPlayerFaction(state, defender)
           : undefined;
         if (defFaction?.ability_id === 'papal_dispensation' && defender && !defender.influence_block_used_this_turn) {
           defender.influence_block_used_this_turn = true;
@@ -5034,7 +5035,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // has more fortify moves planned than its base limit allows, so the extra move
   // is actually used. Reuses executeTechAbility for human/bot parity.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const aiFaction = getEraFactions(state.era).find((f) => f.faction_id === currentPlayer.faction_id);
+    const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'armored_push' && !(currentPlayer.ability_uses ?? {})['armored_push']) {
       const plannedFortifies = actions.filter(
         (a) => a.type === 'fortify' && a.from && a.to && a.units,

@@ -2,6 +2,7 @@ import type { AdvanceEraClientPreview, GameState, PlayerState } from '../../type
 import { getEmpireWeightedStability } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex, resolvePlayerEraId } from './constants';
 import { evaluateEraAdvancementReadiness, resolveTechGateMode } from './eraAdvancementReadiness';
+import { applyLineageOnAdvance } from '../eras/factionLineage';
 import { ERA_SIGNATURES, grantEraSignature } from './signatures';
 import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
 import { captureTechEcho, storeTechEcho } from './techEcho';
@@ -142,10 +143,13 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
   player.current_era_index = nextIndex;
   player.era_transition_turns_remaining = state.settings.era_advancement_vuln_turns ?? 1;
 
+  const arrivingEraId = getEraIdForAdvancementIndex(state, nextIndex);
   const arrivalStep = getStateSpineSteps(state)[nextIndex];
   if (arrivalStep?.signature_id) {
     grantEraSignature(state, player, arrivalStep.signature_id);
   }
+  // Remap the player's faction along its lineage into the arriving era.
+  applyLineageOnAdvance(state, player, departingEraId, arrivingEraId);
 
   if (state.phase === 'attack') {
     player.era_advanced_this_turn = true;

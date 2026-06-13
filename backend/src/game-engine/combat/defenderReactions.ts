@@ -19,13 +19,13 @@
  * already implemented via nato_proxy's `passive_defense_bonus` in combatModifiers.
  */
 import type { CombatResult, GameState, TerritoryState } from '../../types';
-import { getEraFactions } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 
 function defenderFactionAbility(state: GameState, defenderId: string | null | undefined): string | undefined {
   if (!state.settings.factions_enabled || !defenderId) return undefined;
   const defender = state.players.find((p) => p.player_id === defenderId);
-  if (!defender?.faction_id) return undefined;
-  return getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id)?.ability_id;
+  if (!defender) return undefined;
+  return getPlayerFaction(state, defender)?.ability_id;
 }
 
 export interface DefenderPreCombatCharges {
@@ -79,7 +79,7 @@ export function applyDefenderPostCombatReactions(params: {
   const usedGame = (defender.used_game_abilities ?? []).includes(abilityId);
   const isCapital = defender.capital_territory_id != null
     && toTerritory.territory_id === defender.capital_territory_id;
-  const faction = getEraFactions(state.era).find((f) => f.faction_id === defender.faction_id);
+  const faction = getPlayerFaction(state, defender);
   const isHomeRegion = !!toTerritory.region_id
     && (faction?.home_region_ids ?? []).includes(toTerritory.region_id);
 

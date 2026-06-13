@@ -26,6 +26,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
 import { getSpineById } from '../eraAdvancement/spines';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
+import { migrateAdvancedFactions } from '../eras/factionLineage';
 
 const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
@@ -445,6 +446,9 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
       // Wrap pre-era-keyed flat echoes under the decay-exempt `legacy` key.
       if (p.era_advancement_tech_echo) ensureEraKeyedEcho(p);
     }
+    // Remap advanced players still holding a base-era faction_id onto their
+    // lineage's current-era faction (pre-lineage saves).
+    migrateAdvancedFactions(state);
   }
   // Patch buildings field on territories
   if (state.settings.economy_enabled) {

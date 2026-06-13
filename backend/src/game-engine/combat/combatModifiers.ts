@@ -19,7 +19,7 @@ import { getPlayerEraIndex } from '../eraAdvancement/constants';
 import { getBuildingDefenseBonus, getSeaDefenseBonus } from '../state/economyManager';
 import { getPlayerAttackBonus, getPlayerDefenseBonus } from '../state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice } from '../state/wonderManager';
-import { getEraFactions } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import {
   attackerIgnoresDefenseBuilding,
@@ -130,7 +130,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const defenderFaction = state.settings.factions_enabled
     ? (() => {
         const dp = state.players.find((p) => p.player_id === defenderId);
-        return dp?.faction_id ? getEraFactions(state.era).find((f) => f.faction_id === dp.faction_id) : undefined;
+        return dp ? getPlayerFaction(state, dp) : undefined;
       })()
     : undefined;
   const factionDefenseBonus = defenderFaction?.passive_defense_bonus ?? 0;
@@ -186,8 +186,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
 
   // ── Attacker dice ──────────────────────────────────────────────────────────
   const attackerPlayer = state.players.find((p) => p.player_id === attackerId);
-  const attackerFaction = state.settings.factions_enabled && attackerPlayer?.faction_id
-    ? getEraFactions(state.era).find((f) => f.faction_id === attackerPlayer.faction_id)
+  const attackerFaction = state.settings.factions_enabled && attackerPlayer
+    ? getPlayerFaction(state, attackerPlayer)
     : undefined;
 
   // Structural override: Modern precision strike (3 dice) or Discovery sea-lane cap.

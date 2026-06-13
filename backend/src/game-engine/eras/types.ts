@@ -46,6 +46,13 @@ export interface Faction {
   color: string;
   /** Extra stability recovery per turn for this faction's territories. */
   stability_recovery_bonus?: number;
+  /**
+   * Lineage archetype this faction belongs to. When era advancement + factions
+   * are both on, advancing remaps the player to the next era's faction sharing
+   * this lineage_id (e.g. imperial: rome → hre → spain → ...). Every classic-spine
+   * era defines exactly one faction per lineage. Optional on non-classic eras.
+   */
+  lineage_id?: string;
 }
 
 /** A node in an era-specific technology tree. */

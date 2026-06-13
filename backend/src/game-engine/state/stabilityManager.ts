@@ -4,7 +4,7 @@
 
 import { randomInt } from 'crypto';
 import type { GameState } from '../../types';
-import { getFactionById } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 
 /**
  * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
@@ -282,8 +282,8 @@ export function applyGlobalStabilityChange(state: GameState, delta: number): voi
 function getFactionStabilityBonus(state: GameState, playerId: string): number {
   if (!state.settings.factions_enabled) return 0;
   const player = state.players.find((p) => p.player_id === playerId);
-  if (!player?.faction_id) return 0;
-  const faction = getFactionById(state.era, player.faction_id);
+  if (!player) return 0;
+  const faction = getPlayerFaction(state, player);
   return faction?.stability_recovery_bonus ?? 0;
 }
 

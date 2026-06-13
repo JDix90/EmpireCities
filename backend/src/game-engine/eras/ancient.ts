@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const ANCIENT_FACTIONS: Faction[] = [
   {
     faction_id: 'rome',
+    lineage_id: 'imperial',
     name: 'Roman Republic',
     description: 'Disciplined legions re-roll their lowest attack die and receive extra reinforcements from Italic territory.',
     lore: 'A republic forged through citizen armies, road networks, and relentless campaigning, Rome expands by turning conquest into administration.',
@@ -18,6 +19,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'parthia',
+    lineage_id: 'bastion',
     name: 'Parthian Empire',
     description: 'Mounted archers force attackers into the attack phase with one fewer attack die when assaulting Parthian territories.',
     lore: 'Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.',
@@ -30,6 +32,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'han',
+    lineage_id: 'mercantile',
     name: 'Han Dynasty',
     description: 'Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.',
     lore: 'The Han state binds frontier armies, granaries, and court officials into one of the ancient world\'s most enduring imperial machines.',
@@ -42,6 +45,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'maurya',
+    lineage_id: 'expansionist',
     name: 'Maurya Empire',
     description: 'War elephants add +1 attack die when assaulting territories with 3 or fewer defenders.',
     lore: 'From the Ganges heartland, Mauryan rulers project authority through elephant corps, tax officials, and a centralized imperial court.',
@@ -54,6 +58,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'carthage',
+    lineage_id: 'maritime',
     name: 'Carthaginian Republic',
     description: 'Naval supremacy allows sea-lane fortify moves at no extra cost and +1 defense on coastal territories.',
     lore: 'Merchant princes and admirals make Carthage rich, turning harbors and trade routes into weapons that reach across the sea.',
@@ -66,6 +71,7 @@ export const ANCIENT_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'germanic_tribes',
+    lineage_id: 'insurgent',
     name: 'Germanic Tribes',
     description: 'Fierce forest fighters — +1 defense die on all defense rolls.',
     lore: 'Loose confederations of war bands and chieftains know every forest trail and river crossing, punishing empires that overextend.',

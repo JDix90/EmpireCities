@@ -4,6 +4,7 @@ import type { Faction, TechNode, EraWonder } from './types';
 export const DISCOVERY_FACTIONS: Faction[] = [
   {
     faction_id: 'spain',
+    lineage_id: 'imperial',
     name: 'Spanish Empire',
     description: 'Conquistadors press the advantage — +1 attack die when attacking territories in the Americas or Africa.',
     lore: 'Silver fleets, crusading zeal, and hard-edged conquistadors make Spain a transoceanic empire hungry for rapid expansion.',
@@ -16,6 +17,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'portugal',
+    lineage_id: 'maritime',
     name: 'Portuguese Empire',
     description: 'Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.',
     lore: 'Portugal lives by charts, caravels, and coastal strongpoints, turning sea lanes into a private imperial network.',
@@ -30,6 +32,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'ottoman',
+    lineage_id: 'expansionist',
     name: 'Ottoman Empire',
     description: 'Straddling east and west — +2 reinforcements per turn from controlling the mediterranean sea_routes region.',
     lore: 'From the Balkans to Arabia, Ottoman rule merges disciplined corps and strategic chokepoints into a continental hinge.',
@@ -42,6 +45,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'england_discovery',
+    lineage_id: 'insurgent',
     name: 'English Crown',
     description: 'Privateers and merchant adventurers — +1 tech point per sea territory owned.',
     lore: 'A rising maritime kingdom, England weaponizes chartered companies, private raids, and coastal footholds into empire.',
@@ -53,6 +57,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'ming_china',
+    lineage_id: 'bastion',
     name: 'Ming Dynasty',
     description: 'Vast population and the Great Wall — +1 defense die in Asian territories.',
     lore: 'The Ming command enormous manpower and monumental defenses, preferring layered stability over reckless overreach.',
@@ -67,6 +72,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
   },
   {
     faction_id: 'mughal',
+    lineage_id: 'mercantile',
     name: 'Mughal Empire',
     description: 'Rich subcontinent — generates +3 extra tech points per turn.',
     lore: 'Courtly wealth, gunpowder armies, and a mosaic of provinces make the Mughals formidable when prosperity is protected.',

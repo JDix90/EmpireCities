@@ -207,6 +207,8 @@ export interface PlayerState {
   era_advancement_tech_echo?: Record<string, number> | Record<string, Record<string, number>>;
   /** Era signature payoff charges keyed by signature_id, granted on arriving in an era. */
   era_signature_charges?: Record<string, number>;
+  /** Faction lineage archetype, set on advance so faction_id can remap across eras. */
+  faction_lineage_id?: string;
   /**
    * @deprecated Pre-spine saves only — migrated into
    * `era_signature_charges.levy_of_knights` by `repairLegacyGameState`.

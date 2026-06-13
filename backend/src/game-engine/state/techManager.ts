@@ -4,7 +4,8 @@
 
 import type { EraId, GameState } from '../../types';
 import type { TechNode } from '../eras/types';
-import { getEraTechTree, getFactionById, getTechNodeById } from '../eras';
+import { getEraTechTree, getTechNodeById } from '../eras';
+import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getTechEchoBonus } from '../eraAdvancement/techEcho';
 import { getWonderTechCostMultiplier } from './wonderManager';
@@ -150,7 +151,7 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
 
   // Faction passive reinforce bonus
   if (state.settings.factions_enabled && player.faction_id) {
-    const faction = getFactionById(state.era, player.faction_id);
+    const faction = getPlayerFaction(state, player);
     if (faction) bonus += faction.reinforce_bonus ?? 0;
   }
 
