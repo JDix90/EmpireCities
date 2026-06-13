@@ -80,18 +80,18 @@ describe('pre-spine-refactor state compatibility', () => {
     expect(result.error).toMatch(/maximum era/i);
   });
 
-  it('computes the trailing player\'s cost from the legacy formula', () => {
+  it('prices the trailing player under the Phase 2 formula (income floor + catch-up)', () => {
     const state = hydrateFixture();
     const p2 = state.players.find((p) => p.player_id === 'p2')!;
-    // income 6 × mult 2.0 × 1.5^0 = 12
-    expect(computeAdvanceCost(state, p2)).toBe(12);
+    // income 6 lifts to floor 8; ×mult 2.0 ×1.5^0(=1) ×catch-up 0.85 (1 era behind p1) = ceil(13.6) = 14.
+    expect(computeAdvanceCost(state, p2)).toBe(14);
   });
 
-  it('gates the trailing player on gold and reports next era', () => {
+  it('still gates the trailing player on gold and reports next era', () => {
     const state = hydrateFixture();
     const preview = getAdvanceEraPreview(state, 'p2');
     expect(preview.canAdvance).toBe(false);
-    expect(preview.cost).toBe(12);
+    expect(preview.cost).toBe(14);
     expect(preview.nextEraId).toBe('medieval');
   });
 

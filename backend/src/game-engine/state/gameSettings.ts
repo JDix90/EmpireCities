@@ -148,6 +148,12 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_cost_escalation: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_cost_escalation, eraDefaults.era_advancement_cost_escalation)
       : undefined,
+    era_advancement_cost_escalation_cap: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_escalation_cap, eraDefaults.era_advancement_cost_escalation_cap)
+      : undefined,
+    era_advancement_cost_income_floor: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_cost_income_floor, eraDefaults.era_advancement_cost_income_floor)
+      : undefined,
     era_advancement_stability_gate: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_stability_gate, eraDefaults.era_advancement_stability_gate)
       : undefined,
@@ -163,6 +169,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_min_tier2_techs: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_min_tier2_techs, eraDefaults.era_advancement_min_tier2_techs)
       : undefined,
+    era_advancement_min_tier3_techs: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_min_tier3_techs, eraDefaults.era_advancement_min_tier3_techs)
+      : undefined,
     era_advancement_min_buildings: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_min_buildings, eraDefaults.era_advancement_min_buildings)
       : undefined,
@@ -172,11 +181,35 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_vuln_turns: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_vuln_turns, eraDefaults.era_advancement_vuln_turns)
       : undefined,
-    era_advancement_max_era_index: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_max_era_index, eraDefaults.era_advancement_max_era_index)
+    // Left undefined unless explicitly capped: getMaxEraIndex then bounds it by
+    // the resolved spine length, so the classic spine reaches Modern while the
+    // PoC spine stays at Medieval. Legacy saves carry an explicit 1.
+    era_advancement_max_era_index: eraAdvancementEnabled && typeof raw.era_advancement_max_era_index === 'number'
+      ? raw.era_advancement_max_era_index
       : undefined,
     era_advancement_combat_gap_dice: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_combat_gap_dice, eraDefaults.era_advancement_combat_gap_dice)
+      : undefined,
+    era_advancement_catchup_discount: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_catchup_discount, eraDefaults.era_advancement_catchup_discount)
+      : undefined,
+    era_advancement_catchup_discount_floor: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_catchup_discount_floor, eraDefaults.era_advancement_catchup_discount_floor)
+      : undefined,
+    era_advancement_echo_decay: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_decay, eraDefaults.era_advancement_echo_decay)
+      : undefined,
+    era_advancement_echo_cap_attack: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_attack, eraDefaults.era_advancement_echo_cap_attack)
+      : undefined,
+    era_advancement_echo_cap_defense: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_defense, eraDefaults.era_advancement_echo_cap_defense)
+      : undefined,
+    era_advancement_echo_cap_reinforce: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_reinforce, eraDefaults.era_advancement_echo_cap_reinforce)
+      : undefined,
+    era_advancement_echo_cap_tech: eraAdvancementEnabled
+      ? numSetting(raw.era_advancement_echo_cap_tech, eraDefaults.era_advancement_echo_cap_tech)
       : undefined,
   };
 

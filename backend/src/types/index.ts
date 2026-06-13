@@ -292,16 +292,32 @@ export interface GameSettings {
   era_advancement_cost_step?: number;
   era_advancement_cost_mult?: number;
   era_advancement_cost_escalation?: number;
+  /** Cap on the escalation term (`min(escalation^index, cap)`) so late advances stay reachable. */
+  era_advancement_cost_escalation_cap?: number;
+  /** Income floor used in the cost basis — kills the "starve income before advancing" exploit. */
+  era_advancement_cost_income_floor?: number;
   era_advancement_stability_gate?: number;
   era_advancement_tech_gate_pct?: number;
   era_advancement_tech_gate_mode?: 'milestone' | 'percent';
   era_advancement_min_tier1_techs?: number;
   era_advancement_min_tier2_techs?: number;
+  /** Global fallback for the per-step tier-3 milestone requirement (default 0 = none). */
+  era_advancement_min_tier3_techs?: number;
   era_advancement_min_buildings?: number;
   era_advancement_vuln_defense_mult?: number;
   era_advancement_vuln_turns?: number;
   era_advancement_max_era_index?: number;
   era_advancement_combat_gap_dice?: number;
+  /** Per-era cost discount for trailing players (`discount^gap`, clamped to the floor). */
+  era_advancement_catchup_discount?: number;
+  era_advancement_catchup_discount_floor?: number;
+  /** Decay applied to each departed era's tech echo per era of distance (default 0.5). */
+  era_advancement_echo_decay?: number;
+  /** Per-stat caps on the (decayed) era-keyed echo total. Legacy echoes are exempt. */
+  era_advancement_echo_cap_attack?: number;
+  era_advancement_echo_cap_defense?: number;
+  era_advancement_echo_cap_reinforce?: number;
+  era_advancement_echo_cap_tech?: number;
   /** True when this game is part of a campaign sequence. */
   is_campaign?: boolean;
   /** Attack bonus units from campaign prestige carry-over (applied for first 3 turns). */
@@ -489,15 +505,32 @@ export interface AdvanceEraClientPreview {
   stability?: number;
   stability_gate?: number;
   gate_mode: 'milestone' | 'percent';
+  /** Eras the player trails the match leader by (0 = leading/tied). Drives the catch-up badge. */
+  catchup_gap?: number;
+  /** Percentage knocked off the advance cost while catching up (omitted when 0). */
+  catchup_discount_pct?: number;
   readiness?: {
     met: boolean;
     mode: 'milestone' | 'percent';
     error?: string;
     tier1?: AdvanceEraReadinessCheckView;
     tier2?: AdvanceEraReadinessCheckView;
+    tier3?: AdvanceEraReadinessCheckView;
     buildings?: AdvanceEraReadinessCheckView;
     percent?: { unlocked: number; required: number };
   };
+}
+
+/**
+ * Milestone tech/building requirements to advance out of an era. The global
+ * `era_advancement_min_*` settings are the defaults; a spine step may override
+ * any subset to make later transitions demand deeper tech.
+ */
+export interface EraMilestoneGate {
+  min_tier1_techs: number;
+  min_tier2_techs: number;
+  min_tier3_techs: number;
+  min_buildings: number;
 }
 
 /**
@@ -509,6 +542,8 @@ export interface EraSpineStep {
   era_id: EraId;
   /** Signature payoff granted on arriving in this era (dispatched by signature_id). */
   signature_id?: string;
+  /** Per-step overrides for the milestone gate to advance OUT of this era. */
+  gate_overrides?: Partial<EraMilestoneGate>;
 }
 
 export interface GameState {

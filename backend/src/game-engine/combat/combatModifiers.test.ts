@@ -301,7 +301,7 @@ describe('era advancement combat modifiers', () => {
     expect(mods.attackerBonusBreakdown.era_gap).toBe(1);
   });
 
-  it('grants +2 attacker dice when gap is clamped at 2', () => {
+  it('clamps the era-gap bonus at one step — a 3-era lead grants the same die as a 1-era lead (EA-203)', () => {
     const state = baseState({
       settings: {
         ...baseState().settings,
@@ -323,7 +323,7 @@ describe('era advancement combat modifiers', () => {
       defendingUnits: 3,
       connection: landConn,
     });
-    expect(mods.attackerBonusBreakdown.era_gap).toBe(2);
+    expect(mods.attackerBonusBreakdown.era_gap).toBe(1);
   });
 
   it('applies vulnerability defense multiplier to advancing defender', () => {

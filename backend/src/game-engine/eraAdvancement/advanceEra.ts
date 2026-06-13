@@ -3,7 +3,7 @@ import { getEmpireWeightedStability } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex, resolvePlayerEraId } from './constants';
 import { evaluateEraAdvancementReadiness, resolveTechGateMode } from './eraAdvancementReadiness';
 import { grantEraSignature } from './signatures';
-import { getMaxEraIndex, getStateSpineSteps } from './spines';
+import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
 import { captureTechEcho, storeTechEcho } from './techEcho';
 
 export interface AdvanceEraGateResult {
@@ -12,12 +12,30 @@ export interface AdvanceEraGateResult {
   cost?: number;
 }
 
+/**
+ * Multiplier knocked off a trailing player's advance cost: `discount^gap`,
+ * clamped to the configured floor. 1.0 when leading or tied.
+ */
+export function getCatchupCostMultiplier(state: GameState, player: PlayerState): number {
+  const gap = getCatchupGap(state, player);
+  if (gap <= 0) return 1;
+  const discount = state.settings.era_advancement_catchup_discount ?? 0.85;
+  const floor = state.settings.era_advancement_catchup_discount_floor ?? 0.6;
+  return Math.max(floor, discount ** gap);
+}
+
 export function computeAdvanceCost(state: GameState, player: PlayerState): number {
   const fromIndex = player.current_era_index ?? 0;
   const mult = state.settings.era_advancement_cost_mult ?? 2.0;
   const escalation = state.settings.era_advancement_cost_escalation ?? 1.5;
-  const income = player.last_turn_production_income ?? 0;
-  return Math.ceil(income * mult * escalation ** fromIndex);
+  const escalationCap = state.settings.era_advancement_cost_escalation_cap ?? 4.0;
+  const incomeFloor = state.settings.era_advancement_cost_income_floor ?? 8;
+  // Income floor blocks the "starve income the turn before advancing" exploit;
+  // the escalation cap keeps late advances reachable instead of exponential.
+  const income = Math.max(player.last_turn_production_income ?? 0, incomeFloor);
+  const effectiveEscalation = Math.min(escalation ** fromIndex, escalationCap);
+  const catchup = getCatchupCostMultiplier(state, player);
+  return Math.ceil(income * mult * effectiveEscalation * catchup);
 }
 
 function distributeConvertedUnits(
@@ -188,6 +206,8 @@ export function buildAdvanceEraClientPreview(
   if (!player) return null;
 
   const preview = getAdvanceEraPreview(state, playerId);
+  const catchupGap = getCatchupGap(state, player);
+  const catchupDiscount = getCatchupCostMultiplier(state, player);
   return {
     cost: preview.cost,
     can_advance: preview.canAdvance,
@@ -204,6 +224,8 @@ export function buildAdvanceEraClientPreview(
       ? (state.settings.era_advancement_stability_gate ?? 60)
       : undefined,
     gate_mode: resolveTechGateMode(state),
+    catchup_gap: catchupGap,
+    catchup_discount_pct: catchupGap > 0 ? Math.round((1 - catchupDiscount) * 100) : undefined,
     readiness: preview.readiness,
   };
 }

@@ -43,6 +43,10 @@ export interface AdvanceEraClientStatus {
   tier2Met: boolean;
   tier2Current: number;
   tier2Required: number;
+  /** tier-3 fields are only meaningful when tier3Required > 0 (later spine steps). */
+  tier3Met: boolean;
+  tier3Current: number;
+  tier3Required: number;
   buildingsMet: boolean;
   buildingsCurrent: number;
   buildingsRequired: number;
@@ -54,6 +58,10 @@ export interface AdvanceEraClientStatus {
   ready: boolean;
   currentEraId: string;
   nextEraId: string;
+  /** Eras behind the leader (0 = leading/tied). */
+  catchupGap: number;
+  /** Percentage off the advance cost while catching up (0 when not behind). */
+  catchupDiscountPct: number;
 }
 
 /**
@@ -81,6 +89,8 @@ export function getAdvanceEraClientStatus(
   const tier1Required = readiness?.tier1?.required ?? 0;
   const tier2Current = readiness?.tier2?.current ?? 0;
   const tier2Required = readiness?.tier2?.required ?? 0;
+  const tier3Current = readiness?.tier3?.current ?? 0;
+  const tier3Required = readiness?.tier3?.required ?? 0;
   const buildingsCurrent = readiness?.buildings?.current ?? 0;
   const buildingsRequired = readiness?.buildings?.required ?? 0;
   const techUnlocked = readiness?.percent?.unlocked ?? 0;
@@ -88,6 +98,7 @@ export function getAdvanceEraClientStatus(
 
   const tier1Met = readiness?.tier1?.met ?? true;
   const tier2Met = readiness?.tier2?.met ?? true;
+  const tier3Met = readiness?.tier3?.met ?? true;
   const buildingsMet = readiness?.buildings?.met ?? true;
   const techMet = readiness?.met ?? true;
 
@@ -108,6 +119,9 @@ export function getAdvanceEraClientStatus(
       }
       if (!tier2Met) {
         blockers.push(`Research at least ${tier2Required} tier-2 technolog${tier2Required === 1 ? 'y' : 'ies'} (${tier2Current}/${tier2Required})`);
+      }
+      if (tier3Required > 0 && !tier3Met) {
+        blockers.push(`Research at least ${tier3Required} tier-3 technolog${tier3Required === 1 ? 'y' : 'ies'} (${tier3Current}/${tier3Required})`);
       }
       if (!buildingsMet) {
         blockers.push(`Build at least ${buildingsRequired} building${buildingsRequired === 1 ? '' : 's'} (${buildingsCurrent}/${buildingsRequired})`);
@@ -136,6 +150,9 @@ export function getAdvanceEraClientStatus(
     tier2Met,
     tier2Current,
     tier2Required,
+    tier3Met,
+    tier3Current,
+    tier3Required,
     buildingsMet,
     buildingsCurrent,
     buildingsRequired,
@@ -149,5 +166,7 @@ export function getAdvanceEraClientStatus(
     ready: canPhase && cost > 0 && preview.can_advance,
     currentEraId: preview.current_era_id,
     nextEraId: preview.next_era_id,
+    catchupGap: preview.catchup_gap ?? 0,
+    catchupDiscountPct: preview.catchup_discount_pct ?? 0,
   };
 }

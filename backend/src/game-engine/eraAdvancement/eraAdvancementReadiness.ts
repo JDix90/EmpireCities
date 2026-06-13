@@ -2,6 +2,7 @@ import type { GameState } from '../../types';
 import { getEraTechTree } from '../eras';
 import { countPlayerBuildings } from '../state/economyManager';
 import { resolvePlayerEraId } from './constants';
+import { getEffectiveMilestoneGate } from './spines';
 
 export type EraAdvancementTechGateMode = 'milestone' | 'percent';
 
@@ -18,6 +19,8 @@ export interface EraAdvancementReadinessResult {
   error?: string;
   tier1?: EraAdvancementReadinessCheck;
   tier2?: EraAdvancementReadinessCheck;
+  /** Present only when the active gate requires tier-3 techs (later spine steps). */
+  tier3?: EraAdvancementReadinessCheck;
   buildings?: EraAdvancementReadinessCheck;
   percent?: { unlocked: number; required: number };
 }
@@ -69,41 +72,52 @@ export function evaluateEraAdvancementReadiness(
     };
   }
 
-  const tier1Required = state.settings.era_advancement_min_tier1_techs ?? 3;
-  const tier2Required = state.settings.era_advancement_min_tier2_techs ?? 1;
-  const buildingsRequired = state.settings.era_advancement_min_buildings ?? 1;
+  // The effective gate overlays per-spine-step overrides and catch-up relaxation
+  // onto the global milestone settings.
+  const gate = getEffectiveMilestoneGate(state, playerId);
 
   const tier1Current = countUnlockedTechsByTier(state, playerId, 1, 1);
   const tier2Current = countUnlockedTechsByTier(state, playerId, 2, 2);
+  const tier3Current = gate.min_tier3_techs > 0 ? countUnlockedTechsByTier(state, playerId, 3, 3) : 0;
   const buildingsCurrent = countPlayerBuildings(state, playerId);
 
   const tier1: EraAdvancementReadinessCheck = {
-    met: tier1Current >= tier1Required,
+    met: tier1Current >= gate.min_tier1_techs,
     current: tier1Current,
-    required: tier1Required,
+    required: gate.min_tier1_techs,
     label: 'tier-1 technologies',
   };
   const tier2: EraAdvancementReadinessCheck = {
-    met: tier2Current >= tier2Required,
+    met: tier2Current >= gate.min_tier2_techs,
     current: tier2Current,
-    required: tier2Required,
+    required: gate.min_tier2_techs,
     label: 'tier-2 technologies',
   };
+  const tier3: EraAdvancementReadinessCheck | undefined = gate.min_tier3_techs > 0
+    ? {
+      met: tier3Current >= gate.min_tier3_techs,
+      current: tier3Current,
+      required: gate.min_tier3_techs,
+      label: 'tier-3 technologies',
+    }
+    : undefined;
   const buildings: EraAdvancementReadinessCheck = {
-    met: buildingsCurrent >= buildingsRequired,
+    met: buildingsCurrent >= gate.min_buildings,
     current: buildingsCurrent,
-    required: buildingsRequired,
+    required: gate.min_buildings,
     label: 'buildings',
   };
 
-  const met = tier1.met && tier2.met && buildings.met;
+  const met = tier1.met && tier2.met && (tier3?.met ?? true) && buildings.met;
   let error: string | undefined;
   if (!tier1.met) {
-    error = `Research ${tier1Required} tier-1 technologies (${tier1Current}/${tier1Required})`;
+    error = `Research ${gate.min_tier1_techs} tier-1 technologies (${tier1Current}/${gate.min_tier1_techs})`;
   } else if (!tier2.met) {
-    error = `Research at least ${tier2Required} tier-2 technolog${tier2Required === 1 ? 'y' : 'ies'} (${tier2Current}/${tier2Required})`;
+    error = `Research at least ${gate.min_tier2_techs} tier-2 technolog${gate.min_tier2_techs === 1 ? 'y' : 'ies'} (${tier2Current}/${gate.min_tier2_techs})`;
+  } else if (tier3 && !tier3.met) {
+    error = `Research at least ${gate.min_tier3_techs} tier-3 technolog${gate.min_tier3_techs === 1 ? 'y' : 'ies'} (${tier3Current}/${gate.min_tier3_techs})`;
   } else if (!buildings.met) {
-    error = `Build at least ${buildingsRequired} building${buildingsRequired === 1 ? '' : 's'} (${buildingsCurrent}/${buildingsRequired})`;
+    error = `Build at least ${gate.min_buildings} building${gate.min_buildings === 1 ? '' : 's'} (${buildingsCurrent}/${gate.min_buildings})`;
   }
 
   return {
@@ -112,6 +126,7 @@ export function evaluateEraAdvancementReadiness(
     error,
     tier1,
     tier2,
+    tier3,
     buildings,
   };
 }

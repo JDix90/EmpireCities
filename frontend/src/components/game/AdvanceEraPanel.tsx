@@ -161,6 +161,12 @@ export default function AdvanceEraPanel({
                     ok={status.tier2Met}
                     label={`Tier-2 technologies: ${status.tier2Current}/${status.tier2Required}`}
                   />
+                  {status.tier3Required > 0 && (
+                    <GateRow
+                      ok={status.tier3Met}
+                      label={`Tier-3 technologies: ${status.tier3Current}/${status.tier3Required}`}
+                    />
+                  )}
                   <GateRow
                     ok={status.buildingsMet}
                     label={`Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`}
@@ -180,6 +186,12 @@ export default function AdvanceEraPanel({
                   : 'Production income: pending (starts after your first economy tick)'}
               />
             </ul>
+            {status.catchupGap > 0 && status.catchupDiscountPct > 0 && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-400 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                Catching up: −{status.catchupDiscountPct}% cost and an eased tech gate while you trail.
+              </p>
+            )}
           </>
         )}
         {showButton && (

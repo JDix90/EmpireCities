@@ -110,6 +110,28 @@ describe('computeAdvanceCost', () => {
     player.current_era_index = 1;
     expect(computeAdvanceCost(state, player)).toBe(30);
   });
+
+  it('applies the income floor so a player cannot starve income to advance cheaply', () => {
+    const state = baseState();
+    const player = basePlayer({ last_turn_production_income: 3, current_era_index: 0 });
+    // max(3, floor 8) × 2.0 × 1.5^0 = 16
+    expect(computeAdvanceCost(state, player)).toBe(16);
+  });
+
+  it('caps the escalation term so late advances stay reachable', () => {
+    const state = baseState();
+    const player = basePlayer({ last_turn_production_income: 10, current_era_index: 4 });
+    // 1.5^4 ≈ 5.06 capped to 4.0 → 10 × 2.0 × 4.0 = 80 (uncapped would be 102)
+    expect(computeAdvanceCost(state, player)).toBe(80);
+  });
+
+  it('discounts a trailing player\'s cost (catch-up)', () => {
+    const trailer = basePlayer({ player_id: 'trailer', last_turn_production_income: 10, current_era_index: 0 });
+    const leader = basePlayer({ player_id: 'leader', player_index: 1, current_era_index: 2 });
+    const state = baseState({ players: [trailer, leader] });
+    // gap 2 → 0.85^2 = 0.7225 → ceil(10 × 2.0 × 1 × 0.7225) = 15
+    expect(computeAdvanceCost(state, trailer)).toBe(15);
+  });
 });
 
 describe('canAdvanceEra', () => {
@@ -266,6 +288,7 @@ describe('buildAdvanceEraClientPreview', () => {
       stability: expect.any(Number),
       stability_gate: 60,
       gate_mode: 'milestone',
+      catchup_gap: 0,
       readiness: expect.objectContaining({
         met: true,
         mode: 'milestone',

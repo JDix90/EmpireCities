@@ -59,6 +59,18 @@ function sumBonuses(bonuses?: Record<string, number>): number {
 }
 
 /**
+ * EA-203: the era-gap combat bonus is capped at one era step in each direction.
+ * Being 3 eras ahead grants the same dice as being 1 ahead, so a runaway leader
+ * can't compound an era lead into an unbounded dice advantage. Returns the
+ * signed, clamped gap (positive = attacker ahead).
+ */
+const MAX_ERA_GAP_STEPS = 1;
+function clampedEraGap(state: GameState, attackerId: string, defenderId: string): number {
+  const gap = getPlayerEraIndex(state, attackerId) - getPlayerEraIndex(state, defenderId);
+  return Math.max(-MAX_ERA_GAP_STEPS, Math.min(MAX_ERA_GAP_STEPS, gap));
+}
+
+/**
  * March to the Sea (ACW Total War): once activated, the attacker gets +1 attack die
  * on up to 3 consecutive chain captures. The first hop may originate from any owned
  * territory; subsequent hops must continue from the territory captured in the prior
@@ -135,10 +147,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     : undefined;
   let eraGapDefenseBonus = 0;
   if (state.settings.era_advancement_enabled && defenderId) {
-    const attackerIndex = getPlayerEraIndex(state, attackerId);
-    const defenderIndex = getPlayerEraIndex(state, defenderId);
     const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
-    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    const effectiveGap = clampedEraGap(state, attackerId, defenderId);
     eraGapDefenseBonus = Math.max(0, -effectiveGap) * gapDice;
   }
 
@@ -209,10 +219,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, attackerId, defendingUnits);
   let eraGapAttackBonus = 0;
   if (state.settings.era_advancement_enabled && defenderId) {
-    const attackerIndex = getPlayerEraIndex(state, attackerId);
-    const defenderIndex = getPlayerEraIndex(state, defenderId);
     const gapDice = state.settings.era_advancement_combat_gap_dice ?? 1;
-    const effectiveGap = Math.max(-2, Math.min(2, attackerIndex - defenderIndex));
+    const effectiveGap = clampedEraGap(state, attackerId, defenderId);
     eraGapAttackBonus = Math.max(0, effectiveGap) * gapDice;
   }
   const extraAttackTotal = sumBonuses(extraAttackBonuses);

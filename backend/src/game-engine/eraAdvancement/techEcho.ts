@@ -8,10 +8,12 @@ import { getStateSpineSteps } from './spines';
  * departed. Stored era-keyed (`{ ancient: { attack_bonus: 2 } }`) so each
  * era's contribution can be weighted by how long ago it was departed.
  *
- * EA-103 scaffolding: the per-era weighting math is in place but neutral
- * (decay 1.0, no caps), so totals match the legacy flat store exactly.
- * EA-202 wires `era_advancement_echo_decay` / cap settings into
- * `echoWeight` and decides rounding when weights go fractional.
+ * EA-202: decay and per-stat caps are live. Each departed era's contribution
+ * is weighted by `era_advancement_echo_decay ^ (eras since departure)` and the
+ * era-keyed total is clamped to a per-stat cap, then rounded — combat/income
+ * bonuses are discrete. The `legacy` bucket (echoes captured before the store
+ * was era-keyed) is exempt from BOTH decay and caps so no in-flight player
+ * loses power on deploy.
  */
 
 export type TechEchoStat = 'attack_bonus' | 'defense_bonus' | 'reinforce_bonus' | 'tech_point_income';
@@ -25,7 +27,19 @@ const ECHO_STATS: TechEchoStat[] = ['attack_bonus', 'defense_bonus', 'reinforce_
  */
 export const LEGACY_ECHO_KEY = 'legacy';
 
-const NEUTRAL_ECHO_DECAY = 1.0;
+const ECHO_CAP_SETTING: Record<TechEchoStat, keyof import('../../types').GameSettings> = {
+  attack_bonus: 'era_advancement_echo_cap_attack',
+  defense_bonus: 'era_advancement_echo_cap_defense',
+  reinforce_bonus: 'era_advancement_echo_cap_reinforce',
+  tech_point_income: 'era_advancement_echo_cap_tech',
+};
+
+const ECHO_CAP_DEFAULT: Record<TechEchoStat, number> = {
+  attack_bonus: 2,
+  defense_bonus: 2,
+  reinforce_bonus: 2,
+  tech_point_income: 3,
+};
 
 /** Pre-era-keyed saves store the echo flat: stat name -> number. */
 export function isFlatEchoRecord(
@@ -86,9 +100,11 @@ export function storeTechEcho(player: PlayerState, eraId: string, captured: Reco
 }
 
 /**
- * Total echo bonus for one stat, weighting each departed era's contribution
- * by spine distance. Reads both store shapes so hand-built test states work
- * without a repair pass.
+ * Total echo bonus for one stat. Era-keyed contributions decay with spine
+ * distance and are clamped to a per-stat cap; the legacy bucket bypasses both
+ * (grandfathered at full strength) and is added on top. The final value is
+ * rounded — combat/income bonuses are integers. Reads the flat store shape too
+ * so hand-built test states work without a repair pass.
  */
 export function getTechEchoBonus(state: GameState, player: PlayerState, stat: TechEchoStat): number {
   if (!state.settings.era_advancement_enabled) return 0;
@@ -98,19 +114,28 @@ export function getTechEchoBonus(state: GameState, player: PlayerState, stat: Te
 
   const keyed = echo as Record<string, Record<string, number>>;
   const currentIndex = player.current_era_index ?? 0;
-  let total = 0;
+  const legacyRaw = keyed[LEGACY_ECHO_KEY]?.[stat] ?? 0;
+
+  let weighted = 0;
   for (const [eraKey, stats] of Object.entries(keyed)) {
+    if (eraKey === LEGACY_ECHO_KEY) continue;
     const value = stats?.[stat] ?? 0;
     if (!value) continue;
-    total += value * echoWeight(state, eraKey, currentIndex);
+    weighted += value * echoWeight(state, eraKey, currentIndex);
   }
-  return total;
+  const capped = Math.min(weighted, getEchoCap(state, stat));
+  return legacyRaw + Math.round(capped);
+}
+
+function getEchoCap(state: GameState, stat: TechEchoStat): number {
+  const value = state.settings[ECHO_CAP_SETTING[stat]];
+  return typeof value === 'number' ? value : ECHO_CAP_DEFAULT[stat];
 }
 
 function echoWeight(state: GameState, eraKey: string, currentIndex: number): number {
-  if (eraKey === LEGACY_ECHO_KEY) return 1;
   const eraIndex = getStateSpineSteps(state).findIndex((s) => s.era_id === eraKey);
   if (eraIndex < 0) return 1;
   const gap = Math.max(0, currentIndex - eraIndex - 1);
-  return NEUTRAL_ECHO_DECAY ** gap;
+  const decay = state.settings.era_advancement_echo_decay ?? 0.5;
+  return decay ** gap;
 }

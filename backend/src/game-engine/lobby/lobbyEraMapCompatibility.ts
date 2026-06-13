@@ -6,6 +6,7 @@ import {
   LOBBY_RULES_ERA_IDS,
   type LobbyMapChangeValue,
 } from './lobbyMapChange';
+import { getSpineById } from '../eraAdvancement/spines';
 
 export type CompatibilityWarningTier = 'info' | 'warn';
 
@@ -140,12 +141,19 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     return { allowed: false, hardBlock: 'Pairing cannot be changed in ranked games', warnings };
   }
 
-  if (settings.era_advancement_enabled === true && era_id !== 'ancient') {
-    return {
-      allowed: false,
-      hardBlock: 'Era Advancement requires Ancient rules — pick Ancient or disable Era Advancement',
-      warnings,
-    };
+  if (settings.era_advancement_enabled === true) {
+    const spineId = typeof settings.era_advancement_spine_id === 'string'
+      ? settings.era_advancement_spine_id
+      : undefined;
+    const startEra = getSpineById(spineId).steps[0]?.era_id;
+    if (startEra && era_id !== startEra) {
+      const startLabel = LOBBY_ERA_LABELS[startEra] ?? startEra;
+      return {
+        allowed: false,
+        hardBlock: `Era Advancement starts in ${startLabel} — pick ${startLabel} rules or disable Era Advancement`,
+        warnings,
+      };
+    }
   }
 
   const meta = input.map_meta;

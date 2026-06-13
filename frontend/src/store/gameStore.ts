@@ -91,12 +91,17 @@ export interface AdvanceEraClientPreview {
   stability?: number;
   stability_gate?: number;
   gate_mode: 'milestone' | 'percent';
+  /** Eras the player trails the match leader by (0 = leading/tied). */
+  catchup_gap?: number;
+  /** Percentage knocked off the advance cost while catching up (omitted when 0). */
+  catchup_discount_pct?: number;
   readiness?: {
     met: boolean;
     mode: 'milestone' | 'percent';
     error?: string;
     tier1?: AdvanceEraReadinessCheckView;
     tier2?: AdvanceEraReadinessCheckView;
+    tier3?: AdvanceEraReadinessCheckView;
     buildings?: AdvanceEraReadinessCheckView;
     percent?: { unlocked: number; required: number };
   };

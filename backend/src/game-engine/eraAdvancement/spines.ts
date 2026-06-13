@@ -1,4 +1,4 @@
-import type { EraId, EraSpineStep, GameState } from '../../types';
+import type { EraId, EraMilestoneGate, EraSpineStep, GameState, PlayerState } from '../../types';
 
 /**
  * An era advancement spine: the ordered, linear sequence of rules eras a game
@@ -24,6 +24,22 @@ export const ERA_ADVANCEMENT_SPINES: Record<string, EraAdvancementSpine> = {
     steps: [
       { era_id: 'ancient' },
       { era_id: 'medieval', signature_id: 'levy_of_knights' },
+    ],
+  },
+  // Classic timeline: Ancient → Modern. `gate_overrides` on a step set the
+  // requirements to advance OUT of that era, so later transitions demand deeper
+  // tech. Signatures beyond levy_of_knights are referenced here but implemented
+  // in EA-301 — grantEraSignature safely no-ops for unimplemented ids.
+  classic: {
+    spine_id: 'classic',
+    label: 'Ancient → Modern',
+    steps: [
+      { era_id: 'ancient' },
+      { era_id: 'medieval', signature_id: 'levy_of_knights' },
+      { era_id: 'discovery', signature_id: 'age_of_sail', gate_overrides: { min_tier2_techs: 2, min_buildings: 2 } },
+      { era_id: 'ww2', signature_id: 'mobilization', gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 2 } },
+      { era_id: 'coldwar', signature_id: 'intelligence_coup', gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 3 } },
+      { era_id: 'modern', signature_id: 'precision_strike' },
     ],
   },
 };
@@ -61,4 +77,44 @@ export function getMaxEraIndex(state: GameState): number {
   const spineMax = getStateSpineSteps(state).length - 1;
   const settingMax = state.settings.era_advancement_max_era_index ?? spineMax;
   return Math.min(settingMax, spineMax);
+}
+
+/** Highest era index reached by any non-eliminated player (the match leader). */
+export function getEraLeaderIndex(state: GameState): number {
+  let leader = 0;
+  for (const p of state.players) {
+    if (p.is_eliminated) continue;
+    leader = Math.max(leader, p.current_era_index ?? 0);
+  }
+  return leader;
+}
+
+/** Eras a player trails the leader by (0 when leading or tied). */
+export function getCatchupGap(state: GameState, player: PlayerState): number {
+  return Math.max(0, getEraLeaderIndex(state) - (player.current_era_index ?? 0));
+}
+
+/**
+ * The milestone gate a player must satisfy to advance out of their current era:
+ * global settings overlaid with the current spine step's overrides, then
+ * relaxed by one rank per requirement when the player is catching up (behind
+ * the leader). tier-1 keeps a floor of 1 so a gate never fully vanishes.
+ */
+export function getEffectiveMilestoneGate(state: GameState, playerId: string): EraMilestoneGate {
+  const player = state.players.find((p) => p.player_id === playerId);
+  const currentIndex = player?.current_era_index ?? 0;
+  const override = getStateSpineSteps(state)[currentIndex]?.gate_overrides ?? {};
+  const base: EraMilestoneGate = {
+    min_tier1_techs: override.min_tier1_techs ?? state.settings.era_advancement_min_tier1_techs ?? 3,
+    min_tier2_techs: override.min_tier2_techs ?? state.settings.era_advancement_min_tier2_techs ?? 1,
+    min_tier3_techs: override.min_tier3_techs ?? state.settings.era_advancement_min_tier3_techs ?? 0,
+    min_buildings: override.min_buildings ?? state.settings.era_advancement_min_buildings ?? 1,
+  };
+  if (!player || getCatchupGap(state, player) === 0) return base;
+  return {
+    min_tier1_techs: Math.max(1, base.min_tier1_techs - 1),
+    min_tier2_techs: Math.max(0, base.min_tier2_techs - 1),
+    min_tier3_techs: Math.max(0, base.min_tier3_techs - 1),
+    min_buildings: Math.max(0, base.min_buildings - 1),
+  };
 }

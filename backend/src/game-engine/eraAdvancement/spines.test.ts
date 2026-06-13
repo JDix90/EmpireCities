@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState } from '../../types';
 import { getEraTechTree } from '../eras';
+import type { PlayerState } from '../../types';
 import {
   DEFAULT_ERA_SPINE_ID,
   ERA_ADVANCEMENT_SPINES,
+  getCatchupGap,
+  getEffectiveMilestoneGate,
+  getEraLeaderIndex,
   getMaxEraIndex,
   getSpineById,
   getSpineEraIdAtIndex,
@@ -13,9 +17,14 @@ import {
 
 function stateWith(overrides: Partial<GameState>): GameState {
   return {
+    players: [],
     settings: { era_advancement_enabled: true },
     ...overrides,
   } as GameState;
+}
+
+function p(id: string, eraIndex: number, eliminated = false): PlayerState {
+  return { player_id: id, current_era_index: eraIndex, is_eliminated: eliminated } as PlayerState;
 }
 
 describe('spine registry', () => {
@@ -80,5 +89,78 @@ describe('getMaxEraIndex', () => {
       settings: { era_advancement_enabled: true },
     } as Partial<GameState>);
     expect(getMaxEraIndex(state)).toBe(2);
+  });
+
+  it('reaches Modern (index 5) on the classic spine', () => {
+    const state = stateWith({
+      era_spine: ERA_ADVANCEMENT_SPINES.classic.steps,
+      settings: { era_advancement_enabled: true },
+    } as Partial<GameState>);
+    expect(getMaxEraIndex(state)).toBe(5);
+    expect(getSpineEraIdAtIndex(state, 5)).toBe('modern');
+  });
+});
+
+describe('classic spine shape', () => {
+  it('runs Ancient → Modern with escalating per-step gates', () => {
+    const ids = ERA_ADVANCEMENT_SPINES.classic.steps.map((s) => s.era_id);
+    expect(ids).toEqual(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern']);
+    // later steps demand a tier-3 tech; earlier ones do not
+    expect(ERA_ADVANCEMENT_SPINES.classic.steps[0].gate_overrides).toBeUndefined();
+    expect(ERA_ADVANCEMENT_SPINES.classic.steps[3].gate_overrides?.min_tier3_techs).toBe(1);
+  });
+});
+
+describe('catch-up helpers', () => {
+  it('reports the leader index from non-eliminated players', () => {
+    const state = stateWith({ players: [p('a', 2), p('b', 4, true), p('c', 1)] });
+    expect(getEraLeaderIndex(state)).toBe(2); // eliminated b (4) ignored
+  });
+
+  it('measures a player\'s gap behind the leader, floored at 0', () => {
+    const state = stateWith({ players: [p('a', 3), p('b', 1)] });
+    expect(getCatchupGap(state, state.players[0])).toBe(0); // leader
+    expect(getCatchupGap(state, state.players[1])).toBe(2);
+  });
+});
+
+describe('getEffectiveMilestoneGate', () => {
+  function gateState(stepIndex: number, players: PlayerState[]): GameState {
+    return stateWith({
+      era_spine: ERA_ADVANCEMENT_SPINES.classic.steps,
+      settings: { era_advancement_enabled: true },
+      players,
+    } as Partial<GameState>);
+  }
+
+  it('uses global defaults for an early step with no overrides', () => {
+    const state = gateState(0, [p('a', 0)]);
+    expect(getEffectiveMilestoneGate(state, 'a')).toEqual({
+      min_tier1_techs: 3,
+      min_tier2_techs: 1,
+      min_tier3_techs: 0,
+      min_buildings: 1,
+    });
+  });
+
+  it('applies the spine step override (ww2: tier-3 required)', () => {
+    const state = gateState(3, [p('a', 3)]);
+    expect(getEffectiveMilestoneGate(state, 'a')).toEqual({
+      min_tier1_techs: 3,
+      min_tier2_techs: 2,
+      min_tier3_techs: 1,
+      min_buildings: 2,
+    });
+  });
+
+  it('relaxes each requirement by one rank for a trailing player (tier-1 floored at 1)', () => {
+    // player at ww2 step (index 3) but trailing a leader at coldwar (index 4)
+    const state = gateState(3, [p('a', 3), p('leader', 4)]);
+    expect(getEffectiveMilestoneGate(state, 'a')).toEqual({
+      min_tier1_techs: 2,
+      min_tier2_techs: 1,
+      min_tier3_techs: 0,
+      min_buildings: 1,
+    });
   });
 });

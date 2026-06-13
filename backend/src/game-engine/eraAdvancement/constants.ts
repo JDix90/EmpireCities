@@ -29,16 +29,26 @@ export function getDefaultEraAdvancementSettings(): {
   era_advancement_cost_step: number;
   era_advancement_cost_mult: number;
   era_advancement_cost_escalation: number;
+  era_advancement_cost_escalation_cap: number;
+  era_advancement_cost_income_floor: number;
   era_advancement_stability_gate: number;
   era_advancement_tech_gate_pct: number;
   era_advancement_tech_gate_mode: 'milestone';
   era_advancement_min_tier1_techs: number;
   era_advancement_min_tier2_techs: number;
+  era_advancement_min_tier3_techs: number;
   era_advancement_min_buildings: number;
   era_advancement_vuln_defense_mult: number;
   era_advancement_vuln_turns: number;
   era_advancement_max_era_index: number;
   era_advancement_combat_gap_dice: number;
+  era_advancement_catchup_discount: number;
+  era_advancement_catchup_discount_floor: number;
+  era_advancement_echo_decay: number;
+  era_advancement_echo_cap_attack: number;
+  era_advancement_echo_cap_defense: number;
+  era_advancement_echo_cap_reinforce: number;
+  era_advancement_echo_cap_tech: number;
 } {
   return {
     era_advancement_enabled: false,
@@ -48,15 +58,25 @@ export function getDefaultEraAdvancementSettings(): {
     era_advancement_cost_step: 1.25,
     era_advancement_cost_mult: 2.0,
     era_advancement_cost_escalation: 1.5,
+    era_advancement_cost_escalation_cap: 4.0,
+    era_advancement_cost_income_floor: 8,
     era_advancement_stability_gate: 60,
     era_advancement_tech_gate_pct: 0.33,
     era_advancement_tech_gate_mode: 'milestone',
     era_advancement_min_tier1_techs: 3,
     era_advancement_min_tier2_techs: 1,
+    era_advancement_min_tier3_techs: 0,
     era_advancement_min_buildings: 1,
     era_advancement_vuln_defense_mult: 0.75,
     era_advancement_vuln_turns: 1,
     era_advancement_max_era_index: 1,
     era_advancement_combat_gap_dice: 1,
+    era_advancement_catchup_discount: 0.85,
+    era_advancement_catchup_discount_floor: 0.6,
+    era_advancement_echo_decay: 0.5,
+    era_advancement_echo_cap_attack: 2,
+    era_advancement_echo_cap_defense: 2,
+    era_advancement_echo_cap_reinforce: 2,
+    era_advancement_echo_cap_tech: 3,
   };
 }

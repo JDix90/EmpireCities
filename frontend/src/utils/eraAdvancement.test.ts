@@ -145,4 +145,34 @@ describe('getAdvanceEraClientStatus', () => {
     expect(status?.atMaxEra).toBe(true);
     expect(status?.blockers).toContain('Already at maximum era');
   });
+
+  it('surfaces the tier-3 gate row and blocker when the step requires it', () => {
+    const s = baseState({
+      era_advancement_preview: basePreview({
+        can_advance: false,
+        readiness: {
+          met: false,
+          mode: 'milestone',
+          tier1: { met: true, current: 3, required: 3, label: 'tier-1 technologies' },
+          tier2: { met: true, current: 2, required: 2, label: 'tier-2 technologies' },
+          tier3: { met: false, current: 0, required: 1, label: 'tier-3 technologies' },
+          buildings: { met: true, current: 2, required: 2, label: 'buildings' },
+        },
+      }),
+    });
+    const status = getAdvanceEraClientStatus(s, player());
+    expect(status?.tier3Required).toBe(1);
+    expect(status?.tier3Met).toBe(false);
+    expect(status?.blockers).toContain('Research at least 1 tier-3 technology (0/1)');
+  });
+
+  it('passes catch-up gap and discount through for the badge', () => {
+    const s = baseState({
+      era_advancement_preview: basePreview({ cost: 12, catchup_gap: 2, catchup_discount_pct: 28 }),
+    });
+    const status = getAdvanceEraClientStatus(s, player());
+    expect(status?.catchupGap).toBe(2);
+    expect(status?.catchupDiscountPct).toBe(28);
+    expect(status?.ready).toBe(true);
+  });
 });
