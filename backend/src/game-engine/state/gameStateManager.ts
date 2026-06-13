@@ -638,8 +638,11 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
 
   const nextPlayer = state.players[next];
+  // Tick down the post-advance vulnerability window at the start of the
+  // advancer's turn. Decrement (not zero) so era_advancement_vuln_turns > 1
+  // genuinely lasts multiple turns.
   if (state.settings.era_advancement_enabled && (nextPlayer.era_transition_turns_remaining ?? 0) > 0) {
-    nextPlayer.era_transition_turns_remaining = 0;
+    nextPlayer.era_transition_turns_remaining = Math.max(0, (nextPlayer.era_transition_turns_remaining ?? 0) - 1);
   }
   if (map) {
     const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);

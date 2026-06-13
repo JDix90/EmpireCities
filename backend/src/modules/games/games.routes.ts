@@ -141,7 +141,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'Era Advancement is not available in ranked games' });
       }
       if (era_id !== 'ancient') {
-        return reply.status(400).send({ error: 'Era Advancement PoC requires the Ancient era lobby preset' });
+        return reply.status(400).send({ error: 'Era Advancement must start in the Ancient era' });
       }
     }
 

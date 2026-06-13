@@ -75,7 +75,7 @@ export function assignSecretMissions(
     const roll = rng();
     let mission: SecretMission;
 
-    if (state.settings.era_advancement_enabled && roll < 0.25) {
+    if (state.settings.era_advancement_enabled && getMaxEraIndex(state) >= 1 && roll < 0.25) {
       // Era-themed objective: reach a mid-spine era (capped by the spine length).
       // Gated on era advancement so the RNG stream for non-era games is unchanged.
       const targetIndex = Math.min(2, getMaxEraIndex(state));

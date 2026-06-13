@@ -108,15 +108,19 @@ export function executeLandAttack(
     onTerritoryCapture(state, toId);
     if (state.settings.stability_enabled) onCaptureStabilityPenalty(state, toId);
 
+    // Keep territory_count current for BOTH involved players — reinforcements
+    // (advanceToNextPlayer) and victory checks read it. The socket handler calls
+    // syncTerritoryCounts here; only these two players' counts change per attack.
+    for (const pid of [attackerId, defenderId]) {
+      const pl = state.players.find((p) => p.player_id === pid);
+      if (pl) pl.territory_count = Object.values(state.territories).filter((t) => t.owner_id === pid).length;
+    }
     const defender = state.players.find((p) => p.player_id === defenderId);
-    if (defender) {
-      defender.territory_count = Object.values(state.territories).filter((t) => t.owner_id === defenderId).length;
-      if (defender.territory_count === 0) {
-        defender.is_eliminated = true;
-        defenderEliminated = true;
-        attacker.cards.push(...defender.cards);
-        defender.cards = [];
-      }
+    if (defender && defender.territory_count === 0) {
+      defender.is_eliminated = true;
+      defenderEliminated = true;
+      attacker.cards.push(...defender.cards);
+      defender.cards = [];
     }
     opts.onCapture?.(state, attackerId, toId);
   }

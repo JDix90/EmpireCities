@@ -40,14 +40,20 @@ graduated penalties also key off the ratio. Impact in 2p expert games:
 
 ## Baseline (500 games · 4p · expert · maxTurns 100 · seed "borderfall-era-balance")
 
-- Runtime: **19.6s** (39 ms/game) — comfortably inside the < 10 min target.
-- **Reached final era (Modern): 84.4%** — clears EA-501's "expert completes the
-  classic spine in ≥80% of long sims" acceptance bar (88.8% at maxTurns 120).
-- Decisive wins: 61.6%; avg game length 83.9 turns; avg 10.4 advances/game;
-  avg first advance turn 19.
-- Winner era distribution: era5 (Modern) **409/500** — winners almost always
+Numbers below are post-audit: a review found `executeLandAttack` updated only the
+defender's `territory_count` on capture, so the sim's reinforcement income (read
+from `territory_count` in `advanceToNextPlayer`) and `domination`/`threshold`
+victory didn't track conquest. Fixed to sync both involved players. The corrected
+numbers moved < 3 points — the conclusions are robust.
+
+- Runtime: **15.6s** (31 ms/game) — comfortably inside the < 10 min target.
+- **Reached final era (Modern): 86.2%** — clears EA-501's "expert completes the
+  classic spine in ≥80% of long sims" acceptance bar.
+- Decisive wins: 64.6%; avg game length 82 turns; avg 10.5 advances/game;
+  avg first advance turn 18.
+- Winner era distribution: era5 (Modern) **418/500** — winners almost always
   reach the top of the spine before closing the game out.
-- **First-advancer win rate: 49%** vs a 25% random baseline (≈2×). Era advantage
+- **First-advancer win rate: 49.5%** vs a 25% random baseline (≈2×). Era advantage
   is a real edge but NOT deterministic in 4p — the catch-up discount + gate
   relaxation + echo decay + the ±1 era-gap clamp keep trailing players in it.
 
@@ -55,7 +61,7 @@ graduated penalties also key off the ratio. Impact in 2p expert games:
 
 - 4p (representative multiplayer): first-advancer win ≈ 49% (≈2× baseline) —
   healthy. Era lead matters without being an auto-win.
-- 2p (1v1-style): first-advancer win **93%**, era-leader almost always wins.
+- 2p (1v1-style): first-advancer win **94%**, era-leader almost always wins.
   This is the expected snowball of any 1v1 territory game (whoever develops
   faster compounds it); era advancement amplifies it but is not the sole cause.
 - The reported "era-leader@turn10 win rate" is small-n noise — first advance

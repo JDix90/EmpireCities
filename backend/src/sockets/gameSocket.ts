@@ -4885,6 +4885,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     // then consume it on this attack exactly as the human handler does.
     maybeActivateAiAttackSelfBuff(state, map, currentPlayer);
     const aiAttackBuffs = consumeAttackBuffs(currentPlayer);
+    // Era signature attack-die charge (Levy of Knights, Age of Sail, etc.) —
+    // parity with the human handler, which the AI path previously skipped.
+    const aiSignatureAttackBonus = consumeSignatureAttackBonus(currentPlayer);
 
     // Defender first-attack charges (greek_fire pre-damage, great_wall +2 dice)
     // — parity with the human attack handler.
@@ -4916,6 +4919,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         march_to_sea: aiMarchToSeaBonus,
         truce_retaliation: aiTruceRetaliationBonus,
         pending: aiAttackBuffs.extraAttackDie ? 1 : 0,
+        era_signature: aiSignatureAttackBonus,
       },
       extraDefenseBonuses: { great_wall: aiDefReactions.greatWallDefenseDice },
     });
