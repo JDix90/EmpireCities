@@ -2,7 +2,7 @@ import type { AdvanceEraClientPreview, GameState, PlayerState } from '../../type
 import { getEmpireWeightedStability } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex, resolvePlayerEraId } from './constants';
 import { evaluateEraAdvancementReadiness, resolveTechGateMode } from './eraAdvancementReadiness';
-import { grantEraSignature } from './signatures';
+import { ERA_SIGNATURES, grantEraSignature } from './signatures';
 import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
 import { captureTechEcho, storeTechEcho } from './techEcho';
 
@@ -144,7 +144,7 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
 
   const arrivalStep = getStateSpineSteps(state)[nextIndex];
   if (arrivalStep?.signature_id) {
-    grantEraSignature(player, arrivalStep.signature_id);
+    grantEraSignature(state, player, arrivalStep.signature_id);
   }
 
   if (state.phase === 'attack') {
@@ -208,6 +208,11 @@ export function buildAdvanceEraClientPreview(
   const preview = getAdvanceEraPreview(state, playerId);
   const catchupGap = getCatchupGap(state, player);
   const catchupDiscount = getCatchupCostMultiplier(state, player);
+  const nextIndex = Math.min(preview.currentEraIndex + 1, getMaxEraIndex(state));
+  const nextSignatureId = preview.currentEraIndex < getMaxEraIndex(state)
+    ? getStateSpineSteps(state)[nextIndex]?.signature_id
+    : undefined;
+  const nextSignatureDef = nextSignatureId ? ERA_SIGNATURES[nextSignatureId] : undefined;
   return {
     cost: preview.cost,
     can_advance: preview.canAdvance,
@@ -226,6 +231,9 @@ export function buildAdvanceEraClientPreview(
     gate_mode: resolveTechGateMode(state),
     catchup_gap: catchupGap,
     catchup_discount_pct: catchupGap > 0 ? Math.round((1 - catchupDiscount) * 100) : undefined,
+    next_signature: nextSignatureDef
+      ? { id: nextSignatureDef.signature_id, name: nextSignatureDef.name, description: nextSignatureDef.description }
+      : undefined,
     readiness: preview.readiness,
   };
 }

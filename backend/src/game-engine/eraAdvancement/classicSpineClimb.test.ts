@@ -86,8 +86,16 @@ describe('classic spine climb (EA-201 end-to-end)', () => {
     }
 
     expect(visited).toEqual(['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern']);
-    // Only the medieval signature is implemented; later ids no-op until EA-301.
-    expect(player.era_signature_charges).toEqual({ levy_of_knights: 1 });
+    // Each arrival fired its signature (stability off in this climb, so
+    // intelligence_coup takes its charge fallback; mobilization/precision_strike/
+    // orbital_window are instant and leave no charge).
+    expect(player.era_signature_charges).toEqual({
+      levy_of_knights: 1,
+      age_of_sail: 2,
+      intelligence_coup: 1,
+    });
+    // Precision Strike (modern arrival) armed a pending pre-attack strike.
+    expect(player.pending_pre_attack_damage).toBe(2);
     // Cannot advance past the final era.
     expect(canAdvanceEra(state, 'climber').canAdvance).toBe(false);
   });

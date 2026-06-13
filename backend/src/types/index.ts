@@ -509,6 +509,8 @@ export interface AdvanceEraClientPreview {
   catchup_gap?: number;
   /** Percentage knocked off the advance cost while catching up (omitted when 0). */
   catchup_discount_pct?: number;
+  /** Signature payoff granted on arriving in the next era (omitted when the step has none). */
+  next_signature?: { id: string; name: string; description: string };
   readiness?: {
     met: boolean;
     mode: 'milestone' | 'percent';

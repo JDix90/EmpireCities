@@ -62,6 +62,9 @@ export interface AdvanceEraClientStatus {
   catchupGap: number;
   /** Percentage off the advance cost while catching up (0 when not behind). */
   catchupDiscountPct: number;
+  /** Signature payoff name/description granted on arriving in the next era. */
+  nextSignatureName?: string;
+  nextSignatureDescription?: string;
 }
 
 /**
@@ -168,5 +171,7 @@ export function getAdvanceEraClientStatus(
     nextEraId: preview.next_era_id,
     catchupGap: preview.catchup_gap ?? 0,
     catchupDiscountPct: preview.catchup_discount_pct ?? 0,
+    nextSignatureName: preview.next_signature?.name,
+    nextSignatureDescription: preview.next_signature?.description,
   };
 }

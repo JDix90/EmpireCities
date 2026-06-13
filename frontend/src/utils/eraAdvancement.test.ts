@@ -175,4 +175,15 @@ describe('getAdvanceEraClientStatus', () => {
     expect(status?.catchupDiscountPct).toBe(28);
     expect(status?.ready).toBe(true);
   });
+
+  it('passes the next-era signature name and description through', () => {
+    const s = baseState({
+      era_advancement_preview: basePreview({
+        next_signature: { id: 'levy_of_knights', name: 'Levy of Knights', description: '+1 attack die on your next attack.' },
+      }),
+    });
+    const status = getAdvanceEraClientStatus(s, player());
+    expect(status?.nextSignatureName).toBe('Levy of Knights');
+    expect(status?.nextSignatureDescription).toContain('attack die');
+  });
 });

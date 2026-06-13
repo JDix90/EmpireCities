@@ -289,6 +289,7 @@ describe('buildAdvanceEraClientPreview', () => {
       stability_gate: 60,
       gate_mode: 'milestone',
       catchup_gap: 0,
+      next_signature: { id: 'levy_of_knights', name: 'Levy of Knights', description: expect.any(String) },
       readiness: expect.objectContaining({
         met: true,
         mode: 'milestone',
