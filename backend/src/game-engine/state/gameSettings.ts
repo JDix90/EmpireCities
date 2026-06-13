@@ -5,6 +5,7 @@ import {
   getDefaultEraAdvancementSettings,
 } from '../eraAdvancement/constants';
 import { isValidSpineId } from '../eraAdvancement/spines';
+import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
 const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold'];
@@ -46,6 +47,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
     : eraDefaults.era_advancement_enabled;
+  // Resolve a lobby preset into concrete era settings (explicit knobs still win)
+  // before normalizing, so the rest of the function reads the merged values.
+  if (eraAdvancementEnabled) {
+    raw = applyEraAdvancementPreset(raw);
+  }
+  const eraPreset = isEraAdvancementPreset(raw.era_advancement_preset)
+    ? raw.era_advancement_preset
+    : undefined;
   const numSetting = (value: unknown, fallback: number) =>
     typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
@@ -130,6 +139,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     territory_selection: territorySelection || undefined,
     coaching_enabled: coachingEnabled || undefined,
     era_advancement_enabled: eraAdvancementEnabled || undefined,
+    era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)
       : undefined,

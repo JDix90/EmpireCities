@@ -408,7 +408,7 @@ export default function LobbyProposals({
               <p className="text-[11px] text-bf-muted leading-relaxed">
                 Majority of players must approve. Faction picks reset if the map changes.
                 {currentSettings?.era_advancement_enabled === true
-                  ? ' Era Advancement turns off if you leave the Ancient era.'
+                  ? ` Era Advancement (${currentSettings.era_advancement_preset ?? 'standard'}) turns off if you leave the Ancient era.`
                   : null}
               </p>
             </div>

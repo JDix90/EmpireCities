@@ -151,6 +151,7 @@ export interface GameState {
     stability_enabled?: boolean;
     coaching_enabled?: boolean;
     era_advancement_enabled?: boolean;
+    era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
     era_advancement_cost_mult?: number;
     era_advancement_cost_escalation?: number;
     era_advancement_max_era_index?: number;

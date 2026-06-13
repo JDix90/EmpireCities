@@ -287,6 +287,8 @@ export interface GameSettings {
   coaching_enabled?: boolean;
   /** Mid-match per-player era advancement (PoC: Ancient → Medieval). */
   era_advancement_enabled?: boolean;
+  /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
+  era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */
   era_advancement_spine_id?: string;
   era_advancement_conversion_ratio?: number;
