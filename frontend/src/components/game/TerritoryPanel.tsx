@@ -8,6 +8,7 @@ import { computeDraftPool } from '../../utils/draftPool';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
+import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { isMobileViewport } from '../../utils/device';
 import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
@@ -37,7 +38,7 @@ interface TerritoryPanelProps {
   onInfluence?: (targetId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
-  techTree?: Array<{ tech_id: string; unlocks_ability?: string }>;
+  techTree?: Array<{ tech_id: string; unlocks_ability?: string; unlocks_building?: string }>;
   /**
    * Optional copy shown when the selected territory is offworld (Moon / non-Sol
    * galaxy world) and the active player has not yet satisfied the orbit-access
@@ -930,8 +931,28 @@ export default function TerritoryPanel({
       )}
 
       {!isMobileCompactInfo && gameState.settings.economy_enabled && onBuild && (() => {
-        // Compute era wonder state for this game
-        const wonderMeta = gameState.era ? ERA_WONDERS[gameState.era] : undefined;
+        // Use the VIEWER's current era (not the game's base era) so an advanced
+        // player sees their own era's wonder + buildings (era-advancement aware).
+        const viewerEra = resolvePlayerTechEraId(gameState, myPlayer);
+        const wonderMeta = ERA_WONDERS[viewerEra];
+        // Era-special buildings the viewer has unlocked via their current-era
+        // tech (e.g. Space Age launch_pad) — standard buildings + wonders are
+        // handled separately, so exclude them here.
+        const STANDARD = new Set([
+          'production_1', 'production_2', 'production_3',
+          'defense_1', 'defense_2', 'defense_3',
+          'tech_gen_1', 'tech_gen_2', 'special_a', 'special_b',
+          'port', 'naval_base', 'coastal_battery',
+        ]);
+        const unlockedTechs = new Set(myPlayer?.unlocked_techs ?? []);
+        const extraBuildOptions = Array.from(new Set(
+          techTree
+            .filter((n) => n.unlocks_building
+              && unlockedTechs.has(n.tech_id)
+              && !STANDARD.has(n.unlocks_building)
+              && !n.unlocks_building.startsWith('wonder_'))
+            .map((n) => n.unlocks_building as string),
+        ));
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
         if (wonderMeta) {
           let alreadyBuilt = false;
@@ -967,6 +988,7 @@ export default function TerritoryPanel({
             onBuild={onBuild}
             isCoastal={!fogHidden && tState.naval_units != null}
             eraWonder={eraWonderProp}
+            extraBuildOptions={extraBuildOptions}
           />
         );
       })()}
