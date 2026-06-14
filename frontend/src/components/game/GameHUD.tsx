@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap } from 'lucide-react';
+import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
@@ -72,6 +72,21 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   fortify: <ArrowRight className="w-4 h-4" />,
 };
 
+// ── Sidebar tabs ──────────────────────────────────────────────────────────────
+// The reference panels (objectives/resources/cards, the roster, and the combat
+// log) live behind a segmented control so only one category shows at a time —
+// the phase header, era progress, live buffs and the action button stay pinned.
+type HudTab = 'status' | 'players' | 'log';
+const HUD_TAB_STORAGE_KEY = 'bf_hud_tab';
+
+function readStoredHudTab(): HudTab {
+  try {
+    const v = localStorage.getItem(HUD_TAB_STORAGE_KEY);
+    if (v === 'status' || v === 'players' || v === 'log') return v;
+  } catch { /* localStorage unavailable (SSR / privacy mode) — fall through */ }
+  return 'status';
+}
+
 export default function GameHUD({
   onAdvancePhase,
   onRedeemCards,
@@ -102,10 +117,31 @@ export default function GameHUD({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
+  const [activeTab, setActiveTab] = useState<HudTab>(readStoredHudTab);
+  const [logUnread, setLogUnread] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  // Seed with the mount-time result so re-joining a game mid-combat doesn't
+  // flash a phantom "new result" dot before the player has done anything.
+  const lastResultRef = useRef(lastCombatResult);
 
   useEffect(() => subscribeUserPreferences(() => {
     setFastCombat(getFastCombatPreference());
   }), []);
+
+  const selectTab = (tab: HudTab) => {
+    setActiveTab(tab);
+    if (tab === 'log') setLogUnread(false);
+    try { localStorage.setItem(HUD_TAB_STORAGE_KEY, tab); } catch { /* ignore */ }
+  };
+
+  // Flag the Log tab with an unread dot when a fresh combat result lands while
+  // the player is looking at another tab — awareness without yanking them away.
+  useEffect(() => {
+    if (lastCombatResult && lastCombatResult !== lastResultRef.current) {
+      lastResultRef.current = lastCombatResult;
+      if (activeTab !== 'log') setLogUnread(true);
+    }
+  }, [lastCombatResult, activeTab]);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
   const myPlayer = resolvedViewerPlayerId
@@ -191,6 +227,12 @@ export default function GameHUD({
 
   if (!gameState) return null;
 
+  const TAB_DEFS: Array<{ id: HudTab; label: string; icon: React.ReactNode }> = [
+    { id: 'status', label: 'Status', icon: <Shield className="w-3.5 h-3.5" /> },
+    { id: 'players', label: 'Players', icon: <Users className="w-3.5 h-3.5" /> },
+    { id: 'log', label: 'Log', icon: <ScrollText className="w-3.5 h-3.5" /> },
+  ];
+
   return (
     <div className={clsx(
       'flex flex-col min-h-0 bg-bf-surface',
@@ -198,13 +240,13 @@ export default function GameHUD({
         ? 'flex-1 overflow-y-auto'
         : 'flex flex-1 min-h-0 h-full',
     )}>
-      {/* Phase Indicator — exposed as a polite live region so screen-reader
-          users hear "Turn 4, attack phase, your turn" each time it changes,
-          not just on first focus. `aria-current="step"` flags the active
-          phase semantically (matches Risk-style turn step semantics). */}
+      {/* ── Pinned header: phase + era progress (the always-on "glance" zone) ── */}
+      {/* Exposed as a polite live region so screen-reader users hear "Turn 4,
+          attack phase, your turn" each time it changes, not just on first focus.
+          `aria-current="step"` flags the active phase semantically. */}
       <div
         className={clsx(
-          'p-4 border-b border-bf-border',
+          'shrink-0 p-4 border-b border-bf-border',
           isMyTurn ? 'bg-bf-gold/10' : 'bg-bf-dark/50',
         )}
         role="status"
@@ -301,233 +343,281 @@ export default function GameHUD({
         )}
       </div>
 
-      {/* ── Scrollable body — all info between the phase header and action footer ── */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-
-      {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission) && (
-        <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
-          <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Objectives</h3>
-          {myPlayer.capital_territory_id && (
-            <p className="text-xs text-bf-text">
-              <span className="text-bf-muted">Your capital: </span>
-              <span>{resolveTerritoryName(myPlayer.capital_territory_id, mapNameLookup)}</span>
-            </p>
-          )}
-          {myPlayer.secret_mission && (
-            <p className="text-xs text-bf-text mt-1">
-              <span className="text-bf-muted">Mission: </span>
-              {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup)}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Resources */}
-      {myPlayer && (gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled) && (
-        <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
-          <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Resources</h3>
-          <div className="flex gap-3">
-            {gameState.settings.economy_enabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-amber-800/40 text-amber-300 text-xs font-mono">
-                <span>⚙</span>
-                <span>{myPlayer.special_resource ?? 0} PP</span>
-              </div>
-            )}
-            {gameState.settings.tech_trees_enabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-blue-800/40 text-blue-300 text-xs font-mono">
-                <span>⚡</span>
-                <span>{myPlayer.tech_points ?? 0} TP</span>
-              </div>
-            )}
-          </div>
-          {myPlayer.temporary_modifiers && myPlayer.temporary_modifiers.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {myPlayer.temporary_modifiers.map((mod, i) => (
-                <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-bf-dark border border-bf-border text-bf-muted">
-                  {mod.type === 'attack_modifier' && `+${mod.value} ATK`}
-                  {mod.type === 'defense_modifier' && `+${mod.value} DEF`}
-                  {mod.type === 'production_bonus' && `+${mod.value} PP`}
-                  {mod.turns_remaining != null && ` · ${mod.turns_remaining}t`}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Players List */}
-      <div className="p-4 border-b border-bf-border">
-        <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <Users className="w-3.5 h-3.5" /> Players
-        </h3>
-        <div className="space-y-2">
-          {gameState.players.map((player, idx) => (
-            <div
-              key={player.player_id}
-              className={clsx(
-                'flex items-center gap-2 p-2 rounded-lg text-sm transition-colors',
-                idx === gameState.current_player_index && 'bg-bf-dark ring-1 ring-bf-gold/40',
-                player.is_eliminated && 'opacity-40'
-              )}
-            >
-              <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: player.color }}
-              />
-              <span className={clsx(
-                'flex-1 flex items-center gap-1.5 min-w-0',
-                player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
-              )}>
-                <span className="truncate">{player.username}</span>
-                {player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
-              </span>
-              <span className="text-bf-muted text-xs">{player.territory_count}T</span>
-              {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
-                <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
-                  {ERA_LABELS[getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0)] ?? 'Ancient'}
-                </span>
-              )}
-              {gameState.settings.era_advancement_enabled
-                && (player.era_transition_turns_remaining ?? 0) > 0 && (
-                <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 shrink-0">
-                  Vuln
-                </span>
-              )}
-              {player.is_eliminated && (
-                <span className="text-red-500 text-xs">✗</span>
-              )}
-            </div>
-          ))}
+      {/* ── Tab bar: switches the scrollable reference panel below ── */}
+      <div className="shrink-0 px-3 pt-3" role="tablist" aria-label="Game information">
+        <div className="flex gap-1 p-1 rounded-lg bg-bf-dark/60 border border-bf-border">
+          {TAB_DEFS.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => selectTab(tab.id)}
+                className={clsx(
+                  'relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors',
+                  active
+                    ? 'bg-bf-surface text-bf-gold border border-bf-gold/30'
+                    : 'text-bf-muted hover:text-bf-text',
+                )}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {tab.id === 'players' && (
+                  <span className="text-[10px] opacity-70">{gameState.players.filter((p) => !p.is_eliminated).length}</span>
+                )}
+                {tab.id === 'log' && logUnread && !active && (
+                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-bf-gold" aria-label="New combat result" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* My Cards */}
-      {myPlayer && myPlayer.cards.length > 0 && (
-        <div className="p-4 border-b border-bf-border">
-          <button
-            className="w-full flex items-center justify-between text-xs font-medium text-bf-muted uppercase tracking-wider hover:text-bf-gold transition-colors"
-            onClick={() => setShowCards(!showCards)}
-          >
-            <span className="flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" /> Cards ({myPlayer.cards.length})
-            </span>
-            <span>{showCards ? '▲' : '▼'}</span>
-          </button>
+      {/* ── Scrollable tab content ── */}
+      <div className={clsx('min-h-0', mobile ? '' : 'flex-1 overflow-y-auto')}>
 
-          {showCards && (
-            <div className="mt-3 space-y-2">
-              {myPlayer.cards.map((card) => (
-                <button
-                  key={card.card_id}
-                  onClick={() => toggleCardSelection(card.card_id)}
-                  className={clsx(
-                    'w-full text-left p-2 rounded border text-sm transition-colors',
-                    selectedCards.includes(card.card_id)
-                      ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
-                      : 'border-bf-border text-bf-text hover:border-bf-gold/50'
-                  )}
-                >
-                  <span className="capitalize">{card.symbol}</span>
-                </button>
-              ))}
-              {selectedCards.length === 3 && isMyTurn && gameState.phase === 'draft' && (
-                <button onClick={handleRedeemCards} className="btn-primary w-full text-sm py-1.5 mt-2">
-                  Redeem Set
-                </button>
+      {activeTab === 'status' && (
+        <>
+          {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission) && (
+            <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
+              <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Objectives</h3>
+              {myPlayer.capital_territory_id && (
+                <p className="text-xs text-bf-text">
+                  <span className="text-bf-muted">Your capital: </span>
+                  <span>{resolveTerritoryName(myPlayer.capital_territory_id, mapNameLookup)}</span>
+                </p>
               )}
-              {selectedCards.length > 0 && selectedCards.length < 3 && (
-                <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
+              {myPlayer.secret_mission && (
+                <p className="text-xs text-bf-text mt-1">
+                  <span className="text-bf-muted">Mission: </span>
+                  {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup)}
+                </p>
               )}
             </div>
           )}
+
+          {/* Resources */}
+          {myPlayer && (gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled) && (
+            <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
+              <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Resources</h3>
+              <div className="flex gap-3">
+                {gameState.settings.economy_enabled && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-amber-800/40 text-amber-300 text-xs font-mono">
+                    <span>⚙</span>
+                    <span>{myPlayer.special_resource ?? 0} PP</span>
+                  </div>
+                )}
+                {gameState.settings.tech_trees_enabled && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-blue-800/40 text-blue-300 text-xs font-mono">
+                    <span>⚡</span>
+                    <span>{myPlayer.tech_points ?? 0} TP</span>
+                  </div>
+                )}
+              </div>
+              {myPlayer.temporary_modifiers && myPlayer.temporary_modifiers.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {myPlayer.temporary_modifiers.map((mod, i) => (
+                    <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-bf-dark border border-bf-border text-bf-muted">
+                      {mod.type === 'attack_modifier' && `+${mod.value} ATK`}
+                      {mod.type === 'defense_modifier' && `+${mod.value} DEF`}
+                      {mod.type === 'production_bonus' && `+${mod.value} PP`}
+                      {mod.turns_remaining != null && ` · ${mod.turns_remaining}t`}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* My Cards */}
+          {myPlayer && myPlayer.cards.length > 0 && (
+            <div className="p-4 border-b border-bf-border">
+              <button
+                className="w-full flex items-center justify-between text-xs font-medium text-bf-muted uppercase tracking-wider hover:text-bf-gold transition-colors"
+                onClick={() => setShowCards(!showCards)}
+              >
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" /> Cards ({myPlayer.cards.length})
+                </span>
+                <span>{showCards ? '▲' : '▼'}</span>
+              </button>
+
+              {showCards && (
+                <div className="mt-3 space-y-2">
+                  {myPlayer.cards.map((card) => (
+                    <button
+                      key={card.card_id}
+                      onClick={() => toggleCardSelection(card.card_id)}
+                      className={clsx(
+                        'w-full text-left p-2 rounded border text-sm transition-colors',
+                        selectedCards.includes(card.card_id)
+                          ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
+                          : 'border-bf-border text-bf-text hover:border-bf-gold/50'
+                      )}
+                    >
+                      <span className="capitalize">{card.symbol}</span>
+                    </button>
+                  ))}
+                  {selectedCards.length === 3 && isMyTurn && gameState.phase === 'draft' && (
+                    <button onClick={handleRedeemCards} className="btn-primary w-full text-sm py-1.5 mt-2">
+                      Redeem Set
+                    </button>
+                  )}
+                  {selectedCards.length > 0 && selectedCards.length < 3 && (
+                    <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission
+            && !(gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled)
+            && !(myPlayer && myPlayer.cards.length > 0) && (
+            <p className="px-4 py-6 text-xs text-bf-muted/70 text-center">No objectives, resources, or cards yet.</p>
+          )}
+        </>
+      )}
+
+      {/* Players List */}
+      {activeTab === 'players' && (
+        <div className="p-4">
+          <div className="space-y-2">
+            {gameState.players.map((player, idx) => (
+              <div
+                key={player.player_id}
+                className={clsx(
+                  'flex items-center gap-2 p-2 rounded-lg text-sm transition-colors',
+                  idx === gameState.current_player_index && 'bg-bf-dark ring-1 ring-bf-gold/40',
+                  player.is_eliminated && 'opacity-40'
+                )}
+              >
+                <div
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: player.color }}
+                />
+                <span className={clsx(
+                  'flex-1 flex items-center gap-1.5 min-w-0',
+                  player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
+                )}>
+                  <span className="truncate">{player.username}</span>
+                  {player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
+                </span>
+                <span className="text-bf-muted text-xs">{player.territory_count}T</span>
+                {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
+                    {ERA_LABELS[getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0)] ?? 'Ancient'}
+                  </span>
+                )}
+                {gameState.settings.era_advancement_enabled
+                  && (player.era_transition_turns_remaining ?? 0) > 0 && (
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 shrink-0">
+                    Vuln
+                  </span>
+                )}
+                {player.is_eliminated && (
+                  <span className="text-red-500 text-xs">✗</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Combat Log */}
-      <div className="p-4">
-        <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3">Combat Log</h3>
-        {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
-          <p className="text-xs text-bf-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
-        )}
-        {lastCombatResult && (
-          <div className="mb-3 p-3 bg-bf-dark rounded-lg border border-bf-border text-xs space-y-2">
-            {lastCombatResult.fromName && lastCombatResult.toName && (
-              <p className="text-bf-text font-medium">
-                {lastCombatResult.fromName} → {lastCombatResult.toName}
-              </p>
-            )}
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <p className="text-bf-muted mb-0.5">{lastCombatResult.attackerName ?? 'Attacker'}</p>
-                <div className="flex gap-1">
-                  {lastCombatResult.attacker_rolls.map((roll, i) => (
-                    <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold">{roll}</span>
-                  ))}
+      {activeTab === 'log' && (
+        <div className="p-4">
+          {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
+            <p className="text-xs text-bf-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
+          )}
+          {lastCombatResult && (
+            <div className="mb-3 p-3 bg-bf-dark rounded-lg border border-bf-border text-xs space-y-2">
+              {lastCombatResult.fromName && lastCombatResult.toName && (
+                <p className="text-bf-text font-medium">
+                  {lastCombatResult.fromName} → {lastCombatResult.toName}
+                </p>
+              )}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <p className="text-bf-muted mb-0.5">{lastCombatResult.attackerName ?? 'Attacker'}</p>
+                  <div className="flex gap-1">
+                    {lastCombatResult.attacker_rolls.map((roll, i) => (
+                      <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold">{roll}</span>
+                    ))}
+                  </div>
+                  {lastCombatResult.attacker_losses > 0 && (
+                    <p className="text-red-400 mt-1">Lost {lastCombatResult.attacker_losses} troop{lastCombatResult.attacker_losses > 1 ? 's' : ''}</p>
+                  )}
                 </div>
-                {lastCombatResult.attacker_losses > 0 && (
-                  <p className="text-red-400 mt-1">Lost {lastCombatResult.attacker_losses} troop{lastCombatResult.attacker_losses > 1 ? 's' : ''}</p>
-                )}
-              </div>
-              <div className="w-px bg-bf-border" />
-              <div className="flex-1">
-                <p className="text-bf-muted mb-0.5">{lastCombatResult.defenderName ?? 'Defender'}</p>
-                <div className="flex gap-1">
-                  {lastCombatResult.defender_rolls.map((roll, i) => (
-                    <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold">{roll}</span>
-                  ))}
+                <div className="w-px bg-bf-border" />
+                <div className="flex-1">
+                  <p className="text-bf-muted mb-0.5">{lastCombatResult.defenderName ?? 'Defender'}</p>
+                  <div className="flex gap-1">
+                    {lastCombatResult.defender_rolls.map((roll, i) => (
+                      <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold">{roll}</span>
+                    ))}
+                  </div>
+                  {lastCombatResult.defender_losses > 0 && (
+                    <p className="text-blue-400 mt-1">Lost {lastCombatResult.defender_losses} troop{lastCombatResult.defender_losses > 1 ? 's' : ''}</p>
+                  )}
                 </div>
-                {lastCombatResult.defender_losses > 0 && (
-                  <p className="text-blue-400 mt-1">Lost {lastCombatResult.defender_losses} troop{lastCombatResult.defender_losses > 1 ? 's' : ''}</p>
-                )}
               </div>
+              {lastCombatResult.territory_captured && (
+                <p className="text-bf-gold font-medium pt-1 border-t border-bf-border">
+                  Territory Captured!
+                </p>
+              )}
+              {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
+                <div className="pt-1.5 border-t border-bf-border/80 space-y-1">
+                  {attackerFactionBonus > 0 && (
+                    <p className={clsx(
+                      'text-xs px-2 py-1 rounded-md border animate-pulse',
+                      myFactionTriggeredAsAttacker
+                        ? 'border-red-400/70 bg-red-500/15 text-red-200'
+                        : 'border-red-500/40 bg-red-900/20 text-red-300',
+                    )}>
+                      ⚔️ Faction attack bonus activated (+{attackerFactionBonus} die)
+                    </p>
+                  )}
+                  {defenderFactionBonus > 0 && (
+                    <p className={clsx(
+                      'text-xs px-2 py-1 rounded-md border animate-pulse',
+                      myFactionTriggeredAsDefender
+                        ? 'border-blue-300/70 bg-blue-500/15 text-blue-100'
+                        : 'border-blue-500/40 bg-blue-900/20 text-blue-300',
+                    )}>
+                      🛡️ Faction defense bonus activated (+{defenderFactionBonus} die)
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-            {lastCombatResult.territory_captured && (
-              <p className="text-bf-gold font-medium pt-1 border-t border-bf-border">
-                Territory Captured!
-              </p>
-            )}
-            {(attackerFactionBonus > 0 || defenderFactionBonus > 0) && (
-              <div className="pt-1.5 border-t border-bf-border/80 space-y-1">
-                {attackerFactionBonus > 0 && (
-                  <p className={clsx(
-                    'text-xs px-2 py-1 rounded-md border animate-pulse',
-                    myFactionTriggeredAsAttacker
-                      ? 'border-red-400/70 bg-red-500/15 text-red-200'
-                      : 'border-red-500/40 bg-red-900/20 text-red-300',
-                  )}>
-                    ⚔️ Faction attack bonus activated (+{attackerFactionBonus} die)
-                  </p>
-                )}
-                {defenderFactionBonus > 0 && (
-                  <p className={clsx(
-                    'text-xs px-2 py-1 rounded-md border animate-pulse',
-                    myFactionTriggeredAsDefender
-                      ? 'border-blue-300/70 bg-blue-500/15 text-blue-100'
-                      : 'border-blue-500/40 bg-blue-900/20 text-blue-300',
-                  )}>
-                    🛡️ Faction defense bonus activated (+{defenderFactionBonus} die)
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="space-y-1.5">
-          {lastCombatLog.slice(-8).reverse().map((entry, i) => (
-            <p key={i} className={clsx(
-              'text-xs leading-relaxed',
-              i === 0 ? 'text-bf-text' : 'text-bf-muted'
-            )}>{entry}</p>
-          ))}
+          )}
+          {lastCombatLog.length > 0 ? (
+            <div className="space-y-1.5">
+              {lastCombatLog.slice(-8).reverse().map((entry, i) => (
+                <p key={i} className={clsx(
+                  'text-xs leading-relaxed',
+                  i === 0 ? 'text-bf-text' : 'text-bf-muted'
+                )}>{entry}</p>
+              ))}
+            </div>
+          ) : !lastCombatResult && (
+            <p className="text-xs text-bf-muted/70 text-center py-4">No battles yet this game.</p>
+          )}
         </div>
-      </div>
+      )}
 
-      </div>{/* end scrollable body */}
+      </div>{/* end scrollable tab content */}
+
+      {/* ── Pinned footer: live buffs, the action button, and a tools drawer ── */}
 
       {/* Armed attack buffs (Knights Charge, Siege Assault, Testudo, etc.) */}
       {isMyTurn && gameState.phase === 'attack' && myPlayer
         && ARMED_BUFF_LABELS.some((entry) => entry.isActive(myPlayer)) && (
-        <div className="px-4 pt-2 space-y-1.5">
+        <div className="shrink-0 px-4 pt-2 space-y-1.5">
           {ARMED_BUFF_LABELS.filter((entry) => entry.isActive(myPlayer)).map((entry) => (
             <div
               key={entry.label}
@@ -540,7 +630,7 @@ export default function GameHUD({
       )}
 
       {isMyTurn && gameState.phase === 'attack' && gameState.blitzkrieg_active && (
-        <div className="px-4 pt-2">
+        <div className="shrink-0 px-4 pt-2">
           <div className="w-full text-center text-xs rounded border border-amber-500/55 bg-amber-950/45 text-amber-200 py-1.5 animate-pulse">
             ⚡ Blitz doctrine active
             <span className="opacity-60">
@@ -553,7 +643,7 @@ export default function GameHUD({
 
       {/* March to the Sea chain indicator (ACW Total War) */}
       {isMyTurn && gameState.phase === 'attack' && myPlayer?.march_to_sea_active && (
-        <div className="px-4 pt-2">
+        <div className="shrink-0 px-4 pt-2">
           <div className="w-full text-center text-xs rounded border border-amber-600/50 bg-amber-950/40 text-amber-300 py-1.5">
             ⚔️ March to the Sea — chain {Math.min(myPlayer.march_to_sea_hops_used ?? 0, 3)}/3
             <span className="opacity-60"> (+1 attack die)</span>
@@ -562,7 +652,7 @@ export default function GameHUD({
       )}
 
       {isMyTurn && gameState.phase === 'fortify' && (myPlayer?.bonus_fortify_moves ?? 0) > 0 && (
-        <div className="px-4 pt-2">
+        <div className="shrink-0 px-4 pt-2">
           <div className="w-full text-center text-xs rounded border border-blue-500/55 bg-blue-950/45 text-blue-200 py-1.5">
             🚜 +{myPlayer?.bonus_fortify_moves} bonus fortify move
             {(myPlayer?.bonus_fortify_moves ?? 0) === 1 ? '' : 's'} this turn
@@ -572,17 +662,18 @@ export default function GameHUD({
 
       {/* Phase Advance Button */}
       {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
-        <div className="p-4 border-t border-bf-border">
+        <div className="shrink-0 p-4 border-t border-bf-border">
           <button onClick={onAdvancePhase} className="btn-primary w-full">
             {phaseAdvanceLabel(gameState.phase)}
           </button>
         </div>
       )}
 
-      {/* Save & Leave / Resign */}
+      {/* Turn actions + collapsible tools */}
       {gameState.phase !== 'game_over' && myPlayer && !myPlayer.is_eliminated && (
-        <div className="px-4 pb-3 flex flex-col gap-1.5">
-          {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff) */}
+        <div className="shrink-0 px-4 pb-3 flex flex-col gap-1.5">
+          {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff).
+              These are turn actions, not utilities, so they stay above the fold. */}
           {onUseAbility && gameState && myPlayer && (() => {
             const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree);
             if (globalAbils.length === 0) return null;
@@ -611,7 +702,7 @@ export default function GameHUD({
               );
             });
           })()}
-          {/* Tech tree shortcut */}
+          {/* Tech tree shortcut — researched during your turn, so kept accessible. */}
           {onOpenTechTree && (
             <button
               onClick={onOpenTechTree}
@@ -627,98 +718,116 @@ export default function GameHUD({
               )}
             </button>
           )}
-          {/* Bonuses guide */}
-          {onOpenBonuses && (() => {
-            const bonusCount =
-              (myPlayer.temporary_modifiers?.length ?? 0) +
-              (myPlayer.unlocked_techs?.length ?? 0) +
-              (myPlayer.faction_id ? 1 : 0);
-            return (
-              <button
-                onClick={onOpenBonuses}
-                className="w-full py-1.5 text-xs text-amber-300 hover:text-amber-200 transition-colors
-                           flex items-center justify-center gap-1.5 rounded border border-amber-800/40 hover:border-amber-600/60 bg-amber-900/20"
+
+          {/* Tools drawer — occasional utilities, collapsed by default to keep the
+              footer calm. Open it for the bonuses guide, save/leave, display
+              toggles, settings, coaching, and resign. */}
+          <button
+            onClick={() => setShowTools((v) => !v)}
+            aria-expanded={showTools}
+            className="w-full mt-0.5 py-1.5 text-xs text-bf-muted hover:text-bf-text transition-colors
+                       flex items-center justify-center gap-1.5 rounded border border-bf-border/60 hover:border-bf-border"
+          >
+            {showTools ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+            Tools &amp; options
+          </button>
+
+          {showTools && (
+            <div className="flex flex-col gap-1.5 pt-0.5">
+              {/* Bonuses guide */}
+              {onOpenBonuses && (() => {
+                const bonusCount =
+                  (myPlayer.temporary_modifiers?.length ?? 0) +
+                  (myPlayer.unlocked_techs?.length ?? 0) +
+                  (myPlayer.faction_id ? 1 : 0);
+                return (
+                  <button
+                    onClick={onOpenBonuses}
+                    className="w-full py-1.5 text-xs text-amber-300 hover:text-amber-200 transition-colors
+                               flex items-center justify-center gap-1.5 rounded border border-amber-800/40 hover:border-amber-600/60 bg-amber-900/20"
+                  >
+                    <Shield className="w-3 h-3" />
+                    Bonuses
+                    {bonusCount > 0 && (
+                      <span className="ml-1 px-1.5 rounded-full bg-amber-800/60 text-amber-200 font-mono">
+                        {bonusCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
+              {onSaveAndLeave && (
+                <button
+                  onClick={onSaveAndLeave}
+                  className="w-full py-1.5 text-xs text-bf-muted hover:text-bf-gold transition-colors
+                             flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-bf-gold/20"
+                >
+                  <Save className="w-3 h-3" /> Save & Leave
+                </button>
+              )}
+              {connectionHintPreference && onConnectionHintPreferenceChange && (
+                <div className="px-1 py-1">
+                  <ConnectionHintsSetting
+                    value={connectionHintPreference}
+                    onChange={onConnectionHintPreferenceChange}
+                    denseMap={denseMap}
+                    compact
+                  />
+                </div>
+              )}
+              <label
+                className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+                title="Shorten dice-roll animations so battles resolve almost instantly."
               >
-                <Shield className="w-3 h-3" />
-                Bonuses
-                {bonusCount > 0 && (
-                  <span className="ml-1 px-1.5 rounded-full bg-amber-800/60 text-amber-200 font-mono">
-                    {bonusCount}
-                  </span>
-                )}
-              </button>
-            );
-          })()}
-          {onSaveAndLeave && (
-            <button
-              onClick={onSaveAndLeave}
-              className="w-full py-1.5 text-xs text-bf-muted hover:text-bf-gold transition-colors
-                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-bf-gold/20"
-            >
-              <Save className="w-3 h-3" /> Save & Leave
-            </button>
-          )}
-          {connectionHintPreference && onConnectionHintPreferenceChange && (
-            <div className="px-1 py-1">
-              <ConnectionHintsSetting
-                value={connectionHintPreference}
-                onChange={onConnectionHintPreferenceChange}
-                denseMap={denseMap}
-                compact
-              />
+                <input
+                  type="checkbox"
+                  checked={fastCombat}
+                  onChange={(e) => {
+                    setFastCombat(e.target.checked);
+                    setFastCombatPreference(e.target.checked);
+                  }}
+                  className="accent-bf-gold w-3 h-3"
+                />
+                Fast combat
+              </label>
+              <Link
+                to="/settings"
+                className="block px-1 py-1 text-[11px] text-bf-muted hover:text-bf-gold transition-colors"
+              >
+                More in Settings →
+              </Link>
+              {gameState.coaching_eligible && gameId && (
+                <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={!!gameState.settings.coaching_enabled}
+                    onChange={(e) => {
+                      getSocket().emit('game:set_coaching', { gameId, enabled: e.target.checked });
+                    }}
+                    className="accent-bf-gold w-3 h-3"
+                  />
+                  In-turn coaching
+                </label>
+              )}
+              {isTutorial && onExitTutorial ? (
+                <button
+                  onClick={onExitTutorial}
+                  className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
+                             flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
+                >
+                  <Flag className="w-3 h-3" /> Exit Tutorial
+                </button>
+              ) : onResign ? (
+                <button
+                  onClick={onResign}
+                  className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
+                             flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
+                >
+                  <Flag className="w-3 h-3" /> Resign
+                </button>
+              ) : null}
             </div>
           )}
-          <label
-            className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
-            title="Shorten dice-roll animations so battles resolve almost instantly."
-          >
-            <input
-              type="checkbox"
-              checked={fastCombat}
-              onChange={(e) => {
-                setFastCombat(e.target.checked);
-                setFastCombatPreference(e.target.checked);
-              }}
-              className="accent-bf-gold w-3 h-3"
-            />
-            Fast combat
-          </label>
-          <Link
-            to="/settings"
-            className="block px-1 py-1 text-[11px] text-bf-muted hover:text-bf-gold transition-colors"
-          >
-            More in Settings →
-          </Link>
-          {gameState.coaching_eligible && gameId && (
-            <label className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={!!gameState.settings.coaching_enabled}
-                onChange={(e) => {
-                  getSocket().emit('game:set_coaching', { gameId, enabled: e.target.checked });
-                }}
-                className="accent-bf-gold w-3 h-3"
-              />
-              In-turn coaching
-            </label>
-          )}
-          {isTutorial && onExitTutorial ? (
-            <button
-              onClick={onExitTutorial}
-              className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
-                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
-            >
-              <Flag className="w-3 h-3" /> Exit Tutorial
-            </button>
-          ) : onResign ? (
-            <button
-              onClick={onResign}
-              className="w-full py-1.5 text-xs text-bf-muted hover:text-red-400 transition-colors
-                         flex items-center justify-center gap-1.5 rounded border border-transparent hover:border-red-500/20"
-            >
-              <Flag className="w-3 h-3" /> Resign
-            </button>
-          ) : null}
         </div>
       )}
 
