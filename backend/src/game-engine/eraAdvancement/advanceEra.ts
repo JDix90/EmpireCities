@@ -6,6 +6,8 @@ import { applyLineageOnAdvance } from '../eras/factionLineage';
 import { ERA_SIGNATURES, grantEraSignature } from './signatures';
 import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
 import { captureTechEcho, storeTechEcho } from './techEcho';
+import { getCarryableLegacyAbility } from '../abilities/techAbilities';
+import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
 
 export interface AdvanceEraGateResult {
   canAdvance: boolean;
@@ -162,6 +164,16 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
 
   const departingEraId = resolvePlayerEraId(state, player);
   storeTechEcho(player, departingEraId, captureTechEcho(state, player));
+
+  // Carry the strongest unused once-per-game tech ability forward as a one-time
+  // legacy charge (e.g. an undetonated Atom Bomb), so advancing never silently
+  // forfeits a saved trump card. Capped at one: a new carry replaces the slot;
+  // if there's nothing new to carry, an already-held charge is preserved.
+  const legacyCarry = getCarryableLegacyAbility(state, player);
+  if (legacyCarry) {
+    player.legacy_ability_charges = { [legacyCarry]: 1 };
+  }
+
   player.unlocked_techs = [];
 
   const nextIndex = (player.current_era_index ?? 0) + 1;
@@ -242,6 +254,10 @@ export function buildAdvanceEraClientPreview(
     ? getStateSpineSteps(state)[nextIndex]?.signature_id
     : undefined;
   const nextSignatureDef = nextSignatureId ? ERA_SIGNATURES[nextSignatureId] : undefined;
+  // Unused once-per-game ability that would carry forward if the player advances now.
+  const legacyCarry = preview.currentEraIndex < getMaxEraIndex(state)
+    ? getCarryableLegacyAbility(state, player)
+    : undefined;
   return {
     cost: preview.cost,
     can_advance: preview.canAdvance,
@@ -262,6 +278,9 @@ export function buildAdvanceEraClientPreview(
     catchup_discount_pct: catchupGap > 0 ? Math.round((1 - catchupDiscount) * 100) : undefined,
     next_signature: nextSignatureDef
       ? { id: nextSignatureDef.signature_id, name: nextSignatureDef.name, description: nextSignatureDef.description }
+      : undefined,
+    legacy_ability: legacyCarry
+      ? { ability_id: legacyCarry, label: TERRITORY_ABILITY_DEFS[legacyCarry]?.label ?? legacyCarry }
       : undefined,
     readiness: preview.readiness,
   };

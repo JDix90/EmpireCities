@@ -2203,8 +2203,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const hasTechAbility = techTree.some(
         (n) => unlockedTechs.includes(n.tech_id) && n.unlocks_ability === abilityId
       );
+      // A once-per-game ability carried from a prior era (e.g. an undetonated
+      // Atom Bomb) is usable even though its unlocking tech is gone.
+      const hasLegacyCharge = (currentPlayer.legacy_ability_charges?.[abilityId] ?? 0) > 0;
 
-      if (!hasFactionAbility && !hasTechAbility) {
+      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge) {
         return socket.emit('error', { message: `Ability '${abilityId}' is not available to you` });
       }
 
@@ -2265,6 +2268,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
           currentPlayer.ability_uses = rolledBack;
         }
         return socket.emit('error', { message: execResult.error ?? 'Ability failed' });
+      }
+
+      // Consume a carried legacy charge on success (executeTechAbility already
+      // records the underlying game-scoped ability in used_game_abilities).
+      if (currentPlayer.legacy_ability_charges?.[abilityId]) {
+        const remaining = { ...currentPlayer.legacy_ability_charges };
+        delete remaining[abilityId];
+        currentPlayer.legacy_ability_charges = remaining;
       }
 
       if (execResult.effect === 'atom_bomb_detonated' && execResult.territoryId) {

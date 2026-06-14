@@ -43,6 +43,8 @@ export interface PlayerState {
   ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
+  /** Once-per-game abilities carried forward from a prior era as one-time charges (e.g. Atom Bomb). */
+  legacy_ability_charges?: Record<string, number>;
   /** Pending retaliation bonuses: +dice_bonus attack dice on next land attack vs against_player_id. */
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true when the player has triggered launch_space_station ability (gates moon access). */
@@ -99,6 +101,8 @@ export interface AdvanceEraClientPreview {
   catchup_discount_pct?: number;
   /** Signature payoff granted on arriving in the next era (omitted when the step has none). */
   next_signature?: { id: string; name: string; description: string };
+  /** Unused once-per-game ability that will carry into the next era as a legacy charge. */
+  legacy_ability?: { ability_id: string; label: string };
   readiness?: {
     met: boolean;
     mode: 'milestone' | 'percent';

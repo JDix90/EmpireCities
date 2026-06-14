@@ -360,7 +360,10 @@ export function playerCanUseAbility(
   player: PlayerState,
   abilityId: string,
 ): boolean {
-  if (!playerHasUnlockedAbility(state, player.player_id, abilityId)) return false;
+  // A carried legacy charge makes the ability usable even though its unlocking
+  // tech is gone (era advancement wiped unlocked_techs).
+  const hasLegacy = (player.legacy_ability_charges?.[abilityId] ?? 0) > 0;
+  if (!hasLegacy && !playerHasUnlockedAbility(state, player.player_id, abilityId)) return false;
   const def = TERRITORY_ABILITY_DEFS[abilityId];
   if (!def) return false;
   if (isGameScopedAbility(abilityId)) {
