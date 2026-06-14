@@ -39,6 +39,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const economyEnabled = typeof raw.economy_enabled === 'boolean' ? raw.economy_enabled : false;
   const techTreesEnabled = typeof raw.tech_trees_enabled === 'boolean' ? raw.tech_trees_enabled : false;
   const eventsEnabled = typeof raw.events_enabled === 'boolean' ? raw.events_enabled : false;
+  // Impact scaling is on by default whenever events are; only an explicit
+  // `false` opts out (kept verbatim so the disable survives normalization).
+  const eventImpactScalingEnabled =
+    typeof raw.event_impact_scaling_enabled === 'boolean' ? raw.event_impact_scaling_enabled : true;
   const navalEnabled = typeof raw.naval_enabled === 'boolean' ? raw.naval_enabled : false;
   const stabilityEnabled = typeof raw.stability_enabled === 'boolean' ? raw.stability_enabled : false;
   const territorySelection = typeof raw.territory_selection === 'boolean' ? raw.territory_selection : false;
@@ -134,6 +138,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
         ? numSetting(raw.economy_tech_starting_gold, DEFAULT_ECONOMY_TECH_STARTING_GOLD)
         : undefined,
     events_enabled: eventsEnabled || undefined,
+    // Persist false explicitly so the opt-out sticks; omit when events are off
+    // or scaling is left at its default-on.
+    event_impact_scaling_enabled:
+      eventsEnabled && !eventImpactScalingEnabled ? false : undefined,
     naval_enabled: navalEnabled || undefined,
     stability_enabled: stabilityEnabled || undefined,
     territory_selection: territorySelection || undefined,

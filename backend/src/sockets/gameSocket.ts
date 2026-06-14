@@ -36,7 +36,7 @@ import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
 import { getPlayerFaction } from '../game-engine/eras/factionLineage';
-import { resolveEventChoice, getTemporaryModifierValue } from '../game-engine/events/eventCardManager';
+import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
@@ -3219,7 +3219,10 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
  */
 function broadcastEventCard(io: Server, gameId: string, state: GameState, map: GameMap): void {
   if (!state.active_event) return;
-  const card = { ...state.active_event };
+  // Display-scale a clone: scalable magnitudes grow with progression and
+  // `magnitude_scale` is stamped for the UI badge. Always a fresh clone, so
+  // attaching `result_summary` below can't mutate the shared deck constant.
+  const card = getDisplayScaledCard(state, state.active_event);
   let resolvedResult: import('../types').EventEffectResult | undefined;
 
   // Attach result_summary when an instant effect was just applied

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Scroll } from 'lucide-react';
+import { X, Scroll, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 export interface EventEffect {
@@ -26,6 +26,13 @@ export interface EventCard {
   choices?: EventChoice[];
   affects_all_players?: boolean;
   result_summary?: Array<{ territory_id: string; name: string; delta: number }>;
+  /** Progression multiplier (>1) applied to scalable magnitudes for this card. */
+  magnitude_scale?: number;
+}
+
+/** "×2" for whole multipliers, "×2.5" otherwise. */
+function formatScale(scale: number): string {
+  return `×${scale % 1 === 0 ? scale : scale.toFixed(1)}`;
 }
 
 function formatEffectSummary(effect: EventEffect | undefined, affectsAll?: boolean): string | null {
@@ -122,6 +129,18 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
         <div className="p-5 space-y-4">
           <h2 className="text-xl font-display text-white">{card.title}</h2>
           <p className="text-sm text-gray-300 leading-relaxed">{card.description}</p>
+
+          {/* Era impact scaling — explains why the magnitudes below exceed the
+              card's flavor numbers as the game progresses. */}
+          {card.magnitude_scale != null && card.magnitude_scale > 1 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-900/30 border border-orange-700/40">
+              <Zap className="w-3.5 h-3.5 text-orange-300 shrink-0" />
+              <p className="text-xs text-orange-200">
+                <span className="font-semibold">Era impact {formatScale(card.magnitude_scale)}</span>
+                {' '}— events grow stronger as the world advances.
+              </p>
+            </div>
+          )}
 
           {/* Mechanical effect summary */}
           {(() => {
