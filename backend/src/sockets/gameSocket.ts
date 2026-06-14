@@ -3216,7 +3216,16 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
     const result = state.active_event_result;
     resolvedResult = result;
     if (result.global) {
-      card.result_summary = [{ territory_id: '__global__', name: 'All territories', delta: -1 }];
+      // Summarize the ACTUAL per-territory change (region_disaster removes "up to
+      // value" — territories with few units lose less). Only emit a unit summary
+      // when units actually moved; stability/tech globals have no per-territory
+      // unit delta and shouldn't claim "All territories -1 unit".
+      const affected = result.affected_territories ?? [];
+      if (affected.length > 0) {
+        const sign = affected[0].delta < 0 ? -1 : 1;
+        const maxMagnitude = Math.max(...affected.map((a) => Math.abs(a.delta)));
+        card.result_summary = [{ territory_id: '__global__', name: 'Every territory', delta: sign * maxMagnitude }];
+      }
     } else {
       const lines: Array<{ territory_id: string; name: string; delta: number }> = [];
       if (result.draft_units_granted && result.draft_units_granted > 0) {

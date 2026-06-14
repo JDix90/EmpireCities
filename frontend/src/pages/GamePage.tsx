@@ -1187,22 +1187,30 @@ export default function GamePage() {
         !territory_captured &&
         unitsAfterOnSource >= 2;
 
+      // Lite mode = "skip animations": combat already resolved server-side, so
+      // suppress the dice-theater modal/queue (the combat log still records it).
+      // Read fresh from the persisted pref so a mid-game toggle takes effect.
+      const liteMode = isLiteMode();
+
       if (isMyAttack) {
-        setModalQueue(q => [
-          ...q,
-          {
-            type: 'combat' as const,
-            result: enriched,
-            perspective: 'attacker' as const,
-            ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId } } : {}),
-          },
-        ]);
+        if (!liteMode) {
+          setModalQueue(q => [
+            ...q,
+            {
+              type: 'combat' as const,
+              result: enriched,
+              perspective: 'attacker' as const,
+              ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId } } : {}),
+            },
+          ]);
+        }
         ownTurnCombatsRef.current.push(enriched);
       } else if (isMyDefense) {
         // Incoming attacks play as a live, auto-advancing dice theater during
         // the attacker's turn (the moment the roll happens) instead of
         // stacking blocking modals for the defender's turn start. Losing the
-        // capital is the exception — that still stops the world.
+        // capital is the exception — that still stops the world (even in lite
+        // mode, since it's pivotal and rare).
         const myCapital = state?.players.find(p => p.player_id === userRef.current?.user_id)?.capital_territory_id;
         if (territory_captured && myCapital && data.toId === myCapital) {
           setModalQueue(q => [...q, {
@@ -1210,7 +1218,7 @@ export default function GamePage() {
             result: { ...enriched, capitalLost: true },
             perspective: 'defender' as const,
           }]);
-        } else {
+        } else if (!liteMode) {
           setDefenderTheaterQueue(q => [...q, enriched]);
         }
         otherTurnCombatsRef.current.push(enriched);
@@ -3969,7 +3977,7 @@ export default function GamePage() {
                   className="w-4 h-4 accent-bf-gold"
                 />
                 <span className="text-sm text-bf-muted">
-                  Lite mode <span className="text-xs">(fewer animations)</span>
+                  Lite mode <span className="text-xs">(skip combat &amp; map animations)</span>
                 </span>
               </label>
             </div>

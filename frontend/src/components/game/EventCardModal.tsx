@@ -42,7 +42,7 @@ function formatEffectSummary(effect: EventEffect | undefined, affectsAll?: boole
         ? `All players lose up to ${v} unit${v !== 1 ? 's' : ''} from each of their territories`
         : `You lose up to ${v} unit${v !== 1 ? 's' : ''} total, taken from your largest territories first`;
     case 'region_disaster':
-      return `Every territory worldwide loses ${v} unit${v !== 1 ? 's' : ''} (minimum 1 remains per territory)`;
+      return `Every territory worldwide loses up to ${v} unit${v !== 1 ? 's' : ''} (minimum 1 remains per territory)`;
     case 'attack_modifier':
       return `+${v} attack die${dur}`;
     case 'defense_modifier':
@@ -77,6 +77,20 @@ interface Props {
 function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
   const style = CATEGORY_STYLES[card.category] ?? CATEGORY_STYLES.global;
   const hasChoices = card.choices && card.choices.length > 0;
+
+  // Enter dismisses a no-choice event card (matches the Continue button).
+  // Choice cards are left alone so Enter can't accidentally pick an option.
+  React.useEffect(() => {
+    if (hasChoices) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onDismiss();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [hasChoices, onDismiss]);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm animate-fade-in px-3 py-4 pt-safe pb-safe sm:px-4">
@@ -128,9 +142,15 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
               {card.result_summary.map(({ territory_id, name, delta }) => (
                 <p key={territory_id} className="text-xs text-gray-300">
                   <span className="text-bf-gold">{name}</span>
-                  <span className={delta < 0 ? ' text-red-400' : ' text-green-400'}>
-                    {' '}{delta > 0 ? `+${delta}` : delta} unit{Math.abs(delta) !== 1 ? 's' : ''}
-                  </span>
+                  {territory_id === '__global__' ? (
+                    <span className={delta < 0 ? ' text-red-400' : ' text-green-400'}>
+                      {' '}{delta < 0 ? 'lost' : 'gained'} up to {Math.abs(delta)} unit{Math.abs(delta) !== 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className={delta < 0 ? ' text-red-400' : ' text-green-400'}>
+                      {' '}{delta > 0 ? `+${delta}` : delta} unit{Math.abs(delta) !== 1 ? 's' : ''}
+                    </span>
+                  )}
                 </p>
               ))}
             </div>

@@ -1961,9 +1961,13 @@ export default function LobbyPage() {
                                 onChange={(e) => {
                                   setEraAdvancementEnabled(e.target.checked);
                                   if (e.target.checked) {
+                                    // Default to the full-game experience; each
+                                    // remains individually uncheckable below.
                                     setEconomyEnabled(true);
                                     setTechTreesEnabled(true);
                                     setStabilityEnabled(true);
+                                    setNavalEnabled(true);
+                                    setEventsEnabled(true);
                                   }
                                 }}
                                 className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
