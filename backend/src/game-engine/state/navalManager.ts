@@ -3,7 +3,7 @@
 // ============================================================
 
 import { randomInt } from 'crypto';
-import type { GameState, GameMap } from '../../types';
+import type { GameState, GameMap, TerritoryState } from '../../types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -143,4 +143,77 @@ export function resolveNavalCombat(attackerFleets: number, defenderFleets: numbe
     defender_losses: dLosses,
     attacker_won: defenderFleets - dLosses <= 0,
   };
+}
+
+// ── Amphibious assault (sea-lane crossing) ────────────────────────────────────
+
+/** Max bonus defense dice a surviving enemy fleet can add to a contested landing. */
+export const NAVAL_BOMBARDMENT_DEFENSE_CAP = 3;
+
+/**
+ * Bonus defense dice the defender's *surviving* fleet contributes to a contested
+ * amphibious landing: +1 per two fleets, rounded up, capped. Any standing fleet
+ * bombards the beachhead at least a little; a large fleet caps the penalty so a
+ * sufficiently strong land force can still take the beach.
+ */
+export function navalBombardmentDefenseDice(survivingDefenderFleets: number): number {
+  if (survivingDefenderFleets <= 0) return 0;
+  return Math.min(NAVAL_BOMBARDMENT_DEFENSE_CAP, Math.ceil(survivingDefenderFleets / 2));
+}
+
+export interface SeaCrossingResult {
+  /** The fleet exchange that occurred; undefined when the target had no fleets. */
+  navalResult?: NavalCombatResult;
+  /** True if the attacker kept a ship afloat to ferry the troops, so the land assault proceeds. */
+  canLand: boolean;
+  /** Bonus defense dice from surviving enemy fleets bombarding the landing (0 when uncontested). */
+  bombardmentDefenseBonus: number;
+  /** True when the attacker's fleet was wiped out in the crossing (canLand is then false). */
+  fleetSunk: boolean;
+}
+
+/**
+ * Resolve an amphibious sea-lane crossing, mutating fleet counts on both
+ * territories. Unlike a pure naval battle, the land assault is **not** gated on
+ * annihilating the enemy fleet: as long as the attacker keeps one ship afloat to
+ * ferry the troops, the landing proceeds — any surviving enemy fleet merely
+ * bombards it, granting the defender bonus defense dice.
+ *
+ * This removes the "island + naval base = unconquerable" attrition spiral (where
+ * a 3+ fleet garrison could never be zeroed in a single exchange, so every
+ * landing aborted while the garrison regenerated) while keeping naval superiority
+ * valuable: uncontested landings are clean, contested ones are bloody, and a
+ * fleet sunk mid-crossing still fails — but bringing more ships always works.
+ *
+ * Caller must have already verified the attacker has ≥1 fleet and a sea
+ * connection exists.
+ */
+export function resolveSeaCrossing(
+  attackerTerritory: TerritoryState,
+  defenderTerritory: TerritoryState,
+): SeaCrossingResult {
+  const attackerFleets = attackerTerritory.naval_units ?? 0;
+  const defenderFleets = defenderTerritory.naval_units ?? 0;
+
+  // Uncontested landing — consume one ferry fleet, no bombardment.
+  if (defenderFleets <= 0) {
+    attackerTerritory.naval_units = Math.max(0, attackerFleets - 1);
+    return { canLand: true, bombardmentDefenseBonus: 0, fleetSunk: false };
+  }
+
+  const navalResult = resolveNavalCombat(attackerFleets, defenderFleets);
+  attackerTerritory.naval_units = Math.max(0, attackerFleets - navalResult.attacker_losses);
+  defenderTerritory.naval_units = Math.max(0, defenderFleets - navalResult.defender_losses);
+
+  // No ship left to ferry the landing — the assault fails, but the territory is
+  // not a permanent wall: a larger fleet next time will get troops ashore.
+  if ((attackerTerritory.naval_units ?? 0) <= 0) {
+    return { navalResult, canLand: false, bombardmentDefenseBonus: 0, fleetSunk: true };
+  }
+
+  const bombardmentDefenseBonus = navalBombardmentDefenseDice(defenderTerritory.naval_units ?? 0);
+  // Consume one ferry fleet for the crossing.
+  attackerTerritory.naval_units = Math.max(0, (attackerTerritory.naval_units ?? 0) - 1);
+
+  return { navalResult, canLand: true, bombardmentDefenseBonus, fleetSunk: false };
 }

@@ -37,7 +37,7 @@ import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange 
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
 import { getPlayerFaction } from '../game-engine/eras/factionLineage';
 import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } from '../game-engine/events/eventCardManager';
-import { moveFleets, resolveNavalCombat } from '../game-engine/state/navalManager';
+import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import {
@@ -1453,39 +1453,40 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
 
-      // Naval warfare: sea-lane attacks require fleets when naval_enabled
+      // Naval warfare: amphibious sea-lane assault when naval_enabled. The land
+      // attack is no longer gated on annihilating the enemy fleet — as long as a
+      // ship survives to ferry the troops, the landing proceeds and any surviving
+      // enemy fleet bombards it (bonus defender dice below). This removes the
+      // "island + naval base = unconquerable" attrition spiral.
+      let navalBombardmentDefenseBonus = 0;
       if (state.settings.naval_enabled && connection?.type === 'sea') {
         if (!fromTerritory.naval_units || fromTerritory.naval_units <= 0) {
           return socket.emit('error', { message: 'No fleet to traverse sea lane' });
         }
-        const defenderFleets = toTerritory.naval_units ?? 0;
-        if (defenderFleets > 0) {
-          // Resolve naval combat first
-          const navalResult = resolveNavalCombat(fromTerritory.naval_units, defenderFleets);
-          fromTerritory.naval_units = Math.max(0, fromTerritory.naval_units - navalResult.attacker_losses);
-          toTerritory.naval_units = Math.max(0, defenderFleets - navalResult.defender_losses);
+        const crossing = resolveSeaCrossing(fromTerritory, toTerritory);
+        if (crossing.navalResult) {
           io.to(gameId).emit('game:naval_combat_result', {
             fromId, toId,
-            result: navalResult,
+            result: crossing.navalResult,
           });
           emitMapVisual(io, gameId, buildNavalMapVisual({
             fromId,
             toId,
             attackerId: userId,
-            attackerLosses: navalResult.attacker_losses,
-            defenderLosses: navalResult.defender_losses,
-            attackerWon: navalResult.attacker_won,
+            attackerLosses: crossing.navalResult.attacker_losses,
+            defenderLosses: crossing.navalResult.defender_losses,
+            attackerWon: crossing.navalResult.attacker_won,
             state,
           }));
-          if (!navalResult.attacker_won) {
-            // Naval defeat — abort land attack
-            broadcastState(io, gameId, state);
-            void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
-            return;
-          }
         }
-        // Attacker won naval combat or no defenders — consume 1 fleet for the crossing
-        fromTerritory.naval_units = Math.max(0, fromTerritory.naval_units - 1);
+        if (!crossing.canLand) {
+          // Fleet sunk crossing the strait — the landing fails this turn, but the
+          // target is not a wall: bring more ships and try again.
+          broadcastState(io, gameId, state);
+          void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+          return;
+        }
+        navalBombardmentDefenseBonus = crossing.bombardmentDefenseBonus;
       }
 
       // Consume one-shot attack buffs (air strike pre-damage, extra die, ignore
@@ -1526,6 +1527,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         },
         extraDefenseBonuses: {
           truce_break: truceBrokenDefenseBonus,
+          naval_bombardment: navalBombardmentDefenseBonus,
         },
         onCapture: (s) => {
           // Classic Risk: at most one territory card per turn (reset in advanceToNextPlayer).
@@ -4790,27 +4792,27 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       if (!getOrbitAccessResult(state, currentPlayer, map, state.era).allowed) continue;
     }
 
-    // Naval sea-lane gating: AI must have a fleet to cross sea connections
+    // Naval sea-lane gating: AI must have a fleet to cross. Amphibious-assault
+    // parity with the human handler — the AI lands as long as a ship survives
+    // the crossing, taking the same surviving-fleet bombardment penalty.
+    let aiNavalBombardmentDefenseBonus = 0;
     if (state.settings.naval_enabled && aiConnection?.type === 'sea') {
       if (!from.naval_units || from.naval_units <= 0) continue;
-      const defenderFleets = to.naval_units ?? 0;
-      if (defenderFleets > 0) {
-        const aiNavalResult = resolveNavalCombat(from.naval_units, defenderFleets);
-        from.naval_units = Math.max(0, from.naval_units - aiNavalResult.attacker_losses);
-        to.naval_units = Math.max(0, defenderFleets - aiNavalResult.defender_losses);
-        io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiNavalResult });
+      const aiCrossing = resolveSeaCrossing(from, to);
+      if (aiCrossing.navalResult) {
+        io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiCrossing.navalResult });
         emitMapVisual(io, gameId, buildNavalMapVisual({
           fromId: action.from,
           toId: action.to,
           attackerId: currentPlayer.player_id,
-          attackerLosses: aiNavalResult.attacker_losses,
-          defenderLosses: aiNavalResult.defender_losses,
-          attackerWon: aiNavalResult.attacker_won,
+          attackerLosses: aiCrossing.navalResult.attacker_losses,
+          defenderLosses: aiCrossing.navalResult.defender_losses,
+          attackerWon: aiCrossing.navalResult.attacker_won,
           state,
         }));
-        if (!aiNavalResult.attacker_won) continue;
       }
-      from.naval_units = Math.max(0, from.naval_units - 1);
+      if (!aiCrossing.canLand) continue;
+      aiNavalBombardmentDefenseBonus = aiCrossing.bombardmentDefenseBonus;
     }
 
     const aiDefenderId = to.owner_id;
@@ -4843,6 +4845,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       extraAttackBonuses: {
         march_to_sea: aiMarchToSeaBonus,
         truce_retaliation: aiTruceRetaliationBonus,
+      },
+      extraDefenseBonuses: {
+        naval_bombardment: aiNavalBombardmentDefenseBonus,
       },
       onCapture: (s, pid) => {
         // One card per turn — gated by state flag (see advanceToNextPlayer reset).

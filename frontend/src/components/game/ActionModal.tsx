@@ -401,6 +401,18 @@ export function CombatResultView({
             )}
           </div>
         )}
+        {(result.defender_bonus_breakdown?.naval_bombardment ?? 0) > 0 && (
+          <div className="mb-4">
+            <p className={clsx(
+              'text-xs px-3 py-2 rounded-lg border',
+              perspective === 'defender'
+                ? 'border-cyan-300/70 bg-cyan-500/15 text-cyan-100'
+                : 'border-cyan-500/40 bg-cyan-900/20 text-cyan-300',
+            )}>
+              🌊 Enemy fleet bombarded the landing (+{result.defender_bonus_breakdown?.naval_bombardment} defense {result.defender_bonus_breakdown!.naval_bombardment === 1 ? 'die' : 'dice'})
+            </p>
+          </div>
+        )}
         {(result.attacker_bonus_breakdown?.pending ?? 0) > 0
           && !(result.combat_ability_callouts ?? []).some((c) =>
             c.id === 'knights_charge' || c.id === 'cannon_barrage' || c.id === 'extra_attack_die',
