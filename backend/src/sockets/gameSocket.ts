@@ -1866,6 +1866,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         playerId: currentPlayer.player_id,
         state,
       }));
+      // Confirm the move to the actor so the client shows its "Moved N troops"
+      // toast only on success — never alongside a rejection error toast.
+      socket.emit('game:fortify_result', { fromId, toId, units });
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });

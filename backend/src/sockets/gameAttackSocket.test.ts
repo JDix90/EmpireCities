@@ -383,4 +383,44 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const e = await err;
     expect(e.message).toMatch(/not your turn/i);
   });
+
+  // ── Fortify confirmation (no double-toast bug) ──────────────────────────────
+
+  it('confirms a successful fortify with game:fortify_result', async () => {
+    const gameId = 'itest-fortify-ok';
+    // p1 owns a (4) and b (1), connected by land; fortify a → b.
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'fortify',
+      territories: { a: terr('a', 'p1', 4), b: terr('b', 'p1', 1), c: terr('c', 'p3', 5) },
+    }), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const result = waitFor<{ fromId: string; toId: string; units: number }>(client, 'game:fortify_result');
+    client.emit('game:fortify', { gameId, fromId: 'a', toId: 'b', units: 2 });
+
+    expect(await result).toEqual({ fromId: 'a', toId: 'b', units: 2 });
+    await waitForRedisState(gameId, (s) => s.territories.a.unit_count === 2 && s.territories.b.unit_count === 3);
+  });
+
+  it('rejects an unconnected fortify with an error and NO fortify_result', async () => {
+    const gameId = 'itest-fortify-nopath';
+    // p1 owns a (4) and c (5), but the only a–c route runs through p2's b → no path.
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'fortify',
+      territories: { a: terr('a', 'p1', 4), b: terr('b', 'p2', 1), c: terr('c', 'p1', 5) },
+    }), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    let resultFired = false;
+    client.on('game:fortify_result', () => { resultFired = true; });
+    const err = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:fortify', { gameId, fromId: 'a', toId: 'c', units: 2 });
+
+    expect((await err).message).toBe('No connected path between territories');
+    // The success confirmation must NOT also fire — the whole point of the fix.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(resultFired).toBe(false);
+  });
 });

@@ -1257,6 +1257,24 @@ export default function GamePage() {
       setDraftUnitsRemaining(curr + bonus);
     });
 
+    // Server confirmation of a successful fortify. The "Moved N troops" toast and
+    // turn-recap entry fire HERE (not optimistically on emit) so a rejected move
+    // — e.g. "No connected path between territories" — shows only the error toast,
+    // never both at once.
+    socket.on('game:fortify_result', ({ fromId, toId, units }: { fromId: string; toId: string; units: number }) => {
+      const fromName = mapDataRef.current?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
+      const toName = mapDataRef.current?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
+      ownTurnFortificationsRef.current.push({ fromName, toName, units });
+      showNotification({
+        type: 'fortify',
+        text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
+        icon: 'arrow',
+        accentBg: 'bg-sky-500/20',
+        accentBorder: 'border-sky-500/30',
+        accentText: 'text-sky-400',
+      });
+    });
+
     socket.on('game:over', (stats: {
       winner_id: string;
       winner_ids?: string[];
@@ -2020,19 +2038,9 @@ export default function GamePage() {
       const units = Math.max(1, Math.min(requested, maxMove));
       socket.emit('game:fortify', { gameId, fromId: attackSource, toId: territoryId, units });
 
-      const fromName = mapDataRef.current?.territories.find(t => t.territory_id === attackSource)?.name ?? attackSource;
-      const toName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
-      ownTurnFortificationsRef.current.push({ fromName, toName, units });
-      showNotification({
-        type: 'fortify',
-        text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
-        icon: 'arrow',
-        accentBg: 'bg-sky-500/20',
-        accentBorder: 'border-sky-500/30',
-        accentText: 'text-sky-400',
-      });
-
-      // Map visual emitted by server on game:fortify success.
+      // Success toast + turn-recap entry fire on the server's game:fortify_result
+      // confirmation, not optimistically — a rejected move shows only its error.
+      // Map visual is likewise emitted by the server on success.
 
       setAttackSource(null);
       setFortifyUnits(1);
@@ -2049,7 +2057,6 @@ export default function GamePage() {
     user?.username,
     resolvedViewerPlayerId,
     gameId,
-    showNotification,
     setFortifyUnits,
     setNavalSource,
     selectedTerritory,
@@ -2065,23 +2072,15 @@ export default function GamePage() {
     const units = Math.max(1, Math.min(requested, maxMove));
     socket.emit('game:fortify', { gameId, fromId, toId, units });
 
-    const fromName = mapDataRef.current?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
-    const toName = mapDataRef.current?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
-    ownTurnFortificationsRef.current.push({ fromName, toName, units });
-    showNotification({
-      type: 'fortify',
-      text: `Moved ${plural(units, 'troop')}: ${fromName} → ${toName}`,
-      icon: 'arrow',
-      accentBg: 'bg-sky-500/20',
-      accentBorder: 'border-sky-500/30',
-      accentText: 'text-sky-400',
-    });
+    // Success toast + turn-recap entry fire on the server's game:fortify_result
+    // confirmation, not optimistically (see the handler) — so a rejected move
+    // shows only its error toast.
 
     setAttackSource(null);
     setFortifyUnits(1);
     setNavalSource(null);
     setSelectedTerritory(null);
-  }, [gameState, gameId, showNotification, setFortifyUnits, setNavalSource]);
+  }, [gameState, gameId, setFortifyUnits, setNavalSource]);
 
   const handleGalaxyStrategicTerritoryClick = useCallback(
     (territoryId: string) => {
