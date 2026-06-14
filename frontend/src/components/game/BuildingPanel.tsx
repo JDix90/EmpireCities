@@ -4,7 +4,15 @@
  */
 import React from 'react';
 import clsx from 'clsx';
-import { Hammer, Shield, Zap, Star, Anchor } from 'lucide-react';
+import { Hammer, Shield, Zap, Star, Anchor, Rocket } from 'lucide-react';
+import { ERA_WONDERS } from '../../constants/eraWonders';
+
+/** Wonder display name by building id — lets a built wonder from ANY era render
+ * (a player who built the Ancient wonder still sees it after advancing). */
+const WONDER_NAME_BY_ID: Record<string, string> = Object.values(ERA_WONDERS).reduce(
+  (acc, w) => { acc[w.wonder_id] = w.name; return acc; },
+  {} as Record<string, string>,
+);
 
 const BUILDING_META: Record<
   string,
@@ -101,6 +109,13 @@ const BUILDING_META: Record<
     icon: <Shield className="w-3 h-3" />,
     category: 'coastal_defense',
   },
+  launch_pad: {
+    label: 'Launch Pad',
+    description: 'Orbital launch infrastructure — enables Launch Space Station',
+    cost: 8,
+    icon: <Rocket className="w-3 h-3" />,
+    category: 'launch',
+  },
 };
 
 const UPGRADES: Record<string, string> = {
@@ -132,6 +147,12 @@ interface Props {
   onBuild: (buildingType: string) => void;
   isCoastal?: boolean;
   eraWonder?: EraWonderInfo;
+  /**
+   * Era-special buildings the player has UNLOCKED via their current-era tech
+   * (e.g. the Space Age `launch_pad`) beyond the standard production/defense/
+   * tech/naval set. Offered in addition to the standard options.
+   */
+  extraBuildOptions?: string[];
 }
 
 function BuildingPanel({
@@ -143,6 +164,7 @@ function BuildingPanel({
   onBuild,
   isCoastal,
   eraWonder,
+  extraBuildOptions = [],
 }: Props) {
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
 
@@ -182,6 +204,11 @@ function BuildingPanel({
   ) {
     buildOptions.push('coastal_battery');
   }
+  // Era-special buildings unlocked by the player's current era (e.g. launch_pad)
+  // that aren't already on this territory.
+  for (const b of extraBuildOptions) {
+    if (!existingSet.has(b) && !buildOptions.includes(b)) buildOptions.push(b);
+  }
   // Remove naval / coastal-defense buildings from non-coastal territories
   const filteredOptions = isCoastal
     ? buildOptions
@@ -205,17 +232,20 @@ function BuildingPanel({
         <div className="flex flex-wrap gap-1.5 mb-2">
           {buildings.map((b) => {
             const meta = BUILDING_META[b];
-            // wonder buildings may not be in BUILDING_META — use eraWonder info
+            // Wonder buildings aren't in BUILDING_META — render any era's wonder
+            // by name (a wonder built in a prior era still shows after advancing).
             if (!meta) {
-              if (eraWonder && b === eraWonder.id) {
+              const wonderName = (eraWonder && b === eraWonder.id ? eraWonder.name : undefined)
+                ?? WONDER_NAME_BY_ID[b];
+              if (wonderName) {
                 return (
                   <span
                     key={b}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-800/60 text-amber-200 border border-amber-500/50"
-                    title={eraWonder.description}
+                    title={eraWonder && b === eraWonder.id ? eraWonder.description : wonderName}
                   >
                     <Star className="w-3 h-3 text-amber-400" />
-                    {eraWonder.name}
+                    {wonderName}
                   </span>
                 );
               }

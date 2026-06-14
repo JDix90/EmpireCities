@@ -150,7 +150,9 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
   const tempMods = myPlayer.temporary_modifiers ?? [];
 
   // ── Wonder the player owns ──────────────────────────────────────────────────
-  const eraWonder = ERA_WONDERS[gameState.era];
+  // Use the viewer's CURRENT era (era advancement), not the game's base era, so
+  // an advanced player sees their own era's wonder.
+  const eraWonder = ERA_WONDERS[resolvePlayerTechEraId(gameState, myPlayer)];
   const ownsWonder = eraWonder
     ? Object.values(gameState.territories).some(
         (t) => t.owner_id === user?.user_id && t.buildings?.includes(eraWonder.wonder_id),
