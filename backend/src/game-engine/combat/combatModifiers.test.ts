@@ -169,6 +169,25 @@ describe('computeLandCombatModifiers', () => {
     expect(mods.defenderDiceOverride).toBe(3);
     expect(mods.defenderBonusBreakdown.truce_break).toBe(1);
   });
+
+  it('adds defender dice from naval bombardment on a contested landing (#7)', () => {
+    const state = baseState();
+    const mods = computeLandCombatModifiers({
+      state,
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 6,
+      defendingUnits: 3,
+      connection: landConn,
+      extraDefenseBonuses: { naval_bombardment: 2 },
+    });
+    // base 2 defender dice + 2 from surviving enemy fleets bombarding the beach
+    expect(mods.defenderDiceOverride).toBe(4);
+    expect(mods.defenderBonusBreakdown.naval_bombardment).toBe(2);
+    expect(mods.defenderBonusBreakdown.total).toBe(2);
+  });
 });
 
 describe('getMarchToSeaBonus', () => {

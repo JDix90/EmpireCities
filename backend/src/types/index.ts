@@ -776,6 +776,8 @@ export interface CombatResult {
     event?: number;
     wonder?: number;
     sea?: number;
+    /** Surviving enemy fleets bombarding a contested amphibious landing (#7). */
+    naval_bombardment?: number;
     total?: number;
   };
   /** Active/passive combat abilities that affected this exchange. */

@@ -261,6 +261,8 @@ export interface CombatResult {
     event?: number;
     wonder?: number;
     sea?: number;
+    /** Surviving enemy fleets bombarding a contested amphibious landing (#7). */
+    naval_bombardment?: number;
     total?: number;
     [key: string]: number | undefined;
   };
