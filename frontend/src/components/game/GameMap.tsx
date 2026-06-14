@@ -25,6 +25,7 @@ import {
   type ResolvedConnectionHintMode,
 } from '../../utils/connectionHints';
 import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
+import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 interface MapTerritory {
   territory_id: string;
@@ -343,7 +344,9 @@ export default function GameMap({
         const cy = territories.reduce((s, t) => s + territoryCenter(t)[1], 0) / territories.length;
         const [lcx, lcy] = scalePolygon([[cx, cy]], canvasW, canvasH, width, height)[0];
         const fontSize = Math.min(13, Math.max(8, Math.round(canvasW / 85)));
-        const regionLabel = new PIXI.Text(`${region.name}  +${region.bonus}`, {
+        // Effective bonus for this game's player count (matches reinforcements).
+        const effBonus = effectiveContinentBonus(region.bonus, gameState?.players.length ?? 6);
+        const regionLabel = new PIXI.Text(`${region.name}  +${effBonus}`, {
           fontSize,
           fill: color,
           align: 'center',

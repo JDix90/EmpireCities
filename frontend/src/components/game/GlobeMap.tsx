@@ -49,6 +49,7 @@ import {
   type ResolvedConnectionHintMode,
 } from '../../utils/connectionHints';
 import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
+import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -2261,6 +2262,9 @@ function GlobeMap({
   const regionHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!mapData.regions) return [];
     const out: HtmlDatum[] = [];
+    // Labels show the EFFECTIVE bonus for this game's player count (matches the
+    // reinforcements actually granted), not the raw map value.
+    const playerCount = gameState?.players.length ?? 6;
 
     for (const region of mapData.regions) {
       if (region.region_id === 'sea_routes') continue;
@@ -2289,12 +2293,12 @@ function GlobeMap({
         lng: sumLng / count,
         alt: 0.07,
         name: region.name,
-        bonus: region.bonus,
+        bonus: effectiveContinentBonus(region.bonus, playerCount),
         color,
       });
     }
     return out;
-  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId]);
+  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length]);
 
   const buildingHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
