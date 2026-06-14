@@ -20,6 +20,7 @@ import {
 } from '../../constants/galaxyLore';
 import NeighborTerritoryPicker from './NeighborTerritoryPicker';
 import { listNeighborTargets, type MapConnection } from '../../utils/mapAdjacencyTargets';
+import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -360,6 +361,9 @@ export default function TerritoryPanel({
           ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
           : 0;
         const controlsRegion = !!myPlayerId && totalInRegion > 0 && ownedInRegion === totalInRegion;
+        const playerCount = gameState.players.length;
+        const effBonus = effectiveContinentBonus(regionDef.bonus, playerCount);
+        const bonusScaled = effBonus !== regionDef.bonus;
         return (
           <div className="mb-3 px-3 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs">
             <div className="flex items-center justify-between">
@@ -367,8 +371,18 @@ export default function TerritoryPanel({
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: regionColor }} />
                 <span className="font-semibold text-bf-text truncate">{regionDef.name}</span>
               </div>
-              <span className="font-mono text-bf-gold font-semibold shrink-0 ml-2">+{regionDef.bonus}</span>
+              <span
+                className="font-mono text-bf-gold font-semibold shrink-0 ml-2"
+                title={bonusScaled ? `Continent bonuses scale with player count: +${effBonus} at ${playerCount} players (+${regionDef.bonus} at 6).` : undefined}
+              >
+                +{effBonus}
+              </span>
             </div>
+            {bonusScaled && (
+              <p className="text-[10px] text-bf-muted/80 mt-1">
+                Scales with players: +{effBonus} at {playerCount} (+{regionDef.bonus} at 6)
+              </p>
+            )}
             {myPlayerId && (
               <div className="flex items-center gap-2 mt-1.5">
                 <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
@@ -905,6 +919,9 @@ export default function TerritoryPanel({
               const ownedInRegion = myPlayerId
                 ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
                 : 0;
+              const playerCount = gameState.players.length;
+              const effBonus = effectiveContinentBonus(regionDef.bonus, playerCount);
+              const bonusScaled = effBonus !== regionDef.bonus;
               return (
                 <div className="px-2 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs">
                   <div className="flex items-center justify-between">
@@ -912,10 +929,18 @@ export default function TerritoryPanel({
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: regionColor }} />
                       {regionDef.name}
                     </span>
-                    <span className="font-mono text-bf-gold">+{regionDef.bonus}</span>
+                    <span
+                      className="font-mono text-bf-gold"
+                      title={bonusScaled ? `Continent bonuses scale with player count: +${effBonus} at ${playerCount} players (+${regionDef.bonus} at 6).` : undefined}
+                    >
+                      +{effBonus}
+                    </span>
                   </div>
                   {myPlayerId && (
-                    <p className="text-bf-muted mt-1 tabular-nums">{ownedInRegion}/{regionTerritories.length} owned</p>
+                    <p className="text-bf-muted mt-1 tabular-nums">
+                      {ownedInRegion}/{regionTerritories.length} owned
+                      {bonusScaled && <span className="text-bf-muted/70"> · +{effBonus} at {playerCount} players</span>}
+                    </p>
                   )}
                 </div>
               );
