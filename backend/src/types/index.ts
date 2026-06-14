@@ -280,6 +280,13 @@ export interface GameSettings {
   economy_tech_starting_gold?: number;
   /** Enable era-specific event cards that fire each game round. */
   events_enabled?: boolean;
+  /**
+   * Scale unit/resource-magnitude event effects with game progression (era
+   * index in Era Advancement, turn count otherwise) so late-game events stay
+   * meaningful. Defaults on when events are enabled; set false to keep flat
+   * base values. Dice/turn/stability effects never scale.
+   */
+  event_impact_scaling_enabled?: boolean;
   /** Enable naval warfare: fleets, ports, sea-lane gating. */
   naval_enabled?: boolean;
   /** Enable population stability mechanics. */
@@ -700,6 +707,11 @@ export interface EventEffectResult {
   global?: boolean; // region_disaster touched all territories
   /** Reinforcement bonus added to the current player's draft pool (not map auto-place). */
   draft_units_granted?: number;
+  /**
+   * Progression multiplier (>1) applied to this scalable effect's magnitude.
+   * Omitted when no scaling occurred (multiplier 1 or non-scalable effect).
+   */
+  magnitude_scale?: number;
 }
 
 export interface EventChoice {
@@ -722,6 +734,12 @@ export interface EventCard {
   affects_all_players?: boolean;
   /** Populated server-side after applying an instant effect — carries result details for the UI. */
   result_summary?: Array<{ territory_id: string; name: string; delta: number }>;
+  /**
+   * Progression multiplier (>1) the server applied to this card's scalable
+   * magnitudes for display. The broadcast `effect`/`choices` already carry the
+   * scaled values; this drives the "Era impact ×N" badge in the UI.
+   */
+  magnitude_scale?: number;
 }
 
 export interface TemporaryModifier {

@@ -44,6 +44,95 @@ export function getEraDeck(eraId: EraId): EventCard[] {
   return ERA_DECKS[eraId] ?? [];
 }
 
+// ── Progression-based impact scaling ──────────────────────────────────────────
+// Event decks are authored with flat base magnitudes (lose 2, gain 3, plague −1)
+// and in Era Advancement the deck stays the *starting* era's deck for the whole
+// match — so a "lose 2 units" raid is trivial once empires field 30-stacks in the
+// Modern era. We scale unit/resource-magnitude effects with how far the game has
+// progressed (era index in EA, turn count otherwise). Dice modifiers, truce turns,
+// and stability percentages are deliberately excluded: +1 die / −15 stability are
+// meaningful at any era and scaling them would be absurd.
+const SCALABLE_EVENT_EFFECTS: ReadonlySet<EventEffectType> = new Set<EventEffectType>([
+  'units_added',
+  'units_removed',
+  'enemy_units_removed',
+  'region_disaster',
+  'tech_bonus',
+  'production_bonus',
+]);
+const EVENT_SCALE_TURNS_PER_LEVEL = 12;
+const EVENT_SCALE_PER_LEVEL = 0.5;
+const EVENT_SCALE_MAX = 3.0;
+
+/** True when this effect type's magnitude scales with progression. */
+export function isScalableEventEffect(type: EventEffectType): boolean {
+  return SCALABLE_EVENT_EFFECTS.has(type);
+}
+
+/**
+ * Progression "level" driving event scaling: the further along, the bigger.
+ * Era index (the world's most-advanced living player) leads in Era Advancement;
+ * turn count is the universal floor so a long classic game still escalates.
+ */
+export function getEventProgressionLevel(state: GameState): number {
+  let eraLevel = 0;
+  if (state.settings.era_advancement_enabled) {
+    for (const p of state.players) {
+      if (p.is_eliminated) continue;
+      eraLevel = Math.max(eraLevel, p.current_era_index ?? 0);
+    }
+  }
+  const turnLevel = Math.floor(Math.max(0, (state.turn_number ?? 1) - 1) / EVENT_SCALE_TURNS_PER_LEVEL);
+  return Math.max(eraLevel, turnLevel);
+}
+
+/** Multiplier (≥1) applied to scalable event magnitudes, capped. */
+export function getEventMagnitudeScale(state: GameState): number {
+  if (state.settings.event_impact_scaling_enabled === false) return 1;
+  const level = getEventProgressionLevel(state);
+  return Math.min(1 + level * EVENT_SCALE_PER_LEVEL, EVENT_SCALE_MAX);
+}
+
+/** Scale a magnitude, preserving sign and never dropping below the base. */
+export function scaleEventEffectValue(value: number, scale: number): number {
+  if (scale <= 1) return value;
+  const sign = value < 0 ? -1 : 1;
+  return sign * Math.round(Math.abs(value) * scale);
+}
+
+/** Return a scaled clone of an effect (scalable types only); original otherwise. */
+function scaledEffect(effect: EventEffect, scale: number): EventEffect {
+  if (scale <= 1 || !SCALABLE_EVENT_EFFECTS.has(effect.type)) return effect;
+  return { ...effect, value: scaleEventEffectValue(effect.value, scale) };
+}
+
+/**
+ * Produce a display-ready shallow clone of a card with its scalable magnitudes
+ * grown for the current progression and `magnitude_scale` stamped for the UI
+ * badge. Always clones (callers attach `result_summary`) — never mutates the
+ * shared deck constant.
+ */
+export function getDisplayScaledCard(state: GameState, card: EventCard): EventCard {
+  const scale = getEventMagnitudeScale(state);
+  const out: EventCard = { ...card };
+  if (scale > 1) {
+    let scaledAnything = false;
+    if (out.effect) {
+      const scaled = scaledEffect(out.effect, scale);
+      if (scaled !== out.effect) { out.effect = scaled; scaledAnything = true; }
+    }
+    if (out.choices?.length) {
+      out.choices = out.choices.map((c) => {
+        const scaled = scaledEffect(c.effect, scale);
+        if (scaled !== c.effect) scaledAnything = true;
+        return scaled === c.effect ? c : { ...c, effect: scaled };
+      });
+    }
+    if (scaledAnything) out.magnitude_scale = scale;
+  }
+  return out;
+}
+
 /**
  * Spread `count` +1 increments across a player's territories (round-robin, sorted id).
  * Used when event reinforcements cannot go into the draft pool (non-draft phase or
@@ -85,11 +174,27 @@ export function drawRandomCard(deck: EventCard[]): EventCard | undefined {
  * Apply an instant event effect to the game state.
  * For player-targeted effects the current player is used unless target_id specifies another.
  * When `affectsAllPlayers` is true, player-targeted effects are applied to every non-eliminated player.
+ *
+ * Scalable magnitudes (units/resources) are grown by the current progression
+ * multiplier before application; the multiplier is reported back on the result
+ * as `magnitude_scale` so the UI can show what actually happened.
  */
 export function applyEventEffect(
   state: GameState,
-  effect: EventEffect,
+  rawEffect: EventEffect,
   affectsAllPlayers = false,
+): EventEffectResult {
+  const scale = getEventMagnitudeScale(state);
+  const effect = scaledEffect(rawEffect, scale);
+  const result = applyEventEffectInner(state, effect, affectsAllPlayers);
+  if (effect !== rawEffect) result.magnitude_scale = scale;
+  return result;
+}
+
+function applyEventEffectInner(
+  state: GameState,
+  effect: EventEffect,
+  affectsAllPlayers: boolean,
 ): EventEffectResult {
   const currentPlayer = state.players[state.current_player_index];
   const affected: Array<{ territory_id: string; delta: number }> = [];
