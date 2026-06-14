@@ -141,6 +141,30 @@ export function playerHasUnlockedAbility(state: GameState, playerId: string, abi
   return getUnlockedAbilityIds(state, player).has(abilityId);
 }
 
+/**
+ * The single strongest UNUSED tech-unlocked once-per-game ability the player
+ * currently holds — the "trump card" carried into the next era on advancement
+ * (e.g. an undetonated Atom Bomb). Ranked by the unlocking tech's tier then
+ * cost. Returns null when there's nothing worth carrying. Faction abilities are
+ * excluded (they remap on advance and weren't bought with tech points).
+ */
+export function getCarryableLegacyAbility(state: GameState, player: PlayerState): string | null {
+  if (!state.settings.tech_trees_enabled) return null;
+  const unlocked = new Set(player.unlocked_techs ?? []);
+  const used = new Set(player.used_game_abilities ?? []);
+  const tree = getEraTechTreeForPlayer(state, player.player_id);
+  let best: { abilityId: string; tier: number; cost: number } | null = null;
+  for (const node of tree) {
+    const abilityId = node.unlocks_ability;
+    if (!abilityId || !unlocked.has(node.tech_id)) continue;
+    if (!GAME_SCOPED_ABILITIES.has(abilityId) || used.has(abilityId)) continue;
+    if (!best || node.tier > best.tier || (node.tier === best.tier && node.cost > best.cost)) {
+      best = { abilityId, tier: node.tier, cost: node.cost };
+    }
+  }
+  return best?.abilityId ?? null;
+}
+
 export function getInfluenceUnitCost(state: GameState, playerId: string): number {
   if (!state.settings.tech_trees_enabled) return 3;
   return playerHasUnlockedAbility(state, playerId, 'proxy_funding') ? 2 : 3;

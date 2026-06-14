@@ -201,6 +201,12 @@ export default function AdvanceEraPanel({
                 Catching up: −{status.catchupDiscountPct}% cost and an eased tech gate while you trail.
               </p>
             )}
+            {gameState.era_advancement_preview?.legacy_ability && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-300 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                Carries forward: your unused {gameState.era_advancement_preview.legacy_ability.label} stays usable once next era.
+              </p>
+            )}
           </>
         )}
         {showButton && (

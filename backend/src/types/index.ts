@@ -134,6 +134,12 @@ export interface PlayerState {
   ability_uses?: Record<string, number>;
   /** Ability IDs consumed permanently (once-per-game abilities, e.g. atom_bomb). */
   used_game_abilities?: string[];
+  /**
+   * Once-per-game abilities carried forward from a prior era as a one-time
+   * "legacy charge" (e.g. an undetonated Atom Bomb). Activatable next era even
+   * though the unlocking tech is gone; consumed on use. Capped at one.
+   */
+  legacy_ability_charges?: Record<string, number>;
   /** Active temporary modifiers from event cards (diminishes each turn). */
   temporary_modifiers?: TemporaryModifier[];
   /** Cumulative card sets redeemed this game (card_shark achievement). */
@@ -517,6 +523,8 @@ export interface AdvanceEraClientPreview {
   catchup_gap?: number;
   /** Percentage knocked off the advance cost while catching up (omitted when 0). */
   catchup_discount_pct?: number;
+  /** Unused once-per-game ability that will carry into the next era as a legacy charge. */
+  legacy_ability?: { ability_id: string; label: string };
   /** Signature payoff granted on arriving in the next era (omitted when the step has none). */
   next_signature?: { id: string; name: string; description: string };
   readiness?: {

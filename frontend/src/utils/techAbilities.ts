@@ -132,6 +132,12 @@ export function getTerritoryPanelAbilities(
   context: { isEnemy: boolean; isMine: boolean },
 ): string[] {
   const unlocked = getUnlockedAbilityIds(gameState, player, techTree);
+  // Legacy charges carried from a prior era stay usable even though the
+  // unlocking tech is gone (era advancement); they flow through the same
+  // phase/target/availability filter below.
+  for (const [abilityId, count] of Object.entries(player.legacy_ability_charges ?? {})) {
+    if (count > 0) unlocked.add(abilityId);
+  }
   const phase = gameState.phase;
 
   return Object.entries(TERRITORY_ABILITY_UI)
