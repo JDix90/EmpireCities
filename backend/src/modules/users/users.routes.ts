@@ -546,7 +546,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/users/me/friends/request ──────────────────────────────────
-  fastify.post('/me/friends/request', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/me/friends/request', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = FriendUsernameSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send(formatZodError(parsed.error));
@@ -870,7 +870,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     platform: z.enum(['web', 'ios', 'android']).default('web'),
   });
 
-  fastify.post('/me/push-tokens', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/me/push-tokens', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = RegisterPushTokenSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input' });

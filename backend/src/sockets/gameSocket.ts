@@ -73,6 +73,7 @@ import type { GameState, GameMap, AiDifficulty, PlayerState } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
+import { registerSocketRateLimit } from './socketRateLimit';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
@@ -892,6 +893,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
     const username = (socket as Socket & { username: string }).username;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
     socket.join(`user:${userId}`);
+
+    // Per-user inbound throttle (shared Redis limiter). Installed before any
+    // handler so every event — chat, gameplay, joins — passes through it.
+    registerSocketRateLimit(socket, userId);
 
     // ── Extracted handlers ──────────────────────────────────────────────────
     const ctx: SocketContext = {

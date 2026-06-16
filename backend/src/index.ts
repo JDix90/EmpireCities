@@ -14,6 +14,7 @@ import { connectPostgres, pgPool, query, queryOne } from './db/postgres';
 import { connectRedis, redis } from './db/redis';
 import { registerErrorHandler } from './errorHandler';
 import { authenticate } from './middleware/authenticate';
+import { userOrIpKey } from './middleware/rateLimitKey';
 import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
@@ -168,6 +169,15 @@ async function bootstrap(): Promise<void> {
   await app.register(fastifyRateLimit, {
     max: 100,
     timeWindow: '1 minute',
+    // Back the limiter with Redis so counters are shared across instances and
+    // survive restarts — an in-memory store would give each node its own
+    // bucket (effective limit = max × nodeCount) and reset on every deploy.
+    redis,
+    // Key authenticated traffic by user id (falls back to IP). Without this the
+    // limiter keys purely by IP, so users behind shared NAT share a bucket and
+    // per-account abuse is invisible. See userOrIpKey for why we verify the
+    // token here rather than relying on the (later) authenticate preHandler.
+    keyGenerator: userOrIpKey,
     // statusCode is REQUIRED here: without it @fastify/rate-limit's thrown
     // error has no status and the global handler surfaces a 500 instead of
     // a 429 (real users saw "Internal server error" when rate-limited).
@@ -182,6 +192,11 @@ async function bootstrap(): Promise<void> {
       await scope.register(fastifyRateLimit, {
         max: 30,
         timeWindow: '1 minute',
+        redis,
+        // Auth routes are pre-login, so this almost always keys by IP; using the
+        // shared generator keeps behaviour consistent and covers token-bearing
+        // calls like /refresh and /change-password.
+        keyGenerator: userOrIpKey,
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many authentication attempts. Please wait and try again.',
@@ -212,6 +227,8 @@ async function bootstrap(): Promise<void> {
       await scope.register(fastifyRateLimit, {
         max: 30,
         timeWindow: '1 minute',
+        redis,
+        keyGenerator: userOrIpKey,
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many admin requests. Please wait and try again.',

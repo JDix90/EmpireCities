@@ -218,7 +218,7 @@ async function createRankedGameTx(
 }
 
 export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post('/join', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/join', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = JoinSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send(formatZodError(parsed.error, 'Invalid matchmaking parameters'));

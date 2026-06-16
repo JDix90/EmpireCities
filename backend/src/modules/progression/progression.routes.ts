@@ -13,7 +13,7 @@ import { formatZodError } from '../../utils/formatZodError';
 
 export async function progressionRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/progression/daily-login ────────────────────────────────────
-  fastify.post('/daily-login', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/daily-login', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const claimed = await claimDailyLogin(request.userId);
     const user = await queryOne<{ gold: number; daily_streak: number }>(
       'SELECT COALESCE(gold, 0) AS gold, daily_streak FROM users WHERE user_id = $1',
@@ -221,7 +221,7 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   // ── POST /api/progression/referral/redeem ────────────────────────────────
-  fastify.post('/referral/redeem', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/referral/redeem', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const schema = z.object({ code: z.string().min(1).max(16) });
     const parsed = schema.safeParse(request.body ?? {});
     if (!parsed.success) {

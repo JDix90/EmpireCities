@@ -104,7 +104,7 @@ export const CreateGameSchema = z.object({
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/games ──────────────────────────────────────────────────────
-  fastify.post('/', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post('/', { preHandler: authenticate, config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = CreateGameSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
@@ -234,7 +234,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/games/tutorial/start ────────────────────────────────────────
-  fastify.post('/tutorial/start', { preHandler: authenticate }, async (request, reply) => {
+  fastify.post('/tutorial/start', { preHandler: authenticate, config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = TutorialStartSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send(formatZodError(parsed.error));

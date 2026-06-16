@@ -108,7 +108,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     }
   });
 
-  fastify.post('/', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
 
     const body = CreateMapSchema.safeParse(request.body);
@@ -142,7 +142,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.status(201).send({ map_id: mapId, message: 'Map saved. Submit for review to publish.' });
   });
 
-  fastify.put<{ Params: { mapId: string } }>('/:mapId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.put<{ Params: { mapId: string } }>('/:mapId', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
 
     const { mapId } = request.params;
