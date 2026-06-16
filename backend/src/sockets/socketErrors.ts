@@ -16,6 +16,13 @@ export const GameErrorCode = {
    * 'Game not found' message and treat this the same as GAME_NOT_FOUND.
    */
   GAME_DELETED: 'GAME_DELETED',
+  /**
+   * The client is sending events faster than the per-user socket rate limit
+   * allows. The action was dropped (not applied); the client should back off
+   * and retry. Emitted at most once per notice window so a flood of blocked
+   * packets cannot itself amplify outbound traffic.
+   */
+  RATE_LIMITED: 'RATE_LIMITED',
 } as const;
 
 export type GameErrorCodeValue = (typeof GameErrorCode)[keyof typeof GameErrorCode];
