@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { authenticate } from '../../middleware/authenticate';
+import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
 import { query, queryOne } from '../../db/postgres';
 import { redis } from '../../db/redis';
 import { getTier } from '../../game-engine/rating/ratingService';
@@ -17,7 +18,7 @@ const CACHE_TTL = 300; // 5 minutes
 const LEADERBOARD_RATE_LIMIT = { max: 30, timeWindow: '1 minute' as const };
 
 export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/top', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
+  fastify.get('/top', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
     const cacheKey = `lb:top:${request.userId}`;
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));

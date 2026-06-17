@@ -68,6 +68,10 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_jwt_refresh}
       REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      # Expose GET /metrics/json for internal scraping (active games, pg-pool
+      # depth, event-loop lag, AI queue). Keep it proxy-internal — it's not
+      # routed publicly in nginx.prod.conf. Override to 'false' to disable.
+      METRICS_ENDPOINT_ENABLED: ${METRICS_ENDPOINT_ENABLED:-true}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}
