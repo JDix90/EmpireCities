@@ -45,7 +45,7 @@ import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleSer
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry, captureException } from './services/sentry';
-import { refreshAdminConfigCache } from './services/adminConfig';
+import { refreshAdminConfigCache, startAdminConfigSubscriber, stopAdminConfigSubscriber } from './services/adminConfig';
 
 /**
  * Parse a comma-separated `https://host[:port]` / `wss://...` allowlist for the
@@ -429,6 +429,9 @@ async function bootstrap(): Promise<void> {
   startOrphanedGameSweep();
   startGuestCleanupSweep();
   await refreshAdminConfigCache().catch(() => {});
+  await startAdminConfigSubscriber().catch((err) =>
+    console.warn('[adminConfig] subscriber start failed (config edits will be per-instance until restart):', err),
+  );
 
   void ensureDailyChallengeForToday().catch((err) => {
     console.error('[daily] Failed to ensure today challenge row:', err);
@@ -456,6 +459,7 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
       stopChallengeSweep();
       stopOrphanedGameSweep();
       stopGuestCleanupSweep();
+      await stopAdminConfigSubscriber();
       await shutdownGameSocket(io);
       await app.close();
       await redis.quit();

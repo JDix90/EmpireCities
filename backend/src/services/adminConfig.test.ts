@@ -1,10 +1,22 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+
+const queryMock = vi.fn();
+const publishMock = vi.fn();
+vi.mock('../db/postgres', () => ({
+  query: (...a: unknown[]) => queryMock(...a),
+  queryOne: (...a: unknown[]) => queryMock(...a),
+}));
+vi.mock('../db/redis', () => ({
+  redis: { publish: (...a: unknown[]) => publishMock(...a), duplicate: vi.fn() },
+}));
+
 import {
   applyAdminSnapshotsToSettings,
   getEconomyConfig,
   getXpConfig,
   resetAdminConfigCacheForTests,
   setAdminConfigCacheForTests,
+  upsertAdminConfig,
 } from './adminConfig';
 
 describe('adminConfig cache helpers', () => {
@@ -29,5 +41,18 @@ describe('adminConfig cache helpers', () => {
     const settings = applyAdminSnapshotsToSettings({ turn_timer_seconds: 300 });
     expect(settings.economy_snapshot).toBeTruthy();
     expect(settings.xp_snapshot).toBeTruthy();
+  });
+});
+
+describe('upsertAdminConfig cross-instance invalidation', () => {
+  beforeEach(() => {
+    queryMock.mockReset().mockResolvedValue([]);
+    publishMock.mockReset().mockResolvedValue(1);
+  });
+  afterEach(() => resetAdminConfigCacheForTests());
+
+  it('publishes a cache invalidation after writing the config', async () => {
+    await upsertAdminConfig('economy', { building_costs: {} }, 'admin-1');
+    expect(publishMock).toHaveBeenCalledWith('admin-config:invalidate', 'economy');
   });
 });
