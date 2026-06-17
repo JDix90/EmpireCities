@@ -66,6 +66,18 @@ export function validateProductionEnv(): void {
     );
   }
 
+  // Postgres TLS nudge (warn, don't fail — a same-host deploy is legitimately
+  // unencrypted). If the DB is remote (non-loopback host) and PG_SSL isn't on,
+  // credentials + query data cross the network in cleartext.
+  const pgHost = (process.env.POSTGRES_HOST || 'localhost').trim();
+  const pgIsLoopback = ['localhost', '127.0.0.1', '::1', ''].includes(pgHost);
+  if (!pgIsLoopback && (process.env.PG_SSL || '').toLowerCase() !== 'true') {
+    console.warn(
+      `[config] Warning: POSTGRES_HOST=${pgHost} is remote but PG_SSL is not enabled. ` +
+        'DB credentials and data will travel unencrypted. Set PG_SSL=true.',
+    );
+  }
+
   // CORS hardening: in production we must not echo dev/loopback origins back
   // to clients. Allowing http://localhost:* in prod CORS would let any local
   // attacker on the same machine drive authenticated cross-origin requests

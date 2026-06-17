@@ -150,6 +150,15 @@ async function bootstrap(): Promise<void> {
             },
           }
         : false,
+    // Explicit HSTS in production: 1 year, cover subdomains, preload-eligible.
+    // Helmet's default is a shorter max-age without includeSubDomains. TLS is
+    // terminated at the edge proxy, so this is defense-in-depth against a
+    // downgrade if a redirect/proxy is ever misconfigured. Disabled in dev
+    // (plain-http localhost) to avoid pinning the loopback origin.
+    hsts:
+      config.nodeEnv === 'production'
+        ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
+        : false,
   });
 
   await app.register(fastifyCors, {
@@ -330,9 +339,16 @@ async function bootstrap(): Promise<void> {
   /** Readiness for orchestrators — verifies Postgres and Redis. */
   app.get('/ready', async (_req, reply) => {
     const result = await runReadinessChecks();
-    return result.ok
-      ? reply.send({ status: 'ready', checks: result.checks })
-      : reply.code(503).send({ status: 'not_ready', checks: result.checks });
+    if (result.ok) return reply.send({ status: 'ready', checks: result.checks });
+    // Log the full failure detail server-side, but never return raw datastore
+    // error strings (internal hostnames, "password authentication failed",
+    // DSN fragments) to an unauthenticated caller in production.
+    console.error('[ready] not ready:', JSON.stringify(result.checks));
+    const checks =
+      config.nodeEnv === 'production'
+        ? result.checks.map(({ name, ok }) => ({ name, ok }))
+        : result.checks;
+    return reply.code(503).send({ status: 'not_ready', checks });
   });
 
   /**

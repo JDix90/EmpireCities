@@ -33,12 +33,29 @@ const CONNECT_TIMEOUT_MS = Math.max(
   parseInt(process.env.PG_CONNECT_TIMEOUT_MS || '15000', 10),
 );
 
+/**
+ * TLS for the Postgres connection. OFF by default — local dev / docker-compose
+ * run on a trusted loopback network where TLS is unnecessary. Set `PG_SSL=true`
+ * for a managed/remote database so credentials and query data (password hashes,
+ * session rows) aren't sent in cleartext over the network. `PG_SSL_CA` supplies
+ * a custom CA cert (PEM); `PG_SSL_REJECT_UNAUTHORIZED=false` disables cert
+ * verification (discouraged — only for self-signed certs during setup).
+ */
+function parsePgSsl(): false | { rejectUnauthorized: boolean; ca?: string } {
+  if ((process.env.PG_SSL || '').toLowerCase() !== 'true') return false;
+  return {
+    rejectUnauthorized: (process.env.PG_SSL_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false',
+    ca: process.env.PG_SSL_CA || undefined,
+  };
+}
+
 export const pgPool = new Pool({
   host: config.postgres.host,
   port: config.postgres.port,
   user: config.postgres.user,
   password: config.postgres.password,
   database: config.postgres.database,
+  ssl: parsePgSsl(),
   max: POOL_MAX,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
