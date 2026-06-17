@@ -1,8 +1,12 @@
 import type { Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 
-/** Tolerate minor clock skew / an in-flight refresh before enforcing expiry. */
-export const EXPIRY_GRACE_MS = 10_000;
+/**
+ * Tolerate minor clock skew / an in-flight refresh before enforcing expiry.
+ * Configurable via SOCKET_AUTH_GRACE_MS (ops tuning; tests set 0 for determinism).
+ */
+const parsedGrace = Number(process.env.SOCKET_AUTH_GRACE_MS);
+export const EXPIRY_GRACE_MS = Number.isFinite(parsedGrace) ? parsedGrace : 10_000;
 /** Throttle the `auth:expired` notice so a lapsed client can't be spammed. */
 const EXPIRED_NOTICE_COOLDOWN_MS = 5_000;
 
