@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
+import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
@@ -105,7 +106,7 @@ export const CreateGameSchema = z.object({
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/games ──────────────────────────────────────────────────────
-  fastify.post('/', { preHandler: authenticate, config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
+  fastify.post('/', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = CreateGameSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
@@ -340,9 +341,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/games/live ──────────────────────────────────────────────────
   // List in-progress games available for spectating
-  fastify.get('/live', { preHandler: authenticate }, async (request, reply) => {
+  fastify.get('/live', { preHandler: [shedIfPoolSaturated, authenticate] }, async (request, reply) => {
     const qs = request.query as { era_id?: string; limit?: string };
     const limit = Math.min(parseInt(qs.limit ?? '20', 10) || 20, 50);
+
+    // The live list is identical for every viewer and the query is heavy, so
+    // cache it briefly in Redis — a burst of lobby polls collapses to one DB hit.
+    const cacheKey = `games:live:${qs.era_id ?? 'all'}:${limit}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return reply.send(JSON.parse(cached));
+    } catch {
+      // Redis miss/unavailable — fall through to a live query.
+    }
+
     const params: unknown[] = [limit];
     let eraFilter = '';
     if (qs.era_id) {
@@ -395,6 +407,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
        LIMIT $1`,
       params,
     );
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(games), 'EX', 5);
+    } catch {
+      // Best-effort cache; ignore write failures.
+    }
     return reply.send(games);
   });
 
