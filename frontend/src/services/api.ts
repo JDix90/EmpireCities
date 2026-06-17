@@ -10,6 +10,19 @@ function isAuthCredentialPost(config: InternalAxiosRequestConfig): boolean {
   return url.includes('/auth/login') || url.includes('/auth/register');
 }
 
+/**
+ * User-facing message for a "server busy" response. The backend's 429
+ * (rate-limit / pool-admission shed) and 503 bodies use a `message` field; many
+ * UI call sites read `error.response.data.error`, so without normalizing this a
+ * burst rejection shows a generic "Failed to …" instead of a retryable hint.
+ */
+export function busyMessageFor(status: number, message?: string): string {
+  if (message) return message;
+  return status === 429
+    ? 'Too many requests — please slow down and try again in a moment.'
+    : 'The server is busy right now. Please try again in a moment.';
+}
+
 export const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: true,
@@ -84,6 +97,30 @@ api.interceptors.response.use(
         drainQueue(null, refreshError);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // 429 (rate-limited / pool-admission shed) & 503 (overloaded): smooth a
+    // transient launch-burst hiccup and surface a friendly, retryable message.
+    const busyStatus = error.response?.status;
+    if (busyStatus === 429 || busyStatus === 503) {
+      const busyRequest = originalRequest as
+        | (InternalAxiosRequestConfig & { _retriedBusy?: boolean })
+        | undefined;
+      const method = (busyRequest?.method ?? 'get').toLowerCase();
+      // Auto-retry idempotent GETs once (a POST could double-submit). Respect
+      // Retry-After if present, capped; otherwise a short fixed backoff.
+      if (busyRequest && method === 'get' && !busyRequest._retriedBusy) {
+        busyRequest._retriedBusy = true;
+        const retryAfter = Number(error.response?.headers?.['retry-after']);
+        const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : 800;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return api(busyRequest);
+      }
+      // Normalize the body so existing `data.error` reads show the real message.
+      const data = error.response?.data as { error?: string; message?: string } | undefined;
+      if (data && typeof data === 'object' && !data.error) {
+        data.error = busyMessageFor(busyStatus, data.message);
       }
     }
 

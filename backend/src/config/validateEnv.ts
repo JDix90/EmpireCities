@@ -9,6 +9,12 @@ const DEV_REFRESH = 'dev_refresh_secret_change_in_production';
 // publicly-known credential. We therefore treat missing and default alike.
 const DEV_POSTGRES = 'chronopass';
 const DEV_REDIS = 'chronoredis';
+// Placeholder JWT secrets shipped as `${JWT_*:-...}` fallbacks in
+// docker-compose.prod.yml. A deploy that forgets to set real secrets boots on
+// these publicly-known values (forgeable tokens), so production must reject
+// them exactly like the dev defaults.
+const PLACEHOLDER_ACCESS = 'change_me_in_production_jwt_access';
+const PLACEHOLDER_REFRESH = 'change_me_in_production_jwt_refresh';
 // Recommended minimum entropy for the HMAC signing secrets.
 const MIN_SECRET_LENGTH = 32;
 
@@ -27,10 +33,14 @@ export function validateProductionEnv(): void {
 
   if (
     process.env.JWT_ACCESS_SECRET === DEV_ACCESS ||
-    process.env.JWT_REFRESH_SECRET === DEV_REFRESH
+    process.env.JWT_ACCESS_SECRET === PLACEHOLDER_ACCESS ||
+    process.env.JWT_REFRESH_SECRET === DEV_REFRESH ||
+    process.env.JWT_REFRESH_SECRET === PLACEHOLDER_REFRESH
   ) {
     throw new Error(
-      '[config] Production cannot use default dev JWT secrets. Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET.',
+      '[config] Production cannot use placeholder/dev JWT secrets ' +
+        '(dev_*_change_in_production or change_me_in_production_jwt_*). ' +
+        'Set strong unique JWT_ACCESS_SECRET and JWT_REFRESH_SECRET.',
     );
   }
 
