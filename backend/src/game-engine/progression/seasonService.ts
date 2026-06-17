@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../db/postgres';
 import { pgPool } from '../../db/postgres';
 import { getSeasonTierCosmetic, type RankedTier } from '../rating/ratingService';
+import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
 
 // ── Season auto-creation + end-of-season reward distribution ───────────
 
@@ -43,10 +44,14 @@ export async function ensureActiveSeason(): Promise<void> {
 }
 
 async function distributeSeasonRewards(seasonId: string): Promise<void> {
-  // Check if already distributed (at least one reward_cosmetic_id set)
+  // Cheap short-circuit once the season is fully distributed. `claimed_at` is
+  // the canonical "rewards granted to this user" marker (set for EVERY
+  // participant below, not just cosmetic winners), so this is the authoritative
+  // done-check. It's an optimisation only — the per-row claim below is what
+  // actually guarantees idempotency.
   const alreadyDistributed = await queryOne<{ cnt: string }>(
     `SELECT COUNT(*) AS cnt FROM season_rewards
-     WHERE season_id = $1 AND reward_cosmetic_id IS NOT NULL`,
+     WHERE season_id = $1 AND claimed_at IS NOT NULL`,
     [seasonId],
   );
   if (parseInt(alreadyDistributed?.cnt ?? '0', 10) > 0) return;
@@ -62,6 +67,21 @@ async function distributeSeasonRewards(seasonId: string): Promise<void> {
     try {
       await client.query('BEGIN');
 
+      // Atomically CLAIM this participant's reward. The conditional UPDATE takes
+      // a row lock and only the FIRST caller flips claimed_at from NULL, so a
+      // second concurrent sweep (or a retry after a partial run) gets rowCount
+      // 0 and skips — gold is therefore never granted twice, independent of the
+      // coarse short-circuit above and of how many instances run the sweep.
+      const claim = await client.query(
+        `UPDATE season_rewards SET claimed_at = NOW()
+         WHERE season_id = $1 AND user_id = $2 AND claimed_at IS NULL`,
+        [seasonId, p.user_id],
+      );
+      if (claim.rowCount === 0) {
+        await client.query('ROLLBACK');
+        continue;
+      }
+
       const cosmeticId = getSeasonTierCosmetic(seasonId, p.highest_tier as RankedTier);
       if (cosmeticId) {
         // Grant cosmetic
@@ -71,10 +91,10 @@ async function distributeSeasonRewards(seasonId: string): Promise<void> {
           [p.user_id, cosmeticId],
         );
 
-        // Record the reward
+        // Record which cosmetic was granted (claimed_at already set by the claim).
         await client.query(
           `UPDATE season_rewards
-           SET reward_cosmetic_id = $1, claimed_at = NOW()
+           SET reward_cosmetic_id = $1
            WHERE season_id = $2 AND user_id = $3`,
           [cosmeticId, seasonId, p.user_id],
         );
@@ -196,18 +216,16 @@ let seasonInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startSeasonSweep(): void {
   if (seasonInterval) return;
+  // One node per tick across the cluster (season payout is money-sensitive).
+  const tick = () => runExclusive('season', SWEEP_LOCK_TTL_MS, ensureActiveSeason);
   // Check every hour
-  seasonInterval = setInterval(async () => {
-    try {
-      await ensureActiveSeason();
-    } catch (err) {
-      console.error('[Season] Sweep error:', err);
-    }
+  seasonInterval = setInterval(() => {
+    tick().catch((err) => console.error('[Season] Sweep error:', err));
   }, 60 * 60 * 1000);
   seasonInterval.unref();
 
   // Also run immediately on startup
-  ensureActiveSeason().catch((err) => console.error('[Season] Initial check error:', err));
+  tick().catch((err) => console.error('[Season] Initial check error:', err));
 }
 
 export function stopSeasonSweep(): void {

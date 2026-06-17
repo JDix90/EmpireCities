@@ -1,5 +1,6 @@
 import { query } from '../../db/postgres';
 import { logger } from '../../utils/logger';
+import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
 
 const GUEST_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
 const GUEST_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -21,13 +22,14 @@ export async function deleteStaleGuestUsers(): Promise<number> {
 }
 
 export function startGuestCleanupSweep(): void {
-  void deleteStaleGuestUsers().catch((err) =>
-    logger.error({ err }, '[GuestCleanup] Initial sweep failed'),
-  );
+  // Idempotent DELETE, but gate to one node per tick across the cluster.
+  const tick = () =>
+    runExclusive('guest-cleanup', SWEEP_LOCK_TTL_MS, async () => {
+      await deleteStaleGuestUsers();
+    });
+  void tick().catch((err) => logger.error({ err }, '[GuestCleanup] Initial sweep failed'));
   sweepInterval = setInterval(() => {
-    void deleteStaleGuestUsers().catch((err) =>
-      logger.error({ err }, '[GuestCleanup] Sweep failed'),
-    );
+    void tick().catch((err) => logger.error({ err }, '[GuestCleanup] Sweep failed'));
   }, GUEST_SWEEP_INTERVAL_MS);
   sweepInterval.unref();
 }

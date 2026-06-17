@@ -1,4 +1,5 @@
 import { query } from '../../db/postgres';
+import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
 
 const ORPHANED_GAME_GRACE_PERIOD_MS = 4 * 60 * 60 * 1000;
 const ORPHANED_GAME_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
@@ -34,22 +35,23 @@ export async function deleteInactiveHumanlessGames(): Promise<string[]> {
 export function startOrphanedGameSweep(): void {
   if (orphanedGameSweepInterval) return;
 
-  orphanedGameSweepInterval = setInterval(async () => {
-    try {
+  // Idempotent DELETE, but gate to one node per tick to avoid N× redundant
+  // scans of games/game_players across the cluster.
+  const tick = () =>
+    runExclusive('orphaned-games', SWEEP_LOCK_TTL_MS, async () => {
       const deleted = await deleteInactiveHumanlessGames();
       if (deleted.length > 0) {
         console.log(`[Games] Deleted ${deleted.length} inactive humanless game(s)`);
       }
-    } catch (err) {
-      console.error('[Games] Orphaned game sweep error:', err);
-    }
+    });
+
+  orphanedGameSweepInterval = setInterval(() => {
+    tick().catch((err) => console.error('[Games] Orphaned game sweep error:', err));
   }, ORPHANED_GAME_SWEEP_INTERVAL_MS);
 
   orphanedGameSweepInterval.unref();
 
-  deleteInactiveHumanlessGames().catch((err) => {
-    console.error('[Games] Initial orphaned game sweep error:', err);
-  });
+  tick().catch((err) => console.error('[Games] Initial orphaned game sweep error:', err));
 }
 
 export function stopOrphanedGameSweep(): void {
