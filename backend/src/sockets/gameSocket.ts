@@ -74,6 +74,8 @@ import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
 import { registerSocketRateLimit } from './socketRateLimit';
+import { registerSocketAuth } from './socketAuth';
+import { redactPlayersForViewer, maskHiddenTerritories } from './clientStateRedaction';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
@@ -893,6 +895,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
     (socket as Socket & { userId: string; username: string }).username = payload.username;
     socket.data.userId = payload.sub;
     socket.data.username = payload.username;
+    // Record the token's expiry so registerSocketAuth can stop the socket
+    // acting on an expired credential (and let it refresh in place).
+    socket.data.tokenExp = payload.exp;
     next();
   });
 
@@ -901,6 +906,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
     const username = (socket as Socket & { username: string }).username;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
     socket.join(`user:${userId}`);
+
+    // Enforce access-token expiry on the live socket (the handshake only checks
+    // it once) and accept `auth:refresh` to extend it in place. Registered
+    // BEFORE the rate limiter so an expired event is dropped before any work.
+    registerSocketAuth(socket);
 
     // Per-user inbound throttle (shared Redis limiter). Installed before any
     // handler so every event — chat, gameplay, joins — passes through it.
@@ -1122,7 +1132,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           const initEntry = getDelayedSpectatorState(gameId);
           socket.emit('game:state', initEntry
             ? { ...initEntry.state, _spectator_seq: initEntry.seq }
-            : buildClientState(room.state, null, false));
+            : buildClientState(room.state, null, room.state.settings.fog_of_war));
           ensureSpectatorBroadcastLoop(io, gameId);
 
           // Broadcast updated spectator count
@@ -3552,7 +3562,9 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 }
 
 function recordSpectatorState(gameId: string, state: GameState): void {
-  const snapshot = buildClientState(state, null, false);
+  // Pass the game's real fog setting so spectators of a fog game get masked
+  // territory intel (board control only), not the full board.
+  const snapshot = buildClientState(state, null, state.settings.fog_of_war);
   const seq = (spectatorSeqCounters.get(gameId) ?? 0) + 1;
   spectatorSeqCounters.set(gameId, seq);
   const buffer = spectatorStateBuffers.get(gameId) ?? [];
@@ -3623,56 +3635,52 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     // mission_seed_salt is server-only; leaking it would let a client
     // replay the PRNG and read every opponent's mission.
     mission_seed_salt: undefined,
-    players: s.players.map((p) =>
-      // Reveal mission for: the viewing player, eliminated players, and everyone at game_over
-      (playerId !== null && p.player_id === playerId) || p.is_eliminated || state.phase === 'game_over'
-        ? p
-        : { ...p, secret_mission: null },
-    ),
+    // Reveal each player's secret_mission only to its owner / eliminated players /
+    // at game_over, and — when there is no viewing player (spectator/public
+    // snapshot) — empty every card hand so spectators can't read players' cards.
+    players: redactPlayersForViewer(s.players, playerId, state.phase),
   });
 
-  if (!fogOfWar || !playerId) return attachEraPreview(stripSecretMissions(state));
+  // No fog → everyone (players and spectators) sees full territory intel.
+  // (Spectator card hands are still emptied by redactPlayersForViewer.)
+  if (!fogOfWar) return attachEraPreview(stripSecretMissions(state));
 
-  // Owned territories are always visible
+  // Fog is on. Compute which territories' exact intel the viewer may see.
   const visibleIds = new Set<string>();
-  for (const [tid, tState] of Object.entries(state.territories)) {
-    if (tState.owner_id === playerId) visibleIds.add(tid);
-  }
-
-  // Adjacent territories are visible (border scouting)
-  const adj = adjacencyByMapId.get(state.map_id);
-  if (adj) {
-    for (const tid of Array.from(visibleIds)) {
-      for (const neighbour of adj.get(tid) ?? []) {
-        visibleIds.add(neighbour);
+  if (playerId !== null) {
+    // Player view: owned territories are always visible…
+    for (const [tid, tState] of Object.entries(state.territories)) {
+      if (tState.owner_id === playerId) visibleIds.add(tid);
+    }
+    // …plus adjacent (border scouting) and recon-revealed territories.
+    const adj = adjacencyByMapId.get(state.map_id);
+    if (adj) {
+      for (const tid of Array.from(visibleIds)) {
+        for (const neighbour of adj.get(tid) ?? []) {
+          visibleIds.add(neighbour);
+        }
       }
-    }
-    expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
-  }
-
-  const filtered: GameState = { ...state, territories: { ...state.territories } };
-  for (const [tid, tState] of Object.entries(state.territories)) {
-    if (!visibleIds.has(tid)) {
-      // Hide all per-territory intel, not just land units. Buildings, fleets,
-      // stability and population are scouting intel and must stay masked until
-      // the territory becomes visible (owned / adjacent / recon). `unit_count: -1`
-      // is the sentinel the client treats as "hidden".
-      filtered.territories[tid] = {
-        ...tState,
-        unit_count: -1,
-        naval_units: undefined,
-        buildings: [],
-        production_bonus: undefined,
-        stability: undefined,
-        population: undefined,
-      };
+      expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
     }
   }
+  // Spectator view (playerId === null) in a fog game: visibleIds stays EMPTY, so
+  // maskHiddenTerritories masks every territory's exact intel below. Spectators
+  // see board control (ownership / borders) but not troop/building/fleet counts,
+  // so a player cannot spectate their own live game on a second connection to
+  // read the opponent's board.
 
-  // Hide other players' cards
-  filtered.players = state.players.map((p) =>
-    p.player_id === playerId ? p : { ...p, cards: [] },
-  );
+  const filtered: GameState = {
+    ...state,
+    territories: maskHiddenTerritories(state.territories, visibleIds),
+  };
+
+  // Hide other players' cards for a player view. (Spectator hands are already
+  // emptied by redactPlayersForViewer inside stripSecretMissions.)
+  if (playerId !== null) {
+    filtered.players = state.players.map((p) =>
+      p.player_id === playerId ? p : { ...p, cards: [] },
+    );
+  }
 
   return attachEraPreview(stripSecretMissions(filtered));
 }
