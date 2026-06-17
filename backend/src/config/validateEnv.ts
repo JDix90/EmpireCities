@@ -3,6 +3,14 @@
  */
 const DEV_ACCESS = 'dev_access_secret_change_in_production';
 const DEV_REFRESH = 'dev_refresh_secret_change_in_production';
+// Docker-compose dev defaults. `config/index.ts` falls back to these same
+// values when the env var is unset, so an UNSET infra password is exactly as
+// dangerous as one explicitly set to the default — both resolve to a
+// publicly-known credential. We therefore treat missing and default alike.
+const DEV_POSTGRES = 'chronopass';
+const DEV_REDIS = 'chronoredis';
+// Recommended minimum entropy for the HMAC signing secrets.
+const MIN_SECRET_LENGTH = 32;
 
 export function validateProductionEnv(): void {
   if (process.env.NODE_ENV !== 'production') return;
@@ -26,9 +34,35 @@ export function validateProductionEnv(): void {
     );
   }
 
-  if (process.env.POSTGRES_PASSWORD === 'chronopass') {
-    console.warn(
-      '[config] Warning: POSTGRES_PASSWORD matches docker default. Use a unique password in production.',
+  // Defense-in-depth: weak HMAC secrets are brute-forceable. Warn (don't hard
+  // fail, to avoid surprising an existing deploy) when below the recommended
+  // entropy — `openssl rand -hex 32` produces a 64-char value.
+  for (const name of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    const val = process.env[name]?.trim() ?? '';
+    if (val.length < MIN_SECRET_LENGTH) {
+      console.warn(
+        `[config] Warning: ${name} is shorter than ${MIN_SECRET_LENGTH} characters. ` +
+          'Use at least 32 bytes of entropy (e.g. `openssl rand -hex 32`).',
+      );
+    }
+  }
+
+  // Infra credentials must be present AND non-default in production. These
+  // datastores hold game state, the Socket.IO backplane, sessions, and password
+  // hashes; a missing/default credential on a reachable Redis or Postgres is a
+  // full compromise. Previously only POSTGRES_PASSWORD was checked, and only as
+  // a warning, while REDIS_PASSWORD was not checked at all.
+  const insecureInfra: string[] = [];
+  const pgPassword = process.env.POSTGRES_PASSWORD?.trim();
+  if (!pgPassword || pgPassword === DEV_POSTGRES) insecureInfra.push('POSTGRES_PASSWORD');
+  const redisPassword = process.env.REDIS_PASSWORD?.trim();
+  if (!redisPassword || redisPassword === DEV_REDIS) insecureInfra.push('REDIS_PASSWORD');
+
+  if (insecureInfra.length > 0) {
+    throw new Error(
+      `[config] Production requires non-default secrets for: ${insecureInfra.join(', ')}. ` +
+        'A missing value falls back to the docker-compose default (a publicly-known ' +
+        'credential), so set strong unique values in the environment.',
     );
   }
 
