@@ -11,6 +11,8 @@ import type { Server } from 'socket.io';
 import { config } from './config';
 import { validateProductionEnv } from './config/validateEnv';
 import { connectPostgres, pgPool, query, queryOne } from './db/postgres';
+import { getEventLoopLagMs } from './services/eventLoopMonitor';
+import { aiTurnLimiter, AI_MAX_CONCURRENCY_VALUE } from './game-engine/ai/aiConcurrency';
 import { connectRedis, redis } from './db/redis';
 import { registerErrorHandler } from './errorHandler';
 import { authenticate } from './middleware/authenticate';
@@ -369,6 +371,20 @@ async function bootstrap(): Promise<void> {
       redis_migration: migration,
       rss_bytes: mem.rss,
       heap_used_bytes: mem.heapUsed,
+      // Burst-triage gauges: pool saturation and event-loop lag are what break
+      // first under a game-creation spike; AI queue depth shows worker-cap
+      // backpressure. (pending/waiting climbing = shedding/queueing in effect.)
+      pg_pool: {
+        total: pgPool.totalCount,
+        idle: pgPool.idleCount,
+        waiting: pgPool.waitingCount,
+      },
+      event_loop_lag_ms: getEventLoopLagMs(),
+      ai_turns: {
+        active: aiTurnLimiter.activeCount,
+        queued: aiTurnLimiter.queuedCount,
+        max: AI_MAX_CONCURRENCY_VALUE,
+      },
       timestamp: new Date().toISOString(),
     });
   });

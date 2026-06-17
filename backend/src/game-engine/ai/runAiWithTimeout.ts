@@ -2,6 +2,7 @@ import { Worker } from 'worker_threads';
 import fs from 'fs';
 import path from 'path';
 import { computeAiTurn } from './aiBot';
+import { aiTurnLimiter } from './aiConcurrency';
 import type { GameState, GameMap, AiDifficulty } from '../../types';
 import type { AiAction } from './aiBot';
 
@@ -40,6 +41,24 @@ export async function runAiWithTimeout(
     return computeAiTurn(state, map, difficulty);
   }
 
+  // Bound global AI concurrency: acquire a slot BEFORE spawning the worker and
+  // starting the time budget (so a turn isn't charged the wall-clock it spent
+  // queued). Excess turns wait here instead of oversubscribing CPU during a
+  // burst of solo-vs-AI games.
+  const release = await aiTurnLimiter.acquire();
+  try {
+    return await runAiTurnInWorker(state, map, difficulty, workerPath);
+  } finally {
+    release();
+  }
+}
+
+async function runAiTurnInWorker(
+  state: GameState,
+  map: GameMap,
+  difficulty: AiDifficulty,
+  workerPath: string,
+): Promise<AiAction[]> {
   const timeBudgetMs = TIME_BUDGET_BY_DIFFICULTY[difficulty] ?? 2_000;
   const hardCapMs = timeBudgetMs + HARD_CAP_PADDING_MS;
 
