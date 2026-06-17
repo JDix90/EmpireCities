@@ -1,5 +1,6 @@
 import { query, queryOne } from '../../db/postgres';
 import { pgPool } from '../../db/postgres';
+import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -524,20 +525,16 @@ let challengeInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startChallengeSweep(): void {
   if (challengeInterval) return;
+  // Idempotent (ON CONFLICT), but gate to one node per tick across the cluster.
+  const tick = () => runExclusive('monthly-challenges', SWEEP_LOCK_TTL_MS, ensureMonthlyChallenges);
   // Check every hour (same cadence as season sweep)
-  challengeInterval = setInterval(async () => {
-    try {
-      await ensureMonthlyChallenges();
-    } catch (err) {
-      console.error('[Challenges] Sweep error:', err);
-    }
+  challengeInterval = setInterval(() => {
+    tick().catch((err) => console.error('[Challenges] Sweep error:', err));
   }, 60 * 60 * 1000);
   challengeInterval.unref();
 
   // Run immediately on startup
-  ensureMonthlyChallenges().catch((err) =>
-    console.error('[Challenges] Initial check error:', err),
-  );
+  tick().catch((err) => console.error('[Challenges] Initial check error:', err));
 }
 
 export function stopChallengeSweep(): void {

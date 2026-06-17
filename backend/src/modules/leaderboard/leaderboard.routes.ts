@@ -19,60 +19,62 @@ const LEADERBOARD_RATE_LIMIT = { max: 30, timeWindow: '1 minute' as const };
 
 export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/top', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
-    const cacheKey = `lb:top:${request.userId}`;
-    const cached = await redis.get(cacheKey);
-    if (cached) return reply.send(JSON.parse(cached));
-
-    const top = await query<{
-      user_id: string;
-      username: string;
-      mu: number;
-    }>(
-      `SELECT u.user_id, u.username, ur.mu
-       FROM user_ratings ur
-       JOIN users u ON u.user_id = ur.user_id
-       WHERE ur.rating_type = 'ranked' AND u.is_guest = false
-       ORDER BY ur.mu DESC
-       LIMIT 5`,
-    );
-
-    const mine = await queryOne<{
-      rating_rank: string;
-      rating: number;
-    }>(
-      `WITH ranked AS (
-         SELECT ur.user_id,
-                ur.mu,
-                ROW_NUMBER() OVER (ORDER BY ur.mu DESC) AS rank
+    // The top list is identical for everyone, so cache it under ONE shared key
+    // (not per-user). Previously it was keyed by userId, so with thousands of
+    // distinct viewers the global top-5 was recomputed per user — a full scan +
+    // sort of user_ratings on every miss. One shared computation per TTL now.
+    const topCacheKey = 'lb:top:global';
+    let top: Array<{ rank: number; user_id: string; username: string; rating: number; tier: string }>;
+    const cachedTop = await redis.get(topCacheKey);
+    if (cachedTop) {
+      top = JSON.parse(cachedTop);
+    } else {
+      const rows = await query<{ user_id: string; username: string; mu: number }>(
+        `SELECT u.user_id, u.username, ur.mu
          FROM user_ratings ur
          JOIN users u ON u.user_id = ur.user_id
          WHERE ur.rating_type = 'ranked' AND u.is_guest = false
-       )
-       SELECT rank::text AS rating_rank, mu AS rating
-       FROM ranked
-       WHERE user_id = $1`,
-      [request.userId],
-    );
-
-    const result = {
-      top: top.map((row, index) => ({
+         ORDER BY ur.mu DESC
+         LIMIT 5`,
+      );
+      top = rows.map((row, index) => ({
         rank: index + 1,
         user_id: row.user_id,
         username: row.username,
         rating: Math.round(row.mu),
         tier: getTier(row.mu),
-      })),
-      my_rank: mine
-        ? {
-            rank: parseInt(mine.rating_rank, 10),
-            rating: Math.round(mine.rating),
-            tier: getTier(mine.rating),
-          }
-        : null,
-    };
+      }));
+      await redis.set(topCacheKey, JSON.stringify(top), 'EX', CACHE_TTL);
+    }
 
-    await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL);
-    return reply.send(result);
+    // Personal rank IS per-user — cache it under a per-user key (shorter TTL).
+    const rankCacheKey = `lb:top:rank:${request.userId}`;
+    let myRank: { rank: number; rating: number; tier: string } | null;
+    const cachedRank = await redis.get(rankCacheKey);
+    if (cachedRank !== null) {
+      myRank = JSON.parse(cachedRank);
+    } else {
+      const mine = await queryOne<{ rating_rank: string; rating: number }>(
+        `WITH ranked AS (
+           SELECT ur.user_id,
+                  ur.mu,
+                  ROW_NUMBER() OVER (ORDER BY ur.mu DESC) AS rank
+           FROM user_ratings ur
+           JOIN users u ON u.user_id = ur.user_id
+           WHERE ur.rating_type = 'ranked' AND u.is_guest = false
+         )
+         SELECT rank::text AS rating_rank, mu AS rating
+         FROM ranked
+         WHERE user_id = $1`,
+        [request.userId],
+      );
+      myRank = mine
+        ? { rank: parseInt(mine.rating_rank, 10), rating: Math.round(mine.rating), tier: getTier(mine.rating) }
+        : null;
+      await redis.set(rankCacheKey, JSON.stringify(myRank), 'EX', 60);
+    }
+
+    return reply.send({ top, my_rank: myRank });
   });
 
   fastify.get('/my-rank', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {

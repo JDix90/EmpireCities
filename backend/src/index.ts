@@ -45,7 +45,7 @@ import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleSer
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry, captureException } from './services/sentry';
-import { refreshAdminConfigCache } from './services/adminConfig';
+import { refreshAdminConfigCache, startAdminConfigSubscriber, stopAdminConfigSubscriber } from './services/adminConfig';
 
 /**
  * Parse a comma-separated `https://host[:port]` / `wss://...` allowlist for the
@@ -98,6 +98,18 @@ async function bootstrap(): Promise<void> {
   process.on('unhandledRejection', (reason) => {
     console.error('[Process] Unhandled promise rejection (process kept alive):', reason);
     captureException(reason);
+  });
+
+  // Unlike a dropped promise, an uncaught EXCEPTION leaves the process in an
+  // undefined state (Node's own guidance). Capture it, then exit so the
+  // orchestrator restarts a clean instance (`restart: unless-stopped`).
+  // Authoritative game state lives in Redis, so in-progress games are reloaded
+  // on restart; with multiple instances the LB/Redis adapter moves affected
+  // clients to a healthy node. Staying up in a corrupted state is worse.
+  process.on('uncaughtException', (err) => {
+    console.error('[Process] Uncaught exception — exiting for a clean restart:', err);
+    captureException(err);
+    process.exit(1);
   });
 
   await connectPostgres();
@@ -429,6 +441,9 @@ async function bootstrap(): Promise<void> {
   startOrphanedGameSweep();
   startGuestCleanupSweep();
   await refreshAdminConfigCache().catch(() => {});
+  await startAdminConfigSubscriber().catch((err) =>
+    console.warn('[adminConfig] subscriber start failed (config edits will be per-instance until restart):', err),
+  );
 
   void ensureDailyChallengeForToday().catch((err) => {
     console.error('[daily] Failed to ensure today challenge row:', err);
@@ -450,12 +465,20 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     if (inProgress) return;
     inProgress = true;
     console.log(`\n[shutdown] Received ${signal}, draining...`);
+    // Hard cap: if a drain step hangs (stuck socket close, slow flush), force
+    // exit rather than wait for the orchestrator's SIGKILL.
+    const forceExit = setTimeout(() => {
+      console.error('[shutdown] Drain exceeded 15s — forcing exit');
+      process.exit(1);
+    }, 15_000);
+    forceExit.unref();
     try {
       stopMatchmakingSweep();
       stopSeasonSweep();
       stopChallengeSweep();
       stopOrphanedGameSweep();
       stopGuestCleanupSweep();
+      await stopAdminConfigSubscriber();
       await shutdownGameSocket(io);
       await app.close();
       await redis.quit();
@@ -464,6 +487,7 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     } catch (err) {
       console.error('[shutdown] Error during shutdown:', err);
     } finally {
+      clearTimeout(forceExit);
       process.exit(0);
     }
   };

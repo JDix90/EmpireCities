@@ -1,5 +1,15 @@
 import { query, queryOne } from '../db/postgres';
 import type { BuildingType, GameSettings } from '../types';
+import { redis } from '../db/redis';
+
+/**
+ * Pub/sub channel that tells every instance to reload its admin-config cache.
+ * Without this, an admin edit refreshes only the cache of the instance that
+ * served the request; other nodes keep serving stale economy/matchmaking/XP
+ * config until they restart.
+ */
+const ADMIN_CONFIG_CHANNEL = 'admin-config:invalidate';
+let configSub: ReturnType<typeof redis.duplicate> | null = null;
 
 export type GameType = 'solo' | 'multiplayer' | 'hybrid';
 
@@ -204,6 +214,41 @@ export async function upsertAdminConfig(configKey: keyof AdminConfigState, value
     [CONFIG_KEYS[configKey], JSON.stringify(value), adminUserId],
   );
   await refreshAdminConfigCache();
+  // Tell sibling instances to reload (their cache is otherwise stale until restart).
+  try {
+    await redis.publish(ADMIN_CONFIG_CHANNEL, configKey);
+  } catch (err) {
+    console.warn('[adminConfig] failed to publish cache invalidation:', err);
+  }
+}
+
+/**
+ * Subscribe to admin-config invalidations so this instance reloads its cache
+ * when ANY instance writes a config change. Uses a dedicated connection
+ * (ioredis cannot issue normal commands while a connection is in subscriber
+ * mode). Call once at boot.
+ */
+export async function startAdminConfigSubscriber(): Promise<void> {
+  if (configSub) return;
+  const sub = redis.duplicate();
+  sub.on('error', (err) => console.warn('[adminConfig] subscriber connection error:', err));
+  sub.on('message', () => {
+    refreshAdminConfigCache().catch((err) =>
+      console.warn('[adminConfig] cache refresh after invalidation failed:', err),
+    );
+  });
+  await sub.subscribe(ADMIN_CONFIG_CHANNEL);
+  configSub = sub;
+}
+
+export async function stopAdminConfigSubscriber(): Promise<void> {
+  if (!configSub) return;
+  try {
+    await configSub.quit();
+  } catch {
+    /* best-effort on shutdown */
+  }
+  configSub = null;
 }
 
 export async function getAdminConfigRow(configKey: keyof AdminConfigState): Promise<unknown | null> {
