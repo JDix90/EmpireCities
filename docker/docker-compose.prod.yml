@@ -31,7 +31,12 @@ services:
     image: redis:7-alpine
     container_name: borderfall_redis_prod
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-chronoredis}
+    # AOF persistence (fsync every second) so a Redis crash loses ≤1s of writes
+    # rather than everything since the last RDB snapshot — Redis holds live game
+    # state. PRODUCTION: also set `--maxmemory <sized-to-host>` with
+    # `--maxmemory-policy noeviction` (see the scale-out runbook). Do NOT use an
+    # lru/random policy: it would evict live game-state keys and corrupt games.
+    command: redis-server --requirepass ${REDIS_PASSWORD:-chronoredis} --appendonly yes --appendfsync everysec
     volumes:
       - redis_prod_data:/data
     healthcheck:
@@ -46,6 +51,12 @@ services:
       dockerfile: docker/Dockerfile.backend
     container_name: borderfall_backend_prod
     restart: unless-stopped
+    # Give the in-app graceful drain (≤15s, then self-forces) time to flush
+    # pending Postgres writes and close sockets before Compose sends SIGKILL.
+    stop_grace_period: 30s
+    # PRODUCTION: set mem_limit on every service (sized to the host) so a runaway
+    # in one container can't OOM the co-located Postgres/Redis/nginx. Left unset
+    # here because the right value is host-specific — see the scale-out runbook.
     depends_on:
       postgres:
         condition: service_healthy

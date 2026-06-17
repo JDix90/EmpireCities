@@ -100,6 +100,18 @@ async function bootstrap(): Promise<void> {
     captureException(reason);
   });
 
+  // Unlike a dropped promise, an uncaught EXCEPTION leaves the process in an
+  // undefined state (Node's own guidance). Capture it, then exit so the
+  // orchestrator restarts a clean instance (`restart: unless-stopped`).
+  // Authoritative game state lives in Redis, so in-progress games are reloaded
+  // on restart; with multiple instances the LB/Redis adapter moves affected
+  // clients to a healthy node. Staying up in a corrupted state is worse.
+  process.on('uncaughtException', (err) => {
+    console.error('[Process] Uncaught exception — exiting for a clean restart:', err);
+    captureException(err);
+    process.exit(1);
+  });
+
   await connectPostgres();
   await connectRedis();
 
@@ -453,6 +465,13 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     if (inProgress) return;
     inProgress = true;
     console.log(`\n[shutdown] Received ${signal}, draining...`);
+    // Hard cap: if a drain step hangs (stuck socket close, slow flush), force
+    // exit rather than wait for the orchestrator's SIGKILL.
+    const forceExit = setTimeout(() => {
+      console.error('[shutdown] Drain exceeded 15s — forcing exit');
+      process.exit(1);
+    }, 15_000);
+    forceExit.unref();
     try {
       stopMatchmakingSweep();
       stopSeasonSweep();
@@ -468,6 +487,7 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
     } catch (err) {
       console.error('[shutdown] Error during shutdown:', err);
     } finally {
+      clearTimeout(forceExit);
       process.exit(0);
     }
   };
