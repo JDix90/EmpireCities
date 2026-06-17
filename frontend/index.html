@@ -5,14 +5,40 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Borderfall — turn-based territory strategy across eras from ancient kingdoms to galactic fronts." />
+    <link rel="canonical" href="https://borderfall.gg/" />
+    <meta property="og:site_name" content="Borderfall" />
     <meta property="og:title" content="Borderfall" />
     <meta property="og:description" content="Every border is temporary." />
-    <meta property="og:image" content="/og-image.svg" />
+    <meta property="og:url" content="https://borderfall.gg/" />
+    <!-- PNG is the primary social image: Twitter/X, Facebook, Discord, iMessage and
+         LinkedIn don't reliably render SVG previews. Absolute URL is required by every
+         platform. The source SVG is kept in the repo (public/og-image.svg). -->
+    <meta property="og:image" content="https://borderfall.gg/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Borderfall" />
     <meta name="twitter:description" content="Every border is temporary." />
+    <meta name="twitter:image" content="https://borderfall.gg/og-image.png" />
     <title>Borderfall</title>
+    <!-- Lightweight styling for the prerendered marketing HTML (injected into
+         #root at build time by scripts/prerender-marketing.mjs). The SPA replaces
+         #root on boot, so this only governs the brief pre-hydration paint and the
+         no-JS crawler view. -->
+    <style>
+      .bf-prerender { max-width: 42rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+      .bf-prerender h1 { font-family: Cinzel, Georgia, serif; color: #c9a84c; font-size: 2rem; margin: 0 0 .25rem; }
+      .bf-prerender h2 { font-family: Cinzel, Georgia, serif; color: #c9a84c; font-size: 1.25rem; margin: 1.5rem 0 .5rem; }
+      .bf-prerender p { color: #b6bdcc; line-height: 1.7; margin: 0 0 1rem; }
+      .bf-prerender .bf-tagline { font-style: italic; color: #8892a4; }
+      .bf-prerender .bf-era-list { color: #b6bdcc; line-height: 1.7; padding-left: 1.25rem; }
+      .bf-prerender .bf-era-list li { margin: 0 0 .75rem; }
+      .bf-prerender .bf-era-years { color: #8892a4; font-size: .9em; }
+      .bf-prerender .bf-marketing-links { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+      .bf-prerender .bf-marketing-links a { color: #c9a84c; }
+    </style>
     <!-- Google Fonts: Cinzel for display, Inter for body -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

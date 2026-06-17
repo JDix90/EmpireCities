@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/prerender-marketing.mjs",
+    "prerender": "node scripts/prerender-marketing.mjs",
+    "generate:og": "node scripts/generate-og.mjs",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:map-visual": "playwright test --project=chromium-map-visual",
@@ -61,6 +63,7 @@
     "@capacitor/splash-screen": "^6.0.2",
     "@capacitor/status-bar": "^6.0.1",
     "@playwright/test": "^1.54.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@turf/voronoi": "^7.3.4",
