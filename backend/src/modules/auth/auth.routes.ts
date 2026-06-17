@@ -12,6 +12,15 @@ import { rejectGuest } from '../../middleware/rejectGuest';
 import { requireGuest } from '../../middleware/requireGuest';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
+import { isDisallowedUsername } from '../../utils/profanity';
+
+// Registration is pre-login, so its rate limiter keys by IP (see rateLimitKey).
+// The original 5/15min was too tight for shared egress IPs (mobile CGNAT,
+// campus, office) during a paid-acquisition burst — legit new users got blocked
+// with "too many attempts". Raised and env-tunable for launch; captcha / device
+// fingerprinting is the real long-term control. NOTE: /upgrade and /login are
+// keyed by the authenticated user, not IP, so shared IPs don't affect them.
+const REGISTER_RATE_MAX = Math.max(5, parseInt(process.env.AUTH_REGISTER_RATE_MAX || '30', 10));
 
 function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -131,7 +140,12 @@ const ChangePasswordSchema = z.object({
 });
 
 const RegisterSchema = z.object({
-  username: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/),
+  username: z
+    .string()
+    .min(3)
+    .max(32)
+    .regex(/^[a-zA-Z0-9_]+$/)
+    .refine((u) => !isDisallowedUsername(u), { message: "That username isn't allowed. Please choose another." }),
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
 });
@@ -273,7 +287,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/auth/register ──────────────────────────────────────────────
-  fastify.post('/register', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+  fastify.post('/register', { config: { rateLimit: { max: REGISTER_RATE_MAX, timeWindow: '15 minutes' } } }, async (request, reply) => {
     const body = RegisterSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));

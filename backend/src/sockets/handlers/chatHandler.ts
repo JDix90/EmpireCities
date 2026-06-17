@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SocketContext } from './types';
+import { maskMessage } from '../../utils/profanity';
 
 const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
 
@@ -24,8 +25,9 @@ export function registerChatHandlers(ctx: SocketContext): void {
   // Chat messages are rendered as TEXT by the React client (no
   // dangerouslySetInnerHTML), which already escapes HTML entities for us. We
   // intentionally do NOT pre-escape `<` / `>` server-side any more — that
-  // double-escaped real text (`<3`, `<rant>`, etc.) into `&lt;3`. The only
-  // remaining server-side discipline is length and the GIF embed pattern.
+  // double-escaped real text (`<3`, `<rant>`, etc.) into `&lt;3`. The
+  // server-side discipline is: length, the GIF embed pattern, and a basic
+  // profanity mask (maskMessage) on non-GIF text for launch brand safety.
   socket.on('game:chat', (raw: unknown) => {
     const parsed = ChatPayload.safeParse(raw);
     if (!parsed.success) return;
@@ -39,7 +41,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!text) return;
 
     const gifMatch = text.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-    const clean = gifMatch ? text : text.slice(0, 200);
+    const clean = gifMatch ? text : maskMessage(text.slice(0, 200));
     if (!clean) return;
 
     const player = room.state.players.find((p) => p.player_id === userId);
@@ -72,7 +74,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     io.to(`${gameId}:spectators`).emit('game:spectator_chat_message', {
       gameId,
       username: socket.data?.username ?? ctx.username,
-      message: text,
+      message: maskMessage(text),
       timestamp: now,
     });
   });
@@ -108,7 +110,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!text) return;
 
     const gifMatch = text.match(/^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/);
-    const clean = gifMatch ? text : text.slice(0, 200);
+    const clean = gifMatch ? text : maskMessage(text.slice(0, 200));
     if (!clean) return;
 
     io.to(gameId).emit('game:lobby_chat_message', {
