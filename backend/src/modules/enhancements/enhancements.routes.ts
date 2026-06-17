@@ -18,10 +18,15 @@ const QolSettingsSchema = z.object({
   undo_window_seconds: z.number().int().min(0).max(30).optional(),
 });
 
+// NOTE: these values are CLIENT-REPORTED. The seeded weekly run is not recorded
+// or replayed server-side today, so the leaderboard is only as trustworthy as
+// the client. These bounds block absurd/injected values (e.g. a Number.MAX
+// score or a 0-second completion) — they are a mitigation, NOT anti-cheat. A
+// full fix requires recording + recomputing the run server-side (follow-up).
 const WeeklySubmitSchema = z.object({
-  score: z.number().int().min(0),
+  score: z.number().int().min(0).max(1_000_000_000),
   efficiency_score: z.number().min(0).max(100),
-  duration_seconds: z.number().int().min(0),
+  duration_seconds: z.number().int().min(1).max(86_400),
   details: z.record(z.unknown()).optional(),
 });
 
@@ -171,7 +176,7 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
     return { challenge };
   });
 
-  fastify.post<{ Params: { challengeId: string } }>('/weekly/:challengeId/submit', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post<{ Params: { challengeId: string } }>('/weekly/:challengeId/submit', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = WeeklySubmitSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send(formatZodError(parsed.error, 'Invalid submission'));
     const { challengeId } = request.params;
