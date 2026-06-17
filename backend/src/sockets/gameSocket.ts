@@ -725,6 +725,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
     pingTimeout: 25_000,
     upgradeTimeout: 10_000,
     connectTimeout: 30_000,
+    // Cap inbound packet size. Every client→server event here is small (chat is
+    // ≤500 chars, actions carry a few ids/ints, lobby settings are a small
+    // object); the engine.io default is 1 MB, which lets a client buffer a
+    // megabyte per packet before our Zod/handler validation runs. 32 KB is far
+    // above any legitimate payload while removing that amplification headroom.
+    // (This bounds RECEIVED data only — server→client state broadcasts are
+    // unaffected.)
+    maxHttpBufferSize: 32 * 1024,
   });
 
   // ── Phase 1: Redis adapter for cross-instance Socket.io broadcasting ────
@@ -1226,6 +1234,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
 
       repairDraftUnitsIfMissing(state, map);
+      // Reject non-integer counts (e.g. a crafted `units: 1.5`) before the range
+      // check — fractional values would corrupt unit_count and propagate through
+      // combat/reinforcement math. (game:fortify already guards this via
+      // getFortifyUnitsValidationError; draft/naval did not.)
+      if (!Number.isInteger(units)) {
+        return socket.emit('error', { message: 'Unit count must be a whole number' });
+      }
       const poolRemaining = state.draft_units_remaining ?? 0;
       if (units < 1 || units > poolRemaining) {
         return socket.emit('error', { message: `Cannot place ${units} units (${poolRemaining} remaining)` });
@@ -1986,6 +2001,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack' && state.phase !== 'fortify') {
         return socket.emit('error', { message: 'Fleets can only move during attack or fortify phase' });
+      }
+      if (!Number.isInteger(count) || count < 1) {
+        return socket.emit('error', { message: 'Fleet count must be a positive whole number' });
       }
 
       const navalMoveProbBefore = captureProbBefore(state, userId);
