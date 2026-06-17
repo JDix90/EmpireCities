@@ -2,6 +2,13 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import type { JwtAccessPayload, JwtRefreshPayload } from '../types';
 
+// Pin the signing/verification algorithm. The secrets are symmetric HMAC keys,
+// so we both sign and verify with HS256. Passing an explicit `algorithms`
+// allowlist on verify closes algorithm-confusion / `alg:none` classes of attack
+// as defense-in-depth, and guarantees a future switch to asymmetric keys can't
+// silently accept attacker-chosen algorithms.
+const JWT_ALGORITHM = 'HS256' as const;
+
 /**
  * Generate a short-lived access token.
  * Expiry uses `config.jwt.accessExpiresIn` (default `1h` when `JWT_ACCESS_EXPIRES_IN` is unset).
@@ -12,6 +19,7 @@ export function signAccessToken(
 ): string {
   return jwt.sign(payload, config.jwt.accessSecret, {
     expiresIn: expiresIn ?? config.jwt.accessExpiresIn,
+    algorithm: JWT_ALGORITHM,
   } as jwt.SignOptions);
 }
 
@@ -22,6 +30,7 @@ export function signAccessToken(
 export function signRefreshToken(payload: Omit<JwtRefreshPayload, 'iat' | 'exp'>): string {
   return jwt.sign(payload, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshExpiresIn,
+    algorithm: JWT_ALGORITHM,
   } as jwt.SignOptions);
 }
 
@@ -30,7 +39,7 @@ export function signRefreshToken(payload: Omit<JwtRefreshPayload, 'iat' | 'exp'>
  */
 export function verifyAccessToken(token: string): JwtAccessPayload | null {
   try {
-    return jwt.verify(token, config.jwt.accessSecret) as JwtAccessPayload;
+    return jwt.verify(token, config.jwt.accessSecret, { algorithms: [JWT_ALGORITHM] }) as JwtAccessPayload;
   } catch {
     return null;
   }
@@ -41,7 +50,7 @@ export function verifyAccessToken(token: string): JwtAccessPayload | null {
  */
 export function verifyRefreshToken(token: string): JwtRefreshPayload | null {
   try {
-    return jwt.verify(token, config.jwt.refreshSecret) as JwtRefreshPayload;
+    return jwt.verify(token, config.jwt.refreshSecret, { algorithms: [JWT_ALGORITHM] }) as JwtRefreshPayload;
   } catch {
     return null;
   }
