@@ -18,6 +18,7 @@ import {
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
 } from '../../game-engine/lobby/lobbyEraMapCompatibility';
+import { redactGameRowForViewer } from './gameRowRedaction';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -466,8 +467,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/games/:gameId ───────────────────────────────────────────────
   fastify.get<{ Params: { gameId: string } }>('/:gameId', { preHandler: authenticate }, async (request, reply) => {
-    const game = await queryOne(
-      `SELECT g.*, 
+    const { gameId } = request.params;
+    const game = await queryOne<Record<string, unknown>>(
+      `SELECT g.*,
               json_agg(json_build_object(
                 'player_index', gp.player_index,
                 'user_id', gp.user_id,
@@ -484,9 +486,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
        LEFT JOIN users u ON u.user_id = gp.user_id
        WHERE g.game_id = $1
        GROUP BY g.game_id`,
-      [request.params.gameId]
+      [gameId]
     );
     if (!game) return reply.status(404).send({ error: 'Game not found' });
+
+    // IDOR hardening: this route is gated only by `authenticate`, so any logged-in
+    // user who knows (or enumerates via /api/games/live) a gameId reaches it.
+    // Redact participant-only secrets (join_code) and the daily dice seed before
+    // returning. Participation is a cheap indexed lookup on the PK.
+    const participant = await queryOne<{ c: number }>(
+      'SELECT 1 AS c FROM game_players WHERE game_id = $1 AND user_id = $2',
+      [gameId, request.userId],
+    );
+    redactGameRowForViewer(game, !!participant);
+
     return reply.send(game);
   });
 
