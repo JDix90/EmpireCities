@@ -1,0 +1,9 @@
+# Borderfall — https://borderfall.gg
+# Allow crawling of the whole site. The SPA needs its JS/CSS/asset bundles to
+# render for JS-capable crawlers (e.g. Googlebot), so nothing under /assets,
+# /maps, /geo, or /globe is blocked.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://borderfall.gg/sitemap.xml
