@@ -62,6 +62,18 @@ describe('validateProductionEnv', () => {
     expect(() => validateProductionEnv()).toThrow(/dev JWT secrets/);
   });
 
+  it('throws on the docker-compose placeholder JWT access secret', () => {
+    setValidProd();
+    process.env.JWT_ACCESS_SECRET = 'change_me_in_production_jwt_access';
+    expect(() => validateProductionEnv()).toThrow(/placeholder\/dev JWT secrets/);
+  });
+
+  it('throws on the docker-compose placeholder JWT refresh secret', () => {
+    setValidProd();
+    process.env.JWT_REFRESH_SECRET = 'change_me_in_production_jwt_refresh';
+    expect(() => validateProductionEnv()).toThrow(/placeholder\/dev JWT secrets/);
+  });
+
   it('throws when REDIS_PASSWORD is missing (config would fall back to the docker default)', () => {
     setValidProd();
     delete process.env.REDIS_PASSWORD;
