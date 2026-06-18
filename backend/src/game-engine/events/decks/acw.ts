@@ -56,7 +56,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_ironclad_duel',
     title: 'Ironclad Duel',
-    description: 'Two iron-plated warships clash in the harbor, cannons thundering across the water. Choose: press the attack with broadsides or reinforce your hull plating and hold the line.',
+    description: 'Two ironclads circle in the harbor, shells bouncing off iron like hail off a roof. Neither captain will give ground. Choose: open with broadsides, or reinforce the hull and ride it out.',
     category: 'player_targeted',
     era_id: 'acw',
     choices: [
@@ -67,7 +67,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_cotton_diplomacy',
     title: 'Cotton Diplomacy',
-    description: 'Cotton exports to European mills secure favorable trade terms. British and French merchants line up to buy, and the revenue pours into your war effort.',
+    description: 'The Liverpool mills are starving for cotton, and your bales fetch a fortune. The gold buys powder and shoes.',
     category: 'player_targeted',
     era_id: 'acw',
     effect: { type: 'production_bonus', target: 'player', value: 3, duration_turns: 2 },
@@ -75,7 +75,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_guerrilla_raiders',
     title: 'Guerrilla Raiders',
-    description: 'Irregular cavalry strikes behind your lines, burning supply depots and cutting telegraph wires. The raids leave your garrisons scrambling to regroup.',
+    description: 'Mosby’s riders hit the supply line at midnight and are gone before the alarm sounds. Two depots in ashes.',
     category: 'player_targeted',
     era_id: 'acw',
     effect: { type: 'units_removed', target: 'player', value: 2 },
@@ -83,7 +83,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_emancipation_decree',
     title: 'Emancipation Decree',
-    description: 'A sweeping proclamation of freedom electrifies the population. Thousands of newly liberated men volunteer to take up arms and join the fight.',
+    description: 'Freedmen fill the recruiting offices the week the proclamation is read aloud. New regiments form by the hundred.',
     category: 'player_targeted',
     era_id: 'acw',
     effect: { type: 'units_added', target: 'player', value: 3 },
@@ -91,7 +91,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_railroad_expansion',
     title: 'Railroad Expansion',
-    description: 'New rail lines push deeper into contested territory. Choose: rush troops to the front by rail or use the network to supercharge your wartime industry.',
+    description: 'The new line reaches the front, and the whole war moves at the speed of a locomotive now. Choose: load the troop cars, or run the factories around the clock.',
     category: 'player_targeted',
     era_id: 'acw',
     choices: [
@@ -102,7 +102,7 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_typhoid_outbreak',
     title: 'Typhoid Outbreak',
-    description: 'Contaminated water supplies spread typhoid through the camps. Soldiers on all sides fall ill by the hundreds, and the fighting grinds to a crawl.',
+    description: 'The creek the whole army drinks from runs foul. Typhoid does what no general managed, and both lines empty into the hospital tents.',
     category: 'global',
     era_id: 'acw',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -111,15 +111,15 @@ export const acwEvents: EventCard[] = [
   {
     card_id: 'acw_emancipation_fervor',
     title: 'Emancipation Fervor',
-    description: 'A bold proclamation inspires your populace. Renewed sense of purpose strengthens resolve and order across your territories.',
+    description: 'The proclamation gives the war a cause worth bleeding for. The home front steadies.',
     category: 'player_targeted',
     era_id: 'acw',
     effect: { type: 'stability_change', target: 'player', value: 15 },
   },
   {
     card_id: 'acw_draft_riots',
-    title: 'Draft Riots',
-    description: 'Compulsory conscription sparks violent riots in cities on both sides. Public order collapses as mobs clash with militia.',
+    title: 'Conscription Backlash',
+    description: 'The wealthy buy their way out of the draft for three hundred dollars, and the poor riot in the streets over it. Every city locks its doors.',
     category: 'global',
     era_id: 'acw',
     effect: { type: 'stability_change', target: 'player', value: -10 },

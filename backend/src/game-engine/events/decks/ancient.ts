@@ -20,7 +20,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_plague',
     title: 'Plague of Antoninus',
-    description: 'A devastating plague sweeps the known world, weakening all armies.',
+    description: 'Fever empties the camps from Rome to the Tigris. Every army loses men to the sickness.',
     category: 'global',
     era_id: 'ancient',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -56,7 +56,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_alexander_ambition',
     title: "Alexander's Ambition",
-    description: 'The young conqueror demands the world bend to his will. Channel his ruthless ambition into a devastating assault, or marshal his legendary companions to bolster your ranks.',
+    description: 'Alexander wants the whole map and he wants it now. Spend that hunger on the offensive, or call up his Companion cavalry to fill out your ranks.',
     category: 'player_targeted',
     era_id: 'ancient',
     choices: [
@@ -67,7 +67,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_silk_road_bounty',
     title: 'Silk Road Bounty',
-    description: 'Caravans laden with silk, spices, and gold arrive from the East. Trade revenues surge through your empire for 2 turns.',
+    description: 'The Samarkand caravans get through. Your treasury runs fat for 2 turns.',
     category: 'player_targeted',
     era_id: 'ancient',
     effect: { type: 'production_bonus', target: 'player', value: 3, duration_turns: 2 },
@@ -75,7 +75,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_slave_revolt',
     title: 'Slave Revolt',
-    description: 'Enslaved laborers rise up in a violent rebellion, overwhelming garrisons and seizing weapons. Your empire loses 3 units quelling the uprising.',
+    description: 'The mines and latifundia rise against you, and they have your own spears. Putting it down costs 3 units.',
     category: 'player_targeted',
     era_id: 'ancient',
     effect: { type: 'units_removed', target: 'player', value: 3 },
@@ -83,7 +83,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_olympic_truce',
     title: 'Olympic Truce',
-    description: 'Heralds proclaim the sacred truce of Olympia. You must honor the gods and lay down arms with a rival while the games are held.',
+    description: 'The heralds declare the sacred truce of Olympia. Snub the gods over a foot-race and you look like a tyrant, so you stand down with a rival until the games are done.',
     category: 'player_targeted',
     era_id: 'ancient',
     effect: { type: 'truce', target: 'player', value: 2 },
@@ -91,7 +91,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_volcanic_eruption',
     title: 'Vesuvian Eruption',
-    description: 'The mountain roars to life, burying cities beneath ash and molten rock. A catastrophic eruption devastates territories across the region.',
+    description: 'Vesuvius takes Pompeii and Herculaneum in an afternoon. The ash falls for days and guts every territory in reach.',
     category: 'global',
     era_id: 'ancient',
     effect: { type: 'region_disaster', target: 'region', value: 2 },
@@ -100,7 +100,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_phalanx_reform',
     title: 'Phalanx Reform',
-    description: 'Military reformers redesign your battle formations. Choose to adopt the impenetrable shield wall or train additional hoplites for the front lines.',
+    description: 'Your drillmasters want to rebuild the phalanx. Lock the shields into a wall, or just put more hoplites in the line.',
     category: 'player_targeted',
     era_id: 'ancient',
     choices: [
@@ -111,7 +111,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_golden_age',
     title: 'Golden Age of Athens',
-    description: 'Art, philosophy, and civic pride flourish across your lands. Citizens rally behind your rule and stability rises.',
+    description: 'The Parthenon goes up and the agora hums with new ideas. Pride in your rule runs high and stability rises.',
     category: 'player_targeted',
     era_id: 'ancient',
     effect: { type: 'stability_change', target: 'player', value: 15 },
@@ -119,7 +119,7 @@ export const ancientEvents: EventCard[] = [
   {
     card_id: 'ancient_barbarian_migrations',
     title: 'Barbarian Migrations',
-    description: 'Massive tribal migrations sweep across the known world, destabilizing borders and disrupting order everywhere.',
+    description: 'Whole peoples are on the move, Goths ahead of the Huns, pressing every frontier at once. No realm holds its order and stability drops for all.',
     category: 'global',
     era_id: 'ancient',
     effect: { type: 'stability_change', target: 'player', value: -10 },

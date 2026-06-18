@@ -56,7 +56,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_blitz_doctrine',
     title: 'Blitz Doctrine',
-    description: 'High command debates the next strategic move. Launch a devastating armored spearhead, or dig in with layered defenses to bleed the enemy dry.',
+    description: 'The maps are out at high command. Punch through with armor, or dig in and make them pay for every mile.',
     category: 'player_targeted',
     era_id: 'ww2',
     choices: [
@@ -67,7 +67,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_supply_convoy',
     title: 'Supply Convoy Arrives',
-    description: 'A massive convoy breaks through enemy blockades, delivering fresh troops, ammunition, and armor to your front lines. Gain 5 reinforcements.',
+    description: 'The Murmansk run gets through, wolfpacks be damned. Gain 5 reinforcements.',
     category: 'player_targeted',
     era_id: 'ww2',
     effect: { type: 'units_added', target: 'player', value: 5 },
@@ -75,7 +75,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_carpet_bombing',
     title: 'Carpet Bombing',
-    description: 'Wave after wave of heavy bombers obliterate your positions. Factories burn, supply lines are severed, and 3 units are lost in the devastation.',
+    description: 'The bombers come back for the third night running. The firestorm over the Ruhr takes 3 units with it.',
     category: 'player_targeted',
     era_id: 'ww2',
     effect: { type: 'units_removed', target: 'player', value: 3 },
@@ -83,7 +83,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_resistance_fighters',
     title: 'Resistance Fighters',
-    description: 'Brave partisans operating behind enemy lines sabotage supply depots and relay vital intelligence, bolstering your defensive capabilities for 2 turns.',
+    description: 'The maquis blow a rail bridge and radio in what they saw. You hold steadier for 2 turns.',
     category: 'player_targeted',
     era_id: 'ww2',
     effect: { type: 'defense_modifier', target: 'player', value: 1, duration_turns: 2 },
@@ -91,7 +91,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_allied_landing',
     title: 'Allied Landing',
-    description: 'Amphibious forces storm the beaches under heavy fire. Commit a massive invasion force to seize territory, or use the beachhead to launch precision strikes inland.',
+    description: 'The first wave is ashore and the beachhead holds. Pour everything onto it, or push fast and hit hard inland.',
     category: 'player_targeted',
     era_id: 'ww2',
     choices: [
@@ -102,7 +102,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_winter_offensive',
     title: 'Winter Offensive',
-    description: 'A brutal winter descends on the front. Blizzards freeze engines, frostbite claims soldiers, and all armies across the theater suffer losses.',
+    description: 'General Winter has joined the war, and he is on nobody’s side. Every army on the front loses men.',
     category: 'global',
     era_id: 'ww2',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -111,7 +111,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_home_front_rally',
     title: 'Home Front Rally',
-    description: 'Patriotic fervor sweeps the nation. War bonds sell out, factories run overtime, and civilian morale is at an all-time high.',
+    description: 'The scrap drives are overflowing and the bond rallies sell out by noon. Morale at home has rarely been higher.',
     category: 'player_targeted',
     era_id: 'ww2',
     effect: { type: 'stability_change', target: 'player', value: 15 },
@@ -119,7 +119,7 @@ export const ww2Events: EventCard[] = [
   {
     card_id: 'ww2_war_weariness',
     title: 'War Weariness',
-    description: 'Years of total war take their toll. Civilian populations on all sides grow restless, and anti-war sentiment destabilizes every government.',
+    description: 'The casualty lists are longer than the victory bulletins now, and every home front knows it. Governments everywhere lose their grip.',
     category: 'global',
     era_id: 'ww2',
     effect: { type: 'stability_change', target: 'player', value: -10 },

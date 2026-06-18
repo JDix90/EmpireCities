@@ -56,7 +56,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_proxy_conflict',
     title: 'Proxy Conflict Escalation',
-    description: 'A simmering border dispute between client states threatens to drag the superpowers in. Choose: commit advisors to the front lines or rush in fresh conscripts to hold the perimeter.',
+    description: 'Two client states are shooting at each other again, and your name is on the invoices. Choose: send advisors, or send bodies.',
     category: 'player_targeted',
     era_id: 'coldwar',
     choices: [
@@ -67,7 +67,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_economic_sanctions',
     title: 'Economic Sanctions',
-    description: 'The international community imposes crippling trade sanctions on your regime. Factories stall and supply chains collapse under the embargo.',
+    description: 'An embargo cuts you off from the imports your factories run on. Production stalls for 2 turns.',
     category: 'player_targeted',
     era_id: 'coldwar',
     effect: { type: 'production_bonus', target: 'player', value: -2, duration_turns: 2 },
@@ -75,7 +75,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_space_achievement',
     title: 'Space Achievement',
-    description: 'Your nation lands a historic space mission, capturing the world\'s imagination. The surge of national pride fuels industrial output across every sector.',
+    description: 'Your flag is on the Moon and the newsreels won’t stop running it. Every factory wants in on the moment.',
     category: 'player_targeted',
     era_id: 'coldwar',
     effect: { type: 'production_bonus', target: 'player', value: 3, duration_turns: 2 },
@@ -83,7 +83,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_berlin_crisis',
     title: 'Berlin Crisis',
-    description: 'Tensions flare at the divided city as tanks face off across the checkpoint. Your forces dig in behind concrete barriers, fortifying every position.',
+    description: 'Tanks idle muzzle-to-muzzle at Checkpoint Charlie. Nobody blinks, and your men pour concrete.',
     category: 'player_targeted',
     era_id: 'coldwar',
     effect: { type: 'defense_modifier', target: 'player', value: 2, duration_turns: 1 },
@@ -91,7 +91,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_arms_buildup',
     title: 'Arms Buildup',
-    description: 'Intelligence reports a widening missile gap. Congress authorizes an emergency military expansion, flooding your bases with fresh troops and materiel.',
+    description: 'The “missile gap” is mostly a budget request, but it works: 4 fresh divisions report for duty.',
     category: 'player_targeted',
     era_id: 'coldwar',
     effect: { type: 'units_added', target: 'player', value: 4 },
@@ -99,7 +99,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_cuban_standoff',
     title: 'Cuban Standoff',
-    description: 'Reconnaissance photos reveal offensive weapons on a nearby island. The world holds its breath. Choose: escalate with a show of force or negotiate a stand-down.',
+    description: 'U-2 photos put enemy missiles ninety miles off your coast. Thirteen days to decide. Choose: a show of force, or a quiet trade for the stand-down.',
     category: 'player_targeted',
     era_id: 'coldwar',
     choices: [
@@ -110,7 +110,7 @@ export const coldwarEvents: EventCard[] = [
   {
     card_id: 'coldwar_space_race_triumph',
     title: 'Space Race Triumph',
-    description: 'Your nation achieves a landmark in space exploration. National pride soars and political stability strengthens.',
+    description: 'A ticker-tape parade for the cosmonauts, and for one shining week nobody questions the government.',
     category: 'player_targeted',
     era_id: 'coldwar',
     effect: { type: 'stability_change', target: 'player', value: 15 },

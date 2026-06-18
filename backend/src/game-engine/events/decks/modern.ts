@@ -56,7 +56,7 @@ export const modernEvents: EventCard[] = [
   {
     card_id: 'modern_drone_warfare',
     title: 'Drone Warfare',
-    description: 'Your military deploys next-generation autonomous combat drones. Their precision targeting gives your forces a decisive edge on the battlefield.',
+    description: 'Autonomous strike drones own the sky this turn. Nothing moves below without permission.',
     category: 'player_targeted',
     era_id: 'modern',
     effect: { type: 'attack_modifier', target: 'player', value: 2, duration_turns: 1 },
@@ -75,7 +75,7 @@ export const modernEvents: EventCard[] = [
   {
     card_id: 'modern_refugee_crisis',
     title: 'Refugee Crisis',
-    description: 'Waves of displaced civilians overwhelm border regions. Military resources are diverted to manage the humanitarian catastrophe, weakening your front lines.',
+    description: 'Displaced thousands flood the border camps, and two units pull off the line to run them.',
     category: 'player_targeted',
     era_id: 'modern',
     effect: { type: 'units_removed', target: 'player', value: 2 },
@@ -83,7 +83,7 @@ export const modernEvents: EventCard[] = [
   {
     card_id: 'modern_un_peacekeeping',
     title: 'UN Peacekeeping Mission',
-    description: 'The Security Council authorizes blue helmets to patrol the contested zone. You are compelled to observe a temporary cessation of hostilities with a rival.',
+    description: 'Blue helmets roll into the contested zone. The guns go quiet with a rival, like it or not.',
     category: 'player_targeted',
     era_id: 'modern',
     effect: { type: 'truce', target: 'player', value: 2 },
@@ -91,7 +91,7 @@ export const modernEvents: EventCard[] = [
   {
     card_id: 'modern_pandemic_wave',
     title: 'Pandemic Wave',
-    description: 'A virulent new strain sweeps across borders unchecked. Quarantines cripple logistics and troop movements on every front as hospitals overflow.',
+    description: 'A new strain jumps the cordon and quarantines freeze every supply line on the map.',
     category: 'global',
     era_id: 'modern',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -110,16 +110,16 @@ export const modernEvents: EventCard[] = [
   },
   {
     card_id: 'modern_economic_boom',
-    title: 'Economic Boom',
-    description: 'A surge of foreign investment and technological innovation drives growth. Public confidence and institutional stability rise sharply.',
+    title: 'Boom Years',
+    description: 'Foreign capital floods in and the markets hit record highs. Confidence holds.',
     category: 'player_targeted',
     era_id: 'modern',
     effect: { type: 'stability_change', target: 'player', value: 15 },
   },
   {
     card_id: 'modern_global_pandemic',
-    title: 'Global Pandemic',
-    description: 'A highly contagious virus spreads across borders. Lockdowns, shortages, and public fear destabilize governments worldwide.',
+    title: 'Novel Outbreak',
+    description: 'A novel pathogen jumps the borders before anyone names it. Governments wobble as the lockdowns drag on.',
     category: 'global',
     era_id: 'modern',
     effect: { type: 'stability_change', target: 'player', value: -10 },

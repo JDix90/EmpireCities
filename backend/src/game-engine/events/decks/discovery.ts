@@ -48,7 +48,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_circumnavigation',
     title: 'Circumnavigation',
-    description: 'Your expedition completes a voyage around the globe, opening new horizons. Recruit seasoned sailors to your cause, or establish profitable trade posts along the route.',
+    description: 'Three ships left. One came home, hull crusted with salt and rumor. Sign on its survivors, or bank the maps as trade posts.',
     category: 'player_targeted',
     era_id: 'discovery',
     choices: [
@@ -59,7 +59,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_religious_mission',
     title: 'Religious Mission',
-    description: 'Missionaries spread the faith to distant lands, forging bonds of peace with neighboring powers. A truce is declared in the name of God.',
+    description: 'Your missionaries broker a peace nobody dares break under the cross. Truce holds for 3 turns.',
     category: 'player_targeted',
     era_id: 'discovery',
     effect: { type: 'truce', target: 'player', value: 3 },
@@ -67,7 +67,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_hurricane_season',
     title: 'Hurricane Season',
-    description: 'Monstrous storms batter coastlines and sink fleets. No empire is spared as the hurricane season unleashes its fury across the region.',
+    description: 'The Caribbean turns black and every coast pays. No fleet rides this one out.',
     category: 'global',
     era_id: 'discovery',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -76,7 +76,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_mercantilism',
     title: 'Rise of Mercantilism',
-    description: 'Your ministers adopt mercantilist policies, hoarding gold and imposing tariffs on rivals. Treasury revenues increase for 2 turns.',
+    description: 'Tariff the neighbors, hoard the bullion, call it patriotism. Revenue climbs for 2 turns.',
     category: 'player_targeted',
     era_id: 'discovery',
     effect: { type: 'production_bonus', target: 'player', value: 3, duration_turns: 2 },
@@ -84,7 +84,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_mutiny',
     title: 'Crew Mutiny',
-    description: 'Months at sea with dwindling rations push your crews to the breaking point. Sailors mutiny, seizing ships and abandoning their posts. You lose 3 units.',
+    description: 'The biscuit ran to weevils a month ago. The crew takes the ship and leaves you the longboat. Lose 3 units.',
     category: 'player_targeted',
     era_id: 'discovery',
     effect: { type: 'units_removed', target: 'player', value: 3 },
@@ -92,7 +92,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_treaty_tordesillas',
     title: 'Treaty of Tordesillas',
-    description: 'A papal decree divides the new world between rival powers. The treaty strengthens your defensive claims over colonial holdings for 3 turns.',
+    description: 'A line drawn on a map in Rome makes your colonial claims defensible for 3 turns.',
     category: 'player_targeted',
     era_id: 'discovery',
     effect: { type: 'defense_modifier', target: 'player', value: 1, duration_turns: 3 },
@@ -100,7 +100,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_spice_trade',
     title: 'Spice Trade Windfall',
-    description: 'Your merchants secure exclusive access to the lucrative spice islands. Flood your markets with exotic goods, or hire mercenaries with the windfall profits.',
+    description: 'You hold the only deck loading nutmeg out of the Banda Islands. Corner the market, or spend the profits on hired swords.',
     category: 'player_targeted',
     era_id: 'discovery',
     choices: [
@@ -111,7 +111,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_colonial_prosperity',
     title: 'Colonial Prosperity',
-    description: 'Wealth from the New World pours into your coffers, funding civic improvements and bolstering loyalty across your territories.',
+    description: 'Silver from Potosí buys roads, bread, and quiet. Loyalty rises.',
     category: 'player_targeted',
     era_id: 'discovery',
     effect: { type: 'stability_change', target: 'player', value: 15 },
@@ -119,7 +119,7 @@ export const discoveryEvents: EventCard[] = [
   {
     card_id: 'discovery_reformation_turmoil',
     title: 'Reformation Turmoil',
-    description: 'Religious upheaval tears through every nation. Riots and iconoclasm destabilize governments across the continent.',
+    description: 'Theses get nailed to doors, altars get smashed. No throne sits easy this season.',
     category: 'global',
     era_id: 'discovery',
     effect: { type: 'stability_change', target: 'player', value: -10 },
