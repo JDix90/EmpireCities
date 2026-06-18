@@ -26,6 +26,7 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   let ioServer: IOServer;
   let port: number;
   let signAccessToken: (p: { sub: string; username: string }, expiresIn?: string) => string;
+  let verifyAccessToken: (token: string) => { exp?: number } | null;
   let setGameState: (id: string, s: GameState) => Promise<void>;
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
   let deleteGameKeys: (id: string) => Promise<void>;
@@ -37,7 +38,7 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   beforeAll(async () => {
     const sockets = await import('./gameSocket');
     shutdownGameSocket = sockets.shutdownGameSocket;
-    ({ signAccessToken } = await import('../utils/jwt'));
+    ({ signAccessToken, verifyAccessToken } = await import('../utils/jwt'));
     const store = await import('./redisGameStore');
     setGameState = store.setGameState;
     setGameMap = store.setGameMap;
@@ -124,10 +125,17 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
     });
   }
 
+  async function waitUntilExpired(token: string, bufferMs = 150): Promise<void> {
+    const payload = verifyAccessToken(token);
+    if (typeof payload?.exp !== 'number') throw new Error('expected fresh access token with exp');
+    const waitMs = Math.max(0, payload.exp * 1000 - Date.now()) + bufferMs;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+
   it('drops events and emits auth:expired once the access token has expired', async () => {
-    const token = signAccessToken({ sub: 'u-exp', username: 'EXP' }, '1s');
+    const token = signAccessToken({ sub: 'u-exp', username: 'EXP' }, '3s');
     const client = await connect(token);
-    await new Promise((r) => setTimeout(r, 1300)); // let the 1s token lapse (grace=0)
+    await waitUntilExpired(token);
 
     const expired = waitFor(client, 'auth:expired');
     client.emit('game:attack', { gameId: SEED_GAME, fromId: 'a', toId: 'b' });
@@ -135,8 +143,9 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   }, 15_000);
 
   it('accepts auth:refresh (same user) and resumes processing events in place', async () => {
-    const client = await connect(signAccessToken({ sub: 'u-ref', username: 'REF' }, '1s'));
-    await new Promise((r) => setTimeout(r, 1300)); // expire
+    const token = signAccessToken({ sub: 'u-ref', username: 'REF' }, '3s');
+    const client = await connect(token);
+    await waitUntilExpired(token);
 
     // Confirm it's actually expired first.
     const exp1 = waitFor(client, 'auth:expired');
@@ -160,8 +169,9 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   }, 15_000);
 
   it('rejects an auth:refresh token belonging to a different user', async () => {
-    const client = await connect(signAccessToken({ sub: 'u-victim', username: 'VICTIM' }, '1s'));
-    await new Promise((r) => setTimeout(r, 1300)); // expire
+    const token = signAccessToken({ sub: 'u-victim', username: 'VICTIM' }, '3s');
+    const client = await connect(token);
+    await waitUntilExpired(token);
 
     let refreshed = false;
     client.on('auth:refreshed', () => { refreshed = true; });
