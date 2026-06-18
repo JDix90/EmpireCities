@@ -8,10 +8,10 @@ export const TAGLINE_PRIMARY = 'Every border is temporary.';
 export const TAGLINE_CINEMATIC = 'When borders break, ages fall.';
 
 export const META_DESCRIPTION =
-  'Borderfall — turn-based territory strategy across eras from ancient kingdoms to galactic fronts.';
+  'Borderfall — free turn-based strategy where one game spans the ancient world to a galactic age.';
 
 export const STORE_DESCRIPTION =
-  'Borderfall is a turn-based territory strategy game where players command units, break enemy lines, and redraw the map across eras from ancient kingdoms to galactic fronts.';
+  'Borderfall is a turn-based strategy game where you conquer territory across nine eras, from ancient legions to a galactic frontier. Free to play in your browser.';
 
 /** Public support / privacy contact — override via VITE_SUPPORT_EMAIL at build time if needed. */
 export const SUPPORT_EMAIL =

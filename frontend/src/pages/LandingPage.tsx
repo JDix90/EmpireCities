@@ -10,6 +10,7 @@ import {
   TAGLINE_PRIMARY,
   TAGLINE_CINEMATIC,
   STORE_DESCRIPTION,
+  SUPPORT_EMAIL,
 } from '../constants/brand';
 import { REGIONAL_MAPS } from '../data/regionalMaps';
 
@@ -532,6 +533,7 @@ export default function LandingPage() {
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
           <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">Privacy Policy</Link>
           <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">Terms of Service</Link>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold/80 hover:text-bf-gold">Contact</a>
         </div>
       </footer>
     </div>
