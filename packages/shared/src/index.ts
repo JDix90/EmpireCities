@@ -20,6 +20,36 @@ export {
   inferWorldId,
 } from './worldId';
 
+/**
+ * AI opponent display names. A hand-picked, multicultural roster of commander
+ * personas instead of auto-numbered "AI Bot 3", so AI players read as
+ * intentional, not lazily generated. The "(AI)" suffix keeps it honest —
+ * players should always be able to tell a bot from a human. Shared so the
+ * in-game roster (frontend) and the broadcast / lobby / live-games names
+ * (backend) resolve to the SAME name for a given seat.
+ */
+const AI_PERSONAS = [
+  'General Varro',
+  'Marshal Okonkwo',
+  'Admiral Chen',
+  'Strategos Doukas',
+  'Warlord Tamsin',
+  'Commander Reyes',
+  'Hetman Volkov',
+  'Rani Aditi',
+  'Jarl Sigrún',
+  'Sultana Yasmin',
+  'Praetor Galba',
+  'Khan Ulan',
+];
+
+/** Stable display name for an AI player, derived from its seat (player_index). */
+export function aiPlayerName(playerIndex: number): string {
+  const n = AI_PERSONAS.length;
+  const i = ((Math.trunc(playerIndex) % n) + n) % n; // safe for any int, incl. negatives
+  return `${AI_PERSONAS[i]} (AI)`;
+}
+
 // ── Level / XP utilities ──────────────────────────────────────────────────
 
 /** Level from cumulative XP (matches backend computeLevel). */

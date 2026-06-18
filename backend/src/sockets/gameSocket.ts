@@ -76,6 +76,7 @@ import { registerChatHandlers } from './handlers/chatHandler';
 import { registerSocketRateLimit } from './socketRateLimit';
 import { registerSocketAuth } from './socketAuth';
 import { redactPlayersForViewer, maskHiddenTerritories } from './clientStateRedaction';
+import { aiPlayerName } from '@borderfall/shared';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
@@ -3396,7 +3397,7 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   const playerStates = players.map((p) => ({
     player_id: p.user_id ?? `ai_${p.player_index}`,
     player_index: p.player_index,
-    username: p.username ?? `AI Bot ${p.player_index}`,
+    username: p.username ?? aiPlayerName(p.player_index),
     color: p.player_color,
     is_ai: p.is_ai,
     ai_difficulty: (p.ai_difficulty as AiDifficulty) ?? undefined,

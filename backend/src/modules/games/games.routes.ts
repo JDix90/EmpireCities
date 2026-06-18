@@ -6,6 +6,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
 import { query, queryOne, withTransaction } from '../../db/postgres';
+import { aiPlayerName } from '@borderfall/shared';
 import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
@@ -366,7 +367,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       game_id: string; era_id: string; map_id: string; turn_count: number;
       spectator_count: number; created_at: string; player_count: string;
       human_count: string; max_ranked_mu: number | null; featured: boolean;
-      players: Array<{ username: string; player_color: string; is_ai: boolean }>;
+      players: Array<{ username: string | null; player_index: number; player_color: string; is_ai: boolean }>;
     }>(
       `SELECT g.game_id, g.era_id, g.map_id, g.spectator_count, g.created_at,
               (SELECT COUNT(*) FROM game_players gp2 WHERE gp2.game_id = g.game_id)::text AS player_count,
@@ -388,7 +389,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
               ) AS turn_count,
               COALESCE(
                 (SELECT json_agg(json_build_object(
-                  'username', COALESCE(u.username, 'AI Bot'),
+                  'username', u.username,
+                  'player_index', gp.player_index,
                   'player_color', gp.player_color,
                   'is_ai', gp.is_ai
                 ) ORDER BY gp.player_index)
@@ -407,6 +409,15 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
        LIMIT $1`,
       params,
     );
+
+    // AI players get persona display names (same source as the in-game roster)
+    // instead of a bare "AI Bot". Done here so it shares @borderfall/shared.
+    for (const g of games) {
+      for (const pl of g.players) {
+        if (pl.is_ai) pl.username = aiPlayerName(pl.player_index);
+        else if (!pl.username) pl.username = 'Player';
+      }
+    }
 
     try {
       await redis.set(cacheKey, JSON.stringify(games), 'EX', 5);
