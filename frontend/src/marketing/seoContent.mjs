@@ -19,6 +19,72 @@ export const SITE_URL = 'https://borderfall.gg';
 export const OG_IMAGE = `${SITE_URL}/og-image.png`;
 
 /**
+ * Official profile URLs for the game. Populated as the accounts go live, then
+ * surfaced as `sameAs` in the VideoGame structured data — this is what tells
+ * Google and AI answer engines that all of these belong to the SAME entity
+ * (the Borderfall game), which is exactly the disambiguation we need against
+ * the unrelated "Borderfall" locations/items in other games. Leave entries out
+ * until the profile actually exists (a `sameAs` pointing at a 404 hurts).
+ */
+export const SOCIAL_LINKS = [
+  // 'https://x.com/...',
+  // 'https://discord.gg/...',
+  // 'https://www.youtube.com/@...',
+  // 'https://www.reddit.com/r/...',
+];
+
+/**
+ * Q&A shown on /how-to-play (visible to users AND crawlers) and emitted as
+ * FAQPage structured data. The first answer states plainly that Borderfall is a
+ * free, standalone, browser-based game — the direct, machine-readable counter
+ * to search engines concluding it's "not a standalone game."
+ */
+export const FAQ = [
+  {
+    q: 'What is Borderfall?',
+    a:
+      'Borderfall is a free, browser-based turn-based strategy game played at borderfall.gg, with '
+      + 'no download or install. You command armies on a world map, attack to capture neighboring '
+      + 'territories, and outlast your opponents — while your civilization advances through historical '
+      + 'eras as the game unfolds. It is a standalone online game in its own right, not a mode, mod, or '
+      + 'location inside another title.',
+  },
+  {
+    q: 'Is Borderfall free to play?',
+    a:
+      'Yes. Borderfall is free in your web browser, and you can start a game instantly as a guest '
+      + 'without creating an account.',
+  },
+  {
+    q: 'Do I need to download or install anything?',
+    a:
+      'No. Borderfall runs entirely in your browser on desktop and mobile — just open borderfall.gg '
+      + 'and play.',
+  },
+  {
+    q: 'How is Borderfall different from Risk?',
+    a:
+      'It keeps the dice-driven, territory-conquest core that Risk players know, but a single game '
+      + 'advances through nine historical eras — from ancient kingdoms to a galactic age — each with new '
+      + 'units, technologies, and theaters of war. Optional layers like economy, tech trees, naval '
+      + 'warfare, and asymmetric factions add depth without changing the core rules.',
+  },
+  {
+    q: 'Can I play solo against AI, or is it multiplayer only?',
+    a:
+      'Both. You can start instantly against AI opponents (Easy to Expert), or play online multiplayer '
+      + 'with friends or matched opponents. Games support 2–8 players and can be real-time or asynchronous '
+      + 'with 24–72 hour turns.',
+  },
+  {
+    q: 'What do I need to play Borderfall?',
+    a:
+      'Any modern web browser — Chrome, Safari, Firefox, or Edge — on a desktop, laptop, tablet, or '
+      + 'phone. There is nothing to install and no console or app required.',
+  },
+];
+
+/**
  * The nine-era arc, in chronological order, from ancient kingdoms to galactic
  * fronts. These are real, playable eras in Borderfall. (The American Civil War
  * and Italian Unification also ship as standalone historical theaters — see the
@@ -123,6 +189,16 @@ export function blocksToHtml(blocks) {
         parts.push(`<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`);
       }
       parts.push('</nav>');
+    } else if (block.type === 'faq') {
+      // Definition list mirrors the FAQPage structured data and is fully
+      // crawlable. The same FAQ renders in the React page (HowToPlayPage),
+      // so users and crawlers see identical content (no cloaking).
+      parts.push('<dl class="bf-faq">');
+      for (const item of FAQ) {
+        parts.push(`<dt>${escapeHtml(item.q)}</dt>`);
+        parts.push(`<dd>${escapeHtml(item.a)}</dd>`);
+      }
+      parts.push('</dl>');
     }
   }
   return parts.join('\n');
@@ -211,6 +287,7 @@ export const MARKETING_PAGES = [
     h1: 'How to Play Borderfall',
     tagline: 'Master the turn, then master the map.',
     jsonLd: false,
+    faq: true,
     blocks: [
       {
         type: 'p',
@@ -276,6 +353,13 @@ export const MARKETING_PAGES = [
           + 'units, and even naval and orbital theaters. Timing your advance — and reacting when '
           + 'a rival advances first — is its own layer of strategy. See the eras overview for the '
           + 'full nine-era arc.',
+      },
+      {
+        type: 'h2',
+        text: 'Frequently asked questions',
+      },
+      {
+        type: 'faq',
       },
       {
         type: 'links',

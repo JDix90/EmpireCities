@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Swords, Shield, Dices, CreditCard, Trophy, Settings2, Map, Users, Zap, BookOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, Swords, Shield, Dices, CreditCard, Trophy, Settings2, Map, Users, Zap, BookOpen, HelpCircle } from 'lucide-react';
 import { APP_NAME } from '../constants/brand';
 import SubpageShell from '../components/ui/SubpageShell';
+import { FAQ } from '../marketing/seoContent.mjs';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {
@@ -303,6 +304,18 @@ export default function HowToPlayPage() {
               <li>Pay attention to who's growing fastest — sometimes the right play is attacking the leader, not your neighbor.</li>
               <li>In <strong className="text-bf-text">Fog of War</strong>, scout by attacking lightly — information is power.</li>
             </ol>
+          </Section>
+
+          {/* ── FAQ (shared with the prerendered FAQPage structured data) ── */}
+          <Section icon={HelpCircle} title="Frequently Asked Questions" defaultOpen>
+            <div className="space-y-4">
+              {FAQ.map((item) => (
+                <div key={item.q}>
+                  <p className="font-medium text-bf-text mb-1">{item.q}</p>
+                  <p>{item.a}</p>
+                </div>
+              ))}
+            </div>
           </Section>
         </div>
 
