@@ -56,7 +56,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_trade_fair',
     title: 'Grand Trade Fair',
-    description: 'Merchants from across Christendom converge on your lands for a great fair. The bustling commerce fills your coffers for 1 turn.',
+    description: 'The Champagne fairs come to your roads. Coffers overflow for one turn, then the wagons roll on.',
     category: 'player_targeted',
     era_id: 'medieval',
     effect: { type: 'production_bonus', target: 'player', value: 4, duration_turns: 1 },
@@ -64,7 +64,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_feudal_conscription',
     title: 'Feudal Conscription',
-    description: 'Your lords invoke their feudal obligation, mustering peasants and men-at-arms from every hamlet and manor. Gain 4 reinforcements.',
+    description: 'Forty days’ service owed, forty days’ service taken. Gain 4 reinforcements.',
     category: 'player_targeted',
     era_id: 'medieval',
     effect: { type: 'units_added', target: 'player', value: 4 },
@@ -72,7 +72,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_heresy_spreads',
     title: 'Heresy Spreads',
-    description: 'A dangerous heretical movement fractures your realm. Soldiers desert their posts and monks abandon their duties, costing you 2 units.',
+    description: 'The Cathars preach in your villages and the faith curdles. Two units melt away to follow them.',
     category: 'player_targeted',
     era_id: 'medieval',
     effect: { type: 'units_removed', target: 'player', value: 2 },
@@ -80,7 +80,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_mongol_envoy',
     title: 'Mongol Envoy',
-    description: 'A Mongol emissary arrives bearing gifts and threats in equal measure. Adopt their fearsome cavalry tactics, or secure lucrative access to their vast trade network.',
+    description: 'A rider from the Golden Horde waits at your gate. Learn how the steppe fights, or buy a place on the road to Karakorum.',
     category: 'player_targeted',
     era_id: 'medieval',
     choices: [
@@ -91,7 +91,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_famine',
     title: 'Great Famine',
-    description: 'Torrential rains rot the crops in every field. Starvation grips the land and armies weaken as rations dwindle to nothing.',
+    description: 'The rains do not stop and the grain rots standing. Every territory loses a unit to hunger.',
     category: 'global',
     era_id: 'medieval',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -100,7 +100,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_siege_warfare',
     title: 'Siege Warfare Advances',
-    description: 'Engineers develop new techniques for both building and breaking fortifications. Choose to master the art of the siege or perfect your castle defenses.',
+    description: 'The trebuchet changes every reckoning of stone and wall. Build them, or build against them.',
     category: 'player_targeted',
     era_id: 'medieval',
     choices: [
@@ -111,7 +111,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_royal_charter',
     title: 'Royal Charter Granted',
-    description: 'The crown issues a charter guaranteeing rights and privileges to your towns. Morale and order improve across your realm.',
+    description: 'A sealed charter buys your towns their liberties. Cheaper than putting down the next revolt, and your realm settles.',
     category: 'player_targeted',
     era_id: 'medieval',
     effect: { type: 'stability_change', target: 'player', value: 15 },
@@ -119,7 +119,7 @@ export const medievalEvents: EventCard[] = [
   {
     card_id: 'medieval_great_famine',
     title: 'The Great Famine',
-    description: 'Failed harvests and endless rain bring widespread starvation. Peasant revolts and despair grip every kingdom.',
+    description: 'Three winters of failed harvest. The chroniclers stop counting the dead, and order frays in every kingdom.',
     category: 'global',
     era_id: 'medieval',
     effect: { type: 'stability_change', target: 'player', value: -10 },

@@ -56,7 +56,7 @@ export const risorgimentoEvents: EventCard[] = [
   {
     card_id: 'riso_garibaldi_rallies',
     title: 'Garibaldi Rallies the South',
-    description: 'The legendary general lands in the Mezzogiorno, and peasants flock to his red-shirted ranks. Choose: march north with a swelling army or sharpen their fighting spirit for the battles ahead.',
+    description: 'Garibaldi steps ashore at Marsala with a thousand Redshirts. Sicilian peasants are already walking off the fields to join him. Choose: march the column north, or drill it for the fights ahead.',
     category: 'player_targeted',
     era_id: 'risorgimento',
     choices: [
@@ -67,7 +67,7 @@ export const risorgimentoEvents: EventCard[] = [
   {
     card_id: 'riso_papal_intervention',
     title: 'Papal Intervention',
-    description: 'The Pope issues a stern encyclical condemning further bloodshed on the Italian peninsula. Under pressure from Catholic nations, all belligerents agree to a temporary ceasefire.',
+    description: 'Pius IX sends down an encyclical, and the Catholic powers lean on everyone with an army in the field. The guns go quiet for two turns. Nobody is happy about it.',
     category: 'player_targeted',
     era_id: 'risorgimento',
     effect: { type: 'truce', target: 'player', value: 2 },
@@ -75,7 +75,7 @@ export const risorgimentoEvents: EventCard[] = [
   {
     card_id: 'riso_cholera_epidemic',
     title: 'Cholera Epidemic',
-    description: 'Filthy water and overcrowded barracks unleash a devastating cholera outbreak. The disease respects no flags, ravaging encampments on every side of the conflict.',
+    description: 'Cholera comes up out of the wells and into every barracks on the peninsula. It does not read uniforms.',
     category: 'global',
     era_id: 'risorgimento',
     effect: { type: 'region_disaster', target: 'region', value: 1 },
@@ -84,7 +84,7 @@ export const risorgimentoEvents: EventCard[] = [
   {
     card_id: 'riso_austrian_crackdown',
     title: 'Austrian Crackdown',
-    description: 'Habsburg authorities launch a brutal sweep of suspected nationalists. Mass arrests and forced conscription into imperial labor battalions decimate your ranks.',
+    description: 'The Austrian garrison goes door to door through the quarter. Three of your companies are marched off in chains to a Habsburg fortress.',
     category: 'player_targeted',
     era_id: 'risorgimento',
     effect: { type: 'units_removed', target: 'player', value: 3 },
@@ -92,7 +92,7 @@ export const risorgimentoEvents: EventCard[] = [
   {
     card_id: 'riso_piedmont_diplomacy',
     title: 'Piedmontese Diplomacy',
-    description: 'Cavour\'s masterful negotiations with European courts bear fruit. Choose: secure a defensive alliance or attract foreign investment to fuel the war machine.',
+    description: 'Cavour has been working the European courts on Piedmont’s behalf, and one of them is finally ready to deal. Choose: a defensive pact, or their money.',
     category: 'player_targeted',
     era_id: 'risorgimento',
     choices: [
