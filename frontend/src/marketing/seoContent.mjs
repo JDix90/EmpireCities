@@ -27,10 +27,8 @@ export const OG_IMAGE = `${SITE_URL}/og-image.png`;
  * until the profile actually exists (a `sameAs` pointing at a 404 hurts).
  */
 export const SOCIAL_LINKS = [
-  // 'https://x.com/...',
-  // 'https://discord.gg/...',
-  // 'https://www.youtube.com/@...',
-  // 'https://www.reddit.com/r/...',
+  'https://www.reddit.com/r/borderfall',
+  'https://www.reddit.com/user/borderfall',
 ];
 
 /**
@@ -404,6 +402,49 @@ export const MARKETING_PAGES = [
           + 'naval and orbital layers open up, changing which borders matter most.',
       },
       // <!-- TODO: refine copy -->
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/about',
+    file: 'about/index.html',
+    title: 'About Borderfall — Who Made It and Why',
+    description:
+      'Borderfall is a free browser strategy game made by JDix90. The story behind '
+      + 'it, and where to follow along.',
+    h1: 'About Borderfall',
+    tagline: 'A game my friends and I always wished existed.',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'Borderfall is made by JDix90. It’s a free, turn-based strategy game you '
+          + 'play in your browser.',
+      },
+      {
+        // JDix90’s own words — kept verbatim on purpose.
+        type: 'p',
+        text:
+          'I built Borderfall because my friends and I loved playing strategy board '
+          + 'games, but we were always imagining ways to combine the best parts of '
+          + 'different games into one experience. Creating Borderfall gave me the chance '
+          + 'to build the kind of game we always wished existed: something familiar, '
+          + 'strategic, and fun, but with more freedom to shape the world as you play.',
+      },
+      {
+        type: 'p',
+        text:
+          'It’s still actively being built. If you want to follow along, suggest '
+          + 'something, or find an opponent, come say hi on Reddit at '
+          + 'reddit.com/r/borderfall, or email support@borderfall.gg.',
+      },
       {
         type: 'links',
         links: [

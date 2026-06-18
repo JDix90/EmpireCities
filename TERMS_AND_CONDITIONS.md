@@ -9,7 +9,7 @@
 
 **Effective date:** March 31, 2026  
 
-Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **[Your legal name or company name]** (“**we**,” “**us**,” or “**our**”).  
+Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **JDix90** (“**we**,” “**us**,” or “**our**”).  
 
 By creating an account, accessing, or using the Services, you agree to these Terms. If you do not agree, do not use the Services.
 
@@ -137,10 +137,9 @@ We may modify these Terms by posting updated Terms and updating the effective da
 ## 15. Contact
 
 **General support:** [support@yourdomain.com]  
-**Legal notices:** [legal@yourdomain.com]  
+**Legal notices:** support@borderfall.gg  
 
-**Operator:** [Your legal name or company name]  
-**Address (optional):** [Street, city, country]
+**Operator:** JDix90  
 
 ---
 

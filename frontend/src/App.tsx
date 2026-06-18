@@ -34,6 +34,7 @@ const TermsPage = lazyWithChunkRetry(() => import('./pages/TermsPage'));
 const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const ErasPage = lazyWithChunkRetry(() => import('./pages/ErasPage'));
+const AboutPage = lazyWithChunkRetry(() => import('./pages/AboutPage'));
 const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
 const StorePage = lazyWithChunkRetry(() => import('./pages/StorePage'));
 const SettingsPage = lazyWithChunkRetry(() => import('./pages/SettingsPage'));
@@ -312,6 +313,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/eras" element={<ErasPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/join/:code" element={<JoinGamePage />} />
         {/* Public replay viewer — ReplayPage loads the authed participant feed

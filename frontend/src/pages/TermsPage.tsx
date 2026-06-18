@@ -18,8 +18,8 @@ export default function TermsPage() {
         <h1 className="font-display text-3xl text-bf-gold">Terms of Service</h1>
         <p className="text-bf-muted text-sm">Last updated: {LEGAL_LAST_UPDATED}</p>
         <p className="text-sm text-bf-muted leading-relaxed">
-          These Terms govern your use of {APP_NAME} websites, games, and related services (the &ldquo;Service&rdquo;).
-          By creating an account or playing, you agree to these Terms and our{' '}
+          These Terms govern your use of {APP_NAME} websites, games, and related services (the &ldquo;Service&rdquo;),
+          operated by JDix90. By creating an account or playing, you agree to these Terms and our{' '}
           <Link to="/privacy" className="text-bf-gold hover:underline">Privacy Policy</Link>.
         </p>
 

@@ -531,9 +531,18 @@ export default function LandingPage() {
       <footer className="border-t border-bf-border py-8 pb-safe text-center text-bf-muted text-sm space-y-2">
         <p>© 2026 {APP_NAME}. All rights reserved.</p>
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <Link to="/about" className="text-bf-gold/80 hover:text-bf-gold">About</Link>
           <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">Privacy Policy</Link>
           <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">Terms of Service</Link>
           <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold/80 hover:text-bf-gold">Contact</a>
+          <a
+            href="https://www.reddit.com/r/borderfall"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-bf-gold/80 hover:text-bf-gold"
+          >
+            Reddit
+          </a>
         </div>
       </footer>
     </div>
