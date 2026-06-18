@@ -20,6 +20,7 @@ import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
 import type { GameState, GameMap, PlayerState, TerritoryState } from '../types';
 
 const redisTestEnabled = process.env.REDIS_TEST === '1';
+const MS_PER_SECOND = 1000;
 
 describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () => {
   let httpServer: HttpServer;
@@ -128,7 +129,7 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   async function waitUntilExpired(token: string, bufferMs = 150): Promise<void> {
     const payload = verifyAccessToken(token);
     if (typeof payload?.exp !== 'number') throw new Error('expected fresh access token with exp');
-    const waitMs = Math.max(0, payload.exp * 1000 - Date.now()) + bufferMs;
+    const waitMs = Math.max(0, payload.exp * MS_PER_SECOND - Date.now()) + bufferMs;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
