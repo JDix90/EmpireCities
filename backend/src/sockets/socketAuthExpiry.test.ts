@@ -20,14 +20,12 @@ import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
 import type { GameState, GameMap, PlayerState, TerritoryState } from '../types';
 
 const redisTestEnabled = process.env.REDIS_TEST === '1';
-const MS_PER_SECOND = 1000;
 
 describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () => {
   let httpServer: HttpServer;
   let ioServer: IOServer;
   let port: number;
   let signAccessToken: (p: { sub: string; username: string }, expiresIn?: string) => string;
-  let verifyAccessToken: (token: string) => { exp?: number } | null;
   let setGameState: (id: string, s: GameState) => Promise<void>;
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
   let deleteGameKeys: (id: string) => Promise<void>;
@@ -39,7 +37,7 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   beforeAll(async () => {
     const sockets = await import('./gameSocket');
     shutdownGameSocket = sockets.shutdownGameSocket;
-    ({ signAccessToken, verifyAccessToken } = await import('../utils/jwt'));
+    ({ signAccessToken } = await import('../utils/jwt'));
     const store = await import('./redisGameStore');
     setGameState = store.setGameState;
     setGameMap = store.setGameMap;
@@ -126,17 +124,30 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
     });
   }
 
-  async function waitUntilExpired(token: string, bufferMs = 150): Promise<void> {
-    const payload = verifyAccessToken(token);
-    if (typeof payload?.exp !== 'number') throw new Error('expected fresh access token with exp');
-    const waitMs = Math.max(0, payload.exp * MS_PER_SECOND - Date.now()) + bufferMs;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  /**
+   * Deterministically expire the server-side socket for `userId` by backdating
+   * its recorded token expiry — the same state a token reaches when it lapses,
+   * but with zero wall-clock dependence. (The old approach raced a 1s JWT
+   * against connect/CI timing: on a slow runner the token could lapse mid-
+   * handshake and the connection itself would be rejected.) Polls for the
+   * server socket because the client's `connect` ack can land before the
+   * socket is registered in `ioServer.sockets`.
+   */
+  async function expireServerSocket(userId: string): Promise<void> {
+    for (let i = 0; i < 50; i++) {
+      const s = [...ioServer.sockets.sockets.values()].find((sk) => sk.data?.userId === userId);
+      if (s) {
+        s.data.tokenExp = Math.floor(Date.now() / 1000) - 60; // expired a minute ago
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error(`server socket for ${userId} not found`);
   }
 
   it('drops events and emits auth:expired once the access token has expired', async () => {
-    const token = signAccessToken({ sub: 'u-exp', username: 'EXP' }, '3s');
-    const client = await connect(token);
-    await waitUntilExpired(token);
+    const client = await connect(signAccessToken({ sub: 'u-exp', username: 'EXP' }));
+    await expireServerSocket('u-exp');
 
     const expired = waitFor(client, 'auth:expired');
     client.emit('game:attack', { gameId: SEED_GAME, fromId: 'a', toId: 'b' });
@@ -144,9 +155,8 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   }, 15_000);
 
   it('accepts auth:refresh (same user) and resumes processing events in place', async () => {
-    const token = signAccessToken({ sub: 'u-ref', username: 'REF' }, '3s');
-    const client = await connect(token);
-    await waitUntilExpired(token);
+    const client = await connect(signAccessToken({ sub: 'u-ref', username: 'REF' }));
+    await expireServerSocket('u-ref');
 
     // Confirm it's actually expired first.
     const exp1 = waitFor(client, 'auth:expired');
@@ -170,9 +180,8 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
   }, 15_000);
 
   it('rejects an auth:refresh token belonging to a different user', async () => {
-    const token = signAccessToken({ sub: 'u-victim', username: 'VICTIM' }, '3s');
-    const client = await connect(token);
-    await waitUntilExpired(token);
+    const client = await connect(signAccessToken({ sub: 'u-victim', username: 'VICTIM' }));
+    await expireServerSocket('u-victim');
 
     let refreshed = false;
     client.on('auth:refreshed', () => { refreshed = true; });
