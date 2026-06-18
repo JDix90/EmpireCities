@@ -68,6 +68,10 @@ function videoGameJsonLd(page) {
     '@type': 'VideoGame',
     name: 'Borderfall',
     alternateName: 'Borderfall.gg',
+    // An accountable maker — the single strongest "a real person made this"
+    // signal for search/AI, and the counter to a "faceless AI project" read.
+    author: { '@type': 'Person', name: 'JDix90' },
+    publisher: { '@type': 'Person', name: 'JDix90' },
     description: page.description,
     genre: 'Strategy',
     gamePlatform: 'Web browser',

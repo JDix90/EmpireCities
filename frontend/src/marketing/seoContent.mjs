@@ -10,9 +10,9 @@
  * Node script and a Vite/React module without drift. If you edit copy here it
  * updates the crawlable HTML and the live SPA page together.
  *
- * <!-- TODO: refine copy --> markers in the strings below flag sections the
- * product owner should expand or polish; they are intentionally visible in the
- * prerendered HTML source as a reminder, not rendered as UI.
+ * Voice note: keep this copy human — short declaratives over em-dash chains,
+ * concrete images over abstract "what sets us apart" claims. (Any inline
+ * `// TODO` comments below are plain JS comments and never reach the HTML.)
  */
 
 export const SITE_URL = 'https://borderfall.gg';
@@ -27,10 +27,8 @@ export const OG_IMAGE = `${SITE_URL}/og-image.png`;
  * until the profile actually exists (a `sameAs` pointing at a 404 hurts).
  */
 export const SOCIAL_LINKS = [
-  // 'https://x.com/...',
-  // 'https://discord.gg/...',
-  // 'https://www.youtube.com/@...',
-  // 'https://www.reddit.com/r/...',
+  'https://www.reddit.com/r/borderfall',
+  'https://www.reddit.com/user/borderfall',
 ];
 
 /**
@@ -124,7 +122,7 @@ export const ERAS = [
     years: '1939 – 1945',
     blurb:
       'Mechanized armies, combined arms, and a war fought on every front. '
-      + 'Tanks, air power, and the race for game-changing technology.',
+      + 'Tanks, air power, and the race to build the bomb first.',
   },
   {
     label: 'Cold War',
@@ -215,9 +213,9 @@ export const MARKETING_PAGES = [
     file: 'index.html',
     title: 'Borderfall — Turn-Based Territory Strategy Across the Ages',
     description:
-      'Borderfall is a free, turn-based territory strategy game in your browser — '
-      + 'Risk that advances through the ages, from ancient kingdoms to galactic fronts. '
-      + 'Every border is temporary.',
+      'Borderfall is a free, turn-based territory strategy game you play in your '
+      + 'browser. Classic Risk-style conquest, except the world advances through the '
+      + 'ages while you play it, from ancient legions to fleets among the stars.',
     h1: 'Borderfall',
     tagline: 'Every border is temporary.',
     jsonLd: true,
@@ -225,20 +223,19 @@ export const MARKETING_PAGES = [
       {
         type: 'p',
         text:
-          'Borderfall is turn-based territory strategy that advances through the ages — '
-          + 'free in your browser, no download required. It takes the familiar tension of '
-          + 'classic Risk-style conquest and stretches it across a timeline that runs from '
-          + 'ancient kingdoms to galactic fronts. You command units, break enemy lines, and '
-          + 'redraw the map one turn at a time, then carry the fight forward as the world '
-          + 'itself advances into new eras.',
+          'Borderfall is turn-based territory strategy that advances through the ages. '
+          + 'It’s free in your browser, with nothing to download. The core is classic '
+          + 'Risk: command your units, break the enemy line, and redraw the map a turn at '
+          + 'a time. The difference is that the world doesn’t hold still. As you play it '
+          + 'advances into new eras, and the rules of war change with it.',
       },
       {
         type: 'p',
         text:
           'Each match begins with reinforcement, maneuver, and the decisive roll of combat. '
           + 'Mass troops on a contested border, sever a rival’s supply of continents, or hold '
-          + 'a chokepoint against a larger force. Continent bonuses reward consolidation, while '
-          + 'every exposed front invites a counterattack — there is no safe border for long.',
+          + 'a chokepoint against a larger force. Continent bonuses reward consolidation, but '
+          + 'every exposed front invites a counterattack. No border stays safe for long.',
       },
       {
         type: 'h2',
@@ -247,24 +244,23 @@ export const MARKETING_PAGES = [
       {
         type: 'p',
         text:
-          'What sets Borderfall apart is era advancement. Push your civilization forward and '
-          + 'the rules of war change underneath you: new technologies, units, factions, and even '
-          + 'naval and orbital theaters come into play. A game can begin with legions on a '
-          + 'classical map and end with fleets contesting galactic fronts. The arc spans nine '
-          + 'eras, from the Ancient World through the Modern Day and on into the Space and '
-          + 'Galactic Ages.',
+          'A game can begin with legions on a classical map and end with fleets fighting over '
+          + 'the Moon. As you push your civilization forward, the rules of war change under you: '
+          + 'new technologies, new units, new factions, and eventually naval and orbital '
+          + 'theaters. The arc runs nine eras, from the Ancient World through the Modern Day and '
+          + 'on into the Space and Galactic Ages.',
       },
       {
         type: 'h2',
-        text: 'Play your way',
+        text: 'Solo, friends, or strangers',
       },
       {
         type: 'p',
         text:
-          'Play solo against AI, challenge friends in private lobbies, or jump into multiplayer '
-          + 'matches. Borderfall runs entirely in the browser, supports quick "lite" games as '
-          + 'well as full campaigns, and is free to play. Learn the systems in the how-to-play '
-          + 'guide, then explore the full era roster before your first match.',
+          'Start a game against AI in seconds, pull friends into a private lobby, or get matched '
+          + 'against strangers. The Expert bots don’t go easy. Play a quick "lite" game in a few '
+          + 'minutes or a full campaign over days, all in the browser, all free. New here? The '
+          + 'how-to-play guide covers the systems; the era roster shows where a game can end up.',
       },
       {
         type: 'links',
@@ -374,13 +370,13 @@ export const MARKETING_PAGES = [
   {
     path: '/eras',
     file: 'eras/index.html',
-    title: 'The Eras of Borderfall — From Ancient Kingdoms to Galactic Fronts',
+    title: 'The Eras of Borderfall — From the Ancient World to the Galaxy Age',
     description:
       'Explore the nine-era arc of Borderfall: Ancient World, Medieval Era, Age of Discovery, '
       + 'American Civil War, World War II, Cold War, the Modern Day, the Space Age, and the '
       + 'Galactic Age. Each era changes the units, technology, and theaters of war.',
     h1: 'The Eras of Borderfall',
-    tagline: 'One war, nine ages — from ancient kingdoms to galactic fronts.',
+    tagline: 'One war, nine ages: from bronze spears to starfleets.',
     jsonLd: false,
     blocks: [
       {
@@ -406,6 +402,49 @@ export const MARKETING_PAGES = [
           + 'naval and orbital layers open up, changing which borders matter most.',
       },
       // <!-- TODO: refine copy -->
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/about',
+    file: 'about/index.html',
+    title: 'About Borderfall — Who Made It and Why',
+    description:
+      'Borderfall is a free browser strategy game made by JDix90. The story behind '
+      + 'it, and where to follow along.',
+    h1: 'About Borderfall',
+    tagline: 'A game my friends and I always wished existed.',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'Borderfall is made by JDix90. It’s a free, turn-based strategy game you '
+          + 'play in your browser.',
+      },
+      {
+        // JDix90’s own words — kept verbatim on purpose.
+        type: 'p',
+        text:
+          'I built Borderfall because my friends and I loved playing strategy board '
+          + 'games, but we were always imagining ways to combine the best parts of '
+          + 'different games into one experience. Creating Borderfall gave me the chance '
+          + 'to build the kind of game we always wished existed: something familiar, '
+          + 'strategic, and fun, but with more freedom to shape the world as you play.',
+      },
+      {
+        type: 'p',
+        text:
+          'It’s still actively being built. If you want to follow along, suggest '
+          + 'something, or find an opponent, come say hi on Reddit at '
+          + 'reddit.com/r/borderfall, or email support@borderfall.gg.',
+      },
       {
         type: 'links',
         links: [
