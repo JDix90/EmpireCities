@@ -26,6 +26,8 @@ import {
   blocksToHtml,
   SITE_URL,
   OG_IMAGE,
+  FAQ,
+  SOCIAL_LINKS,
 } from '../src/marketing/seoContent.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,15 +56,22 @@ function setCanonical(html, url) {
   return html.replace('</head>', `    <link rel="canonical" href="${escapeAttr(url)}" />\n  </head>`);
 }
 
+/** Escape `<` so JSON can never break out of the <script> tag, then wrap it. */
+function jsonLdScript(data) {
+  const json = JSON.stringify(data, null, 2).replace(/</g, '\\u003c');
+  return `    <script type="application/ld+json">\n${json}\n    </script>\n`;
+}
+
 function videoGameJsonLd(page) {
   const data = {
     '@context': 'https://schema.org',
     '@type': 'VideoGame',
     name: 'Borderfall',
+    alternateName: 'Borderfall.gg',
     description: page.description,
     genre: 'Strategy',
     gamePlatform: 'Web browser',
-    applicationCategory: 'Game',
+    applicationCategory: 'GameApplication',
     operatingSystem: 'Any',
     playMode: 'MultiPlayer',
     url: `${SITE_URL}/`,
@@ -74,10 +83,24 @@ function videoGameJsonLd(page) {
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
     },
+    // `sameAs` links the official profiles to this entity once they exist;
+    // omitted while SOCIAL_LINKS is empty (never point sameAs at a 404).
+    ...(SOCIAL_LINKS.length > 0 ? { sameAs: SOCIAL_LINKS } : {}),
   };
-  // Pretty-printed, escaping `<` so the JSON can never break out of the script tag.
-  const json = JSON.stringify(data, null, 2).replace(/</g, '\\u003c');
-  return `    <script type="application/ld+json">\n${json}\n    </script>\n`;
+  return jsonLdScript(data);
+}
+
+/** FAQPage structured data, mirroring the visible FAQ on the page. */
+function faqPageJsonLd(faq) {
+  return jsonLdScript({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  });
 }
 
 function bodyHtml(page) {
@@ -128,6 +151,9 @@ async function run() {
 
     if (page.jsonLd) {
       html = html.replace('</head>', `${videoGameJsonLd(page)}  </head>`);
+    }
+    if (page.faq) {
+      html = html.replace('</head>', `${faqPageJsonLd(FAQ)}  </head>`);
     }
 
     // Body: inject crawlable content into #root.
