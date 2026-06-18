@@ -105,7 +105,7 @@ import {
 } from '../utils/connectionHints';
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
-import { inferWorldId } from '@borderfall/shared';
+import { inferWorldId, aiPlayerName } from '@borderfall/shared';
 import {
   getOrbitAccessResult,
   resolveOrbitAccessMode,
@@ -226,8 +226,8 @@ function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
 }
 
 function playerLobbyDisplayName(p: GameLobbyPlayerRow): string {
+  if (p.is_ai) return aiPlayerName(p.player_index);
   if (p.username) return p.username;
-  if (p.is_ai) return `AI Bot ${p.player_index}`;
   return 'Player';
 }
 
