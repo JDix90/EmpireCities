@@ -41,44 +41,44 @@ export const FAQ = [
   {
     q: 'What is Borderfall?',
     a:
-      'Borderfall is a free, browser-based turn-based strategy game played at borderfall.gg, with '
-      + 'no download or install. You command armies on a world map, attack to capture neighboring '
-      + 'territories, and outlast your opponents — while your civilization advances through historical '
-      + 'eras as the game unfolds. It is a standalone online game in its own right, not a mode, mod, or '
-      + 'location inside another title.',
+      'Borderfall is a free, browser-based turn-based strategy game you play at borderfall.gg, with '
+      + 'nothing to download. You command armies on a world map, take territory from your neighbors, '
+      + 'and try to be the last one standing. As a game runs on, your civilization climbs through the '
+      + 'historical eras, from ancient legions to a galactic age. (If you searched the name and found a '
+      + 'town from another game, that is something else. This one is a standalone game.)',
   },
   {
     q: 'Is Borderfall free to play?',
     a:
-      'Yes. Borderfall is free in your web browser, and you can start a game instantly as a guest '
-      + 'without creating an account.',
+      'It is free in your browser, and you can jump straight into a game as a guest without making '
+      + 'an account.',
   },
   {
     q: 'Do I need to download or install anything?',
     a:
-      'No. Borderfall runs entirely in your browser on desktop and mobile — just open borderfall.gg '
-      + 'and play.',
+      'Nothing to install. It runs in any modern browser on desktop or mobile; open borderfall.gg '
+      + 'and you are playing.',
   },
   {
     q: 'How is Borderfall different from Risk?',
     a:
-      'It keeps the dice-driven, territory-conquest core that Risk players know, but a single game '
-      + 'advances through nine historical eras — from ancient kingdoms to a galactic age — each with new '
-      + 'units, technologies, and theaters of war. Optional layers like economy, tech trees, naval '
-      + 'warfare, and asymmetric factions add depth without changing the core rules.',
+      'It keeps the dice-and-territory core Risk players know, but one game advances through nine '
+      + 'historical eras, from ancient kingdoms to a galactic age, each adding new units, technologies, '
+      + 'and theaters of war. Optional layers like economy, tech trees, naval warfare, and asymmetric '
+      + 'factions add depth without touching the core rules.',
   },
   {
     q: 'Can I play solo against AI, or is it multiplayer only?',
     a:
-      'Both. You can start instantly against AI opponents (Easy to Expert), or play online multiplayer '
-      + 'with friends or matched opponents. Games support 2–8 players and can be real-time or asynchronous '
-      + 'with 24–72 hour turns.',
+      'You can do either. Play instantly against AI opponents (Easy to Expert), or take on real '
+      + 'people, whether friends in a private lobby or matched opponents, in real-time or asynchronous '
+      + 'games of 2 to 8 players.',
   },
   {
     q: 'What do I need to play Borderfall?',
     a:
-      'Any modern web browser — Chrome, Safari, Firefox, or Edge — on a desktop, laptop, tablet, or '
-      + 'phone. There is nothing to install and no console or app required.',
+      'Any modern browser (Chrome, Safari, Firefox, or Edge) on a phone, tablet, or computer. '
+      + 'Nothing to install, no console, no app.',
   },
 ];
 
