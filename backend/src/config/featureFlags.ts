@@ -52,9 +52,14 @@ export const featureFlags = {
     return overrideBool('map_editor_enabled', false);
   },
 
-  /** When true, the Era Advancement advanced setting appears in the lobby create-game UI. */
+  /**
+   * When true, Era Advancement is surfaced in the lobby — the one-click "Full Game
+   * Start" CTA and the in-form Era Advancement toggle (for Ancient). Default ON so
+   * the flagship mode is highlighted; admin config can override off. (Ranked Era
+   * Advancement is a separate flag, `ranked_era_advancement_enabled`, still off.)
+   */
   get eraAdvancementLobbyEnabled(): boolean {
-    return overrideBool('era_advancement_lobby_enabled', false);
+    return overrideBool('era_advancement_lobby_enabled', true);
   },
 
   /**

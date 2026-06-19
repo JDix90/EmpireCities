@@ -8,7 +8,9 @@ export interface ClientFeatureFlags {
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_editor_enabled: false,
-  era_advancement_lobby_enabled: false,
+  // Mirrors the backend default (on) so the Full Game CTA + Era Advancement toggle
+  // paint immediately; GET /feature-flags still reconciles (admin can override off).
+  era_advancement_lobby_enabled: true,
 };
 
 interface FeatureFlagsState {

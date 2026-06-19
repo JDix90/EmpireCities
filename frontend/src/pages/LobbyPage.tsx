@@ -310,6 +310,7 @@ export default function LobbyPage() {
   const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
   const [creating, setCreating] = useState(false);
   const [quickSoloLoading, setQuickSoloLoading] = useState(false);
+  const [fullGameLoading, setFullGameLoading] = useState(false);
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
   const presetEra = searchParams.get('era');
@@ -1069,6 +1070,49 @@ export default function LobbyPage() {
     }
   };
 
+  // One-click "the complete game": Ancient + Era Advancement (standard) + the full
+  // mode bundle, auto-started vs 3 AI. Mirrors startQuickMatch's pattern. The server
+  // expands the 'standard' preset (gameSettings.applyEraAdvancementPreset) — no
+  // client-side bundle math. NOTE: factions are intentionally omitted (known
+  // imbalance, and they conflict with territory draft); ai_count must stay
+  // max_players - 1 or auto_start degrades to a waiting room; never send is_ranked
+  // (it blocks Era Advancement).
+  const startFullGame = async () => {
+    if (fullGameLoading) return;
+    setFullGameLoading(true);
+    try {
+      const res = await api.post('/games', {
+        era_id: 'ancient',
+        map_id: ERA_MAP_IDS.ancient,
+        max_players: 4,
+        ai_count: 3,
+        ai_difficulty: 'medium',
+        auto_start: true,
+        settings: {
+          turn_timer_seconds: 300,
+          allowed_victory_conditions: ['domination'],
+          initial_unit_count: 3,
+          card_set_escalating: true,
+          diplomacy_enabled: true,
+          economy_enabled: true,
+          tech_trees_enabled: true,
+          stability_enabled: true,
+          naval_enabled: true,
+          events_enabled: true,
+          era_advancement_enabled: true,
+          era_advancement_preset: 'standard',
+          max_turns: 150,
+        },
+      });
+      navigate(`/game/${res.data.game_id}`);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Failed to start full game');
+      }
+      setFullGameLoading(false);
+    }
+  };
+
   const handleWelcomeQuickSolo = async () => {
     markWelcomeSeen();
     setShowWelcomeModal(false);
@@ -1138,10 +1182,22 @@ export default function LobbyPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            {eraAdvancementLobbyEnabled && (
+              <button
+                onClick={() => void startFullGame()}
+                disabled={fullGameLoading}
+                data-testid="full-game-start"
+                title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game, vs 3 AI"
+                className="btn-primary flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Trophy className="w-4 h-4" aria-hidden />
+                {fullGameLoading ? 'Starting…' : 'Full Game Start'}
+              </button>
+            )}
             <button
               onClick={() => void startQuickMatch()}
               disabled={quickSoloLoading}
-              className="btn-primary flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed`}
             >
               <Bot className="w-4 h-4" aria-hidden />
               {quickSoloLoading ? 'Starting…' : 'Quick Match'}
@@ -1154,25 +1210,12 @@ export default function LobbyPage() {
             >
               New Game
             </button>
-            {!user?.is_guest && (
-              <button
-                onClick={() => setShowChallenge(true)}
-                className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
-              >
-                <Swords className="w-4 h-4" aria-hidden /> Challenge a friend
-              </button>
-            )}
             <button
               onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
               className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
             >
               Watch
             </button>
-            {!user?.is_guest && (
-              <Link to="/war-room" className="btn-secondary flex items-center gap-2 justify-center sm:flex-none">
-                War Room
-              </Link>
-            )}
             {!user?.is_guest && mapEditorEnabled && (
               <Link to="/editor" className="btn-secondary items-center gap-2 hidden lg:flex">
                 Map Editor
@@ -2105,6 +2148,15 @@ export default function LobbyPage() {
                     )}
                   </div>
                   <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-bf-border bg-bf-surface/95 backdrop-blur md:col-span-2">
+                    {!user?.is_guest && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowCreate(false); setShowChallenge(true); }}
+                        className="mb-2 flex items-center gap-1.5 text-sm text-bf-gold hover:underline"
+                      >
+                        <Swords className="w-4 h-4" aria-hidden /> Playing a friend? Invite them with a private share link →
+                      </button>
+                    )}
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-end">
                       <button
                         type="button"
