@@ -168,10 +168,11 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     ...(extraDefenseBonuses ?? {}),
     total: totalDefenseBonus,
   };
-  // Janissaries (Ottoman): defend with the full 3 dice regardless of garrison size.
-  const janissaries = defenderFaction?.ability_id === 'janissaries';
-  const baseDefenderDice = janissaries ? 3 : Math.min(defendingUnits, 2);
-  let defenderDiceOverride = totalDefenseBonus > 0 || janissaries
+  // Janissaries (Ottoman) is now a once-per-turn pre-combat charge folded in via
+  // `extraDefenseBonuses` (see defenderReactions / executeLandAttack), not an
+  // always-on base — so it can no longer make the Ottoman impregnable from turn 1.
+  const baseDefenderDice = Math.min(defendingUnits, 2);
+  let defenderDiceOverride = totalDefenseBonus > 0
     ? baseDefenderDice + totalDefenseBonus
     : undefined;
   // Anti-fortress cap: clamp the stacked defensive dice to the configured ceiling

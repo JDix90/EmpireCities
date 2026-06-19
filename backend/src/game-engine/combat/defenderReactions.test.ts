@@ -66,12 +66,23 @@ describe('consumeDefenderPreCombatCharges', () => {
     expect(second.greatWallDefenseDice).toBe(0);
   });
 
+  it('janissaries charge is available once per turn (ottoman), not always-on', () => {
+    const d = player({ faction_id: 'ottoman' });
+    const s = state(d, 'discovery');
+    const first = consumeDefenderPreCombatCharges(s, 'd1');
+    expect(first.janissariesActive).toBe(true);
+    expect(d.defensive_charge_used_this_turn).toBe(true);
+    const second = consumeDefenderPreCombatCharges(s, 'd1');
+    expect(second.janissariesActive).toBe(false);
+  });
+
   it('returns no charge for unrelated factions', () => {
     const d = player({ faction_id: 'rome' });
     const s = state(d, 'ancient');
     const r = consumeDefenderPreCombatCharges(s, 'd1');
     expect(r.greekFirePreDamage).toBe(0);
     expect(r.greatWallDefenseDice).toBe(0);
+    expect(r.janissariesActive).toBe(false);
   });
 });
 
@@ -123,5 +134,21 @@ describe('applyDefenderPostCombatReactions', () => {
     expect(result.territory_captured).toBe(false);
     expect(to.unit_count).toBeGreaterThanOrEqual(1);
     expect(d.used_game_abilities).toContain('bourbon_resistance');
+  });
+
+  it('collective_defense costs the attacker +1 unit on the first attack each turn (nato)', () => {
+    const d = player({ faction_id: 'nato_proxy' });
+    const s = state(d, 'coldwar');
+    const from = terr({ territory_id: 'a', owner_id: 'atk', unit_count: 5 });
+    const to = terr({ territory_id: 'b', owner_id: 'd1', unit_count: 3 });
+    const result = combat({ attacker_losses: 1 });
+    applyDefenderPostCombatReactions({ state: s, defenderId: 'd1', fromTerritory: from, toTerritory: to, result });
+    expect(from.unit_count).toBe(4);
+    expect(result.attacker_losses).toBe(2);
+    expect(d.defensive_charge_used_this_turn).toBe(true);
+    // Second attack the same turn: no further toll.
+    const result2 = combat({ attacker_losses: 1 });
+    applyDefenderPostCombatReactions({ state: s, defenderId: 'd1', fromTerritory: from, toTerritory: to, result: result2 });
+    expect(result2.attacker_losses).toBe(1);
   });
 });

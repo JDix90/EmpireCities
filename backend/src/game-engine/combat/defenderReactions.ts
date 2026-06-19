@@ -6,20 +6,21 @@
  * both the human `game:attack` handler and the AI attack loop, so they live here
  * as a single source of truth.
  *
- * Two phases:
- *  - Pre-combat charges (greek_fire, great_wall): consumed once per defender per
- *    attacking-player turn. `defensive_charge_used_this_turn` is reset for every
- *    player in `advanceToNextPlayer`, so each opponent's turn the defender gets a
- *    fresh "first attack against you" charge.
- *  - Post-combat reactions (parting_shot, nuclear_deterrence, bourbon_resistance):
- *    applied after dice are resolved and base losses applied, before the capture
- *    block runs.
+ * Two phases (both gated by `defensive_charge_used_this_turn`, reset for every
+ * player in `advanceToNextPlayer` — so each opponent's turn the defender gets a
+ * fresh "first attack against you" charge):
+ *  - Pre-combat charges (greek_fire, great_wall, janissaries): consumed before dice
+ *    are rolled. janissaries reaches "3 dice regardless of garrison" via an extra
+ *    defense bonus the caller sizes (see executeLandAttack) — it is no longer an
+ *    always-on base in combatModifiers.
+ *  - Post-combat reactions (parting_shot, nuclear_deterrence, bourbon_resistance,
+ *    collective_defense): applied after dice are resolved and base losses applied,
+ *    before the capture block runs.
  *
- * collective_defense (NATO): its mechanical effect used to be nato_proxy's
+ * collective_defense (NATO): the first attack against you each turn costs the
+ * attacker +1 unit (once per turn). This replaced nato_proxy's old always-on
  * `passive_defense_bonus` (+1 defense die), removed to eliminate start-active
- * defensive dice. The ability is currently a no-op pending a proper once-per-turn
- * implementation — its description ("+1 automatic defender loss on the attacker")
- * would fit the post-combat reactions below (cf. parting_shot).
+ * defensive dice.
  */
 import type { CombatResult, GameState, TerritoryState } from '../../types';
 import { getPlayerFaction } from '../eras/factionLineage';
@@ -36,26 +37,36 @@ export interface DefenderPreCombatCharges {
   greekFirePreDamage: number;
   /** Extra defender dice this attack (great_wall). */
   greatWallDefenseDice: number;
+  /** Ottoman janissaries charge available this exchange — the caller sizes the dice
+   *  bonus to reach 3 regardless of garrison (3 - min(units, 2)). */
+  janissariesActive: boolean;
 }
 
 /**
- * Consume the defender's once-per-turn defensive charge (greek_fire / great_wall)
- * if it is available, returning the effects to apply. Mutates the defender's
+ * Consume the defender's once-per-turn pre-combat charge (greek_fire / great_wall /
+ * janissaries) if available, returning the effects to apply. Mutates the defender's
  * `defensive_charge_used_this_turn` flag.
  */
 export function consumeDefenderPreCombatCharges(
   state: GameState,
   defenderId: string | null | undefined,
 ): DefenderPreCombatCharges {
-  const result: DefenderPreCombatCharges = { greekFirePreDamage: 0, greatWallDefenseDice: 0 };
+  const result: DefenderPreCombatCharges = {
+    greekFirePreDamage: 0,
+    greatWallDefenseDice: 0,
+    janissariesActive: false,
+  };
   const abilityId = defenderFactionAbility(state, defenderId);
-  if (abilityId !== 'greek_fire' && abilityId !== 'great_wall') return result;
+  if (abilityId !== 'greek_fire' && abilityId !== 'great_wall' && abilityId !== 'janissaries') {
+    return result;
+  }
 
   const defender = state.players.find((p) => p.player_id === defenderId);
   if (!defender || defender.defensive_charge_used_this_turn) return result;
 
   if (abilityId === 'greek_fire') result.greekFirePreDamage = 1;
   if (abilityId === 'great_wall') result.greatWallDefenseDice = 2;
+  if (abilityId === 'janissaries') result.janissariesActive = true;
   defender.defensive_charge_used_this_turn = true;
   return result;
 }
@@ -110,5 +121,15 @@ export function applyDefenderPostCombatReactions(params: {
     result.territory_captured = false;
     toTerritory.unit_count = Math.max(1, toTerritory.unit_count);
     defender.used_game_abilities = [...(defender.used_game_abilities ?? []), abilityId];
+  }
+
+  // collective_defense (NATO): the first attack against you each opponent turn costs
+  // the attacker +1 unit (once per turn). Replaces the removed always-on
+  // passive_defense_bonus with a gated, theme-matching reaction.
+  if (abilityId === 'collective_defense' && !defender.defensive_charge_used_this_turn) {
+    const extra = Math.min(1, Math.max(0, fromTerritory.unit_count - 1));
+    fromTerritory.unit_count -= extra;
+    result.attacker_losses += extra;
+    defender.defensive_charge_used_this_turn = true;
   }
 }
