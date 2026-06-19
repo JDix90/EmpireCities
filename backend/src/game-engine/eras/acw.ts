@@ -22,7 +22,6 @@ export const ACW_FACTIONS: Faction[] = [
     lore: 'Fighting on familiar ground, the Confederacy leans on interior lines, local commitment, and punishing defensive battles.',
     flavor_quote: 'Make every mile northward cost them twice.',
     home_region_ids: ['confederate_east', 'confederate_central', 'confederate_west'],
-    passive_defense_bonus: 2,
     ability_id: 'southern_defense',
     ability_description: 'Southern Defense: once per turn, fortify any number of units within the South region regardless of adjacency.',
     color: '#c0392b',
