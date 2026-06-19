@@ -36,7 +36,7 @@ const CLIENT_FEATURE_FLAGS = [
   },
 ] as const;
 
-type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'audit';
+type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
@@ -44,8 +44,75 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
+  { key: 'dependencies', label: 'Dependencies', description: 'Services, keys, renewals' },
   { key: 'audit', label: 'Audit', description: 'Admin actions log' },
 ];
+
+// --- Dependencies tab: read-only operational registry (backend: GET /admin/dependencies) ---
+type DependencyStatus = 'expired' | 'due_soon' | 'ok' | 'auto' | 'untracked';
+
+interface DependencyView {
+  id: string;
+  name: string;
+  category: string;
+  provider: string;
+  purpose: string;
+  requiresKey: boolean;
+  keyRef?: string;
+  renewalDate?: string | null;
+  cadence?: string;
+  severity: 'critical' | 'high' | 'normal';
+  autoRenews?: boolean;
+  notes?: string;
+  url?: string;
+  daysUntilRenewal: number | null;
+  status: DependencyStatus;
+}
+
+interface DependencyReport {
+  generated_at: string;
+  warning_window_days: number;
+  items: DependencyView[];
+  summary: { total: number; requires_key: number; expired: number; due_soon: number; untracked: number };
+}
+
+const DEP_CATEGORY_LABELS: Record<string, string> = {
+  domain: 'Domain',
+  infrastructure: 'Infrastructure',
+  datastore: 'Data store',
+  secret: 'Secret',
+  third_party: 'Third-party',
+  email: 'Email',
+};
+
+const DEP_STATUS_PILL: Record<DependencyStatus, string> = {
+  expired: 'bg-red-500/15 text-red-300',
+  due_soon: 'bg-amber-500/15 text-amber-200',
+  ok: 'bg-emerald-500/15 text-emerald-300',
+  auto: 'bg-sky-500/15 text-sky-300',
+  untracked: 'bg-bf-surface text-bf-muted',
+};
+
+const DEP_SEVERITY_CLASS: Record<'critical' | 'high' | 'normal', string> = {
+  critical: 'text-red-300',
+  high: 'text-amber-200',
+  normal: 'text-bf-muted',
+};
+
+function depStatusLabel(d: DependencyView): string {
+  switch (d.status) {
+    case 'expired':
+      return d.daysUntilRenewal != null ? `Expired ${Math.abs(d.daysUntilRenewal)}d ago` : 'Expired';
+    case 'due_soon':
+      return `Due in ${d.daysUntilRenewal}d`;
+    case 'ok':
+      return d.daysUntilRenewal != null ? `OK · ${d.daysUntilRenewal}d` : 'OK';
+    case 'auto':
+      return 'Auto-renews';
+    default:
+      return 'No date set';
+  }
+}
 
 const CHART_COLORS = ['#d5ad36', '#6ea8fe', '#52c49a', '#e67e22', '#9b59b6', '#1abc9c', '#ecf0f1', '#e74c3c'];
 
@@ -200,6 +267,7 @@ export default function AdminPage() {
   const [patchValue, setPatchValue] = useState('{}');
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deps, setDeps] = useState<DependencyReport | null>(null);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -278,6 +346,9 @@ export default function AdminPage() {
         } else if (tab === 'audit') {
           const res = await api.get('/admin/audit-log', { params: { limit: 100 } });
           setAudit(res.data ?? []);
+        } else if (tab === 'dependencies') {
+          const res = await api.get<DependencyReport>('/admin/dependencies');
+          setDeps(res.data ?? null);
         }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
@@ -1130,6 +1201,97 @@ export default function AdminPage() {
               </tbody>
             </table>
             {audit.length === 0 ? <p className="p-4 text-center text-sm text-bf-muted">No audit entries yet.</p> : null}
+          </div>
+        )}
+
+        {!loading && activeTab === 'dependencies' && deps && (
+          <div className="mt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <Kpi label="Dependencies" value={deps.summary.total} />
+              <Kpi label="Require a key" value={deps.summary.requires_key} />
+              <Kpi label="Due soon" value={deps.summary.due_soon} hint={`≤ ${deps.warning_window_days} days`} />
+              <Kpi label="Expired" value={deps.summary.expired} />
+              <Kpi label="Untracked dates" value={deps.summary.untracked} />
+            </div>
+
+            <p className="text-xs leading-relaxed text-bf-muted">
+              Curated registry of external services, infrastructure, and credentials. Renewal dates are
+              hand-maintained in{' '}
+              <span className="font-mono text-[11px] text-bf-text">backend/src/modules/admin/dependencyRegistry.ts</span>
+              {' '}— “No date set” items need a real renewal date added there.
+            </p>
+
+            <div className="overflow-x-auto rounded-xl border border-bf-border">
+              <table className="min-w-full divide-y divide-bf-border text-sm">
+                <thead className="bg-bf-surface/80 text-left text-xs uppercase tracking-wide text-bf-muted">
+                  <tr>
+                    <th className="px-3 py-2">Service</th>
+                    <th className="px-3 py-2">Category</th>
+                    <th className="px-3 py-2">Key / secret</th>
+                    <th className="px-3 py-2">Renewal</th>
+                    <th className="px-3 py-2">Severity</th>
+                    <th className="px-3 py-2">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-bf-border bg-cc-panel/40">
+                  {deps.items.map((d) => (
+                    <tr key={d.id} className="align-top hover:bg-bf-surface/40">
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-bf-text">
+                          {d.url ? (
+                            <a
+                              href={d.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-bf-gold hover:underline"
+                            >
+                              {d.name}
+                            </a>
+                          ) : (
+                            d.name
+                          )}
+                        </div>
+                        <div className="text-xs text-bf-muted">
+                          {d.provider} · {d.purpose}
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-xs text-bf-muted">
+                        {DEP_CATEGORY_LABELS[d.category] ?? d.category}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {d.requiresKey ? (
+                          <span className="font-mono text-[11px] text-amber-200">{d.keyRef ?? 'required'}</span>
+                        ) : (
+                          <span className="text-bf-muted">—</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-xs">
+                        <span
+                          className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${DEP_STATUS_PILL[d.status]}`}
+                        >
+                          {depStatusLabel(d)}
+                        </span>
+                        {d.renewalDate ? (
+                          <div className="mt-1 text-[11px] text-bf-muted">
+                            {d.renewalDate}
+                            {d.cadence ? ` · ${d.cadence}` : ''}
+                          </div>
+                        ) : d.cadence ? (
+                          <div className="mt-1 text-[11px] text-bf-muted">{d.cadence}</div>
+                        ) : null}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-xs">
+                        <span className={DEP_SEVERITY_CLASS[d.severity]}>{d.severity}</span>
+                      </td>
+                      <td className="max-w-xs px-3 py-2 text-[11px] leading-snug text-bf-muted">{d.notes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {deps.items.length === 0 ? (
+                <p className="p-4 text-center text-sm text-bf-muted">Registry is empty.</p>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

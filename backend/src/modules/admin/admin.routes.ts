@@ -16,6 +16,7 @@ import {
   setMatchmakingPaused,
 } from '../matchmaking/matchmaking.routes';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
+import { buildDependencyReport } from './dependencyRegistry';
 
 const DateFilterSchema = z.object({
   from: z.string().optional(),
@@ -94,6 +95,12 @@ const SETTING_TOGGLES = [
 ] as const;
 
 export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
+  // Read-only operational dependency registry (external services, infra, credentials).
+  // Curated in dependencyRegistry.ts; no DB, no mutation, so no audit-log entry.
+  fastify.get('/dependencies', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+    return reply.send(buildDependencyReport());
+  });
+
   fastify.get('/metrics/overview', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
     const parsed = DateFilterSchema.safeParse(request.query ?? {});
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
