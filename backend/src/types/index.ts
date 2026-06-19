@@ -329,6 +329,18 @@ export interface GameSettings {
   /** Anti-steamroll cap: no player may advance more than this many eras ahead of the trailing living player (null = no cap). */
   era_advancement_max_lead?: number | null;
   era_advancement_combat_gap_dice?: number;
+  /**
+   * Combat dice cap (anti-fortress). When enabled, the post-bonus dice count for
+   * each side is clamped to a hard ceiling, so stacked defensive bonuses
+   * (building + wonder + faction + tech + naval bombardment) can't make a
+   * position impregnable to a 3–4× attacker. Off by default (preserves classic
+   * behavior); see backend/scripts/COMBAT-FAIRNESS-AUDIT.md.
+   */
+  combat_dice_cap_enabled?: boolean;
+  /** Max attacker dice after bonuses (clamped to ≥3 base). Default 5 when capping. */
+  combat_max_attacker_dice?: number;
+  /** Max defender dice after bonuses (clamped to ≥2 base). Default 4 when capping. */
+  combat_max_defender_dice?: number;
   /** Per-era cost discount for trailing players (`discount^gap`, clamped to the floor). */
   era_advancement_catchup_discount?: number;
   era_advancement_catchup_discount_floor?: number;

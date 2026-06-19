@@ -174,6 +174,18 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   let defenderDiceOverride = totalDefenseBonus > 0 || janissaries
     ? baseDefenderDice + totalDefenseBonus
     : undefined;
+  // Anti-fortress cap: clamp the stacked defensive dice to the configured ceiling
+  // so building + wonder + faction + tech + bombardment can't make a position
+  // impregnable. Applied before the vulnerability reduction below (the cap is the
+  // ceiling; situational penalties still lower from there). Never drops below the
+  // natural base. Off unless combat_dice_cap_enabled.
+  if (state.settings.combat_dice_cap_enabled && defenderDiceOverride !== undefined) {
+    const maxDefDice = Math.max(baseDefenderDice, state.settings.combat_max_defender_dice ?? 4);
+    if (defenderDiceOverride > maxDefDice) {
+      defenderBonusBreakdown.capped = maxDefDice - defenderDiceOverride;
+      defenderDiceOverride = maxDefDice;
+    }
+  }
   if (
     state.settings.era_advancement_enabled
     && (defenderPlayer?.era_transition_turns_remaining ?? 0) > 0
@@ -239,11 +251,20 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     total: combinedAttackBonus,
   };
 
-  const finalAttackerDiceOverride = structuralAttackerDiceOverride !== undefined
+  let finalAttackerDiceOverride = structuralAttackerDiceOverride !== undefined
     ? structuralAttackerDiceOverride + combinedAttackBonus
     : combinedAttackBonus > 0
       ? Math.min(attackingUnits - 1, 3) + combinedAttackBonus
       : undefined;
+  // Anti-fortress cap (attacker side): symmetric ceiling on stacked attack dice.
+  if (state.settings.combat_dice_cap_enabled && finalAttackerDiceOverride !== undefined) {
+    const baseAtkDice = structuralAttackerDiceOverride ?? Math.min(attackingUnits - 1, 3);
+    const maxAtkDice = Math.max(baseAtkDice, state.settings.combat_max_attacker_dice ?? 5);
+    if (finalAttackerDiceOverride > maxAtkDice) {
+      attackerBonusBreakdown.capped = maxAtkDice - finalAttackerDiceOverride;
+      finalAttackerDiceOverride = maxAtkDice;
+    }
+  }
 
   return {
     finalAttackerDiceOverride,

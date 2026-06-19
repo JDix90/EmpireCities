@@ -47,6 +47,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const stabilityEnabled = typeof raw.stability_enabled === 'boolean' ? raw.stability_enabled : false;
   const territorySelection = typeof raw.territory_selection === 'boolean' ? raw.territory_selection : false;
   const coachingEnabled = typeof raw.coaching_enabled === 'boolean' ? raw.coaching_enabled : false;
+  // Combat dice cap (anti-fortress). Off by default. When on, clamp the configured
+  // ceilings to never drop below the natural base (attacker 3, defender 2) so a
+  // misconfigured low cap can't weaken vanilla combat.
+  const combatDiceCapEnabled = typeof raw.combat_dice_cap_enabled === 'boolean' ? raw.combat_dice_cap_enabled : false;
   const eraDefaults = getDefaultEraAdvancementSettings();
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
@@ -232,6 +236,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     era_advancement_echo_cap_tech: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_echo_cap_tech, eraDefaults.era_advancement_echo_cap_tech)
+      : undefined,
+    // Anti-fortress dice cap — only persisted when explicitly enabled.
+    combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
+    combat_max_attacker_dice: combatDiceCapEnabled
+      ? Math.max(3, Math.floor(numSetting(raw.combat_max_attacker_dice, 5)))
+      : undefined,
+    combat_max_defender_dice: combatDiceCapEnabled
+      ? Math.max(2, Math.floor(numSetting(raw.combat_max_defender_dice, 4)))
       : undefined,
   };
 

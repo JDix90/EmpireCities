@@ -190,6 +190,46 @@ describe('computeLandCombatModifiers', () => {
   });
 });
 
+describe('combat dice cap (anti-fortress)', () => {
+  function capState(maxAtk?: number, maxDef?: number): GameState {
+    const s = baseState();
+    s.settings.combat_dice_cap_enabled = true;
+    if (maxAtk !== undefined) s.settings.combat_max_attacker_dice = maxAtk;
+    if (maxDef !== undefined) s.settings.combat_max_defender_dice = maxDef;
+    return s;
+  }
+  const args = (state: GameState, extra: Record<string, unknown>) => ({
+    state, fromId: 'a', toId: 'b', attackerId: 'p1', defenderId: 'p2',
+    attackingUnits: 10, defendingUnits: 8, connection: landConn, ...extra,
+  });
+
+  it('does NOT cap when the setting is off (default vanilla behavior)', () => {
+    const mods = computeLandCombatModifiers(args(baseState(), { extraDefenseBonuses: { building: 4 } }) as never);
+    expect(mods.defenderDiceOverride).toBe(6); // base 2 + 4, uncapped
+    expect(mods.defenderBonusBreakdown.capped).toBeUndefined();
+  });
+
+  it('clamps stacked defender dice to the ceiling and records the cut', () => {
+    const mods = computeLandCombatModifiers(args(capState(5, 4), { extraDefenseBonuses: { building: 3, wonder: 1, tech: 1 } }) as never);
+    // base 2 + 5 bonus = 7 → capped to 4
+    expect(mods.defenderDiceOverride).toBe(4);
+    expect(mods.defenderBonusBreakdown.capped).toBe(-3);
+  });
+
+  it('clamps stacked attacker dice to the ceiling and records the cut', () => {
+    const mods = computeLandCombatModifiers(args(capState(5, 4), { extraAttackBonuses: { blitzkrieg: 2, era_signature: 2 } }) as never);
+    // base 3 + 4 bonus = 7 → capped to 5
+    expect(mods.finalAttackerDiceOverride).toBe(5);
+    expect(mods.attackerBonusBreakdown.capped).toBe(-2);
+  });
+
+  it('leaves dice under the ceiling untouched (no cap, no breakdown noise)', () => {
+    const mods = computeLandCombatModifiers(args(capState(5, 4), { extraDefenseBonuses: { building: 1 } }) as never);
+    expect(mods.defenderDiceOverride).toBe(3); // base 2 + 1, under the cap of 4
+    expect(mods.defenderBonusBreakdown.capped).toBeUndefined();
+  });
+});
+
 describe('getMarchToSeaBonus', () => {
   it('returns 0 when the ability is not active', () => {
     expect(getMarchToSeaBonus(basePlayer(), 'a')).toBe(0);
