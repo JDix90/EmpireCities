@@ -149,6 +149,24 @@ interface GlobeMapProps {
   reducedEffects?: boolean;
   /** User-controlled globe spin toggle. When false, globe does not auto-rotate. */
   autoSpin?: boolean;
+  /**
+   * User-controlled "Follow the action" toggle. When false, the camera never
+   * auto-recenters on events. Even when true, the recenter yields to active
+   * drag/zoom interaction (see shouldAutoFollow). Default true.
+   */
+  cameraFollow?: boolean;
+  /**
+   * Filled with a callback that flushes the globe's queued animations (the same
+   * action as the on-globe "Skip animations" button). Lets the parent drain the
+   * globe queue as part of a unified "skip everything" handler.
+   */
+  skipAnimationsRef?: React.MutableRefObject<(() => void) | null>;
+  /**
+   * When provided, the on-globe "Skip animations" button calls this instead of
+   * the local globe-only flush — so it can clear the parent's modal/theater
+   * backlog too. Falls back to the local flush when omitted (replay/spectator).
+   */
+  onSkipAll?: () => void;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
   /** Override globe surface texture (defaults to Earth blue marble). */
@@ -642,6 +660,9 @@ function GlobeMap({
   onEventDone,
   reducedEffects = false,
   autoSpin = true,
+  cameraFollow = true,
+  skipAnimationsRef,
+  onSkipAll,
   highlightTerritoryId,
   globeImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg',
   bumpImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png',
@@ -883,6 +904,17 @@ function GlobeMap({
   const regionalGlobeRef = useRef(regionalGlobe);
   regionalGlobeRef.current = regionalGlobe;
 
+  // Mirror the cameraFollow prop into a ref so the per-animation guard
+  // (shouldAutoFollow) can read the latest value without becoming a dependency
+  // of every animation useCallback.
+  const cameraFollowPropRef = useRef(cameraFollow);
+  cameraFollowPropRef.current = cameraFollow;
+  // True while the user is actively driving the camera (drag / wheel / pinch),
+  // plus a short cooldown after they let go — so a queued animation never yanks
+  // the view out from under them.
+  const userInteractingRef = useRef(false);
+  const lastInteractionAtRef = useRef(0);
+
   /** Galaxy drill-down: prefer each world's authored void color (parent may already pass it). */
   const effectiveBackgroundColor = useMemo(() => {
     if (mapData.map_kind !== 'galaxy' || !mapData.worlds?.length) return backgroundColor;
@@ -943,6 +975,51 @@ function GlobeMap({
       }
     }, 2500);
   }, [reducedEffects, autoSpin]);
+
+  // How long after the user stops dragging/zooming before auto-follow may move
+  // the camera again. Matches the auto-rotate resume delay so the globe settles
+  // before either kicks back in.
+  const FOLLOW_INTERACTION_COOLDOWN_MS = 2500;
+
+  /**
+   * Whether a queued animation is allowed to recenter the camera right now.
+   * Replaces the bare `!lockRotation` guard at every animation site so the new
+   * rules live in one place:
+   *  - regional/locked maps never pan (unchanged behavior),
+   *  - the "Follow the action" preference can fully disable it,
+   *  - and it always yields while the user is interacting or just did.
+   */
+  const shouldAutoFollow = useCallback(() => {
+    if (regionalGlobeRef.current.lockRotation) return false;
+    if (!cameraFollowPropRef.current) return false;
+    if (userInteractingRef.current) return false;
+    if (Date.now() - lastInteractionAtRef.current < FOLLOW_INTERACTION_COOLDOWN_MS) return false;
+    return true;
+  }, []);
+
+  // Track active camera interaction via OrbitControls' own start/end events
+  // (fired for mouse drag, wheel zoom, and touch pinch). This is the library-
+  // native "the user is driving the camera" signal — distinct from the wrapper
+  // pointer handlers below, which only disambiguate tap-vs-drag for clicks.
+  useEffect(() => {
+    const ctrl = globeRef.current?.controls?.();
+    if (!ctrl?.addEventListener) return;
+    const onStart = () => {
+      userInteractingRef.current = true;
+      pauseAutoRotate();
+    };
+    const onEnd = () => {
+      userInteractingRef.current = false;
+      lastInteractionAtRef.current = Date.now();
+      scheduleAutoRotateResume();
+    };
+    ctrl.addEventListener('start', onStart);
+    ctrl.addEventListener('end', onEnd);
+    return () => {
+      ctrl.removeEventListener('start', onStart);
+      ctrl.removeEventListener('end', onEnd);
+    };
+  }, [globeReadyTick, pauseAutoRotate, scheduleAutoRotateResume]);
 
   // Regional maps: fixed camera, no idle spin; world maps: rotate when not in combat anim
   useEffect(() => {
@@ -1055,7 +1132,7 @@ function GlobeMap({
     if (!center) { playNextRef.current(); return; }
 
     pauseAutoRotate();
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       panCamera(center.lat, center.lng, 1.5);
     }
 
@@ -1107,7 +1184,7 @@ function GlobeMap({
     pauseAutoRotate();
 
     // World maps: frame the action. Regional (locked) maps: keep the user’s camera.
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       if (sourceCenter) {
         const view = cameraViewForTwo(sourceCenter, targetCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -1237,7 +1314,7 @@ function GlobeMap({
 
     pauseAutoRotate();
 
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       if (srcCenter) {
         const view = cameraViewForTwo(srcCenter, destCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -1317,7 +1394,7 @@ function GlobeMap({
     }
 
     pauseAutoRotate();
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       panCamera(targetCenter.lat, targetCenter.lng, abilityId === 'atom_bomb' ? 2.0 : 1.7);
     }
     startPolygonStrikeFlash(event.territoryId, abilityId);
@@ -1696,7 +1773,7 @@ function GlobeMap({
     if (!targetCenter) { playNextRef.current(); return; }
 
     pauseAutoRotate();
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       if (sourceCenter) {
         const view = cameraViewForTwo(sourceCenter, targetCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -1797,7 +1874,7 @@ function GlobeMap({
 
     const blocked = event.variant === 'blocked';
     pauseAutoRotate();
-    if (!regionalGlobeRef.current.lockRotation) {
+    if (shouldAutoFollow()) {
       panCamera(targetCenter.lat, targetCenter.lng, 1.6);
     }
 
@@ -1875,7 +1952,7 @@ function GlobeMap({
 
     const focusId = affected[0]?.territory_id ?? event.territoryId;
     const focus = focusId && focusId !== '__global__' ? centers.get(focusId) : null;
-    if (focus && !regionalGlobeRef.current.lockRotation) {
+    if (focus && shouldAutoFollow()) {
       panCamera(focus.lat, focus.lng, mode === 'global_disaster' ? 2.2 : 1.8);
     }
 
@@ -2033,7 +2110,7 @@ function GlobeMap({
     const sortedIds = sortTerritoryIdsByLatLng(territoryIds, centers, event.territoryId);
 
     const focus = centers.get(event.territoryId);
-    if (focus && !regionalGlobeRef.current.lockRotation) {
+    if (focus && shouldAutoFollow()) {
       panCamera(focus.lat, focus.lng, 1.5);
     }
 
@@ -2191,6 +2268,17 @@ function GlobeMap({
     scheduleAutoRotateResume();
     flushAnimationUi();
   }, [onEventDone, scheduleAutoRotateResume, flushAnimationUi]);
+
+  // Expose the globe flush to the parent (resetViewRef pattern) so a unified
+  // "skip everything" handler can drain the globe queue alongside the modal /
+  // theater backlogs.
+  useEffect(() => {
+    if (!skipAnimationsRef) return;
+    skipAnimationsRef.current = skipRemainingAnimations;
+    return () => {
+      if (skipAnimationsRef) skipAnimationsRef.current = null;
+    };
+  }, [skipAnimationsRef, skipRemainingAnimations]);
 
   const showSkipAnimations =
     !previewMode && animationUi.playing && animationUi.backlog > 0;
@@ -2915,8 +3003,8 @@ function GlobeMap({
       {showSkipAnimations && (
         <button
           type="button"
-          onClick={skipRemainingAnimations}
-          title="Skip queued globe animations (current one ends immediately)"
+          onClick={onSkipAll ?? skipRemainingAnimations}
+          title="Skip queued animations (battles, reinforcements, and the current one end immediately)"
           className="absolute top-4 right-4 z-30 pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg
             bg-[rgba(18,22,35,0.92)] border border-bf-gold/45 text-bf-gold text-sm font-medium shadow-lg
             hover:bg-bf-gold/10 hover:border-bf-gold/70 transition-colors backdrop-blur-sm"

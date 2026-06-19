@@ -3,7 +3,7 @@ import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
-import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle } from 'lucide-react';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle, FastForward } from 'lucide-react';
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
@@ -199,6 +199,25 @@ export type ModalData =
   | ResignModalData
   | DraftSummaryModalData;
 
+/**
+ * Pivotal modals that "Skip all" must NOT discard — the player needs to see and
+ * acknowledge them. Everything else (ordinary combat recaps, turn summaries) is
+ * safe to drop when clearing the backlog. Losing your capital is a combat modal
+ * but is flagged critical so it always surfaces (matches the lite-mode rule).
+ */
+export function isCriticalModal(data: ModalData): boolean {
+  if (
+    data.type === 'game_over' ||
+    data.type === 'elimination' ||
+    data.type === 'resign_confirm' ||
+    data.type === 'draft_summary'
+  ) {
+    return true;
+  }
+  if (data.type === 'combat' && data.result.capitalLost) return true;
+  return false;
+}
+
 export interface NotificationData {
   type: 'reinforce' | 'fortify' | 'phase_change';
   text: string;
@@ -289,6 +308,9 @@ export function CombatResultView({
   repeatAttack,
   onRepeatAttack,
   autoAdvance = false,
+  hurry = false,
+  onSkipAll,
+  backlogCount = 0,
 }: {
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
@@ -297,9 +319,17 @@ export function CombatResultView({
   onRepeatAttack?: () => void;
   /** Auto-dismiss after the dice settle plus a short read window (theater mode). */
   autoAdvance?: boolean;
+  /** Backlog is deep: shorten the auto-advance dwell so the pile drains faster. */
+  hurry?: boolean;
+  /** Clear the entire animation backlog in one action (combat modals + theater + globe). */
+  onSkipAll?: () => void;
+  /** How many items are piled up; gates the "Skip all" button. */
+  backlogCount?: number;
 }) {
   const [showResult, setShowResult] = useState(false);
-  const fast = getFastCombat();
+  // A deep backlog drains at fast-combat speed even if the player hasn't opted
+  // into fast combat globally — keeps incoming-attack piles from dragging.
+  const fast = getFastCombat() || hurry;
 
   useEffect(() => {
     hapticImpact(ImpactStyle.Light);
@@ -523,16 +553,31 @@ export function CombatResultView({
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
-                       text-white font-medium transition-all duration-200
-                       flex items-center justify-center gap-2 group"
-          >
-            Continue
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
+                         text-white font-medium transition-all duration-200
+                         flex items-center justify-center gap-2 group"
+            >
+              Continue
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+            {/* Backlog relief valve: one click clears the whole pile. Hidden on a
+                lost-capital modal (that one must be acknowledged, not skipped). */}
+            {onSkipAll && backlogCount > 1 && !result.capitalLost && (
+              <button
+                type="button"
+                onClick={onSkipAll}
+                className="w-full mt-2 py-2 rounded-xl text-white/45 hover:text-white/80 text-sm
+                           transition-colors flex items-center justify-center gap-1.5"
+              >
+                <FastForward className="w-3.5 h-3.5" />
+                Skip all ({backlogCount})
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1750,6 +1795,10 @@ interface ActionModalProps {
   onChallengeFriend?: () => void;
   /** Guest viewers only: leave the game cleanly and open the account-upgrade page. */
   onUpgradeAccount?: () => void;
+  /** Clear the whole animation backlog at once (combat modals + theater + globe). */
+  onSkipAll?: () => void;
+  /** Total queued items; gates the in-modal "Skip all" button (shown when > 1). */
+  backlogCount?: number;
   mapNameLookup?: MapNameLookup | null;
   players?: Array<{ player_id: string; username: string }>;
 }
@@ -1763,6 +1812,8 @@ export default function ActionModal({
   onWatchReplay,
   onChallengeFriend,
   onUpgradeAccount,
+  onSkipAll,
+  backlogCount = 0,
   mapNameLookup,
   players,
 }: ActionModalProps) {
@@ -1814,6 +1865,8 @@ export default function ActionModal({
                   }
                 : undefined
             }
+            onSkipAll={onSkipAll}
+            backlogCount={backlogCount}
           />
         )}
         {data.type === 'turn_summary' && (

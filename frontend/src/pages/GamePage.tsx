@@ -44,7 +44,7 @@ import {
   type StrikeAnimationEvent,
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, isCriticalModal } from '../components/game/ActionModal';
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
@@ -93,6 +93,7 @@ import {
   persistMapView,
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
+  getCameraFollowPreference,
   isLiteMode,
   persistLiteMode,
   getConnectionHintPreference,
@@ -404,6 +405,7 @@ export default function GamePage() {
     tagline: string;
   } | null>(null);
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
+  const [cameraFollowEnabled, setCameraFollowEnabled] = useState(getCameraFollowPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
   const [connectionHintPreference, setConnectionHintPreference] = useState<ConnectionHintPreference>(
@@ -415,6 +417,8 @@ export default function GamePage() {
   const [territorySheetSnap, setTerritorySheetSnap] = useState<SheetSnap>('half');
   const mapDataRef = useRef<MapData | null>(null);
   const resetViewRef = useRef<(() => void) | null>(null);
+  /** Filled by GlobeMap; flushes the globe's queued animations. */
+  const skipGlobeAnimationsRef = useRef<(() => void) | null>(null);
 
   // Active interaction HUD pill
   const activeInteractionLabel = useMemo(() => {
@@ -436,6 +440,7 @@ export default function GamePage() {
 
   useEffect(() => subscribeUserPreferences(() => {
     setGlobeSpinEnabled(getGlobeSpinPreference());
+    setCameraFollowEnabled(getCameraFollowPreference());
     setLiteModeEnabled(isLiteMode());
     setConnectionHintPreference(getConnectionHintPreference());
   }), []);
@@ -867,6 +872,19 @@ export default function GamePage() {
 
   const dismissModal = useCallback(() => {
     setModalQueue(prev => prev.slice(1));
+  }, []);
+
+  /**
+   * One action to clear the whole animation backlog: flush the globe's queued
+   * animations, drop all incoming-attack theater cards, and dismiss every
+   * non-critical modal (keeping capital loss / game over / elimination / resign
+   * / draft so the player still acknowledges them). Wired to the on-globe "Skip
+   * animations" button, the ActionModal "Skip all", and the theater "+N more".
+   */
+  const skipAllBacklog = useCallback(() => {
+    skipGlobeAnimationsRef.current?.();
+    setDefenderTheaterQueue([]);
+    setModalQueue(prev => prev.filter(isCriticalModal));
   }, []);
 
   const showNotification = useCallback((data: NotificationData) => {
@@ -3464,6 +3482,9 @@ export default function GamePage() {
                         onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
                         autoSpin={globeSpinEnabled}
+                        cameraFollow={cameraFollowEnabled}
+                        skipAnimationsRef={skipGlobeAnimationsRef}
+                        onSkipAll={skipAllBacklog}
                         onGlobeReady={handleGlobeReady}
                         highlightTerritoryId={tutorialHighlightId}
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
@@ -3598,6 +3619,7 @@ export default function GamePage() {
           <DefenderBattleTheater
             queue={defenderTheaterQueue}
             onAdvance={() => setDefenderTheaterQueue(q => q.slice(1))}
+            onSkipAll={skipAllBacklog}
           />
 
           {/* One-time game-start briefing: turn order + starting resources */}
@@ -4142,6 +4164,8 @@ export default function GamePage() {
         onWatchReplay={handleWatchReplay}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
         onUpgradeAccount={user?.is_guest ? handleGameOverUpgrade : undefined}
+        onSkipAll={skipAllBacklog}
+        backlogCount={modalQueue.length + defenderTheaterQueue.length}
         mapNameLookup={mapData}
         players={gameState?.players}
       />

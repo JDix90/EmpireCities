@@ -2,8 +2,11 @@ name: CI
 on:
   push:
     branches: [main]
+  # Run for every PR regardless of base branch. Restricting to `branches: [main]`
+  # meant stacked PRs (opened against another PR's branch) got no checks until
+  # their base was retargeted to main — and a base change doesn't re-fire the
+  # trigger, leaving the required checks stuck "Expected, never reported".
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 # Superseded runs on the same branch are wasted compute — cancel them.

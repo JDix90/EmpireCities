@@ -33,6 +33,8 @@ import {
   setMapViewPreference,
   getGlobeSpinPreference,
   setGlobeSpinPreference,
+  getCameraFollowPreference,
+  setCameraFollowPreference,
   isLiteMode,
   setLiteMode,
   getConnectionHintPreference,
@@ -68,6 +70,7 @@ export default function SettingsPage() {
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
   const [mapView, setMapView] = useState<MapViewPreference>(getInitialMapView);
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
+  const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const [liteMode, setLiteModeState] = useState(isLiteMode);
   const [connectionHints, setConnectionHints] = useState<ConnectionHintPreference>(getConnectionHintPreference);
   const [sfxVolume, setSfxVolumeState] = useState(getSfxVolume);
@@ -88,6 +91,7 @@ export default function SettingsPage() {
     setFastCombat(getFastCombatPreference());
     setMapView(getInitialMapView());
     setGlobeSpin(getGlobeSpinPreference());
+    setCameraFollow(getCameraFollowPreference());
     setLiteModeState(isLiteMode());
     setConnectionHints(getConnectionHintPreference());
     setSfxVolumeState(getSfxVolume());
@@ -273,6 +277,19 @@ export default function SettingsPage() {
                 onChange={(checked) => {
                   setGlobeSpin(checked);
                   setGlobeSpinPreference(checked);
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Follow the action"
+              description="Recenter the globe on battles and reinforcements (always pauses while you're dragging)"
+            >
+              <SettingsToggle
+                label="Follow the action"
+                checked={cameraFollow}
+                onChange={(checked) => {
+                  setCameraFollow(checked);
+                  setCameraFollowPreference(checked);
                 }}
               />
             </SettingsRow>

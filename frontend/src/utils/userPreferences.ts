@@ -6,6 +6,7 @@ export type FriendRequestsPolicy = 'everyone' | 'friends_of_friends' | 'nobody';
 
 const FAST_COMBAT_KEY = 'cc-fast-combat';
 const GLOBE_SPIN_KEY = 'cc-globe-spin';
+const CAMERA_FOLLOW_KEY = 'cc-camera-follow';
 const LITE_MODE_KEY = 'cc-lite-mode';
 const MAP_VIEW_KEY = 'cc-preferred-map-view';
 const CONNECTION_HINTS_KEY = 'cc-connection-hints';
@@ -95,6 +96,21 @@ export function getGlobeSpinPreference(): boolean {
 
 export function setGlobeSpinPreference(enabled: boolean): void {
   writeBool(GLOBE_SPIN_KEY, enabled);
+}
+
+// ── Camera follow ─────────────────────────────────────────────────────────────
+
+/**
+ * Whether the globe auto-recenters on battles/events. Default ON. The recenter
+ * additionally yields to active user interaction (see GlobeMap's shouldAutoFollow),
+ * so this is the full opt-out, not the only thing that prevents the camera moving.
+ */
+export function getCameraFollowPreference(): boolean {
+  return readBool(CAMERA_FOLLOW_KEY, true);
+}
+
+export function setCameraFollowPreference(enabled: boolean): void {
+  writeBool(CAMERA_FOLLOW_KEY, enabled);
 }
 
 // ── Lite / reduced effects ──────────────────────────────────────────────────
@@ -219,6 +235,7 @@ export function applyAccessibilityDomPrefs(): void {
 // ── Backward-compatible aliases (device.ts consumers) ─────────────────────────
 
 export const persistGlobeSpinPreference = setGlobeSpinPreference;
+export const persistCameraFollowPreference = setCameraFollowPreference;
 export const persistLiteMode = setLiteMode;
 export const persistMapView = setMapViewPreference;
 export const persistConnectionHintPreference = setConnectionHintPreference;
