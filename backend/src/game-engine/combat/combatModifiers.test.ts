@@ -127,7 +127,7 @@ describe('computeLandCombatModifiers', () => {
     expect(mods.finalAttackerDiceOverride).toBe(3);
   });
 
-  it('janissaries defend with 3 dice regardless of a small garrison', () => {
+  it('janissaries is no longer an always-on base here (gated once-per-turn upstream)', () => {
     const state = baseState({
       settings: {
         fog_of_war: false, turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: true,
@@ -139,17 +139,22 @@ describe('computeLandCombatModifiers', () => {
         basePlayer({ player_id: 'p2', player_index: 1, username: 'Defender', faction_id: 'ottoman' }),
       ],
     });
-    const mods = computeLandCombatModifiers({
-      state,
-      fromId: 'a',
-      toId: 'b',
-      attackerId: 'p1',
-      defenderId: 'p2',
-      attackingUnits: 5,
-      defendingUnits: 1, // would normally roll only 1 die
-      connection: landConn,
+    // Without the once-per-turn janissaries charge (passed via extraDefenseBonuses by
+    // executeLandAttack), an Ottoman defender gets no passive override — base dice only.
+    const passive = computeLandCombatModifiers({
+      state, fromId: 'a', toId: 'b', attackerId: 'p1', defenderId: 'p2',
+      attackingUnits: 5, defendingUnits: 1, connection: landConn,
     });
-    expect(mods.defenderDiceOverride).toBe(3);
+    expect(passive.defenderDiceOverride).toBeUndefined();
+
+    // When the charge is active, the caller sizes it to reach 3 dice regardless of
+    // garrison (here a 1-unit garrison: 3 - min(1,2) = +2) and it folds in normally.
+    const charged = computeLandCombatModifiers({
+      state, fromId: 'a', toId: 'b', attackerId: 'p1', defenderId: 'p2',
+      attackingUnits: 5, defendingUnits: 1, connection: landConn,
+      extraDefenseBonuses: { janissaries: 2 },
+    });
+    expect(charged.defenderDiceOverride).toBe(3);
   });
 
   it('adds defender dice from extra defense bonuses (truce break)', () => {

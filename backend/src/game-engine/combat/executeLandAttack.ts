@@ -84,6 +84,11 @@ export function executeLandAttack(
   if (defReactions.greekFirePreDamage > 0) {
     from.unit_count = Math.max(1, from.unit_count - defReactions.greekFirePreDamage);
   }
+  // Janissaries (once per turn): size the bonus so the defender reaches 3 dice
+  // regardless of garrison size (3 - base, where base = min(units, 2)).
+  const janissariesBonus = defReactions.janissariesActive
+    ? Math.max(0, 3 - Math.min(to.unit_count, 2))
+    : 0;
 
   const { finalAttackerDiceOverride, defenderDiceOverride, attackerBonusBreakdown, defenderBonusBreakdown } =
     computeLandCombatModifiers({
@@ -104,6 +109,7 @@ export function executeLandAttack(
       extraDefenseBonuses: {
         ...(opts.extraDefenseBonuses ?? {}),
         great_wall: defReactions.greatWallDefenseDice,
+        janissaries: janissariesBonus,
       },
     });
 
