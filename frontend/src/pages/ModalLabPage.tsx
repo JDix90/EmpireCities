@@ -4,10 +4,21 @@ import Modal from '../components/ui/Modal';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
 import ActionModal from '../components/game/ActionModal';
+import TutorialOverlay, { type TutorialStep } from '../components/game/TutorialOverlay';
 import type { CombatResult } from '../store/gameStore';
 import type { GameState } from '../store/gameStore';
 
-type LabModal = 'create' | 'event' | 'tech' | 'combat' | null;
+type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | null;
+
+// Mirrors the live "Launch an Attack!" coaching beat, used to verify the
+// tutorial popup yields to the combat result modal instead of covering it.
+const mockTutorialAttackStep: TutorialStep = {
+  id: 'attack',
+  title: 'Launch an Attack!',
+  message: 'Try attacking an adjacent enemy territory now. Attack as many times as you like — or skip straight to fortify.',
+  hint: "When you're done attacking, click the gold **Begin Fortify →** button to continue.",
+  requireAction: 'end_phase',
+};
 
 // Worst-case stacked-bonus battle: many extra dice on both sides, used to
 // verify the combat dice row stays inside the modal (wraps + scales down).
@@ -147,6 +158,7 @@ export default function ModalLabPage() {
           <button type="button" className="btn-primary" onClick={() => setActiveModal('event')}>Open event modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('tech')}>Open tech modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat')}>Open combat modal</button>
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('combat-tutorial')}>Combat + tutorial</button>
         </div>
 
         <div className="card space-y-3">
@@ -156,6 +168,7 @@ export default function ModalLabPage() {
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=event">/__modal-lab?modal=event</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=tech">/__modal-lab?modal=tech</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=combat">/__modal-lab?modal=combat</a></li>
+            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=combat-tutorial">/__modal-lab?modal=combat-tutorial</a></li>
           </ul>
         </div>
       </div>
@@ -206,6 +219,25 @@ export default function ModalLabPage() {
           data={{ type: 'combat', result: mockCombatResult, perspective: 'attacker' }}
           onDismiss={() => setActiveModal(null)}
         />
+      )}
+
+      {activeModal === 'combat-tutorial' && (
+        <>
+          <ActionModal
+            data={{ type: 'combat', result: mockCombatResult, perspective: 'attacker' }}
+            onDismiss={() => setActiveModal(null)}
+          />
+          <TutorialOverlay
+            steps={[mockTutorialAttackStep]}
+            stepIndex={0}
+            lessonModule="core"
+            onAdvance={() => undefined}
+            onContinuePlaying={() => undefined}
+            onReturnToLobby={() => undefined}
+            onExitTutorial={() => setActiveModal(null)}
+            behindModal
+          />
+        </>
       )}
     </div>
   );
