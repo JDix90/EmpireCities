@@ -436,6 +436,11 @@ export default function LobbyPage() {
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
   const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
+  // Anti-fortress combat dice cap (experimental, off by default). See
+  // backend/scripts/COMBAT-FAIRNESS-AUDIT.md.
+  const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(false);
+  const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
+  const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
 
   useEffect(() => {
     if (selectedEra !== 'ancient') setEraAdvancementEnabled(false);
@@ -809,6 +814,9 @@ export default function LobbyPage() {
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
+        combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
+        combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
+        combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
       if (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient') {
         settings.economy_enabled = true;
@@ -2010,6 +2018,50 @@ export default function LobbyPage() {
                             )}
                           </div>
                         )}
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                          <FeatureTooltip text="Experimental: cap the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. Off = classic rules." />
+                          <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
+                            <input
+                              id="create-game-combat-dice-cap"
+                              type="checkbox"
+                              checked={combatDiceCapEnabled}
+                              onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
+                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                            />
+                            <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress · experimental)</span></span>
+                          </label>
+                          {combatDiceCapEnabled && (
+                            <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                              <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                Max attacker dice
+                                <input
+                                  type="number"
+                                  min={3}
+                                  max={7}
+                                  value={combatMaxAttackerDice}
+                                  onChange={(e) => setCombatMaxAttackerDice(Math.max(3, Math.min(7, Number(e.target.value) || 5)))}
+                                  className="input w-16 py-1"
+                                  data-testid="combat-max-attacker-dice"
+                                />
+                              </label>
+                              <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                Max defender dice
+                                <input
+                                  type="number"
+                                  min={2}
+                                  max={6}
+                                  value={combatMaxDefenderDice}
+                                  onChange={(e) => setCombatMaxDefenderDice(Math.max(2, Math.min(6, Number(e.target.value) || 4)))}
+                                  className="input w-16 py-1"
+                                  data-testid="combat-max-defender-dice"
+                                />
+                              </label>
+                              <p className="basis-full text-[11px] text-bf-muted/80 mt-0.5">
+                                Defaults 5 / 4. Lower the defender cap for more attackable fortresses.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   <div className="md:col-span-2">
