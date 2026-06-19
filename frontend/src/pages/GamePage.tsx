@@ -4270,6 +4270,7 @@ export default function GamePage() {
             gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
           )}
           centered={isTutorialStepCentered(tutorialSteps[tutorialStep])}
+          behindModal={!!modalQueue[0]}
         />
       )}
 

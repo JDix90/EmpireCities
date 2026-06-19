@@ -50,6 +50,15 @@ interface TutorialOverlayProps {
   /** Human-readable name of the local player's color (fills {playerColor} in step copy). */
   playerColorName?: string;
   centered?: boolean;
+  /**
+   * A blocking ActionModal (combat result, turn summary, …) is open. When true
+   * the coaching popup drops behind that modal's dimming backdrop so it never
+   * covers the modal's action buttons; it re-emerges once the modal is
+   * dismissed. Combat results are the common collision (the popup docks
+   * bottom-center, right where the result modal's Continue/Attack-again buttons
+   * sit).
+   */
+  behindModal?: boolean;
 }
 
 export default function TutorialOverlay({
@@ -68,6 +77,7 @@ export default function TutorialOverlay({
   onSkipToEnd,
   playerColorName,
   centered = false,
+  behindModal = false,
 }: TutorialOverlayProps) {
   const step = steps[stepIndex];
   const [whyOpen, setWhyOpen] = useState(false);
@@ -83,7 +93,14 @@ export default function TutorialOverlay({
   };
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none" data-testid="tutorial-overlay">
+    <div
+      className={clsx(
+        'fixed inset-0 pointer-events-none',
+        // Sit behind an open blocking modal so its buttons stay visible/clickable.
+        behindModal ? 'z-40' : 'z-50',
+      )}
+      data-testid="tutorial-overlay"
+    >
       {!step.requireAction && (
         <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
       )}
