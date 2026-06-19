@@ -9,6 +9,25 @@
 5. **Smoke:** `./scripts/smoke-production.sh https://your-domain` — checks `/health` and `/ready`.
 6. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
 
+### Deploy key (private repo access)
+
+The repo (`JDix90/EmpireCities`) is **private**, so the app host pulls it with a **read-only GitHub deploy key** — scoped to this one repo, no write access. One-time setup on the host:
+
+1. **Generate a dedicated key:** `ssh-keygen -t ed25519 -C "borderfall-droplet-deploy" -f ~/.ssh/borderfall_deploy -N ""` (`-N ""` = no passphrase, so automated deploys never prompt).
+2. **Add the public key** (`cat ~/.ssh/borderfall_deploy.pub`) at **GitHub → repo → Settings → Deploy keys → Add deploy key**. Leave **"Allow write access" unchecked** — that's what makes it read-only.
+3. **Route GitHub SSH to the key** — append to `~/.ssh/config`, then `chmod 600 ~/.ssh/config ~/.ssh/borderfall_deploy`:
+   ```
+   Host github.com
+     HostName github.com
+     User git
+     IdentityFile ~/.ssh/borderfall_deploy
+     IdentitiesOnly yes
+   ```
+4. **Point the repo at the SSH remote:** `git remote set-url origin git@github.com:JDix90/EmpireCities.git`
+5. **Verify:** `ssh -T git@github.com` (greets with the repo name) then `git fetch origin && git pull`.
+
+A deploy key binds to **one repo**, so a host compromise exposes read-only access to just this repo and **cannot** push or reach anything else in the account. Remove any stale HTTPS token (`~/.git-credentials`) so the key is the only path in.
+
 ### Web launch sequence
 
 1. **Staging** — same stack on a subdomain; run [LAUNCH_QA_SIGNOFF.md](LAUNCH_QA_SIGNOFF.md) gates A–G.
