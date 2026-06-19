@@ -26,6 +26,8 @@ interface EraDefinition {
   territoryCount: number;
   summary: string;
   suggestedPlayers: string;
+  /** Per-era glyph so cards read as distinct maps, not 16 identical placeholders. */
+  icon?: string;
 }
 
 const ERAS: EraDefinition[] = [
@@ -181,8 +183,33 @@ const COMMUNITY_REGIONAL_ERAS: EraDefinition[] = REGIONAL_MAPS.map((rm) => ({
   suggestedPlayers: '2–4 players',
 }));
 
-const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global');
-const REGIONAL_ERAS = [...ERAS.filter((e) => e.scope === 'regional'), ...COMMUNITY_REGIONAL_ERAS];
+/** Themed glyph per built-in era, keyed by id. Falls back to the map emoji. */
+const ERA_ICONS: Record<string, string> = {
+  ancient: '🏛️',
+  medieval: '🏰',
+  discovery: '⛵',
+  ww2: '✈️',
+  coldwar: '☢️',
+  modern: '🌐',
+  acw: '🎖️',
+  risorgimento: '🇮🇹',
+  space_age: '🚀',
+  galaxy_age: '🌌',
+};
+
+/** Community maps are data-driven (no fixed ids) — vary their glyphs by position. */
+const COMMUNITY_ICON_POOL = ['🧭', '🌊', '🏔️', '🏝️', '🗿', '🏯', '🐎', '⚓'];
+
+const withIcon = (e: EraDefinition, fallback: string): EraDefinition => ({
+  ...e,
+  icon: ERA_ICONS[e.id] ?? fallback,
+});
+
+const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global').map((e) => withIcon(e, '🗺️'));
+const REGIONAL_ERAS = [
+  ...ERAS.filter((e) => e.scope === 'regional').map((e) => withIcon(e, '🗺️')),
+  ...COMMUNITY_REGIONAL_ERAS.map((e, i) => withIcon(e, COMMUNITY_ICON_POOL[i % COMMUNITY_ICON_POOL.length])),
+];
 
 const FEATURES = [
   { icon: Globe,  title: 'Eras Across Time',         desc: 'Fight from ancient kingdoms through world wars to galactic fronts — each era with its own map, factions, and rules.' },
@@ -242,7 +269,7 @@ function EraDetailModal({
           className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl"
           style={{ backgroundColor: era.color + '33', border: `2px solid ${era.color}` }}
         >
-          🗺️
+          {era.icon ?? '🗺️'}
         </div>
 
         <h4 id="era-modal-title" className="font-display text-2xl text-bf-gold text-center mb-1">
@@ -295,7 +322,7 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
         className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl"
         style={{ backgroundColor: era.color + '33', border: `2px solid ${era.color}` }}
       >
-        🗺️
+        {era.icon ?? '🗺️'}
       </div>
       <p className="font-display text-sm text-bf-gold group-hover:text-white transition-colors">{era.label}</p>
       <p className="text-xs text-bf-muted mt-1">{era.years}</p>
@@ -327,25 +354,25 @@ function GetStartedModal({
       >
         <p id="get-started-title" className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
         <p className="text-bf-muted text-sm text-center mb-6">
-          Create a free account to save progress and climb the leaderboards, or jump straight in as a guest.
+          Jump straight in as a guest — no signup needed. Or create a free account to save your progress and climb the leaderboards.
         </p>
 
         <div className="flex flex-col gap-3">
-          <Link
-            to="/register"
-            className="btn-primary py-3 text-base text-center"
-            onClick={onClose}
-          >
-            Create Free Account
-          </Link>
           <button
             type="button"
             disabled={guestLoading}
             onClick={onGuest}
-            className="btn-secondary py-3 text-base disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn-primary py-3 text-base disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {guestLoading ? 'Starting…' : 'Play as Guest'}
           </button>
+          <Link
+            to="/register"
+            className="btn-secondary py-3 text-base text-center"
+            onClick={onClose}
+          >
+            Create Free Account
+          </Link>
         </div>
 
         <p className="text-center text-xs text-bf-muted mt-4">
@@ -429,7 +456,7 @@ export default function LandingPage() {
           {TAGLINE_PRIMARY}
         </p>
         <p className="text-bf-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
-          {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI — free in your browser.
+          {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
           <button
@@ -443,6 +470,24 @@ export default function LandingPage() {
             Learn to play
           </Link>
           <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>
+        </div>
+      </section>
+
+      {/* Features — value prop before the era catalog so a stranger learns why to play before browsing maps */}
+      <section className="py-16 px-6 max-w-6xl mx-auto">
+        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Why {APP_NAME}?</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="card flex gap-4">
+              <div className="shrink-0">
+                <f.icon className="w-8 h-8 text-bf-gold" />
+              </div>
+              <div>
+                <h4 className="font-display text-lg text-bf-gold mb-2">{f.title}</h4>
+                <p className="text-bf-muted text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -495,24 +540,6 @@ export default function LandingPage() {
         />
       )}
 
-      {/* Features */}
-      <section className="py-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Why {APP_NAME}?</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="card flex gap-4">
-              <div className="shrink-0">
-                <f.icon className="w-8 h-8 text-bf-gold" />
-              </div>
-              <div>
-                <h4 className="font-display text-lg text-bf-gold mb-2">{f.title}</h4>
-                <p className="text-bf-muted text-sm leading-relaxed">{f.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="py-20 text-center px-6">
         <h3 className="font-display text-4xl text-bf-gold mb-4">Ready to Command?</h3>
@@ -523,7 +550,7 @@ export default function LandingPage() {
           className="btn-primary text-lg px-12 py-3"
           onClick={() => setShowGetStarted(true)}
         >
-          Create Free Account
+          Play Free Now
         </button>
       </section>
 
