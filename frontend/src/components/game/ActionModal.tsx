@@ -215,7 +215,21 @@ function getFastCombat(): boolean {
   return getFastCombatPreference();
 }
 
-function AnimatedDie({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
+/**
+ * Dice scale down as a side rolls more of them, so stacked bonuses
+ * (faction + tech + buildings + events + naval bombardment + era gap) never
+ * push the row past the modal edge. Paired with `flex-wrap` on the container,
+ * this keeps the dice inside the modal at any count on desktop and mobile.
+ * Sized off the larger of the two sides so both columns stay symmetric.
+ */
+function diceSizing(maxDice: number): { box: string; text: string; gap: string } {
+  if (maxDice <= 4) return { box: 'w-14 h-14', text: 'text-2xl', gap: 'gap-2.5' };
+  if (maxDice <= 6) return { box: 'w-12 h-12', text: 'text-xl', gap: 'gap-2' };
+  if (maxDice <= 8) return { box: 'w-10 h-10', text: 'text-lg', gap: 'gap-1.5' };
+  return { box: 'w-9 h-9', text: 'text-base', gap: 'gap-1.5' };
+}
+
+function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl' }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string }) {
   const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * 6));
   const [settled, setSettled] = useState(!!fast);
 
@@ -240,7 +254,8 @@ function AnimatedDie({ value, index, variant, fast }: { value: number; index: nu
   return (
     <div
       className={clsx(
-        'w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-bold font-mono',
+        boxClass, textClass,
+        'rounded-xl flex items-center justify-center font-bold font-mono shrink-0',
         'transition-colors duration-200',
         settled
           ? isAttacker
@@ -256,8 +271,8 @@ function AnimatedDie({ value, index, variant, fast }: { value: number; index: nu
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant, fast }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean }) {
-  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} />;
+function DieFace({ value, index, variant, fast, boxClass, textClass }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -308,6 +323,8 @@ export function CombatResultView({
     return () => clearTimeout(timer);
   }, [autoAdvance, result, fast, onDismiss]);
 
+  const diceSize = diceSizing(Math.max(result.attacker_rolls.length, result.defender_rolls.length));
+
   const isDefending = perspective === 'defender';
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
   const headerBg = isDefending ? 'bg-orange-500/15 border-orange-500/25' : 'bg-red-500/15 border-red-500/25';
@@ -333,16 +350,16 @@ export function CombatResultView({
         )}
       </div>
 
-      {/* Dice Area */}
+      {/* Dice Area — dice scale + wrap so stacked-bonus rolls stay inside the modal */}
       <div className="flex gap-4 mb-8">
         {/* Attacker Column */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-red-400 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
             {result.attackerName ?? 'Attacker'}
           </p>
-          <div className="flex justify-center gap-2.5">
+          <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} />
             ))}
           </div>
         </div>
@@ -353,13 +370,13 @@ export function CombatResultView({
         </div>
 
         {/* Defender Column */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-blue-400 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
             {result.defenderName ?? 'Defender'}
           </p>
-          <div className="flex justify-center gap-2.5">
+          <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} />
             ))}
           </div>
         </div>

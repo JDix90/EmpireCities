@@ -69,11 +69,11 @@ function MobileCombatBanner({
               <p className="text-[10px] text-bf-muted mb-0.5">
                 {displayResult.attackerName ?? 'Attacker'}
               </p>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {displayResult.attacker_rolls.map((roll, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold"
+                    className="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold"
                   >
                     {roll}
                   </span>
@@ -90,11 +90,11 @@ function MobileCombatBanner({
               <p className="text-[10px] text-bf-muted mb-0.5">
                 {displayResult.defenderName ?? 'Defender'}
               </p>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {displayResult.defender_rolls.map((roll, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold"
+                    className="inline-flex items-center justify-center w-5 h-5 shrink-0 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold"
                   >
                     {roll}
                   </span>

@@ -3,9 +3,28 @@ import { Link, useSearchParams } from 'react-router-dom';
 import Modal from '../components/ui/Modal';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
+import ActionModal from '../components/game/ActionModal';
+import type { CombatResult } from '../store/gameStore';
 import type { GameState } from '../store/gameStore';
 
-type LabModal = 'create' | 'event' | 'tech' | null;
+type LabModal = 'create' | 'event' | 'tech' | 'combat' | null;
+
+// Worst-case stacked-bonus battle: many extra dice on both sides, used to
+// verify the combat dice row stays inside the modal (wraps + scales down).
+const mockCombatResult: CombatResult = {
+  attacker_rolls: [6, 5, 4, 3, 6, 2, 5],
+  defender_rolls: [6, 4, 5, 3, 2, 6],
+  attacker_losses: 2,
+  defender_losses: 3,
+  territory_captured: true,
+  attacker_bonus_breakdown: { tech: 1, faction: 1, event: 1, pending: 1, total: 4 },
+  defender_bonus_breakdown: { building: 1, tech: 1, faction: 1, wonder: 1, naval_bombardment: 2, total: 6 },
+  combat_ability_callouts: [{ id: 'knights_charge' }],
+  fromName: 'Constantinople',
+  toName: 'Anatolia',
+  attackerName: 'Byzantium',
+  defenderName: 'Seljuks',
+} as unknown as CombatResult;
 
 function buildMockGameState(): GameState {
   return {
@@ -127,6 +146,7 @@ export default function ModalLabPage() {
           <button type="button" className="btn-primary" onClick={() => setActiveModal('create')}>Open shared modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('event')}>Open event modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('tech')}>Open tech modal</button>
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('combat')}>Open combat modal</button>
         </div>
 
         <div className="card space-y-3">
@@ -135,6 +155,7 @@ export default function ModalLabPage() {
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=create">/__modal-lab?modal=create</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=event">/__modal-lab?modal=event</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=tech">/__modal-lab?modal=tech</a></li>
+            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=combat">/__modal-lab?modal=combat</a></li>
           </ul>
         </div>
       </div>
@@ -177,6 +198,13 @@ export default function ModalLabPage() {
           techTree={mockTechTree}
           onResearch={() => undefined}
           onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal === 'combat' && (
+        <ActionModal
+          data={{ type: 'combat', result: mockCombatResult, perspective: 'attacker' }}
+          onDismiss={() => setActiveModal(null)}
         />
       )}
     </div>
