@@ -41,3 +41,56 @@ describe('CreateGameSchema settings whitelist', () => {
     expect(CreateGameSchema.safeParse(bad).success).toBe(false);
   });
 });
+
+describe('Full Game Start payload', () => {
+  const fullGamePayload = {
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    max_players: 4,
+    ai_count: 3,
+    ai_difficulty: 'medium',
+    auto_start: true,
+    settings: {
+      turn_timer_seconds: 300,
+      allowed_victory_conditions: ['domination'],
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: true,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      stability_enabled: true,
+      naval_enabled: true,
+      events_enabled: true,
+      era_advancement_enabled: true,
+      era_advancement_preset: 'standard',
+      max_turns: 150,
+    },
+  };
+
+  it('validates and preserves the full-game bundle (factions intentionally omitted)', () => {
+    const parsed = CreateGameSchema.safeParse(fullGamePayload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const s = parsed.data.settings;
+      expect(s.era_advancement_enabled).toBe(true);
+      expect(s.era_advancement_preset).toBe('standard');
+      expect(s.economy_enabled).toBe(true);
+      expect(s.tech_trees_enabled).toBe(true);
+      expect(s.stability_enabled).toBe(true);
+      expect(s.naval_enabled).toBe(true);
+      expect(s.events_enabled).toBe(true);
+      expect(s.factions_enabled).toBeUndefined();
+      // auto_start only fires when every non-host seat is AI
+      expect(parsed.data.auto_start).toBe(true);
+      expect(parsed.data.ai_count).toBe(parsed.data.max_players - 1);
+    }
+  });
+
+  it('rejects Era Advancement without Economy (the in-form dependency)', () => {
+    const bad = {
+      ...fullGamePayload,
+      settings: { ...fullGamePayload.settings, economy_enabled: false },
+    };
+    expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+});
