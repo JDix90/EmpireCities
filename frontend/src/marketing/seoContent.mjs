@@ -454,6 +454,83 @@ export const MARKETING_PAGES = [
       },
     ],
   },
+  // Legal pages are prerendered so crawlers get their OWN title + self-canonical
+  // instead of the homepage fallback. The body here is a short, faithful summary;
+  // the full policy renders in the React Privacy/Terms pages (Googlebot executes
+  // JS and sees those). Keep this summary roughly in sync with the real pages.
+  {
+    path: '/privacy',
+    file: 'privacy/index.html',
+    title: 'Privacy Policy — Borderfall',
+    description:
+      'How Borderfall handles your data: account info, game history, guest '
+      + 'accounts, ephemeral chat, and the technical data needed to run the service.',
+    h1: 'Privacy Policy',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'A short summary of how Borderfall handles your data; the full policy is on '
+          + 'this page. When you create an account we store your email, username, and a '
+          + 'secure hash of your password, plus your game history (matches, stats, '
+          + 'ratings, and saved game state) and sign-in times. Our servers also process '
+          + 'technical data such as IP address, browser type, and diagnostic logs to run '
+          + 'the service and prevent abuse.',
+      },
+      {
+        type: 'p',
+        text:
+          'Guest accounts are temporary: a guest that never plays a game is deleted '
+          + 'within about 48 hours, and creating a free account converts your guest in '
+          + 'place so your progress is kept. In-game chat is ephemeral and is not stored '
+          + 'on our servers. Questions: support@borderfall.gg.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/terms', label: 'Terms of Service' },
+          { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/terms',
+    file: 'terms/index.html',
+    title: 'Terms of Service — Borderfall',
+    description:
+      'The terms governing your use of Borderfall, operated by JDix90: '
+      + 'eligibility, your account, acceptable use, and player-created content.',
+    h1: 'Terms of Service',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'A short summary of the terms; the full version is on this page. Borderfall '
+          + 'is operated by JDix90. You must be at least 13 to register. You are '
+          + 'responsible for your account and for keeping your credentials secure, and '
+          + 'you agree not to cheat, abuse other players, or disrupt the service.',
+      },
+      {
+        type: 'p',
+        text:
+          'You can delete your account from your profile at any time, and we may '
+          + 'suspend or terminate accounts that violate these terms or harm other '
+          + 'players. The full terms also cover acceptable use, player-created content '
+          + 'such as custom maps, and the usual disclaimers. Questions: '
+          + 'support@borderfall.gg.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/privacy', label: 'Privacy Policy' },
+          { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
 ];
 
 export function getMarketingPage(path) {
