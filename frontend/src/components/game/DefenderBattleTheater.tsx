@@ -17,14 +17,21 @@ import type { CombatResult } from '../../store/gameStore';
  * Capital losses do NOT go through the theater — those still warrant a
  * blocking modal (see the defender branch in GamePage's combat handler).
  */
+/** Queue depth at which incoming attacks drain at fast-combat speed. */
+const HURRY_THRESHOLD = 4;
+
 export default function DefenderBattleTheater({
   queue,
   onAdvance,
+  onSkipAll,
 }: {
   queue: CombatResult[];
   onAdvance: () => void;
+  /** Clear the whole backlog at once (this theater + any modals + globe queue). */
+  onSkipAll?: () => void;
 }) {
   const current = queue[0];
+  const hurry = queue.length >= HURRY_THRESHOLD;
 
   // Keyboard parity with the blocking combat modals (which dismiss on
   // Enter/Space/Escape): desktop players expect the same keys to skip the
@@ -64,11 +71,22 @@ export default function DefenderBattleTheater({
           perspective="defender"
           onDismiss={onAdvance}
           autoAdvance
+          hurry={hurry}
         />
         {queue.length > 1 && (
-          <p className="text-center text-xs text-bf-muted mt-2">
-            +{queue.length - 1} more {queue.length - 1 === 1 ? 'battle' : 'battles'}
-          </p>
+          onSkipAll ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onSkipAll(); }}
+              className="block mx-auto mt-2 text-center text-xs text-bf-muted hover:text-bf-gold transition-colors"
+            >
+              Skip {queue.length - 1} more {queue.length - 1 === 1 ? 'battle' : 'battles'} →
+            </button>
+          ) : (
+            <p className="text-center text-xs text-bf-muted mt-2">
+              +{queue.length - 1} more {queue.length - 1 === 1 ? 'battle' : 'battles'}
+            </p>
+          )
         )}
       </div>
     </div>

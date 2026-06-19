@@ -103,4 +103,24 @@ describe('DefenderBattleTheater', () => {
     );
     expect(screen.getByText('+2 more battles')).toBeTruthy();
   });
+
+  it('offers a tappable "Skip N more" that drains the backlog when onSkipAll is given', () => {
+    const onSkipAll = vi.fn();
+    render(
+      <DefenderBattleTheater
+        queue={[combat(), combat({ toName: 'Greece' }), combat({ toName: 'Hispania' })]}
+        onAdvance={() => {}}
+        onSkipAll={onSkipAll}
+      />,
+    );
+    // The static "+N more" label is replaced by the actionable skip control.
+    expect(screen.queryByText('+2 more battles')).toBeNull();
+    fireEvent.click(screen.getByText('Skip 2 more battles →'));
+    expect(onSkipAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no backlog affordance for a single incoming battle', () => {
+    render(<DefenderBattleTheater queue={[combat()]} onAdvance={() => {}} onSkipAll={() => {}} />);
+    expect(screen.queryByText(/more battle/)).toBeNull();
+  });
 });

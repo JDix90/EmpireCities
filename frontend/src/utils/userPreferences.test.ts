@@ -8,6 +8,9 @@ import {
   setSfxMuted,
   setSfxVolume,
   getSfxMasterGain,
+  getCameraFollowPreference,
+  setCameraFollowPreference,
+  persistCameraFollowPreference,
 } from './userPreferences';
 
 describe('userPreferences', () => {
@@ -41,5 +44,17 @@ describe('userPreferences', () => {
     expect(isColorblindMode()).toBe(false);
     setColorblindMode(true);
     expect(isColorblindMode()).toBe(true);
+  });
+
+  it('defaults camera follow to ON and round-trips it', () => {
+    expect(getCameraFollowPreference()).toBe(true);
+    setCameraFollowPreference(false);
+    expect(getCameraFollowPreference()).toBe(false);
+    setCameraFollowPreference(true);
+    expect(getCameraFollowPreference()).toBe(true);
+  });
+
+  it('exposes a persist alias for camera follow matching the setter', () => {
+    expect(persistCameraFollowPreference).toBe(setCameraFollowPreference);
   });
 });

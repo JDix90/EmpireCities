@@ -24,6 +24,8 @@ import type { ConnectionHintPreference } from '../../utils/connectionHints';
 import {
   getFastCombatPreference,
   setFastCombatPreference,
+  getCameraFollowPreference,
+  setCameraFollowPreference,
   subscribeUserPreferences,
 } from '../../utils/userPreferences';
 import { Link } from 'react-router-dom';
@@ -117,6 +119,7 @@ export default function GameHUD({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
+  const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const [activeTab, setActiveTab] = useState<HudTab>(readStoredHudTab);
   const [logUnread, setLogUnread] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -126,6 +129,7 @@ export default function GameHUD({
 
   useEffect(() => subscribeUserPreferences(() => {
     setFastCombat(getFastCombatPreference());
+    setCameraFollow(getCameraFollowPreference());
   }), []);
 
   const selectTab = (tab: HudTab) => {
@@ -789,6 +793,21 @@ export default function GameHUD({
                   className="accent-bf-gold w-3 h-3"
                 />
                 Fast combat
+              </label>
+              <label
+                className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+                title="Recenter the globe on battles and reinforcements. Always pauses while you're dragging the globe."
+              >
+                <input
+                  type="checkbox"
+                  checked={cameraFollow}
+                  onChange={(e) => {
+                    setCameraFollow(e.target.checked);
+                    setCameraFollowPreference(e.target.checked);
+                  }}
+                  className="accent-bf-gold w-3 h-3"
+                />
+                Follow the action
               </label>
               <Link
                 to="/settings"

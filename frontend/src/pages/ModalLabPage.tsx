@@ -5,10 +5,11 @@ import EventCardModal, { type EventCard } from '../components/game/EventCardModa
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
 import ActionModal from '../components/game/ActionModal';
 import TutorialOverlay, { type TutorialStep } from '../components/game/TutorialOverlay';
+import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import type { CombatResult } from '../store/gameStore';
 import type { GameState } from '../store/gameStore';
 
-type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | null;
+type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | 'theater' | null;
 
 // Mirrors the live "Launch an Attack!" coaching beat, used to verify the
 // tutorial popup yields to the combat result modal instead of covering it.
@@ -159,6 +160,7 @@ export default function ModalLabPage() {
           <button type="button" className="btn-primary" onClick={() => setActiveModal('tech')}>Open tech modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat')}>Open combat modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat-tutorial')}>Combat + tutorial</button>
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('theater')}>Defender theater</button>
         </div>
 
         <div className="card space-y-3">
@@ -168,7 +170,6 @@ export default function ModalLabPage() {
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=event">/__modal-lab?modal=event</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=tech">/__modal-lab?modal=tech</a></li>
             <li><a className="text-bf-gold underline" href="/__modal-lab?modal=combat">/__modal-lab?modal=combat</a></li>
-            <li><a className="text-bf-gold underline" href="/__modal-lab?modal=combat-tutorial">/__modal-lab?modal=combat-tutorial</a></li>
           </ul>
         </div>
       </div>
@@ -218,6 +219,16 @@ export default function ModalLabPage() {
         <ActionModal
           data={{ type: 'combat', result: mockCombatResult, perspective: 'attacker' }}
           onDismiss={() => setActiveModal(null)}
+          onSkipAll={() => setActiveModal(null)}
+          backlogCount={4}
+        />
+      )}
+
+      {activeModal === 'theater' && (
+        <DefenderBattleTheater
+          queue={[mockCombatResult, mockCombatResult, mockCombatResult]}
+          onAdvance={() => undefined}
+          onSkipAll={() => setActiveModal(null)}
         />
       )}
 
