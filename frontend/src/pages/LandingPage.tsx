@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
-import { Globe, Sword, Map, Users, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import GameplayShowcase from '../components/landing/GameplayShowcase';
 import {
   APP_NAME,
   TAGLINE_PRIMARY,
@@ -209,13 +210,6 @@ const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global').map((e) => withIcon
 const REGIONAL_ERAS = [
   ...ERAS.filter((e) => e.scope === 'regional').map((e) => withIcon(e, '🗺️')),
   ...COMMUNITY_REGIONAL_ERAS.map((e, i) => withIcon(e, COMMUNITY_ICON_POOL[i % COMMUNITY_ICON_POOL.length])),
-];
-
-const FEATURES = [
-  { icon: Globe,  title: 'Eras Across Time',         desc: 'Fight from ancient kingdoms through world wars to galactic fronts — each era with its own map, factions, and rules.' },
-  { icon: Sword,  title: 'Territory Conquest',       desc: 'Master the classic Draft-Attack-Fortify loop. Break enemy lines and redraw the map — every border is temporary.' },
-  { icon: Map,    title: 'Custom Map Editor',        desc: 'Build and publish your own maps. Share them with the community and watch your creations come to life.' },
-  { icon: Users,  title: 'Multiplayer & AI',         desc: 'Challenge friends in real-time or async games, or hone your skills against AI bots of varying difficulty.' },
 ];
 
 function EraDetailModal({
@@ -473,22 +467,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features — value prop before the era catalog so a stranger learns why to play before browsing maps */}
-      <section className="py-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Why {APP_NAME}?</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="card flex gap-4">
-              <div className="shrink-0">
-                <f.icon className="w-8 h-8 text-bf-gold" />
-              </div>
-              <div>
-                <h4 className="font-display text-lg text-bf-gold mb-2">{f.title}</h4>
-                <p className="text-bf-muted text-sm leading-relaxed">{f.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Gameplay showcase — show the game instead of pitching it (replaces the old "Why Borderfall?" grid) */}
+      <section className="py-12 sm:py-16 px-6 max-w-6xl mx-auto">
+        <GameplayShowcase />
+        <p className="mt-4 text-center text-sm text-bf-muted">
+          Real gameplay on the Modern Day globe — one of the maps below.
+        </p>
       </section>
 
       {/* Era Showcase */}
