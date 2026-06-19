@@ -15,8 +15,11 @@
  *    applied after dice are resolved and base losses applied, before the capture
  *    block runs.
  *
- * collective_defense (+1 defense die) is intentionally NOT handled here — it is
- * already implemented via nato_proxy's `passive_defense_bonus` in combatModifiers.
+ * collective_defense (NATO): its mechanical effect used to be nato_proxy's
+ * `passive_defense_bonus` (+1 defense die), removed to eliminate start-active
+ * defensive dice. The ability is currently a no-op pending a proper once-per-turn
+ * implementation — its description ("+1 automatic defender loss on the attacker")
+ * would fit the post-combat reactions below (cf. parting_shot).
  */
 import type { CombatResult, GameState, TerritoryState } from '../../types';
 import { getPlayerFaction } from '../eras/factionLineage';

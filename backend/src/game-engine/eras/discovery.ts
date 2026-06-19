@@ -63,7 +63,6 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     lore: 'The Ming command enormous manpower and monumental defenses, preferring layered stability over reckless overreach.',
     flavor_quote: 'The empire endures because its walls are built in both stone and grain.',
     home_region_ids: ['ming_china'],
-    passive_defense_bonus: 1,
     reinforce_bonus: 1,
     ability_id: 'great_wall',
     ability_description: "Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted).",
