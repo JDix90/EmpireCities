@@ -22,7 +22,7 @@ export default function GameplayShowcase() {
     <figure
       className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-bf-border shadow-2xl shadow-black/50"
       // Reserve the aspect ratio up front so the poster/video swap causes no layout shift.
-      style={{ aspectRatio: '1280 / 874' }}
+      style={{ aspectRatio: '1200 / 866' }}
     >
       {reduceMotion ? (
         <img
