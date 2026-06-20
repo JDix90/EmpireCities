@@ -460,6 +460,27 @@ export default function LobbyPage() {
   useEffect(() => {
     if (selectedEra !== 'ancient') setEraAdvancementEnabled(false);
   }, [selectedEra]);
+
+  // Conditional advanced settings — each only matters under certain other choices,
+  // so they're surfaced in a dedicated "Conditional Settings" section instead of
+  // always cluttering Advanced Features.
+  const isGalacticAge = selectedEra === GALACTIC_AGE_ERA_ID;
+  // The Combat Dice Cap only does anything when some enabled feature can push
+  // combat dice past the classic 3/2 — buildings/wonders (economy), tech, events,
+  // era-gap bonuses, faction attack dice + once-per-turn charges, or naval
+  // bombardment. Stability/diplomacy/fog/draft never grant dice.
+  const combatDiceCapApplicable =
+    economyEnabled || techTreesEnabled || eventsEnabled || navalEnabled || factionsEnabled || eraAdvancementEnabled;
+
+  // Reset a conditional toggle when its precondition disappears, so a now-hidden
+  // setting can't leave a stale flag in the create-game payload.
+  useEffect(() => {
+    if (!isGalacticAge) setLanesContestableEnabled(false);
+  }, [isGalacticAge]);
+  useEffect(() => {
+    if (!combatDiceCapApplicable) setCombatDiceCapEnabled(false);
+  }, [combatDiceCapApplicable]);
+
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   // Factions selection state
   const [_availableFactions, setAvailableFactions] = useState<FactionInfo[]>([]);
@@ -2127,65 +2148,79 @@ export default function LobbyPage() {
                             )}
                           </div>
                         )}
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
-                          <label htmlFor="create-game-lanes-contestable" className="contents cursor-pointer">
-                            <input
-                              id="create-game-lanes-contestable"
-                              type="checkbox"
-                              checked={lanesContestableEnabled}
-                              onChange={(e) => setLanesContestableEnabled(e.target.checked)}
-                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                            />
-                            <span className="leading-snug min-w-0 select-none">Contestable Lanes <span className="text-xs text-bf-muted">(galaxy · seal hyperspace lanes)</span></span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text="Experimental: cap the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. Off = classic rules." />
-                          <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
-                            <input
-                              id="create-game-combat-dice-cap"
-                              type="checkbox"
-                              checked={combatDiceCapEnabled}
-                              onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
-                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                            />
-                            <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress · experimental)</span></span>
-                          </label>
-                          {combatDiceCapEnabled && (
-                            <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                              <label className="flex items-center gap-2 text-xs text-bf-muted">
-                                Max attacker dice
-                                <input
-                                  type="number"
-                                  min={3}
-                                  max={7}
-                                  value={combatMaxAttackerDice}
-                                  onChange={(e) => setCombatMaxAttackerDice(Math.max(3, Math.min(7, Number(e.target.value) || 5)))}
-                                  className="input w-16 py-1"
-                                  data-testid="combat-max-attacker-dice"
-                                />
-                              </label>
-                              <label className="flex items-center gap-2 text-xs text-bf-muted">
-                                Max defender dice
-                                <input
-                                  type="number"
-                                  min={2}
-                                  max={6}
-                                  value={combatMaxDefenderDice}
-                                  onChange={(e) => setCombatMaxDefenderDice(Math.max(2, Math.min(6, Number(e.target.value) || 4)))}
-                                  className="input w-16 py-1"
-                                  data-testid="combat-max-defender-dice"
-                                />
-                              </label>
-                              <p className="basis-full text-[11px] text-bf-muted/80 mt-0.5">
-                                Defaults 5 / 4. Lower the defender cap for more attackable fortresses.
-                              </p>
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </div>
+                    {(isGalacticAge || combatDiceCapApplicable) && (
+                    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
+                      <label className="label mb-2">Conditional Settings</label>
+                      <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
+                        These appear because of choices you made above — they don&apos;t apply to every game.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {isGalacticAge && (
+                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                            <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
+                            <label htmlFor="create-game-lanes-contestable" className="contents cursor-pointer">
+                              <input
+                                id="create-game-lanes-contestable"
+                                type="checkbox"
+                                checked={lanesContestableEnabled}
+                                onChange={(e) => setLanesContestableEnabled(e.target.checked)}
+                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                              />
+                              <span className="leading-snug min-w-0 select-none">Contestable Lanes <span className="text-xs text-bf-muted">(galaxy · seal hyperspace lanes)</span></span>
+                            </label>
+                          </div>
+                        )}
+                        {combatDiceCapApplicable && (
+                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                            <FeatureTooltip text="Experimental: cap the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. Off = classic rules." />
+                            <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
+                              <input
+                                id="create-game-combat-dice-cap"
+                                type="checkbox"
+                                checked={combatDiceCapEnabled}
+                                onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
+                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                              />
+                              <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress · experimental)</span></span>
+                            </label>
+                            {combatDiceCapEnabled && (
+                              <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                  Max attacker dice
+                                  <input
+                                    type="number"
+                                    min={3}
+                                    max={7}
+                                    value={combatMaxAttackerDice}
+                                    onChange={(e) => setCombatMaxAttackerDice(Math.max(3, Math.min(7, Number(e.target.value) || 5)))}
+                                    className="input w-16 py-1"
+                                    data-testid="combat-max-attacker-dice"
+                                  />
+                                </label>
+                                <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                  Max defender dice
+                                  <input
+                                    type="number"
+                                    min={2}
+                                    max={6}
+                                    value={combatMaxDefenderDice}
+                                    onChange={(e) => setCombatMaxDefenderDice(Math.max(2, Math.min(6, Number(e.target.value) || 4)))}
+                                    className="input w-16 py-1"
+                                    data-testid="combat-max-defender-dice"
+                                  />
+                                </label>
+                                <p className="basis-full text-[11px] text-bf-muted/80 mt-0.5">
+                                  Defaults 5 / 4. Lower the defender cap for more attackable fortresses.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    )}
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
                     <p className="text-xs text-bf-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
