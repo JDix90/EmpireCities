@@ -51,6 +51,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // ceilings to never drop below the natural base (attacker 3, defender 2) so a
   // misconfigured low cap can't weaken vanilla combat.
   const combatDiceCapEnabled = typeof raw.combat_dice_cap_enabled === 'boolean' ? raw.combat_dice_cap_enabled : false;
+  // Galaxy per-world identity modifiers. ON by default (no-op unless the map
+  // authors worlds[].modifiers); a lobby toggle can disable it.
+  const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
   const eraDefaults = getDefaultEraAdvancementSettings();
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
@@ -237,6 +240,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_echo_cap_tech: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_echo_cap_tech, eraDefaults.era_advancement_echo_cap_tech)
       : undefined,
+    // Galaxy per-world identity — persisted only when explicitly disabled (default on).
+    world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.
     combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
     combat_max_attacker_dice: combatDiceCapEnabled

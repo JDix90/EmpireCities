@@ -7,6 +7,7 @@ import { getStabilityMultiplier, getPopulationMultiplier } from './stabilityMana
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
+import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
@@ -137,7 +138,7 @@ export function validateBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return { valid: false, error: 'Player not found' };
 
-  const cost = resolveBuildingCosts(state)[buildingType];
+  const cost = applyWorldBuildCost(state, territory.world_id, resolveBuildingCosts(state)[buildingType]);
   const playerProduction = player.special_resource ?? 0;
   if (playerProduction < cost) {
     return { valid: false, error: `Not enough production points (need ${cost}, have ${playerProduction})` };
@@ -239,7 +240,7 @@ export function applyBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!territory || !player) return;
 
-  const cost = resolveBuildingCosts(state)[buildingType];
+  const cost = applyWorldBuildCost(state, territory.world_id, resolveBuildingCosts(state)[buildingType]);
   player.special_resource = (player.special_resource ?? 0) - cost;
 
   if (!territory.buildings) territory.buildings = [];
@@ -279,10 +280,15 @@ export function collectProduction(
   let productionEarned = 0;
   let techPointsEarned = 0;
   let ownedCount = 0;
+  let worldProdAccum = 0;
+  let worldTechAccum = 0;
 
   for (const territory of Object.values(state.territories)) {
     if (territory.owner_id !== playerId) continue;
     ownedCount++;
+    const worldMod = getWorldModifier(state, territory.world_id);
+    worldProdAccum += worldMod.production_bonus ?? 0;
+    worldTechAccum += worldMod.tech_bonus ?? 0;
     const stabilityScale = state.settings.stability_enabled
       ? getStabilityMultiplier(territory.stability)
       : 1;
@@ -300,6 +306,13 @@ export function collectProduction(
   // Base tech income: 1 TP per 5 territories when tech trees are enabled
   if (state.settings.tech_trees_enabled) {
     techPointsEarned += Math.max(1, Math.floor(ownedCount / 5));
+  }
+
+  // Galaxy per-world identity: production/tech bonus per owned territory on a world
+  // (accumulated fractionally, then floored — bounded by how much of the world you hold).
+  if (worldProdAccum > 0) productionEarned += Math.floor(worldProdAccum);
+  if (state.settings.tech_trees_enabled && worldTechAccum > 0) {
+    techPointsEarned += Math.floor(worldTechAccum);
   }
 
   // Apply production_bonus temporary modifier from event cards (may be negative)

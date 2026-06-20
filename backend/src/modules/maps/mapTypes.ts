@@ -1,3 +1,5 @@
+import type { WorldModifiers } from '@borderfall/shared';
+
 export interface Territory {
   territory_id: string;
   name: string;
@@ -56,6 +58,7 @@ export interface GameMap {
   worlds?: Array<{
     world_id: string;
     display_name: string;
+    modifiers?: WorldModifiers;
     globe_image_url?: string;
     bump_image_url?: string;
     show_atmosphere?: boolean;

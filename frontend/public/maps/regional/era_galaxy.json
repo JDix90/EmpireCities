@@ -23,7 +23,11 @@
       "atmosphere_color": "lightskyblue",
       "atmosphere_altitude": 0.18,
       "background_color": "rgb(8, 12, 28)",
-      "requires_orbit_access": false
+      "requires_orbit_access": false,
+      "modifiers": {
+        "production_bonus": 0.3,
+        "stability_bonus": 1
+      }
     },
     {
       "world_id": "verdan",
@@ -32,7 +36,11 @@
       "atmosphere_color": "#7fe7a3",
       "atmosphere_altitude": 0.24,
       "background_color": "rgb(8, 24, 18)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "stability_bonus": 3,
+        "production_bonus": 0.2
+      }
     },
     {
       "world_id": "rust",
@@ -41,7 +49,11 @@
       "atmosphere_color": "#d97a3c",
       "atmosphere_altitude": 0.16,
       "background_color": "rgb(28, 14, 8)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "production_bonus": 0.4,
+        "build_cost_mult": 0.8
+      }
     },
     {
       "world_id": "nexus_station",
@@ -50,7 +62,11 @@
       "atmosphere_color": "#a980ff",
       "atmosphere_altitude": 0.18,
       "background_color": "rgb(12, 14, 28)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "tech_bonus": 0.05,
+        "production_bonus": 0.25
+      }
     }
   ],
   "regions": [
