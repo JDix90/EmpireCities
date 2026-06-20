@@ -520,6 +520,12 @@ export default function GamePage() {
     () => (gameState?.settings.era_advancement_enabled ? eraBoardTheme(playerTechEra).background : undefined),
     [gameState?.settings.era_advancement_enabled, playerTechEra],
   );
+  // Per-era globe surface texture (Layer 2): null for eras without a real asset, so
+  // the globe keeps its default Earth. Only `space_age` ships one today.
+  const eraGlobeTexture = useMemo(
+    () => (gameState?.settings.era_advancement_enabled ? (eraBoardTheme(playerTechEra).globeTextureUrl ?? undefined) : undefined),
+    [gameState?.settings.era_advancement_enabled, playerTechEra],
+  );
 
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
   // that dismissing the game-over modal routes back to the right campaign detail.
@@ -3507,7 +3513,7 @@ export default function GamePage() {
                             ? (galaxyDrillGlobeSkin?.globeImageUrl ??
                                 focusedWorldSkin?.globe_image_url ??
                                 customGlobeSkin?.globeImageUrl)
-                            : customGlobeSkin?.globeImageUrl
+                            : (customGlobeSkin?.globeImageUrl ?? eraGlobeTexture)
                         }
                         bumpImageUrl={
                           mapData.map_kind === 'galaxy'

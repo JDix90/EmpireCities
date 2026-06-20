@@ -45,6 +45,15 @@ const ERA_GLYPH: Record<string, string> = {
   galaxy_age: '🌌',
 };
 
+/**
+ * Era → self-hosted globe texture (Layer 2). Only populated for eras with a real,
+ * non-AI asset shipped in `/public/globe/era/`; every other era stays null and the
+ * globe keeps its default Earth. Drop a `<eraId>.jpg` in and add the entry here.
+ */
+const ERA_GLOBE_TEXTURE: Record<string, string> = {
+  space_age: '/globe/era/space_age.jpg', // NASA "Black Marble" night lights (public domain)
+};
+
 const FALLBACK: EraBoardTheme = {
   eraId: '',
   accent: '#c9a84c',
@@ -70,7 +79,7 @@ export function eraBoardTheme(eraId?: string | null): EraBoardTheme {
     background: md?.bgColor ?? FALLBACK.background,
     label: meta?.short ?? md?.label ?? FALLBACK.label,
     glyph: ERA_GLYPH[eraId] ?? FALLBACK.glyph,
-    globeTextureUrl: null,
+    globeTextureUrl: ERA_GLOBE_TEXTURE[eraId] ?? null,
     terrainTextureUrl: null,
   };
 }
