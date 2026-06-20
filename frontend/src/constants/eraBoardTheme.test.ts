@@ -30,9 +30,13 @@ describe('eraBoardTheme', () => {
     expect(eraBoardTheme('not_a_real_era').background).toBe('#0a0e1a');
   });
 
-  it('art hooks are null until real (non-AI) assets ship (Layer 2 drop-in)', () => {
-    const t = eraBoardTheme('ancient');
-    expect(t.globeTextureUrl).toBeNull();
-    expect(t.terrainTextureUrl).toBeNull();
+  it('globe texture hook is wired for eras with a shipped asset, null otherwise', () => {
+    // space_age ships a real (NASA public-domain) night-lights texture.
+    expect(eraBoardTheme('space_age').globeTextureUrl).toBe('/globe/era/space_age.jpg');
+    // Eras without a shipped asset stay null → globe keeps its default Earth.
+    expect(eraBoardTheme('ancient').globeTextureUrl).toBeNull();
+    expect(eraBoardTheme('modern').globeTextureUrl).toBeNull();
+    // The 2D terrain hook is still unused (Layer 2, later).
+    expect(eraBoardTheme('space_age').terrainTextureUrl).toBeNull();
   });
 });
