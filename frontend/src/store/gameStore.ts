@@ -133,10 +133,14 @@ export interface GameState {
     truce_turns_remaining: number;
   }>;
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
+  /** Galaxy contestable lanes: active hyperspace-lane seals keyed by canonical lane id. */
+  lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
     diplomacy_enabled: boolean;
+    /** Galaxy: lane-seal mechanic toggle. */
+    lanes_contestable_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

@@ -179,3 +179,71 @@ export function territoryIsLunar(map: GameMap, territoryId: string): boolean {
   const t = map.territories.find((tt) => tt.territory_id === territoryId);
   return inferWorldId(t ?? { territory_id: '', region_id: '' }) === 'moon';
 }
+
+// ============================================================
+// Contestable hyperspace lanes (galaxy) — active lane seals
+// ============================================================
+
+/** Rounds a fresh lane seal lasts. */
+export const GALAXY_LANE_SEAL_DURATION = 3;
+
+/** Canonical, order-independent id for the orbit lane between two territories. */
+export function orbitLaneId(a: string, b: string): string {
+  return a < b ? `${a}::${b}` : `${b}::${a}`;
+}
+
+/** True if (a,b) is an orbit-type connection on this map. */
+export function isOrbitLane(map: GameMap, a: string, b: string): boolean {
+  return map.connections.some(
+    (c) => c.type === 'orbit' && ((c.from === a && c.to === b) || (c.from === b && c.to === a)),
+  );
+}
+
+/**
+ * True when an active lane seal owned by ANOTHER player blocks `playerId` from
+ * crossing the orbit edge from→to. The sealer can still use their own lane.
+ */
+export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: string, playerId: string): boolean {
+  if (!state.settings.lanes_contestable_enabled) return false;
+  const bl = state.lane_blockades?.[orbitLaneId(fromId, toId)];
+  if (!bl || bl.turns_remaining <= 0) return false;
+  return bl.owner_id !== playerId;
+}
+
+export interface SealLaneCheck { ok: boolean; error?: string; laneId?: string }
+
+/** Validate whether `playerId` may seal the orbit lane (from,to) right now. */
+export function canSealLane(
+  state: GameState,
+  map: GameMap,
+  fromId: string,
+  toId: string,
+  playerId: string,
+): SealLaneCheck {
+  if (!state.settings.lanes_contestable_enabled) return { ok: false, error: 'Lane seals are not enabled' };
+  if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
+  const ownsEndpoint =
+    state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
+  if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
+  const id = orbitLaneId(fromId, toId);
+  const blockades = state.lane_blockades ?? {};
+  const existing = blockades[id];
+  if (existing && existing.turns_remaining > 0 && existing.owner_id !== playerId) {
+    return { ok: false, error: 'This lane is already sealed by a rival' };
+  }
+  // One active seal per player (refreshing your own lane is allowed).
+  const otherActive = Object.entries(blockades).some(
+    ([lid, b]) => lid !== id && b.owner_id === playerId && b.turns_remaining > 0,
+  );
+  if (otherActive) return { ok: false, error: 'You already have a lane sealed — wait for it to lift' };
+  return { ok: true, laneId: id };
+}
+
+/** Decrement all active lane seals by one round; drop expired. Call once per round. */
+export function tickLaneBlockades(state: GameState): void {
+  if (!state.lane_blockades) return;
+  for (const [id, b] of Object.entries(state.lane_blockades)) {
+    b.turns_remaining -= 1;
+    if (b.turns_remaining <= 0) delete state.lane_blockades[id];
+  }
+}

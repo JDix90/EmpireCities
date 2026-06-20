@@ -23,7 +23,7 @@ import {
   isMissionComplete,
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
-import { offworldTerritoryIdsForInitialNeutral } from './moonAccess';
+import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
@@ -596,6 +596,9 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
   if (next <= state.current_player_index) {
     state.turn_number++;
+
+    // Galaxy: lift expiring hyperspace-lane seals once per round.
+    tickLaneBlockades(state);
 
     // Decrement truce timers once per round (not per player turn)
     for (const entry of state.diplomacy) {

@@ -453,6 +453,7 @@ export default function LobbyPage() {
   // Anti-fortress combat dice cap (experimental, off by default). See
   // backend/scripts/COMBAT-FAIRNESS-AUDIT.md.
   const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(false);
+  const [lanesContestableEnabled, setLanesContestableEnabled] = useState(false);
   const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
   const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
 
@@ -830,6 +831,7 @@ export default function LobbyPage() {
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
         combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
+        lanes_contestable_enabled: lanesContestableEnabled || undefined,
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
@@ -2117,6 +2119,19 @@ export default function LobbyPage() {
                             )}
                           </div>
                         )}
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                          <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
+                          <label htmlFor="create-game-lanes-contestable" className="contents cursor-pointer">
+                            <input
+                              id="create-game-lanes-contestable"
+                              type="checkbox"
+                              checked={lanesContestableEnabled}
+                              onChange={(e) => setLanesContestableEnabled(e.target.checked)}
+                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                            />
+                            <span className="leading-snug min-w-0 select-none">Contestable Lanes <span className="text-xs text-bf-muted">(galaxy · seal hyperspace lanes)</span></span>
+                          </label>
+                        </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text="Experimental: cap the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. Off = classic rules." />
                           <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">

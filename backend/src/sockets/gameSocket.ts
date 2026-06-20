@@ -46,6 +46,10 @@ import {
   territoryRequiresOrbitAccessForClaim,
   getOrbitAccessResult,
   formatOrbitAccessError,
+  isLaneSealedForPlayer,
+  canSealLane,
+  tickLaneBlockades,
+  GALAXY_LANE_SEAL_DURATION,
 } from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -1419,6 +1423,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!access.allowed) {
           return socket.emit('error', { message: formatOrbitAccessError(access) });
         }
+        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
+          return socket.emit('error', { message: 'That hyperspace lane is sealed' });
+        }
       }
 
       // ── Truce enforcement + break-truce logic ────────────────────────────────
@@ -1868,6 +1875,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
           return socket.emit('error', { message: formatOrbitAccessError(access) });
+        }
+        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
+          return socket.emit('error', { message: 'That hyperspace lane is sealed' });
         }
       }
 
@@ -2940,6 +2950,27 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       socket.emit('game:truce_result', { pending: true, targetName: target.username });
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
+    // ── Seal a hyperspace lane (galaxy contestable lanes) ─────────────────────
+    socket.on('game:seal_lane', async ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+        if (!checkAndRecordActionId(gameId, userId, action_id)) return;
+        const { state, map } = room;
+        if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
+        if (state.phase !== 'attack' && state.phase !== 'fortify') {
+          return socket.emit('error', { message: 'Seal lanes during your attack or fortify phase' });
+        }
+        const check = canSealLane(state, map, fromId, toId, userId);
+        if (!check.ok || !check.laneId) {
+          return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
+        }
+        if (!state.lane_blockades) state.lane_blockades = {};
+        state.lane_blockades[check.laneId] = { owner_id: userId, turns_remaining: GALAXY_LANE_SEAL_DURATION };
+        socket.emit('game:lane_sealed', { laneId: check.laneId, fromId, toId, turns: GALAXY_LANE_SEAL_DURATION });
+        await persistGameStateAfterMutation(gameId, state);
+        broadcastState(io, gameId, state);
       });
     });
 

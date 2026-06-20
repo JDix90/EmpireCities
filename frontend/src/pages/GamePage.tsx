@@ -2191,6 +2191,18 @@ export default function GamePage() {
     return () => window.clearTimeout(t);
   }, [mapData?.map_kind, galaxyOverviewMode, focusedWorldId]);
 
+  // Galaxy contestable lanes: ids of currently-sealed orbit lanes + the seal action.
+  const galaxySealedLaneIds = useMemo(
+    () => new Set(Object.keys(gameState?.lane_blockades ?? {})),
+    [gameState?.lane_blockades],
+  );
+  const handleSealLane = useCallback(
+    (fromId: string, toId: string) => {
+      getSocket().emit('game:seal_lane', { gameId, fromId, toId, action_id: generateActionId() });
+    },
+    [gameId],
+  );
+
   /**
    * Player-facing orbit-access summary. Backend stays authoritative; this is
    * advisory copy so the TerritoryPanel and the GalaxyStrategicView lane color
@@ -3543,6 +3555,10 @@ export default function GamePage() {
                       width={mapCanvasSize.w}
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
+                      sealedLaneIds={galaxySealedLaneIds}
+                      lanesContestableEnabled={gameState.settings.lanes_contestable_enabled ?? false}
+                      ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
+                      onSealLane={handleSealLane}
                       pulseWorldId={galaxyPulse?.worldId ?? null}
                       pulseKey={galaxyPulse?.key ?? 0}
                       pulseLabel={galaxyPulse?.label ?? null}
