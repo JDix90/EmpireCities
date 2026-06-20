@@ -1,15 +1,20 @@
 # Example Caddy reverse proxy for Borderfall production.
-# Terminates TLS and forwards to the Docker nginx container on localhost:80.
+# Terminates TLS (automatic Let's Encrypt) and forwards to the Docker web
+# container on localhost:80.
 #
 # 1. Install Caddy on the VPS (https://caddyserver.com/docs/install)
-# 2. Copy this file to /etc/caddy/Caddyfile (adjust domain)
-# 3. Set FRONTEND_URL=https://play.your-domain.com in .env.production
+# 2. Copy this file to /etc/caddy/Caddyfile and replace your-domain.com with your host.
+# 3. Set FRONTEND_URL=https://your-domain.com in .env.production
 # 4. docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d
 # 5. sudo systemctl reload caddy
 #
-# Replace play.your-domain.com with your public hostname.
+# DNS: point both the apex AND www at the droplet, e.g.
+#   your-domain.com       A      <droplet-ip>
+#   www.your-domain.com   CNAME  your-domain.com
+# (Without the www record, www.your-domain.com fails to resolve and visitors hit a
+# "server not found" error before the request ever reaches Caddy.)
 
-play.your-domain.com {
+your-domain.com {
 	encode gzip
 
 	reverse_proxy localhost:80 {
@@ -19,7 +24,8 @@ play.your-domain.com {
 	}
 }
 
-# Optional: redirect www to apex
-# www.your-domain.com {
-# 	redir https://play.your-domain.com{uri} permanent
-# }
+# Redirect www → apex (the canonical host). Requires the www DNS record above so
+# Caddy can fetch a TLS cert for it; without this block www returns a cert error.
+www.your-domain.com {
+	redir https://your-domain.com{uri} permanent
+}
