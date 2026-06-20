@@ -8,6 +8,7 @@ import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 import { inferWorldId } from '@borderfall/shared';
+import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
@@ -485,11 +486,11 @@ export default function SpectatorPage() {
                   connectionHintMode={connectionHintMode}
                   activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                   globeImageUrl={
-                    mapData.map_kind === 'galaxy' ? focusedWorldSkin?.globe_image_url : undefined
+                    mapData.map_kind === 'galaxy'
+                      ? (proceduralWorldTextureUrl(focusedWorldId) ?? focusedWorldSkin?.globe_image_url)
+                      : undefined
                   }
-                  bumpImageUrl={
-                    mapData.map_kind === 'galaxy' ? focusedWorldSkin?.bump_image_url : undefined
-                  }
+                  bumpImageUrl={mapData.map_kind === 'galaxy' ? '' : undefined}
                   showAtmosphere={
                     mapData.map_kind === 'galaxy'
                       ? (focusedWorldSkin?.show_atmosphere ?? true)
