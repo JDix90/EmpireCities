@@ -6,6 +6,8 @@ import {
   vnoise,
   fbm,
   colorize,
+  colorizeLand,
+  colorizeOcean,
   fillEquirectRGBA,
   type PlanetKind,
 } from './proceduralPlanet';
@@ -103,5 +105,41 @@ describe('fillEquirectRGBA', () => {
     }
     // Not all-black: at least one colour channel is set somewhere.
     expect(buf.some((v, i) => i % 4 !== 3 && v > 0)).toBe(true);
+  });
+});
+
+describe('territory-aligned land/ocean colorizers', () => {
+  const kinds: PlanetKind[] = ['ocean', 'verdant', 'desert', 'city', 'rocky'];
+
+  it('returns in-gamut RGB for every kind', () => {
+    for (const kind of kinds) {
+      for (let i = 0; i < 30; i++) {
+        const u = (i * 0.031) % 1;
+        const v = (i * 0.027) % 1;
+        for (const c of [colorizeLand(kind, u, v, 99), colorizeOcean(kind, u, v, 99)]) {
+          expect(c).toHaveLength(3);
+          for (const ch of c) {
+            expect(ch).toBeGreaterThanOrEqual(0);
+            expect(ch).toBeLessThanOrEqual(255);
+          }
+        }
+      }
+    }
+  });
+
+  it('makes land clearly brighter than ocean/void on every world', () => {
+    const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+    for (const kind of kinds) {
+      let landSum = 0;
+      let oceanSum = 0;
+      for (let i = 0; i < 60; i++) {
+        const u = (i * 0.017) % 1;
+        const v = 0.2 + ((i * 0.013) % 0.6); // avoid poles
+        landSum += lum(colorizeLand(kind, u, v, 1234));
+        oceanSum += lum(colorizeOcean(kind, u, v, 1234));
+      }
+      // Territories (land) should read lighter than the void/water between them.
+      expect(landSum).toBeGreaterThan(oceanSum);
+    }
   });
 });

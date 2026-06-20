@@ -18,6 +18,7 @@ import {
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
+import { buildGalaxyWorldTextureFromPolygons } from '../../utils/proceduralPlanet';
 import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
@@ -774,6 +775,20 @@ function GlobeMap({
       return inferWorldId(territory) === activeWorldId;
     }),
     [polygonsData, mapData.territories, activeWorldId],
+  );
+
+  /**
+   * Galaxy worlds: paint the procedural surface so terrain lines up with the
+   * actual territory polygons (land under territories, ocean/void between).
+   * Falls back to the plain noise texture from `globeImageUrl` when the geometry
+   * isn't ready (Sol before Natural Earth loads) or no canvas is available.
+   */
+  const galaxyPolygonTexture = useMemo(
+    () =>
+      mapData.map_kind === 'galaxy'
+        ? buildGalaxyWorldTextureFromPolygons(activeWorldId, renderedPolygonsData)
+        : undefined,
+    [mapData.map_kind, activeWorldId, renderedPolygonsData],
   );
 
   const territoryById = useMemo(() => {
@@ -3031,7 +3046,7 @@ function GlobeMap({
         width={width}
         height={height}
         backgroundColor={effectiveBackgroundColor}
-        globeImageUrl={globeImageUrl}
+        globeImageUrl={galaxyPolygonTexture ?? globeImageUrl}
         bumpImageUrl={bumpImageUrl}
         showAtmosphere={showAtmosphere}
         atmosphereColor={atmosphereColor}
