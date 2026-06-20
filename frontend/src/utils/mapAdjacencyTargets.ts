@@ -69,6 +69,14 @@ export interface NeighborTargetRow {
   unitCount: number;
   ownerName?: string;
   isSea: boolean;
+  /**
+   * Reached via an `orbit` (hyperspace) connection — i.e. this target sits on a
+   * different world. Drives the hyperspace treatment + lock badge in the picker
+   * so a cross-world strike never reads as a plain land attack.
+   */
+  isOrbit: boolean;
+  /** Destination world's display name (only set for orbit / cross-world targets). */
+  targetWorldName?: string;
 }
 
 export function listNeighborTargets(
@@ -76,7 +84,12 @@ export function listNeighborTargets(
   connections: MapConnection[],
   sourceTerritoryId: string,
   territoryNames: Map<string, string>,
-  options: { attackSource?: string | null; territoryFilter?: (id: string) => boolean } = {},
+  options: {
+    attackSource?: string | null;
+    territoryFilter?: (id: string) => boolean;
+    /** Resolve a territory's world display name (galaxy maps) for orbit targets. */
+    worldNameOf?: (territoryId: string) => string | undefined;
+  } = {},
 ): NeighborTargetRow[] {
   const targets = computePhaseAdjacencyTargets(gameState, connections, {
     sourceTerritoryId,
@@ -85,10 +98,14 @@ export function listNeighborTargets(
   });
 
   const seaPairs = new Set<string>();
+  const orbitPairs = new Set<string>();
   for (const conn of connections) {
     if (conn.type === 'sea') {
       seaPairs.add(`${conn.from}:${conn.to}`);
       seaPairs.add(`${conn.to}:${conn.from}`);
+    } else if (conn.type === 'orbit') {
+      orbitPairs.add(`${conn.from}:${conn.to}`);
+      orbitPairs.add(`${conn.to}:${conn.from}`);
     }
   }
 
@@ -100,12 +117,15 @@ export function listNeighborTargets(
     if (!tState) continue;
     const owner = gameState.players.find((pl) => pl.player_id === tState.owner_id);
     const isSea = seaPairs.has(`${source}:${territoryId}`);
+    const isOrbit = orbitPairs.has(`${source}:${territoryId}`);
     rows.push({
       territoryId,
       name: territoryNames.get(territoryId) ?? territoryId,
       unitCount: tState.unit_count === -1 ? -1 : tState.unit_count,
       ownerName: owner?.username,
       isSea,
+      isOrbit,
+      targetWorldName: isOrbit ? options.worldNameOf?.(territoryId) : undefined,
     });
   }
 

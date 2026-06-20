@@ -2208,6 +2208,16 @@ export default function GamePage() {
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
 
+  /**
+   * Player-level reason hyperspace lanes are locked (independent of which
+   * territory is selected). Drives the lock badge on cross-world attack/fortify
+   * targets in the action list so the gate is explained at the point of action.
+   */
+  const orbitTravelBlockedReason = useMemo(() => {
+    if (!mapData || mapData.map_kind !== 'galaxy' || orbitAccess.allowed) return null;
+    return formatOrbitAccessError(orbitAccess, resolveOrbitAccessMode(mapData, gameState?.era ?? ''));
+  }, [mapData, orbitAccess, gameState?.era]);
+
   const handleClaimTerritory = (territoryId: string) => {
     if (territorySelectPendingRef.current) return;
     territorySelectPendingRef.current = true;
@@ -3690,6 +3700,8 @@ export default function GamePage() {
               }
               techTree={techTree}
               orbitAccessHint={orbitAccessHint}
+              orbitAccessAllowed={orbitAccess.allowed}
+              orbitAccessReason={orbitTravelBlockedReason}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               mapConnections={mapData.connections}
               denseMap={mapDensityMetrics?.isDense ?? false}
