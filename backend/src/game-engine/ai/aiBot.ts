@@ -13,6 +13,7 @@ import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import {
   connectionRequiresMoonAccess,
   getOrbitAccessResult,
+  isLaneSealedForPlayer,
 } from '../state/moonAccess';
 
 export interface AiAction {
@@ -316,6 +317,9 @@ function selectAttacks(
       // era-appropriate access (Lunar Expansion + Launch Pad + Space Station,
       // or Hyperspace Chart / Hyperlane Anchor / Helion Navigator faction).
       if (!hasOrbitAccess && connectionRequiresMoonAccess(map, tid, nid)) continue;
+
+      // Galaxy: don't waste attacks on a hyperspace lane a rival has sealed.
+      if (isLaneSealedForPlayer(state, tid, nid, playerId)) continue;
 
       // Naval gating: when naval warfare is enabled, sea-lane attacks require
       // the source territory to hold at least one fleet (one is consumed per

@@ -92,6 +92,14 @@ export interface GalaxyStrategicViewProps {
    * authoritative for the actual claim/attack rejection.
    */
   orbitAccessAllowed?: boolean;
+  /** Galaxy contestable lanes: ids of currently-sealed orbit lanes (from gameState.lane_blockades). */
+  sealedLaneIds?: Set<string>;
+  /** Whether the lane-seal mechanic is on (enables click-to-seal). */
+  lanesContestableEnabled?: boolean;
+  /** True when the active player owns the given territory (used to allow sealing a lane you border). */
+  ownsTerritory?: (territoryId: string) => boolean;
+  /** Seal the orbit lane between two territories (the active player must hold an endpoint). */
+  onSealLane?: (fromId: string, toId: string) => void;
   /** Pulse the world node when a map action occurs on that world. */
   pulseWorldId?: string | null;
   pulseKey?: number;
@@ -119,6 +127,14 @@ interface ArcDatum {
   altitude: number;
   stroke: number;
   isOrbit: boolean;
+  from?: string;
+  to?: string;
+  sealed?: boolean;
+}
+
+/** Canonical, order-independent lane id — must match the backend `orbitLaneId`. */
+function laneKey(a: string, b: string): string {
+  return a < b ? `${a}::${b}` : `${b}::${a}`;
 }
 
 interface LabelDatum {
@@ -138,6 +154,10 @@ export default function GalaxyStrategicView({
   width,
   height,
   orbitAccessAllowed = true,
+  sealedLaneIds,
+  lanesContestableEnabled = false,
+  ownsTerritory,
+  onSealLane,
   pulseWorldId = null,
   pulseKey = 0,
   pulseLabel = null,
@@ -276,9 +296,12 @@ export default function GalaxyStrategicView({
       const b = layoutById.get(c.to);
       if (!a || !b) continue;
       const isOrbit = c.type === 'orbit';
-      const orbitColor = orbitAccessAllowed
-        ? ['rgba(120, 200, 255, 0.85)', 'rgba(180, 220, 255, 0.95)']
-        : ['rgba(255, 110, 110, 0.55)', 'rgba(255, 150, 150, 0.65)'];
+      const sealed = isOrbit && !!sealedLaneIds?.has(laneKey(c.from, c.to));
+      const orbitColor = sealed
+        ? ['rgba(255, 70, 70, 0.95)', 'rgba(255, 140, 60, 0.95)'] // sealed: hot red→orange
+        : orbitAccessAllowed
+          ? ['rgba(120, 200, 255, 0.85)', 'rgba(180, 220, 255, 0.95)']
+          : ['rgba(255, 110, 110, 0.55)', 'rgba(255, 150, 150, 0.65)'];
       const landColor = 'rgba(255, 255, 255, 0.32)';
       out.push({
         startLat: a.lat,
@@ -287,12 +310,15 @@ export default function GalaxyStrategicView({
         endLng: b.lng,
         color: isOrbit ? orbitColor : landColor,
         altitude: isOrbit ? 0.18 : 0.04,
-        stroke: isOrbit ? 0.55 : 0.35,
+        stroke: isOrbit ? (sealed ? 0.85 : 0.55) : 0.35,
         isOrbit,
+        from: c.from,
+        to: c.to,
+        sealed,
       });
     }
     return out;
-  }, [mapData.connections, layoutById, orbitAccessAllowed]);
+  }, [mapData.connections, layoutById, orbitAccessAllowed, sealedLaneIds]);
 
   const worldLabels = useMemo<LabelDatum[]>(() => {
     if (!mapData.worlds || mapData.worlds.length === 0) return [];
@@ -401,6 +427,11 @@ export default function GalaxyStrategicView({
         arcColor={(d: object) => (d as ArcDatum).color}
         arcAltitude={(d: object) => (d as ArcDatum).altitude}
         arcStroke={(d: object) => (d as ArcDatum).stroke}
+        onArcClick={(d: object) => {
+          const arc = d as ArcDatum;
+          if (!lanesContestableEnabled || !arc.isOrbit || arc.sealed || !arc.from || !arc.to || !onSealLane) return;
+          if (ownsTerritory && (ownsTerritory(arc.from) || ownsTerritory(arc.to))) onSealLane(arc.from, arc.to);
+        }}
         arcDashLength={0.4}
         arcDashGap={0.2}
         arcDashAnimateTime={(d: object) => ((d as ArcDatum).isOrbit ? 4000 : 0)}
@@ -418,6 +449,9 @@ export default function GalaxyStrategicView({
         Galaxy chart · drag to rotate · scroll to zoom · click to select · double-click to open globe · world tabs also drill in
         {!orbitAccessAllowed && (
           <span className="ml-2 text-amber-300">· red lanes locked (need Hyperspace Chart)</span>
+        )}
+        {lanesContestableEnabled && (
+          <span className="ml-2 text-orange-300">· click a lane you border to seal it (orange = sealed)</span>
         )}
       </div>
     </div>

@@ -339,6 +339,12 @@ export interface GameSettings {
    */
   combat_dice_cap_enabled?: boolean;
   /**
+   * Galaxy contestable hyperspace lanes: when on, a player holding one end of an
+   * orbit lane can seal it (game:seal_lane), blocking enemies from crossing for a
+   * few rounds. Off by default (it's a real rule change); no-op on non-galaxy maps.
+   */
+  lanes_contestable_enabled?: boolean;
+  /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
    * the map at init into `world_modifiers` so per-turn calc sites don't need the
@@ -609,6 +615,13 @@ export interface GameState {
   diplomacy: DiplomacyEntry[];
   /** Pending truce proposals awaiting target player response. */
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
+  /**
+   * Galaxy contestable lanes: active hyperspace-lane seals, keyed by canonical
+   * lane id (`orbitLaneId(from,to)`). A sealed lane blocks players other than the
+   * sealer from crossing it for `turns_remaining` rounds. Gated by
+   * `lanes_contestable_enabled`.
+   */
+  lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
   settings: GameSettings;
   draft_units_remaining: number;
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
