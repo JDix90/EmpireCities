@@ -78,6 +78,7 @@ import {
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel, formatLobbyPairingLabel } from '../constants/gameLobbyLabels';
 import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
+import { eraBoardTheme } from '../constants/eraBoardTheme';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { formatEraLabel } from '../utils/mapDisplayNames';
@@ -509,6 +510,15 @@ export default function GamePage() {
   const playerTechEra = useMemo(
     () => (gameState ? resolvePlayerTechEraId(gameState, viewerPlayer) : null),
     [gameState, viewerPlayer],
+  );
+
+  // Era board re-skin (Layer 1): the board atmosphere follows the VIEWING player's
+  // current era, so advancing visibly transforms the world. Gated to era-advancement
+  // games so classic games keep their default backdrop. Real terrain/globe textures
+  // drop into boardTheme's null art hooks later (Layer 2).
+  const eraAtmosphereBg = useMemo(
+    () => (gameState?.settings.era_advancement_enabled ? eraBoardTheme(playerTechEra).background : undefined),
+    [gameState?.settings.era_advancement_enabled, playerTechEra],
   );
 
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
@@ -3532,7 +3542,7 @@ export default function GamePage() {
                             ? (galaxyDrillGlobeSkin?.backgroundColor ??
                                 focusedWorldSkin?.background_color ??
                                 customGlobeSkin?.backgroundColor)
-                            : customGlobeSkin?.backgroundColor
+                            : (customGlobeSkin?.backgroundColor ?? eraAtmosphereBg)
                         }
                       />
                       {hasMoonTerritories && (
