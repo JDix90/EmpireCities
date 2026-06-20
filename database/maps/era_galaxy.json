@@ -23,7 +23,11 @@
       "atmosphere_color": "lightskyblue",
       "atmosphere_altitude": 0.18,
       "background_color": "rgb(8, 12, 28)",
-      "requires_orbit_access": false
+      "requires_orbit_access": false,
+      "modifiers": {
+        "production_bonus": 0.3,
+        "stability_bonus": 1
+      }
     },
     {
       "world_id": "verdan",
@@ -32,7 +36,11 @@
       "atmosphere_color": "#7fe7a3",
       "atmosphere_altitude": 0.24,
       "background_color": "rgb(8, 24, 18)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "stability_bonus": 3,
+        "production_bonus": 0.2
+      }
     },
     {
       "world_id": "rust",
@@ -41,7 +49,11 @@
       "atmosphere_color": "#d97a3c",
       "atmosphere_altitude": 0.16,
       "background_color": "rgb(28, 14, 8)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "production_bonus": 0.4,
+        "build_cost_mult": 0.8
+      }
     },
     {
       "world_id": "nexus_station",
@@ -50,7 +62,11 @@
       "atmosphere_color": "#a980ff",
       "atmosphere_altitude": 0.18,
       "background_color": "rgb(12, 14, 28)",
-      "requires_orbit_access": true
+      "requires_orbit_access": true,
+      "modifiers": {
+        "tech_bonus": 0.05,
+        "production_bonus": 0.25
+      }
     }
   ],
   "regions": [
@@ -14837,48 +14853,43 @@
       "type": "land"
     },
     {
-      "from": "sol_columbia",
-      "to": "verdan_mistveil_hollow",
+      "from": "sol_guinea",
+      "to": "verdan_chlorophage_span",
       "type": "orbit"
     },
     {
-      "from": "sol_atlantic_europe",
-      "to": "verdan_emberleaf_basin",
+      "from": "sol_pacific_rim",
+      "to": "verdan_greenfire_vault",
       "type": "orbit"
     },
     {
-      "from": "sol_arabia",
-      "to": "rust_slag_reach",
+      "from": "verdan_photic_crown",
+      "to": "rust_anvil_basin",
       "type": "orbit"
     },
     {
-      "from": "sol_austral",
+      "from": "verdan_sulphur_drift",
       "to": "rust_crucible_deep",
       "type": "orbit"
     },
     {
-      "from": "sol_cathay",
-      "to": "nexus_gate_threshold",
+      "from": "rust_hematite_span",
+      "to": "nexus_antenna_spire",
       "type": "orbit"
     },
     {
-      "from": "sol_amazonia",
-      "to": "nexus_waystation_loni",
+      "from": "rust_slag_reach",
+      "to": "nexus_custodian_quarter",
       "type": "orbit"
     },
     {
-      "from": "verdan_emberleaf_basin",
-      "to": "rust_slag_reach",
+      "from": "nexus_harmonic_rim",
+      "to": "sol_amazonia",
       "type": "orbit"
     },
     {
-      "from": "rust_crucible_deep",
-      "to": "nexus_gate_threshold",
-      "type": "orbit"
-    },
-    {
-      "from": "nexus_waystation_loni",
-      "to": "verdan_mistveil_hollow",
+      "from": "nexus_resonance_vault",
+      "to": "sol_cathay",
       "type": "orbit"
     }
   ]

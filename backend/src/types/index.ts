@@ -9,6 +9,7 @@ import type {
   MapKind,
   OrbitAccessMode,
   MapWorldDefinition,
+  WorldModifiers,
 } from '@borderfall/shared';
 
 export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccessMode, MapWorldDefinition };
@@ -343,6 +344,15 @@ export interface GameSettings {
    * few rounds. Off by default (it's a real rule change); no-op on non-galaxy maps.
    */
   lanes_contestable_enabled?: boolean;
+  /**
+   * Galaxy per-world identity: when true (default), each world's `modifiers`
+   * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
+   * the map at init into `world_modifiers` so per-turn calc sites don't need the
+   * map. No-op on maps without per-world modifiers.
+   */
+  world_modifiers_enabled?: boolean;
+  /** world_id → modifiers, snapshotted from map.worlds[] at init (see world_modifiers_enabled). */
+  world_modifiers?: Record<string, WorldModifiers>;
   /** Max attacker dice after bonuses (clamped to ≥3 base). Default 5 when capping. */
   combat_max_attacker_dice?: number;
   /** Max defender dice after bonuses (clamped to ≥2 base). Default 4 when capping. */

@@ -24,6 +24,7 @@ import {
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
+import { buildWorldModifierSnapshot } from './worldModifiers';
 import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
@@ -102,6 +103,12 @@ export function initializeGameState(
   initOptions?: InitializeGameStateOptions,
 ): GameState {
   const settingsNorm = normalizeGameSettings(settings);
+  // Galaxy per-world identity: snapshot the map's per-world modifiers onto settings
+  // so per-turn calc sites (which only have `state`) can apply them by world_id.
+  if (settingsNorm.world_modifiers_enabled !== false) {
+    const worldMods = buildWorldModifierSnapshot(map, true);
+    if (worldMods) settingsNorm.world_modifiers = worldMods;
+  }
   const territories: Record<string, TerritoryState> = {};
 
   // Build territory state — all unowned initially. Mirror the static

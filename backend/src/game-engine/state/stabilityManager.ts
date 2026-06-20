@@ -5,6 +5,7 @@
 import { randomInt } from 'crypto';
 import type { GameState } from '../../types';
 import { getPlayerFaction } from '../eras/factionLineage';
+import { getWorldModifier } from './worldModifiers';
 
 /**
  * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
@@ -108,6 +109,9 @@ export function applyStabilityTick(
 
     // Faction bonus (e.g., Roman stability recovery)
     recovery += factionBonus;
+
+    // Galaxy per-world identity: the world this territory sits on may aid recovery.
+    recovery += getWorldModifier(state, t.world_id).stability_bonus ?? 0;
 
     // Campaign carry: Revolutionary Spirit adds stability recovery for the human player
     const player = state.players.find((p) => p.player_id === playerId);
