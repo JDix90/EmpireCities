@@ -36,12 +36,40 @@ Keep coastlines geographically real (it's the same Earth); change the *treatment
 The board **atmosphere background** already shifts per era (shipped — `eraBoardTheme().background`),
 so these textures only need to carry the planet surface; the surrounding mood is handled.
 
-## Sourcing (non-AI)
+## Sourcing approach (realistic, non-AI)
 
-- **modern / satellite:** NASA Visible Earth "Blue Marble" — public domain.
-- **ancient / medieval / discovery:** public-domain historical map scans (e.g. Library of
-  Congress, David Rumsey CC) reprojected to equirectangular, or commissioned.
-- Verify each asset's license before shipping; record it next to the file.
+These are **globe** textures (equirectangular / plate-carrée) — react-globe.gl wraps the
+image around a sphere — **not** flat maps. That has one consequence worth knowing before
+you commission anything:
+
+> **Historical map scans won't work for the early eras.** Old world maps are the wrong
+> projection and rarely full-globe, so they distort badly on a sphere — you can't just drop
+> a parchment map of 1500 onto the globe. And there's no such thing as a "photo of the
+> ancient Earth."
+
+The path that stays non-AI *and* geographically correct (same coastlines as the live globe):
+
+1. **One public-domain equirectangular base for every era** — NASA Visible Earth
+   **"Blue Marble: Next Generation"** (public domain, equirectangular, 8k+ available). This is
+   the geographic base for all seven textures.
+2. **A designer applies a per-era treatment to that base** (Photoshop/Affinity — human styling
+   of a PD base, not AI):
+   - `ancient` → sepia / parchment recolor, aged-paper overlay
+   - `medieval` → richer parchment, illuminated-manuscript greens
+   - `discovery` → nautical-chart blue, faint rhumb-line overlay
+   - `ww2` → desaturated olive / grey
+   - `coldwar` → high-contrast steel-blue
+   - `modern` → the Blue Marble base, unmodified
+   - `space_age` → NASA **"Black Marble"** (Earth at night / city lights, public domain), or the
+     Blue Marble with an indigo orbital cast
+
+**Direct public-domain downloads (modern + space_age are usable almost as-is):**
+- Blue Marble — NASA Visible Earth (search "Blue Marble Next Generation", equirectangular).
+- Black Marble / night lights — NASA Earth Observatory (public domain).
+
+So the actual ask to an artist is small and well-bounded: *"here's the PD Blue Marble base —
+give me five era-treated recolors (ancient, medieval, discovery, ww2, coldwar) at 4096×2048."*
+Verify and record each asset's license next to the file.
 
 ## Drop-in wiring (once the files exist)
 
