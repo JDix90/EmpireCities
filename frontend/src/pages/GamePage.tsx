@@ -44,6 +44,7 @@ import {
   type StrikeAnimationEvent,
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
+import FeatureExplainerModal from '../components/ui/FeatureExplainerModal';
 import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, isCriticalModal } from '../components/game/ActionModal';
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
@@ -3358,6 +3359,21 @@ export default function GamePage() {
           )}
         </div>
       </div>
+
+      {/*
+        First-time Galactic Age coach tip. Self-gates via localStorage so it
+        shows once per browser. Teaches the two non-obvious things: worlds are
+        drilled into individually, and crossing between them needs Hyperspace
+        Chart (or the Helion Navigators faction).
+      */}
+      {mapData?.map_kind === 'galaxy' && (
+        <FeatureExplainerModal
+          featureKey="galactic_age_intro"
+          icon="🌌"
+          title="Welcome to the Galactic Age"
+          description="Four worlds, one war. Tap a world to drill into it, and open the galaxy chart to see all four at once. Hyperspace lanes link the planets — research Hyperspace Chart (or play the Helion Navigators) to move and attack across worlds."
+        />
+      )}
 
       {socketConnection !== 'connected' && (() => {
         // Translate the raw socket.io disconnect reason into something a
