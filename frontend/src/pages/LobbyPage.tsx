@@ -1246,33 +1246,41 @@ export default function LobbyPage() {
                 onClick={() => setShowFullGameModal(true)}
                 data-testid="full-game-start"
                 title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game, vs 3 AI"
-                className="btn-primary flex items-center gap-2 justify-center sm:flex-none"
+                className="btn-primary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
               >
-                <Trophy className="w-4 h-4" aria-hidden />
-                Full Game Start
+                <span className="flex items-center gap-2 font-semibold">
+                  <Trophy className="w-4 h-4" aria-hidden />
+                  Full Game Start
+                </span>
+                <span className="text-[11px] font-normal opacity-75">Every system on · vs 3 AI</span>
               </button>
             )}
             <button
               onClick={() => void startQuickMatch()}
               disabled={quickSoloLoading}
-              className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed`}
+              className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              <Bot className="w-4 h-4" aria-hidden />
-              {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+              <span className="flex items-center gap-2 font-semibold">
+                <Bot className="w-4 h-4" aria-hidden />
+                {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+              </span>
+              <span className="text-[11px] font-normal opacity-75">Classic Risk · instant vs 3 AI</span>
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
+              className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
               aria-haspopup="dialog"
               aria-controls="create-game-modal"
             >
-              New Game
+              <span className="font-semibold">Custom Game</span>
+              <span className="text-[11px] font-normal opacity-75">Your rules, map &amp; opponents</span>
             </button>
             <button
               onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
-              className="btn-secondary flex items-center gap-2 justify-center sm:flex-none"
+              className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
             >
-              Watch
+              <span className="font-semibold">Watch</span>
+              <span className="text-[11px] font-normal opacity-75">Spectate a live game</span>
             </button>
             {!user?.is_guest && mapEditorEnabled && (
               <Link to="/editor" className="btn-secondary items-center gap-2 hidden lg:flex">
