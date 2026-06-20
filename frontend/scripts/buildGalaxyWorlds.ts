@@ -191,7 +191,6 @@ const galaxyPos = (lng: number, lat: number): [number, number] => [
 const territories: Territory[] = [];
 const connections: Connection[] = [];
 const exoRings: Record<string, LngLat[]> = {};
-const gateways: Record<string, { west: string; east: string }> = {};
 
 // ── Sol (real Earth, densified) ───────────────────────────────────────────────
 for (const t of SOL) {
@@ -302,7 +301,6 @@ for (const world of EXO) {
   }
   connections.push(...worldLand);
 
-  let westId = '', eastId = '', westLng = Infinity, eastLng = -Infinity;
   for (let si = 0; si < COUNT; si++) {
     const id = idByCell[seedCell[si]!];
     const s = seeds[si];
@@ -316,25 +314,31 @@ for (const world of EXO) {
       center_point: toCanvas(s[0], s[1]),
       geo_polygon: geoClosed,
     });
-    if (s[0] < westLng) { westLng = s[0]; westId = id; }
-    if (s[0] > eastLng) { eastLng = s[0]; eastId = id; }
   }
-  gateways[world.world_id] = { west: westId, east: eastId };
 }
 
-// ── Orbit lanes (cross-world hyperspace) — Sol hub + exo ring ───────────────────
-const solAnchors = [SOL[0].id, SOL[2].id, SOL[5].id, SOL[8].id, SOL[11].id, SOL[14].id];
-connections.push(
-  { from: solAnchors[0], to: gateways['verdan'].west, type: 'orbit' },
-  { from: solAnchors[1], to: gateways['verdan'].east, type: 'orbit' },
-  { from: solAnchors[2], to: gateways['rust'].west, type: 'orbit' },
-  { from: solAnchors[3], to: gateways['rust'].east, type: 'orbit' },
-  { from: solAnchors[4], to: gateways['nexus_station'].west, type: 'orbit' },
-  { from: solAnchors[5], to: gateways['nexus_station'].east, type: 'orbit' },
-  { from: gateways['verdan'].east, to: gateways['rust'].west, type: 'orbit' },
-  { from: gateways['rust'].east, to: gateways['nexus_station'].west, type: 'orbit' },
-  { from: gateways['nexus_station'].east, to: gateways['verdan'].west, type: 'orbit' },
-);
+// ── Orbit lanes (cross-world hyperspace) — symmetric ring, NO hub ───────────────
+// Each world links to its two ring neighbours with 2 lanes (4 lanes/world), so no
+// world is more exposed than another. The earlier Sol "hub" carried 6 inbound lanes
+// and got dogpiled from all sides (balance sim: Stellar Mandate ~2% win rate vs 25%
+// baseline); a symmetric ring is the structural fix. Ring order keeps Sol adjacent
+// to two worlds rather than all three.
+const RING = ['sol', 'verdan', 'rust', 'nexus_station'];
+function worldGateways(worldId: string): string[] {
+  const ids = territories.filter((t) => t.world_id === worldId).map((t) => t.territory_id).sort();
+  const n = ids.length;
+  return [ids[0], ids[Math.floor(n / 4)], ids[Math.floor(n / 2)], ids[Math.floor((3 * n) / 4)]];
+}
+const gw: Record<string, string[]> = {};
+for (const w of RING) gw[w] = worldGateways(w);
+for (let i = 0; i < RING.length; i++) {
+  const A = RING[i];
+  const B = RING[(i + 1) % RING.length];
+  // A is "first" on this edge (spends gateways 2,3); B is "second" (spends 0,1) —
+  // so each world dedicates 2 gateways to each of its two neighbours, none reused.
+  connections.push({ from: gw[A][2], to: gw[B][0], type: 'orbit' });
+  connections.push({ from: gw[A][3], to: gw[B][1], type: 'orbit' });
+}
 
 // ── Write era_galaxy.json (both copies) ────────────────────────────────────────
 const outMap = { ...map, territories, connections };
