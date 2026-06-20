@@ -1264,7 +1264,7 @@ export default function LobbyPage() {
                 <Bot className="w-4 h-4" aria-hidden />
                 {quickSoloLoading ? 'Starting…' : 'Quick Match'}
               </span>
-              <span className="text-[11px] font-normal opacity-75">Classic Risk · instant vs 3 AI</span>
+              <span className="text-[11px] font-normal opacity-75">Classic Risk-style game vs 3 AI</span>
             </button>
             <button
               onClick={() => setShowCreate(true)}
