@@ -116,6 +116,7 @@ import {
 } from '../utils/orbitAccess';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
+import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
@@ -2163,6 +2164,16 @@ export default function GamePage() {
     });
   }, [mapData?.map_kind, mapData?.worlds, mapData?.territories, focusedWorldId, selectedTerritory]);
 
+  /**
+   * Procedural surface for the focused galaxy world — code-generated, no CDN, no
+   * AI. Keyed on the world so it's one coherent planet at every zoom level (no
+   * per-territory body-swaps). Memoized per world in `proceduralWorldTextureUrl`.
+   */
+  const galaxyWorldTexture = useMemo(
+    () => (mapData?.map_kind === 'galaxy' ? proceduralWorldTextureUrl(focusedWorldId) : undefined),
+    [mapData?.map_kind, focusedWorldId],
+  );
+
   useEffect(() => {
     if (mapData?.map_kind !== 'galaxy') {
       setGalaxyWorldBanner(null);
@@ -3510,18 +3521,15 @@ export default function GamePage() {
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                         globeImageUrl={
                           mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.globeImageUrl ??
+                            ? (galaxyWorldTexture ??
+                                galaxyDrillGlobeSkin?.globeImageUrl ??
                                 focusedWorldSkin?.globe_image_url ??
                                 customGlobeSkin?.globeImageUrl)
                             : (customGlobeSkin?.globeImageUrl ?? eraGlobeTexture)
                         }
                         bumpImageUrl={
                           mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.bumpImageUrl !== undefined
-                                ? galaxyDrillGlobeSkin.bumpImageUrl
-                                : focusedWorldSkin?.bump_image_url !== undefined
-                                  ? focusedWorldSkin.bump_image_url
-                                  : customGlobeSkin?.bumpImageUrl)
+                            ? '' /* procedural worlds are albedo-only; '' = no bump (undefined would apply the Earth default) */
                             : customGlobeSkin?.bumpImageUrl
                         }
                         showAtmosphere={

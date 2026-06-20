@@ -40,6 +40,7 @@ import { isLiteMode } from '../utils/userPreferences';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
+import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
 import {
@@ -928,18 +929,12 @@ export default function ReplayPage() {
                 activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                 globeImageUrl={
                   mapData.map_kind === 'galaxy'
-                    ? (replayGalaxyGlobeSkin?.globeImageUrl ?? focusedWorldSkin?.globe_image_url)
+                    ? (proceduralWorldTextureUrl(focusedWorldId) ??
+                        replayGalaxyGlobeSkin?.globeImageUrl ??
+                        focusedWorldSkin?.globe_image_url)
                     : undefined
                 }
-                bumpImageUrl={
-                  mapData.map_kind === 'galaxy'
-                    ? replayGalaxyGlobeSkin?.bumpImageUrl !== undefined
-                      ? replayGalaxyGlobeSkin.bumpImageUrl
-                      : focusedWorldSkin?.bump_image_url !== undefined
-                        ? focusedWorldSkin.bump_image_url
-                        : undefined
-                    : undefined
-                }
+                bumpImageUrl={mapData.map_kind === 'galaxy' ? '' : undefined}
                 showAtmosphere={
                   mapData.map_kind === 'galaxy'
                     ? (replayGalaxyGlobeSkin?.showAtmosphere ?? focusedWorldSkin?.show_atmosphere ?? true)
