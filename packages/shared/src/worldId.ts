@@ -11,10 +11,30 @@ export interface MapTerritoryWorldLike {
   globe_id?: string;
 }
 
+/**
+ * Per-world economic identity modifiers (galaxy maps). All optional + additive,
+ * so worlds without them behave exactly as before. Income `*_bonus` values are
+ * PER OWNED TERRITORY on the world and accumulate fractionally before flooring,
+ * so they scale with how much of the world you hold and stay bounded by its size.
+ * `build_cost_mult` multiplies the cost of buildings placed on that world.
+ */
+export interface WorldModifiers {
+  /** + production per owned territory on this world (fractional, floored per turn). */
+  production_bonus?: number;
+  /** + tech points per owned territory on this world (fractional, floored per turn). */
+  tech_bonus?: number;
+  /** + stability recovery per owned territory on this world, per turn. */
+  stability_bonus?: number;
+  /** Multiplier on building costs for territories on this world (1 = no change, 0.8 = 20% cheaper). */
+  build_cost_mult?: number;
+}
+
 /** Per-world rendering + access metadata on galaxy maps (optional on standard maps). */
 export interface MapWorldDefinition {
   world_id: string;
   display_name: string;
+  /** Economic identity modifiers for owners of this world's territories. */
+  modifiers?: WorldModifiers;
   globe_image_url?: string;
   bump_image_url?: string;
   show_atmosphere?: boolean;

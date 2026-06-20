@@ -17,6 +17,7 @@ export {
   type OrbitAccessMode,
   type MapTerritoryWorldLike,
   type MapWorldDefinition,
+  type WorldModifiers,
   inferWorldId,
 } from './worldId';
 
