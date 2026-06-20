@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon, Orbit } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -3358,6 +3358,43 @@ export default function GamePage() {
           )}
         </div>
       </div>
+
+      {/*
+        Mobile galaxy world-switcher. The desktop header has a "Galaxy chart"
+        toggle + world tabs, but both are `hidden md:*`, so on a phone the only
+        way to leave a world was an undocumented double-tap on a chart node —
+        players could get stranded on one planet. This always-visible scrollable
+        chip row gives mobile parity: jump to the all-worlds chart or any world.
+      */}
+      {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-bf-muted/80 pr-0.5">
+            <GlobeIcon className="w-3.5 h-3.5" /> Worlds
+          </span>
+          <button
+            type="button"
+            onClick={() => setGalaxyOverviewMode(true)}
+            className={`shrink-0 inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 text-[11px] rounded border ${galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
+            aria-pressed={galaxyOverviewMode}
+          >
+            <Orbit className="w-3.5 h-3.5" /> Galaxy chart
+          </button>
+          {(mapData.worlds ?? []).map((w) => (
+            <button
+              key={w.world_id}
+              type="button"
+              onClick={() => {
+                setFocusedWorldId(w.world_id);
+                setGalaxyOverviewMode(false);
+              }}
+              className={`shrink-0 min-h-[36px] px-2.5 py-1 text-[11px] rounded border whitespace-nowrap ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
+              aria-pressed={focusedWorldId === w.world_id && !galaxyOverviewMode}
+            >
+              {w.display_name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {socketConnection !== 'connected' && (() => {
         // Translate the raw socket.io disconnect reason into something a
