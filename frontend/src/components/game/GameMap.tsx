@@ -8,6 +8,8 @@ import { buildTerritoryGlobeGeometries, type GlobeMapDataForGeometry } from '../
 import { buildGeoLayout2d, type GeoLayout2d } from '../../utils/map2dProjection';
 import { hasGeoMapping } from '../../data/territoryGeoMapping';
 import { isFogHidden } from '../../utils/fogVisibility';
+import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { hapticImpact } from '../../utils/haptics';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
 import {
@@ -661,6 +663,16 @@ export default function GameMap({
   useEffect(() => {
     if (!gameState || !appRef.current) return;
 
+    // Era re-skin (Layer 1): ring each unit badge in its OWNER's era accent, so era
+    // gaps read on the board (your modern troops vs their ancient ones). Built once
+    // per redraw; stays empty (→ default white ring) unless era advancement is on.
+    const eraRingByOwner = new Map<string, number>();
+    if (gameState.settings.era_advancement_enabled) {
+      for (const p of gameState.players) {
+        eraRingByOwner.set(p.player_id, hexToPixi(eraBoardTheme(resolvePlayerTechEraId(gameState, p)).accent));
+      }
+    }
+
     for (const territory of mapData.territories) {
       const g = territoryGraphicsRef.current.get(territory.territory_id);
       if (!g) continue;
@@ -766,7 +778,8 @@ export default function GameMap({
           if (badge.text.text !== label) badge.text.text = label;
           const radius = label.length >= 3 ? 13 : 10;
           badge.bg.clear();
-          badge.bg.lineStyle(1.5, 0xffffff, tState.owner_id ? 0.85 : 0.4);
+          const eraRing = tState.owner_id ? eraRingByOwner.get(tState.owner_id) : undefined;
+          badge.bg.lineStyle(eraRing != null ? 2 : 1.5, eraRing ?? 0xffffff, tState.owner_id ? 0.9 : 0.4);
           badge.bg.beginFill(tState.owner_id ? shadePixi(fillColor, 0.5) : 0x1b2233, 0.92);
           badge.bg.drawCircle(0, 0, radius);
           badge.bg.endFill();

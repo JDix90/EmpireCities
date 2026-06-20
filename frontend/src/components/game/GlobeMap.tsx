@@ -9,6 +9,8 @@ import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { FastForward } from 'lucide-react';
 const GameMapLazy = lazy(() => import('./GameMap'));
 import { useGameStore } from '../../store/gameStore';
+import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { useUiStore } from '../../store/uiStore';
 import { type TerritoryGeoConfig, type ClipBbox } from '../../data/territoryGeoMapping';
 import {
@@ -2836,10 +2838,20 @@ function GlobeMap({
   );
 
   const getPolygonSideColor = useCallback(
-    (_polygon: object) => {
-      return useSolidPlayerCaps ? 'rgb(14, 18, 30)' : 'rgba(6, 10, 18, 0.45)';
+    (polygon: object) => {
+      const fallback = useSolidPlayerCaps ? 'rgb(14, 18, 30)' : 'rgba(6, 10, 18, 0.45)';
+      // Era re-skin (Layer 1): tint each territory's extruded WALLS in its OWNER's
+      // era accent, so era gaps read on the globe (the primary view) — your modern
+      // empire's walls glow green next to an opponent still in ancient gold. Caps
+      // stay player-colored (ownership); stroke keeps its region/adjacency signal.
+      if (!gameState?.settings.era_advancement_enabled) return fallback;
+      const tState = gameState.territories[(polygon as PolygonData).territory_id];
+      if (!tState?.owner_id) return fallback;
+      const owner = gameState.players.find((ply) => ply.player_id === tState.owner_id);
+      if (!owner) return fallback;
+      return hexToRgba(eraBoardTheme(resolvePlayerTechEraId(gameState, owner)).accent, useSolidPlayerCaps ? 0.9 : 0.65);
     },
-    [useSolidPlayerCaps],
+    [gameState, useSolidPlayerCaps],
   );
 
   // ── Globe layer accessors (stable) ─────────────────────────────────────
