@@ -21,6 +21,7 @@ import {
 import NeighborTerritoryPicker from './NeighborTerritoryPicker';
 import { listNeighborTargets, type MapConnection } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
+import { inferWorldId } from '@borderfall/shared';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -47,6 +48,10 @@ interface TerritoryPanelProps {
    * players from blindly clicking actions the server will reject.
    */
   orbitAccessHint?: string | null;
+  /** Galaxy: whether the viewing player can currently traverse hyperspace lanes. */
+  orbitAccessAllowed?: boolean;
+  /** Reason hyperspace travel is blocked — shown on locked cross-world targets. */
+  orbitAccessReason?: string | null;
   /** Stable socket viewer id from `game:joined` — fixes draft UI when auth.user loads late */
   resolvedViewerPlayerId?: string | null;
   mapConnections?: MapConnection[];
@@ -70,6 +75,8 @@ export default function TerritoryPanel({
   onUseAbility,
   techTree = [],
   orbitAccessHint,
+  orbitAccessAllowed = true,
+  orbitAccessReason,
   resolvedViewerPlayerId,
   mapConnections = [],
   denseMap = false,
@@ -178,6 +185,16 @@ export default function TerritoryPanel({
     [mapTerritories],
   );
 
+  /** territory_id → destination world display name, for labelling hyperspace targets. */
+  const worldNameByTerritoryId = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of mapTerritories) {
+      const lore = getGalaxyWorldLore(inferWorldId(t));
+      if (lore) m.set(t.territory_id, lore.display_name);
+    }
+    return m;
+  }, [mapTerritories]);
+
   const attackNeighborSourceId = attackSource ?? (isMine && gameState.phase === 'attack' ? selectedTerritory : null);
   const attackNeighbors = React.useMemo(() => {
     if (!isMyTurn || gameState.phase !== 'attack' || !attackNeighborSourceId || !myPlayerId) return [];
@@ -185,6 +202,7 @@ export default function TerritoryPanel({
     if (sourceOwner !== myPlayerId) return [];
     return listNeighborTargets(gameState, mapConnections, attackNeighborSourceId, territoryNameById, {
       attackSource: attackNeighborSourceId,
+      worldNameOf: (id) => worldNameByTerritoryId.get(id),
     });
   }, [
     isMyTurn,
@@ -192,6 +210,7 @@ export default function TerritoryPanel({
     attackNeighborSourceId,
     mapConnections,
     territoryNameById,
+    worldNameByTerritoryId,
     myPlayerId,
   ]);
 
@@ -205,8 +224,9 @@ export default function TerritoryPanel({
     if (!isMyTurn || !fortifyNeighborSourceId || !myPlayerId) return [];
     return listNeighborTargets(gameState, mapConnections, fortifyNeighborSourceId, territoryNameById, {
       attackSource: fortifyNeighborSourceId,
+      worldNameOf: (id) => worldNameByTerritoryId.get(id),
     });
-  }, [isMyTurn, gameState, fortifyNeighborSourceId, mapConnections, territoryNameById, myPlayerId]);
+  }, [isMyTurn, gameState, fortifyNeighborSourceId, mapConnections, territoryNameById, worldNameByTerritoryId, myPlayerId]);
 
   return (
     <div
@@ -532,6 +552,8 @@ export default function TerritoryPanel({
               neighbors={attackNeighbors}
               denseMap={denseMap}
               compact={isMobileActionMode}
+              orbitLocked={!orbitAccessAllowed}
+              orbitLockReason={orbitAccessReason ?? undefined}
               onSelect={(territoryId) => setSelectedTerritory(territoryId)}
               onAttack={(toTerritoryId) => onAttack(attackNeighborSourceId, toTerritoryId)}
             />
@@ -759,6 +781,8 @@ export default function TerritoryPanel({
               neighbors={fortifyNeighbors}
               denseMap={denseMap}
               compact={isMobileActionMode}
+              orbitLocked={!orbitAccessAllowed}
+              orbitLockReason={orbitAccessReason ?? undefined}
               onSelect={(territoryId) => {
                 if (onFortifyTo) {
                   setFortifyUnits(fortifyAmount);

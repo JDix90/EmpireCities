@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon } from 'lucide-react';
+import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon, Orbit } from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -117,6 +117,7 @@ import {
 } from '../utils/orbitAccess';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
+import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
@@ -2164,6 +2165,16 @@ export default function GamePage() {
     });
   }, [mapData?.map_kind, mapData?.worlds, mapData?.territories, focusedWorldId, selectedTerritory]);
 
+  /**
+   * Procedural surface for the focused galaxy world — code-generated, no CDN, no
+   * AI. Keyed on the world so it's one coherent planet at every zoom level (no
+   * per-territory body-swaps). Memoized per world in `proceduralWorldTextureUrl`.
+   */
+  const galaxyWorldTexture = useMemo(
+    () => (mapData?.map_kind === 'galaxy' ? proceduralWorldTextureUrl(focusedWorldId) : undefined),
+    [mapData?.map_kind, focusedWorldId],
+  );
+
   useEffect(() => {
     if (mapData?.map_kind !== 'galaxy') {
       setGalaxyWorldBanner(null);
@@ -2197,6 +2208,16 @@ export default function GamePage() {
     const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
+
+  /**
+   * Player-level reason hyperspace lanes are locked (independent of which
+   * territory is selected). Drives the lock badge on cross-world attack/fortify
+   * targets in the action list so the gate is explained at the point of action.
+   */
+  const orbitTravelBlockedReason = useMemo(() => {
+    if (!mapData || mapData.map_kind !== 'galaxy' || orbitAccess.allowed) return null;
+    return formatOrbitAccessError(orbitAccess, resolveOrbitAccessMode(mapData, gameState?.era ?? ''));
+  }, [mapData, orbitAccess, gameState?.era]);
 
   const handleClaimTerritory = (territoryId: string) => {
     if (territorySelectPendingRef.current) return;
@@ -3361,6 +3382,43 @@ export default function GamePage() {
       </div>
 
       {/*
+        Mobile galaxy world-switcher. The desktop header has a "Galaxy chart"
+        toggle + world tabs, but both are `hidden md:*`, so on a phone the only
+        way to leave a world was an undocumented double-tap on a chart node —
+        players could get stranded on one planet. This always-visible scrollable
+        chip row gives mobile parity: jump to the all-worlds chart or any world.
+      */}
+      {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-bf-muted/80 pr-0.5">
+            <GlobeIcon className="w-3.5 h-3.5" /> Worlds
+          </span>
+          <button
+            type="button"
+            onClick={() => setGalaxyOverviewMode(true)}
+            className={`shrink-0 inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 text-[11px] rounded border ${galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
+            aria-pressed={galaxyOverviewMode}
+          >
+            <Orbit className="w-3.5 h-3.5" /> Galaxy chart
+          </button>
+          {(mapData.worlds ?? []).map((w) => (
+            <button
+              key={w.world_id}
+              type="button"
+              onClick={() => {
+                setFocusedWorldId(w.world_id);
+                setGalaxyOverviewMode(false);
+              }}
+              className={`shrink-0 min-h-[36px] px-2.5 py-1 text-[11px] rounded border whitespace-nowrap ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
+              aria-pressed={focusedWorldId === w.world_id && !galaxyOverviewMode}
+            >
+              {w.display_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/*
         First-time Galactic Age coach tip. Self-gates via localStorage so it
         shows once per browser. Teaches the two non-obvious things: worlds are
         drilled into individually, and crossing between them needs Hyperspace
@@ -3526,18 +3584,15 @@ export default function GamePage() {
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                         globeImageUrl={
                           mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.globeImageUrl ??
+                            ? (galaxyWorldTexture ??
+                                galaxyDrillGlobeSkin?.globeImageUrl ??
                                 focusedWorldSkin?.globe_image_url ??
                                 customGlobeSkin?.globeImageUrl)
                             : (customGlobeSkin?.globeImageUrl ?? eraGlobeTexture)
                         }
                         bumpImageUrl={
                           mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.bumpImageUrl !== undefined
-                                ? galaxyDrillGlobeSkin.bumpImageUrl
-                                : focusedWorldSkin?.bump_image_url !== undefined
-                                  ? focusedWorldSkin.bump_image_url
-                                  : customGlobeSkin?.bumpImageUrl)
+                            ? '' /* procedural worlds are albedo-only; '' = no bump (undefined would apply the Earth default) */
                             : customGlobeSkin?.bumpImageUrl
                         }
                         showAtmosphere={
@@ -3698,6 +3753,8 @@ export default function GamePage() {
               }
               techTree={techTree}
               orbitAccessHint={orbitAccessHint}
+              orbitAccessAllowed={orbitAccess.allowed}
+              orbitAccessReason={orbitTravelBlockedReason}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               mapConnections={mapData.connections}
               denseMap={mapDensityMetrics?.isDense ?? false}

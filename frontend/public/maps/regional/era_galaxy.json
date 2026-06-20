@@ -19,8 +19,6 @@
     {
       "world_id": "sol",
       "display_name": "Sol III",
-      "globe_image_url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg",
-      "bump_image_url": "https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png",
       "show_atmosphere": true,
       "atmosphere_color": "lightskyblue",
       "atmosphere_altitude": 0.18,
@@ -30,8 +28,6 @@
     {
       "world_id": "verdan",
       "display_name": "Verdan Reach",
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iomap.jpg",
-      "bump_image_url": "",
       "show_atmosphere": true,
       "atmosphere_color": "#7fe7a3",
       "atmosphere_altitude": 0.24,
@@ -41,8 +37,6 @@
     {
       "world_id": "rust",
       "display_name": "Rust Belt",
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsmap.jpg",
-      "bump_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsbump.jpg",
       "show_atmosphere": true,
       "atmosphere_color": "#d97a3c",
       "atmosphere_altitude": 0.16,
@@ -52,8 +46,6 @@
     {
       "world_id": "nexus_station",
       "display_name": "Nexus Station",
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/callistomap.jpg",
-      "bump_image_url": "",
       "show_atmosphere": true,
       "atmosphere_color": "#a980ff",
       "atmosphere_altitude": 0.18,
@@ -596,9 +588,7 @@
           -78,
           32
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iomap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "verdan_stormwall",
@@ -672,9 +662,7 @@
           40,
           32
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/ganymedemap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "verdan_canopy",
@@ -748,9 +736,7 @@
           -128,
           -8
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/enceladusmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "verdan_marsh",
@@ -824,9 +810,7 @@
           -25,
           -12
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/titanmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "verdan_drift",
@@ -900,9 +884,7 @@
           88,
           -10
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/callistomap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "verdan_brilliance",
@@ -976,9 +958,7 @@
           -72,
           -55
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/tritonmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "rust_olympus",
@@ -1048,9 +1028,7 @@
           -148,
           8
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsmap.jpg",
-      "bump_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/marsbump.jpg"
+      ]
     },
     {
       "territory_id": "rust_tharsis",
@@ -1120,9 +1098,7 @@
           -112,
           -10
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/ceresmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "rust_marineris",
@@ -1196,9 +1172,7 @@
           -85,
           -20
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/plutomap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "rust_hellas",
@@ -1268,9 +1242,7 @@
           55,
           -52
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/saturnmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "rust_cydonia",
@@ -1344,9 +1316,7 @@
           -22,
           38
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/uranusmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "rust_argyre",
@@ -1416,9 +1386,7 @@
           -58,
           -55
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/neptunemap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_valhalla",
@@ -1492,9 +1460,7 @@
           28,
           5
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/jupitermap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_asgard",
@@ -1568,9 +1534,7 @@
           -58,
           22
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/mimasmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_heimdall",
@@ -1644,9 +1608,7 @@
           108,
           18
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/rheamap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_adlinda",
@@ -1716,9 +1678,7 @@
           -85,
           -55
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/iapetusmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_tornarsuk",
@@ -1792,9 +1752,7 @@
           -158,
           -8
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/hyperionmap.jpg",
-      "bump_image_url": ""
+      ]
     },
     {
       "territory_id": "nexus_loni",
@@ -1864,9 +1822,7 @@
           -22,
           -52
         ]
-      ],
-      "globe_image_url": "https://cdn.jsdelivr.net/gh/ofrohn/threex.planets@master/images/maps/dionemap.jpg",
-      "bump_image_url": ""
+      ]
     }
   ],
   "connections": [
