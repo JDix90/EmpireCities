@@ -230,6 +230,19 @@ const ERA_MAP_IDS: Record<string, string> = {
   galaxy_age: 'era_galaxy',
 };
 
+// Shown in the Full Game confirm modal so players see exactly what the complete
+// experience turns on before committing. Mirrors the startFullGame() payload.
+const FULL_GAME_SUMMARY_CHIPS = ['Ancient World', '3 AI · Medium', 'Domination', '5-min turns'];
+const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
+  { label: 'Era Advancement', desc: 'Advance from the Ancient world to the Modern day mid-match (Standard pace).' },
+  { label: 'Economy & Buildings', desc: 'Production, income, and construction across your territories.' },
+  { label: 'Technology Trees', desc: 'Research foundational tech each era.' },
+  { label: 'Population & Stability', desc: 'Keep conquered lands stable enough to hold them.' },
+  { label: 'Naval Warfare', desc: 'Fleets, ports, and contested sea lanes.' },
+  { label: 'Historical Events', desc: 'Era-specific event cards shake up each game.' },
+  { label: 'Diplomacy', desc: 'Forge truces and alliances with your rivals.' },
+];
+
 interface PublicGame {
   game_id: string;
   era_id: string;
@@ -454,6 +467,7 @@ export default function LobbyPage() {
   const [topLiveGameId, setTopLiveGameId] = useState<string | null>(null);
   const [topLiveGame, setTopLiveGame] = useState<LiveGameSummary | null>(null);
   const [showChallenge, setShowChallenge] = useState(false);
+  const [showFullGameModal, setShowFullGameModal] = useState(false);
   const [dailySummary, setDailySummary] = useState<{ era_id: string; attempts_today: number; completed: boolean } | null>(null);
   const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
   const joinFromUrlHandled = useRef(false);
@@ -1132,6 +1146,49 @@ export default function LobbyPage() {
         />
       )}
       <ChallengeFriendModal open={showChallenge} onClose={() => setShowChallenge(false)} />
+      <Modal
+        open={showFullGameModal}
+        onClose={() => setShowFullGameModal(false)}
+        title="Full Game"
+        className="max-w-md"
+      >
+        <p className="text-bf-muted text-sm mb-4">
+          The complete Borderfall experience — every system on, advancing through the ages
+          against 3 AI commanders.
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {FULL_GAME_SUMMARY_CHIPS.map((c) => (
+            <span key={c} className="px-2 py-1 rounded-full border border-bf-border bg-bf-dark text-bf-text text-xs">
+              {c}
+            </span>
+          ))}
+        </div>
+        <ul className="space-y-2.5 mb-6">
+          {FULL_GAME_FEATURES.map((f) => (
+            <li key={f.label} className="flex gap-2.5">
+              <span className="text-bf-gold mt-0.5 shrink-0" aria-hidden>✓</span>
+              <span className="min-w-0">
+                <span className="text-bf-text text-sm font-medium">{f.label}</span>
+                <span className="block text-bf-muted text-xs leading-snug">{f.desc}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" className="btn-secondary" onClick={() => setShowFullGameModal(false)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            data-testid="full-game-play"
+            className="btn-primary sm:min-w-[8rem] disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={fullGameLoading}
+            onClick={() => void startFullGame()}
+          >
+            {fullGameLoading ? 'Starting…' : 'Play Game'}
+          </button>
+        </div>
+      </Modal>
       {/* Pull-to-refresh indicator */}
       {(pullDistance > 0 || refreshing) && (
         <div
@@ -1184,14 +1241,13 @@ export default function LobbyPage() {
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             {eraAdvancementLobbyEnabled && (
               <button
-                onClick={() => void startFullGame()}
-                disabled={fullGameLoading}
+                onClick={() => setShowFullGameModal(true)}
                 data-testid="full-game-start"
                 title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game, vs 3 AI"
-                className="btn-primary flex items-center gap-2 justify-center sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed"
+                className="btn-primary flex items-center gap-2 justify-center sm:flex-none"
               >
                 <Trophy className="w-4 h-4" aria-hidden />
-                {fullGameLoading ? 'Starting…' : 'Full Game Start'}
+                Full Game Start
               </button>
             )}
             <button
