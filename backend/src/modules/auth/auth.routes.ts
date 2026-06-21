@@ -13,6 +13,7 @@ import { requireGuest } from '../../middleware/requireGuest';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
+import { recordServerEvent } from '../../services/analyticsEvents';
 
 // Registration is pre-login, so its rate limiter keys by IP (see rateLimitKey).
 // The original 5/15min was too tight for shared egress IPs (mobile CGNAT,
@@ -266,6 +267,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(userId);
+    recordServerEvent('guest_created', { username }, userId);
 
     return reply.send({
       accessToken,
@@ -334,6 +336,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(user.user_id);
+    recordServerEvent('user_registered', { username: user.username }, user.user_id);
     return reply.status(201).send({ accessToken, user });
   });
 
@@ -442,6 +445,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(upgraded.user_id);
+    recordServerEvent('guest_upgraded', {}, upgraded.user_id);
     return reply.send({
       accessToken,
       user: { ...upgraded, is_guest: false },
@@ -517,6 +521,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     stampLastLogin(user.user_id);
+    recordServerEvent('user_login', {}, user.user_id);
     return reply.send({ accessToken, user: safeUser });
   });
 
