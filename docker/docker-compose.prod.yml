@@ -83,6 +83,10 @@ services:
       # depth, event-loop lag, AI queue). Keep it proxy-internal — it's not
       # routed publicly in nginx.prod.conf. Override to 'false' to disable.
       METRICS_ENDPOINT_ENABLED: ${METRICS_ENDPOINT_ENABLED:-true}
+      # Product-analytics funnel: persist to the analytics_events table + emit one
+      # JSON log line per event. Default off — opt-in data collection. Read with
+      # `pnpm exec tsx scripts/funnelReport.ts` inside this container.
+      ANALYTICS_EVENTS_ENABLED: ${ANALYTICS_EVENTS_ENABLED:-false}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}
