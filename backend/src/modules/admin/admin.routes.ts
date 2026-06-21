@@ -17,6 +17,7 @@ import {
 } from '../matchmaking/matchmaking.routes';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import { buildDependencyReport } from './dependencyRegistry';
+import { getAnalyticsReport } from '../../services/analyticsQueries';
 
 const DateFilterSchema = z.object({
   from: z.string().optional(),
@@ -211,6 +212,15 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        ORDER BY win_rate DESC NULLS LAST, games_played DESC`,
     );
     return reply.send(rows);
+  });
+
+  // Product funnel + retention over analytics_events (first-party). Returns the
+  // same shape as scripts/funnelReport.ts. `days` is the trailing window (1–365).
+  fastify.get('/metrics/funnel', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const raw = Number((request.query as { days?: string } | undefined)?.days);
+    const days = Math.max(1, Math.min(365, Number.isFinite(raw) ? Math.floor(raw) : 30));
+    const report = await getAnalyticsReport(days);
+    return reply.send(report);
   });
 
   fastify.get('/metrics/eras', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {

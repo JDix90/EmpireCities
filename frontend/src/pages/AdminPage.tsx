@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 import { api } from '../services/api';
 import Modal from '../components/ui/Modal';
+import AdminAnalyticsPanel, { type AnalyticsReport } from '../components/admin/AdminAnalyticsPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const CLIENT_FEATURE_FLAGS = [
@@ -36,10 +37,11 @@ const CLIENT_FEATURE_FLAGS = [
   },
 ] as const;
 
-type TabKey = 'overview' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
+type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
+  { key: 'analytics', label: 'Analytics', description: 'Funnel & retention' },
   { key: 'balance', label: 'Balance', description: 'Factions, eras, maps, pace' },
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
@@ -218,6 +220,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesPayload | null>(null);
+  const [funnel, setFunnel] = useState<AnalyticsReport | null>(null);
   const [trendDays, setTrendDays] = useState(30);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -314,6 +317,9 @@ export default function AdminPage() {
           ]);
           setOverview(ovRes.data);
           setTimeseries(tsRes.data);
+        } else if (tab === 'analytics') {
+          const res = await api.get<AnalyticsReport>('/admin/metrics/funnel', { params: { days: trendDays } });
+          setFunnel(res.data ?? null);
         } else if (tab === 'balance') {
           const [factionRes, eraRes, mapRes, durationRes, settingsTogglesRes] = await Promise.all([
             api.get('/admin/metrics/factions'),
@@ -816,6 +822,12 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {!loading && activeTab === 'analytics' && (
+          <div className="mt-6">
+            <AdminAnalyticsPanel data={funnel} />
           </div>
         )}
 
