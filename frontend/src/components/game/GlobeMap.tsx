@@ -191,6 +191,8 @@ interface GlobeMapProps {
   turnHolderPlayerId?: string | null;
   /** The viewing player's id — frames their territories + pauses idle spin on their turn (WI2). */
   selfPlayerId?: string | null;
+  /** When set, pulse every territory owned by this player (first-turn reinforcement coach, WI1). */
+  coachHighlightOwnerId?: string | null;
   contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
   /** How aggressively to render animated connection lines vs border highlights. */
   connectionHintMode?: ResolvedConnectionHintMode;
@@ -679,6 +681,7 @@ function GlobeMap({
   ambientEnabled = false,
   turnHolderPlayerId,
   selfPlayerId = null,
+  coachHighlightOwnerId = null,
   contestedBorders = [],
   connectionHintMode = 'full',
   onGlobeReady,
@@ -2966,11 +2969,34 @@ function GlobeMap({
     };
   }, [highlightTerritoryId, territoryCenters]);
 
+  // First-turn coach (WI1): pulse every territory the new player owns during the
+  // reinforcement step so "tap one of your glowing territories" has an obvious
+  // referent. coachHighlightOwnerId is null (dormant) for everyone else.
+  const coachOwnedRings = useMemo((): RingDatum[] => {
+    if (!coachHighlightOwnerId || gameState?.phase !== 'draft') return [];
+    const out: RingDatum[] = [];
+    for (const [tid, t] of Object.entries(gameState.territories)) {
+      if (t.owner_id !== coachHighlightOwnerId) continue;
+      const center = territoryCenters.get(tid);
+      if (!center) continue;
+      out.push({
+        id: `coach-own-${tid}`,
+        lat: center.lat,
+        lng: center.lng,
+        maxRadius: 0.9,
+        speed: 1.2,
+        repeatPeriod: 1100,
+        colorFn: (x: number) => `rgba(255, 215, 0, ${Math.max(0, 0.7 - x)})`,
+      });
+    }
+    return out;
+  }, [coachHighlightOwnerId, gameState, territoryCenters]);
+
   const combinedRings = useMemo(() => {
-    const out = [...rings, ...wastelandRings];
+    const out = [...rings, ...wastelandRings, ...coachOwnedRings];
     if (tutorialRing) out.push(tutorialRing);
     return out;
-  }, [rings, tutorialRing, wastelandRings]);
+  }, [rings, tutorialRing, wastelandRings, coachOwnedRings]);
 
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,

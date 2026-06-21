@@ -5,12 +5,14 @@ import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, L
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
+import { useFirstTurnCoachEnabled } from '../store/featureFlagsStore';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { colorDisplayName } from '../utils/colorName';
+import { shouldShowFirstTurnCoach, coachPhaseForGamePhase, type CoachPhase } from '../utils/firstTurnCoach';
 
 /** Minimum time an auto-advancing tutorial card stays readable (see opponent_turn). */
 const TUTORIAL_MIN_DWELL_MS = 4000;
@@ -33,6 +35,7 @@ import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
+import FirstTurnCoach from '../components/game/FirstTurnCoach';
 import MobileCombatBanner from '../components/game/MobileCombatBanner';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
@@ -469,6 +472,19 @@ export default function GamePage() {
   }, []);
   const [tutorialStep, setTutorialStep] = useState(0);
   const isTutorial = gameState?.settings?.tutorial === true;
+  // First-turn coach eligibility (WI1) — recomputed each render; a ref lets the
+  // socket handler read the live value without re-subscribing.
+  const firstTurnCoachFlag = useFirstTurnCoachEnabled();
+  const coachEligible = shouldShowFirstTurnCoach({
+    xp: user?.xp,
+    isTutorial,
+    coachingEnabled: gameState?.settings?.coaching_enabled === true,
+    mapView,
+    turnNumber: gameState?.turn_number,
+    flagEnabled: firstTurnCoachFlag,
+  });
+  const coachEligibleRef = useRef(coachEligible);
+  coachEligibleRef.current = coachEligible;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
   const tutorialSteps = useMemo(
     () => getTutorialSteps(tutorialLessonModule),
@@ -710,6 +726,15 @@ export default function GamePage() {
   const prevPlayerIndexRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const draftSummaryShownRef = useRef(false);
+  // First-turn coach (WI1): which phase's prompt is showing + which phases have
+  // already fired this game (also persisted per-game in sessionStorage so a
+  // mid-turn refresh doesn't re-show a seen phase). Reset when the game changes.
+  const [coachPhase, setCoachPhase] = useState<CoachPhase | null>(null);
+  const coachFiredRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    coachFiredRef.current.clear();
+    setCoachPhase(null);
+  }, [gameId]);
   const pendingDraftSummaryRef = useRef<ClientGameState | null>(null);
   const otherTurnCombatsRef = useRef<CombatResult[]>([]);
   const ownTurnCombatsRef = useRef<CombatResult[]>([]);
@@ -1087,6 +1112,32 @@ export default function GamePage() {
             },
             key: notifCounter.current,
           });
+        }
+      }
+
+      // First-turn coach (WI1): the first time the new player reaches each phase
+      // on turn 1, surface a one-time prompt. Once per phase per game.
+      if (coachEligibleRef.current && isMyTurn && state.turn_number === 1) {
+        const cp = coachPhaseForGamePhase(state.phase);
+        if (cp) {
+          const key = `${gameId}:coach:${state.phase}`;
+          if (!coachFiredRef.current.has(key)) {
+            let seen = false;
+            try {
+              seen = sessionStorage.getItem(key) === '1';
+            } catch {
+              /* sessionStorage unavailable — fall back to in-memory only */
+            }
+            if (!seen) {
+              coachFiredRef.current.add(key);
+              try {
+                sessionStorage.setItem(key, '1');
+              } catch {
+                /* ignore persistence failure */
+              }
+              setCoachPhase(cp);
+            }
+          }
         }
       }
 
@@ -3596,6 +3647,7 @@ export default function GamePage() {
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                         selfPlayerId={resolvedViewerPlayerId}
+                        coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
                         contestedBorders={contestedBorders}
                         connectionHintMode={connectionHintMode}
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
@@ -4278,6 +4330,15 @@ export default function GamePage() {
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
       <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />
+
+      {/* First-turn coach (WI1) — one-time per-phase prompt for brand-new players on the globe */}
+      {coachPhase && (
+        <FirstTurnCoach
+          phase={coachPhase}
+          unitsToPlace={coachPhase === 'reinforcement' ? draftUnitsRemaining : undefined}
+          onDismiss={() => setCoachPhase(null)}
+        />
+      )}
 
       {/* Coaching Tip — solo-vs-AI only, dismissible per turn */}
       {coachingTip && coachingTip.turn === gameState?.turn_number && (
