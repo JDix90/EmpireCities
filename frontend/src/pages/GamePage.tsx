@@ -3595,6 +3595,7 @@ export default function GamePage() {
                         highlightTerritoryId={tutorialHighlightId}
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                        selfPlayerId={resolvedViewerPlayerId}
                         contestedBorders={contestedBorders}
                         connectionHintMode={connectionHintMode}
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}

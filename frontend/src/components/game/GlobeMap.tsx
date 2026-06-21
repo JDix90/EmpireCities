@@ -189,6 +189,8 @@ interface GlobeMapProps {
   /** Ambient turn-holder glow and contested frontier arcs. */
   ambientEnabled?: boolean;
   turnHolderPlayerId?: string | null;
+  /** The viewing player's id — frames their territories + pauses idle spin on their turn (WI2). */
+  selfPlayerId?: string | null;
   contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
   /** How aggressively to render animated connection lines vs border highlights. */
   connectionHintMode?: ResolvedConnectionHintMode;
@@ -676,6 +678,7 @@ function GlobeMap({
   activeWorldId = 'earth',
   ambientEnabled = false,
   turnHolderPlayerId,
+  selfPlayerId = null,
   contestedBorders = [],
   connectionHintMode = 'full',
   onGlobeReady,
@@ -739,6 +742,10 @@ function GlobeMap({
   const currentEventIdRef = useRef<string | null>(null);
   const autoRotateTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const cleanupTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // True while it's the viewing player's turn — pauses idle auto-spin so their
+  // territories don't drift off-screen while deciding (WI2). Honored at every
+  // site that (re-)enables autoRotate.
+  const spinSuppressedRef = useRef(false);
 
   /** Drives visibility of the "Skip animations" control (refs → React state). */
   const [animationUi, setAnimationUi] = useState({ playing: false, backlog: 0 });
@@ -982,11 +989,11 @@ function GlobeMap({
   }, []);
 
   const scheduleAutoRotateResume = useCallback(() => {
-    if (reducedEffects || regionalGlobeRef.current.lockRotation || !autoSpin) return;
+    if (reducedEffects || regionalGlobeRef.current.lockRotation || !autoSpin || spinSuppressedRef.current) return;
     clearTimeout(autoRotateTimerRef.current);
     autoRotateTimerRef.current = setTimeout(() => {
       const ctrl = globeRef.current?.controls?.();
-      if (ctrl && !regionalGlobeRef.current.lockRotation && autoSpin) {
+      if (ctrl && !regionalGlobeRef.current.lockRotation && autoSpin && !spinSuppressedRef.current) {
         ctrl.autoRotate = true;
         ctrl.autoRotateSpeed = 0.4;
       }
@@ -1045,7 +1052,7 @@ function GlobeMap({
     const ctrl = globe.controls?.();
     if (!ctrl) return;
 
-    const lock = regionalGlobe.lockRotation || reducedEffects || !autoSpin;
+    const lock = regionalGlobe.lockRotation || reducedEffects || !autoSpin || spinSuppressedRef.current;
     ctrl.autoRotate = !lock;
     ctrl.autoRotateSpeed = lock ? 0 : 0.4;
 
@@ -1058,6 +1065,58 @@ function GlobeMap({
       0,
     );
   }, [regionalGlobe, reducedEffects, autoSpin, globeReadyTick]);
+
+  // WI2 — pause idle auto-spin while it's the viewing player's turn (so their
+  // territories don't drift off-screen), and resume the gentle spin on others'
+  // turns. Routes through spinSuppressedRef so the base effect + resume scheduler
+  // both honor it.
+  useEffect(() => {
+    const isViewerTurn =
+      !!selfPlayerId &&
+      gameState?.players?.[gameState.current_player_index]?.player_id === selfPlayerId;
+    spinSuppressedRef.current = isViewerTurn;
+    const ctrl = globeRef.current?.controls?.();
+    if (!ctrl) return;
+    if (isViewerTurn) {
+      clearTimeout(autoRotateTimerRef.current);
+      ctrl.autoRotate = false;
+    } else if (!(regionalGlobeRef.current.lockRotation || reducedEffects || !autoSpin)) {
+      ctrl.autoRotate = true;
+      ctrl.autoRotateSpeed = 0.4;
+    }
+  }, [gameState?.current_player_index, gameState?.players, selfPlayerId, autoSpin, reducedEffects, globeReadyTick]);
+
+  // WI2 — frame the viewing player's owned territories at the start of their
+  // turn/phase so they're centered and on-screen. Reuses panCamera +
+  // cameraViewForTwo + the territory-centroid cache. Fires once per
+  // (player_index, phase); yields to active interaction and the "Follow the
+  // action" preference via shouldAutoFollow().
+  const lastFramedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!gameState || !selfPlayerId) return;
+    if (regionalGlobeRef.current.lockRotation) return;
+    const isViewerTurn =
+      gameState.players?.[gameState.current_player_index]?.player_id === selfPlayerId;
+    if (!isViewerTurn) return;
+    const key = `${gameState.current_player_index}:${gameState.phase}`;
+    if (lastFramedKeyRef.current === key) return;
+    if (!shouldAutoFollow()) return;
+    lastFramedKeyRef.current = key;
+    const owned: { lat: number; lng: number }[] = [];
+    for (const [tid, t] of Object.entries(gameState.territories)) {
+      if (t.owner_id !== selfPlayerId) continue;
+      const c = territoryCentersRef.current.get(tid);
+      if (c) owned.push(c);
+    }
+    if (owned.length === 0) return;
+    const lats = owned.map((c) => c.lat);
+    const lngs = owned.map((c) => c.lng);
+    const view = cameraViewForTwo(
+      { lat: Math.min(...lats), lng: Math.min(...lngs) },
+      { lat: Math.max(...lats), lng: Math.max(...lngs) },
+    );
+    panCamera(view.lat, view.lng, view.altitude, 1200);
+  }, [gameState, selfPlayerId, shouldAutoFollow, panCamera]);
 
   /**
    * three-conic-polygon-geometry uses this as max segment length (degrees) before interpolating ring
