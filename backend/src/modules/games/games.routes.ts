@@ -15,6 +15,7 @@ import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
+import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
 import {
   buildMapMetaFromDoc,
@@ -233,6 +234,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
+    recordServerEvent(
+      'game_created',
+      {
+        game_id: gameId,
+        era_id,
+        map_id,
+        max_players,
+        ai_count,
+        game_type: gameType,
+        status: startedStatus,
+        is_tutorial: false,
+      },
+      request.userId,
+    );
     return reply.status(201).send({ game_id: gameId, era_id, map_id, settings, game_type: gameType, join_code: assignedJoinCode, status: startedStatus });
   });
 
@@ -308,6 +323,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       [gameId, colors[1]],
     );
 
+    recordServerEvent('tutorial_started', { game_id: gameId, lesson_module: lessonModule }, request.userId);
     return reply.status(201).send({ game_id: gameId });
   });
 

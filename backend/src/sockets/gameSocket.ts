@@ -3490,6 +3490,15 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   lobbyProposalsByGame.delete(gameId);
 
   io.to(gameId).emit('game:started', buildGameStartedPayload(gameId, state));
+  recordServerEvent('game_started', {
+    game_id: gameId,
+    map_id: state.map_id,
+    human_count: humanCount,
+    ai_count: aiPlayerCount,
+    game_type: gameType,
+    is_ranked: !!game.is_ranked,
+    is_tutorial: !!state.settings.tutorial,
+  });
   // Send the resolved map to every player in the room so client code
   // never has to re-fetch via REST during play (private/pending custom
   // maps would otherwise be invisible to non-creator participants).
@@ -3935,6 +3944,24 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const unlockedByPlayer: Record<string, string[]> = {};
   const humanPlayers = state.players.filter((p) => !p.is_ai);
   const ranks = computeRanks(state.players, winnerIds);
+
+  // Per-human activation/retention signal: who finished a game, and the outcome.
+  // (For human players, player_id is the user's UUID — see ranked insert below.)
+  const finishedDurationMs = state.game_started_at ? Date.now() - state.game_started_at : null;
+  for (const human of humanPlayers) {
+    recordServerEvent(
+      'game_finished',
+      {
+        game_id: gameId,
+        won: winnerIds.includes(human.player_id),
+        victory_type: state.victory_condition ?? null,
+        duration_ms: finishedDurationMs,
+        turn_count: state.turn_number,
+        is_tutorial: !!state.settings.tutorial,
+      },
+      human.player_id,
+    );
+  }
 
   if (resultCtx.isRanked && humanPlayers.length > 0) {
     for (const player of humanPlayers) {
