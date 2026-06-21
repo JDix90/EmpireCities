@@ -34,4 +34,12 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { ranked_era_advancement_enabled: true } });
     expect(featureFlags.rankedEraAdvancementEnabled).toBe(true);
   });
+
+  it('first_turn_coach_enabled defaults to off and is admin-overridable', () => {
+    expect(featureFlags.firstTurnCoachEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { first_turn_coach_enabled: true } });
+    expect(featureFlags.firstTurnCoachEnabled).toBe(true);
+    expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(true);
+  });
 });
