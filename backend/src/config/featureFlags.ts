@@ -53,6 +53,16 @@ export const featureFlags = {
   },
 
   /**
+   * When true, brand-new players (xp 0) get a lightly-coached first turn on the
+   * globe — place/attack/fortify prompts + an owned-territory pulse. First-game
+   * only, globe only, gated client-side. Default OFF — dark-launch; flip on
+   * after a staging check.
+   */
+  get firstTurnCoachEnabled(): boolean {
+    return overrideBool('first_turn_coach_enabled', process.env.FIRST_TURN_COACH_ENABLED === 'true');
+  },
+
+  /**
    * When true, Era Advancement is surfaced in the lobby — the one-click "Full Game
    * Start" CTA and the in-form Era Advancement toggle (for Ancient). Default ON so
    * the flagship mode is highlighted; admin config can override off. (Ranked Era
@@ -78,5 +88,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
   return {
     map_editor_enabled: featureFlags.mapEditorEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
+    first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
   };
 }
