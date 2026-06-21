@@ -847,25 +847,37 @@ export default function GamePage() {
       h: Math.max(200, window.innerHeight - 40),
     };
   });
+  // Mount the map once at its measured size (same fix as SpectatorPage): the
+  // window→container size correction otherwise tore down and rebuilt the canvas.
+  // useLayoutEffect flushes before paint, so gating adds no visible delay.
+  const [sizeReady, setSizeReady] = useState(false);
 
   useLayoutEffect(() => {
     if (!gameStarted || !gameState) return;
     const el = mapAreaRef.current;
     if (!el) return;
 
-    const measure = () => {
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const apply = () => {
       const { width, height } = el.getBoundingClientRect();
       const w = Math.max(120, Math.floor(width));
       const h = Math.max(200, Math.floor(height));
       setMapCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+      setSizeReady(true);
     };
-
-    measure();
-    const ro = new ResizeObserver(() => measure());
+    apply();
+    // Debounce layout-settling/resize bursts so an intermediate size never forces
+    // an extra canvas rebuild.
+    const measure = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(apply, 120);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     window.addEventListener('resize', measure);
     window.visualViewport?.addEventListener('resize', measure);
     return () => {
+      clearTimeout(debounce);
       ro.disconnect();
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
@@ -3592,7 +3604,7 @@ export default function GamePage() {
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}
-          {mapData ? (
+          {mapData && sizeReady ? (
             mapView === 'globe' ? (
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
