@@ -5,7 +5,8 @@ import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, L
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFirstTurnCoachEnabled } from '../store/featureFlagsStore';
+import { useFirstTurnCoachEnabled, useSignupNudgeEnabled } from '../store/featureFlagsStore';
+import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
@@ -59,6 +60,7 @@ import {
   type TutorialLessonModule,
 } from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
+import GuestSignupNudgeModal from '../components/game/GuestSignupNudgeModal';
 import PostTutorialPromptModal from '../components/game/PostTutorialPromptModal';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
@@ -475,6 +477,7 @@ export default function GamePage() {
   // First-turn coach eligibility (WI1) — recomputed each render; a ref lets the
   // socket handler read the live value without re-subscribing.
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
+  const signupNudgeFlag = useSignupNudgeEnabled();
   const coachEligible = shouldShowFirstTurnCoach({
     xp: user?.xp,
     isTutorial,
@@ -823,6 +826,12 @@ export default function GamePage() {
   }>(null);
   const [postTutorialPrompt, setPostTutorialPrompt] = useState(false);
   const [postTutorialStarting, setPostTutorialStarting] = useState(false);
+  // One-time guest → create-account nudge after a non-tutorial game (see
+  // maybePromptSignupNudge + GuestSignupNudgeModal).
+  const [signupNudge, setSignupNudge] = useState<null | {
+    onContinue: () => void;
+    isWinner: boolean;
+  }>(null);
 
   /**
    * Daily challenge / campaign intro modals — shown once per game (gated on
@@ -2496,6 +2505,9 @@ export default function GamePage() {
   };
 
   const handleGameOverDismiss = () => {
+    // Capture the outcome before the modal is sliced off the queue, so the
+    // signup nudge can lead with the win when the guest just won.
+    const goData = modalQueue[0]?.type === 'game_over' ? (modalQueue[0] as GameOverModalData) : null;
     dismissModal();
     const settings = useGameStore.getState().gameState?.settings;
     // Campaign games route back to the campaign detail page so the player can
@@ -2527,7 +2539,9 @@ export default function GamePage() {
       }
       return;
     }
-    navigate('/lobby');
+    // Regular game over → guests get a one-time "save your progress" nudge
+    // (flag-gated, once per session) before the lobby; everyone else proceeds.
+    maybePromptSignupNudge(() => navigate('/lobby'), goData?.isWinner === true);
   };
 
   // Guest "Create Free Account" CTA on the game-over screen: same modal/queue
@@ -2623,6 +2637,40 @@ export default function GamePage() {
       setTutorialAccountPrompt({ onContinue, outcomeLabel });
     },
     [user?.is_guest],
+  );
+
+  /**
+   * Regular (non-tutorial) game over → surface the one-time guest signup nudge
+   * before continuing. Mirrors maybePromptTutorialAccount: gated to guests, the
+   * `signup_nudge_enabled` flag, and once per tab session. When it doesn't apply
+   * (registered user, flag off, already shown) the continuation runs immediately.
+   */
+  const maybePromptSignupNudge = useCallback(
+    (onContinue: () => void, isWinner: boolean) => {
+      let alreadyShown = false;
+      try {
+        alreadyShown = sessionStorage.getItem(SIGNUP_NUDGE_SHOWN_KEY) === '1';
+      } catch {
+        /* sessionStorage unavailable — treat as not-yet-shown */
+      }
+      if (
+        !shouldShowSignupNudge({
+          isGuest: user?.is_guest === true,
+          flagEnabled: signupNudgeFlag,
+          alreadyShownThisSession: alreadyShown,
+        })
+      ) {
+        onContinue();
+        return;
+      }
+      try {
+        sessionStorage.setItem(SIGNUP_NUDGE_SHOWN_KEY, '1');
+      } catch {
+        /* ignore — still show once */
+      }
+      setSignupNudge({ onContinue, isWinner });
+    },
+    [user?.is_guest, signupNudgeFlag],
   );
 
   const handleTutorialMarkModuleComplete = useCallback(() => {
@@ -4439,6 +4487,29 @@ export default function GamePage() {
           onSkip={() => {
             const next = tutorialAccountPrompt;
             setTutorialAccountPrompt(null);
+            try { next?.onContinue(); } catch { /* ignore */ }
+          }}
+        />
+      )}
+
+      {/* One-time guest signup nudge after a regular game (guests only). This is
+          a focused, once-per-session ask shown AFTER the game-over modal is
+          dismissed; it intentionally coexists with the always-on inline CTA
+          inside GameOverView (ActionModal) — that's the immediate ask, this is
+          the higher-intent follow-up. */}
+      {signupNudge && (
+        <GuestSignupNudgeModal
+          isWinner={signupNudge.isWinner}
+          onCreateAccount={() => {
+            // /upgrade converts the guest row in place (keeps the XP just
+            // earned). We intentionally skip onContinue's lobby nav so it
+            // doesn't override the upgrade route.
+            setSignupNudge(null);
+            navigate('/upgrade');
+          }}
+          onSkip={() => {
+            const next = signupNudge;
+            setSignupNudge(null);
             try { next?.onContinue(); } catch { /* ignore */ }
           }}
         />

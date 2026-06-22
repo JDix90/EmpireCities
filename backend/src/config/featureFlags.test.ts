@@ -42,4 +42,12 @@ describe('featureFlags', () => {
     expect(featureFlags.firstTurnCoachEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(true);
   });
+
+  it('signup_nudge_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.signupNudgeEnabled).toBe(false);
+    expect(getClientFeatureFlags().signup_nudge_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { signup_nudge_enabled: true } });
+    expect(featureFlags.signupNudgeEnabled).toBe(true);
+    expect(getClientFeatureFlags().signup_nudge_enabled).toBe(true);
+  });
 });

@@ -5,6 +5,7 @@ export interface ClientFeatureFlags {
   map_editor_enabled: boolean;
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
+  signup_nudge_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
@@ -14,6 +15,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_advancement_lobby_enabled: true,
   // Default off (dark-launch); GET /feature-flags reconciles once admin enables it.
   first_turn_coach_enabled: false,
+  // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
+  signup_nudge_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -48,4 +51,8 @@ export function useEraAdvancementLobbyEnabled(): boolean {
 
 export function useFirstTurnCoachEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_coach_enabled);
+}
+
+export function useSignupNudgeEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
 }
