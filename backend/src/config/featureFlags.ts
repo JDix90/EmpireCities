@@ -81,6 +81,17 @@ export const featureFlags = {
   get rankedEraAdvancementEnabled(): boolean {
     return overrideBool('ranked_era_advancement_enabled', false);
   },
+
+  /**
+   * When true, guests get a one-time "save your progress — create a free
+   * account" nudge after finishing a non-tutorial game (once per tab session,
+   * client-side). Default OFF (dark-launch, matching first_turn_coach) — flip on
+   * via `SIGNUP_NUDGE_ENABLED=true` or the `signup_nudge_enabled` admin override
+   * after a staging eyeball.
+   */
+  get signupNudgeEnabled(): boolean {
+    return overrideBool('signup_nudge_enabled', process.env.SIGNUP_NUDGE_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -89,5 +100,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     map_editor_enabled: featureFlags.mapEditorEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
+    signup_nudge_enabled: featureFlags.signupNudgeEnabled,
   };
 }
