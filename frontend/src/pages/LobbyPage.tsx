@@ -70,12 +70,6 @@ interface ActivityStats {
   games_total: number;
 }
 
-// Lead with live/recent activity; only surface the all-time total once it's big
-// enough to read as a flex. A small all-time count ("47 games played all-time")
-// reads as "this is brand-new" and dents credibility — recency ("right now",
-// "today") signals an active game without exposing absolute size. Tunable.
-const MIN_ALLTIME_GAMES_TO_SHOW = 1000;
-
 // ── Small tooltip component used in the game-creation form ─────────────────
 function FeatureTooltip({ text }: { text: string }) {
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -1318,12 +1312,10 @@ export default function LobbyPage() {
         </div>
 
         {/* Honest activity signals — real counts. Lead with live + today's
-            activity; the all-time total only appears once it reads as a flex
-            (MIN_ALLTIME_GAMES_TO_SHOW), not a "this is brand-new" tell. */}
+            activity. The all-time total is intentionally NOT shown: a small
+            absolute count reads as "this is brand-new" and dents credibility. */}
         {activityStats &&
-          (activityStats.games_in_progress > 0 ||
-            activityStats.games_today > 0 ||
-            activityStats.games_total >= MIN_ALLTIME_GAMES_TO_SHOW) && (
+          (activityStats.games_in_progress > 0 || activityStats.games_today > 0) && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-6 text-sm text-bf-muted">
             {activityStats.games_in_progress > 0 && (
               <span className="inline-flex items-center gap-1.5">
@@ -1337,13 +1329,6 @@ export default function LobbyPage() {
                 <Activity className="w-3.5 h-3.5 text-bf-gold" aria-hidden />
                 <span className="text-bf-text font-medium">{activityStats.games_today.toLocaleString()}</span>
                 {activityStats.games_today === 1 ? 'game played today' : 'games played today'}
-              </span>
-            )}
-            {activityStats.games_total >= MIN_ALLTIME_GAMES_TO_SHOW && (
-              <span className="inline-flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-bf-gold" aria-hidden />
-                <span className="text-bf-text font-medium">{activityStats.games_total.toLocaleString()}</span>
-                games played all-time
               </span>
             )}
           </div>
