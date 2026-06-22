@@ -37,12 +37,23 @@ export interface EventVolumeRow {
   n: number;
 }
 
+export interface AcquisitionRow {
+  /** First-touch utm_source, else referrer host, else 'direct'. */
+  source: string;
+  signups: number;
+  /** Became a real account (registered directly or upgraded from guest). */
+  accounts: number;
+  /** Finished at least one game (activated). */
+  activated: number;
+}
+
 export interface AnalyticsReport {
   window_days: number;
   total_events: number;
   funnel: FunnelMetrics;
   retention: RetentionMetrics;
   completion: CompletionStats;
+  acquisition: AcquisitionRow[];
   volume: EventVolumeRow[];
 }
 
@@ -149,12 +160,55 @@ export async function getEventVolume(days: number): Promise<EventVolumeRow[]> {
   return rows.map((r) => ({ event: String(r.event), n: num(r.n) }));
 }
 
+/**
+ * Signups grouped by first-touch acquisition source (utm_source → referrer host
+ * → 'direct'), with how many became real accounts and how many activated. This
+ * is the per-channel scoreboard for paid/organic spend: it only populates for
+ * signups whose `guest_created`/`user_registered` event carried attribution
+ * (see modules/auth/attribution.ts).
+ */
+export async function getAcquisitionBySource(days: number): Promise<AcquisitionRow[]> {
+  const rows = await query<Record<string, unknown>>(
+    `WITH signups AS (
+       SELECT DISTINCT ON (user_id)
+         user_id,
+         COALESCE(NULLIF(properties->>'utm_source', ''),
+                  NULLIF(properties->>'referrer', ''),
+                  'direct') AS source
+       FROM analytics_events
+       WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND created_at >= NOW() - make_interval(days => $1::int)
+       ORDER BY user_id, created_at ASC
+     )
+     SELECT
+       source,
+       COUNT(*)::int AS signups,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = s.user_id AND e.event IN ('user_registered', 'guest_upgraded')))::int AS accounts,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = s.user_id AND e.event = 'game_finished'))::int AS activated
+     FROM signups s
+     GROUP BY source
+     ORDER BY signups DESC, source ASC`,
+    [days],
+  );
+  return rows.map((r) => ({
+    source: String(r.source),
+    signups: num(r.signups),
+    accounts: num(r.accounts),
+    activated: num(r.activated),
+  }));
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number): Promise<AnalyticsReport> {
-  const [funnel, retention, completion, volume, totalRow] = await Promise.all([
+  const [funnel, retention, completion, acquisition, volume, totalRow] = await Promise.all([
     getFunnelMetrics(days),
     getRetentionMetrics(),
     getCompletionStats(days),
+    getAcquisitionBySource(days),
     getEventVolume(days),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
   ]);
@@ -164,6 +218,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     funnel,
     retention,
     completion,
+    acquisition,
     volume,
   };
 }

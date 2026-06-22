@@ -68,6 +68,20 @@ async function main(): Promise<void> {
   console.log(`  finishes ${g.finishes} · wins ${g.wins} · tutorial ${g.tutorial_finishes}`);
   console.log(`  avg length ${g.avg_minutes ?? '—'} min · avg ${g.avg_turns ?? '—'} turns\n`);
 
+  console.log('ACQUISITION BY SOURCE (first-touch, new users in window)');
+  if (r.acquisition.length === 0) {
+    console.log('  (no signups in window)');
+  } else {
+    console.log(`  ${'source'.padEnd(20)} ${'signups'.padStart(8)} ${'accounts'.padStart(9)} ${'activated'.padStart(10)}`);
+    for (const a of r.acquisition) {
+      console.log(
+        `  ${a.source.slice(0, 20).padEnd(20)} ${String(a.signups).padStart(8)} ${String(a.accounts).padStart(9)} ${String(a.activated).padStart(10)}`,
+      );
+    }
+    console.log('  (sources are utm_source → referrer host → "direct"; attribution rides on the signup event)');
+  }
+  console.log('');
+
   console.log('EVENT VOLUME');
   for (const row of r.volume) console.log(`  ${row.event.padEnd(20)} ${String(row.n).padStart(6)}`);
   console.log('');

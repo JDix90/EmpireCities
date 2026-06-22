@@ -23,6 +23,7 @@ describe('authStore', () => {
     });
     try {
       window.localStorage.removeItem('cc-auth');
+      window.localStorage.removeItem('bf_attribution');
     } catch { /* ignore */ }
   });
 
@@ -66,6 +67,8 @@ describe('authStore', () => {
   });
 
   it('upgradeAccount swaps in the full-account identity in place', async () => {
+    // First-touch attribution captured at landing rides along on the upgrade.
+    window.localStorage.setItem('bf_attribution', JSON.stringify({ utm_source: 'reddit' }));
     useAuthStore.setState({
       user: { user_id: 'u1', username: 'Guest_abcd1234', level: 3, xp: 900, mmr: 1000, is_guest: true },
       accessToken: 'guest-token',
@@ -84,6 +87,7 @@ describe('authStore', () => {
     const state = useAuthStore.getState();
     expect(api.post).toHaveBeenCalledWith('/auth/upgrade', {
       username: 'RealCommander', email: 'cmd@example.com', password: 'long-password',
+      attribution: { utm_source: 'reddit' },
     });
     // Same user_id (in-place conversion), progression intact, flag flipped.
     expect(state.user?.user_id).toBe('u1');
