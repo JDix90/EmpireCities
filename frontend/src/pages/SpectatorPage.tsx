@@ -111,27 +111,51 @@ export default function SpectatorPage() {
       h: Math.max(240, window.innerHeight - 130),
     };
   });
+  // Gate the map mount until the real container size is measured, so the Pixi/
+  // globe canvas is created ONCE at its final size. Mounting at the window-size
+  // guess and then correcting to the container size tore the canvas down and
+  // rebuilt it (the spectator 2D-map "flicker"). useLayoutEffect runs before
+  // paint, so this adds no visible delay.
+  const [sizeReady, setSizeReady] = useState(false);
+  const [globeReady, setGlobeReady] = useState(false);
 
   useLayoutEffect(() => {
     const el = mapAreaRef.current;
     if (!el) return;
-    const measure = () => {
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const apply = () => {
       const { width, height } = el.getBoundingClientRect();
       const w = Math.max(320, Math.floor(width));
       const h = Math.max(240, Math.floor(height));
       setMapCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+      setSizeReady(true);
     };
-    measure();
+    // First measure runs now (pre-paint) so the map mounts at the right size.
+    apply();
+    // Collapse layout-settling/resize bursts into one update so an intermediate
+    // size never forces an extra canvas rebuild.
+    const measure = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(apply, 120);
+    };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     window.addEventListener('resize', measure);
     window.visualViewport?.addEventListener('resize', measure);
     return () => {
+      clearTimeout(debounce);
       ro.disconnect();
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
     };
   }, [connected, mapData, mapView]);
+
+  // Globe WebGL init (texture + geometry) blanks the canvas for a beat after the
+  // lazy chunk resolves; keep a "Loading globe…" overlay up until it actually
+  // paints. Reset whenever the globe re-initialises (view/world/map change).
+  useEffect(() => {
+    setGlobeReady(false);
+  }, [mapView, focusedWorldId]);
 
   useEffect(() => {
     if (mapView === 'globe') preloadGlobeChunks();
@@ -443,7 +467,11 @@ export default function SpectatorPage() {
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}
-          {mapView === 'globe' ? (
+          {!sizeReady ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-bf-muted animate-pulse">Loading map…</p>
+            </div>
+          ) : mapView === 'globe' ? (
             <Suspense
               fallback={
                 <div className="flex items-center justify-center h-full">
@@ -484,6 +512,7 @@ export default function SpectatorPage() {
                   turnHolderPlayerId={currentPlayer?.player_id ?? null}
                   contestedBorders={contestedBorders}
                   connectionHintMode={connectionHintMode}
+                  onGlobeReady={() => setGlobeReady(true)}
                   activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
                   globeImageUrl={
                     mapData.map_kind === 'galaxy'
@@ -521,6 +550,12 @@ export default function SpectatorPage() {
               contestedBorders={contestedBorders}
               connectionHintMode={connectionHintMode}
             />
+          )}
+
+          {sizeReady && mapView === 'globe' && !(mapData.map_kind === 'galaxy' && galaxyOverviewMode) && !globeReady && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <p className="text-bf-muted animate-pulse">Loading globe…</p>
+            </div>
           )}
 
           {emotes.length > 0 && (
