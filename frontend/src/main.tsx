@@ -6,6 +6,11 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import * as Sentry from '@sentry/react';
 import App from './App';
 import './index.css';
+import { captureAttribution } from './utils/attribution';
+
+// Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
+// so it's available for the first guest/register call. See utils/attribution.ts.
+captureAttribution();
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 if (SENTRY_DSN) {

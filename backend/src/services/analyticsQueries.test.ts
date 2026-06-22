@@ -11,6 +11,7 @@ import {
   getFunnelMetrics,
   getCompletionStats,
   getEventVolume,
+  getAcquisitionBySource,
   getAnalyticsReport,
 } from './analyticsQueries';
 
@@ -67,11 +68,30 @@ describe('analyticsQueries', () => {
     ]);
   });
 
+  it('getAcquisitionBySource coalesces source, passes the window, maps counts', async () => {
+    queryMock.mockResolvedValueOnce([
+      { source: 'reddit', signups: 6, accounts: 2, activated: 1 },
+      { source: 'direct', signups: 4, accounts: 0, activated: 0 },
+    ]);
+    const a = await getAcquisitionBySource(14);
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("COALESCE(NULLIF(properties->>'utm_source', '')");
+    expect(sql).toContain("event IN ('guest_created', 'user_registered')");
+    expect(params).toEqual([14]);
+    expect(a).toEqual([
+      { source: 'reddit', signups: 6, accounts: 2, activated: 1 },
+      { source: 'direct', signups: 4, accounts: 0, activated: 0 },
+    ]);
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
+    // Promise.all invokes the section queries in array order:
+    // funnel, retention, completion, acquisition, volume — then queryOne(total).
     queryMock
       .mockResolvedValueOnce([{ signups: 3, created_game: 2, started_game: 2, finished_game: 1, upgraded: 0 }])
       .mockResolvedValueOnce([{ d1_cohort: 3, d1: 1, d7_cohort: 0, d7: 0 }])
       .mockResolvedValueOnce([{ finishes: 1, wins: 1, tutorial_finishes: 0, avg_minutes: '15.0', avg_turns: '20.0' }])
+      .mockResolvedValueOnce([{ source: 'reddit', signups: 3, accounts: 1, activated: 1 }])
       .mockResolvedValueOnce([{ event: 'game_finished', n: 1 }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
@@ -81,6 +101,7 @@ describe('analyticsQueries', () => {
     expect(r.funnel.finished_game).toBe(1);
     expect(r.retention.d1).toBe(1);
     expect(r.completion.avg_minutes).toBe(15);
+    expect(r.acquisition).toEqual([{ source: 'reddit', signups: 3, accounts: 1, activated: 1 }]);
     expect(r.volume).toEqual([{ event: 'game_finished', n: 1 }]);
   });
 });

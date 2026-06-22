@@ -14,6 +14,7 @@ import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
 import { recordServerEvent } from '../../services/analyticsEvents';
+import { parseAttribution } from './attribution';
 
 // Registration is pre-login, so its rate limiter keys by IP (see rateLimitKey).
 // The original 5/15min was too tight for shared egress IPs (mobile CGNAT,
@@ -215,7 +216,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
    * `users.username` column has a UNIQUE constraint that turns the race into
    * a clean ON CONFLICT bail rather than a corrupted partial insert.
    */
-  fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (_request, reply) => {
+  fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     // Use the same cost factor as registered accounts so the row is
     // indistinguishable by hash shape (defense in depth — the guest password
     // is a never-exposed random UUID, but uniform parameters mean a future
@@ -267,7 +268,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(userId);
-    recordServerEvent('guest_created', { username }, userId);
+    // First server touch for most acquisition paths (the landing jumps straight
+    // into guest play), so first-touch campaign attribution rides on this event.
+    recordServerEvent('guest_created', { username, ...parseAttribution(request.body) }, userId);
 
     return reply.send({
       accessToken,
@@ -336,7 +339,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(user.user_id);
-    recordServerEvent('user_registered', { username: user.username }, user.user_id);
+    recordServerEvent('user_registered', { username: user.username, ...parseAttribution(request.body) }, user.user_id);
     return reply.status(201).send({ accessToken, user });
   });
 
@@ -445,7 +448,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(upgraded.user_id);
-    recordServerEvent('guest_upgraded', {}, upgraded.user_id);
+    recordServerEvent('guest_upgraded', parseAttribution(request.body), upgraded.user_id);
     return reply.send({
       accessToken,
       user: { ...upgraded, is_guest: false },

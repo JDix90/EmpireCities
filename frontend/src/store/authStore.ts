@@ -4,6 +4,7 @@ import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
+import { getAttribution } from '../utils/attribution';
 
 const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
 
@@ -130,7 +131,7 @@ export const useAuthStore = create<AuthState>()(
       register: async (username, email, password) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/register', { username, email, password });
+          const res = await api.post('/auth/register', { username, email, password, attribution: getAttribution() });
           const { accessToken, user } = res.data;
           try {
             sessionStorage.removeItem('cc-auth-notice');
@@ -146,7 +147,7 @@ export const useAuthStore = create<AuthState>()(
       loginAsGuest: async () => {
         set({ isLoading: true });
         try {
-          const res = await rawHttp.post('/auth/guest');
+          const res = await rawHttp.post('/auth/guest', { attribution: getAttribution() });
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           resyncSocketAuth();
@@ -161,7 +162,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Converts the guest's users row IN PLACE — same user_id, so XP,
           // level, streaks, and (now-visible) ratings all carry over.
-          const res = await api.post('/auth/upgrade', { username, email, password });
+          const res = await api.post('/auth/upgrade', { username, email, password, attribution: getAttribution() });
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           // The singleton socket still authenticates with the guest JWT;
