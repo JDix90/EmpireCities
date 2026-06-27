@@ -11,10 +11,11 @@ import type { GlobeGeometryInputs } from '../utils/globeTerritoryGeometry';
 // Committed locally (not the jsdelivr CDN) so geo_config / iso_codes maps resolve real
 // country geometry even in sandboxed/preview environments where outbound CDN fetches are blocked.
 const COUNTRIES_GEOJSON_URL = '/geo/ne_50m_admin_0_countries.json';
-const STATES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_1_states_provinces.geojson';
-const ADMIN50_STATES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_1_states_provinces.geojson';
+// Committed locally (not jsdelivr) so admin-1 maps (e.g. American Civil War's
+// state geometry) resolve in sandboxed/preview environments where outbound CDN
+// fetches are blocked — same rationale as the admin-0 countries set.
+const STATES_GEOJSON_URL = '/geo/ne_110m_admin_1_states_provinces.json';
+const ADMIN50_STATES_GEOJSON_URL = '/geo/ne_50m_admin_1_states_provinces.json';
 const RISORGIMENTO_GEOJSON_URL = '/geo/risorgimento_admin1.json';
 const STRAIT_HORMUZ_GEOJSON_URL = '/geo/strait_hormuz_admin1.json';
 const AUSTRALIA_GEOJSON_URL = '/geo/australia_1337_admin1.json';

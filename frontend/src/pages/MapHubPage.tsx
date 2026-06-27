@@ -26,6 +26,14 @@ interface PublicMap {
 
 type HubTab = 'all' | 'eras' | 'regional' | 'community';
 
+/** A short curated row shown on the All tab to help players pick a starting map. */
+const FEATURED: Array<{ kind: 'era'; era_theme: string } | { kind: 'regional'; map_id: string }> = [
+  { kind: 'era', era_theme: 'modern' },
+  { kind: 'regional', map_id: 'community_charlemagne_814' },
+  { kind: 'era', era_theme: 'ww2' },
+  { kind: 'regional', map_id: 'community_balkanized_usa' },
+];
+
 function formatCommunityUploader(creatorId: string): string {
   if (creatorId === 'jmd') return 'JMD';
   if (creatorId.length <= 3) return creatorId.toUpperCase();
@@ -321,6 +329,23 @@ export default function MapHubPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Featured (All tab only, no active search) ────────────────────── */}
+      {tab === 'all' && !search && !eraLoading && (
+        <section className="mb-12">
+          <SectionHeader icon={Star} title="Featured" note="— a few to get you started" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURED.map((f) => {
+              if (f.kind === 'era') {
+                const m = eraCards.find((e) => e.era_theme === f.era_theme);
+                return m ? renderEraCard(m) : null;
+              }
+              const rm = REGIONAL_MAPS.find((r) => r.map_id === f.map_id);
+              return rm ? renderRegionalCard(rm) : null;
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── Built-in Era Maps ────────────────────────────────────────────── */}
       {showEras && (

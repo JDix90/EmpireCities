@@ -233,7 +233,6 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
 export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_charlemagne_814',
   'community_britain_925',
-  'community_australia_1337',
   'community_fractured_china',
   'community_nusantara',
   'community_14_nations',
