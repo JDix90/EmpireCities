@@ -186,6 +186,7 @@ export const ERA_METADATA: Record<string, {
  * (avoids stale backend copies drifting from the shipped map assets).
  */
 const STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_charlemagne_814',
   'community_britain_925',
   'community_horn_africa',
   'community_australia_1337',

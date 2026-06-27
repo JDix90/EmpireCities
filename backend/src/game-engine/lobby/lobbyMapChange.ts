@@ -30,6 +30,7 @@ export const LOBBY_ERA_LABELS: Record<string, string> = {
 /** Curated community / regional maps selectable in lobby (matches customMapImmersion). */
 export const CURATED_COMMUNITY_MAP_IDS = new Set([
   'community_flooded_north_america',
+  'community_charlemagne_814',
   'community_britain_925',
   'community_horn_africa',
   'community_australia_1337',
@@ -41,6 +42,7 @@ export const COMMUNITY_MAP_LABELS: Record<string, string> = {
   community_14_nations: 'The 14 Nations',
   community_strait_hormuz: 'Strait of Hormuz',
   community_flooded_north_america: 'Flooded North America',
+  community_charlemagne_814: 'Europe — Death of Charlemagne, 814 A.D.',
   community_britain_925: 'Great Britain 925 A.D.',
   community_horn_africa: 'Horn of Africa & Yemen',
   community_australia_1337: 'Karkiyapani & Aotearoa 1337',

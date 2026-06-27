@@ -19,6 +19,18 @@ export interface RegionalMapMeta {
 
 export const REGIONAL_MAPS: RegionalMapMeta[] = [
   {
+    map_id: 'community_charlemagne_814',
+    name: 'Europe — Death of Charlemagne, 814 A.D.',
+    description:
+      'Europe at the death of Charlemagne in 814. The Frankish Empire towers over the continent, ringed by the Eastern Roman and Abbasid worlds, the Emirate of Córdoba, the Norse north, and a frontier of Slavic, Bulgar, Avar, Magyar, and Khazar peoples. Hold the Carolingian heartland or rise from the marches to inherit the empire.',
+    territory_count: 46,
+    region_count: 11,
+    icon: '👑',
+    color: '#70ad47',
+    bgColor: '#10160E',
+    year: '814 AD',
+  },
+  {
     map_id: 'community_flooded_north_america',
     name: 'Flooded North America',
     description:

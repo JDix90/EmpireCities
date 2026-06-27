@@ -107,6 +107,48 @@ const FLOODED_NA: CustomMapImmersionProfile = {
   },
 };
 
+const CHARLEMAGNE_814: CustomMapImmersionProfile = {
+  map_id: 'community_charlemagne_814',
+  tagline: 'Inherit the empire — crowns, marches, and the long shadow of Charlemagne.',
+  backdrop:
+    'Europe in 814: the Frankish Empire towers from the Pyrenees to the Elbe, the Eastern Roman and Abbasid worlds hold the south, and a frontier of Norse, Slav, Bulgar, Avar, Magyar, and Khazar peoples presses every march. The old emperor is dead — the continent waits to see who can hold what he built.',
+  recommended_rules_era: 'medieval',
+  advanced: {
+    territory_draft: af(
+      'Counts and margraves stake their duchies before the host musters — Neustria, Saxony, and the Italian crown are claimed in the partition, not the field.',
+      'Draft lets you anchor in the Carolingian heartland, the Iberian marches, or the open steppe before rivals spread.',
+    ),
+    asymmetric_factions: af(
+      'Frankish heavy cavalry, Byzantine thematic defense, Norse raiders, and steppe horse-archers each wage a different war.',
+      'Faction passives read like the era’s powers: mailed charge, fortified themes, longship tempo, or the endless mobility of the khaganates.',
+    ),
+    economy_buildings: af(
+      'Royal abbeys, palatine mints, and march fortresses turn conquered land into a working empire.',
+      'Buildings feel like the Carolingian renovatio — production rewards holding the Rhine–Seine breadbasket and the Italian and Greek cities.',
+    ),
+    tech_trees: af(
+      'Stirrup and mail, Carolingian minuscule, and stone burhs drag the post-Roman world toward statecraft.',
+      'Tech unlocks heavier knights, stronger marches, and faster recovery after a Viking or Magyar raid season.',
+    ),
+    historical_events: af(
+      'Imperial successions, Viking landfalls, Magyar raids, and papal coronations rewrite the year’s borders.',
+      'Events model partition crises and frontier raids — sudden windfalls of legitimacy or brutal losses along the marches.',
+    ),
+    naval_warfare: af(
+      'The North Sea, Channel, Adriatic, and Aegean are highways for longships and dromons alike.',
+      'Fleets and ports make the Norse coasts and Byzantine seas decisive — sea connections are invasions waiting to sail.',
+    ),
+    population_stability: af(
+      'Newly conquered Saxons and Lombards chafe under Frankish counts; stability is the peace an emperor must keep.',
+      'Low stability is a march in revolt; recovery is missi dominici and the king’s justice riding the frontier.',
+    ),
+    fog_of_war: af(
+      'Forests, steppe, and storm-locked seas hide warbands until the raven banners crest the horizon.',
+      'Fog hides musters beyond the Elbe and across the Danube — scouting the frontier wins the campaign before the levy marches.',
+    ),
+  },
+};
+
 const BRITAIN_925: CustomMapImmersionProfile = {
   map_id: 'community_britain_925',
   tagline: 'Heptarchy blood-oaths — shield-walls, longships, and crown claims.',
@@ -319,6 +361,7 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
 
 export const CUSTOM_MAP_IMMERSION: Record<string, CustomMapImmersionProfile> = {
   [FLOODED_NA.map_id]: FLOODED_NA,
+  [CHARLEMAGNE_814.map_id]: CHARLEMAGNE_814,
   [BRITAIN_925.map_id]: BRITAIN_925,
   [HORN_AFRICA.map_id]: HORN_AFRICA,
   [AUSTRALIA_1337.map_id]: AUSTRALIA_1337,

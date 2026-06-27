@@ -76,6 +76,7 @@ const CreateMapSchema = z.object({
 });
 
 const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_charlemagne_814',
   'community_britain_925',
   'community_horn_africa',
   'community_australia_1337',

@@ -58,6 +58,7 @@ export const CURATED_COMMUNITY_MAP_IDS = [
   'community_14_nations',
   'community_strait_hormuz',
   'community_flooded_north_america',
+  'community_charlemagne_814',
   'community_britain_925',
   'community_horn_africa',
   'community_australia_1337',
