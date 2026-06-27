@@ -352,12 +352,15 @@ export function buildTerritoryGlobeGeometries(
       const props = f.properties ?? {};
       const iso = props['ISO_A2'] ?? props['iso_a2'];
       const isoEH = props['ISO_A2_EH'] ?? props['iso_a2_eh'];
-      const code =
-        iso && iso !== '-99' ? iso : isoEH && isoEH !== '-99' ? isoEH : null;
-      if (code && typeof code === 'string') {
-        const list = isoToFeatures.get(code) ?? [];
-        list.push(f);
-        isoToFeatures.set(code, list);
+      // Register under BOTH codes: some entities have a non-standard ISO_A2
+      // (e.g. Taiwan = "CN-TW") while maps reference the conventional ISO_A2_EH
+      // ("TW"). Indexing only one drops the country to its geo_polygon fallback.
+      for (const code of [iso, isoEH]) {
+        if (code && typeof code === 'string' && code !== '-99') {
+          const list = isoToFeatures.get(code) ?? [];
+          if (!list.includes(f)) list.push(f);
+          isoToFeatures.set(code, list);
+        }
       }
     }
   }
