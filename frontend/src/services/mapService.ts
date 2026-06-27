@@ -94,6 +94,35 @@ export interface MapSummary {
 
 // ─── Era metadata for UI display ──────────────────────────────────────────────
 
+/** Canonical eras, oldest → newest. Drives the Map Hub era ordering. */
+export const ERA_ORDER = [
+  'ancient', 'medieval', 'discovery', 'risorgimento', 'acw',
+  'ww2', 'coldwar', 'modern', 'space_age', 'galaxy_age',
+] as const;
+
+/**
+ * The /maps/eras endpoint returns every system-authored map, which includes the
+ * curated regional maps. Reduce to the canonical era maps: drop regional ids and
+ * `custom`/unknown themes, keep one map per era theme, and order chronologically.
+ */
+export function selectCanonicalEraMaps(
+  eraMaps: MapSummary[],
+  regionalIds: Set<string>,
+): MapSummary[] {
+  const seen = new Set<string>();
+  return eraMaps
+    .filter((m) =>
+      !regionalIds.has(m.map_id) &&
+      m.era_theme !== 'custom' &&
+      ERA_METADATA[m.era_theme] !== undefined)
+    .filter((m) => (seen.has(m.era_theme) ? false : (seen.add(m.era_theme), true)))
+    .sort((a, b) => {
+      const ia = ERA_ORDER.indexOf(a.era_theme as typeof ERA_ORDER[number]);
+      const ib = ERA_ORDER.indexOf(b.era_theme as typeof ERA_ORDER[number]);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+}
+
 export const ERA_METADATA: Record<string, {
   label: string;
   year: string;
