@@ -548,6 +548,9 @@ export function buildTerritoryGlobeGeometries(
     const c14 = COMMUNITY_14N_TERRITORY_GEO[territory.territory_id];
     if (
       mapData.map_id === 'community_14_nations' &&
+      // Territories now carry inline geo_config (Voronoi cells over real NA
+      // country geometry); let those flow to the generic geo_config path below.
+      !(territory.geo_config && territory.geo_config.length > 0) &&
       c14 &&
       countriesGeo &&
       statesGeo &&
