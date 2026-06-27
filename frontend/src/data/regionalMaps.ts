@@ -198,6 +198,30 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     bgColor: '#1A1510',
     year: '1337 AD',
   },
+  {
+    map_id: 'community_14_nations',
+    name: 'The 14 Nations',
+    description:
+      'North America from the Yucatán to the Yukon — 43 territories across 8 regions inspired by pre-contact indigenous nations. Hold the Subarctic tundra, the Pacific coast, the Great Basin, the sweeping Great Plains, the Eastern Woodlands, and Mesoamerica.',
+    territory_count: 43,
+    region_count: 8,
+    icon: '🪶',
+    color: '#B5651D',
+    bgColor: '#1A140E',
+    year: 'Pre-Contact',
+  },
+  {
+    map_id: 'community_strait_hormuz',
+    name: 'Strait of Hormuz',
+    description:
+      "The world's most strategic maritime chokepoint — 24 territories spanning Iran's Hormozgan coast, the Gulf islands of Kish, Qeshm, and Lavan, the Musandam Peninsula, the UAE east coast, and Oman's Batinah. A naval theater decided in the straits.",
+    territory_count: 24,
+    region_count: 5,
+    icon: '⚓',
+    color: '#1CA3A3',
+    bgColor: '#0B1A2B',
+    year: 'Naval Theater',
+  },
 ];
 
 /**
@@ -212,6 +236,8 @@ export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_australia_1337',
   'community_fractured_china',
   'community_nusantara',
+  'community_14_nations',
+  'community_strait_hormuz',
 ]);
 
 export type RegionalCategory = 'theater' | 'alt';

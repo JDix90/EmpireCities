@@ -85,6 +85,33 @@ describe('generic admin-1 geometry path', () => {
     expect(flat).not.toContain('-124');
   });
 
+  it('resolves iso_codes via ISO_A2_EH when ISO_A2 is non-standard (e.g. Taiwan)', () => {
+    const TW_RING = [[120, 25], [122, 25], [122, 22], [120, 22], [120, 25]];
+    const countriesGeo = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { ISO_A2: 'CN-TW', ISO_A2_EH: 'TW', NAME: 'Taiwan' },
+        geometry: { type: 'Polygon', coordinates: [TW_RING] },
+      }],
+    } as GeoJSON.FeatureCollection;
+    const data = {
+      map_id: 'tw_test', canvas_width: 1000, canvas_height: 1000,
+      projection_bounds: { minLng: 118, maxLng: 124, minLat: 20, maxLat: 27 },
+      territories: [{
+        territory_id: 'taiwan', name: 'Taiwan', polygon: [[0, 0], [1, 0], [1, 1]],
+        center_point: [0.5, 0.5] as [number, number], iso_codes: ['TW'],
+        geo_polygon: [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0]] as [number, number][],
+      }],
+    };
+    const polys = buildTerritoryGlobeGeometries(
+      data as Parameters<typeof buildTerritoryGlobeGeometries>[0],
+      { ...sources, countriesGeo } as Parameters<typeof buildTerritoryGlobeGeometries>[1],
+    );
+    const flat = JSON.stringify(polys[0].geometry.coordinates);
+    expect(flat).toContain('120'); // real Taiwan ring, not the tiny geo_polygon fallback
+  });
+
   it('admin1_clips clips a single unit to its per-code bbox (split provinces)', () => {
     const g = byId['clipped_state'].geometry;
     const ys = JSON.stringify(g.coordinates);
