@@ -37,6 +37,42 @@ def load_admin(map_id):
     return {}
 
 
+def voronoi_cells(bounds, seeds):
+    """Bounded Voronoi tessellation of `seeds` ({id: (lng,lat)}) over the bounds
+    rectangle. Returns {id: ring[[lng,lat],...]} (convex cells that tile the frame).
+    Used by historical-empire maps to give each territory an organic, gap-free cell
+    that its real country geometry is clipped to (see build_roman_empire.py)."""
+    bb = [bounds["minLng"], bounds["minLat"], bounds["maxLng"], bounds["maxLat"]]
+
+    def clip_hp(poly, m, nrm):
+        out = []
+        n = len(poly)
+        def side(p):
+            return (p[0] - m[0]) * nrm[0] + (p[1] - m[1]) * nrm[1]
+        for i in range(n):
+            a = poly[i]; b = poly[(i + 1) % n]; sa = side(a); sb = side(b)
+            if sa <= 0:
+                out.append(a)
+            if (sa < 0) != (sb < 0):
+                t = sa / (sa - sb)
+                out.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
+        return out
+
+    cells = {}
+    for sid, si in seeds.items():
+        poly = [(bb[0], bb[1]), (bb[2], bb[1]), (bb[2], bb[3]), (bb[0], bb[3])]
+        for oid, sj in seeds.items():
+            if oid == sid:
+                continue
+            m = ((si[0] + sj[0]) / 2, (si[1] + sj[1]) / 2)
+            nrm = (sj[0] - si[0], sj[1] - si[1])
+            poly = clip_hp(poly, m, nrm)
+            if len(poly) < 3:
+                break
+        cells[sid] = [[round(x, 3), round(y, 3)] for x, y in poly]
+    return cells
+
+
 def auto_canvas(bounds, width=1200):
     """Pick canvas H so the flat map is ~undistorted at the region's mid-latitude."""
     mid_lat = (bounds["minLat"] + bounds["maxLat"]) / 2

@@ -211,6 +211,42 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     year: '117 AD',
   },
   {
+    map_id: 'community_mongol_empire',
+    name: 'Mongol Empire — 1279',
+    description:
+      "The Mongol Empire at its height in 1279, the year Kublai Khan completed the conquest of Song China. 36 provinces across the largest contiguous land empire in history — Yuan China, the Mongol heartland, the Chagatai khanate, the Ilkhanate of Persia, and the Golden Horde over the Rus' and the steppe.",
+    territory_count: 36,
+    region_count: 7,
+    icon: '🏇',
+    color: '#C19A3A',
+    bgColor: '#161208',
+    year: '1279 AD',
+  },
+  {
+    map_id: 'community_napoleonic_europe',
+    name: 'Napoleonic Europe — 1812',
+    description:
+      "Europe at the zenith of Napoleon's power, 1812 — 44 states from Portugal to Moscow. The French Empire and its satellites against the coalition of Britain, Russia, Prussia, and Austria. March on the enemy capital, or hold the line from Lisbon to the Niemen.",
+    territory_count: 44,
+    region_count: 9,
+    icon: '🎖️',
+    color: '#2C5F8A',
+    bgColor: '#0B1420',
+    year: '1812',
+  },
+  {
+    map_id: 'community_sengoku_japan',
+    name: 'Sengoku Japan — Warring States',
+    description:
+      'Japan in the age of the warring states — 38 provinces from Satsuma to Ezo. The great clans (Shimazu, Mōri, Oda, Takeda, Uesugi, Hōjō, Date, Tokugawa) fight to march on Kyōto and unify the realm. Mountain passes and the Inland Sea draw every front.',
+    territory_count: 38,
+    region_count: 8,
+    icon: '🏯',
+    color: '#B23A48',
+    bgColor: '#1A0E10',
+    year: 'Sengoku Jidai',
+  },
+  {
     map_id: 'community_14_nations',
     name: 'The 14 Nations',
     description:
@@ -245,6 +281,9 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
 export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_charlemagne_814',
   'community_roman_empire_117',
+  'community_mongol_empire',
+  'community_napoleonic_europe',
+  'community_sengoku_japan',
   'community_britain_925',
   'community_fractured_china',
   'community_nusantara',
