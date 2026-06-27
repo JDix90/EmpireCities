@@ -563,10 +563,10 @@
         "MY-06",
         "MY-11",
         "MY-10",
-        "MY-14",
-        "MY-16",
         "MY-05",
-        "MY-04"
+        "MY-04",
+        "MY-14",
+        "MY-16"
       ]
     },
     {
@@ -1094,8 +1094,7 @@
         ]
       ],
       "admin1": [
-        "ID-KI",
-        "ID-KU"
+        "ID-KI"
       ]
     },
     {
@@ -1488,24 +1487,24 @@
         "PH-APA",
         "PH-AUR",
         "PH-BAN",
-        "PH-BEN",
         "PH-BTN",
         "PH-BUL",
         "PH-CAG",
         "PH-IFU",
-        "PH-ILN",
         "PH-ILS",
         "PH-ISA",
         "PH-KAL",
         "PH-LUN",
-        "PH-MOU",
         "PH-NUE",
         "PH-NUV",
         "PH-PAM",
         "PH-PAN",
-        "PH-QUI",
         "PH-TAR",
-        "PH-ZMB"
+        "PH-ZMB",
+        "PH-ILN",
+        "PH-QUI",
+        "PH-BEN",
+        "PH-MOU"
       ]
     },
     {
@@ -1588,10 +1587,6 @@
         "PH-BTG",
         "PH-CAV",
         "PH-LAG",
-        "PH-QUE",
-        "PH-RIZ",
-        "PH-MAD",
-        "PH-MDC",
         "PH-MDR",
         "PH-ROM",
         "PH-ALB",
@@ -1599,7 +1594,12 @@
         "PH-CAS",
         "PH-CAT",
         "PH-MAS",
-        "PH-SOR"
+        "PH-SOR",
+        "PH-QUE",
+        "PH-MNL",
+        "PH-MDC",
+        "PH-MAD",
+        "PH-RIZ"
       ]
     },
     {
@@ -1680,21 +1680,23 @@
       ],
       "admin1": [
         "PH-AKL",
-        "PH-ANT",
         "PH-BIL",
         "PH-BOH",
         "PH-CAP",
         "PH-CEB",
         "PH-EAS",
-        "PH-GUI",
         "PH-ILI",
         "PH-LEY",
-        "PH-NEC",
         "PH-NER",
-        "PH-NSA",
-        "PH-SIG",
+        "PH-WSA",
         "PH-SLE",
-        "PH-WSA"
+        "PH-GUI",
+        "PH-BCD",
+        "PH-NEC",
+        "PH-MDE",
+        "PH-ANT",
+        "PH-NSA",
+        "PH-LAP"
       ]
     },
     {
@@ -1790,21 +1792,21 @@
         "PH-DAO",
         "PH-DAS",
         "PH-DAV",
-        "PH-DIN",
-        "PH-LAN",
+        "PH-SUN",
         "PH-LAS",
-        "PH-MAG",
-        "PH-MSC",
         "PH-MSR",
         "PH-NCO",
         "PH-SAR",
         "PH-SCO",
         "PH-SUK",
-        "PH-SUN",
         "PH-SUR",
-        "PH-ZAN",
+        "PH-ZSI",
+        "PH-LAN",
         "PH-ZAS",
-        "PH-ZSI"
+        "PH-MSC",
+        "PH-ZAN",
+        "PH-MAG",
+        "PH-SIG"
       ]
     },
     {
@@ -2276,8 +2278,16 @@
           18.6
         ]
       ],
-      "iso_codes": [
-        "TH"
+      "geo_config": [
+        {
+          "iso": "TH",
+          "clip_bbox": [
+            97.0,
+            12.8,
+            106.0,
+            21.0
+          ]
+        }
       ]
     },
     {
@@ -2356,8 +2366,16 @@
           12.6
         ]
       ],
-      "iso_codes": [
-        "TH"
+      "geo_config": [
+        {
+          "iso": "TH",
+          "clip_bbox": [
+            97.0,
+            5.4,
+            106.0,
+            12.8
+          ]
+        }
       ]
     },
     {
@@ -2436,9 +2454,19 @@
           22.6
         ]
       ],
-      "iso_codes": [
-        "VN",
-        "LA"
+      "geo_config": [
+        {
+          "iso": "VN",
+          "clip_bbox": [
+            101.0,
+            16.0,
+            110.5,
+            23.5
+          ]
+        },
+        {
+          "iso": "LA"
+        }
       ]
     },
     {
@@ -2517,8 +2545,16 @@
           18.8
         ]
       ],
-      "iso_codes": [
-        "VN"
+      "geo_config": [
+        {
+          "iso": "VN",
+          "clip_bbox": [
+            102.0,
+            7.5,
+            110.5,
+            16.0
+          ]
+        }
       ]
     },
     {
@@ -2661,8 +2697,16 @@
           22.8
         ]
       ],
-      "iso_codes": [
-        "MM"
+      "geo_config": [
+        {
+          "iso": "MM",
+          "clip_bbox": [
+            94.5,
+            19.0,
+            101.5,
+            29.0
+          ]
+        }
       ]
     },
     {
@@ -2741,8 +2785,16 @@
           18.8
         ]
       ],
-      "iso_codes": [
-        "MM"
+      "geo_config": [
+        {
+          "iso": "MM",
+          "clip_bbox": [
+            94.5,
+            9.0,
+            101.5,
+            19.0
+          ]
+        }
       ]
     },
     {
@@ -2813,8 +2865,16 @@
           21.0
         ]
       ],
-      "iso_codes": [
-        "MM"
+      "geo_config": [
+        {
+          "iso": "MM",
+          "clip_bbox": [
+            92.0,
+            14.0,
+            94.5,
+            28.5
+          ]
+        }
       ]
     }
   ],

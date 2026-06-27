@@ -9,7 +9,7 @@ Built via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": 66.0, "maxLng": 98.0, "minLat": 6.0, "maxLat": 36.0}
 
@@ -196,58 +196,7 @@ C = [
 # Madhya Pradesh). For those, the same admin1 code is paired with a clip_bbox so each territory
 # renders a distinct slice of the real state polygon (no slice reused twice). All other territories
 # take whole admin units. Lanka = Sri Lanka (iso_codes LK).
-ADMIN = {
-    # --- Kashmir & the Himalaya ---
-    "kashmir_vale": {"admin1": ["IN-JK"]},                 # Jammu & Kashmir
-    "ladakh":       {"admin1": ["IN-HP"]},                 # Himachal Pradesh (high Himalaya)
-    "himalaya":     {"admin1": ["IN-UT"]},                 # Uttarakhand = Garhwal & Kumaon
-
-    # --- Sikh Punjab ---
-    "lahore":       {"admin1": ["IN-PB"]},                 # Punjab
-    "indus_punjab": {"admin1": ["IN-CH"]},                 # Chandigarh
-    "malwa_punjab": {"admin1": ["IN-HR"]},                 # Haryana
-
-    # --- Rajputana (single state IN-RJ split W / S / E by clip_bbox) ---
-    "marwar":   {"admin1": ["IN-RJ"], "clip_bbox": [69.0, 24.0, 73.5, 30.5]},  # western Thar
-    "mewar":    {"admin1": ["IN-RJ"], "clip_bbox": [73.5, 23.0, 77.5, 27.0]},  # south (Mewar/Ajmer)
-    "dhundhar": {"admin1": ["IN-RJ"], "clip_bbox": [75.0, 27.0, 78.5, 30.5]},  # east (Jaipur/Dhundhar)
-
-    # --- Hindustan (Gangetic plain) ---
-    "delhi":       {"admin1": ["IN-DL"]},                                          # Delhi
-    "doab":        {"admin1": ["IN-UP"], "clip_bbox": [77.0, 27.5, 80.5, 30.0]},   # west UP / upper Doab
-    "agra":        {"admin1": ["IN-UP"], "clip_bbox": [76.5, 24.5, 80.0, 27.5]},   # Agra & Braj (SW UP)
-    "awadh":       {"admin1": ["IN-UP"], "clip_bbox": [80.0, 26.5, 84.0, 29.0]},   # Awadh (central-N UP)
-    "bundelkhand": {"admin1": ["IN-UP"], "clip_bbox": [78.0, 23.5, 82.5, 26.5]},   # Bundelkhand (S UP)
-    "kashi":       {"admin1": ["IN-UP"], "clip_bbox": [82.0, 24.0, 85.0, 27.5]},   # Kashi & eastern UP
-
-    # --- Bengal (delta + the Northeast) ---
-    "bihar":           {"admin1": ["IN-BR", "IN-JH"]},                 # Bihar & Jharkhand (Magadha)
-    "gangetic_bengal": {"admin1": ["IN-WB", "IN-OR"]},                 # West Bengal & Odisha
-    "dacca":           {"admin1": ["IN-TR", "IN-MZ", "IN-MN", "IN-AN"]},  # Tripura/Mizoram/Manipur + islands
-    "assam":           {"admin1": ["IN-AS", "IN-AR", "IN-NL", "IN-ML", "IN-SK"]},  # Assam & NE hills + Sikkim
-
-    # --- Gujarat ---
-    "kathiawar":    {"admin1": ["IN-DD"]},                 # Daman & Diu (Saurashtra coast)
-    "gujarat_main": {"admin1": ["IN-GJ"]},                 # Gujarat
-    "malwa":        {"admin1": ["IN-DN"]},                 # Dadra & Nagar Haveli
-
-    # --- Maratha Confederacy ---
-    "konkan":   {"admin1": ["IN-GA"]},                     # Goa (Konkan coast)
-    "desh":     {"admin1": ["IN-MH"]},                     # Maharashtra
-    "nagpur":   {"admin1": ["IN-CT"]},                     # Chhattisgarh (Berar/Gondwana)
-    "khandesh": {"admin1": ["IN-MP"]},                     # Madhya Pradesh (Gondwana plateau)
-
-    # --- Dravidian South ---
-    "hyderabad": {"admin1": ["IN-TG"]},                    # Telangana
-    "andhra":    {"admin1": ["IN-AP"]},                    # Andhra Pradesh
-    "karnata":   {"admin1": ["IN-KA"]},                    # Karnataka
-    "malabar":   {"admin1": ["IN-KL", "IN-LD"]},           # Kerala & Lakshadweep
-    "tamil":     {"admin1": ["IN-TN", "IN-PY"]},           # Tamil Nadu & Puducherry
-
-    # --- Lanka (island of Sri Lanka) ---
-    "lanka_north": {"iso_codes": ["LK"]},
-    "lanka_south": {"iso_codes": ["LK"]},
-}
+ADMIN = load_admin("community_balkanized_india")
 
 if __name__ == "__main__":
     build_map(

@@ -7,7 +7,7 @@ Guadalquivir, the Pyrenees and Cantabrian ranges). Built via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": -10.0, "maxLng": 4.0, "minLat": 36.0, "maxLat": 44.0}
 
@@ -107,40 +107,7 @@ C = [
 # Real Natural Earth admin-1 geometry. Spain admin-1 = the 50 provinces (ES-XX two-letter
 # province codes), grouped into each territory. Portugal split into 3 territories using PT
 # mainland district codes (PT-NN) grouped North / Center / South.
-ADMIN = {
-    # Portugal — mainland districts grouped N / Center / South
-    "pt_north":   {"admin1": ["PT-16", "PT-03", "PT-13", "PT-17", "PT-04", "PT-01"]},
-    "pt_center":  {"admin1": ["PT-18", "PT-09", "PT-06", "PT-10", "PT-05", "PT-11", "PT-14"]},
-    "pt_south":   {"admin1": ["PT-12", "PT-07", "PT-15", "PT-02", "PT-08"]},
-    # Galicia
-    "galicia_coast":  {"admin1": ["ES-C", "ES-PO"]},
-    "galicia_inland": {"admin1": ["ES-LU", "ES-OR"]},
-    # Basque & Asturias
-    "asturias": {"admin1": ["ES-O", "ES-S"]},
-    "basque":   {"admin1": ["ES-BI", "ES-SS", "ES-VI"]},
-    # Navarre & La Rioja
-    "navarre": {"admin1": ["ES-NA"]},
-    "rioja":   {"admin1": ["ES-LO"]},
-    # Catalonia
-    "catalonia_north": {"admin1": ["ES-B", "ES-GI"]},
-    "catalonia_west":  {"admin1": ["ES-L"]},
-    "tarragona":       {"admin1": ["ES-T"]},
-    # Aragon & Valencia
-    "aragon":   {"admin1": ["ES-Z", "ES-HU", "ES-TE"]},
-    "valencia": {"admin1": ["ES-V", "ES-CS"]},
-    "murcia":   {"admin1": ["ES-MU", "ES-A"]},
-    # Castile
-    "leon":        {"admin1": ["ES-LE", "ES-ZA", "ES-SA"]},
-    "old_castile": {"admin1": ["ES-BU", "ES-P", "ES-VA", "ES-SO", "ES-SG", "ES-AV"]},
-    "madrid":      {"admin1": ["ES-M", "ES-GU"]},
-    "toledo":      {"admin1": ["ES-TO", "ES-CR"]},
-    "extremadura": {"admin1": ["ES-CC", "ES-BA"]},
-    "la_mancha":   {"admin1": ["ES-CU", "ES-AB"]},
-    # Andalusia
-    "andalucia_west": {"admin1": ["ES-H", "ES-CA", "ES-SE"]},
-    "andalucia_east": {"admin1": ["ES-GR", "ES-AL", "ES-MA"]},
-    "cordoba":        {"admin1": ["ES-CO", "ES-J"]},
-}
+ADMIN = load_admin("community_balkanized_spain")
 
 if __name__ == "__main__":
     build_map(

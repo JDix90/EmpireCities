@@ -368,12 +368,9 @@
         ]
       ],
       "admin1": [
-        "LY-TB",
         "LY-JI",
         "LY-NQ",
         "LY-ZA",
-        "LY-NL",
-        "LY-JG",
         "LY-GT",
         "LY-MB",
         "LY-MI",
@@ -381,8 +378,11 @@
         "LY-JU",
         "LY-SB",
         "LY-MQ",
-        "LY-WD",
-        "LY-WS"
+        "LY-WS",
+        "LY-GD",
+        "LY-TN",
+        "LY-MZ",
+        "LY-WD"
       ]
     },
     {
@@ -455,12 +455,12 @@
       ],
       "admin1": [
         "LY-BA",
-        "LY-DR",
+        "LY-QB",
         "LY-JA",
         "LY-MJ",
         "LY-BU",
-        "LY-WA",
-        "LY-KF"
+        "LY-KF",
+        "LY-AJ"
       ]
     },
     {
@@ -642,10 +642,10 @@
         "EG-AST",
         "EG-SHG",
         "EG-KN",
-        "EG-LX",
         "EG-ASN",
         "EG-BA",
-        "EG-WAD"
+        "EG-WAD",
+        "EG-LX"
       ]
     },
     {
@@ -747,13 +747,13 @@
         "SD-KH",
         "SD-GZ",
         "SD-NB",
-        "SD-NR",
-        "SD-NO",
         "SD-KA",
-        "SD-RS",
         "SD-NW",
         "SD-GD",
-        "SD-SI"
+        "SD-SI",
+        "SD-NO",
+        "SD-NR",
+        "SD-RS"
       ]
     },
     {
@@ -1014,12 +1014,12 @@
       ],
       "admin1": [
         "ET-OR",
-        "ET-AA",
         "ET-SN",
         "ET-GA",
         "ET-HA",
         "ET-DD",
-        "ET-SO"
+        "ET-SO",
+        "ET-AA"
       ]
     },
     {
@@ -1452,7 +1452,6 @@
         "NG-BA",
         "NG-GO",
         "NG-PL",
-        "NG-NA",
         "NG-FC",
         "NG-AD",
         "NG-TA",
@@ -1536,12 +1535,8 @@
         ]
       ],
       "admin1": [
-        "TD-ND",
         "TD-KA",
-        "TD-LC",
         "TD-HL",
-        "TD-BA",
-        "TD-BG",
         "TD-CB",
         "TD-GR",
         "TD-LO",
@@ -1549,10 +1544,14 @@
         "TD-MO",
         "TD-ME",
         "TD-MC",
-        "TD-MA",
         "TD-TA",
         "TD-BO",
-        "TD-TI"
+        "TD-LC",
+        "TD-MA",
+        "TD-ND",
+        "TD-TI",
+        "TD-BG",
+        "TD-BA"
       ]
     },
     {
@@ -1632,19 +1631,16 @@
         ]
       ],
       "admin1": [
-        "TD-OD",
         "TD-SI",
         "TD-SA",
         "TD-WF",
-        "TD-EO",
-        "TD-EE",
         "SD-DN",
         "SD-DS",
-        "SD-DW",
-        "SD-DC",
         "SD-DE",
         "SD-KN",
-        "SD-KS"
+        "SD-KS",
+        "SD-DW",
+        "TD-OD"
       ]
     },
     {
@@ -1988,7 +1984,8 @@
         "NG-EB",
         "NG-CR",
         "NG-AK",
-        "NG-KO"
+        "NG-KO",
+        "NG-NA"
       ]
     },
     {
@@ -3282,10 +3279,11 @@
         "LS"
       ],
       "admin1": [
-        "ZA-WC",
-        "ZA-NC",
         "ZA-EC",
-        "ZA-FS"
+        "ZA-NC",
+        "ZA-FS",
+        "ZA-NW",
+        "ZA-WC"
       ]
     },
     {
@@ -3360,11 +3358,10 @@
         "SZ"
       ],
       "admin1": [
-        "ZA-NL",
         "ZA-GT",
-        "ZA-MP",
         "ZA-LP",
-        "ZA-NW"
+        "ZA-NL",
+        "ZA-MP"
       ]
     }
   ],

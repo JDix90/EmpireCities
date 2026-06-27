@@ -10,7 +10,7 @@ Built via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": 19.0, "maxLng": 150.0, "minLat": 40.0, "maxLat": 73.0}
 
@@ -157,54 +157,7 @@ C = [
     ("turkestan_south","ferghana","land"),
 ]
 
-ADMIN = {
-    # ---- Northwest ----
-    "ingria":         {"admin1": ["RU-SPE", "RU-LEN", "RU-KGD"]},
-    "karelia":        {"admin1": ["RU-KR"]},
-    "kola":           {"admin1": ["RU-MUR"]},
-    "novgorod":       {"admin1": ["RU-NGR", "RU-PSK"]},
-    "vologda":        {"admin1": ["RU-VLG", "RU-ARK", "RU-NEN", "RU-KO"]},
-    # ---- Muscovy ----
-    "moscow":         {"admin1": ["RU-MOW", "RU-MOS", "RU-KLU", "RU-TUL"]},
-    "tver_yaroslavl": {"admin1": ["RU-TVE", "RU-YAR", "RU-IVA", "RU-KOS"]},
-    "nizhny":         {"admin1": ["RU-NIZ", "RU-VLA", "RU-CU", "RU-ME", "RU-MO"]},
-    "smolensk":       {"admin1": ["RU-SMO", "RU-BRY", "RU-ORL"]},
-    "chernozem":      {"admin1": ["RU-KRS", "RU-BEL", "RU-VOR", "RU-LIP", "RU-TAM", "RU-RYA", "RU-PNZ"]},
-    # ---- Don & Kuban ----
-    "don":            {"admin1": ["RU-ROS"]},
-    "kuban":          {"admin1": ["RU-KDA", "RU-AD"]},
-    "volgograd":      {"admin1": ["RU-VGG", "RU-AST", "RU-KL", "RU-SAR"]},
-    # ---- Caucasus ----
-    "north_caucasus": {"admin1": ["RU-STA", "RU-KC", "RU-KB", "RU-SE", "RU-IN", "RU-CE", "RU-DA"]},
-    "transcaucasia":  {"iso_codes": ["GE", "AM", "AZ"]},
-    # ---- Urals ----
-    "perm":           {"admin1": ["RU-PER", "RU-KIR", "RU-UD"]},
-    "yekaterinburg":  {"admin1": ["RU-SVE", "RU-KGN"]},
-    "bashkir_tatar":  {"admin1": ["RU-BA", "RU-TA", "RU-SAM", "RU-ULY"]},
-    "orenburg":       {"admin1": ["RU-ORE", "RU-CHE"]},
-    # ---- Siberia ----
-    "ob_north":       {"admin1": ["RU-YAN"]},
-    "ob_south":       {"admin1": ["RU-TYU", "RU-KHM"]},
-    "altai":          {"admin1": ["RU-ALT", "RU-AL", "RU-KEM", "RU-NVS", "RU-OMS"]},
-    "yenisei_north":  {"admin1": ["RU-KYA"]},
-    "krasnoyarsk":    {"admin1": ["RU-KK", "RU-TY", "RU-TOM"]},
-    "baikal":         {"admin1": ["RU-IRK", "RU-BU"]},
-    "sakha_west":     {"admin1": ["RU-SA"]},
-    # ---- Far Eastern Republic (Chukotka capped east -> Far East) ----
-    "yakutia_east":   {"admin1": ["RU-CHU"]},
-    "magadan":        {"admin1": ["RU-MAG", "RU-KAM"]},
-    "amur":           {"admin1": ["RU-AMU", "RU-ZAB"]},
-    "primorye":       {"admin1": ["RU-PRI", "RU-KHA", "RU-YEV"]},
-    "sakhalin":       {"admin1": ["RU-SAK"]},
-    # ---- Turkestan (Central Asian republics) ----
-    "west_kazakhstan":    {"iso_codes": ["KZ"]},
-    "central_kazakhstan": {"iso_codes": ["KG"]},
-    "turkestan_south":    {"iso_codes": ["TM", "UZ"]},
-    "ferghana":           {"iso_codes": ["TJ"]},
-    # KZ spans the whole north steppe (west+central territories share it geographically);
-    # assigned once to west_kazakhstan. KG (Kyrgyzstan, SE highlands) -> central. TM+UZ
-    # (Khiva/Bukhara, Amu-Darya) -> turkestan_south. TJ (Ferghana/Pamir) -> ferghana.
-}
+ADMIN = load_admin("community_fractured_russia")
 
 if __name__ == "__main__":
     build_map(

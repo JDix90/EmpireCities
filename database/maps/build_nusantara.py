@@ -9,7 +9,7 @@ of Malacca, Sunda, Makassar and the Java/Banda seas. Built via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": 92.0, "maxLng": 142.0, "minLat": -11.0, "maxLat": 23.0}
 
@@ -169,61 +169,7 @@ C = [
 # Indochina) where only whole-country Natural Earth polygons are available, and
 # admin1 ISO 3166-2 codes for the archipelago (Indonesia provinces, Malaysian
 # states, Philippine provinces). Brunei & Singapore are whole-country iso_codes.
-ADMIN = {
-    # ---- Sumatra (ID provinces) ----
-    "aceh":        {"admin1": ["ID-AC"]},
-    "batak":       {"admin1": ["ID-SU"]},
-    "minangkabau": {"admin1": ["ID-SB", "ID-RI", "ID-KR"]},
-    "palembang":   {"admin1": ["ID-SS", "ID-JA", "ID-BB"]},
-    "lampung":     {"admin1": ["ID-LA", "ID-BE"]},
-    # ---- Malay peninsula (MY states + Singapore) ----
-    "kedah":  {"admin1": ["MY-02", "MY-08", "MY-09", "MY-07", "MY-03"]},
-    "pahang": {"admin1": ["MY-06", "MY-11", "MY-10", "MY-14", "MY-16", "MY-05", "MY-04"]},
-    "johor":  {"admin1": ["MY-01"], "iso_codes": ["SG"]},
-    # ---- Borneo (MY Sabah/Sarawak + Brunei + ID Kalimantan) ----
-    "brunei_sarawak": {"admin1": ["MY-13"], "iso_codes": ["BN"]},
-    "sabah":          {"admin1": ["MY-12", "MY-15"]},
-    "west_borneo":    {"admin1": ["ID-KB"]},
-    "south_borneo":   {"admin1": ["ID-KS", "ID-KT"]},
-    "east_borneo":    {"admin1": ["ID-KI", "ID-KU"]},
-    # ---- Java (ID provinces) ----
-    "banten":      {"admin1": ["ID-BT", "ID-JK", "ID-JB"]},
-    "mataram":     {"admin1": ["ID-JT", "ID-YO"]},
-    "majapahit":   {"admin1": ["ID-JI"]},
-    "bali_lombok": {"admin1": ["ID-BA", "ID-NB", "ID-NT"]},
-    # ---- Philippines (PH provinces, grouped Luzon/Visayas/Mindanao/Sulu) ----
-    "luzon":  {"admin1": ["PH-ABR", "PH-APA", "PH-AUR", "PH-BAN", "PH-BEN", "PH-BTN",
-                          "PH-BUL", "PH-CAG", "PH-IFU", "PH-ILN", "PH-ILS", "PH-ISA",
-                          "PH-KAL", "PH-LUN", "PH-MOU", "PH-NUE", "PH-NUV", "PH-PAM",
-                          "PH-PAN", "PH-QUI", "PH-TAR", "PH-ZMB"]},
-    "manila": {"admin1": ["PH-BTG", "PH-CAV", "PH-LAG", "PH-QUE", "PH-RIZ", "PH-MAD",
-                          "PH-MDC", "PH-MDR", "PH-ROM", "PH-ALB", "PH-CAN", "PH-CAS",
-                          "PH-CAT", "PH-MAS", "PH-SOR"]},
-    "visayas": {"admin1": ["PH-AKL", "PH-ANT", "PH-BIL", "PH-BOH", "PH-CAP", "PH-CEB",
-                           "PH-EAS", "PH-GUI", "PH-ILI", "PH-LEY", "PH-NEC", "PH-NER",
-                           "PH-NSA", "PH-SIG", "PH-SLE", "PH-WSA"]},
-    "mindanao": {"admin1": ["PH-AGN", "PH-AGS", "PH-BUK", "PH-CAM", "PH-COM", "PH-DAO",
-                            "PH-DAS", "PH-DAV", "PH-DIN", "PH-LAN", "PH-LAS", "PH-MAG",
-                            "PH-MSC", "PH-MSR", "PH-NCO", "PH-SAR", "PH-SCO", "PH-SUK",
-                            "PH-SUN", "PH-SUR", "PH-ZAN", "PH-ZAS", "PH-ZSI"]},
-    "sulu": {"admin1": ["PH-BAS", "PH-PLW", "PH-SLU", "PH-TAW"]},
-    # ---- Sulawesi & the Spice Islands (ID provinces) ----
-    "makassar":       {"admin1": ["ID-SN", "ID-SR", "ID-SG"]},
-    "north_sulawesi": {"admin1": ["ID-SA", "ID-GO", "ID-ST"]},
-    "ternate":        {"admin1": ["ID-MU"]},
-    "banda_seram":    {"admin1": ["ID-MA", "ID-PA", "ID-PB"]},
-    # ---- Siam (whole-country) ----
-    "ayutthaya":  {"iso_codes": ["TH"]},
-    "tenasserim": {"iso_codes": ["TH"]},
-    # ---- Vietnam & Champa / Khmer (whole-country) ----
-    "dai_viet": {"iso_codes": ["VN", "LA"]},
-    "champa":   {"iso_codes": ["VN"]},
-    "khmer":    {"iso_codes": ["KH"]},
-    # ---- Burma (whole-country) ----
-    "ava":    {"iso_codes": ["MM"]},
-    "pegu":   {"iso_codes": ["MM"]},
-    "arakan": {"iso_codes": ["MM"]},
-}
+ADMIN = load_admin("community_nusantara")
 
 if __name__ == "__main__":
     build_map(
