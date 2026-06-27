@@ -200,6 +200,26 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
   },
 ];
 
+/**
+ * Regional maps split into two browse groups in the Map Hub:
+ *  - 'theater' — set in a real historical period
+ *  - 'alt'     — counterfactual / alternate-history scenarios
+ * (Editorial grouping; adjust the set to recategorize a map.)
+ */
+export const REGIONAL_THEATER_IDS = new Set<string>([
+  'community_charlemagne_814',
+  'community_britain_925',
+  'community_australia_1337',
+  'community_fractured_china',
+  'community_nusantara',
+]);
+
+export type RegionalCategory = 'theater' | 'alt';
+
+export function regionalCategory(mapId: string): RegionalCategory {
+  return REGIONAL_THEATER_IDS.has(mapId) ? 'theater' : 'alt';
+}
+
 const mapCache = new Map<string, GameMap>();
 
 /**
