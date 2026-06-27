@@ -779,8 +779,180 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
   },
 };
 
+const ROMAN_EMPIRE_117: CustomMapImmersionProfile = {
+  map_id: 'community_roman_empire_117',
+  tagline: 'All roads lead to Rome — and every legion wants to march on it.',
+  backdrop:
+    'The empire of Trajan at its greatest extent, from the mists of Britannia to the deserts of Mesopotamia. The Mediterranean is a Roman lake; the frontiers seethe with Germans, Dacians, and Parthians. Hold the purple, or rise from the provinces to seize it.',
+  recommended_rules_era: 'ancient',
+  advanced: {
+    territory_draft: af(
+      'Carve the provinces as the legions did — secure the grain of Aegypt and Africa before a rival does.',
+      'Draft rewards locking Italia, the Aegyptian breadbasket, or a defensible frontier early.',
+    ),
+    asymmetric_factions: af(
+      'Senatorial Rome, the frontier legions, and the client kingdoms each wage war by different rules.',
+      'Factions feel distinct: heartland economy, legionary tempo, or frontier resilience.',
+    ),
+    economy_buildings: af(
+      'Roads, aqueducts, and grain fleets turn provinces into a war machine.',
+      'Economy rewards connected provinces — infrastructure compounds across the Mediterranean.',
+    ),
+    tech_trees: af(
+      'Siege craft, road engineering, and legionary doctrine decide the frontier wars.',
+      'Tech unlocks faster movement on roads, stronger sieges, and frontier defense bonuses.',
+    ),
+    historical_events: af(
+      'Succession crises, frontier revolts, and Parthian wars ripple across the empire.',
+      'Events swing reinforcements, stability, and frontier pressure — the Crisis is always one bad emperor away.',
+    ),
+    naval_warfare: af(
+      'The Mediterranean sea-lanes bind the empire; control them to flank from Carthage to Cyprus.',
+      'Naval play unlocks rapid redeployment and amphibious strikes across Mare Nostrum.',
+    ),
+    population_stability: af(
+      'Bread and circuses keep the provinces loyal; tax them too hard and the legions revolt.',
+      'Stability funds expansion — unrest in the heartland caps your campaigns.',
+    ),
+    fog_of_war: af(
+      'Beyond the limes lies the barbaricum — scouts and frontier forts reveal the next incursion.',
+      'Fog models the unknown frontier; ISR (scouting) the borders before the horde arrives.',
+    ),
+  },
+};
+
+const MONGOL_EMPIRE_1279: CustomMapImmersionProfile = {
+  map_id: 'community_mongol_empire',
+  tagline: 'One empire from the Pacific to the Danube — until the ulus break apart.',
+  backdrop:
+    'The year Kublai Khan drowned the last Song resistance. The largest land empire in history stretches from Goryeo to the Rus’ — Yuan China, the Mongol heartland, the Chagatai khanate, the Ilkhanate, and the Golden Horde. Reunite the ulus under one Khan, or shatter it into rival khanates.',
+  recommended_rules_era: 'medieval',
+  advanced: {
+    territory_draft: af(
+      'The khanates are divided among the sons of the line — claim your ulus before the kurultai turns to war.',
+      'Draft rewards a contiguous khanate: China’s wealth, Persia’s cities, or the open steppe.',
+    ),
+    asymmetric_factions: af(
+      'Settled Yuan China, the Persian Ilkhanate, and the nomad Horde fight by utterly different doctrines.',
+      'Factions split along steppe vs. sown — cavalry tempo against fortified wealth.',
+    ),
+    economy_buildings: af(
+      'The Silk Road and the Yam relay network turn a continent of cities into one treasury.',
+      'Economy rewards holding trade arteries — connected provinces snowball.',
+    ),
+    tech_trees: af(
+      'Horse archery, siege engineers from China, and the relay post define Mongol war.',
+      'Tech unlocks unmatched movement, siege power, and reinforcement reach.',
+    ),
+    historical_events: af(
+      'Succession kurultais, plague, and the fracture into four khanates loom over every campaign.',
+      'Events swing unity and reinforcements — the empire is one disputed succession from civil war.',
+    ),
+    naval_warfare: af(
+      'From the Yangtze to the Caspian, rivers and coasts flank the great land powers.',
+      'Naval play opens river crossings and coastal raids on the settled south.',
+    ),
+    population_stability: af(
+      'Tax the cities, spare the steppe — overreach and the conquered rise.',
+      'Stability funds the next conquest; revolts in distant ulus bleed your armies.',
+    ),
+    fog_of_war: af(
+      'Scouts range days ahead of the tumens across the open steppe.',
+      'Fog rewards the faster scout — the Mongols always saw the enemy first.',
+    ),
+  },
+};
+
+const NAPOLEONIC_EUROPE: CustomMapImmersionProfile = {
+  map_id: 'community_napoleonic_europe',
+  tagline: 'From Lisbon to Moscow — the Grande Armée against a continent.',
+  backdrop:
+    'Europe in 1812, at the zenith of Napoleon’s power. The French Empire and its satellites face the grand coalition of Britain, Russia, Prussia, and Austria, while Spain bleeds the eagles white. March on the enemy capital — or hold the line at the Niemen.',
+  recommended_rules_era: 'discovery',
+  advanced: {
+    territory_draft: af(
+      'The Confederation of the Rhine, the satellites, and the coalition powers are divided before the campaign opens.',
+      'Draft rewards a coherent bloc: the French core, the German middle, or the Russian depth.',
+    ),
+    asymmetric_factions: af(
+      'Napoleonic France, the maritime British, and continental Russia each break the rules of war.',
+      'Factions feel like grand strategy: offensive tempo, naval supremacy, or scorched-earth depth.',
+    ),
+    economy_buildings: af(
+      'Conscription, the Continental System, and arsenals fuel total war.',
+      'Economy rewards mobilization — production scales with held capitals and industry.',
+    ),
+    tech_trees: af(
+      'Massed artillery, corps organization, and line-infantry drill decide the great battles.',
+      'Tech unlocks attack tempo, combined-arms bonuses, and faster fortification.',
+    ),
+    historical_events: af(
+      'The Spanish ulcer, the Russian winter, and shifting coalitions reshape the war.',
+      'Events swing attrition, reinforcements, and diplomacy — the coalition can always reform.',
+    ),
+    naval_warfare: af(
+      'Britannia rules the waves; the Channel and the Baltic decide who can be invaded.',
+      'Naval play unlocks blockade, amphibious landings, and the defense of the isles.',
+    ),
+    population_stability: af(
+      'Nationalism stirs in the occupied lands; overextend and the partisans rise.',
+      'Stability funds the next offensive — unrest behind the lines bleeds the Grande Armée.',
+    ),
+    fog_of_war: af(
+      'Cavalry screens and the fog of the great battlefield hide the decisive corps.',
+      'Fog rewards reconnaissance — find the enemy army before it finds your flank.',
+    ),
+  },
+};
+
+const SENGOKU_JAPAN: CustomMapImmersionProfile = {
+  map_id: 'community_sengoku_japan',
+  tagline: 'Sixty provinces, one road to Kyōto — who will unify the realm?',
+  backdrop:
+    'Japan in the age of war, the Sengoku Jidai. From Satsuma to Ezo the great clans — Shimazu, Mōri, Oda, Takeda, Uesugi, Hōjō, Date, Tokugawa — contend for supremacy. March your banners on Kyōto and take the realm under heaven.',
+  recommended_rules_era: 'medieval',
+  advanced: {
+    territory_draft: af(
+      'The provinces are parcelled to the clans before the first castle falls.',
+      'Draft rewards a defensible home province and a road toward the capital.',
+    ),
+    asymmetric_factions: af(
+      'Coastal trade clans, mountain cavalry houses, and the central powers each fight by their own code.',
+      'Factions feel like clan character: naval reach, cavalry shock, or central economy.',
+    ),
+    economy_buildings: af(
+      'Castles, rice paddies, and the gold and silver mines bankroll the war of unification.',
+      'Economy rewards rich home provinces — koku funds bigger armies.',
+    ),
+    tech_trees: af(
+      'The matchlock, castle engineering, and massed ashigaru transform the battlefield.',
+      'Tech unlocks firearms volleys, stronger castles, and faster levies.',
+    ),
+    historical_events: af(
+      'Betrayals, peasant ikkō-ikki risings, and the arrival of the Europeans reshape the war.',
+      'Events swing loyalty, reinforcements, and the firearms trade — treachery is a mechanic.',
+    ),
+    naval_warfare: af(
+      'The Inland Sea and the straits divide the islands; fleets carry the war across the water.',
+      'Naval play unlocks island crossings and blockades of the trade ports.',
+    ),
+    population_stability: af(
+      'A loyal province feeds your armies; tax the rice too hard and the ikkō-ikki revolt.',
+      'Stability funds campaigns — unrest at home stalls your march on the capital.',
+    ),
+    fog_of_war: af(
+      'Shinobi scouts and mountain mists hide the enemy’s muster.',
+      'Fog rewards the better-informed daimyō — scout before you commit the levy.',
+    ),
+  },
+};
+
 export const CUSTOM_MAP_IMMERSION: Record<string, CustomMapImmersionProfile> = {
   [FLOODED_NA.map_id]: FLOODED_NA,
+  [ROMAN_EMPIRE_117.map_id]: ROMAN_EMPIRE_117,
+  [MONGOL_EMPIRE_1279.map_id]: MONGOL_EMPIRE_1279,
+  [NAPOLEONIC_EUROPE.map_id]: NAPOLEONIC_EUROPE,
+  [SENGOKU_JAPAN.map_id]: SENGOKU_JAPAN,
   [CHARLEMAGNE_814.map_id]: CHARLEMAGNE_814,
   [USA_BALKAN.map_id]: USA_BALKAN,
   [CHINA_WARLORD.map_id]: CHINA_WARLORD,
