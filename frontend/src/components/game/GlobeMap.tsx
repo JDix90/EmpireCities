@@ -703,6 +703,7 @@ function GlobeMap({
   const countriesGeo = geoSources?.countriesGeo ?? null;
   const statesGeo = geoSources?.statesGeo ?? null;
   const risorgimentoGeo = geoSources?.risorgimentoGeo ?? null;
+  const regionalAdmin1Geo = geoSources?.regionalAdmin1Geo ?? null;
   const admin50Geo = geoSources?.admin50Geo ?? null;
   const straitHormuzGeo = geoSources?.straitHormuzGeo ?? null;
   const australiaGeo = geoSources?.australiaGeo ?? null;
@@ -763,10 +764,14 @@ function GlobeMap({
 
   const polygonsData = useMemo(
     (): PolygonData[] =>
+      // NOTE: keep every key of GlobeGeometryInputs here — dropping one (e.g.
+      // regionalAdmin1Geo) silently downgrades affected maps to the blocky
+      // geo_polygon fallback on the globe while the 2D map still looks correct.
       buildTerritoryGlobeGeometries(mapData, {
         countriesGeo,
         statesGeo,
         risorgimentoGeo,
+        regionalAdmin1Geo,
         admin50Geo,
         straitHormuzGeo,
         australiaGeo,
@@ -774,7 +779,7 @@ function GlobeMap({
         hornAfricaGeo,
         mexicoGeo,
       }),
-    [mapData, countriesGeo, statesGeo, risorgimentoGeo, admin50Geo, straitHormuzGeo, australiaGeo, britainGeo, hornAfricaGeo, mexicoGeo],
+    [mapData, countriesGeo, statesGeo, risorgimentoGeo, regionalAdmin1Geo, admin50Geo, straitHormuzGeo, australiaGeo, britainGeo, hornAfricaGeo, mexicoGeo],
   );
 
   const renderedPolygonsData = useMemo(

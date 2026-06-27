@@ -8,8 +8,9 @@ import type { GlobeGeometryInputs } from '../utils/globeTerritoryGeometry';
  * share a single network fetch per source.
  */
 
-const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
+// Committed locally (not the jsdelivr CDN) so geo_config / iso_codes maps resolve real
+// country geometry even in sandboxed/preview environments where outbound CDN fetches are blocked.
+const COUNTRIES_GEOJSON_URL = '/geo/ne_50m_admin_0_countries.json';
 const STATES_GEOJSON_URL =
   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_1_states_provinces.geojson';
 const ADMIN50_STATES_GEOJSON_URL =
