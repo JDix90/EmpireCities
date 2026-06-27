@@ -232,6 +232,7 @@ const STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_flooded_north_america',
   'community_14_nations',
   'community_strait_hormuz',
+  'community_roman_empire_117',
   // era_space_age is served from static JSON to bypass stale DB copies
   // that still carry the old rectangular geo_polygon data on Earth
   // territories. The static file in /maps/regional/era_space_age.json has

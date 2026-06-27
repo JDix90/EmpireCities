@@ -199,6 +199,18 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     year: '1337 AD',
   },
   {
+    map_id: 'community_roman_empire_117',
+    name: 'Roman Empire — 117 A.D.',
+    description:
+      "The Roman Empire at its height under Trajan — 41 provinces from Britannia to Mesopotamia, bound by the Mediterranean sea-lanes and ringed by the Germanic, Dacian, and Parthian frontiers. Hold Rome, or rise from the provinces to claim the purple.",
+    territory_count: 41,
+    region_count: 9,
+    icon: '🏛️',
+    color: '#9B2D5E',
+    bgColor: '#160E14',
+    year: '117 AD',
+  },
+  {
     map_id: 'community_14_nations',
     name: 'The 14 Nations',
     description:
@@ -232,6 +244,7 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
  */
 export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_charlemagne_814',
+  'community_roman_empire_117',
   'community_britain_925',
   'community_fractured_china',
   'community_nusantara',
