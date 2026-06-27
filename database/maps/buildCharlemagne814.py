@@ -13,6 +13,10 @@ Emits: database/maps/community_charlemagne_814.json
 
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+from mapkit import ring_defects  # noqa: E402  (shared geo-simplicity check)
 
 MAP_ID = "community_charlemagne_814"
 
@@ -51,9 +55,9 @@ TERRITORIES = [
         [-1.5, 48.7], [-0.2, 49.4], [1.5, 50.0], [2.6, 49.6], [3.2, 48.6],
         [2.8, 47.6], [1.5, 46.9], [0.0, 46.6], [-1.6, 47.6], [-1.5, 48.7]]),
     ("frisia", "Frisia", "frankish", [
-        [2.6, 49.6], [4.0, 50.5], [4.0, 51.4], [4.3, 52.4], [5.4, 53.3],
-        [7.0, 53.6], [8.5, 53.4], [7.7, 52.2], [6.4, 51.3], [4.5, 50.6],
-        [3.6, 50.3], [2.6, 49.6]]),
+        [2.6, 49.6], [4.5, 50.6], [6.4, 51.3], [7.7, 52.2], [8.5, 53.4],
+        [7.0, 53.6], [5.4, 53.3], [4.3, 52.4], [4.0, 51.4], [3.4, 50.6],
+        [2.6, 49.6]]),
     ("austrasia", "Austrasia", "frankish", [
         [4.5, 50.6], [6.4, 51.3], [7.7, 50.6], [8.2, 49.6], [7.6, 48.6],
         [6.2, 48.0], [4.8, 48.1], [3.6, 48.6], [3.2, 48.6], [3.6, 50.3],
@@ -141,7 +145,7 @@ TERRITORIES = [
     ("hellas", "Hellas", "eastern_roman", [
         [20.4, 39.6], [22.4, 40.2], [23.8, 40.0], [24.0, 38.4], [23.4, 37.0],
         [22.4, 36.6], [21.6, 37.2], [21.0, 38.4], [20.4, 39.6]]),
-    ("anatolia", "Anatolia", "eastern_roman", [
+    ("roman_anatolia", "Anatolia", "eastern_roman", [
         [26.2, 39.6], [28.0, 40.6], [31.0, 41.6], [34.5, 42.0], [38.0, 40.8],
         [38.2, 39.0], [36.4, 37.0], [33.0, 36.2], [29.8, 36.6], [27.2, 37.4],
         [26.4, 38.6], [26.2, 39.6]]),
@@ -274,10 +278,10 @@ CONNECTIONS = [
     ("sweden", "finnic", "sea"), ("denmark", "pomerania", "sea"),
 
     # Eastern Roman
-    ("thrace", "hellas", "land"), ("thrace", "anatolia", "sea"),
+    ("thrace", "hellas", "land"), ("thrace", "roman_anatolia", "sea"),
     ("thrace", "bulgaria", "land"), ("thrace", "serbia", "land"),
-    ("hellas", "anatolia", "sea"), ("hellas", "byzantine_italy", "sea"),
-    ("anatolia", "armenia", "land"), ("anatolia", "syria", "land"),
+    ("hellas", "roman_anatolia", "sea"), ("hellas", "byzantine_italy", "sea"),
+    ("roman_anatolia", "armenia", "land"), ("roman_anatolia", "syria", "land"),
     ("byzantine_italy", "ifriqiya", "sea"),
 
     # Abbasid
@@ -401,6 +405,11 @@ def validate(m):
             errors.append(f"{t['territory_id']}: unknown region {t['region_id']}")
         if len(t["polygon"]) < 3:
             errors.append(f"{t['territory_id']}: <3 polygon points")
+        crosses, repeats = ring_defects(t.get("geo_polygon", []))
+        if crosses:
+            errors.append(f"{t['territory_id']}: geo_polygon self-intersects at edge pair {crosses[0]}")
+        if repeats:
+            errors.append(f"{t['territory_id']}: geo_polygon has a repeated (pinch) vertex at {repeats[0]}")
     seen = set()
     adj = {tid: set() for tid in t_ids}
     for c in m["connections"]:

@@ -19,7 +19,7 @@
   },
   "territories": [
     {
-      "territory_id": "morocco",
+      "territory_id": "atlas_morocco",
       "name": "Morocco & the Atlas",
       "polygon": [
         [
@@ -3067,7 +3067,7 @@
   ],
   "connections": [
     {
-      "from": "morocco",
+      "from": "atlas_morocco",
       "to": "algeria",
       "type": "land"
     },
@@ -3087,12 +3087,12 @@
       "type": "land"
     },
     {
-      "from": "morocco",
+      "from": "atlas_morocco",
       "to": "senegambia",
       "type": "land"
     },
     {
-      "from": "morocco",
+      "from": "atlas_morocco",
       "to": "mali",
       "type": "land"
     },
@@ -3458,7 +3458,7 @@
       "name": "The Maghreb",
       "bonus": 4,
       "territory_ids": [
-        "morocco",
+        "atlas_morocco",
         "algeria",
         "ifriqiya",
         "tripolitania"

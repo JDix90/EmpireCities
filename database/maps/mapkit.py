@@ -64,6 +64,39 @@ def centroid(poly):
     return [round(cx / (6 * a), 2), round(cy / (6 * a), 2)]
 
 
+def _segments_cross(a, b, c, d):
+    def orient(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+    o1, o2, o3, o4 = orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b)
+    return ((o1 > 0) != (o2 > 0)) and ((o3 > 0) != (o4 > 0))
+
+
+def ring_defects(geo):
+    """Return (self_intersecting_edge_pairs, repeated_vertex_pairs) for a [lng,lat] ring.
+
+    A non-empty result means the ring is NOT simple — three-globe's earcut cap
+    triangulation will render it as spiky shards or lobes on the globe.
+    """
+    r = [(float(p[0]), float(p[1])) for p in geo]
+    if len(r) > 1 and r[0] == r[-1]:
+        r = r[:-1]
+    n = len(r)
+    crosses = []
+    for i in range(n):
+        a, b = r[i], r[(i + 1) % n]
+        for j in range(i + 1, n):
+            if j == i or (i + 1) % n == j or (j + 1) % n == i:
+                continue
+            if _segments_cross(a, b, r[j], r[(j + 1) % n]):
+                crosses.append((i, j))
+    seen, repeats = {}, []
+    for i, p in enumerate(r):
+        if p in seen:
+            repeats.append((seen[p], i))
+        seen[p] = i
+    return crosses, repeats
+
+
 def validate(m):
     """Raise on hard errors; return a list of soft warnings."""
     errors, warnings = [], []
@@ -86,6 +119,11 @@ def validate(m):
         for lng, lat in t.get("geo_polygon", []):
             if not (b["minLng"] <= lng <= b["maxLng"] and b["minLat"] <= lat <= b["maxLat"]):
                 warnings.append(f"{t['territory_id']}: geo point out of bounds ({lng},{lat})")
+        crosses, repeats = ring_defects(t.get("geo_polygon", []))
+        if crosses:
+            errors.append(f"{t['territory_id']}: geo_polygon self-intersects at edge pair {crosses[0]}")
+        if repeats:
+            errors.append(f"{t['territory_id']}: geo_polygon has a repeated (pinch) vertex at {repeats[0]}")
 
     seen = set()
     adj = {tid: set() for tid in t_set}

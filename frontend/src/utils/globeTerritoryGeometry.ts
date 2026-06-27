@@ -306,7 +306,29 @@ export function buildTerritoryGlobeGeometries(
     mexicoGeo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
-  const shouldReverseExteriorWinding = mapData.map_id === 'community_flooded_north_america';
+  // Authored inline `geo_polygon` / canvas rings must rewind to a counter-clockwise
+  // exterior for three-globe's ConicPolygonGeometry — otherwise @turf/rewind's default
+  // (clockwise) makes the cap triangulation explode into spiky shards on the globe.
+  // Maps resolved via Natural-Earth admin geometry never reach the ring paths, so they
+  // are unaffected. NOTE: any new curated map that ships inline `geo_polygon` rings must
+  // be added here (see database/maps/mapkit.py).
+  const INLINE_GEO_POLYGON_REVERSE_MAP_IDS = new Set<string>([
+    'community_flooded_north_america',
+    'community_charlemagne_814',
+    'community_balkanized_usa',
+    'community_fractured_china',
+    'community_balkanized_india',
+    'community_uncolonized_africa',
+    'community_south_america',
+    'community_divided_japan',
+    'community_fractured_russia',
+    'community_byzantium_megali',
+    'community_balkanized_spain',
+    'community_nusantara',
+  ]);
+  const shouldReverseExteriorWinding = INLINE_GEO_POLYGON_REVERSE_MAP_IDS.has(
+    mapData.map_id ?? '',
+  );
 
   const canvasW = mapData.canvas_width ?? 1200;
   const canvasH = mapData.canvas_height ?? 700;
