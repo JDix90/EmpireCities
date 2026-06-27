@@ -11,7 +11,7 @@ NE border with Korea). Taiwan and Hainan are islands joined by sea lanes. Built 
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": 73.0, "maxLng": 135.0, "minLat": 18.0, "maxLat": 54.0}
 
@@ -178,47 +178,7 @@ C = [
 # Real Natural Earth admin-1 (ISO 3166-2) assignments per territory.
 # Every mainland CN province assigned once; Taiwan -> ISO country TW.
 # Xinjiang (CN-65) and Xizang (CN-54) each cover two territories, split by clip_bbox.
-ADMIN = {
-    # --- Manchuria ---
-    "heilongjiang":     {"admin1": ["CN-23"]},
-    "jilin":            {"admin1": ["CN-22"]},
-    "liaoning":         {"admin1": ["CN-21"]},
-    # --- Northern Frontier ---
-    "inner_mongolia":   {"admin1": ["CN-15"]},               # Nei Mongol
-    "ningxia_ordos":    {"admin1": ["CN-64"]},               # Ningxia
-    "gansu":            {"admin1": ["CN-62"]},               # Gansu corridor
-    # --- Xinjiang (one province CN-65 split N/S) ---
-    "dzungaria":        {"admin1": ["CN-65"], "clip_bbox": [73.0, 43.0, 96.0, 49.5]},
-    "tarim":            {"admin1": ["CN-65"], "clip_bbox": [73.0, 34.0, 96.0, 43.0]},
-    # --- Tibet (Xizang CN-54 split W/E; Qinghai CN-63 = Kham/Amdo) ---
-    "western_tibet":    {"admin1": ["CN-54"], "clip_bbox": [78.0, 27.0, 85.0, 37.0]},
-    "central_tibet":    {"admin1": ["CN-54"], "clip_bbox": [85.0, 27.0, 95.0, 37.0]},
-    "kham":             {"admin1": ["CN-63"]},               # Qinghai
-    # --- North China Plain (Zhili) ---
-    "hebei_zhili":      {"admin1": ["CN-13", "CN-11", "CN-12"]},  # Hebei + Beijing + Tianjin
-    "shanxi":           {"admin1": ["CN-14"]},               # Shanxi
-    "shandong":         {"admin1": ["CN-37"]},
-    "henan":            {"admin1": ["CN-41"]},
-    "shaanxi":          {"admin1": ["CN-61"]},               # Shaanxi (Guanzhong)
-    # --- Central China / Yangtze ---
-    "hubei":            {"admin1": ["CN-42"]},
-    "hunan":            {"admin1": ["CN-43"]},
-    "jiangxi":          {"admin1": ["CN-36"]},
-    # --- Lower Yangtze / Jiangnan ---
-    "anhui":            {"admin1": ["CN-34"]},
-    "jiangsu":          {"admin1": ["CN-32"]},
-    "shanghai_zhejiang":{"admin1": ["CN-31", "CN-33"]},      # Shanghai + Zhejiang
-    "taiwan":           {"iso_codes": ["TW"]},
-    # --- Yunnan & Sichuan cliques ---
-    "sichuan":          {"admin1": ["CN-51", "CN-50"]},      # Sichuan + Chongqing
-    "yunnan":           {"admin1": ["CN-53"]},
-    "guizhou":          {"admin1": ["CN-52"]},
-    # --- Southern Cliques ---
-    "fujian":           {"admin1": ["CN-35"]},
-    "guangdong":        {"admin1": ["CN-44", "CN-91", "CN-92"]},  # Guangdong + HK + Macao
-    "guangxi":          {"admin1": ["CN-45"]},
-    "hainan":           {"admin1": ["CN-46"]},
-}
+ADMIN = load_admin("community_fractured_china")
 
 if __name__ == "__main__":
     build_map(

@@ -563,10 +563,10 @@
         "MY-06",
         "MY-11",
         "MY-10",
-        "MY-14",
-        "MY-16",
         "MY-05",
-        "MY-04"
+        "MY-04",
+        "MY-14",
+        "MY-16"
       ]
     },
     {
@@ -1094,8 +1094,7 @@
         ]
       ],
       "admin1": [
-        "ID-KI",
-        "ID-KU"
+        "ID-KI"
       ]
     },
     {
@@ -1488,24 +1487,24 @@
         "PH-APA",
         "PH-AUR",
         "PH-BAN",
-        "PH-BEN",
         "PH-BTN",
         "PH-BUL",
         "PH-CAG",
         "PH-IFU",
-        "PH-ILN",
         "PH-ILS",
         "PH-ISA",
         "PH-KAL",
         "PH-LUN",
-        "PH-MOU",
         "PH-NUE",
         "PH-NUV",
         "PH-PAM",
         "PH-PAN",
-        "PH-QUI",
         "PH-TAR",
-        "PH-ZMB"
+        "PH-ZMB",
+        "PH-ILN",
+        "PH-QUI",
+        "PH-BEN",
+        "PH-MOU"
       ]
     },
     {
@@ -1588,10 +1587,6 @@
         "PH-BTG",
         "PH-CAV",
         "PH-LAG",
-        "PH-QUE",
-        "PH-RIZ",
-        "PH-MAD",
-        "PH-MDC",
         "PH-MDR",
         "PH-ROM",
         "PH-ALB",
@@ -1599,7 +1594,12 @@
         "PH-CAS",
         "PH-CAT",
         "PH-MAS",
-        "PH-SOR"
+        "PH-SOR",
+        "PH-QUE",
+        "PH-MNL",
+        "PH-MDC",
+        "PH-MAD",
+        "PH-RIZ"
       ]
     },
     {
@@ -1680,21 +1680,23 @@
       ],
       "admin1": [
         "PH-AKL",
-        "PH-ANT",
         "PH-BIL",
         "PH-BOH",
         "PH-CAP",
         "PH-CEB",
         "PH-EAS",
-        "PH-GUI",
         "PH-ILI",
         "PH-LEY",
-        "PH-NEC",
         "PH-NER",
-        "PH-NSA",
-        "PH-SIG",
+        "PH-WSA",
         "PH-SLE",
-        "PH-WSA"
+        "PH-GUI",
+        "PH-BCD",
+        "PH-NEC",
+        "PH-MDE",
+        "PH-ANT",
+        "PH-NSA",
+        "PH-LAP"
       ]
     },
     {
@@ -1790,21 +1792,21 @@
         "PH-DAO",
         "PH-DAS",
         "PH-DAV",
-        "PH-DIN",
-        "PH-LAN",
+        "PH-SUN",
         "PH-LAS",
-        "PH-MAG",
-        "PH-MSC",
         "PH-MSR",
         "PH-NCO",
         "PH-SAR",
         "PH-SCO",
         "PH-SUK",
-        "PH-SUN",
         "PH-SUR",
-        "PH-ZAN",
+        "PH-ZSI",
+        "PH-LAN",
         "PH-ZAS",
-        "PH-ZSI"
+        "PH-MSC",
+        "PH-ZAN",
+        "PH-MAG",
+        "PH-SIG"
       ]
     },
     {

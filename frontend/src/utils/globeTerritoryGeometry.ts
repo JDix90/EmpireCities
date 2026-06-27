@@ -47,6 +47,8 @@ export interface GlobeTerritoryInput {
    *  at runtime from the full ne_50m admin-1 world set for real province coastlines. */
   admin1?: string[];
   clip_bbox?: ClipBbox;
+  /** GeoJSON Polygon coordinates to clip merged country/admin geometry to (real coast + authored shape). */
+  clip_polygon?: number[][][];
   geo_polygon?: [number, number][];
   geo_multipolygon?: [number, number][][];
 }
@@ -281,6 +283,8 @@ export interface GlobeGeometryInputs {
   hornAfricaGeo?: GeoJSON.FeatureCollection | null;
   /** ne_10m admin-1 subset — 32 Mexican states for community_14_nations */
   mexicoGeo?: GeoJSON.FeatureCollection | null;
+  /** Per-map ne_10m admin-1 subset for curated regional maps (resolves territory.admin1 codes). */
+  regionalAdmin1Geo?: GeoJSON.FeatureCollection | null;
 }
 
 export interface GlobeMapDataForGeometry {
@@ -307,6 +311,7 @@ export function buildTerritoryGlobeGeometries(
     britainGeo = null,
     hornAfricaGeo = null,
     mexicoGeo = null,
+    regionalAdmin1Geo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
   // Authored inline `geo_polygon` / canvas rings must rewind to a counter-clockwise
@@ -400,6 +405,20 @@ export function buildTerritoryGlobeGeometries(
       const g = f.geometry;
       if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
         admin50Iso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+      }
+    }
+  }
+
+  // Per-map committed ne_10m admin-1 subset (full coverage + correct codes; preferred
+  // over the sparse CDN ne_50m set for resolving territory.admin1).
+  const regionalAdmin1Iso3166ToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
+  if (regionalAdmin1Geo?.features) {
+    for (const f of regionalAdmin1Geo.features) {
+      const code = f.properties?.iso_3166_2;
+      if (typeof code !== 'string') continue;
+      const g = f.geometry;
+      if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
+        regionalAdmin1Iso3166ToGeom.set(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
       }
     }
   }
@@ -679,11 +698,11 @@ export function buildTerritoryGlobeGeometries(
     if (
       territory.admin1 &&
       territory.admin1.length > 0 &&
-      admin50Iso3166ToGeom.size > 0
+      (regionalAdmin1Iso3166ToGeom.size > 0 || admin50Iso3166ToGeom.size > 0)
     ) {
       const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
       for (const code of territory.admin1) {
-        const g = admin50Iso3166ToGeom.get(code);
+        const g = regionalAdmin1Iso3166ToGeom.get(code) ?? admin50Iso3166ToGeom.get(code);
         if (g) geoms.push(g);
       }
       if (geoms.length > 0) {
@@ -933,10 +952,23 @@ export function buildTerritoryGlobeGeometries(
       }
 
       if (geometries.length > 0) {
-        const merged =
+        let merged: GeoJSON.Polygon | GeoJSON.MultiPolygon =
           geometries.length === 1 && geometries[0].type === 'Polygon'
             ? geometries[0]
             : mergeGeometries(geometries);
+        // Clip the merged country geometry to the territory's authored shape so
+        // historical/sub-country territories get real coastlines with clean,
+        // non-overlapping borders (used by Charlemagne 814).
+        if (territory.clip_polygon && territory.clip_polygon.length > 0) {
+          const clipped = clipToPolygon(merged, {
+            type: 'Polygon',
+            coordinates: territory.clip_polygon,
+          });
+          if (clipped) merged = clipped;
+        } else if (territory.clip_bbox) {
+          const clipped = clipToBbox(merged, territory.clip_bbox);
+          if (clipped) merged = clipped;
+        }
         return {
           territory_id: territory.territory_id,
           name: territory.name,

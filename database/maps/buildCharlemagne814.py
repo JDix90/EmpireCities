@@ -508,10 +508,15 @@ def build():
             "geo_polygon": [[round(lng, 3), round(lat, 3)] for lng, lat in geo],
         }
         # Real Natural Earth geometry (geo_polygon kept as fallback). For this
-        # historical map each territory clips a modern country to its region.
-        for key in ("iso_codes", "admin1", "geo_config", "clip_bbox"):
-            if key in ADMIN.get(tid, {}):
-                terr[key] = ADMIN[tid][key]
+        # historical map each territory clips its modern country(ies) to its OWN
+        # authored shape (clip_polygon) — real coastlines, clean non-overlapping
+        # borders. We drop the agents' per-entry clip_bbox (which overlapped).
+        ref = ADMIN.get(tid, {})
+        if "iso_codes" in ref:
+            terr["iso_codes"] = ref["iso_codes"]
+        if "geo_config" in ref:
+            terr["geo_config"] = [{"iso": e["iso"]} for e in ref["geo_config"] if e.get("iso")]
+            terr["clip_polygon"] = [terr["geo_polygon"]]
         territories.append(terr)
         region_members[region_id].append(tid)
 

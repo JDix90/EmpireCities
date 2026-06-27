@@ -12,7 +12,7 @@ Built via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": -18.0, "maxLng": 52.0, "minLat": -36.0, "maxLat": 38.0}
 
@@ -213,113 +213,7 @@ C = [
 
 # Real Natural Earth admin geometry per territory.
 # Whole countries use iso_codes; big countries split across territories use admin1.
-ADMIN = {
-    # ---- Maghreb ----
-    "atlas_morocco": {"iso_codes": ["MA", "EH"]},
-    "algeria":       {"iso_codes": ["DZ"]},
-    "ifriqiya":      {"iso_codes": ["TN"]},
-    # Libya split: west (Tripolitania + Fezzan) vs east (Cyrenaica)
-    "tripolitania":  {"admin1": [
-        "LY-TB", "LY-JI", "LY-NQ", "LY-ZA", "LY-NL", "LY-JG", "LY-GT",
-        "LY-MB", "LY-MI", "LY-SR", "LY-JU", "LY-SB", "LY-MQ", "LY-WD",
-        "LY-WS"]},
-    "cyrenaica":     {"admin1": [
-        "LY-BA", "LY-DR", "LY-JA", "LY-MJ", "LY-BU", "LY-WA", "LY-KF"]},
-
-    # ---- Egypt & Nubia ----
-    "lower_egypt": {"admin1": [
-        "EG-ALX", "EG-BH", "EG-DK", "EG-DT", "EG-GH", "EG-KFS", "EG-MNF",
-        "EG-KB", "EG-SHR", "EG-C", "EG-GZ", "EG-IS", "EG-PTS", "EG-SUZ",
-        "EG-SIN", "EG-JS", "EG-FYM", "EG-BNS", "EG-MT"]},
-    "upper_egypt": {"admin1": [
-        "EG-MN", "EG-AST", "EG-SHG", "EG-KN", "EG-LX", "EG-ASN", "EG-BA",
-        "EG-WAD"]},
-    # Sudan split: Nile/Kush valley + east → Nubia (plus South Sudan)
-    "nubia": {
-        "iso_codes": ["SS"],
-        "admin1": [
-            "SD-KH", "SD-GZ", "SD-NB", "SD-NR", "SD-NO", "SD-KA", "SD-RS",
-            "SD-NW", "SD-GD", "SD-SI"],
-    },
-
-    # ---- Abyssinia & the Horn ----
-    "eritrea": {"iso_codes": ["ER", "DJ"]},
-    # Ethiopia split: north (Tigrai/Amara/Afar/Benishangul) vs south/center
-    "tigray": {"admin1": ["ET-TI", "ET-AM", "ET-AF", "ET-BE"]},
-    "shewa":  {"admin1": [
-        "ET-OR", "ET-AA", "ET-SN", "ET-GA", "ET-HA", "ET-DD", "ET-SO"]},
-    "somalia": {"iso_codes": ["SO"]},
-
-    # ---- Sahelian Empires ----
-    "senegambia": {"iso_codes": ["SN", "GM", "MR"]},
-    "mali":       {"iso_codes": ["ML"]},
-    "songhai":    {"iso_codes": ["NE", "BF"]},
-    # Nigeria split across hausa (north) / dahomey (Yoruba SW) / benin (Delta SE)
-    "hausa": {"admin1": [
-        "NG-SO", "NG-KE", "NG-ZA", "NG-KT", "NG-KN", "NG-JI", "NG-KD",
-        "NG-KW", "NG-NI", "NG-BO", "NG-YO", "NG-BA", "NG-GO", "NG-PL",
-        "NG-NA", "NG-FC", "NG-AD", "NG-TA", "NG-BE"]},
-    # Chad split: kanem (west/south/Tibesti) vs wadai (east)
-    "kanem": {"admin1": [
-        "TD-ND", "TD-KA", "TD-LC", "TD-HL", "TD-BA", "TD-BG", "TD-CB",
-        "TD-GR", "TD-LO", "TD-LR", "TD-MO", "TD-ME", "TD-MC", "TD-MA",
-        "TD-TA", "TD-BO", "TD-TI"]},
-    "wadai": {"admin1": [
-        # eastern Chad
-        "TD-OD", "TD-SI", "TD-SA", "TD-WF", "TD-EO", "TD-EE",
-        # Sudan: Darfur + Kordofan
-        "SD-DN", "SD-DS", "SD-DW", "SD-DC", "SD-DE", "SD-KN", "SD-KS"]},
-
-    # ---- Guinea Coast ----
-    "guinea_forest": {"iso_codes": ["GN", "SL", "GW", "LR"]},
-    "ivory":         {"iso_codes": ["CI", "GH"]},
-    "dahomey": {
-        "iso_codes": ["TG", "BJ"],
-        "admin1": ["NG-LA", "NG-OG", "NG-OY", "NG-OS", "NG-ON", "NG-EK"],
-    },
-    "benin": {"admin1": [
-        "NG-ED", "NG-DE", "NG-RI", "NG-BY", "NG-AN", "NG-IM", "NG-AB",
-        "NG-EN", "NG-EB", "NG-CR", "NG-AK", "NG-KO"]},
-
-    # ---- Kongo & the Congo Basin ----
-    "cameroon": {"iso_codes": ["CM", "GQ"]},
-    "gabon":    {"iso_codes": ["GA", "CG"]},
-    # DR Congo split: west (kongo_kingdom) / basin (congo_basin) / Katanga
-    "kongo_kingdom": {
-        "admin1": ["CD-BC", "CD-KN", "CD-BN", "AO-CAB"],
-    },
-    "congo_basin": {
-        "iso_codes": ["CF"],
-        "admin1": [
-            "CD-EQ", "CD-OR", "CD-KW", "CD-KE", "CD-MA", "CD-NK", "CD-SK"],
-    },
-    "katanga": {"admin1": ["CD-KA"]},
-
-    # ---- Swahili Coast ----
-    "buganda":     {"iso_codes": ["UG", "RW", "BI"]},
-    "kenya_coast": {"iso_codes": ["KE"]},
-    "tanzania":    {"iso_codes": ["TZ", "KM"]},
-    "mozambique":  {"iso_codes": ["MZ", "MW"]},
-    "madagascar":  {"iso_codes": ["MG"]},
-
-    # ---- Zimbabwe & the South ----
-    "angola": {"admin1": [
-        "AO-CUS", "AO-HUA", "AO-BIE", "AO-NAM", "AO-LNO", "AO-UIG", "AO-HUI",
-        "AO-BGO", "AO-LUA", "AO-LSU", "AO-CCU", "AO-MAL", "AO-BGU", "AO-MOX",
-        "AO-CNN", "AO-CNO", "AO-ZAI"]},
-    "zambezi":          {"iso_codes": ["ZM"]},
-    "zimbabwe_plateau": {"iso_codes": ["ZW"]},
-    "kalahari":         {"iso_codes": ["BW", "NA"]},
-    # South Africa split: cape (W/central + Lesotho) vs natal (NE + Eswatini)
-    "cape": {
-        "iso_codes": ["LS"],
-        "admin1": ["ZA-WC", "ZA-NC", "ZA-EC", "ZA-FS"],
-    },
-    "natal": {
-        "iso_codes": ["SZ"],
-        "admin1": ["ZA-NL", "ZA-GT", "ZA-MP", "ZA-LP", "ZA-NW"],
-    },
-}
+ADMIN = load_admin("community_uncolonized_africa")
 
 if __name__ == "__main__":
     build_map(

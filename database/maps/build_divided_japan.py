@@ -9,7 +9,7 @@ the Korean peninsula, projected to canvas via mapkit.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from mapkit import build_map
+from mapkit import build_map, load_admin
 
 BOUNDS = {"minLng": 124.0, "maxLng": 146.0, "minLat": 30.0, "maxLat": 46.0}
 
@@ -178,45 +178,7 @@ C = [
 # Hokkaido is a single prefecture (JP-01) covering three territories, so each
 # Hokkaido territory clips JP-01 to its slice via clip_bbox.
 # Korea territories use whole-country iso_codes (KR / KP).
-ADMIN = {
-    # ---- Soviet Zone ----
-    "hokkaido_west":  {"admin1": ["JP-01"], "clip_bbox": [139.3, 42.4, 142.2, 45.7]},
-    "hokkaido_east":  {"admin1": ["JP-01"], "clip_bbox": [142.2, 41.3, 146.0, 45.7]},
-    "hokkaido_south": {"admin1": ["JP-01"], "clip_bbox": [139.3, 41.3, 142.0, 42.4]},
-    "aomori":      {"admin1": ["JP-02"]},                # Aomori
-    "akita_iwate": {"admin1": ["JP-05", "JP-03"]},       # Akita, Iwate
-    "sendai":      {"admin1": ["JP-04", "JP-06"]},       # Miyagi, Yamagata
-
-    # ---- American Zone ----
-    "niigata":    {"admin1": ["JP-15"]},                              # Niigata
-    "fukushima":  {"admin1": ["JP-07"]},                              # Fukushima
-    "tokyo":      {"admin1": ["JP-13", "JP-11", "JP-12", "JP-08", "JP-09", "JP-10"]},
-                                                                       # Tokyo, Saitama, Chiba, Ibaraki, Tochigi, Gunma
-    "kanto_west": {"admin1": ["JP-14", "JP-19"]},                     # Kanagawa, Yamanashi
-    "chubu":      {"admin1": ["JP-20", "JP-22", "JP-23", "JP-21"]},   # Nagano, Shizuoka, Aichi, Gifu
-    "hokuriku":   {"admin1": ["JP-16", "JP-17", "JP-18"]},            # Toyama, Ishikawa, Fukui
-
-    # ---- British Zone ----
-    "kansai":         {"admin1": ["JP-27", "JP-28", "JP-25"]},          # Osaka, Hyogo, Shiga
-    "kyoto_kii":      {"admin1": ["JP-26", "JP-29", "JP-30", "JP-24"]}, # Kyoto, Nara, Wakayama, Mie
-    "sanin":          {"admin1": ["JP-31", "JP-32"]},                  # Tottori, Shimane
-    "sanyo":          {"admin1": ["JP-34", "JP-33"]},                  # Hiroshima, Okayama
-    "yamaguchi":      {"admin1": ["JP-35"]},                            # Yamaguchi
-    "shikoku_north":  {"admin1": ["JP-37", "JP-36", "JP-38"]},          # Kagawa, Tokushima, Ehime
-    "shikoku_south":  {"admin1": ["JP-39"]},                            # Kochi
-
-    # ---- Chinese Zone ----
-    "kitakyushu": {"admin1": ["JP-40"]},                       # Fukuoka
-    "nagasaki":   {"admin1": ["JP-42", "JP-41"]},              # Nagasaki, Saga
-    "oita":       {"admin1": ["JP-44"]},                       # Oita
-    "kumamoto":   {"admin1": ["JP-43"]},                       # Kumamoto
-    "kagoshima":  {"admin1": ["JP-46", "JP-45", "JP-47"]},     # Kagoshima, Miyazaki, Okinawa
-
-    # ---- Divided Korea ----
-    "north_korea": {"iso_codes": ["KP"]},
-    "south_korea": {"iso_codes": ["KR"]},
-    "jeju":        {"iso_codes": ["KR"], "clip_bbox": [125.8, 33.0, 127.3, 34.0]},
-}
+ADMIN = load_admin("community_divided_japan")
 
 if __name__ == "__main__":
     build_map(

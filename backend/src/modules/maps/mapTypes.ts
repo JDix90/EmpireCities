@@ -13,6 +13,8 @@ export interface Territory {
   admin1?: string[];
   /** Optional [minLng, minLat, maxLng, maxLat] clip applied to merged admin geometry. */
   clip_bbox?: [number, number, number, number];
+  /** Optional GeoJSON Polygon coordinates to clip merged admin geometry to. */
+  clip_polygon?: number[][][];
   globe_id?: 'earth' | 'moon';
   world_id?: string;
   galaxy_position?: [number, number];

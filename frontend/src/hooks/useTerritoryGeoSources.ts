@@ -21,6 +21,20 @@ const BRITAIN_GEOJSON_URL = '/geo/britain_925_admin1.json';
 const HORN_AFRICA_GEOJSON_URL = '/geo/horn_africa_admin1.json';
 const MEXICO_GEOJSON_URL = '/geo/mexico_admin1.json';
 
+/** Per-map committed ne_10m admin-1 subsets (full coverage + correct iso_3166_2 codes). */
+const REGIONAL_ADMIN1_SUBSET: Record<string, string> = {
+  community_fractured_china: '/geo/fractured_china_admin1.json',
+  community_fractured_russia: '/geo/fractured_russia_admin1.json',
+  community_balkanized_india: '/geo/balkanized_india_admin1.json',
+  community_balkanized_usa: '/geo/balkanized_usa_admin1.json',
+  community_divided_japan: '/geo/divided_japan_admin1.json',
+  community_byzantium_megali: '/geo/byzantium_megali_admin1.json',
+  community_balkanized_spain: '/geo/balkanized_spain_admin1.json',
+  community_nusantara: '/geo/nusantara_admin1.json',
+  community_south_america: '/geo/south_america_admin1.json',
+  community_uncolonized_africa: '/geo/uncolonized_africa_admin1.json',
+};
+
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 const cache = new Map<string, Promise<GeoJSON.FeatureCollection>>();
@@ -51,16 +65,18 @@ export function requiredGeoSourceUrls(
 ): Record<keyof GlobeGeometryInputs, string | null> {
   const hasPrefix = (prefix: string) =>
     mapData.territories.some((t) => t.territory_id.startsWith(prefix));
-  // Any map whose territories carry Natural Earth admin-1 codes needs the full
-  // ne_50m admin-1 world set so the generic admin-1 geometry path can resolve them.
+  // Maps with a committed admin-1 subset resolve territory.admin1 from it; only fall back
+  // to the sparse CDN ne_50m set when admin1 is used without a per-map subset.
+  const regionalSubset = REGIONAL_ADMIN1_SUBSET[mapData.map_id ?? ''] ?? null;
   const hasAdmin1 = mapData.territories.some((t) => (t.admin1?.length ?? 0) > 0);
   return {
     countriesGeo: COUNTRIES_GEOJSON_URL,
     statesGeo: STATES_GEOJSON_URL,
     risorgimentoGeo:
       mapData.map_id === 'era_risorgimento' || hasPrefix('ris_') ? RISORGIMENTO_GEOJSON_URL : null,
+    regionalAdmin1Geo: regionalSubset,
     admin50Geo:
-      mapData.map_id === 'community_14_nations' || hasPrefix('na_') || hasAdmin1
+      mapData.map_id === 'community_14_nations' || hasPrefix('na_') || (hasAdmin1 && !regionalSubset)
         ? ADMIN50_STATES_GEOJSON_URL
         : null,
     straitHormuzGeo:

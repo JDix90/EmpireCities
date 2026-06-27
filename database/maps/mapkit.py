@@ -27,6 +27,16 @@ import math
 import os
 
 
+def load_admin(map_id):
+    """Load committed real-geometry admin refs (territory_id -> {iso_codes|admin1|geo_config|clip_bbox})
+    generated from Natural Earth ne_10m admin-1. Returns {} if absent."""
+    path = os.path.join(os.path.dirname(__file__), "admin", f"{map_id}.admin.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+
 def auto_canvas(bounds, width=1200):
     """Pick canvas H so the flat map is ~undistorted at the region's mid-latitude."""
     mid_lat = (bounds["minLat"] + bounds["maxLat"]) / 2
