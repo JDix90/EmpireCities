@@ -21,6 +21,12 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_horn_africa',
   'community_australia_1337',
   'community_flooded_north_america',
+  'community_14_nations',
+  'community_strait_hormuz',
+  'community_roman_empire_117',
+  'community_mongol_empire',
+  'community_napoleonic_europe',
+  'community_sengoku_japan',
   'era_galaxy',
 ]);
 
