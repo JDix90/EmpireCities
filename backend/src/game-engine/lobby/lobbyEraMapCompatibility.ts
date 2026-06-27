@@ -48,6 +48,17 @@ export const LOBBY_SELECTABLE_THEATER_MAP_IDS = new Set([
 
 const COMMUNITY_RECOMMENDED_RULES_ERA: Record<string, string> = {
   community_flooded_north_america: 'modern',
+  community_charlemagne_814: 'medieval',
+  community_balkanized_usa: 'modern',
+  community_fractured_china: 'modern',
+  community_balkanized_india: 'modern',
+  community_uncolonized_africa: 'discovery',
+  community_south_america: 'modern',
+  community_divided_japan: 'coldwar',
+  community_fractured_russia: 'modern',
+  community_byzantium_megali: 'medieval',
+  community_balkanized_spain: 'modern',
+  community_nusantara: 'discovery',
   community_britain_925: 'medieval',
   community_horn_africa: 'coldwar',
   community_australia_1337: 'medieval',

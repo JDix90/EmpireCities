@@ -76,6 +76,17 @@ const CreateMapSchema = z.object({
 });
 
 const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
+  'community_charlemagne_814',
+  'community_balkanized_usa',
+  'community_fractured_china',
+  'community_balkanized_india',
+  'community_uncolonized_africa',
+  'community_south_america',
+  'community_divided_japan',
+  'community_fractured_russia',
+  'community_byzantium_megali',
+  'community_balkanized_spain',
+  'community_nusantara',
   'community_britain_925',
   'community_horn_africa',
   'community_australia_1337',

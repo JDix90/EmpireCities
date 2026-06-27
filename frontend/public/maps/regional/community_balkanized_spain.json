@@ -1,0 +1,2183 @@
+{
+  "map_id": "community_balkanized_spain",
+  "name": "Balkanized Spain",
+  "description": "The Iberian Peninsula shattered along its old national and linguistic faults \u2014 Castile, Portugal, Andalusia, Catalonia, Aragon-Valencia, Galicia, the Basque Country, and Navarre. A compact theater of mountain frontiers and river borders where every neighbor is a rival crown.",
+  "era_theme": "custom",
+  "canvas_width": 1200,
+  "canvas_height": 900,
+  "projection_bounds": {
+    "minLng": -10.0,
+    "maxLng": 4.0,
+    "minLat": 36.0,
+    "maxLat": 44.0
+  },
+  "globe_view": {
+    "lock_rotation": true,
+    "center_lat": 40.0,
+    "center_lng": -3.5,
+    "altitude": 0.6
+  },
+  "territories": [
+    {
+      "territory_id": "pt_north",
+      "name": "Minho & Douro",
+      "polygon": [
+        [
+          102.86,
+          225.0
+        ],
+        [
+          171.43,
+          247.5
+        ],
+        [
+          205.71,
+          315.0
+        ],
+        [
+          145.71,
+          382.5
+        ],
+        [
+          94.29,
+          360.0
+        ],
+        [
+          94.29,
+          281.25
+        ],
+        [
+          102.86,
+          225.0
+        ]
+      ],
+      "center_point": [
+        140.24,
+        304.2
+      ],
+      "region_id": "portugal",
+      "geo_polygon": [
+        [
+          -8.8,
+          42.0
+        ],
+        [
+          -8.0,
+          41.8
+        ],
+        [
+          -7.6,
+          41.2
+        ],
+        [
+          -8.3,
+          40.6
+        ],
+        [
+          -8.9,
+          40.8
+        ],
+        [
+          -8.9,
+          41.5
+        ],
+        [
+          -8.8,
+          42.0
+        ]
+      ]
+    },
+    {
+      "territory_id": "pt_center",
+      "name": "Estremadura",
+      "polygon": [
+        [
+          94.29,
+          360.0
+        ],
+        [
+          145.71,
+          382.5
+        ],
+        [
+          205.71,
+          450.0
+        ],
+        [
+          214.29,
+          528.75
+        ],
+        [
+          154.29,
+          585.0
+        ],
+        [
+          42.86,
+          585.0
+        ],
+        [
+          51.43,
+          495.0
+        ],
+        [
+          94.29,
+          427.5
+        ],
+        [
+          94.29,
+          360.0
+        ]
+      ],
+      "center_point": [
+        128.47,
+        492.51
+      ],
+      "region_id": "portugal",
+      "geo_polygon": [
+        [
+          -8.9,
+          40.8
+        ],
+        [
+          -8.3,
+          40.6
+        ],
+        [
+          -7.6,
+          40.0
+        ],
+        [
+          -7.5,
+          39.3
+        ],
+        [
+          -8.2,
+          38.8
+        ],
+        [
+          -9.5,
+          38.8
+        ],
+        [
+          -9.4,
+          39.6
+        ],
+        [
+          -8.9,
+          40.2
+        ],
+        [
+          -8.9,
+          40.8
+        ]
+      ]
+    },
+    {
+      "territory_id": "pt_south",
+      "name": "Alentejo & Algarve",
+      "polygon": [
+        [
+          42.86,
+          585.0
+        ],
+        [
+          154.29,
+          585.0
+        ],
+        [
+          222.86,
+          652.5
+        ],
+        [
+          222.86,
+          765.0
+        ],
+        [
+          120.0,
+          787.5
+        ],
+        [
+          85.71,
+          720.0
+        ],
+        [
+          42.86,
+          585.0
+        ]
+      ],
+      "center_point": [
+        142.03,
+        679.33
+      ],
+      "region_id": "portugal",
+      "geo_polygon": [
+        [
+          -9.5,
+          38.8
+        ],
+        [
+          -8.2,
+          38.8
+        ],
+        [
+          -7.4,
+          38.2
+        ],
+        [
+          -7.4,
+          37.2
+        ],
+        [
+          -8.6,
+          37.0
+        ],
+        [
+          -9.0,
+          37.6
+        ],
+        [
+          -9.5,
+          38.8
+        ]
+      ]
+    },
+    {
+      "territory_id": "galicia_coast",
+      "name": "Galician Coast",
+      "polygon": [
+        [
+          60.0,
+          112.5
+        ],
+        [
+          111.43,
+          56.25
+        ],
+        [
+          188.57,
+          33.75
+        ],
+        [
+          240.0,
+          56.25
+        ],
+        [
+          205.71,
+          157.5
+        ],
+        [
+          154.29,
+          202.5
+        ],
+        [
+          94.29,
+          225.0
+        ],
+        [
+          60.0,
+          168.75
+        ],
+        [
+          60.0,
+          112.5
+        ]
+      ],
+      "center_point": [
+        143.33,
+        123.65
+      ],
+      "region_id": "galicia",
+      "geo_polygon": [
+        [
+          -9.3,
+          43.0
+        ],
+        [
+          -8.7,
+          43.5
+        ],
+        [
+          -7.8,
+          43.7
+        ],
+        [
+          -7.2,
+          43.5
+        ],
+        [
+          -7.6,
+          42.6
+        ],
+        [
+          -8.2,
+          42.2
+        ],
+        [
+          -8.9,
+          42.0
+        ],
+        [
+          -9.3,
+          42.5
+        ],
+        [
+          -9.3,
+          43.0
+        ]
+      ]
+    },
+    {
+      "territory_id": "galicia_inland",
+      "name": "Ourense & Lugo",
+      "polygon": [
+        [
+          240.0,
+          56.25
+        ],
+        [
+          265.71,
+          67.5
+        ],
+        [
+          274.29,
+          180.0
+        ],
+        [
+          240.0,
+          236.25
+        ],
+        [
+          154.29,
+          202.5
+        ],
+        [
+          205.71,
+          157.5
+        ],
+        [
+          240.0,
+          56.25
+        ]
+      ],
+      "center_point": [
+        231.91,
+        158.81
+      ],
+      "region_id": "galicia",
+      "geo_polygon": [
+        [
+          -7.2,
+          43.5
+        ],
+        [
+          -6.9,
+          43.4
+        ],
+        [
+          -6.8,
+          42.4
+        ],
+        [
+          -7.2,
+          41.9
+        ],
+        [
+          -8.2,
+          42.2
+        ],
+        [
+          -7.6,
+          42.6
+        ],
+        [
+          -7.2,
+          43.5
+        ]
+      ]
+    },
+    {
+      "territory_id": "asturias",
+      "name": "Asturias & Cantabria",
+      "polygon": [
+        [
+          265.71,
+          67.5
+        ],
+        [
+          385.71,
+          45.0
+        ],
+        [
+          514.29,
+          56.25
+        ],
+        [
+          565.71,
+          67.5
+        ],
+        [
+          574.29,
+          123.75
+        ],
+        [
+          471.43,
+          123.75
+        ],
+        [
+          360.0,
+          112.5
+        ],
+        [
+          274.29,
+          168.75
+        ],
+        [
+          265.71,
+          67.5
+        ]
+      ],
+      "center_point": [
+        410.04,
+        91.77
+      ],
+      "region_id": "basque",
+      "geo_polygon": [
+        [
+          -6.9,
+          43.4
+        ],
+        [
+          -5.5,
+          43.6
+        ],
+        [
+          -4.0,
+          43.5
+        ],
+        [
+          -3.4,
+          43.4
+        ],
+        [
+          -3.3,
+          42.9
+        ],
+        [
+          -4.5,
+          42.9
+        ],
+        [
+          -5.8,
+          43.0
+        ],
+        [
+          -6.8,
+          42.5
+        ],
+        [
+          -6.9,
+          43.4
+        ]
+      ]
+    },
+    {
+      "territory_id": "basque",
+      "name": "Basque Country",
+      "polygon": [
+        [
+          565.71,
+          67.5
+        ],
+        [
+          651.43,
+          67.5
+        ],
+        [
+          711.43,
+          78.75
+        ],
+        [
+          720.0,
+          135.0
+        ],
+        [
+          642.86,
+          157.5
+        ],
+        [
+          574.29,
+          123.75
+        ],
+        [
+          565.71,
+          67.5
+        ]
+      ],
+      "center_point": [
+        643.41,
+        107.19
+      ],
+      "region_id": "basque",
+      "geo_polygon": [
+        [
+          -3.4,
+          43.4
+        ],
+        [
+          -2.4,
+          43.4
+        ],
+        [
+          -1.7,
+          43.3
+        ],
+        [
+          -1.6,
+          42.8
+        ],
+        [
+          -2.5,
+          42.6
+        ],
+        [
+          -3.3,
+          42.9
+        ],
+        [
+          -3.4,
+          43.4
+        ]
+      ]
+    },
+    {
+      "territory_id": "navarre",
+      "name": "Navarre",
+      "polygon": [
+        [
+          642.86,
+          157.5
+        ],
+        [
+          720.0,
+          135.0
+        ],
+        [
+          788.57,
+          157.5
+        ],
+        [
+          771.43,
+          225.0
+        ],
+        [
+          702.86,
+          247.5
+        ],
+        [
+          642.86,
+          225.0
+        ],
+        [
+          642.86,
+          157.5
+        ]
+      ],
+      "center_point": [
+        711.59,
+        190.08
+      ],
+      "region_id": "navarre",
+      "geo_polygon": [
+        [
+          -2.5,
+          42.6
+        ],
+        [
+          -1.6,
+          42.8
+        ],
+        [
+          -0.8,
+          42.6
+        ],
+        [
+          -1.0,
+          42.0
+        ],
+        [
+          -1.8,
+          41.8
+        ],
+        [
+          -2.5,
+          42.0
+        ],
+        [
+          -2.5,
+          42.6
+        ]
+      ]
+    },
+    {
+      "territory_id": "rioja",
+      "name": "La Rioja",
+      "polygon": [
+        [
+          574.29,
+          123.75
+        ],
+        [
+          642.86,
+          157.5
+        ],
+        [
+          642.86,
+          225.0
+        ],
+        [
+          702.86,
+          247.5
+        ],
+        [
+          634.29,
+          270.0
+        ],
+        [
+          565.71,
+          225.0
+        ],
+        [
+          574.29,
+          123.75
+        ]
+      ],
+      "center_point": [
+        614.42,
+        203.37
+      ],
+      "region_id": "navarre",
+      "geo_polygon": [
+        [
+          -3.3,
+          42.9
+        ],
+        [
+          -2.5,
+          42.6
+        ],
+        [
+          -2.5,
+          42.0
+        ],
+        [
+          -1.8,
+          41.8
+        ],
+        [
+          -2.6,
+          41.6
+        ],
+        [
+          -3.4,
+          42.0
+        ],
+        [
+          -3.3,
+          42.9
+        ]
+      ]
+    },
+    {
+      "territory_id": "catalonia_north",
+      "name": "Barcelona & Girona",
+      "polygon": [
+        [
+          917.14,
+          135.0
+        ],
+        [
+          1011.43,
+          168.75
+        ],
+        [
+          1131.43,
+          180.0
+        ],
+        [
+          1114.29,
+          270.0
+        ],
+        [
+          1028.57,
+          303.75
+        ],
+        [
+          942.86,
+          303.75
+        ],
+        [
+          917.14,
+          247.5
+        ],
+        [
+          917.14,
+          135.0
+        ]
+      ],
+      "center_point": [
+        1012.18,
+        227.47
+      ],
+      "region_id": "catalonia",
+      "geo_polygon": [
+        [
+          0.7,
+          42.8
+        ],
+        [
+          1.8,
+          42.5
+        ],
+        [
+          3.2,
+          42.4
+        ],
+        [
+          3.0,
+          41.6
+        ],
+        [
+          2.0,
+          41.3
+        ],
+        [
+          1.0,
+          41.3
+        ],
+        [
+          0.7,
+          41.8
+        ],
+        [
+          0.7,
+          42.8
+        ]
+      ]
+    },
+    {
+      "territory_id": "catalonia_west",
+      "name": "Lleida & the Pyrenees",
+      "polygon": [
+        [
+          788.57,
+          157.5
+        ],
+        [
+          917.14,
+          135.0
+        ],
+        [
+          917.14,
+          247.5
+        ],
+        [
+          891.43,
+          315.0
+        ],
+        [
+          805.71,
+          315.0
+        ],
+        [
+          788.57,
+          225.0
+        ],
+        [
+          788.57,
+          157.5
+        ]
+      ],
+      "center_point": [
+        854.24,
+        225.72
+      ],
+      "region_id": "catalonia",
+      "geo_polygon": [
+        [
+          -0.8,
+          42.6
+        ],
+        [
+          0.7,
+          42.8
+        ],
+        [
+          0.7,
+          41.8
+        ],
+        [
+          0.4,
+          41.2
+        ],
+        [
+          -0.6,
+          41.2
+        ],
+        [
+          -0.8,
+          42.0
+        ],
+        [
+          -0.8,
+          42.6
+        ]
+      ]
+    },
+    {
+      "territory_id": "tarragona",
+      "name": "Tarragona & the Ebro",
+      "polygon": [
+        [
+          891.43,
+          315.0
+        ],
+        [
+          942.86,
+          303.75
+        ],
+        [
+          942.86,
+          360.0
+        ],
+        [
+          891.43,
+          382.5
+        ],
+        [
+          857.14,
+          348.75
+        ],
+        [
+          891.43,
+          315.0
+        ]
+      ],
+      "center_point": [
+        906.67,
+        342.75
+      ],
+      "region_id": "catalonia",
+      "geo_polygon": [
+        [
+          0.4,
+          41.2
+        ],
+        [
+          1.0,
+          41.3
+        ],
+        [
+          1.0,
+          40.8
+        ],
+        [
+          0.4,
+          40.6
+        ],
+        [
+          0.0,
+          40.9
+        ],
+        [
+          0.4,
+          41.2
+        ]
+      ]
+    },
+    {
+      "territory_id": "aragon",
+      "name": "Aragon",
+      "polygon": [
+        [
+          771.43,
+          225.0
+        ],
+        [
+          788.57,
+          157.5
+        ],
+        [
+          805.71,
+          315.0
+        ],
+        [
+          857.14,
+          348.75
+        ],
+        [
+          840.0,
+          427.5
+        ],
+        [
+          754.29,
+          450.0
+        ],
+        [
+          702.86,
+          382.5
+        ],
+        [
+          702.86,
+          247.5
+        ],
+        [
+          771.43,
+          225.0
+        ]
+      ],
+      "center_point": [
+        769.85,
+        337.04
+      ],
+      "region_id": "aragon",
+      "geo_polygon": [
+        [
+          -1.0,
+          42.0
+        ],
+        [
+          -0.8,
+          42.6
+        ],
+        [
+          -0.6,
+          41.2
+        ],
+        [
+          0.0,
+          40.9
+        ],
+        [
+          -0.2,
+          40.2
+        ],
+        [
+          -1.2,
+          40.0
+        ],
+        [
+          -1.8,
+          40.6
+        ],
+        [
+          -1.8,
+          41.8
+        ],
+        [
+          -1.0,
+          42.0
+        ]
+      ]
+    },
+    {
+      "territory_id": "valencia",
+      "name": "Valencia",
+      "polygon": [
+        [
+          857.14,
+          348.75
+        ],
+        [
+          840.0,
+          427.5
+        ],
+        [
+          822.86,
+          517.5
+        ],
+        [
+          840.0,
+          630.0
+        ],
+        [
+          780.0,
+          663.75
+        ],
+        [
+          754.29,
+          562.5
+        ],
+        [
+          754.29,
+          450.0
+        ],
+        [
+          840.0,
+          427.5
+        ],
+        [
+          857.14,
+          348.75
+        ]
+      ],
+      "center_point": [
+        795.23,
+        540.66
+      ],
+      "region_id": "aragon",
+      "geo_polygon": [
+        [
+          0.0,
+          40.9
+        ],
+        [
+          -0.2,
+          40.2
+        ],
+        [
+          -0.4,
+          39.4
+        ],
+        [
+          -0.2,
+          38.4
+        ],
+        [
+          -0.9,
+          38.1
+        ],
+        [
+          -1.2,
+          39.0
+        ],
+        [
+          -1.2,
+          40.0
+        ],
+        [
+          -0.2,
+          40.2
+        ],
+        [
+          0.0,
+          40.9
+        ]
+      ]
+    },
+    {
+      "territory_id": "murcia",
+      "name": "Murcia & Alicante",
+      "polygon": [
+        [
+          780.0,
+          663.75
+        ],
+        [
+          814.29,
+          675.0
+        ],
+        [
+          797.14,
+          742.5
+        ],
+        [
+          720.0,
+          742.5
+        ],
+        [
+          685.71,
+          675.0
+        ],
+        [
+          754.29,
+          641.25
+        ],
+        [
+          780.0,
+          663.75
+        ]
+      ],
+      "center_point": [
+        752.53,
+        696.87
+      ],
+      "region_id": "aragon",
+      "geo_polygon": [
+        [
+          -0.9,
+          38.1
+        ],
+        [
+          -0.5,
+          38.0
+        ],
+        [
+          -0.7,
+          37.4
+        ],
+        [
+          -1.6,
+          37.4
+        ],
+        [
+          -2.0,
+          38.0
+        ],
+        [
+          -1.2,
+          38.3
+        ],
+        [
+          -0.9,
+          38.1
+        ]
+      ]
+    },
+    {
+      "territory_id": "leon",
+      "name": "Le\u00f3n",
+      "polygon": [
+        [
+          265.71,
+          168.75
+        ],
+        [
+          360.0,
+          112.5
+        ],
+        [
+          471.43,
+          123.75
+        ],
+        [
+          445.71,
+          225.0
+        ],
+        [
+          360.0,
+          270.0
+        ],
+        [
+          274.29,
+          270.0
+        ],
+        [
+          265.71,
+          168.75
+        ]
+      ],
+      "center_point": [
+        363.26,
+        191.19
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -6.9,
+          42.5
+        ],
+        [
+          -5.8,
+          43.0
+        ],
+        [
+          -4.5,
+          42.9
+        ],
+        [
+          -4.8,
+          42.0
+        ],
+        [
+          -5.8,
+          41.6
+        ],
+        [
+          -6.8,
+          41.6
+        ],
+        [
+          -6.9,
+          42.5
+        ]
+      ]
+    },
+    {
+      "territory_id": "old_castile",
+      "name": "Old Castile",
+      "polygon": [
+        [
+          471.43,
+          123.75
+        ],
+        [
+          574.29,
+          123.75
+        ],
+        [
+          565.71,
+          225.0
+        ],
+        [
+          634.29,
+          270.0
+        ],
+        [
+          548.57,
+          337.5
+        ],
+        [
+          445.71,
+          315.0
+        ],
+        [
+          445.71,
+          225.0
+        ],
+        [
+          471.43,
+          123.75
+        ]
+      ],
+      "center_point": [
+        520.54,
+        233.62
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -4.5,
+          42.9
+        ],
+        [
+          -3.3,
+          42.9
+        ],
+        [
+          -3.4,
+          42.0
+        ],
+        [
+          -2.6,
+          41.6
+        ],
+        [
+          -3.6,
+          41.0
+        ],
+        [
+          -4.8,
+          41.2
+        ],
+        [
+          -4.8,
+          42.0
+        ],
+        [
+          -4.5,
+          42.9
+        ]
+      ]
+    },
+    {
+      "territory_id": "madrid",
+      "name": "Madrid & the Sierra",
+      "polygon": [
+        [
+          445.71,
+          315.0
+        ],
+        [
+          548.57,
+          337.5
+        ],
+        [
+          634.29,
+          270.0
+        ],
+        [
+          702.86,
+          337.5
+        ],
+        [
+          702.86,
+          427.5
+        ],
+        [
+          600.0,
+          483.75
+        ],
+        [
+          480.0,
+          472.5
+        ],
+        [
+          428.57,
+          405.0
+        ],
+        [
+          445.71,
+          315.0
+        ]
+      ],
+      "center_point": [
+        572.83,
+        388.62
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -4.8,
+          41.2
+        ],
+        [
+          -3.6,
+          41.0
+        ],
+        [
+          -2.6,
+          41.6
+        ],
+        [
+          -1.8,
+          41.0
+        ],
+        [
+          -1.8,
+          40.2
+        ],
+        [
+          -3.0,
+          39.7
+        ],
+        [
+          -4.4,
+          39.8
+        ],
+        [
+          -5.0,
+          40.4
+        ],
+        [
+          -4.8,
+          41.2
+        ]
+      ]
+    },
+    {
+      "territory_id": "toledo",
+      "name": "Toledo & La Mancha",
+      "polygon": [
+        [
+          480.0,
+          472.5
+        ],
+        [
+          600.0,
+          483.75
+        ],
+        [
+          702.86,
+          427.5
+        ],
+        [
+          754.29,
+          540.0
+        ],
+        [
+          634.29,
+          618.75
+        ],
+        [
+          514.29,
+          607.5
+        ],
+        [
+          462.86,
+          573.75
+        ],
+        [
+          480.0,
+          472.5
+        ]
+      ],
+      "center_point": [
+        605.81,
+        533.94
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -4.4,
+          39.8
+        ],
+        [
+          -3.0,
+          39.7
+        ],
+        [
+          -1.8,
+          40.2
+        ],
+        [
+          -1.2,
+          39.2
+        ],
+        [
+          -2.6,
+          38.5
+        ],
+        [
+          -4.0,
+          38.6
+        ],
+        [
+          -4.6,
+          38.9
+        ],
+        [
+          -4.4,
+          39.8
+        ]
+      ]
+    },
+    {
+      "territory_id": "extremadura",
+      "name": "Extremadura",
+      "polygon": [
+        [
+          274.29,
+          270.0
+        ],
+        [
+          360.0,
+          270.0
+        ],
+        [
+          445.71,
+          315.0
+        ],
+        [
+          428.57,
+          405.0
+        ],
+        [
+          480.0,
+          472.5
+        ],
+        [
+          462.86,
+          573.75
+        ],
+        [
+          377.14,
+          585.0
+        ],
+        [
+          257.14,
+          562.5
+        ],
+        [
+          214.29,
+          528.75
+        ],
+        [
+          205.71,
+          450.0
+        ],
+        [
+          274.29,
+          270.0
+        ]
+      ],
+      "center_point": [
+        341.3,
+        436.8
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -6.8,
+          41.6
+        ],
+        [
+          -5.8,
+          41.6
+        ],
+        [
+          -4.8,
+          41.2
+        ],
+        [
+          -5.0,
+          40.4
+        ],
+        [
+          -4.4,
+          39.8
+        ],
+        [
+          -4.6,
+          38.9
+        ],
+        [
+          -5.6,
+          38.8
+        ],
+        [
+          -7.0,
+          39.0
+        ],
+        [
+          -7.5,
+          39.3
+        ],
+        [
+          -7.6,
+          40.0
+        ],
+        [
+          -6.8,
+          41.6
+        ]
+      ]
+    },
+    {
+      "territory_id": "la_mancha",
+      "name": "Cuenca & Albacete",
+      "polygon": [
+        [
+          702.86,
+          427.5
+        ],
+        [
+          754.29,
+          450.0
+        ],
+        [
+          840.0,
+          427.5
+        ],
+        [
+          780.0,
+          663.75
+        ],
+        [
+          754.29,
+          641.25
+        ],
+        [
+          685.71,
+          675.0
+        ],
+        [
+          634.29,
+          618.75
+        ],
+        [
+          754.29,
+          540.0
+        ],
+        [
+          702.86,
+          427.5
+        ]
+      ],
+      "center_point": [
+        750.55,
+        555.78
+      ],
+      "region_id": "castile",
+      "geo_polygon": [
+        [
+          -1.8,
+          40.2
+        ],
+        [
+          -1.2,
+          40.0
+        ],
+        [
+          -0.2,
+          40.2
+        ],
+        [
+          -0.9,
+          38.1
+        ],
+        [
+          -1.2,
+          38.3
+        ],
+        [
+          -2.0,
+          38.0
+        ],
+        [
+          -2.6,
+          38.5
+        ],
+        [
+          -1.2,
+          39.2
+        ],
+        [
+          -1.8,
+          40.2
+        ]
+      ]
+    },
+    {
+      "territory_id": "andalucia_west",
+      "name": "Western Andalusia",
+      "polygon": [
+        [
+          222.86,
+          652.5
+        ],
+        [
+          377.14,
+          585.0
+        ],
+        [
+          462.86,
+          573.75
+        ],
+        [
+          445.71,
+          720.0
+        ],
+        [
+          411.43,
+          810.0
+        ],
+        [
+          317.14,
+          877.5
+        ],
+        [
+          222.86,
+          787.5
+        ],
+        [
+          222.86,
+          652.5
+        ]
+      ],
+      "center_point": [
+        340.37,
+        716.17
+      ],
+      "region_id": "andalusia",
+      "geo_polygon": [
+        [
+          -7.4,
+          38.2
+        ],
+        [
+          -5.6,
+          38.8
+        ],
+        [
+          -4.6,
+          38.9
+        ],
+        [
+          -4.8,
+          37.6
+        ],
+        [
+          -5.2,
+          36.8
+        ],
+        [
+          -6.3,
+          36.2
+        ],
+        [
+          -7.4,
+          37.0
+        ],
+        [
+          -7.4,
+          38.2
+        ]
+      ]
+    },
+    {
+      "territory_id": "andalucia_east",
+      "name": "Granada & Almer\u00eda",
+      "polygon": [
+        [
+          445.71,
+          720.0
+        ],
+        [
+          514.29,
+          607.5
+        ],
+        [
+          634.29,
+          618.75
+        ],
+        [
+          720.0,
+          742.5
+        ],
+        [
+          634.29,
+          821.25
+        ],
+        [
+          514.29,
+          821.25
+        ],
+        [
+          411.43,
+          810.0
+        ],
+        [
+          445.71,
+          720.0
+        ]
+      ],
+      "center_point": [
+        565.19,
+        725.98
+      ],
+      "region_id": "andalusia",
+      "geo_polygon": [
+        [
+          -4.8,
+          37.6
+        ],
+        [
+          -4.0,
+          38.6
+        ],
+        [
+          -2.6,
+          38.5
+        ],
+        [
+          -1.6,
+          37.4
+        ],
+        [
+          -2.6,
+          36.7
+        ],
+        [
+          -4.0,
+          36.7
+        ],
+        [
+          -5.2,
+          36.8
+        ],
+        [
+          -4.8,
+          37.6
+        ]
+      ]
+    },
+    {
+      "territory_id": "cordoba",
+      "name": "C\u00f3rdoba & Ja\u00e9n",
+      "polygon": [
+        [
+          377.14,
+          585.0
+        ],
+        [
+          462.86,
+          573.75
+        ],
+        [
+          514.29,
+          607.5
+        ],
+        [
+          445.71,
+          720.0
+        ],
+        [
+          411.43,
+          675.0
+        ],
+        [
+          377.14,
+          585.0
+        ]
+      ],
+      "center_point": [
+        444.21,
+        631.38
+      ],
+      "region_id": "andalusia",
+      "geo_polygon": [
+        [
+          -5.6,
+          38.8
+        ],
+        [
+          -4.6,
+          38.9
+        ],
+        [
+          -4.0,
+          38.6
+        ],
+        [
+          -4.8,
+          37.6
+        ],
+        [
+          -5.2,
+          38.0
+        ],
+        [
+          -5.6,
+          38.8
+        ]
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "galicia_coast",
+      "to": "galicia_inland",
+      "type": "land"
+    },
+    {
+      "from": "galicia_coast",
+      "to": "asturias",
+      "type": "land"
+    },
+    {
+      "from": "galicia_inland",
+      "to": "asturias",
+      "type": "land"
+    },
+    {
+      "from": "galicia_inland",
+      "to": "leon",
+      "type": "land"
+    },
+    {
+      "from": "galicia_coast",
+      "to": "pt_north",
+      "type": "land"
+    },
+    {
+      "from": "galicia_inland",
+      "to": "pt_north",
+      "type": "land"
+    },
+    {
+      "from": "asturias",
+      "to": "leon",
+      "type": "land"
+    },
+    {
+      "from": "asturias",
+      "to": "old_castile",
+      "type": "land"
+    },
+    {
+      "from": "asturias",
+      "to": "basque",
+      "type": "land"
+    },
+    {
+      "from": "basque",
+      "to": "navarre",
+      "type": "land"
+    },
+    {
+      "from": "basque",
+      "to": "rioja",
+      "type": "land"
+    },
+    {
+      "from": "basque",
+      "to": "old_castile",
+      "type": "land"
+    },
+    {
+      "from": "navarre",
+      "to": "rioja",
+      "type": "land"
+    },
+    {
+      "from": "navarre",
+      "to": "aragon",
+      "type": "land"
+    },
+    {
+      "from": "rioja",
+      "to": "aragon",
+      "type": "land"
+    },
+    {
+      "from": "rioja",
+      "to": "old_castile",
+      "type": "land"
+    },
+    {
+      "from": "leon",
+      "to": "old_castile",
+      "type": "land"
+    },
+    {
+      "from": "leon",
+      "to": "extremadura",
+      "type": "land"
+    },
+    {
+      "from": "leon",
+      "to": "pt_north",
+      "type": "land"
+    },
+    {
+      "from": "old_castile",
+      "to": "madrid",
+      "type": "land"
+    },
+    {
+      "from": "old_castile",
+      "to": "aragon",
+      "type": "land"
+    },
+    {
+      "from": "madrid",
+      "to": "toledo",
+      "type": "land"
+    },
+    {
+      "from": "madrid",
+      "to": "extremadura",
+      "type": "land"
+    },
+    {
+      "from": "madrid",
+      "to": "la_mancha",
+      "type": "land"
+    },
+    {
+      "from": "madrid",
+      "to": "aragon",
+      "type": "land"
+    },
+    {
+      "from": "toledo",
+      "to": "extremadura",
+      "type": "land"
+    },
+    {
+      "from": "toledo",
+      "to": "la_mancha",
+      "type": "land"
+    },
+    {
+      "from": "toledo",
+      "to": "cordoba",
+      "type": "land"
+    },
+    {
+      "from": "toledo",
+      "to": "andalucia_east",
+      "type": "land"
+    },
+    {
+      "from": "extremadura",
+      "to": "andalucia_west",
+      "type": "land"
+    },
+    {
+      "from": "extremadura",
+      "to": "pt_center",
+      "type": "land"
+    },
+    {
+      "from": "extremadura",
+      "to": "pt_south",
+      "type": "land"
+    },
+    {
+      "from": "la_mancha",
+      "to": "aragon",
+      "type": "land"
+    },
+    {
+      "from": "la_mancha",
+      "to": "valencia",
+      "type": "land"
+    },
+    {
+      "from": "la_mancha",
+      "to": "murcia",
+      "type": "land"
+    },
+    {
+      "from": "la_mancha",
+      "to": "andalucia_east",
+      "type": "land"
+    },
+    {
+      "from": "aragon",
+      "to": "valencia",
+      "type": "land"
+    },
+    {
+      "from": "aragon",
+      "to": "catalonia_west",
+      "type": "land"
+    },
+    {
+      "from": "catalonia_west",
+      "to": "catalonia_north",
+      "type": "land"
+    },
+    {
+      "from": "catalonia_west",
+      "to": "tarragona",
+      "type": "land"
+    },
+    {
+      "from": "catalonia_north",
+      "to": "tarragona",
+      "type": "land"
+    },
+    {
+      "from": "tarragona",
+      "to": "valencia",
+      "type": "land"
+    },
+    {
+      "from": "valencia",
+      "to": "murcia",
+      "type": "land"
+    },
+    {
+      "from": "murcia",
+      "to": "andalucia_east",
+      "type": "land"
+    },
+    {
+      "from": "cordoba",
+      "to": "andalucia_west",
+      "type": "land"
+    },
+    {
+      "from": "cordoba",
+      "to": "andalucia_east",
+      "type": "land"
+    },
+    {
+      "from": "andalucia_west",
+      "to": "andalucia_east",
+      "type": "land"
+    },
+    {
+      "from": "andalucia_west",
+      "to": "pt_south",
+      "type": "land"
+    },
+    {
+      "from": "pt_north",
+      "to": "pt_center",
+      "type": "land"
+    },
+    {
+      "from": "pt_center",
+      "to": "pt_south",
+      "type": "land"
+    }
+  ],
+  "regions": [
+    {
+      "region_id": "castile",
+      "name": "Crown of Castile",
+      "bonus": 5,
+      "territory_ids": [
+        "leon",
+        "old_castile",
+        "madrid",
+        "toledo",
+        "extremadura",
+        "la_mancha"
+      ]
+    },
+    {
+      "region_id": "portugal",
+      "name": "Portugal",
+      "bonus": 4,
+      "territory_ids": [
+        "pt_north",
+        "pt_center",
+        "pt_south"
+      ]
+    },
+    {
+      "region_id": "andalusia",
+      "name": "Andalusia",
+      "bonus": 3,
+      "territory_ids": [
+        "andalucia_west",
+        "andalucia_east",
+        "cordoba"
+      ]
+    },
+    {
+      "region_id": "catalonia",
+      "name": "Catalonia",
+      "bonus": 3,
+      "territory_ids": [
+        "catalonia_north",
+        "catalonia_west",
+        "tarragona"
+      ]
+    },
+    {
+      "region_id": "aragon",
+      "name": "Aragon & Valencia",
+      "bonus": 3,
+      "territory_ids": [
+        "aragon",
+        "valencia",
+        "murcia"
+      ]
+    },
+    {
+      "region_id": "galicia",
+      "name": "Galicia",
+      "bonus": 2,
+      "territory_ids": [
+        "galicia_coast",
+        "galicia_inland"
+      ]
+    },
+    {
+      "region_id": "basque",
+      "name": "Basque & Asturias",
+      "bonus": 2,
+      "territory_ids": [
+        "asturias",
+        "basque"
+      ]
+    },
+    {
+      "region_id": "navarre",
+      "name": "Navarre & La Rioja",
+      "bonus": 2,
+      "territory_ids": [
+        "navarre",
+        "rioja"
+      ]
+    }
+  ],
+  "is_public": true,
+  "play_count": 0,
+  "creator_id": "system"
+}
