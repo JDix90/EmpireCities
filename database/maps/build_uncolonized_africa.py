@@ -29,7 +29,7 @@ REGIONS = [
 
 T = [
     # ---------------- The Maghreb (NW coast / Atlas) ----------------
-    ("morocco", "Morocco & the Atlas", "maghreb", [
+    ("atlas_morocco", "Morocco & the Atlas", "maghreb", [
         [-9.8,32.0],[-8.5,33.3],[-6.0,35.2],[-2.5,35.3],[-1.5,34.0],[-3.0,32.0],
         [-4.5,30.5],[-7.0,29.0],[-9.5,29.5],[-9.9,31.0],[-9.8,32.0]]),
     ("algeria", "Algiers & the Tell", "maghreb", [
@@ -161,10 +161,10 @@ T = [
 
 C = [
     # Maghreb chain
-    ("morocco","algeria","land"),("algeria","ifriqiya","land"),
+    ("atlas_morocco","algeria","land"),("algeria","ifriqiya","land"),
     ("ifriqiya","tripolitania","land"),("algeria","tripolitania","land"),
     # Maghreb -> Sahara/Sahel/Egypt
-    ("morocco","senegambia","land"),("morocco","mali","land"),
+    ("atlas_morocco","senegambia","land"),("atlas_morocco","mali","land"),
     ("algeria","mali","land"),("algeria","songhai","land"),
     ("tripolitania","cyrenaica","land"),("tripolitania","wadai","land"),
     ("tripolitania","kanem","land"),
