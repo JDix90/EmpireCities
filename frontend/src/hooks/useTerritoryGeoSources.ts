@@ -42,7 +42,7 @@ function fetchGeo(url: string): Promise<GeoJSON.FeatureCollection> {
 
 export interface GeoSourceMapInfo {
   map_id?: string;
-  territories: Array<{ territory_id: string }>;
+  territories: Array<{ territory_id: string; admin1?: string[] }>;
 }
 
 /** Which sources a map needs, mirroring GlobeMap's trigger conditions. */
@@ -51,13 +51,18 @@ export function requiredGeoSourceUrls(
 ): Record<keyof GlobeGeometryInputs, string | null> {
   const hasPrefix = (prefix: string) =>
     mapData.territories.some((t) => t.territory_id.startsWith(prefix));
+  // Any map whose territories carry Natural Earth admin-1 codes needs the full
+  // ne_50m admin-1 world set so the generic admin-1 geometry path can resolve them.
+  const hasAdmin1 = mapData.territories.some((t) => (t.admin1?.length ?? 0) > 0);
   return {
     countriesGeo: COUNTRIES_GEOJSON_URL,
     statesGeo: STATES_GEOJSON_URL,
     risorgimentoGeo:
       mapData.map_id === 'era_risorgimento' || hasPrefix('ris_') ? RISORGIMENTO_GEOJSON_URL : null,
     admin50Geo:
-      mapData.map_id === 'community_14_nations' || hasPrefix('na_') ? ADMIN50_STATES_GEOJSON_URL : null,
+      mapData.map_id === 'community_14_nations' || hasPrefix('na_') || hasAdmin1
+        ? ADMIN50_STATES_GEOJSON_URL
+        : null,
     straitHormuzGeo:
       mapData.map_id === 'community_strait_hormuz' || hasPrefix('hz_') ? STRAIT_HORMUZ_GEOJSON_URL : null,
     australiaGeo: mapData.map_id === 'community_australia_1337' ? AUSTRALIA_GEOJSON_URL : null,

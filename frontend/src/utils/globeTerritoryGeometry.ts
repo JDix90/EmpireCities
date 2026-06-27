@@ -43,6 +43,9 @@ export interface GlobeTerritoryInput {
   center_point: [number, number];
   geo_config?: TerritoryGeoConfig;
   iso_codes?: string[];
+  /** Natural Earth admin-1 `iso_3166_2` codes (e.g. ["US-CA","US-OR"]). Resolved
+   *  at runtime from the full ne_50m admin-1 world set for real province coastlines. */
+  admin1?: string[];
   clip_bbox?: ClipBbox;
   geo_polygon?: [number, number][];
   geo_multipolygon?: [number, number][][];
@@ -663,6 +666,43 @@ export function buildTerritoryGlobeGeometries(
             return { territory_id: territory.territory_id, name: territory.name, geometry: merged };
           }
         } catch { /* fall through */ }
+      }
+    }
+
+    /**
+     * Generic community admin-1 path: a territory lists Natural Earth admin-1
+     * `iso_3166_2` codes in `admin1` (authored in the map JSON). Resolve them from
+     * the full ne_50m admin-1 world set (`admin50Geo`) for real province/state
+     * coastlines, union them, and optionally clip to `clip_bbox`. Map-id agnostic;
+     * any territory whose codes don't resolve falls through to its `geo_polygon`.
+     */
+    if (
+      territory.admin1 &&
+      territory.admin1.length > 0 &&
+      admin50Iso3166ToGeom.size > 0
+    ) {
+      const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      for (const code of territory.admin1) {
+        const g = admin50Iso3166ToGeom.get(code);
+        if (g) geoms.push(g);
+      }
+      if (geoms.length > 0) {
+        try {
+          let merged = geoms.length === 1 ? geoms[0] : unionGeoJsonGeometries(geoms);
+          if (merged && territory.clip_bbox) {
+            const clipped = clipToBbox(merged, territory.clip_bbox);
+            if (clipped) merged = clipped;
+          }
+          if (merged) {
+            return {
+              territory_id: territory.territory_id,
+              name: territory.name,
+              geometry: merged,
+            };
+          }
+        } catch {
+          /* fall through to geo_polygon */
+        }
       }
     }
 

@@ -165,28 +165,37 @@ def validate(m):
 
 
 def build_map(map_id, name, description, bounds, regions, territories, connections,
-              globe_view=None, era_theme="custom", canvas=None, write=True):
+              globe_view=None, era_theme="custom", canvas=None, write=True,
+              admin_refs=None):
     """
     regions:     [{"region_id","name","bonus"}, ...]
     territories: [(territory_id, name, region_id, geo_polygon[[lng,lat],...]), ...]
     connections: [(from_id, to_id, "land"|"sea"), ...]
+    admin_refs:  optional {territory_id: {"iso_codes":[...]} | {"admin1":[...]} |
+                 {"geo_config":[...]} | {"clip_bbox":[...]}} merged onto each territory
+                 so it renders from real Natural Earth geometry (geo_polygon kept as fallback).
     Returns (map_dict, json_path). Validates first; raises SystemExit on errors.
     """
     canvas_w, canvas_h = canvas if canvas else auto_canvas(bounds)
     project = make_project(bounds, canvas_w, canvas_h)
+    admin_refs = admin_refs or {}
 
     region_members = {r["region_id"]: [] for r in regions}
     out_territories = []
     for tid, tname, region_id, geo in territories:
         canvas_poly = [project(lng, lat) for lng, lat in geo]
-        out_territories.append({
+        terr = {
             "territory_id": tid,
             "name": tname,
             "polygon": canvas_poly,
             "center_point": centroid(canvas_poly),
             "region_id": region_id,
             "geo_polygon": [[round(lng, 3), round(lat, 3)] for lng, lat in geo],
-        })
+        }
+        for key in ("iso_codes", "admin1", "geo_config", "clip_bbox"):
+            if key in admin_refs.get(tid, {}):
+                terr[key] = admin_refs[tid][key]
+        out_territories.append(terr)
         if region_id in region_members:
             region_members[region_id].append(tid)
 
