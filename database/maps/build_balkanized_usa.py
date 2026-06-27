@@ -187,6 +187,59 @@ C = [
     ("ca_north","ca_south","land"),
 ]
 
+# Real Natural Earth admin-1 (US state) geometry per territory.
+# Every contiguous US state assigned exactly once; AK/HI and all territories
+# (AS/GU/PR/VI/UM/MP) excluded as non-contiguous. DC merged into Chesapeake.
+# California (one ISO unit, two territories) and Texas (one ISO unit, two
+# territories) are split with clip_bbox into northern/southern and eastern/western halves.
+ADMIN = {
+    # ---- New England Commonwealth ----
+    "ne_north":      {"admin1": ["US-ME", "US-NH", "US-VT"]},
+    "ne_south":      {"admin1": ["US-MA", "US-CT", "US-RI"]},
+    # ---- Mid-Atlantic States ----
+    "at_newyork":    {"admin1": ["US-NY", "US-NJ"]},
+    "at_penn":       {"admin1": ["US-PA"]},
+    "at_chesapeake": {"admin1": ["US-MD", "US-DE", "US-DC"]},  # DC merged here
+    "at_virginia":   {"admin1": ["US-VA", "US-WV"]},
+    # ---- Great Lakes Federation ----
+    "gl_ohio":       {"admin1": ["US-OH"]},
+    "gl_michigan":   {"admin1": ["US-MI"]},
+    "gl_indiana":    {"admin1": ["US-IN"]},
+    "gl_illinois":   {"admin1": ["US-IL"]},
+    "gl_wisconsin":  {"admin1": ["US-WI"]},
+    # ---- Confederation of Dixie ----
+    "dx_carolinas":  {"admin1": ["US-NC", "US-SC"]},
+    "dx_georgia":    {"admin1": ["US-GA"]},
+    "dx_florida":    {"admin1": ["US-FL"]},
+    "dx_alabama":    {"admin1": ["US-AL"]},
+    "dx_tennessee":  {"admin1": ["US-TN", "US-KY"]},
+    "dx_mississippi":{"admin1": ["US-MS"]},
+    # ---- Republic of Texas & the Gulf ----
+    "tx_louisiana":  {"admin1": ["US-LA"]},
+    "tx_arkansas":   {"admin1": ["US-AR"]},
+    "tx_oklahoma":   {"admin1": ["US-OK"]},
+    "tx_east":       {"admin1": ["US-TX"], "clip_bbox": [-99.5, 25.0, -93.0, 37.0]},
+    "tx_west":       {"admin1": ["US-TX"], "clip_bbox": [-107.0, 25.0, -99.5, 37.0]},
+    # ---- the Heartland / Great Plains ----
+    "pl_dakotas":    {"admin1": ["US-ND", "US-SD"]},
+    "pl_nebraska":   {"admin1": ["US-NE"]},
+    "pl_kansas":     {"admin1": ["US-KS"]},
+    "pl_missouri":   {"admin1": ["US-MO"]},
+    "pl_iowa":       {"admin1": ["US-IA", "US-MN"]},
+    # ---- Deseret ----
+    "ds_colorado":   {"admin1": ["US-CO"]},
+    "ds_utah":       {"admin1": ["US-UT"]},
+    "ds_nevada":     {"admin1": ["US-NV"]},
+    "ds_arizona":    {"admin1": ["US-AZ", "US-NM"]},
+    # ---- Cascadia ----
+    "cs_washington": {"admin1": ["US-WA"]},
+    "cs_oregon":     {"admin1": ["US-OR"]},
+    "cs_idaho":      {"admin1": ["US-ID", "US-MT", "US-WY"]},
+    # ---- California Republic ----
+    "ca_north":      {"admin1": ["US-CA"], "clip_bbox": [-125.0, 37.0, -114.0, 42.5]},
+    "ca_south":      {"admin1": ["US-CA"], "clip_bbox": [-125.0, 32.0, -114.0, 37.0]},
+}
+
 if __name__ == "__main__":
     build_map(
         map_id="community_balkanized_usa",
@@ -204,4 +257,5 @@ if __name__ == "__main__":
         territories=T,
         connections=C,
         globe_view={"center_lat": 39.5, "center_lng": -97.0, "altitude": 0.9},
+        admin_refs=ADMIN,
     )
