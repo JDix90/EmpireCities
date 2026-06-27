@@ -340,19 +340,179 @@ def centroid(poly):
     return [round(cx / (6 * a), 2), round(cy / (6 * a), 2)]
 
 
+# Per-territory real-geometry refs (filled below): territory_id -> {"iso_codes":[...]} or
+# {"geo_config":[{"iso":"FR","clip_bbox":[w,s,e,n]}, ...]}. Empty => geo_polygon fallback only.
+ADMIN = {
+    # ===================== FRANKISH EMPIRE =====================
+    "brittannia": {"geo_config": [{"iso": "FR", "clip_bbox": [-5.1, 47.0, -1.2, 49.2]}]},
+    "neustria": {"geo_config": [{"iso": "FR", "clip_bbox": [-1.9, 46.3, 3.5, 50.3]}]},
+    "frisia": {"geo_config": [
+        {"iso": "NL", "clip_bbox": [2.3, 49.3, 8.8, 53.9]},
+        {"iso": "BE", "clip_bbox": [2.3, 49.3, 8.8, 53.9]},
+        {"iso": "DE", "clip_bbox": [2.3, 49.3, 8.8, 53.9]},
+    ]},
+    "austrasia": {"geo_config": [
+        {"iso": "FR", "clip_bbox": [2.9, 47.7, 8.5, 51.6]},
+        {"iso": "DE", "clip_bbox": [2.9, 47.7, 8.5, 51.6]},
+        {"iso": "BE", "clip_bbox": [2.9, 47.7, 8.5, 51.6]},
+        {"iso": "LU", "clip_bbox": [2.9, 47.7, 8.5, 51.6]},
+    ]},
+    "aquitania": {"geo_config": [{"iso": "FR", "clip_bbox": [-1.9, 42.6, 2.9, 47.9]}]},
+    "burgundy": {"geo_config": [
+        {"iso": "FR", "clip_bbox": [1.9, 43.2, 7.3, 48.4]},
+        {"iso": "CH", "clip_bbox": [1.9, 43.2, 7.3, 48.4]},
+    ]},
+    "gothia": {"geo_config": [{"iso": "FR", "clip_bbox": [1.5, 42.2, 5.2, 45.7]}]},
+    "marca_hispanica": {"geo_config": [
+        {"iso": "ES", "clip_bbox": [-0.9, 40.6, 3.3, 43.2]},
+        {"iso": "AD", "clip_bbox": [-0.9, 40.6, 3.3, 43.2]},
+    ]},
+    "saxony": {"geo_config": [{"iso": "DE", "clip_bbox": [7.4, 49.3, 12.1, 54.3]}]},
+    "bavaria": {"geo_config": [
+        {"iso": "DE", "clip_bbox": [7.3, 46.9, 13.9, 51.3]},
+        {"iso": "AT", "clip_bbox": [7.3, 46.9, 13.9, 51.3]},
+    ]},
+    "eastern_march": {"geo_config": [
+        {"iso": "AT", "clip_bbox": [12.1, 45.9, 16.9, 49.2]},
+        {"iso": "SI", "clip_bbox": [12.1, 45.9, 16.9, 49.2]},
+    ]},
+    "frankish_italy": {"geo_config": [{"iso": "IT", "clip_bbox": [6.7, 41.1, 14.3, 47.1]}]},
+
+    # ========================= BRITISH ISLES ================================
+    "ireland": {"geo_config": [
+        {"iso": "IE", "clip_bbox": [-10.5, 51.2, -5.2, 55.6]},
+        {"iso": "GB", "clip_bbox": [-10.5, 51.2, -5.2, 55.6]},
+    ]},
+    "scotland": {"geo_config": [{"iso": "GB", "clip_bbox": [-6.1, 55.5, -1.7, 58.9]}]},
+    "northumbria": {"geo_config": [{"iso": "GB", "clip_bbox": [-5.3, 53.2, -0.9, 56.3]}]},
+    "mercia": {"geo_config": [{"iso": "GB", "clip_bbox": [-3.5, 51.2, 0.6, 53.9]}]},
+    "wessex": {"geo_config": [{"iso": "GB", "clip_bbox": [-4.3, 50.0, 1.7, 51.9]}]},
+    "wales": {"geo_config": [{"iso": "GB", "clip_bbox": [-5.5, 50.7, -2.1, 53.8]}]},
+
+    # ===================== IBERIA ===================
+    "galicia_asturias": {"geo_config": [
+        {"iso": "ES", "clip_bbox": [-9.3, 41.8, -2.7, 43.9]},
+        {"iso": "PT", "clip_bbox": [-9.3, 41.8, -2.7, 43.9]},
+    ]},
+    "toledo": {"geo_config": [
+        {"iso": "ES", "clip_bbox": [-7.1, 39.3, 0.1, 43.6]},
+        {"iso": "PT", "clip_bbox": [-7.1, 39.3, 0.1, 43.6]},
+    ]},
+    "cordoba": {"geo_config": [
+        {"iso": "ES", "clip_bbox": [-9.7, 35.9, 0.1, 40.9]},
+        {"iso": "PT", "clip_bbox": [-9.7, 35.9, 0.1, 40.9]},
+    ]},
+
+    # ============================ SCANDINAVIA ===============================
+    "norway": {"geo_config": [{"iso": "NO", "clip_bbox": [4.6, 57.7, 14.9, 65.9]}]},
+    "denmark": {"geo_config": [{"iso": "DK", "clip_bbox": [7.7, 54.1, 12.9, 58.0]}]},
+    "sweden": {"geo_config": [{"iso": "SE", "clip_bbox": [11.3, 55.1, 18.9, 63.7]}]},
+
+    # ===================== EASTERN ROMAN ========================
+    "thrace": {"geo_config": [
+        {"iso": "GR", "clip_bbox": [21.7, 39.7, 29.5, 41.9]},
+        {"iso": "TR", "clip_bbox": [21.7, 39.7, 29.5, 41.9]},
+        {"iso": "BG", "clip_bbox": [21.7, 39.7, 29.5, 41.9]},
+    ]},
+    "hellas": {"geo_config": [{"iso": "GR", "clip_bbox": [20.1, 36.3, 24.3, 40.5]}]},
+    "roman_anatolia": {"geo_config": [{"iso": "TR", "clip_bbox": [25.9, 35.9, 38.5, 42.3]}]},
+    "byzantine_italy": {"geo_config": [{"iso": "IT", "clip_bbox": [12.1, 37.3, 18.7, 42.6]}]},
+
+    # ===================== ABBASID / LEVANT =======================
+    "armenia": {"geo_config": [
+        {"iso": "AM", "clip_bbox": [37.7, 38.1, 48.7, 42.1]},
+        {"iso": "AZ", "clip_bbox": [37.7, 38.1, 48.7, 42.1]},
+        {"iso": "GE", "clip_bbox": [37.7, 38.1, 48.7, 42.1]},
+        {"iso": "TR", "clip_bbox": [37.7, 38.1, 48.7, 42.1]},
+    ]},
+    "syria": {"geo_config": [
+        {"iso": "SY", "clip_bbox": [35.3, 31.1, 44.7, 39.3]},
+        {"iso": "IQ", "clip_bbox": [35.3, 31.1, 44.7, 39.3]},
+        {"iso": "JO", "clip_bbox": [35.3, 31.1, 44.7, 39.3]},
+        {"iso": "TR", "clip_bbox": [35.3, 31.1, 44.7, 39.3]},
+    ]},
+
+    # ========================= SLAVIC TRIBES ================================
+    "pomerania": {"geo_config": [
+        {"iso": "PL", "clip_bbox": [10.2, 52.3, 18.9, 54.9]},
+        {"iso": "DE", "clip_bbox": [10.2, 52.3, 18.9, 54.9]},
+    ]},
+    "bohemia_moravia": {"geo_config": [
+        {"iso": "CZ", "clip_bbox": [11.7, 48.1, 18.1, 51.3]},
+        {"iso": "SK", "clip_bbox": [11.7, 48.1, 18.1, 51.3]},
+    ]},
+    "lechia": {"geo_config": [{"iso": "PL", "clip_bbox": [12.1, 48.9, 22.7, 53.7]}]},
+    "ruthenia": {"geo_config": [
+        {"iso": "UA", "clip_bbox": [21.7, 47.7, 33.7, 53.3]},
+        {"iso": "BY", "clip_bbox": [21.7, 47.7, 33.7, 53.3]},
+    ]},
+
+    # ============================ BALKANS ===================================
+    "bulgaria": {"geo_config": [
+        {"iso": "BG", "clip_bbox": [22.1, 41.1, 29.7, 45.7]},
+        {"iso": "RO", "clip_bbox": [22.1, 41.1, 29.7, 45.7]},
+    ]},
+    "serbia": {"geo_config": [
+        {"iso": "RS", "clip_bbox": [18.1, 41.1, 22.9, 45.7]},
+        {"iso": "MK", "clip_bbox": [18.1, 41.1, 22.9, 45.7]},
+    ]},
+    "croatia": {"geo_config": [
+        {"iso": "HR", "clip_bbox": [13.1, 42.7, 18.9, 46.8]},
+        {"iso": "BA", "clip_bbox": [13.1, 42.7, 18.9, 46.8]},
+    ]},
+
+    # ====================== STEPPE KHAGANATES ===============================
+    "avars": {"geo_config": [
+        {"iso": "HU", "clip_bbox": [15.7, 44.9, 22.3, 49.0]},
+        {"iso": "RO", "clip_bbox": [15.7, 44.9, 22.3, 49.0]},
+    ]},
+    "magyars": {"geo_config": [
+        {"iso": "UA", "clip_bbox": [25.3, 45.1, 40.3, 49.9]},
+        {"iso": "RO", "clip_bbox": [25.3, 45.1, 40.3, 49.9]},
+        {"iso": "MD", "clip_bbox": [25.3, 45.1, 40.3, 49.9]},
+    ]},
+    "khazaria": {"geo_config": [{"iso": "RU", "clip_bbox": [37.7, 40.7, 49.9, 47.9]}]},
+    "volga_bulgaria": {"geo_config": [{"iso": "RU", "clip_bbox": [42.7, 46.1, 52.3, 52.3]}]},
+
+    # ===================== BALTIC & FINNIC TRIBES ===========================
+    "baltic": {"geo_config": [
+        {"iso": "LT", "clip_bbox": [18.1, 52.9, 27.9, 58.1]},
+        {"iso": "LV", "clip_bbox": [18.1, 52.9, 27.9, 58.1]},
+    ]},
+    "finnic": {"geo_config": [{"iso": "FI", "clip_bbox": [20.7, 59.3, 31.9, 65.5]}]},
+    "novgorod": {"geo_config": [{"iso": "RU", "clip_bbox": [27.3, 53.3, 40.3, 60.7]}]},
+
+    # ============================= MAGHREB ==================================
+    "ifriqiya": {"geo_config": [
+        {"iso": "TN", "clip_bbox": [6.3, 33.3, 11.7, 37.7]},
+        {"iso": "DZ", "clip_bbox": [6.3, 33.3, 11.7, 37.7]},
+    ]},
+    "maghreb_west": {"geo_config": [
+        {"iso": "MA", "clip_bbox": [-9.9, 33.1, 6.9, 37.1]},
+        {"iso": "DZ", "clip_bbox": [-9.9, 33.1, 6.9, 37.1]},
+    ]},
+}
+
+
 def build():
     region_members = {r["region_id"]: [] for r in REGIONS}
     territories = []
     for tid, name, region_id, geo in TERRITORIES:
         canvas_poly = [project(lng, lat) for lng, lat in geo]
-        territories.append({
+        terr = {
             "territory_id": tid,
             "name": name,
             "polygon": canvas_poly,
             "center_point": centroid(canvas_poly),
             "region_id": region_id,
             "geo_polygon": [[round(lng, 3), round(lat, 3)] for lng, lat in geo],
-        })
+        }
+        # Real Natural Earth geometry (geo_polygon kept as fallback). For this
+        # historical map each territory clips a modern country to its region.
+        for key in ("iso_codes", "admin1", "geo_config", "clip_bbox"):
+            if key in ADMIN.get(tid, {}):
+                terr[key] = ADMIN[tid][key]
+        territories.append(terr)
         region_members[region_id].append(tid)
 
     regions = [{

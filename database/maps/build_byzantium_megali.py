@@ -185,6 +185,65 @@ C = [
     ("varna","constantinople","sea"),  # Black Sea coast to the City
 ]
 
+ADMIN = {
+    # ---- Byzantine Greece & the City ----
+    "constantinople": {"admin1": ["TR-34"]},
+    "thrace": {"admin1": ["TR-22", "TR-39", "TR-59", "GR-71", "GR-73", "GR-72"]},
+    "macedonia": {"admin1": ["GR-54", "GR-53", "GR-59", "GR-57", "GR-61", "GR-62",
+                              "GR-64", "GR-69", "GR-58", "GR-56", "GR-63", "GR-51",
+                              "GR-52", "GR-55"]},
+    "thessaly": {"admin1": ["GR-42", "GR-41", "GR-43", "GR-44"]},
+    "epirus": {"admin1": ["GR-33", "GR-31", "GR-32", "GR-34", "GR-22", "GR-24"]},
+    "attica": {"admin1": ["GR-A1", "GR-03", "GR-07", "GR-06", "GR-05", "GR-01"]},
+    "morea": {"admin1": ["GR-11", "GR-12", "GR-13", "GR-14", "GR-15", "GR-16",
+                         "GR-17", "GR-21", "GR-23"]},
+
+    # ---- Byzantine Anatolia ----
+    "bithynia": {"admin1": ["TR-16", "TR-41", "TR-77", "TR-54", "TR-14", "TR-81", "TR-11"]},
+    "ionia": {"admin1": ["TR-35", "TR-45"]},
+    "lydia": {"admin1": ["TR-43", "TR-64", "TR-03", "TR-26"]},
+    "caria": {"admin1": ["TR-09", "TR-48", "TR-20", "TR-10", "TR-17"]},
+    "pisidia": {"admin1": ["TR-07", "TR-32", "TR-15"]},
+    "galatia": {"admin1": ["TR-06", "TR-71", "TR-18", "TR-42", "TR-70"]},
+
+    # ---- Ottoman Rump ----
+    "cappadocia": {"admin1": ["TR-50", "TR-51", "TR-68", "TR-38", "TR-40"]},
+    "pontus": {"admin1": ["TR-55", "TR-57", "TR-52", "TR-28", "TR-61", "TR-53", "TR-08",
+                          "TR-37", "TR-19", "TR-05", "TR-60", "TR-66", "TR-67", "TR-74", "TR-78"]},
+    "armenia": {"admin1": ["TR-25", "TR-24", "TR-29", "TR-69", "TR-36", "TR-75", "TR-76",
+                           "TR-04", "TR-58"]},
+    "cilicia": {"admin1": ["TR-01", "TR-33", "TR-31", "TR-80", "TR-46"]},
+    "kurdistan": {"admin1": ["TR-21", "TR-47", "TR-72", "TR-56", "TR-73", "TR-30", "TR-65",
+                             "TR-13", "TR-49", "TR-12", "TR-23", "TR-44", "TR-62", "TR-02",
+                             "TR-63", "TR-27", "TR-79"]},
+
+    # ---- Bulgaria ----
+    "sofia": {"admin1": ["BG-22", "BG-23", "BG-14", "BG-10", "BG-01", "BG-13", "BG-16",
+                         "BG-05", "BG-12", "BG-06", "BG-21", "BG-09", "BG-26"]},
+    "danubia": {"admin1": ["BG-15", "BG-11", "BG-07", "BG-04", "BG-18", "BG-19", "BG-17", "BG-24"]},
+    "varna": {"admin1": ["BG-03", "BG-08", "BG-02", "BG-27", "BG-25", "BG-20", "BG-28"]},
+
+    # ---- Serbia ----
+    "belgrade": {"admin1": ["RS-00", "RS-VO", "RS-01", "RS-02", "RS-03", "RS-04", "RS-05",
+                            "RS-06", "RS-07", "RS-10", "RS-11", "RS-12", "RS-13", "RS-14", "RS-15"]},
+    "kosovo": {"admin1": ["RS-KM", "RS-25", "RS-26", "RS-27", "RS-28", "RS-29", "RS-20",
+                          "RS-21", "RS-22", "RS-23", "RS-24", "RS-19"]},
+    "bosnia": {"admin1": ["RS-08", "RS-09", "RS-16", "RS-17", "RS-18"]},
+
+    # ---- Aegean & the Isles ----
+    "euboea": {"admin1": ["GR-04"]},
+    "cyclades": {"admin1": ["GR-82", "GR-83", "GR-84", "GR-85"]},
+    "crete": {"admin1": ["GR-91", "GR-92", "GR-93", "GR-94"]},
+    "rhodes": {"admin1": ["GR-81"]},
+    "cyprus": {"iso_codes": ["CY"]},
+
+    # ---- Levant Coast ----
+    "antioch": {"iso_codes": ["SY"]},
+    "syria": {"iso_codes": ["SY"]},
+    "palestine": {"iso_codes": ["LB"]},
+    "nile_delta": {"iso_codes": ["EG"]},
+}
+
 if __name__ == "__main__":
     build_map(
         map_id="community_byzantium_megali",
@@ -200,5 +259,6 @@ if __name__ == "__main__":
         regions=REGIONS,
         territories=T,
         connections=C,
+        admin_refs=ADMIN,
         globe_view={"center_lat": 39.0, "center_lng": 28.0, "altitude": 0.8},
     )

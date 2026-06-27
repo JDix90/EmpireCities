@@ -7,6 +7,12 @@ export interface Territory {
   center_point: [number, number];
   region_id: string;
   geo_polygon?: [number, number][];
+  /** Whole-country geometry: ISO 3166-1 alpha-2 codes merged from Natural Earth admin-0. */
+  iso_codes?: string[];
+  /** Province/state geometry: Natural Earth admin-1 iso_3166_2 codes (e.g. "US-CA"). */
+  admin1?: string[];
+  /** Optional [minLng, minLat, maxLng, maxLat] clip applied to merged admin geometry. */
+  clip_bbox?: [number, number, number, number];
   globe_id?: 'earth' | 'moon';
   world_id?: string;
   galaxy_position?: [number, number];

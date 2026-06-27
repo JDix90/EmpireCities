@@ -178,10 +178,11 @@ export default function GameMap({
     if (mapData.map_kind === 'galaxy') return false;
     return mapData.territories.some((t) => {
       const geoFields = t as Partial<{
-        geo_polygon: unknown; geo_multipolygon: unknown; iso_codes: unknown; geo_config: unknown;
+        geo_polygon: unknown; geo_multipolygon: unknown; iso_codes: unknown; geo_config: unknown; admin1: unknown[];
       }>;
       return Boolean(
-        geoFields.geo_polygon || geoFields.geo_multipolygon || geoFields.iso_codes || geoFields.geo_config,
+        geoFields.geo_polygon || geoFields.geo_multipolygon || geoFields.iso_codes ||
+        geoFields.geo_config || (geoFields.admin1 && geoFields.admin1.length),
       ) || hasGeoMapping(t.territory_id);
     });
   }, [mapData]);

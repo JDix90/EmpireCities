@@ -78,6 +78,29 @@ This merges US + Mexico, then clips to the bbox. Use `geo_config` when you need 
 
 ---
 
+### Province/state geometry: `admin1` (real coastlines, generic)
+
+For sub-national territories, list Natural Earth admin-1 `iso_3166_2` codes. They resolve at
+runtime from the full ne_50m admin-1 world set (`admin50Geo`, loaded automatically for any map
+with `admin1` territories) — no bundled subset needed. Whole-unit groups give natural internal
+borders; add `clip_bbox` only to take part of one big unit.
+
+```json
+{
+  "territory_id": "cascadia",
+  "name": "Cascadia",
+  "region_id": "pacific",
+  "admin1": ["US-WA", "US-OR", "US-ID"],
+  "geo_polygon": [[...]]
+}
+```
+
+`mapkit.build_map(..., admin_refs={ "cascadia": {"admin1": ["US-WA","US-OR","US-ID"]} })` merges
+these onto the territory. Whole-country territories use `iso_codes` (admin-0) the same way.
+`geo_polygon` is kept as a fallback for any territory whose codes don't resolve. Codes follow
+standard ISO 3166-2 (e.g. China is numeric: `CN-34` = Anhui) — use the `iso-3166-2` package or
+verify against Natural Earth's `iso_3166_2` field.
+
 ## Adding preset era mappings
 
 Edit `frontend/src/data/territoryGeoMapping.ts`:
