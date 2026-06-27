@@ -46,6 +46,10 @@ export interface GlobeTerritoryInput {
   /** Natural Earth admin-1 `iso_3166_2` codes (e.g. ["US-CA","US-OR"]). Resolved
    *  at runtime from the full ne_50m admin-1 world set for real province coastlines. */
   admin1?: string[];
+  /** Optional per-code clip applied to a single `admin1` unit before union, keyed by
+   *  `iso_3166_2`. Lets one province be split between territories (or a multi-unit
+   *  territory clip only the shared unit) while leaving its other units whole. */
+  admin1_clips?: Record<string, ClipBbox>;
   clip_bbox?: ClipBbox;
   /** GeoJSON Polygon coordinates to clip merged country/admin geometry to (real coast + authored shape). */
   clip_polygon?: number[][][];
@@ -702,7 +706,12 @@ export function buildTerritoryGlobeGeometries(
     ) {
       const geoms: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
       for (const code of territory.admin1) {
-        const g = regionalAdmin1Iso3166ToGeom.get(code) ?? admin50Iso3166ToGeom.get(code);
+        let g = regionalAdmin1Iso3166ToGeom.get(code) ?? admin50Iso3166ToGeom.get(code);
+        const perClip = territory.admin1_clips?.[code];
+        if (g && perClip) {
+          const c = clipToBbox(g, perClip);
+          if (c) g = c;
+        }
         if (g) geoms.push(g);
       }
       if (geoms.length > 0) {

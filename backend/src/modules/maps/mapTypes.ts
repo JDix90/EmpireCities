@@ -11,6 +11,9 @@ export interface Territory {
   iso_codes?: string[];
   /** Province/state geometry: Natural Earth admin-1 iso_3166_2 codes (e.g. "US-CA"). */
   admin1?: string[];
+  /** Optional per-code clip applied to a single admin1 unit (keyed by iso_3166_2)
+   *  so one province can be split between territories while others stay whole. */
+  admin1_clips?: Record<string, [number, number, number, number]>;
   /** Optional [minLng, minLat, maxLng, maxLat] clip applied to merged admin geometry. */
   clip_bbox?: [number, number, number, number];
   /** Optional GeoJSON Polygon coordinates to clip merged admin geometry to. */

@@ -50,6 +50,12 @@ const mapData = {
       center_point: [0.5, 0.5] as [number, number], admin1: ['ZZ-ZZ'],
       geo_polygon: [[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]] as [number, number][],
     },
+    {
+      territory_id: 'clipped_state', name: 'ClipNorth', polygon: [[0, 0], [1, 0], [1, 1]],
+      center_point: [0.5, 0.5] as [number, number], admin1: ['US-CA'],
+      admin1_clips: { 'US-CA': [-124, 37, -114, 42] as [number, number, number, number] },
+      geo_polygon: [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0]] as [number, number][],
+    },
   ],
 };
 
@@ -77,5 +83,13 @@ describe('generic admin-1 geometry path', () => {
     const flat = JSON.stringify(byId['no_match'].geometry.coordinates);
     expect(flat).toContain('5'); // the geo_polygon coords, not admin geometry
     expect(flat).not.toContain('-124');
+  });
+
+  it('admin1_clips clips a single unit to its per-code bbox (split provinces)', () => {
+    const g = byId['clipped_state'].geometry;
+    const ys = JSON.stringify(g.coordinates);
+    // clipped to lat >= 37, so the original southern edge (33) must be gone
+    expect(ys).not.toContain('33');
+    expect(ys).toContain('37'); // the clip's southern edge survives
   });
 });

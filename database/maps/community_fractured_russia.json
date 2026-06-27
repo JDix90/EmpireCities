@@ -2308,14 +2308,16 @@
         ]
       ],
       "admin1": [
-        "RU-IRK"
+        "RU-SA"
       ],
-      "clip_bbox": [
-        98.0,
-        60.0,
-        130.0,
-        73.0
-      ]
+      "admin1_clips": {
+        "RU-SA": [
+          100.0,
+          54.0,
+          131.0,
+          78.0
+        ]
+      }
     },
     {
       "territory_id": "yakutia_east",
@@ -2404,7 +2406,15 @@
       "admin1": [
         "RU-CHU",
         "RU-SA"
-      ]
+      ],
+      "admin1_clips": {
+        "RU-SA": [
+          131.0,
+          54.0,
+          165.0,
+          78.0
+        ]
+      }
     },
     {
       "territory_id": "magadan",

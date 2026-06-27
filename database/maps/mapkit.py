@@ -202,7 +202,7 @@ def build_map(map_id, name, description, bounds, regions, territories, connectio
             "region_id": region_id,
             "geo_polygon": [[round(lng, 3), round(lat, 3)] for lng, lat in geo],
         }
-        for key in ("iso_codes", "admin1", "geo_config", "clip_bbox"):
+        for key in ("iso_codes", "admin1", "admin1_clips", "geo_config", "clip_bbox", "clip_polygon"):
             if key in admin_refs.get(tid, {}):
                 terr[key] = admin_refs[tid][key]
         out_territories.append(terr)
