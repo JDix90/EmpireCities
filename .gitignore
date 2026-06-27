@@ -8,6 +8,8 @@ build/
 .DS_Store
 coverage/
 .nyc_output/
+__pycache__/
+*.pyc
 .claude/worktrees/
 
 # Playwright output (regenerated every run)
