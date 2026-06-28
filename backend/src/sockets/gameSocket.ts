@@ -31,6 +31,7 @@ import {
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
+import { projectMapToEraFloor, unlockTerritoriesForFloor } from '../game-engine/eraAdvancement/territoryUnlock';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
@@ -442,7 +443,9 @@ async function applyApprovedLobbyMapChange(
 
   const gameMap = await resolveMap(value.map_id);
   if (gameMap) {
-    io.to(gameId).emit('game:map', { mapId: value.map_id, map: gameMap });
+    // Lobby preview shows the starting board (era floor 0); growth territories
+    // appear in-game as eras advance. No-op for maps without growth tags.
+    io.to(gameId).emit('game:map', { mapId: value.map_id, map: projectMapToEraFloor(gameMap, 0) });
   }
 }
 
@@ -984,7 +987,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           await emitLobbyProposalUpdates(io, gameId, waitingDetails);
           const waitingMap = await resolveMap(game.map_id);
           if (waitingMap) {
-            socket.emit('game:map', { mapId: game.map_id, map: waitingMap });
+            socket.emit('game:map', { mapId: game.map_id, map: projectMapToEraFloor(waitingMap, 0) });
           }
         }
 
@@ -1009,7 +1012,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           // custom maps don't have to be re-fetched via the public REST
           // endpoint (which now requires the requester to be the creator
           // or have access to a public+approved map).
-          socket.emit('game:map', { mapId: room.state.map_id, map: room.map });
+          socket.emit('game:map', {
+            mapId: room.state.map_id,
+            map: projectMapToEraFloor(room.map, room.state.map_era_floor ?? 0),
+          });
 
           // Re-broadcast any pending choice-based event card so reconnecting players see the modal
           if (room.state.active_event?.choices?.length) {
@@ -1219,7 +1225,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           getOrBuildAdjacency(room.map);
           await onPlayerConnected(gameId, socket.id, userId);
           socket.emit('game:started', buildGameStartedPayload(gameId, room.state));
-          socket.emit('game:map', { mapId: room.state.map_id, map: room.map });
+          socket.emit('game:map', {
+            mapId: room.state.map_id,
+            map: projectMapToEraFloor(room.map, room.state.map_era_floor ?? 0),
+          });
           socket.emit('game:state', buildClientState(room.state, userId, room.state.settings.fog_of_war));
           return;
         }
@@ -2162,6 +2171,22 @@ export function initGameSocket(httpServer: HttpServer): Server {
         eraId: nextEraId,
         state,
       }));
+
+      // Era Advancement territory growth: reaching a new era can open new
+      // neutral frontier territories on the shared board. Re-emit the projected
+      // map geometry so clients can render the additions, then let broadcastState
+      // (below) sync their neutral garrisons.
+      const unlockedTerritoryIds = unlockTerritoriesForFloor(state, room.map);
+      if (unlockedTerritoryIds.length > 0) {
+        io.to(gameId).emit('game:map', {
+          mapId: state.map_id,
+          map: projectMapToEraFloor(room.map, state.map_era_floor ?? 0),
+        });
+        io.to(gameId).emit('game:territories_unlocked', {
+          era_id: nextEraId,
+          territory_ids: unlockedTerritoryIds,
+        });
+      }
 
       commitActionDecision(
         gameId, state, userId, 'advance_era',
@@ -3502,7 +3527,10 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   // Send the resolved map to every player in the room so client code
   // never has to re-fetch via REST during play (private/pending custom
   // maps would otherwise be invisible to non-creator participants).
-  io.to(gameId).emit('game:map', { mapId: state.map_id, map: gameMap });
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(gameMap, state.map_era_floor ?? 0),
+  });
   broadcastState(io, gameId, state);
 
   // Increment play count for community/era maps. Server-triggered only:
@@ -4522,6 +4550,20 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         eraId: nextEraId,
         state,
       }));
+      // Territory growth: an AI reaching a new era can open the same neutral
+      // frontiers for everyone (global, first-to-reach). Re-emit the projected
+      // map before broadcastState so clients render the additions.
+      const unlockedTerritoryIds = unlockTerritoriesForFloor(state, map);
+      if (unlockedTerritoryIds.length > 0) {
+        io.to(gameId).emit('game:map', {
+          mapId: state.map_id,
+          map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+        });
+        io.to(gameId).emit('game:territories_unlocked', {
+          era_id: nextEraId,
+          territory_ids: unlockedTerritoryIds,
+        });
+      }
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       await delay();

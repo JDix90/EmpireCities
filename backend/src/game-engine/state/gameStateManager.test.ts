@@ -6,6 +6,7 @@ import {
   checkVictory,
   redeemCardSet,
   findRedeemableCardIds,
+  drawCard,
   initializeGameState,
 } from './gameStateManager';
 import { calculateReinforcements } from '../combat/combatResolver';
@@ -224,6 +225,69 @@ describe('redeemCardSet', () => {
     const bonus = redeemCardSet(state, 'p1', ids);
     state.draft_units_remaining += bonus;
     expect(state.draft_units_remaining).toBe(3 + bonus);
+  });
+
+  it('moves redeemed cards to the discard pile instead of destroying them', () => {
+    const state = stateWithCards();
+    redeemCardSet(state, 'p1', ['c1', 'c2', 'c3']);
+    expect(state.discard_pile?.map((c) => c.card_id).sort()).toEqual(['c1', 'c2', 'c3']);
+  });
+});
+
+// ── drawCard deck recycling ──────────────────────────────────────────────────
+
+describe('drawCard', () => {
+  it('draws the top card off the deck into the player hand', () => {
+    const state = makeState({
+      card_deck: [{ card_id: 'd1', territory_id: 't1', symbol: 'infantry' }],
+    });
+    drawCard(state, 'p1');
+    expect(state.players[0].cards.map((c) => c.card_id)).toEqual(['d1']);
+    expect(state.card_deck).toHaveLength(0);
+  });
+
+  it('no-ops when both the deck and discard pile are empty', () => {
+    const state = makeState({ card_deck: [], discard_pile: [] });
+    drawCard(state, 'p1');
+    expect(state.players[0].cards).toHaveLength(0);
+  });
+
+  it('reshuffles the discard pile into the deck when the deck runs dry', () => {
+    const state = makeState({
+      card_deck: [],
+      discard_pile: [
+        { card_id: 'r1', territory_id: 't1', symbol: 'infantry' },
+        { card_id: 'r2', territory_id: 't2', symbol: 'cavalry' },
+      ],
+    });
+    drawCard(state, 'p1');
+    // One card recycled into the player's hand; the rest stays in the (now) deck,
+    // and the discard pile is emptied.
+    expect(state.players[0].cards).toHaveLength(1);
+    expect(state.card_deck).toHaveLength(1);
+    expect(state.discard_pile).toHaveLength(0);
+    const drawn = state.players[0].cards[0].card_id;
+    expect(['r1', 'r2']).toContain(drawn);
+  });
+
+  it('keeps cards flowing across redeem → exhaust → redraw (the Era Advancement case)', () => {
+    const cards: TerritoryCard[] = [
+      { card_id: 'c1', territory_id: 't1', symbol: 'infantry' },
+      { card_id: 'c2', territory_id: 't2', symbol: 'cavalry' },
+      { card_id: 'c3', territory_id: 't3', symbol: 'artillery' },
+    ];
+    const state = makeState({
+      players: [makePlayer('p1', 0, { cards: [...cards] }), makePlayer('p2', 1)],
+      card_deck: [],
+      discard_pile: [],
+    });
+    // Deck is empty (long game). Player redeems a set, then should still be able
+    // to earn a card afterward because the redeemed cards recycle.
+    redeemCardSet(state, 'p1', ['c1', 'c2', 'c3']);
+    expect(state.card_deck).toHaveLength(0);
+    expect(state.discard_pile).toHaveLength(3);
+    drawCard(state, 'p1');
+    expect(state.players[0].cards).toHaveLength(1);
   });
 });
 

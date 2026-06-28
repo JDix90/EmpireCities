@@ -1537,6 +1537,18 @@ export default function GamePage() {
       }
     });
 
+    // Era Advancement territory growth: a player reaching a new era opens new
+    // neutral frontier territories on the shared board (geometry arrives via the
+    // re-emitted game:map; this is just the player-facing cue).
+    socket.on('game:territories_unlocked', ({ territory_ids }: { era_id?: string; territory_ids?: string[] }) => {
+      const count = territory_ids?.length ?? 0;
+      if (count <= 0) return;
+      toast(
+        `New lands have opened — ${count} neutral territor${count === 1 ? 'y' : 'ies'} to conquer!`,
+        { icon: '🗺️', duration: 6000 },
+      );
+    });
+
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
       fromId: string; toId: string;
       result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
@@ -1918,6 +1930,7 @@ export default function GamePage() {
       socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
       socket.off('game:advance_era_result');
+      socket.off('game:territories_unlocked');
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
       socket.off('game:event_card');

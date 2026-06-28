@@ -26,6 +26,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
+import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
 
@@ -114,7 +115,11 @@ export function initializeGameState(
   // Build territory state — all unowned initially. Mirror the static
   // `region_id` from map data into the runtime state so per-region event
   // effects don't have to drag the heavy map document through every layer.
+  // Era Advancement territory growth: hold back territories tagged for a later
+  // era (`unlock_era_index > 0`); they're added as neutral frontiers when the
+  // global era floor reaches them (see eraAdvancement/territoryUnlock.ts).
   for (const t of map.territories) {
+    if (territoryUnlockEra(t) > 0) continue;
     territories[t.territory_id] = {
       territory_id: t.territory_id,
       owner_id: null,
@@ -307,7 +312,9 @@ export function initializeGameState(
     turn_number: 1,
     players: playerStates,
     territories,
+    map_era_floor: 0,
     card_deck: cardDeck,
+    discard_pile: [],
     card_set_redemption_count: 0,
     diplomacy,
     settings: settingsNorm,
@@ -1030,7 +1037,17 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
  * Draw a territory card from the deck for a player.
  */
 export function drawCard(state: GameState, playerId: string): void {
-  if (state.card_deck.length === 0) return;
+  if (state.card_deck.length === 0) {
+    // Deck exhausted: recycle redeemed cards by reshuffling the discard pile
+    // back in (classic Risk). The deck is only `territoryCount + 2` cards and is
+    // never otherwise replenished, so without this it runs dry in long games and
+    // capturing silently stops earning cards.
+    if (state.discard_pile && state.discard_pile.length > 0) {
+      state.card_deck = shuffleArray(state.discard_pile);
+      state.discard_pile = [];
+    }
+    if (state.card_deck.length === 0) return;
+  }
   const card = state.card_deck.shift()!;
   const player = state.players.find((p) => p.player_id === playerId);
   if (player) player.cards.push(card);
@@ -1059,8 +1076,10 @@ export function redeemCardSet(
     throw new Error('Invalid card set combination');
   }
 
-  // Remove cards from hand
+  // Remove cards from hand and move them to the discard pile so they can be
+  // reshuffled back into the deck once it empties (see drawCard).
   player.cards = player.cards.filter((c) => !cardIds.includes(c.card_id));
+  (state.discard_pile ??= []).push(...cards);
 
   const bonus = getCardSetBonus(state.card_set_redemption_count);
   state.card_set_redemption_count++;
