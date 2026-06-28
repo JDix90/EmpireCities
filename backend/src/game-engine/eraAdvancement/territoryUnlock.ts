@@ -20,8 +20,14 @@
 import { inferWorldId } from '@borderfall/shared';
 import type { GameMap, GameState, TerritoryState } from '../../types';
 
-/** Garrison placed on a freshly unlocked neutral frontier territory. */
-export const NEUTRAL_UNLOCK_GARRISON = 3;
+/**
+ * Garrison placed on a freshly unlocked neutral frontier. Scales with the unlock
+ * era so deeper frontiers — reached later, when players are stronger — defend
+ * harder (era 1 → 3, era 2 → 4, …), capped so they stay takeable.
+ */
+export function unlockGarrisonForEra(unlockEraIndex: number): number {
+  return Math.min(8, 2 + Math.max(1, unlockEraIndex));
+}
 
 /** The advancement era index at which a map territory enters play (0 = start). */
 export function territoryUnlockEra(t: { unlock_era_index?: number }): number {
@@ -99,7 +105,7 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
     const territory: TerritoryState = {
       territory_id: t.territory_id,
       owner_id: null,
-      unit_count: NEUTRAL_UNLOCK_GARRISON,
+      unit_count: unlockGarrisonForEra(unlockEra),
       unit_type: 'infantry',
       world_id: inferWorldId(t),
       region_id: t.region_id,

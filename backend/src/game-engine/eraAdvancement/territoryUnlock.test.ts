@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import {
-  NEUTRAL_UNLOCK_GARRISON,
+  unlockGarrisonForEra,
   globalEraFloor,
   lockedTerritoryIds,
   mapHasEraGrowth,
@@ -137,7 +137,7 @@ describe('unlockTerritoriesForFloor', () => {
     const med = state.territories.med_a;
     expect(med).toBeDefined();
     expect(med.owner_id).toBeNull();
-    expect(med.unit_count).toBe(NEUTRAL_UNLOCK_GARRISON);
+    expect(med.unit_count).toBe(unlockGarrisonForEra(1));
     expect(med.region_id).toBe('r1');
     // Era-2 territories remain locked.
     expect(state.territories.disc_a).toBeUndefined();
@@ -149,6 +149,17 @@ describe('unlockTerritoriesForFloor', () => {
     const added = unlockTerritoriesForFloor(state, map).sort();
     expect(added).toEqual(['disc_a', 'disc_b', 'med_a']);
     expect(state.map_era_floor).toBe(2);
+    // Garrison scales with the unlock era: era-2 frontiers defend harder than era-1.
+    expect(state.territories.med_a.unit_count).toBe(unlockGarrisonForEra(1));
+    expect(state.territories.disc_a.unit_count).toBe(unlockGarrisonForEra(2));
+    expect(unlockGarrisonForEra(2)).toBeGreaterThan(unlockGarrisonForEra(1));
+  });
+
+  it('garrison scales with era and is capped', () => {
+    expect(unlockGarrisonForEra(1)).toBe(3);
+    expect(unlockGarrisonForEra(2)).toBe(4);
+    expect(unlockGarrisonForEra(5)).toBe(7);
+    expect(unlockGarrisonForEra(99)).toBe(8); // capped
   });
 
   it('is idempotent — re-running adds nothing and never duplicates', () => {

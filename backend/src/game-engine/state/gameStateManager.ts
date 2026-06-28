@@ -587,7 +587,15 @@ export function calculateContinentBonuses(
 ): number {
   let bonus = 0;
   for (const region of map.regions) {
-    const regionTerritories = map.territories.filter((t) => t.region_id === region.region_id);
+    // Only count territories that are currently in play. On a growing board (Era
+    // Advancement territory growth) a region may include frontier territories not
+    // yet unlocked: those must not block the bonus for the in-play part, and an
+    // all-locked region must not award a vacuous bonus (`[].every()` is true).
+    // No-op for maps without growth — every territory is always in play there.
+    const regionTerritories = map.territories.filter(
+      (t) => t.region_id === region.region_id && state.territories[t.territory_id] !== undefined
+    );
+    if (regionTerritories.length === 0) continue;
     const ownsAll = regionTerritories.every(
       (t) => state.territories[t.territory_id]?.owner_id === playerId
     );
