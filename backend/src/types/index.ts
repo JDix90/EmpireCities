@@ -611,6 +611,13 @@ export interface GameState {
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
   card_deck: TerritoryCard[];
+  /**
+   * Redeemed territory cards awaiting recycling. When `card_deck` empties, the
+   * discard pile is shuffled back into the deck (classic Risk) so long games —
+   * notably Era Advancement / Full Games — don't run permanently out of cards.
+   * Optional for backward-compat with states persisted before this field existed.
+   */
+  discard_pile?: TerritoryCard[];
   card_set_redemption_count: number;
   diplomacy: DiplomacyEntry[];
   /** Pending truce proposals awaiting target player response. */

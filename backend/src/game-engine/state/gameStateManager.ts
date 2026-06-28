@@ -308,6 +308,7 @@ export function initializeGameState(
     players: playerStates,
     territories,
     card_deck: cardDeck,
+    discard_pile: [],
     card_set_redemption_count: 0,
     diplomacy,
     settings: settingsNorm,
@@ -1030,7 +1031,17 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
  * Draw a territory card from the deck for a player.
  */
 export function drawCard(state: GameState, playerId: string): void {
-  if (state.card_deck.length === 0) return;
+  if (state.card_deck.length === 0) {
+    // Deck exhausted: recycle redeemed cards by reshuffling the discard pile
+    // back in (classic Risk). The deck is only `territoryCount + 2` cards and is
+    // never otherwise replenished, so without this it runs dry in long games and
+    // capturing silently stops earning cards.
+    if (state.discard_pile && state.discard_pile.length > 0) {
+      state.card_deck = shuffleArray(state.discard_pile);
+      state.discard_pile = [];
+    }
+    if (state.card_deck.length === 0) return;
+  }
   const card = state.card_deck.shift()!;
   const player = state.players.find((p) => p.player_id === playerId);
   if (player) player.cards.push(card);
@@ -1059,8 +1070,10 @@ export function redeemCardSet(
     throw new Error('Invalid card set combination');
   }
 
-  // Remove cards from hand
+  // Remove cards from hand and move them to the discard pile so they can be
+  // reshuffled back into the deck once it empties (see drawCard).
   player.cards = player.cards.filter((c) => !cardIds.includes(c.card_id));
+  (state.discard_pile ??= []).push(...cards);
 
   const bonus = getCardSetBonus(state.card_set_redemption_count);
   state.card_set_redemption_count++;
