@@ -78,10 +78,14 @@ export function executeLandAttack(
   // Neutral (owner-less) territories are normally not attackable. Era Advancement
   // grows the board with neutral, garrisoned FRONTIER territories as players climb
   // eras (see eraAdvancement/territoryUnlock.ts); those must be conquerable. Allow
-  // capturing a neutral garrison only in era-advancement games, so standard games
-  // (and the Space Age moon) keep their current behavior. All defender-dependent
-  // combat math below already handles a null defender id.
-  if (!to.owner_id && !state.settings.era_advancement_enabled) return null;
+  // capturing a neutral garrison only in era-advancement games, AND never for
+  // off-world territories (the Moon / galaxy neutral worlds), which keep their
+  // "tech up to claim it" access race. Earth frontiers carry world_id 'earth'.
+  // All defender-dependent combat math below already handles a null defender id.
+  if (!to.owner_id) {
+    const targetIsOffworld = !!to.world_id && to.world_id !== 'earth';
+    if (!state.settings.era_advancement_enabled || targetIsOffworld) return null;
+  }
   if (from.unit_count < 2 || to.unit_count < 1) return null;
 
   const defenderId = to.owner_id;

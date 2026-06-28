@@ -23,6 +23,8 @@ When enabled, each player has an independent `current_era_index` (0 or 1 in PoC)
 
 ### 2.1 Map policy (same map for entire match)
 
+> **⚠️ Partially superseded (Stage 5 — territory growth).** The "geometry never changes mid-match" half of this decision no longer holds: a map may now *grow* by adding new **neutral frontier** territories as players climb eras. This is **additive only** — the starting board, ownership, buildings, and existing connections all persist, and there is still **no** hot-swap to `era_medieval.json`. See [`stage5-territory-growth.md`](./stage5-territory-growth.md).
+
 **Decision:** The lobby `map_id` is fixed for the full session. Advancement does **not** reload map geometry or swap to `era_medieval.json`.
 
 | Persists across advance | Changes on advance |

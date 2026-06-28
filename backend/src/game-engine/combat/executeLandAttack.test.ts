@@ -50,7 +50,7 @@ describe('executeLandAttack', () => {
 
   it('conquers a neutral, garrisoned frontier in era-advancement games', () => {
     const s = state(
-      { a: terr('a', 'p1', 10), frontier: terr('frontier', null, 2) },
+      { a: terr('a', 'p1', 10), frontier: terr('frontier', null, 2, { world_id: 'earth' }) },
       [player('p1', { territory_count: 1 })],
       { era_advancement_enabled: true },
     );
@@ -61,11 +61,22 @@ describe('executeLandAttack', () => {
     expect(s.players[0].territory_count).toBe(2);
   });
 
-  it('does NOT allow neutral capture outside era-advancement games (moon/standard unchanged)', () => {
+  it('does NOT allow neutral capture outside era-advancement games (standard unchanged)', () => {
     const s = state(
-      { a: terr('a', 'p1', 10), moon: terr('moon', null, 2) },
+      { a: terr('a', 'p1', 10), neutral: terr('neutral', null, 2, { world_id: 'earth' }) },
       [player('p1')],
       { era_advancement_enabled: false },
+    );
+    expect(executeLandAttack(s, 'p1', 'a', 'neutral', { dieRoll: diceFrom([6, 6, 6, 1]) })).toBeNull();
+    expect(s.territories.neutral.owner_id).toBeNull();
+  });
+
+  it('never allows conquering a neutral OFF-WORLD garrison, even in era-advancement games', () => {
+    // Preserves the Space Age / galaxy "tech up to claim the Moon" access race.
+    const s = state(
+      { a: terr('a', 'p1', 10), moon: terr('moon', null, 2, { world_id: 'moon' }) },
+      [player('p1')],
+      { era_advancement_enabled: true },
     );
     expect(executeLandAttack(s, 'p1', 'a', 'moon', { dieRoll: diceFrom([6, 6, 6, 1]) })).toBeNull();
     expect(s.territories.moon.owner_id).toBeNull();
