@@ -7,6 +7,7 @@ import {
   redeemCardSet,
   findRedeemableCardIds,
   drawCard,
+  calculateContinentBonuses,
   initializeGameState,
 } from './gameStateManager';
 import { calculateReinforcements } from '../combat/combatResolver';
@@ -288,6 +289,48 @@ describe('drawCard', () => {
     expect(state.discard_pile).toHaveLength(3);
     drawCard(state, 'p1');
     expect(state.players[0].cards).toHaveLength(1);
+  });
+});
+
+// ── calculateContinentBonuses (growing board) ───────────────────────────────
+
+describe('calculateContinentBonuses', () => {
+  function growthMap(): GameMap {
+    return {
+      map_id: 'growth',
+      name: 'Growth',
+      territories: [
+        { territory_id: 'base', name: 'base', polygon: [[0, 0]], center_point: [0, 0], region_id: 'reg' },
+        { territory_id: 'frontier', name: 'frontier', polygon: [[1, 0]], center_point: [1, 0], region_id: 'reg', unlock_era_index: 2 },
+      ],
+      connections: [],
+      regions: [{ region_id: 'reg', name: 'Reg', bonus: 3 }],
+    } as GameMap;
+  }
+
+  it('awards the bonus for the in-play part while a frontier member is still locked', () => {
+    const state = makeState({ territories: { base: makeTerritory('base', 'p1', 1) } });
+    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(3);
+  });
+
+  it('withholds the bonus once the frontier is in play but not yet owned', () => {
+    const state = makeState({
+      territories: {
+        base: makeTerritory('base', 'p1', 1),
+        frontier: makeTerritory('frontier', null, 4), // unlocked, neutral
+      },
+    });
+    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(0);
+    // ...and restores it once the frontier is conquered.
+    state.territories.frontier.owner_id = 'p1';
+    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(3);
+  });
+
+  it('does not award a vacuous bonus for an all-locked region (none in play)', () => {
+    const map = growthMap();
+    map.territories[0].unlock_era_index = 2; // make EVERY member locked
+    const state = makeState({ territories: {} });
+    expect(calculateContinentBonuses(state, map, 'p1')).toBe(0);
   });
 });
 

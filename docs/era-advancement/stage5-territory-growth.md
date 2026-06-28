@@ -82,8 +82,14 @@ Unchanged and still distinct:
   considered neutral neighbours; it now skips *un-capturable* neutrals (non-era-advancement
   games, and off-world targets) so it never wastes its attack budget, and adds a small
   `NEUTRAL_EXPANSION_BONUS` so it reliably grabs adjacent Earth frontiers.
-- **Content scale** — only `era_ancient` is authored; the engine scales to more maps/eras.
-- **Balance** — garrison size, region bonuses, and continent-bonus math on a growing board want
-  tuning passes.
-- **Render polish** — a mid-game `game:map` re-emit re-initializes the renderers; consider an
-  incremental update + entrance animation for newly unlocked land.
+- **Content scale — `era_ancient` covers the full climb (done for this map).** It now grows
+  28 → 31 → 35 → 37 → 39 → 41 across eras 0–5. Other base maps still have no growth content.
+- **Balance — first pass done.** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
+  and `calculateContinentBonuses` now counts only in-play territories so a growing board doesn't
+  break (or vacuously award) region bonuses. Region-bonus values still want playtest tuning.
+- **Render polish — entrance animation done.** `game:territories_unlocked` pulses the newly-opened
+  frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and
+  the camera + selection (Zustand) persist across the mid-game `game:map` re-emit, so there is no
+  full re-initialization to undo.
+- **Still open:** growth content for other base maps, region-bonus playtest tuning, and (if QA
+  shows it's wanted) a dedicated globe entrance effect for newly-unlocked land.

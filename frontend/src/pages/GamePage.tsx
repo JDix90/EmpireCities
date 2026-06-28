@@ -1541,12 +1541,31 @@ export default function GamePage() {
     // neutral frontier territories on the shared board (geometry arrives via the
     // re-emitted game:map; this is just the player-facing cue).
     socket.on('game:territories_unlocked', ({ territory_ids }: { era_id?: string; territory_ids?: string[] }) => {
-      const count = territory_ids?.length ?? 0;
-      if (count <= 0) return;
+      const ids = territory_ids ?? [];
+      if (ids.length === 0) return;
       toast(
-        `New lands have opened — ${count} neutral territor${count === 1 ? 'y' : 'ies'} to conquer!`,
+        `New lands have opened — ${ids.length} neutral territor${ids.length === 1 ? 'y' : 'ies'} to conquer!`,
         { icon: '🗺️', duration: 6000 },
       );
+      // Entrance animation: gently pulse the newly-opened frontier regions. The new
+      // geometry arrives via the game:map re-emit (mapDataRef, already applied above);
+      // the Pixi app, camera, and selection persist across that update, so the map
+      // grows in place — this just lights up the new land. A region_highlight visual
+      // pulses every in-play territory of the region (the new frontiers); it no-ops
+      // gracefully for any territory whose centroid isn't laid out yet.
+      const map = mapDataRef.current;
+      if (!map) return;
+      // One highlight per newly-opened region, keyed to a representative new
+      // territory in it (territoryId is required on the event; the region_highlight
+      // renderer pulses by regionId).
+      const regionRep = new Map<string, string>();
+      for (const id of ids) {
+        const t = map.territories.find((tt) => tt.territory_id === id);
+        if (t?.region_id && !regionRep.has(t.region_id)) regionRep.set(t.region_id, id);
+      }
+      for (const [regionId, territoryId] of regionRep) {
+        pushMapVisualLocal({ kind: 'event', territoryId, regionId, variant: 'territory_unlocked' });
+      }
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
