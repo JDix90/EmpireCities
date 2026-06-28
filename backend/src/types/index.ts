@@ -610,6 +610,13 @@ export interface GameState {
   turn_number: number;
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
+  /**
+   * Era Advancement territory growth: the highest advancement era index whose
+   * `unlock_era_index`-tagged territories have been added to the live board.
+   * Starts at 0 (only era-0 territories in play) and rises as the first player
+   * reaches each new era. Optional/back-compat: absent ⇒ treat as 0.
+   */
+  map_era_floor?: number;
   card_deck: TerritoryCard[];
   /**
    * Redeemed territory cards awaiting recycling. When `card_deck` empties, the
@@ -873,6 +880,15 @@ export interface MapTerritory {
   clip_bbox?: [number, number, number, number];
   /** Per-country config for split regions */
   geo_config?: GeoConfigItem[];
+  /**
+   * Era Advancement territory growth: the advancement era index at which this
+   * territory enters play. Omitted or 0 → present from game start. A positive
+   * value means the territory is held out of the live board until the global
+   * era floor (the highest era index any player has reached) catches up, at
+   * which point it appears as a neutral, lightly garrisoned frontier to conquer.
+   * No-op on maps that don't tag any territories (the default for every map).
+   */
+  unlock_era_index?: number;
 }
 
 export interface MapConnection {

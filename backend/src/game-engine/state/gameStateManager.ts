@@ -26,6 +26,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
+import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
 
@@ -114,7 +115,11 @@ export function initializeGameState(
   // Build territory state — all unowned initially. Mirror the static
   // `region_id` from map data into the runtime state so per-region event
   // effects don't have to drag the heavy map document through every layer.
+  // Era Advancement territory growth: hold back territories tagged for a later
+  // era (`unlock_era_index > 0`); they're added as neutral frontiers when the
+  // global era floor reaches them (see eraAdvancement/territoryUnlock.ts).
   for (const t of map.territories) {
+    if (territoryUnlockEra(t) > 0) continue;
     territories[t.territory_id] = {
       territory_id: t.territory_id,
       owner_id: null,
@@ -307,6 +312,7 @@ export function initializeGameState(
     turn_number: 1,
     players: playerStates,
     territories,
+    map_era_floor: 0,
     card_deck: cardDeck,
     discard_pile: [],
     card_set_redemption_count: 0,

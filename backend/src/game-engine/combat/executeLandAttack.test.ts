@@ -48,6 +48,29 @@ describe('executeLandAttack', () => {
     expect(executeLandAttack(s, 'p2', 'c', 'b')).toBeNull(); // p2 does not own the source
   });
 
+  it('conquers a neutral, garrisoned frontier in era-advancement games', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), frontier: terr('frontier', null, 2) },
+      [player('p1', { territory_count: 1 })],
+      { era_advancement_enabled: true },
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'frontier', { dieRoll: diceFrom([6, 6, 6, 1, 1]) });
+    expect(out?.captured).toBe(true);
+    expect(s.territories.frontier.owner_id).toBe('p1');
+    expect(out?.defenderEliminated).toBe(false); // neutral has no owning player to eliminate
+    expect(s.players[0].territory_count).toBe(2);
+  });
+
+  it('does NOT allow neutral capture outside era-advancement games (moon/standard unchanged)', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), moon: terr('moon', null, 2) },
+      [player('p1')],
+      { era_advancement_enabled: false },
+    );
+    expect(executeLandAttack(s, 'p1', 'a', 'moon', { dieRoll: diceFrom([6, 6, 6, 1]) })).toBeNull();
+    expect(s.territories.moon.owner_id).toBeNull();
+  });
+
   it('grants the era-gap attack die to an era-ahead attacker (EA-203 flows through)', () => {
     const settings = { era_advancement_enabled: true, era_advancement_combat_gap_dice: 1 };
     const ahead = state(
