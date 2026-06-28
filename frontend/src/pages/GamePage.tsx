@@ -1555,13 +1555,16 @@ export default function GamePage() {
       // gracefully for any territory whose centroid isn't laid out yet.
       const map = mapDataRef.current;
       if (!map) return;
-      const newRegionIds = new Set<string>();
+      // One highlight per newly-opened region, keyed to a representative new
+      // territory in it (territoryId is required on the event; the region_highlight
+      // renderer pulses by regionId).
+      const regionRep = new Map<string, string>();
       for (const id of ids) {
         const t = map.territories.find((tt) => tt.territory_id === id);
-        if (t?.region_id) newRegionIds.add(t.region_id);
+        if (t?.region_id && !regionRep.has(t.region_id)) regionRep.set(t.region_id, id);
       }
-      for (const regionId of newRegionIds) {
-        pushMapVisualLocal({ kind: 'event', regionId, variant: 'territory_unlocked' });
+      for (const [regionId, territoryId] of regionRep) {
+        pushMapVisualLocal({ kind: 'event', territoryId, regionId, variant: 'territory_unlocked' });
       }
     });
 
