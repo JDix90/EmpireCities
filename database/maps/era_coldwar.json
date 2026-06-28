@@ -1193,7 +1193,14 @@
         93
       ],
       "region_id": "east_asia_cw"
-    }
+    },
+    { "territory_id": "polar_arctic", "name": "Polar Frontier", "polygon": [[490,560],[720,560],[720,648],[490,648]], "center_point": [605,604], "region_id": "polar_frontier", "unlock_era_index": 1 },
+    { "territory_id": "antarctic_west", "name": "West Antarctic Station", "polygon": [[120,650],[400,650],[400,695],[120,695]], "center_point": [260,672], "region_id": "antarctic_claims", "unlock_era_index": 2 },
+    { "territory_id": "antarctic_east", "name": "East Antarctic Station", "polygon": [[600,655],[900,655],[900,695],[600,695]], "center_point": [750,675], "region_id": "antarctic_claims", "unlock_era_index": 2 },
+    { "territory_id": "indian_ocean", "name": "Indian Ocean Reach", "polygon": [[730,585],[860,585],[860,648],[730,648]], "center_point": [795,616], "region_id": "oceanic_frontier", "unlock_era_index": 3 },
+    { "territory_id": "bering_strait", "name": "Bering Strait", "polygon": [[920,615],[1100,615],[1100,695],[920,695]], "center_point": [1010,655], "region_id": "oceanic_frontier", "unlock_era_index": 3 },
+    { "territory_id": "nonaligned_oceania", "name": "Non-Aligned Oceania", "polygon": [[1120,300],[1195,300],[1195,560],[1120,560]], "center_point": [1157,430], "region_id": "nonaligned_pacific", "unlock_era_index": 4 },
+    { "territory_id": "deep_pacific", "name": "Deep Pacific Outpost", "polygon": [[490,655],[600,655],[600,695],[490,695]], "center_point": [545,675], "region_id": "space_frontier", "unlock_era_index": 5 }
   ],
   "connections": [
     {
@@ -1500,7 +1507,18 @@
       "from": "southern_africa_cw",
       "to": "australia_cw",
       "type": "sea"
-    }
+    },
+    { "from": "polar_arctic", "to": "southern_africa_cw", "type": "sea" },
+    { "from": "antarctic_west", "to": "southern_cone", "type": "sea" },
+    { "from": "antarctic_east", "to": "southern_africa_cw", "type": "sea" },
+    { "from": "antarctic_east", "to": "polar_arctic", "type": "sea" },
+    { "from": "indian_ocean", "to": "australia_cw", "type": "sea" },
+    { "from": "indian_ocean", "to": "polar_arctic", "type": "sea" },
+    { "from": "bering_strait", "to": "indonesia_cw", "type": "sea" },
+    { "from": "bering_strait", "to": "polar_arctic", "type": "sea" },
+    { "from": "nonaligned_oceania", "to": "australia_cw", "type": "sea" },
+    { "from": "deep_pacific", "to": "antarctic_east", "type": "sea" },
+    { "from": "deep_pacific", "to": "indian_ocean", "type": "sea" }
   ],
   "regions": [
     {
@@ -1542,7 +1560,12 @@
       "region_id": "east_asia_cw",
       "name": "East Asia",
       "bonus": 5
-    }
+    },
+    { "region_id": "polar_frontier", "name": "Polar Frontier", "bonus": 2 },
+    { "region_id": "antarctic_claims", "name": "Antarctic Claims", "bonus": 3 },
+    { "region_id": "oceanic_frontier", "name": "Oceanic Frontier", "bonus": 3 },
+    { "region_id": "nonaligned_pacific", "name": "Non-Aligned Pacific", "bonus": 2 },
+    { "region_id": "space_frontier", "name": "Space Frontier", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,
