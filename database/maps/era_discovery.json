@@ -923,7 +923,14 @@
         500
       ],
       "region_id": "sea_routes"
-    }
+    },
+    { "territory_id": "polar_north", "name": "Polar North", "polygon": [[560,15],[810,15],[810,85],[560,85]], "center_point": [685,50], "region_id": "far_north", "unlock_era_index": 1 },
+    { "territory_id": "pacific_islands", "name": "Pacific Islands", "polygon": [[1055,210],[1180,210],[1180,330],[1055,330]], "center_point": [1117,270], "region_id": "pacific_disc", "unlock_era_index": 1 },
+    { "territory_id": "micronesia", "name": "Micronesia", "polygon": [[1055,345],[1180,345],[1180,460],[1055,460]], "center_point": [1117,402], "region_id": "pacific_disc", "unlock_era_index": 2 },
+    { "territory_id": "australia", "name": "Australia", "polygon": [[900,470],[1110,470],[1110,610],[900,610]], "center_point": [1005,540], "region_id": "oceania", "unlock_era_index": 2 },
+    { "territory_id": "new_zealand", "name": "New Zealand", "polygon": [[1015,620],[1150,620],[1150,690],[1015,690]], "center_point": [1082,655], "region_id": "pacific_disc", "unlock_era_index": 3 },
+    { "territory_id": "southern_ocean", "name": "Southern Ocean", "polygon": [[640,625],[860,625],[860,690],[640,690]], "center_point": [750,657], "region_id": "antarctic", "unlock_era_index": 4 },
+    { "territory_id": "antarctica_disc", "name": "Antarctica", "polygon": [[300,635],[610,635],[610,693],[300,693]], "center_point": [455,664], "region_id": "antarctic", "unlock_era_index": 5 }
   ],
   "connections": [
     {
@@ -1175,7 +1182,14 @@
       "from": "indian_ocean",
       "to": "ceylon_spice",
       "type": "sea"
-    }
+    },
+    { "from": "polar_north", "to": "russia_disc", "type": "land" },
+    { "from": "pacific_islands", "to": "japan_disc", "type": "sea" },
+    { "from": "micronesia", "to": "pacific_islands", "type": "sea" },
+    { "from": "australia", "to": "southeast_asia_disc", "type": "sea" },
+    { "from": "new_zealand", "to": "australia", "type": "sea" },
+    { "from": "southern_ocean", "to": "indian_ocean", "type": "sea" },
+    { "from": "antarctica_disc", "to": "southern_ocean", "type": "sea" }
   ],
   "regions": [
     {
@@ -1217,7 +1231,11 @@
       "region_id": "sea_routes",
       "name": "Sea Routes",
       "bonus": 2
-    }
+    },
+    { "region_id": "far_north", "name": "Polar Frontier", "bonus": 2 },
+    { "region_id": "pacific_disc", "name": "Pacific Frontier", "bonus": 4 },
+    { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
+    { "region_id": "antarctic", "name": "Antarctic Frontier", "bonus": 3 }
   ],
   "is_public": true,
   "is_moderated": true,
