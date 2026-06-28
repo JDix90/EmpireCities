@@ -761,6 +761,62 @@
         93
       ],
       "region_id": "germanic"
+    },
+    {
+      "territory_id": "scandinavia",
+      "name": "Scandinavia",
+      "polygon": [[230, 5], [360, 5], [360, 45], [230, 45]],
+      "center_point": [295, 25],
+      "region_id": "northern_frontier",
+      "unlock_era_index": 1
+    },
+    {
+      "territory_id": "volga_bulgaria",
+      "name": "Volga Bulgaria",
+      "polygon": [[430, 5], [560, 5], [560, 55], [430, 55]],
+      "center_point": [495, 30],
+      "region_id": "northern_frontier",
+      "unlock_era_index": 1
+    },
+    {
+      "territory_id": "sahara",
+      "name": "Sahara",
+      "polygon": [[150, 470], [360, 470], [360, 560], [150, 560]],
+      "center_point": [255, 515],
+      "region_id": "saharan",
+      "unlock_era_index": 1
+    },
+    {
+      "territory_id": "north_america",
+      "name": "North America",
+      "polygon": [[5, 150], [75, 150], [75, 300], [5, 300]],
+      "center_point": [40, 225],
+      "region_id": "new_world",
+      "unlock_era_index": 2
+    },
+    {
+      "territory_id": "south_america",
+      "name": "South America",
+      "polygon": [[5, 340], [75, 340], [75, 520], [5, 520]],
+      "center_point": [40, 430],
+      "region_id": "new_world",
+      "unlock_era_index": 2
+    },
+    {
+      "territory_id": "nippon",
+      "name": "Nippon",
+      "polygon": [[1100, 120], [1180, 120], [1180, 260], [1100, 260]],
+      "center_point": [1140, 190],
+      "region_id": "far_east",
+      "unlock_era_index": 2
+    },
+    {
+      "territory_id": "nusantara",
+      "name": "Nusantara",
+      "polygon": [[850, 420], [1050, 420], [1050, 560], [850, 560]],
+      "center_point": [950, 490],
+      "region_id": "far_east",
+      "unlock_era_index": 2
     }
   ],
   "connections": [
@@ -953,7 +1009,22 @@
       "from": "southern_india",
       "to": "southern_china",
       "type": "sea"
-    }
+    },
+    { "from": "scandinavia", "to": "germania", "type": "land" },
+    { "from": "scandinavia", "to": "sarmatia", "type": "land" },
+    { "from": "volga_bulgaria", "to": "sarmatia", "type": "land" },
+    { "from": "volga_bulgaria", "to": "central_steppe", "type": "land" },
+    { "from": "sahara", "to": "west_africa", "type": "land" },
+    { "from": "sahara", "to": "central_africa", "type": "land" },
+    { "from": "sahara", "to": "aksum", "type": "land" },
+    { "from": "north_america", "to": "hispania", "type": "sea" },
+    { "from": "north_america", "to": "britannia", "type": "sea" },
+    { "from": "north_america", "to": "south_america", "type": "land" },
+    { "from": "south_america", "to": "west_africa", "type": "sea" },
+    { "from": "nippon", "to": "manchuria", "type": "sea" },
+    { "from": "nippon", "to": "northern_china", "type": "sea" },
+    { "from": "nusantara", "to": "southern_china", "type": "sea" },
+    { "from": "nusantara", "to": "southern_india", "type": "sea" }
   ],
   "regions": [
     {
@@ -995,7 +1066,11 @@
       "region_id": "germanic",
       "name": "Germanic Lands",
       "bonus": 2
-    }
+    },
+    { "region_id": "northern_frontier", "name": "Northern Frontier", "bonus": 2 },
+    { "region_id": "saharan", "name": "Sahara", "bonus": 1 },
+    { "region_id": "new_world", "name": "The New World", "bonus": 3 },
+    { "region_id": "far_east", "name": "The Far East", "bonus": 3 }
   ],
   "is_public": true,
   "is_moderated": true,
