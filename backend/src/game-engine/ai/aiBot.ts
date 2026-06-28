@@ -265,6 +265,14 @@ export function eliminationAttackBonus(
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
 const FINISHER_OVERCAP = 4;
 
+/**
+ * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming
+ * free frontier land is strategically valuable (more territories → more
+ * reinforcements), so the AI should reliably grab adjacent weak frontiers rather
+ * than only ever fighting other players. Modest so juicy enemy targets still win.
+ */
+const NEUTRAL_EXPANSION_BONUS = 1;
+
 function selectAttacks(
   state: GameState,
   map: GameMap,
@@ -305,6 +313,16 @@ function selectAttacks(
       const nOwner = nState.owner_id;
       if (nOwner && isTruceActive(state, playerId, nOwner)) continue;
 
+      // Neutral targets (Era Advancement frontier territories) are only capturable
+      // in era-advancement games, and never off-world (the Moon / galaxy worlds keep
+      // their access race — see executeLandAttack). Skip un-capturable neutrals so the
+      // AI doesn't waste its per-turn attack budget on attacks the runtime would reject.
+      const targetIsNeutral = !nOwner;
+      if (targetIsNeutral) {
+        const targetOffworld = !!nState.world_id && nState.world_id !== 'earth';
+        if (!state.settings.era_advancement_enabled || targetOffworld) continue;
+      }
+
       const attackUnits = tState.unit_count - 1;
 
       // Determine effective attack dice (era-aware)
@@ -343,7 +361,8 @@ function selectAttacks(
       const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
       const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
       const finisherBonus = eliminationAttackBonus(state, nOwner, difficulty);
-      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + Math.random() * randomFactor * 3;
+      const expansionBonus = targetIsNeutral ? NEUTRAL_EXPANSION_BONUS : 0;
+      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {

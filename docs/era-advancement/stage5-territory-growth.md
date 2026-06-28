@@ -76,10 +76,12 @@ Unchanged and still distinct:
 - Untagged maps and non-era-advancement games have zero behavior change (projection is a no-op;
   the combat change is gated).
 
-## Follow-ups (not yet done)
+## Follow-ups
 
-- **AI does not yet attack neutral frontiers** (it skips neutral targets); AI-heavy games will
-  leave frontiers un-contested until this is added.
+- **AI claims neutral frontiers — done.** The attack planner (`aiBot.selectAttacks`) already
+  considered neutral neighbours; it now skips *un-capturable* neutrals (non-era-advancement
+  games, and off-world targets) so it never wastes its attack budget, and adds a small
+  `NEUTRAL_EXPANSION_BONUS` so it reliably grabs adjacent Earth frontiers.
 - **Content scale** — only `era_ancient` is authored; the engine scales to more maps/eras.
 - **Balance** — garrison size, region bonuses, and continent-bonus math on a growing board want
   tuning passes.
