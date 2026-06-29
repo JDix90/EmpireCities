@@ -82,10 +82,13 @@ Unchanged and still distinct:
   considered neutral neighbours; it now skips *un-capturable* neutrals (non-era-advancement
   games, and off-world targets) so it never wastes its attack budget, and adds a small
   `NEUTRAL_EXPANSION_BONUS` so it reliably grabs adjacent Earth frontiers.
-- **Content scale — all six world maps now grow (done).** `era_ancient` plus `era_medieval`,
-  `era_discovery`, `era_ww2`, `era_coldwar`, and `era_modern` each open neutral frontiers across
-  unlock eras 1–5 (e.g. ancient 28 → 41; modern 43 → 50). `era_space_age` is intentionally left
-  out (Moon / real-geo complexity) and other base/community maps still have none.
+- **Content scale — all seven world maps now grow (done).** `era_ancient`, `era_medieval`,
+  `era_discovery`, `era_ww2`, `era_coldwar`, `era_modern`, and `era_space_age` each open neutral
+  frontiers across unlock eras 1–5 (e.g. ancient 28 → 41; modern 43 → 50; space age 55 → 63).
+  On `era_space_age` the frontiers are deliberately **Earth-surface** (2100 reclamation / seastead /
+  launch-gateway zones, `world_id` 'earth' so they stay conquerable) — the Moon's neutral-garrison
+  claim race is untouched, since the combat carve-out blocks neutral capture for off-world targets.
+  Community maps still have no growth content.
 - **Balance — done (first pass).** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
   and `calculateContinentBonuses` counts only in-play territories so a growing board can't break
   (or vacuously award) region bonuses. Region-bonus calibration: the game uses **generous**
