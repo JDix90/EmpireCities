@@ -536,8 +536,9 @@ function runEraAdvanceEffect(
   const burstGfx = new PIXI.Graphics();
   layer.addChild(burstGfx);
 
+  const isFrontier = event.kind === 'frontier_unlock';
   const eraName = eraAdvanceDisplayName(event.variant);
-  const title = new PIXI.Text(`${eraName.toUpperCase()} ERA`, {
+  const title = new PIXI.Text(isFrontier ? 'NEW FRONTIER' : `${eraName.toUpperCase()} ERA`, {
     fontSize: 28,
     fill: '#fff8dc',
     fontWeight: 'bold',
@@ -549,7 +550,7 @@ function runEraAdvanceEffect(
   title.alpha = 0;
   layer.addChild(title);
 
-  const subtitle = new PIXI.Text('Civilization Ascends', {
+  const subtitle = new PIXI.Text(isFrontier ? 'Ripe for the Taking' : 'Civilization Ascends', {
     fontSize: 13,
     fill: '#ffd700',
     fontWeight: 'bold',
@@ -653,7 +654,9 @@ export function playMap2dVisualEffect(
     return;
   }
 
-  if (event.kind === 'era_advance') {
+  if (event.kind === 'era_advance' || event.kind === 'frontier_unlock') {
+    // Frontier unlocks reuse the era-advance cinematic (gold burst + rings +
+    // banner), re-themed inside runEraAdvanceEffect for "new land, ripe for the taking".
     runEraAdvanceEffect(layer, event, centroids, onDone);
     return;
   }

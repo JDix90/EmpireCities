@@ -87,6 +87,7 @@ import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
 import { eraBoardTheme } from '../constants/eraBoardTheme';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
+import { playFrontierUnlockSound } from '../utils/gameSounds';
 import { formatEraLabel } from '../utils/mapDisplayNames';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { AiBadge } from '../components/ui/AiBadge';
@@ -1544,27 +1545,34 @@ export default function GamePage() {
       const ids = territory_ids ?? [];
       if (ids.length === 0) return;
       toast(
-        `New lands have opened — ${ids.length} neutral territor${ids.length === 1 ? 'y' : 'ies'} to conquer!`,
+        `A new frontier opens — ${ids.length} unclaimed land${ids.length === 1 ? '' : 's'} ripe for the taking!`,
         { icon: '🗺️', duration: 6000 },
       );
-      // Entrance animation: gently pulse the newly-opened frontier regions. The new
-      // geometry arrives via the game:map re-emit (mapDataRef, already applied above);
-      // the Pixi app, camera, and selection persist across that update, so the map
-      // grows in place — this just lights up the new land. A region_highlight visual
-      // pulses every in-play territory of the region (the new frontiers); it no-ops
-      // gracefully for any territory whose centroid isn't laid out yet.
+      try { playFrontierUnlockSound(); } catch { /* audio is best-effort */ }
+      // Epic entrance: route the reveal through the era-advance cinematic — re-themed
+      // as "NEW FRONTIER · Ripe for the Taking" — which frames the new land (camera
+      // fly-to, gated by the user's auto-follow pref), pulses gold ripple waves, and
+      // cascades a golden shimmer over each new territory. New geometry already arrived
+      // via the game:map re-emit (mapDataRef); the renderers no-op gracefully for any
+      // territory not yet laid out. One reveal per newly-opened region.
       const map = mapDataRef.current;
       if (!map) return;
-      // One highlight per newly-opened region, keyed to a representative new
-      // territory in it (territoryId is required on the event; the region_highlight
-      // renderer pulses by regionId).
-      const regionRep = new Map<string, string>();
+      const byRegion = new Map<string, string[]>();
       for (const id of ids) {
-        const t = map.territories.find((tt) => tt.territory_id === id);
-        if (t?.region_id && !regionRep.has(t.region_id)) regionRep.set(t.region_id, id);
+        const regionId = map.territories.find((tt) => tt.territory_id === id)?.region_id;
+        if (!regionId) continue;
+        const arr = byRegion.get(regionId) ?? [];
+        arr.push(id);
+        byRegion.set(regionId, arr);
       }
-      for (const [regionId, territoryId] of regionRep) {
-        pushMapVisualLocal({ kind: 'event', territoryId, regionId, variant: 'territory_unlocked' });
+      for (const [regionId, regionIds] of byRegion) {
+        pushMapVisualLocal({
+          kind: 'frontier_unlock',
+          territoryId: regionIds[0],
+          regionId,
+          affectedTerritories: regionIds.map((territory_id) => ({ territory_id, delta: 0 })),
+          variant: 'frontier_unlock',
+        });
       }
     });
 

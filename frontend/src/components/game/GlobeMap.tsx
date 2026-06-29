@@ -69,8 +69,8 @@ function polygonAltitudeHash(territoryId: string): number {
 
 export interface GlobeEvent {
   id: string;
-  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance';
-  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance';
+  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock';
+  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock';
   territoryId: string;
   fromTerritoryId?: string;
   units?: number;
@@ -2198,7 +2198,10 @@ function GlobeMap({
       panCamera(focus.lat, focus.lng, 1.5);
     }
 
-    const playerRgb = hexToRgb(event.playerColor ?? '#f39c12');
+    const isFrontier = (event.kind ?? event.type) === 'frontier_unlock';
+    // Frontier unlocks glow pure gold (no owning player); era advances tint toward
+    // the advancing player's colour.
+    const playerRgb = isFrontier ? ERA_ADVANCE_GOLD_RGB : hexToRgb(event.playerColor ?? '#f39c12');
     const ringIds: string[] = [];
     const overlayIds: string[] = [];
     const eraName = eraAdvanceDisplayName(event.variant);
@@ -2247,7 +2250,7 @@ function GlobeMap({
           lat: focus.lat,
           lng: focus.lng,
           alt: 0.14,
-          text: `${eraName.toUpperCase()} ERA`,
+          text: isFrontier ? 'NEW FRONTIER' : `${eraName.toUpperCase()} ERA`,
         });
         const subId = uid('era-advance-sub');
         overlayIds.push(subId);
@@ -2257,7 +2260,7 @@ function GlobeMap({
           lat: focus.lat - 1.2,
           lng: focus.lng,
           alt: 0.11,
-          text: 'Civilization Ascends',
+          text: isFrontier ? 'Ripe for the Taking' : 'Civilization Ascends',
         });
       }, 280);
     }
@@ -2327,6 +2330,7 @@ function GlobeMap({
       case 'influence': animateInfluence(next); break;
       case 'event': animateEvent(next); break;
       case 'era_advance': animateEraAdvance(next); break;
+      case 'frontier_unlock': animateEraAdvance(next); break;
       default: playNextRef.current(); break;
     }
   };

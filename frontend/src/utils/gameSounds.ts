@@ -103,6 +103,18 @@ export function playDoctrineArmSound(): void {
   window.setTimeout(() => playTone(880, 0.2, { type: 'triangle', gain: 0.045 }), 150);
 }
 
+/**
+ * Triumphant ascending fanfare for a newly-opened Era Advancement frontier —
+ * grander than the ability cues, to make new land feel epic and inviting.
+ */
+export function playFrontierUnlockSound(): void {
+  playTone(392, 0.16, { type: 'triangle', gain: 0.05 });                                   // G4
+  window.setTimeout(() => playTone(523, 0.16, { type: 'triangle', gain: 0.05 }), 110);     // C5
+  window.setTimeout(() => playTone(659, 0.18, { type: 'triangle', gain: 0.055 }), 220);    // E5
+  window.setTimeout(() => playTone(784, 0.30, { type: 'triangle', gain: 0.06 }), 330);     // G5
+  window.setTimeout(() => playTone(1047, 0.42, { type: 'sine', gain: 0.05 }), 440);        // C6 shimmer
+}
+
 /** Positive blip for draft/placement abilities. */
 export function playAbilityConfirmSound(): void {
   playTone(660, 0.1, { type: 'sine', gain: 0.045 });
