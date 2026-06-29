@@ -2074,7 +2074,8 @@
       "polygon": [[1120, 420], [1195, 420], [1195, 560], [1120, 560]],
       "center_point": [1157, 490],
       "region_id": "pacific_frontier_2100",
-      "unlock_era_index": 1
+      "unlock_era_index": 1,
+      "geo_polygon": [[160,-12],[160,4],[178,4],[178,-12],[160,-12]]
     },
     {
       "territory_id": "arctic_reclamation",
@@ -2082,7 +2083,8 @@
       "polygon": [[410, 5], [560, 5], [560, 60], [410, 60]],
       "center_point": [485, 32],
       "region_id": "polar_frontier_2100",
-      "unlock_era_index": 1
+      "unlock_era_index": 1,
+      "geo_polygon": [[-20,84],[-20,89],[70,89],[70,84],[-20,84]]
     },
     {
       "territory_id": "antarctic_peninsula_2100",
@@ -2090,7 +2092,8 @@
       "polygon": [[450, 615], [650, 615], [650, 685], [450, 685]],
       "center_point": [550, 650],
       "region_id": "antarctic_2100",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[-66,-72],[-66,-64],[-58,-64],[-58,-72],[-66,-72]]
     },
     {
       "territory_id": "north_pacific_gyre",
@@ -2098,7 +2101,8 @@
       "polygon": [[5, 140], [120, 140], [120, 290], [5, 290]],
       "center_point": [62, 215],
       "region_id": "pacific_frontier_2100",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[165,28],[165,42],[179,42],[179,28],[165,28]]
     },
     {
       "territory_id": "antarctic_interior_2100",
@@ -2106,7 +2110,8 @@
       "polygon": [[680, 615], [880, 615], [880, 685], [680, 685]],
       "center_point": [780, 650],
       "region_id": "antarctic_2100",
-      "unlock_era_index": 3
+      "unlock_era_index": 3,
+      "geo_polygon": [[44,-82],[44,-72],[100,-72],[100,-82],[44,-82]]
     },
     {
       "territory_id": "south_atlantic_platforms",
@@ -2114,7 +2119,8 @@
       "polygon": [[480, 480], [600, 480], [600, 575], [480, 575]],
       "center_point": [540, 527],
       "region_id": "atlantic_frontier_2100",
-      "unlock_era_index": 3
+      "unlock_era_index": 3,
+      "geo_polygon": [[-30,-40],[-30,-26],[-10,-26],[-10,-40],[-30,-40]]
     },
     {
       "territory_id": "arctic_siberian_shelf",
@@ -2122,7 +2128,8 @@
       "polygon": [[1075, 10], [1195, 10], [1195, 120], [1075, 120]],
       "center_point": [1135, 65],
       "region_id": "polar_frontier_2100",
-      "unlock_era_index": 4
+      "unlock_era_index": 4,
+      "geo_polygon": [[100,84],[100,89],[175,89],[175,84],[100,84]]
     },
     {
       "territory_id": "equatorial_orbital_anchor",
@@ -2130,7 +2137,8 @@
       "polygon": [[1120, 200], [1195, 200], [1195, 310], [1120, 310]],
       "center_point": [1157, 255],
       "region_id": "orbital_gateway_2100",
-      "unlock_era_index": 5
+      "unlock_era_index": 5,
+      "geo_polygon": [[-44,-6],[-44,6],[-26,6],[-26,-6],[-44,-6]]
     }
   ],
   "connections": [

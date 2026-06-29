@@ -951,13 +951,20 @@
       ],
       "region_id": "sub_saharan_th"
     },
-    { "territory_id": "mid_pacific", "name": "Mid-Pacific Atolls", "polygon": [[1110,400],[1190,400],[1190,560],[1110,560]], "center_point": [1150,480], "region_id": "remote_frontier_th", "unlock_era_index": 1 },
-    { "territory_id": "falklands_ww2", "name": "Falkland Islands", "polygon": [[30,455],[225,455],[225,610],[30,610]], "center_point": [127,532], "region_id": "remote_frontier_th", "unlock_era_index": 1 },
-    { "territory_id": "south_atlantic_ww2", "name": "South Atlantic", "polygon": [[465,425],[660,425],[660,595],[465,595]], "center_point": [562,510], "region_id": "southern_ocean_th", "unlock_era_index": 2 },
-    { "territory_id": "antarctica_peninsula", "name": "Antarctic Peninsula", "polygon": [[255,630],[455,630],[455,695],[255,695]], "center_point": [355,662], "region_id": "antarctic_th", "unlock_era_index": 3 },
-    { "territory_id": "weddell_sea", "name": "Weddell Sea", "polygon": [[470,625],[665,625],[665,695],[470,695]], "center_point": [567,660], "region_id": "antarctic_th", "unlock_era_index": 3 },
-    { "territory_id": "ross_ice_shelf", "name": "Ross Ice Shelf", "polygon": [[720,630],[915,630],[915,695],[720,695]], "center_point": [817,662], "region_id": "antarctic_th", "unlock_era_index": 4 },
-    { "territory_id": "southern_ocean", "name": "Southern Ocean", "polygon": [[930,625],[1115,625],[1115,695],[930,695]], "center_point": [1022,660], "region_id": "southern_ocean_th", "unlock_era_index": 5 }
+    { "territory_id": "mid_pacific", "name": "Mid-Pacific Atolls", "polygon": [[1110,400],[1190,400],[1190,560],[1110,560]], "center_point": [1150,480], "region_id": "remote_frontier_th", "unlock_era_index": 1,
+      "geo_polygon": [[-175,-6],[-175,10],[-150,10],[-150,-6],[-175,-6]] },
+    { "territory_id": "falklands_ww2", "name": "Falkland Islands", "polygon": [[30,455],[225,455],[225,610],[30,610]], "center_point": [127,532], "region_id": "remote_frontier_th", "unlock_era_index": 1,
+      "geo_polygon": [[-62,-53],[-62,-50],[-56,-50],[-56,-53],[-62,-53]] },
+    { "territory_id": "south_atlantic_ww2", "name": "South Atlantic", "polygon": [[465,425],[660,425],[660,595],[465,595]], "center_point": [562,510], "region_id": "southern_ocean_th", "unlock_era_index": 2,
+      "geo_polygon": [[-30,-48],[-30,-36],[-10,-36],[-10,-48],[-30,-48]] },
+    { "territory_id": "antarctica_peninsula", "name": "Antarctic Peninsula", "polygon": [[255,630],[455,630],[455,695],[255,695]], "center_point": [355,662], "region_id": "antarctic_th", "unlock_era_index": 3,
+      "geo_polygon": [[-66,-72],[-66,-64],[-58,-64],[-58,-72],[-66,-72]] },
+    { "territory_id": "weddell_sea", "name": "Weddell Sea", "polygon": [[470,625],[665,625],[665,695],[470,695]], "center_point": [567,660], "region_id": "antarctic_th", "unlock_era_index": 3,
+      "geo_polygon": [[-45,-78],[-45,-72],[-20,-72],[-20,-78],[-45,-78]] },
+    { "territory_id": "ross_ice_shelf", "name": "Ross Ice Shelf", "polygon": [[720,630],[915,630],[915,695],[720,695]], "center_point": [817,662], "region_id": "antarctic_th", "unlock_era_index": 4,
+      "geo_polygon": [[160,-80],[160,-74],[178,-74],[178,-80],[160,-80]] },
+    { "territory_id": "southern_ocean", "name": "Southern Ocean", "polygon": [[930,625],[1115,625],[1115,695],[930,695]], "center_point": [1022,660], "region_id": "southern_ocean_th", "unlock_era_index": 5,
+      "geo_polygon": [[80,-62],[80,-52],[140,-52],[140,-62],[80,-62]] }
   ],
   "connections": [
     {

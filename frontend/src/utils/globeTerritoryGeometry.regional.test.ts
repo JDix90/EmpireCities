@@ -84,3 +84,59 @@ describe('regional inline geo_polygon globe geometry', () => {
     });
   }
 });
+
+/**
+ * Era world maps grow as players advance: later-era frontier territories ship an
+ * inline `geo_polygon` (real WGS84 ring) so the globe renders them at their true
+ * location instead of the world-equirectangular canvas fallback (which threw
+ * frontiers like `volga_bulgaria` into the Arctic as a malformed shard). These
+ * maps are in INLINE_GEO_POLYGON_REVERSE_MAP_IDS, so each frontier cap must come
+ * out in the interior orientation d3-geo fills (signed area > 0), like the
+ * community maps above.
+ */
+const ERA_GROWTH_MAP_IDS = [
+  'era_ancient',
+  'era_medieval',
+  'era_discovery',
+  'era_ww2',
+  'era_coldwar',
+  'era_modern',
+  'era_space_age',
+];
+
+describe('era growth-frontier inline geo_polygon globe geometry', () => {
+  for (const mapId of ERA_GROWTH_MAP_IDS) {
+    describe(mapId, () => {
+      const map = loadMap(mapId) as {
+        territories: { territory_id: string; geo_polygon?: number[][] }[];
+      };
+      // Build with no country data so frontiers resolve through the geo_polygon path.
+      const polys = buildTerritoryGlobeGeometries(
+        map as Parameters<typeof buildTerritoryGlobeGeometries>[0],
+        { countriesGeo: null, statesGeo: null, risorgimentoGeo: null },
+      );
+      const byId = new Map(polys.map((p) => [p.territory_id, p]));
+      const frontiers = map.territories.filter((t) => Array.isArray(t.geo_polygon));
+
+      it('has growth frontiers carrying geo_polygon', () => {
+        expect(frontiers.length).toBeGreaterThan(0);
+      });
+
+      it('every frontier cap renders in the interior orientation (signed area > 0)', () => {
+        for (const t of frontiers) {
+          const p = byId.get(t.territory_id);
+          expect(p, t.territory_id).toBeTruthy();
+          const ring =
+            p!.geometry.type === 'Polygon'
+              ? p!.geometry.coordinates[0]
+              : p!.geometry.coordinates[0][0];
+          expect(ring.length, t.territory_id).toBeGreaterThanOrEqual(4);
+          expect(
+            signedLngLatRingArea(openRing(ring)),
+            t.territory_id,
+          ).toBeGreaterThan(0);
+        }
+      });
+    });
+  }
+});

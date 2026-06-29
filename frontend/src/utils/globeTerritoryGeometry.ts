@@ -337,6 +337,16 @@ export function buildTerritoryGlobeGeometries(
     'community_byzantium_megali',
     'community_balkanized_spain',
     'community_nusantara',
+    // Era world maps: growth frontiers ship inline `geo_polygon` rings (CW) for
+    // their later-era lands (volga_bulgaria, americas, antarctica sectors, ocean
+    // frontiers, …). Same winding contract as the community maps above.
+    'era_ancient',
+    'era_medieval',
+    'era_discovery',
+    'era_ww2',
+    'era_coldwar',
+    'era_modern',
+    'era_space_age',
   ]);
   const shouldReverseExteriorWinding = INLINE_GEO_POLYGON_REVERSE_MAP_IDS.has(
     mapData.map_id ?? '',
