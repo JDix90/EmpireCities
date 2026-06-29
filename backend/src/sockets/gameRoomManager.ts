@@ -9,7 +9,7 @@ import {
   repairLegacyGameState,
 } from '../game-engine/state/gameStateManager';
 import type { GameState, GameMap } from '../types';
-import { mapHasEraGrowth, repairEraTerritoryGrowth } from '../game-engine/eraAdvancement/territoryUnlock';
+import { ERA_GROWTH_MAP_IDS, mapHasEraGrowth, repairEraTerritoryGrowth } from '../game-engine/eraAdvancement/territoryUnlock';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
 import {
@@ -156,6 +156,9 @@ function repairRoom(state: GameState, map: GameMap): void {
 async function refreshMapForEraGrowth(gameId: string, state: GameState, map: GameMap): Promise<GameMap> {
   if (state.settings?.era_advancement_enabled !== true) return map;
   if (mapHasEraGrowth(map)) return map;
+  // Only re-resolve known growth maps (all static → a fast file read). This avoids a
+  // DB-backed resolveMap on the room-load hot path for synthetic/community maps.
+  if (!ERA_GROWTH_MAP_IDS.has(map.map_id)) return map;
   const fresh = await resolveMap(map.map_id);
   if (fresh && mapHasEraGrowth(fresh)) {
     await setGameMap(gameId, fresh).catch((err) =>

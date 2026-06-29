@@ -34,6 +34,22 @@ export function territoryUnlockEra(t: { unlock_era_index?: number }): number {
   return Math.max(0, t.unlock_era_index ?? 0);
 }
 
+/**
+ * Maps that ship Era-Advancement growth content (`unlock_era_index` frontiers).
+ * Used to gate the migration's one-time map refresh (gameRoomManager) to a fast
+ * static-file `resolveMap`, so it never hits the DB for a synthetic/community map.
+ * Keep in sync when growth content is added to a new map.
+ */
+export const ERA_GROWTH_MAP_IDS: ReadonlySet<string> = new Set([
+  'era_ancient',
+  'era_medieval',
+  'era_discovery',
+  'era_ww2',
+  'era_coldwar',
+  'era_modern',
+  'era_space_age',
+]);
+
 /** True when the map tags any territory for later-era unlocking. */
 export function mapHasEraGrowth(map: GameMap): boolean {
   return map.territories.some((t) => territoryUnlockEra(t) > 0);
