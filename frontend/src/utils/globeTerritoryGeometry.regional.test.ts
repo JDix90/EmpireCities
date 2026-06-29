@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { signedLngLatRingArea } from './galaxyOrganicGlobeRing';
 import { buildTerritoryGlobeGeometries } from './globeTerritoryGeometry';
+import { TERRITORY_ISO_MAP, TERRITORY_GEO_CONFIG } from '../data/territoryGeoMapping';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -118,8 +119,40 @@ describe('era growth-frontier inline geo_polygon globe geometry', () => {
       const byId = new Map(polys.map((p) => [p.territory_id, p]));
       const frontiers = map.territories.filter((t) => Array.isArray(t.geo_polygon));
 
-      it('has growth frontiers carrying geo_polygon', () => {
-        expect(frontiers.length).toBeGreaterThan(0);
+      it('has growth frontiers', () => {
+        expect(
+          map.territories.filter(
+            (t) => ((t as { unlock_era_index?: number }).unlock_era_index ?? 0) > 0,
+          ).length,
+        ).toBeGreaterThan(0);
+      });
+
+      // The regression guard: a frontier with NEITHER a geo_polygon NOR an ISO
+      // mapping falls through to the world-equirectangular canvas fallback and
+      // renders as a malformed shard when its era unlocks (the reported bug).
+      // Every growth frontier must resolve to real geometry one way or the other.
+      it('every growth frontier resolves to real geometry (geo_polygon or ISO mapping)', () => {
+        const allFrontiers = map.territories.filter(
+          (t) => ((t as { unlock_era_index?: number }).unlock_era_index ?? 0) > 0,
+        ) as {
+          territory_id: string;
+          geo_polygon?: number[][];
+          iso_codes?: string[];
+          geo_config?: unknown[];
+        }[];
+        for (const t of allFrontiers) {
+          const resolves =
+            (Array.isArray(t.geo_polygon) && t.geo_polygon.length >= 3) ||
+            (Array.isArray(t.iso_codes) && t.iso_codes.length > 0) ||
+            (Array.isArray(t.geo_config) && t.geo_config.length > 0) ||
+            TERRITORY_ISO_MAP[t.territory_id] !== undefined ||
+            TERRITORY_GEO_CONFIG[t.territory_id] !== undefined;
+          expect(
+            resolves,
+            `${mapId}/${t.territory_id} has no geo_polygon and no ISO mapping — ` +
+              `it will render as a broken canvas-fallback shard when its era unlocks`,
+          ).toBe(true);
+        }
       });
 
       it('every frontier cap renders in the interior orientation (signed area > 0)', () => {
