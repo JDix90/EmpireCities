@@ -27,6 +27,16 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_mongol_empire',
   'community_napoleonic_europe',
   'community_sengoku_japan',
+  // Era world maps that carry Era-Advancement territory-growth content load from
+  // the shipped static JSON (like the community maps) so growth takes effect on
+  // deploy with no DB reseed step. Projection to the current era floor still
+  // happens at emit time, so a game still starts on the base board and grows.
+  'era_ancient',
+  'era_medieval',
+  'era_discovery',
+  'era_ww2',
+  'era_coldwar',
+  'era_modern',
   'era_galaxy',
 ]);
 

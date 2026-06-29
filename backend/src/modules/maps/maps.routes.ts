@@ -97,6 +97,14 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_mongol_empire',
   'community_napoleonic_europe',
   'community_sengoku_japan',
+  // Era world maps with territory-growth content — served from shipped static JSON
+  // (no DB reseed needed); matches sockets/mapResolver.ts.
+  'era_ancient',
+  'era_medieval',
+  'era_discovery',
+  'era_ww2',
+  'era_coldwar',
+  'era_modern',
 ]);
 
 export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
