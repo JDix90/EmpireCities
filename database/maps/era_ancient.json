@@ -1104,35 +1104,35 @@
     {
       "region_id": "han_china",
       "name": "Han China",
-      "bonus": 5
+      "bonus": 4
     },
     {
       "region_id": "india",
       "name": "Indian Subcontinent",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "africa",
       "name": "Africa",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "steppe",
       "name": "Eurasian Steppe",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "germanic",
       "name": "Germanic Lands",
-      "bonus": 2
+      "bonus": 3
     },
     { "region_id": "northern_frontier", "name": "Northern Frontier", "bonus": 3 },
     { "region_id": "saharan", "name": "Sahara", "bonus": 2 },
-    { "region_id": "new_world", "name": "The New World", "bonus": 3 },
+    { "region_id": "new_world", "name": "The New World", "bonus": 2 },
     { "region_id": "far_east", "name": "The Far East", "bonus": 3 },
-    { "region_id": "northern_reaches", "name": "The Northern Reaches", "bonus": 3 },
-    { "region_id": "southern_reaches", "name": "The Southern Reaches", "bonus": 3 },
-    { "region_id": "oceania", "name": "Oceania", "bonus": 3 }
+    { "region_id": "northern_reaches", "name": "The Northern Reaches", "bonus": 2 },
+    { "region_id": "southern_reaches", "name": "The Southern Reaches", "bonus": 2 },
+    { "region_id": "oceania", "name": "Oceania", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

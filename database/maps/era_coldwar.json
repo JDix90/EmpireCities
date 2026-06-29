@@ -1524,37 +1524,37 @@
     {
       "region_id": "nato_europe",
       "name": "NATO Europe",
-      "bonus": 5
+      "bonus": 6
     },
     {
       "region_id": "warsaw_pact",
       "name": "Warsaw Pact",
-      "bonus": 5
+      "bonus": 7
     },
     {
       "region_id": "north_america_cw",
       "name": "North America",
-      "bonus": 5
+      "bonus": 3
     },
     {
       "region_id": "latin_america",
       "name": "Latin America",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "middle_east_cw",
       "name": "Middle East",
-      "bonus": 4
+      "bonus": 5
     },
     {
       "region_id": "africa_cw",
       "name": "Africa",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "south_asia_cw",
       "name": "South & SE Asia",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "east_asia_cw",
@@ -1562,7 +1562,7 @@
       "bonus": 5
     },
     { "region_id": "polar_frontier", "name": "Polar Frontier", "bonus": 2 },
-    { "region_id": "antarctic_claims", "name": "Antarctic Claims", "bonus": 3 },
+    { "region_id": "antarctic_claims", "name": "Antarctic Claims", "bonus": 2 },
     { "region_id": "oceanic_frontier", "name": "Oceanic Frontier", "bonus": 3 },
     { "region_id": "nonaligned_pacific", "name": "Non-Aligned Pacific", "bonus": 2 },
     { "region_id": "space_frontier", "name": "Space Frontier", "bonus": 2 }

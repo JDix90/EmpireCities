@@ -517,7 +517,7 @@
     {
       "region_id": "italy_adriatic",
       "name": "Adriatic & Romagna",
-      "bonus": 4
+      "bonus": 3
     },
     {
       "region_id": "italy_central",
@@ -527,12 +527,12 @@
     {
       "region_id": "italy_south",
       "name": "Southern Mainland",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "italy_deep_south",
       "name": "Deep South",
-      "bonus": 3
+      "bonus": 2
     },
     {
       "region_id": "italy_islands",

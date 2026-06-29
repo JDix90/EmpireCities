@@ -2719,56 +2719,56 @@
     {
       "region_id": "north_america_2100",
       "name": "North American Union",
-      "bonus": 5
+      "bonus": 7
     },
     {
       "region_id": "europe_2100",
       "name": "European Confederacy",
-      "bonus": 5
+      "bonus": 6
     },
     {
       "region_id": "asia_2100",
       "name": "Sino-Pacific Zone",
-      "bonus": 7
+      "bonus": 8
     },
     {
       "region_id": "sub_saharan_africa_2100",
       "name": "African Union",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "middle_east_2100",
       "name": "Solar Caliphate Core",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "central_asia_2100",
       "name": "Central Asia Corridor",
-      "bonus": 3
+      "bonus": 6
     },
     {
       "region_id": "latin_america_2100",
       "name": "South American Bloc",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "oceania_2100",
       "name": "Pacific Rim Alliance",
-      "bonus": 3
+      "bonus": 6
     },
     {
       "region_id": "coastal_megacities_2100",
       "name": "Coastal Megacity Belt",
-      "bonus": 6
+      "bonus": 3
     },
     {
       "region_id": "lunar_surface",
       "name": "Lunar Surface",
-      "bonus": 8
+      "bonus": 6
     },
-    { "region_id": "pacific_frontier_2100", "name": "Pacific Frontier", "bonus": 3 },
-    { "region_id": "polar_frontier_2100", "name": "Polar Frontier", "bonus": 3 },
-    { "region_id": "antarctic_2100", "name": "Antarctic Claims", "bonus": 3 },
+    { "region_id": "pacific_frontier_2100", "name": "Pacific Frontier", "bonus": 2 },
+    { "region_id": "polar_frontier_2100", "name": "Polar Frontier", "bonus": 2 },
+    { "region_id": "antarctic_2100", "name": "Antarctic Claims", "bonus": 2 },
     { "region_id": "atlantic_frontier_2100", "name": "Atlantic Platforms", "bonus": 2 },
     { "region_id": "orbital_gateway_2100", "name": "Orbital Gateway", "bonus": 2 }
   ],

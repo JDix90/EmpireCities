@@ -695,12 +695,12 @@
     {
       "region_id": "union_midwest",
       "name": "Union — Midwest",
-      "bonus": 4
+      "bonus": 6
     },
     {
       "region_id": "border_upper",
       "name": "Border States",
-      "bonus": 3
+      "bonus": 7
     },
     {
       "region_id": "confederate_east",
@@ -715,7 +715,7 @@
     {
       "region_id": "confederate_west",
       "name": "Confederacy — Trans-Mississippi",
-      "bonus": 3
+      "bonus": 5
     }
   ],
   "is_public": true,
