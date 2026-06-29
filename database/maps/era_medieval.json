@@ -1027,22 +1027,22 @@
     {
       "region_id": "eastern_europe",
       "name": "Eastern Europe",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "middle_east",
       "name": "Middle East",
-      "bonus": 4
+      "bonus": 5
     },
     {
       "region_id": "mongol_empire",
       "name": "Mongol Heartland",
-      "bonus": 5
+      "bonus": 3
     },
     {
       "region_id": "china_korea",
       "name": "China & Korea",
-      "bonus": 5
+      "bonus": 3
     },
     {
       "region_id": "india_sea",
@@ -1052,16 +1052,16 @@
     {
       "region_id": "africa_med",
       "name": "Africa",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "scandinavia",
       "name": "Scandinavia",
       "bonus": 2
     },
-    { "region_id": "new_world", "name": "New World", "bonus": 3 },
-    { "region_id": "sub_sahara", "name": "Sub-Saharan Frontier", "bonus": 3 },
-    { "region_id": "oceania", "name": "Oceania", "bonus": 3 },
+    { "region_id": "new_world", "name": "New World", "bonus": 2 },
+    { "region_id": "sub_sahara", "name": "Sub-Saharan Frontier", "bonus": 2 },
+    { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
     { "region_id": "pacific_rim", "name": "Pacific Rim", "bonus": 2 }
   ],
   "is_public": true,

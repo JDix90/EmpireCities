@@ -9,6 +9,7 @@ import {
   repairLegacyGameState,
 } from '../game-engine/state/gameStateManager';
 import type { GameState, GameMap } from '../types';
+import { ERA_GROWTH_MAP_IDS, mapHasEraGrowth, repairEraTerritoryGrowth } from '../game-engine/eraAdvancement/territoryUnlock';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
 import {
@@ -140,13 +141,40 @@ export async function hasHumanConnections(gameId: string, state: GameState): Pro
 function repairRoom(state: GameState, map: GameMap): void {
   repairDraftUnitsIfMissing(state, map);
   repairLegacyGameState(state, map);
+  // Backfill territory growth for games that predate the map's growth content
+  // (idempotent; no-op for non-growth maps / non-era-advancement games).
+  repairEraTerritoryGrowth(state, map);
+}
+
+/**
+ * The persisted map snapshot can predate growth content that has since shipped
+ * (era maps now carry `unlock_era_index` frontiers). For an in-progress
+ * Era-Advancement game whose snapshot lacks that content, re-resolve the map from
+ * the current source and re-persist it, so existing games can grow on next load.
+ * No-op once the snapshot is current, and for non-era-advancement games.
+ */
+async function refreshMapForEraGrowth(gameId: string, state: GameState, map: GameMap): Promise<GameMap> {
+  if (state.settings?.era_advancement_enabled !== true) return map;
+  if (mapHasEraGrowth(map)) return map;
+  // Only re-resolve known growth maps (all static → a fast file read). This avoids a
+  // DB-backed resolveMap on the room-load hot path for synthetic/community maps.
+  if (!ERA_GROWTH_MAP_IDS.has(map.map_id)) return map;
+  const fresh = await resolveMap(map.map_id);
+  if (fresh && mapHasEraGrowth(fresh)) {
+    await setGameMap(gameId, fresh).catch((err) =>
+      console.error('[Room] growth map refresh persist failed', gameId, err),
+    );
+    return fresh;
+  }
+  return map;
 }
 
 export async function loadGameRoomFromRedis(gameId: string): Promise<ActiveGameRoom | null> {
   const state = await getGameState(gameId);
   if (!state) return null;
-  const map = await getGameMap(gameId);
+  let map = await getGameMap(gameId);
   if (!map) return null;
+  map = await refreshMapForEraGrowth(gameId, state, map);
   repairRoom(state, map);
   return setCachedRoom(gameId, state, map);
 }

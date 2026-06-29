@@ -1195,47 +1195,47 @@
     {
       "region_id": "europe_disc",
       "name": "Europe",
-      "bonus": 5
+      "bonus": 6
     },
     {
       "region_id": "ottoman",
       "name": "Ottoman Empire",
-      "bonus": 4
+      "bonus": 6
     },
     {
       "region_id": "americas_north",
       "name": "North America",
-      "bonus": 4
+      "bonus": 3
     },
     {
       "region_id": "americas_south",
       "name": "South America",
-      "bonus": 4
+      "bonus": 3
     },
     {
       "region_id": "africa_disc",
       "name": "Africa",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "mughal_india",
       "name": "Mughal India",
-      "bonus": 4
+      "bonus": 3
     },
     {
       "region_id": "ming_china",
       "name": "Ming China",
-      "bonus": 5
+      "bonus": 3
     },
     {
       "region_id": "sea_routes",
       "name": "Sea Routes",
-      "bonus": 2
+      "bonus": 4
     },
     { "region_id": "far_north", "name": "Polar Frontier", "bonus": 2 },
-    { "region_id": "pacific_disc", "name": "Pacific Frontier", "bonus": 4 },
+    { "region_id": "pacific_disc", "name": "Pacific Frontier", "bonus": 3 },
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
-    { "region_id": "antarctic", "name": "Antarctic Frontier", "bonus": 3 }
+    { "region_id": "antarctic", "name": "Antarctic Frontier", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

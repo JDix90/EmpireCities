@@ -1598,27 +1598,27 @@
     {
       "region_id": "south_america",
       "name": "South America",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "europe",
       "name": "Europe",
-      "bonus": 5
+      "bonus": 6
     },
     {
       "region_id": "russia_cis",
       "name": "Russia & CIS",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "middle_east",
       "name": "Middle East & North Africa",
-      "bonus": 4
+      "bonus": 6
     },
     {
       "region_id": "sub_saharan_africa",
       "name": "Sub-Saharan Africa",
-      "bonus": 3
+      "bonus": 5
     },
     {
       "region_id": "asia",
@@ -1630,9 +1630,9 @@
       "name": "Oceania & Pacific",
       "bonus": 2
     },
-    { "region_id": "polar_frontier", "name": "Polar Frontier", "bonus": 4 },
-    { "region_id": "orbital_frontier", "name": "Orbital Frontier", "bonus": 3 },
-    { "region_id": "deep_ocean_frontier", "name": "Deep Ocean Frontier", "bonus": 3 }
+    { "region_id": "polar_frontier", "name": "Polar Frontier", "bonus": 3 },
+    { "region_id": "orbital_frontier", "name": "Orbital Frontier", "bonus": 2 },
+    { "region_id": "deep_ocean_frontier", "name": "Deep Ocean Frontier", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

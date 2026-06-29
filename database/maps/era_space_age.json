@@ -2067,6 +2067,70 @@
           -88
         ]
       ]
+    },
+    {
+      "territory_id": "pacific_seasteads",
+      "name": "Pacific Seasteads",
+      "polygon": [[1120, 420], [1195, 420], [1195, 560], [1120, 560]],
+      "center_point": [1157, 490],
+      "region_id": "pacific_frontier_2100",
+      "unlock_era_index": 1
+    },
+    {
+      "territory_id": "arctic_reclamation",
+      "name": "Arctic Reclamation Zone",
+      "polygon": [[410, 5], [560, 5], [560, 60], [410, 60]],
+      "center_point": [485, 32],
+      "region_id": "polar_frontier_2100",
+      "unlock_era_index": 1
+    },
+    {
+      "territory_id": "antarctic_peninsula_2100",
+      "name": "Antarctic Peninsula",
+      "polygon": [[450, 615], [650, 615], [650, 685], [450, 685]],
+      "center_point": [550, 650],
+      "region_id": "antarctic_2100",
+      "unlock_era_index": 2
+    },
+    {
+      "territory_id": "north_pacific_gyre",
+      "name": "North Pacific Reclamation",
+      "polygon": [[5, 140], [120, 140], [120, 290], [5, 290]],
+      "center_point": [62, 215],
+      "region_id": "pacific_frontier_2100",
+      "unlock_era_index": 2
+    },
+    {
+      "territory_id": "antarctic_interior_2100",
+      "name": "Antarctic Interior",
+      "polygon": [[680, 615], [880, 615], [880, 685], [680, 685]],
+      "center_point": [780, 650],
+      "region_id": "antarctic_2100",
+      "unlock_era_index": 3
+    },
+    {
+      "territory_id": "south_atlantic_platforms",
+      "name": "South Atlantic Platforms",
+      "polygon": [[480, 480], [600, 480], [600, 575], [480, 575]],
+      "center_point": [540, 527],
+      "region_id": "atlantic_frontier_2100",
+      "unlock_era_index": 3
+    },
+    {
+      "territory_id": "arctic_siberian_shelf",
+      "name": "Siberian Arctic Shelf",
+      "polygon": [[1075, 10], [1195, 10], [1195, 120], [1075, 120]],
+      "center_point": [1135, 65],
+      "region_id": "polar_frontier_2100",
+      "unlock_era_index": 4
+    },
+    {
+      "territory_id": "equatorial_orbital_anchor",
+      "name": "Equatorial Launch Gateway",
+      "polygon": [[1120, 200], [1195, 200], [1195, 310], [1120, 310]],
+      "center_point": [1157, 255],
+      "region_id": "orbital_gateway_2100",
+      "unlock_era_index": 5
     }
   ],
   "connections": [
@@ -2634,59 +2698,79 @@
       "from": "asia_japan_islands",
       "to": "na_arctic_dominion",
       "type": "sea"
-    }
+    },
+    { "from": "pacific_seasteads", "to": "oc_australia", "type": "sea" },
+    { "from": "pacific_seasteads", "to": "oc_micronesia", "type": "sea" },
+    { "from": "arctic_reclamation", "to": "na_arctic_dominion", "type": "sea" },
+    { "from": "arctic_reclamation", "to": "euro_nordic", "type": "sea" },
+    { "from": "antarctic_peninsula_2100", "to": "africa_south", "type": "sea" },
+    { "from": "antarctic_peninsula_2100", "to": "la_patagonia", "type": "sea" },
+    { "from": "north_pacific_gyre", "to": "na_western_states", "type": "sea" },
+    { "from": "north_pacific_gyre", "to": "oc_polynesia", "type": "sea" },
+    { "from": "antarctic_interior_2100", "to": "antarctic_peninsula_2100", "type": "sea" },
+    { "from": "antarctic_interior_2100", "to": "africa_south", "type": "sea" },
+    { "from": "south_atlantic_platforms", "to": "africa_south", "type": "sea" },
+    { "from": "south_atlantic_platforms", "to": "la_pampas", "type": "sea" },
+    { "from": "arctic_siberian_shelf", "to": "asia_siberia_belt", "type": "sea" },
+    { "from": "equatorial_orbital_anchor", "to": "asia_japan_islands", "type": "sea" },
+    { "from": "equatorial_orbital_anchor", "to": "megacity_pacific_rim", "type": "sea" }
   ],
   "regions": [
     {
       "region_id": "north_america_2100",
       "name": "North American Union",
-      "bonus": 5
+      "bonus": 7
     },
     {
       "region_id": "europe_2100",
       "name": "European Confederacy",
-      "bonus": 5
+      "bonus": 6
     },
     {
       "region_id": "asia_2100",
       "name": "Sino-Pacific Zone",
-      "bonus": 7
+      "bonus": 8
     },
     {
       "region_id": "sub_saharan_africa_2100",
       "name": "African Union",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "middle_east_2100",
       "name": "Solar Caliphate Core",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "central_asia_2100",
       "name": "Central Asia Corridor",
-      "bonus": 3
+      "bonus": 6
     },
     {
       "region_id": "latin_america_2100",
       "name": "South American Bloc",
-      "bonus": 4
+      "bonus": 7
     },
     {
       "region_id": "oceania_2100",
       "name": "Pacific Rim Alliance",
-      "bonus": 3
+      "bonus": 6
     },
     {
       "region_id": "coastal_megacities_2100",
       "name": "Coastal Megacity Belt",
-      "bonus": 6
+      "bonus": 3
     },
     {
       "region_id": "lunar_surface",
       "name": "Lunar Surface",
-      "bonus": 8
-    }
+      "bonus": 6
+    },
+    { "region_id": "pacific_frontier_2100", "name": "Pacific Frontier", "bonus": 2 },
+    { "region_id": "polar_frontier_2100", "name": "Polar Frontier", "bonus": 2 },
+    { "region_id": "antarctic_2100", "name": "Antarctic Claims", "bonus": 2 },
+    { "region_id": "atlantic_frontier_2100", "name": "Atlantic Platforms", "bonus": 2 },
+    { "region_id": "orbital_gateway_2100", "name": "Orbital Gateway", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

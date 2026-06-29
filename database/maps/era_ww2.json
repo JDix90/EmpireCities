@@ -1224,7 +1224,7 @@
     {
       "region_id": "north_africa_th",
       "name": "North Africa",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "pacific_theatre",
@@ -1244,15 +1244,15 @@
     {
       "region_id": "middle_east_th",
       "name": "Middle East",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "sub_saharan_th",
       "name": "Sub-Saharan Africa",
       "bonus": 2
     },
-    { "region_id": "remote_frontier_th", "name": "Remote Frontiers", "bonus": 3 },
-    { "region_id": "southern_ocean_th", "name": "Southern Ocean", "bonus": 3 },
+    { "region_id": "remote_frontier_th", "name": "Remote Frontiers", "bonus": 2 },
+    { "region_id": "southern_ocean_th", "name": "Southern Ocean", "bonus": 2 },
     { "region_id": "antarctic_th", "name": "Antarctica", "bonus": 4 }
   ],
   "is_public": true,

@@ -82,10 +82,18 @@ Unchanged and still distinct:
   considered neutral neighbours; it now skips *un-capturable* neutrals (non-era-advancement
   games, and off-world targets) so it never wastes its attack budget, and adds a small
   `NEUTRAL_EXPANSION_BONUS` so it reliably grabs adjacent Earth frontiers.
-- **Content scale — all six world maps now grow (done).** `era_ancient` plus `era_medieval`,
-  `era_discovery`, `era_ww2`, `era_coldwar`, and `era_modern` each open neutral frontiers across
-  unlock eras 1–5 (e.g. ancient 28 → 41; modern 43 → 50). `era_space_age` is intentionally left
-  out (Moon / real-geo complexity) and other base/community maps still have none.
+- **Content scale — all seven world maps now grow (done).** `era_ancient`, `era_medieval`,
+  `era_discovery`, `era_ww2`, `era_coldwar`, `era_modern`, and `era_space_age` each open neutral
+  frontiers across unlock eras 1–5 (e.g. ancient 28 → 41; modern 43 → 50; space age 55 → 63).
+  On `era_space_age` the frontiers are deliberately **Earth-surface** (2100 reclamation / seastead /
+  launch-gateway zones, `world_id` 'earth' so they stay conquerable) — the Moon's neutral-garrison
+  claim race is untouched, since the combat carve-out blocks neutral capture for off-world targets.
+- **Community maps — intentionally excluded (decided).** Territory growth is a **world-map**
+  feature. The 21 community maps are fixed, hand-crafted **real-coastline** scenarios (Sengoku
+  Japan, Roman Empire 117, the balkanizations, …) with no coherent "expand-outward-as-eras-climb"
+  narrative, and the blocky box frontiers would clash with their geometry. Era Advancement still
+  *plays* on them — the board just doesn't grow. (If ever revisited, the only natural fit is the
+  historical **empire** maps — Roman Empire 117, Mongol Empire 1279 — authored with real geometry.)
 - **Balance — done (first pass).** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
   and `calculateContinentBonuses` counts only in-play territories so a growing board can't break
   (or vacuously award) region bonuses. Region-bonus calibration: the game uses **generous**
@@ -96,5 +104,7 @@ Unchanged and still distinct:
   frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and
   the camera + selection (Zustand) persist across the mid-game `game:map` re-emit, so there is no
   full re-initialization to undo.
-- **Still open:** growth content for `era_space_age` and community maps, a broader region-bonus
-  rebalance (if wanted), and a dedicated globe entrance effect (if QA shows it's wanted).
+- **Still open (all optional):** a broader region-bonus rebalance, a dedicated globe entrance
+  effect, and a migration so existing in-progress games also grow (refresh map on load + unlock to
+  the current era floor). Growth content scope is otherwise complete — all seven world maps grow;
+  community maps are intentionally excluded (above).
