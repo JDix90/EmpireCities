@@ -117,3 +117,20 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
   state.map_era_floor = newFloor;
   return added;
 }
+
+/**
+ * Migration backfill for in-progress games. A game started before its map gained
+ * growth content (or before this feature shipped) has a territory set frozen at the
+ * base board. On room load, if the live map now carries growth tags and the game is
+ * an Era-Advancement game, insert any frontiers that should already be in play at
+ * the current global era floor.
+ *
+ * Idempotent and a no-op for non-growth maps / non-era-advancement games, so it is
+ * safe to run on every room load (see gameRoomManager.repairRoom). The geometry then
+ * reaches clients via the projected `game:map` re-emit on (re)connect.
+ */
+export function repairEraTerritoryGrowth(state: GameState, map: GameMap): void {
+  if (state.settings?.era_advancement_enabled !== true) return;
+  if (!mapHasEraGrowth(map)) return;
+  unlockTerritoriesForFloor(state, map);
+}

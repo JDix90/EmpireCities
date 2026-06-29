@@ -8,6 +8,7 @@ import {
   projectMapToEraFloor,
   territoryUnlockEra,
   unlockTerritoriesForFloor,
+  repairEraTerritoryGrowth,
 } from './territoryUnlock';
 
 function mapTerritory(id: string, unlock?: number) {
@@ -190,5 +191,36 @@ describe('unlockTerritoriesForFloor', () => {
     unlockTerritoriesForFloor(state, map);
     expect(state.territories.med_a.owner_id).toBe('p1');
     expect(state.territories.med_a.unit_count).toBe(9);
+  });
+});
+
+describe('repairEraTerritoryGrowth (migration backfill)', () => {
+  it('backfills frontiers up to the current floor for a legacy era-advancement game', () => {
+    const map = makeMap();
+    // Legacy game: only base territories in play, no map_era_floor, player already at era 2.
+    const state = makeState([makePlayer('p1', 2)], 0);
+    state.settings = { era_advancement_enabled: true } as GameState['settings'];
+    delete (state as { map_era_floor?: number }).map_era_floor;
+    repairEraTerritoryGrowth(state, map);
+    expect(state.territories.med_a).toBeDefined(); // era-1 frontier
+    expect(state.territories.disc_a).toBeDefined(); // era-2 frontier
+    expect(state.territories.med_a.owner_id).toBeNull(); // appears neutral
+    expect(state.map_era_floor).toBe(2);
+  });
+
+  it('is a no-op when era advancement is off', () => {
+    const map = makeMap();
+    const state = makeState([makePlayer('p1', 2)], 0);
+    state.settings = {} as GameState['settings'];
+    repairEraTerritoryGrowth(state, map);
+    expect(state.territories.med_a).toBeUndefined();
+  });
+
+  it('is a no-op on a map without growth tags', () => {
+    const plain = { ...makeMap(), territories: [mapTerritory('a'), mapTerritory('b')] } as GameMap;
+    const state = makeState([makePlayer('p1', 3)], 0);
+    state.settings = { era_advancement_enabled: true } as GameState['settings'];
+    repairEraTerritoryGrowth(state, plain);
+    expect(Object.keys(state.territories).sort()).toEqual(['base_a', 'base_b']);
   });
 });
