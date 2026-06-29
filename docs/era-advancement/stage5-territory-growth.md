@@ -82,14 +82,19 @@ Unchanged and still distinct:
   considered neutral neighbours; it now skips *un-capturable* neutrals (non-era-advancement
   games, and off-world targets) so it never wastes its attack budget, and adds a small
   `NEUTRAL_EXPANSION_BONUS` so it reliably grabs adjacent Earth frontiers.
-- **Content scale — `era_ancient` covers the full climb (done for this map).** It now grows
-  28 → 31 → 35 → 37 → 39 → 41 across eras 0–5. Other base maps still have no growth content.
-- **Balance — first pass done.** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
-  and `calculateContinentBonuses` now counts only in-play territories so a growing board doesn't
-  break (or vacuously award) region bonuses. Region-bonus values still want playtest tuning.
+- **Content scale — all six world maps now grow (done).** `era_ancient` plus `era_medieval`,
+  `era_discovery`, `era_ww2`, `era_coldwar`, and `era_modern` each open neutral frontiers across
+  unlock eras 1–5 (e.g. ancient 28 → 41; modern 43 → 50). `era_space_age` is intentionally left
+  out (Moon / real-geo complexity) and other base/community maps still have none.
+- **Balance — done (first pass).** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
+  and `calculateContinentBonuses` counts only in-play territories so a growing board can't break
+  (or vacuously award) region bonuses. Region-bonus calibration: the game uses **generous**
+  bonuses (≈ `territories + 1..2`), NOT classic `terr/3` — so the frontier regions were re-tuned to
+  a house-aligned-but-discounted scale (1-terr → 2, 2-terr → 3, 3+-terr → 4). A broader game-wide
+  rebalance is a separate design call, left to the product owner.
 - **Render polish — entrance animation done.** `game:territories_unlocked` pulses the newly-opened
   frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and
   the camera + selection (Zustand) persist across the mid-game `game:map` re-emit, so there is no
   full re-initialization to undo.
-- **Still open:** growth content for other base maps, region-bonus playtest tuning, and (if QA
-  shows it's wanted) a dedicated globe entrance effect for newly-unlocked land.
+- **Still open:** growth content for `era_space_age` and community maps, a broader region-bonus
+  rebalance (if wanted), and a dedicated globe entrance effect (if QA shows it's wanted).

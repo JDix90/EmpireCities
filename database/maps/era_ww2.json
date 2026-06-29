@@ -950,7 +950,14 @@
         560
       ],
       "region_id": "sub_saharan_th"
-    }
+    },
+    { "territory_id": "mid_pacific", "name": "Mid-Pacific Atolls", "polygon": [[1110,400],[1190,400],[1190,560],[1110,560]], "center_point": [1150,480], "region_id": "remote_frontier_th", "unlock_era_index": 1 },
+    { "territory_id": "falklands_ww2", "name": "Falkland Islands", "polygon": [[30,455],[225,455],[225,610],[30,610]], "center_point": [127,532], "region_id": "remote_frontier_th", "unlock_era_index": 1 },
+    { "territory_id": "south_atlantic_ww2", "name": "South Atlantic", "polygon": [[465,425],[660,425],[660,595],[465,595]], "center_point": [562,510], "region_id": "southern_ocean_th", "unlock_era_index": 2 },
+    { "territory_id": "antarctica_peninsula", "name": "Antarctic Peninsula", "polygon": [[255,630],[455,630],[455,695],[255,695]], "center_point": [355,662], "region_id": "antarctic_th", "unlock_era_index": 3 },
+    { "territory_id": "weddell_sea", "name": "Weddell Sea", "polygon": [[470,625],[665,625],[665,695],[470,695]], "center_point": [567,660], "region_id": "antarctic_th", "unlock_era_index": 3 },
+    { "territory_id": "ross_ice_shelf", "name": "Ross Ice Shelf", "polygon": [[720,630],[915,630],[915,695],[720,695]], "center_point": [817,662], "region_id": "antarctic_th", "unlock_era_index": 4 },
+    { "territory_id": "southern_ocean", "name": "Southern Ocean", "polygon": [[930,625],[1115,625],[1115,695],[930,695]], "center_point": [1022,660], "region_id": "southern_ocean_th", "unlock_era_index": 5 }
   ],
   "connections": [
     {
@@ -1192,7 +1199,16 @@
       "from": "south_africa_ww2",
       "to": "australia_ww2",
       "type": "sea"
-    }
+    },
+    { "from": "mid_pacific", "to": "pacific_islands", "type": "sea" },
+    { "from": "falklands_ww2", "to": "caribbean", "type": "sea" },
+    { "from": "south_atlantic_ww2", "to": "south_africa_ww2", "type": "sea" },
+    { "from": "antarctica_peninsula", "to": "south_atlantic_ww2", "type": "sea" },
+    { "from": "antarctica_peninsula", "to": "falklands_ww2", "type": "sea" },
+    { "from": "weddell_sea", "to": "south_atlantic_ww2", "type": "sea" },
+    { "from": "ross_ice_shelf", "to": "antarctica_peninsula", "type": "sea" },
+    { "from": "ross_ice_shelf", "to": "australia_ww2", "type": "sea" },
+    { "from": "southern_ocean", "to": "ross_ice_shelf", "type": "sea" }
   ],
   "regions": [
     {
@@ -1234,7 +1250,10 @@
       "region_id": "sub_saharan_th",
       "name": "Sub-Saharan Africa",
       "bonus": 2
-    }
+    },
+    { "region_id": "remote_frontier_th", "name": "Remote Frontiers", "bonus": 3 },
+    { "region_id": "southern_ocean_th", "name": "Southern Ocean", "bonus": 3 },
+    { "region_id": "antarctic_th", "name": "Antarctica", "bonus": 4 }
   ],
   "is_public": true,
   "is_moderated": true,
