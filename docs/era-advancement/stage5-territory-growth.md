@@ -88,7 +88,12 @@ Unchanged and still distinct:
   On `era_space_age` the frontiers are deliberately **Earth-surface** (2100 reclamation / seastead /
   launch-gateway zones, `world_id` 'earth' so they stay conquerable) — the Moon's neutral-garrison
   claim race is untouched, since the combat carve-out blocks neutral capture for off-world targets.
-  Community maps still have no growth content.
+- **Community maps — intentionally excluded (decided).** Territory growth is a **world-map**
+  feature. The 21 community maps are fixed, hand-crafted **real-coastline** scenarios (Sengoku
+  Japan, Roman Empire 117, the balkanizations, …) with no coherent "expand-outward-as-eras-climb"
+  narrative, and the blocky box frontiers would clash with their geometry. Era Advancement still
+  *plays* on them — the board just doesn't grow. (If ever revisited, the only natural fit is the
+  historical **empire** maps — Roman Empire 117, Mongol Empire 1279 — authored with real geometry.)
 - **Balance — done (first pass).** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
   and `calculateContinentBonuses` counts only in-play territories so a growing board can't break
   (or vacuously award) region bonuses. Region-bonus calibration: the game uses **generous**
@@ -99,5 +104,7 @@ Unchanged and still distinct:
   frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and
   the camera + selection (Zustand) persist across the mid-game `game:map` re-emit, so there is no
   full re-initialization to undo.
-- **Still open:** growth content for `era_space_age` and community maps, a broader region-bonus
-  rebalance (if wanted), and a dedicated globe entrance effect (if QA shows it's wanted).
+- **Still open (all optional):** a broader region-bonus rebalance, a dedicated globe entrance
+  effect, and a migration so existing in-progress games also grow (refresh map on load + unlock to
+  the current era floor). Growth content scope is otherwise complete — all seven world maps grow;
+  community maps are intentionally excluded (above).
