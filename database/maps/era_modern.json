@@ -1167,13 +1167,20 @@
       ],
       "region_id": "oceania"
     },
-    { "territory_id": "arctic_circle_mod", "name": "Arctic Circle Frontier", "polygon": [[20,20],[150,20],[150,150],[20,150]], "center_point": [85,85], "region_id": "polar_frontier", "unlock_era_index": 1 },
-    { "territory_id": "orbital_station_mod", "name": "Orbital Station Alpha", "polygon": [[1100,20],[1190,20],[1190,100],[1100,100]], "center_point": [1145,60], "region_id": "orbital_frontier", "unlock_era_index": 1 },
-    { "territory_id": "bering_frontier_mod", "name": "Bering Deep Frontier", "polygon": [[20,310],[140,310],[140,430],[20,430]], "center_point": [80,370], "region_id": "polar_frontier", "unlock_era_index": 2 },
-    { "territory_id": "north_pacific_deep_mod", "name": "North Pacific Deep", "polygon": [[1150,150],[1195,150],[1195,290],[1150,290]], "center_point": [1172,220], "region_id": "deep_ocean_frontier", "unlock_era_index": 2 },
-    { "territory_id": "southern_ocean_mod", "name": "Southern Ocean Reach", "polygon": [[740,615],[900,615],[900,685],[740,685]], "center_point": [820,650], "region_id": "deep_ocean_frontier", "unlock_era_index": 3 },
-    { "territory_id": "antarctic_shelf_mod", "name": "Antarctic Ice Shelf", "polygon": [[560,615],[700,615],[700,685],[560,685]], "center_point": [630,650], "region_id": "polar_frontier", "unlock_era_index": 4 },
-    { "territory_id": "lunar_outpost_mod", "name": "Lunar Outpost", "polygon": [[1100,310],[1190,310],[1190,430],[1100,430]], "center_point": [1145,370], "region_id": "orbital_frontier", "unlock_era_index": 5 }
+    { "territory_id": "arctic_circle_mod", "name": "Arctic Circle Frontier", "polygon": [[20,20],[150,20],[150,150],[20,150]], "center_point": [85,85], "region_id": "polar_frontier", "unlock_era_index": 1,
+      "geo_polygon": [[-30,83],[-30,88],[60,88],[60,83],[-30,83]] },
+    { "territory_id": "orbital_station_mod", "name": "Orbital Station Alpha", "polygon": [[1100,20],[1190,20],[1190,100],[1100,100]], "center_point": [1145,60], "region_id": "orbital_frontier", "unlock_era_index": 1,
+      "geo_polygon": [[-33,-4],[-33,8],[-20,8],[-20,-4],[-33,-4]] },
+    { "territory_id": "bering_frontier_mod", "name": "Bering Deep Frontier", "polygon": [[20,310],[140,310],[140,430],[20,430]], "center_point": [80,370], "region_id": "polar_frontier", "unlock_era_index": 2,
+      "geo_polygon": [[-180,58],[-180,66],[-170,66],[-170,58],[-180,58]] },
+    { "territory_id": "north_pacific_deep_mod", "name": "North Pacific Deep", "polygon": [[1150,150],[1195,150],[1195,290],[1150,290]], "center_point": [1172,220], "region_id": "deep_ocean_frontier", "unlock_era_index": 2,
+      "geo_polygon": [[165,28],[165,42],[179,42],[179,28],[165,28]] },
+    { "territory_id": "southern_ocean_mod", "name": "Southern Ocean Reach", "polygon": [[740,615],[900,615],[900,685],[740,685]], "center_point": [820,650], "region_id": "deep_ocean_frontier", "unlock_era_index": 3,
+      "geo_polygon": [[60,-62],[60,-52],[120,-52],[120,-62],[60,-62]] },
+    { "territory_id": "antarctic_shelf_mod", "name": "Antarctic Ice Shelf", "polygon": [[560,615],[700,615],[700,685],[560,685]], "center_point": [630,650], "region_id": "polar_frontier", "unlock_era_index": 4,
+      "geo_polygon": [[-30,-80],[-30,-70],[40,-70],[40,-80],[-30,-80]] },
+    { "territory_id": "lunar_outpost_mod", "name": "Lunar Outpost", "polygon": [[1100,310],[1190,310],[1190,430],[1100,430]], "center_point": [1145,370], "region_id": "orbital_frontier", "unlock_era_index": 5,
+      "geo_polygon": [[-28,-24],[-28,-10],[-12,-10],[-12,-24],[-28,-24]] }
   ],
   "connections": [
     {

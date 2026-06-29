@@ -776,7 +776,8 @@
       "polygon": [[430, 5], [560, 5], [560, 55], [430, 55]],
       "center_point": [495, 30],
       "region_id": "northern_frontier",
-      "unlock_era_index": 1
+      "unlock_era_index": 1,
+      "geo_polygon": [[48,57],[48,63],[59,63],[59,57],[48,57]]
     },
     {
       "territory_id": "sahara",
@@ -784,7 +785,8 @@
       "polygon": [[150, 470], [360, 470], [360, 560], [150, 560]],
       "center_point": [255, 515],
       "region_id": "saharan",
-      "unlock_era_index": 1
+      "unlock_era_index": 1,
+      "geo_polygon": [[-26,18],[-26,27],[-18,27],[-18,18],[-26,18]]
     },
     {
       "territory_id": "north_america",
@@ -792,7 +794,8 @@
       "polygon": [[5, 150], [75, 150], [75, 300], [5, 300]],
       "center_point": [40, 225],
       "region_id": "new_world",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[-120,30],[-120,55],[-80,55],[-80,30],[-120,30]]
     },
     {
       "territory_id": "south_america",
@@ -800,7 +803,8 @@
       "polygon": [[5, 340], [75, 340], [75, 520], [5, 520]],
       "center_point": [40, 430],
       "region_id": "new_world",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[-72,-38],[-72,-2],[-44,-2],[-44,-38],[-72,-38]]
     },
     {
       "territory_id": "nippon",
@@ -808,7 +812,8 @@
       "polygon": [[1100, 120], [1180, 120], [1180, 260], [1100, 260]],
       "center_point": [1140, 190],
       "region_id": "far_east",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[135,31],[135,42],[146,42],[146,31],[135,31]]
     },
     {
       "territory_id": "nusantara",
@@ -816,7 +821,8 @@
       "polygon": [[850, 420], [1050, 420], [1050, 560], [850, 560]],
       "center_point": [950, 490],
       "region_id": "far_east",
-      "unlock_era_index": 2
+      "unlock_era_index": 2,
+      "geo_polygon": [[104,-8],[104,5],[128,5],[128,-8],[104,-8]]
     },
     {
       "territory_id": "siberia",
@@ -832,7 +838,8 @@
       "polygon": [[260, 570], [440, 570], [440, 660], [260, 660]],
       "center_point": [350, 615],
       "region_id": "southern_reaches",
-      "unlock_era_index": 3
+      "unlock_era_index": 3,
+      "geo_polygon": [[16,-34],[16,-18],[32,-18],[32,-34],[16,-34]]
     },
     {
       "territory_id": "greenland",
@@ -840,7 +847,8 @@
       "polygon": [[5, 5], [75, 5], [75, 140], [5, 140]],
       "center_point": [40, 72],
       "region_id": "northern_reaches",
-      "unlock_era_index": 4
+      "unlock_era_index": 4,
+      "geo_polygon": [[-48,64],[-48,80],[-22,80],[-22,64],[-48,64]]
     },
     {
       "territory_id": "australia",
@@ -848,7 +856,8 @@
       "polygon": [[1080, 400], [1180, 400], [1180, 560], [1080, 560]],
       "center_point": [1130, 480],
       "region_id": "oceania",
-      "unlock_era_index": 4
+      "unlock_era_index": 4,
+      "geo_polygon": [[115,-34],[115,-16],[148,-16],[148,-34],[115,-34]]
     },
     {
       "territory_id": "pacifica",
@@ -856,7 +865,8 @@
       "polygon": [[1090, 280], [1180, 280], [1180, 390], [1090, 390]],
       "center_point": [1135, 335],
       "region_id": "oceania",
-      "unlock_era_index": 5
+      "unlock_era_index": 5,
+      "geo_polygon": [[165,-22],[165,-6],[179,-6],[179,-22],[165,-22]]
     },
     {
       "territory_id": "antarctica",
@@ -864,7 +874,8 @@
       "polygon": [[450, 610], [750, 610], [750, 685], [450, 685]],
       "center_point": [600, 648],
       "region_id": "southern_reaches",
-      "unlock_era_index": 5
+      "unlock_era_index": 5,
+      "geo_polygon": [[-60,-82],[-60,-68],[10,-68],[10,-82],[-60,-82]]
     }
   ],
   "connections": [

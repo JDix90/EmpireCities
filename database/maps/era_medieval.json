@@ -789,13 +789,20 @@
       ],
       "region_id": "africa_med"
     },
-    { "territory_id": "vinland", "name": "Vinland", "polygon": [[5,270],[80,270],[80,400],[5,400]], "center_point": [42,335], "region_id": "new_world", "unlock_era_index": 1 },
-    { "territory_id": "caribbean_isles", "name": "Caribbean Isles", "polygon": [[5,420],[80,420],[80,560],[5,560]], "center_point": [42,490], "region_id": "new_world", "unlock_era_index": 2 },
-    { "territory_id": "southern_africa", "name": "Southern Africa", "polygon": [[200,540],[340,540],[340,680],[200,680]], "center_point": [270,610], "region_id": "sub_sahara", "unlock_era_index": 1 },
-    { "territory_id": "madagascar", "name": "Madagascar", "polygon": [[400,540],[510,540],[510,680],[400,680]], "center_point": [455,610], "region_id": "sub_sahara", "unlock_era_index": 3 },
-    { "territory_id": "australia", "name": "Australia", "polygon": [[1080,470],[1195,470],[1195,600],[1080,600]], "center_point": [1137,535], "region_id": "oceania", "unlock_era_index": 2 },
-    { "territory_id": "polynesia", "name": "Polynesia", "polygon": [[1080,610],[1195,610],[1195,690],[1080,690]], "center_point": [1137,650], "region_id": "oceania", "unlock_era_index": 4 },
-    { "territory_id": "kamchatka", "name": "Kamchatka", "polygon": [[1075,200],[1195,200],[1195,330],[1075,330]], "center_point": [1135,265], "region_id": "pacific_rim", "unlock_era_index": 5 }
+    { "territory_id": "vinland", "name": "Vinland", "polygon": [[5,270],[80,270],[80,400],[5,400]], "center_point": [42,335], "region_id": "new_world", "unlock_era_index": 1,
+      "geo_polygon": [[-62,46],[-62,58],[-50,58],[-50,46],[-62,46]] },
+    { "territory_id": "caribbean_isles", "name": "Caribbean Isles", "polygon": [[5,420],[80,420],[80,560],[5,560]], "center_point": [42,490], "region_id": "new_world", "unlock_era_index": 2,
+      "geo_polygon": [[-84,12],[-84,24],[-62,24],[-62,12],[-84,12]] },
+    { "territory_id": "southern_africa", "name": "Southern Africa", "polygon": [[200,540],[340,540],[340,680],[200,680]], "center_point": [270,610], "region_id": "sub_sahara", "unlock_era_index": 1,
+      "geo_polygon": [[16,-34],[16,-18],[32,-18],[32,-34],[16,-34]] },
+    { "territory_id": "madagascar", "name": "Madagascar", "polygon": [[400,540],[510,540],[510,680],[400,680]], "center_point": [455,610], "region_id": "sub_sahara", "unlock_era_index": 3,
+      "geo_polygon": [[43,-25],[43,-12],[51,-12],[51,-25],[43,-25]] },
+    { "territory_id": "australia", "name": "Australia", "polygon": [[1080,470],[1195,470],[1195,600],[1080,600]], "center_point": [1137,535], "region_id": "oceania", "unlock_era_index": 2,
+      "geo_polygon": [[115,-34],[115,-16],[148,-16],[148,-34],[115,-34]] },
+    { "territory_id": "polynesia", "name": "Polynesia", "polygon": [[1080,610],[1195,610],[1195,690],[1080,690]], "center_point": [1137,650], "region_id": "oceania", "unlock_era_index": 4,
+      "geo_polygon": [[-160,-22],[-160,-6],[-138,-6],[-138,-22],[-160,-22]] },
+    { "territory_id": "kamchatka", "name": "Kamchatka", "polygon": [[1075,200],[1195,200],[1195,330],[1075,330]], "center_point": [1135,265], "region_id": "pacific_rim", "unlock_era_index": 5,
+      "geo_polygon": [[-179,52],[-179,62],[-168,62],[-168,52],[-179,52]] }
   ],
   "connections": [
     {
