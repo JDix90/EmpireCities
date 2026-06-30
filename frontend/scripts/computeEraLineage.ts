@@ -27,6 +27,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import intersect from '@turf/intersect';
 import { feature, featureCollection } from '@turf/helpers';
+import { inferWorldId } from '@borderfall/shared';
 import { buildTerritoryGlobeGeometries } from '../src/utils/globeTerritoryGeometry';
 import type { GameMap } from '../src/services/mapService';
 
@@ -73,11 +74,13 @@ function ringArea(ring: Ring): number {
   return Math.abs((sum * R * R) / 2);
 }
 
+let intersectFailures = 0;
 function overlapArea(a: GeoJSON.Geometry, b: GeoJSON.Geometry): number {
   try {
     const i = intersect(featureCollection([feature(a as never), feature(b as never)]));
     return i ? geodesicArea(i.geometry) : 0;
   } catch {
+    intersectFailures += 1; // surfaced at the end so silent geometry corruption is auditable
     return 0;
   }
 }
@@ -99,25 +102,36 @@ function bboxOf(geom: GeoJSON.Geometry): BBox {
 }
 const bboxesDisjoint = (a: BBox, b: BBox): boolean => a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1];
 
-interface MapGeoms { geom: Map<string, GeoJSON.Geometry>; bbox: Map<string, BBox>; area: Map<string, number> }
+interface MapGeoms {
+  geom: Map<string, GeoJSON.Geometry>;
+  bbox: Map<string, BBox>;
+  area: Map<string, number>;
+  /** territory_id → world ('earth', 'moon', …). Lineage never crosses worlds. */
+  world: Map<string, string>;
+  ids: string[];
+}
 const mapCache = new Map<string, MapGeoms>();
 function geomsForMap(eraId: string): MapGeoms {
   const cached = mapCache.get(eraId);
   if (cached) return cached;
   const map = JSON.parse(readFileSync(join(MAPS_DIR, `era_${eraId}.json`), 'utf8')) as GameMap;
+  const worldOf = new Map<string, string>();
+  for (const t of map.territories) worldOf.set(t.territory_id, inferWorldId(t));
   // Full territory set (base + every growth frontier), so frontiers map to frontiers.
   const polys = buildTerritoryGlobeGeometries(map, {
     countriesGeo: loadNE(),
     statesGeo: null,
     risorgimentoGeo: { type: 'FeatureCollection', features: [] },
   });
-  const out: MapGeoms = { geom: new Map(), bbox: new Map(), area: new Map() };
+  const out: MapGeoms = { geom: new Map(), bbox: new Map(), area: new Map(), world: new Map(), ids: [] };
   for (const p of polys) {
     if (!p.geometry) continue;
     out.geom.set(p.territory_id, p.geometry);
     out.bbox.set(p.territory_id, bboxOf(p.geometry));
     out.area.set(p.territory_id, geodesicArea(p.geometry));
+    out.world.set(p.territory_id, worldOf.get(p.territory_id) ?? 'earth');
   }
+  out.ids = [...out.geom.keys()];
   mapCache.set(eraId, out);
   return out;
 }
@@ -141,10 +155,19 @@ function computeTransition(fromEra: string, toEra: string): Transition {
 
   for (const [aid, ag] of ga.geom) {
     const aArea = ga.area.get(aid) ?? 0;
-    if (aArea <= 0) continue;
+    const aWorld = ga.world.get(aid) ?? 'earth';
+    if (aArea <= 0) {
+      // Degenerate geometry (no real footprint) → its land can't be matched; it
+      // leaves play. Keeps the {lineage, no_successor} partition exact.
+      no_successor.push(aid);
+      continue;
+    }
     const aBox = ga.bbox.get(aid)!;
     const edges: LineageEdge[] = [];
     for (const [bid, bg] of gb.geom) {
+      // Lineage never crosses worlds: a space-age Moon territory's geometry sits
+      // on Earth's sphere and would otherwise "capture" Earth sources as lunar.
+      if ((gb.world.get(bid) ?? 'earth') !== aWorld) continue;
       if (bboxesDisjoint(aBox, gb.bbox.get(bid)!)) continue; // cheap reject before the costly intersect
       const o = overlapArea(ag, bg);
       if (o <= 0) continue;
@@ -174,13 +197,23 @@ function computeTransition(fromEra: string, toEra: string): Transition {
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
 interface Override { set?: Record<string, string[]>; remove?: Record<string, string[]> }
-function applyOverrides(t: Transition, ov: Override | undefined): Transition {
+function applyOverrides(t: Transition, key: string, ov: Override | undefined, validSources: Set<string>, validTargets: Set<string>): Transition {
   // Universe of ids BEFORE editing, so derived fields stay exact afterwards.
   const sourceUniverse = new Set([...Object.keys(t.lineage), ...t.no_successor]);
   const targetUniverse = new Set<string>(t.new_land);
   for (const edges of Object.values(t.lineage)) for (const e of edges) targetUniverse.add(e.to);
 
   if (ov) {
+    // Fail loudly on a typo'd override id rather than writing an edge to a
+    // territory that doesn't exist (which would crash at runtime).
+    for (const [src, targets] of Object.entries(ov.set ?? {})) {
+      if (!validSources.has(src)) throw new Error(`override ${key}.set: unknown source "${src}"`);
+      for (const to of targets) if (!validTargets.has(to)) throw new Error(`override ${key}.set[${src}]: unknown target "${to}"`);
+    }
+    for (const [src, drop] of Object.entries(ov.remove ?? {})) {
+      if (!validSources.has(src)) throw new Error(`override ${key}.remove: unknown source "${src}"`);
+      for (const to of drop) if (!validTargets.has(to)) throw new Error(`override ${key}.remove[${src}]: unknown target "${to}"`);
+    }
     for (const [src, targets] of Object.entries(ov.set ?? {})) {
       t.lineage[src] = targets.map((to, i) => ({
         to, overlap: 0, target_overlap: 0, manual: true as const, ...(i === 0 ? { primary: true as const } : {}),
@@ -212,13 +245,16 @@ function main(): void {
   const transitions: Record<string, Transition> = {};
   for (let i = 0; i < SEQUENCE.length - 1; i++) {
     const key = `${SEQUENCE[i]}->${SEQUENCE[i + 1]}`;
-    const t = applyOverrides(computeTransition(SEQUENCE[i], SEQUENCE[i + 1]), overrides[key]);
+    const validSources = new Set(geomsForMap(SEQUENCE[i]).ids);
+    const validTargets = new Set(geomsForMap(SEQUENCE[i + 1]).ids);
+    const t = applyOverrides(computeTransition(SEQUENCE[i], SEQUENCE[i + 1]), key, overrides[key], validSources, validTargets);
     transitions[key] = t;
     const mappedSrc = Object.keys(t.lineage).length;
     console.log(
       `${key.padEnd(20)} lineage ${String(mappedSrc).padStart(2)} src · no_successor ${t.no_successor.length} · new_land ${t.new_land.length}`,
     );
   }
+  if (intersectFailures > 0) console.warn(`\n⚠ ${intersectFailures} turf.intersect failures were swallowed as zero-overlap — inspect for corrupt geometry.`);
   const out = {
     version: 1,
     method: 'geometry-overlap (ne_50m admin-0, geodesic area)',

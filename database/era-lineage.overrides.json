@@ -1,1 +1,3 @@
-{}
+{
+  "_note": "Hand corrections merged onto the auto-computed lineage by computeEraLineage.ts. Format per transition key (e.g. 'ancient->medieval'): { set: { sourceId: [primaryTargetId, ...] }, remove: { sourceId: [targetId, ...] } }. Unknown ids are rejected at generate time. Currently EMPTY: an adversarial geographic review (6 reviewers) plus verification against the actual map polygons confirmed the area-majority successors are correct for seed retention; the few flagged 'corrections' conflicted with the real geometry (e.g. ww2 has no South America, so discovery's brazil/peru correctly leave play; bactria=Tajikistan is not near Mongolia). The cross-world (lunar) errors were fixed at the source via world-scoped overlap, not overrides."
+}

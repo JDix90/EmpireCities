@@ -27,7 +27,6 @@ describe('era-lineage.json — structural integrity', () => {
   });
 
   for (let i = 0; i < 6; i++) {
-    // eslint-disable-next-line @typescript-eslint/no-loop-func
     describe(`transition ${['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'][i]} →`, () => {
       const seq = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'space_age'];
       const key = `${seq[i]}->${seq[i + 1]}`;
