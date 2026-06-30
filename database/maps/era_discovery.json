@@ -1190,10 +1190,13 @@
       "type": "sea"
     },
     { "from": "polar_north", "to": "russia_disc", "type": "land" },
+    { "from": "polar_north", "to": "north_america_east", "type": "sea" },
     { "from": "pacific_islands", "to": "japan_disc", "type": "sea" },
     { "from": "micronesia", "to": "pacific_islands", "type": "sea" },
+    { "from": "micronesia", "to": "japan_disc", "type": "sea" },
     { "from": "australia", "to": "southeast_asia_disc", "type": "sea" },
     { "from": "new_zealand", "to": "australia", "type": "sea" },
+    { "from": "new_zealand", "to": "pacific_islands", "type": "sea" },
     { "from": "southern_ocean", "to": "indian_ocean", "type": "sea" },
     { "from": "antarctica_disc", "to": "southern_ocean", "type": "sea" }
   ],

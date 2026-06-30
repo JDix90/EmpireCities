@@ -619,6 +619,21 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   megacity_pacific_rim: [
     { iso: 'CN', clip_bbox: [115, 24, 125, 38] },
   ],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ERA-GROWTH FRONTIERS (clipped) — real geometry for the land/ice frontiers
+  // unlocked as the board grows. Ocean/orbital frontiers stay as authored polygon
+  // blocks (no real coastline to use). Antarctic sectors are disjoint AQ clips.
+  // ═══════════════════════════════════════════════════════════════════════════
+  vinland: [{ iso: 'CA', clip_bbox: [-68, 46, -52, 60] }], // Newfoundland/Labrador (Medieval)
+  antarctica_disc: [{ iso: 'AQ', clip_bbox: [-30, -90, 90, -65] }], // Discovery
+  antarctica_peninsula: [{ iso: 'AQ', clip_bbox: [-80, -75, -55, -63] }], // WWII
+  ross_ice_shelf: [{ iso: 'AQ', clip_bbox: [150, -85, 179, -72] }], // WWII
+  antarctic_west: [{ iso: 'AQ', clip_bbox: [-150, -85, -60, -68] }], // Cold War
+  antarctic_east: [{ iso: 'AQ', clip_bbox: [20, -85, 160, -68] }], // Cold War
+  antarctic_shelf_mod: [{ iso: 'AQ', clip_bbox: [-30, -85, 40, -68] }], // Modern
+  antarctic_peninsula_2100: [{ iso: 'AQ', clip_bbox: [-78, -75, -55, -63] }], // Space Age
+  antarctic_interior_2100: [{ iso: 'AQ', clip_bbox: [40, -88, 120, -72] }], // Space Age
 };
 
 /** Simple territory → ISO codes (no clipping). Used when TERRITORY_GEO_CONFIG has no entry. */
@@ -811,6 +826,20 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   southeast_asia_mod: ['TH', 'VN', 'KH', 'LA', 'MM', 'MY', 'SG', 'BN'],
   indonesia_mod: ['ID', 'PH', 'TL', 'PG'],
   australia_mod: ['AU', 'NZ', 'FJ'],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ERA-GROWTH FRONTIERS (real land/island geometry). Shared ids (australia,
+  // southern_africa) also upgrade those frontiers on any other era that uses them.
+  // ═══════════════════════════════════════════════════════════════════════════
+  caribbean_isles: ['CU', 'DO', 'HT', 'JM', 'BS', 'PR', 'TT'], // Medieval
+  southern_africa: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'LS', 'SZ', 'AO', 'ZM'], // Medieval (+Ancient)
+  madagascar: ['MG', 'MU', 'SC', 'KM'], // Medieval
+  australia: ['AU'], // Medieval + Discovery
+  polynesia: ['PF', 'WS', 'TO', 'CK', 'NU', 'TV'], // Medieval
+  micronesia: ['FM', 'MH', 'PW', 'GU', 'MP', 'KI'], // Discovery
+  new_zealand: ['NZ'], // Discovery
+  polar_north: ['GL'], // Discovery (Greenland)
+  falklands_ww2: ['FK', 'GS'], // WWII
 };
 
 export function hasGeoMapping(territoryId: string): boolean {
