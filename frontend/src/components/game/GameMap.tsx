@@ -20,7 +20,7 @@ import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 import { playMap2dVisualEffect, type TerritoryCentroid } from '../../utils/map2dVisualEffects';
 import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
-import { usePageVisible } from '../../utils/usePageVisible';
+import { usePageVisible, isDocumentVisible } from '../../utils/usePageVisible';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import {
   shouldEmphasizeAdjacencyBorders,
@@ -264,6 +264,9 @@ export default function GameMap({
       // for negligible sharpness gain on flat map fills — a major heat source.
       resolution: Math.min(window.devicePixelRatio || 1, 1.5),
       autoDensity: true,
+      // If the app is (re)created while the tab is hidden, don't start the render
+      // loop; the visibility effect starts it when the page becomes visible.
+      autoStart: isDocumentVisible(),
     });
 
     canvasRef.current.appendChild(app.view as HTMLCanvasElement);
@@ -899,7 +902,8 @@ export default function GameMap({
       ring.lineStyle(3, 0xffd700, alpha);
       ring.drawCircle(cx, cy, r);
     });
-    ticker.start();
+    // Don't start while hidden; the visibility effect starts it on resume.
+    if (isDocumentVisible()) ticker.start();
 
     return () => {
       ticker.destroy();
@@ -966,7 +970,8 @@ export default function GameMap({
       g.closePath();
       g.endFill();
     });
-    ticker.start();
+    // Don't start while hidden; the visibility effect starts it on resume.
+    if (isDocumentVisible()) ticker.start();
 
     return () => {
       ticker.destroy();
@@ -1061,14 +1066,19 @@ export default function GameMap({
     pageVisible,
   ]);
 
-  // Stop the main PixiJS render loop while hidden; resume when visible.
+  // Stop the main PixiJS render loop AND any standalone effect tickers (selection
+  // pulse, strike flash) while hidden; resume when visible. The standalone tickers
+  // run their own rAF loops, so stopping only app.ticker would leave them burning
+  // CPU on a backgrounded tab.
   useEffect(() => {
     const app = appRef.current;
-    if (!app) return;
+    const standaloneTickers = [pulseTickerRef.current, strikeTickerRef.current];
     if (pageVisible) {
-      if (!app.ticker.started) app.ticker.start();
+      if (app && !app.ticker.started) app.ticker.start();
+      for (const t of standaloneTickers) if (t && !t.started) t.start();
     } else {
-      app.ticker.stop();
+      app?.ticker.stop();
+      for (const t of standaloneTickers) t?.stop();
     }
   }, [pageVisible]);
 
