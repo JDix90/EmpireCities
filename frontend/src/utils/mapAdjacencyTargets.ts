@@ -52,6 +52,15 @@ export function computePhaseAdjacencyTargets(
     if (gameState.phase === 'attack') {
       if (neighborOwner && neighborOwner !== sourceOwner) {
         result.add(neighborId);
+      } else if (!neighborOwner && gameState.settings?.era_advancement_enabled === true) {
+        // Era-advancement growth spawns NEUTRAL (unowned) frontier territories as
+        // the board grows. The backend allows capturing these neutral garrisons in
+        // era-advancement games (executeLandAttack carve-out), so the attack UI must
+        // offer them as targets too — otherwise a bordering frontier is unreachable.
+        // Off-world neutrals (Moon/galaxy) keep their access race; callers that span
+        // worlds pass a `territoryFilter` scoping targets to the active world, so they
+        // never reach this branch.
+        result.add(neighborId);
       }
     } else if (gameState.phase === 'fortify') {
       if (neighborOwner === sourceOwner) {
