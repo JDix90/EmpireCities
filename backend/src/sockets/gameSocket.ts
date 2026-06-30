@@ -632,6 +632,12 @@ async function aiTakeoverSeat(io: Server, gameId: string, playerId: string): Pro
       markAiTakeover(player);
 
       console.log(`[Socket] AI takeover: seat ${playerId} in game ${gameId} converted to AI after disconnect grace`);
+      recordServerEvent('seat_ai_takeover', {
+        game_id: gameId,
+        player_id: playerId,
+        turn_number: state.turn_number,
+        grace_ms: TAKEOVER_GRACE_MS,
+      }, playerId);
 
       try {
         await pgPool.query(
@@ -689,8 +695,10 @@ async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: stri
       reclaimed = true;
 
       try {
+        // Clear ai_difficulty too, so the row carries no stale takeover AI tier
+        // once the human is back (symmetric with markAiTakeover's COALESCE set).
         await pgPool.query(
-          'UPDATE game_players SET is_ai = false WHERE game_id = $1 AND user_id = $2',
+          'UPDATE game_players SET is_ai = false, ai_difficulty = NULL WHERE game_id = $1 AND user_id = $2',
           [gameId, playerId],
         );
       } catch (err) {
@@ -700,6 +708,11 @@ async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: stri
       await persistGameStateAfterMutation(gameId, state);
 
       console.log(`[Socket] Seat reclaim: ${playerId} resumed control of their seat in game ${gameId}`);
+      recordServerEvent('seat_reclaimed', {
+        game_id: gameId,
+        player_id: playerId,
+        turn_number: state.turn_number,
+      }, playerId);
 
       io.to(gameId).emit('game:player_reclaimed_seat', {
         player_id: playerId,

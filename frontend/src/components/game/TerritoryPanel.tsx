@@ -700,6 +700,11 @@ export default function TerritoryPanel({
                    (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) && (() => {
                     const cooldown = (gameState as any).influence_cooldown_remaining ?? 0;
                     const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
+                    // Mirror backend getInfluenceUnitCost: proxy_funding tech drops the cost to 2.
+                    const influenceCost =
+                      gameState.settings.tech_trees_enabled && myPlayer?.unlocked_techs?.includes('proxy_funding')
+                        ? 2
+                        : 3;
                     const garibaldiUsed = (myPlayer?.ability_uses?.['riso_garibaldi'] ?? 0) >= 1;
                     const isGaribaldiTarget =
                       !!gameState.era_modifiers?.carbonari_network &&
@@ -734,17 +739,17 @@ export default function TerritoryPanel({
                                      border border-purple-600/50 bg-purple-900/30 text-purple-200
                                      hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
                           onClick={() => { onInfluence(selectedTerritory); onClose(); }}
-                          title="Capture this bordering territory without rolling for combat. Spends 3 units from one of your adjacent territories (target must hold 3 units or fewer). One use, then a 1-turn cooldown."
+                          title={`Capture this territory without rolling for combat. Spends ${influenceCost} units from your bordering territories (target must hold 3 units or fewer). One use, then a 3-turn cooldown.`}
                         >
                           📡 Seize via Influence{' '}
                           <span className="text-purple-400 text-xs">
-                            {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
+                            {isGaribaldiTarget ? '(free — Garibaldi)' : `(costs ${influenceCost} units)`}
                           </span>
                         </button>
                         <p className="text-[11px] leading-snug text-purple-300/70 text-center px-1">
                           {isGaribaldiTarget
                             ? 'Take this territory without a fight — free, one-time (Garibaldi).'
-                            : 'Take this territory without a fight — spends 3 units from a bordering territory · 1-turn cooldown.'}
+                            : `Take this territory without a fight — spends ${influenceCost} units from your bordering territories · 3-turn cooldown.`}
                         </p>
                       </div>
                     );
