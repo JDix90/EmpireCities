@@ -32,6 +32,8 @@ import {
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
 import { projectMapToEraFloor, unlockTerritoriesForFloor } from '../game-engine/eraAdvancement/territoryUnlock';
+import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
+import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
@@ -2172,21 +2174,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
 
-      // Era Advancement territory growth: reaching a new era can open new
-      // neutral frontier territories on the shared board. Re-emit the projected
-      // map geometry so clients can render the additions, then let broadcastState
-      // (below) sync their neutral garrisons.
-      const unlockedTerritoryIds = unlockTerritoriesForFloor(state, room.map);
-      if (unlockedTerritoryIds.length > 0) {
-        io.to(gameId).emit('game:map', {
-          mapId: state.map_id,
-          map: projectMapToEraFloor(room.map, state.map_era_floor ?? 0),
-        });
-        io.to(gameId).emit('game:territories_unlocked', {
-          era_id: nextEraId,
-          territory_ids: unlockedTerritoryIds,
-        });
-      }
+      // Reaching a new era changes the shared board: either recompose it onto the
+      // next era's map (board-transform flag) or open new neutral frontiers on the
+      // current map (growth). The helper emits game:map + the matching cue;
+      // broadcastState (below) then syncs garrisons/ownership.
+      room.map = await applyEraBoardChange(io, gameId, state, room.map, nextEraId);
 
       commitActionDecision(
         gameId, state, userId, 'advance_era',
@@ -3563,6 +3555,53 @@ export async function startWaitingGame(io: Server, gameId: string): Promise<Star
   return runWithGameLock(gameId, () => startWaitingGameLocked(io, gameId));
 }
 
+/**
+ * Apply (and emit) the board change an era advance can cause. With the
+ * board-transform flag on, recompose the board onto the next era's map when the
+ * global era floor rises (returns the new map for the room to install). Otherwise
+ * fall back to the growth model (unlock frontiers on the current map). Returns the
+ * map the room should now use.
+ */
+async function applyEraBoardChange(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  currentMap: GameMap,
+  nextEraId: string,
+): Promise<GameMap> {
+  if (state.settings.era_advancement_board_transform) {
+    const seed = `${gameId}:${state.board_era_index ?? 0}`
+      .split('')
+      .reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7);
+    const outcome = await transformBoardOnAdvance(state, currentMap, resolveMap, createSeededRng(seed));
+    if (outcome) {
+      setCachedRoom(gameId, state, outcome.map);
+      io.to(gameId).emit('game:map', { mapId: state.map_id, map: outcome.map });
+      const last = outcome.summaries[outcome.summaries.length - 1];
+      io.to(gameId).emit('game:board_transformed', {
+        era_id: state.era,
+        board_era_index: state.board_era_index ?? 0,
+        seeds: last.seeds,
+        neutral: last.neutral,
+        total: last.total,
+      });
+      return outcome.map;
+    }
+  }
+  const unlockedTerritoryIds = unlockTerritoriesForFloor(state, currentMap);
+  if (unlockedTerritoryIds.length > 0) {
+    io.to(gameId).emit('game:map', {
+      mapId: state.map_id,
+      map: projectMapToEraFloor(currentMap, state.map_era_floor ?? 0),
+    });
+    io.to(gameId).emit('game:territories_unlocked', {
+      era_id: nextEraId,
+      territory_ids: unlockedTerritoryIds,
+    });
+  }
+  return currentMap;
+}
+
 function broadcastState(io: Server, gameId: string, state: GameState): void {
     // Runtime tripwire: no owned territory should ever have 0 units. If this
     // ever fires, a game-engine path wrote an illegal state (leave-1 rule
@@ -4552,18 +4591,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       }));
       // Territory growth: an AI reaching a new era can open the same neutral
       // frontiers for everyone (global, first-to-reach). Re-emit the projected
-      // map before broadcastState so clients render the additions.
-      const unlockedTerritoryIds = unlockTerritoriesForFloor(state, map);
-      if (unlockedTerritoryIds.length > 0) {
-        io.to(gameId).emit('game:map', {
-          mapId: state.map_id,
-          map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
-        });
-        io.to(gameId).emit('game:territories_unlocked', {
-          era_id: nextEraId,
-          territory_ids: unlockedTerritoryIds,
-        });
-      }
+      // map before broadcastState so clients render the additions (or the whole
+      // board recomposition under the board-transform flag).
+      room.map = await applyEraBoardChange(io, gameId, state, map, nextEraId);
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       await delay();
