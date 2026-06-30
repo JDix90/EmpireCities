@@ -327,6 +327,14 @@ export interface GameSettings {
   era_advancement_vuln_defense_mult?: number;
   era_advancement_vuln_turns?: number;
   era_advancement_max_era_index?: number;
+  /**
+   * Board TRANSFORM mode (Phase 2). When true, advancing into a new era recomposes
+   * the shared board onto that era's map (era_ancient → era_medieval → …) instead
+   * of growing the current map: every territory spawns neutral except each
+   * surviving player's retained seed. Mutually exclusive with the growth model —
+   * when off, the unlock_era_index growth behavior is used.
+   */
+  era_advancement_board_transform?: boolean;
   /** Anti-steamroll cap: no player may advance more than this many eras ahead of the trailing living player (null = no cap). */
   era_advancement_max_lead?: number | null;
   era_advancement_combat_gap_dice?: number;
@@ -617,6 +625,13 @@ export interface GameState {
    * reaches each new era. Optional/back-compat: absent ⇒ treat as 0.
    */
   map_era_floor?: number;
+  /**
+   * Era-advancement board-TRANSFORM index: which era's map the board currently
+   * reflects (era_<sequence[board_era_index]>). Set by the transform engine when
+   * the global era floor crosses into a new era and the board recomposes onto the
+   * next era's map. Absent ⇒ the board has never transformed (growth-model game).
+   */
+  board_era_index?: number;
   card_deck: TerritoryCard[];
   /**
    * Redeemed territory cards awaiting recycling. When `card_deck` empties, the

@@ -1131,7 +1131,7 @@ export function findRedeemableCardIds(cards: TerritoryCard[]): string[] | null {
   return null;
 }
 
-function buildCardDeck(territoryIds: string[]): TerritoryCard[] {
+export function buildCardDeck(territoryIds: string[]): TerritoryCard[] {
   const symbols: Array<'infantry' | 'cavalry' | 'artillery'> = ['infantry', 'cavalry', 'artillery'];
   const deck: TerritoryCard[] = territoryIds.map((tid, i) => ({
     card_id: uuidv4(),
