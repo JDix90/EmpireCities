@@ -101,6 +101,8 @@ import {
   persistMapView,
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
+  hasSeenMobileMenuHint,
+  markMobileMenuHintSeen,
   getCameraFollowPreference,
   isLiteMode,
   persistLiteMode,
@@ -416,6 +418,10 @@ export default function GamePage() {
   const [globeSpinEnabled, setGlobeSpinEnabled] = useState(getGlobeSpinPreference);
   const [cameraFollowEnabled, setCameraFollowEnabled] = useState(getCameraFollowPreference);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  // One-time attention pulse on the mobile menu button so first-time players
+  // discover the HUD (Status / Players / Log) instead of thinking they must
+  // rotate to landscape. Cleared the first time they open the menu.
+  const [pulseMobileMenu, setPulseMobileMenu] = useState(() => !hasSeenMobileMenuHint());
   const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
   const [connectionHintPreference, setConnectionHintPreference] = useState<ConnectionHintPreference>(
     () => getConnectionHintPreference(),
@@ -423,6 +429,13 @@ export default function GamePage() {
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => isMobileViewport());
+  // Auto-settle the menu pulse after a few seconds so it isn't distracting all
+  // game; not persisted, so it gently returns next session until actually used.
+  useEffect(() => {
+    if (!pulseMobileMenu) return;
+    const t = setTimeout(() => setPulseMobileMenu(false), 10000);
+    return () => clearTimeout(t);
+  }, [pulseMobileMenu]);
   const [territorySheetSnap, setTerritorySheetSnap] = useState<SheetSnap>('half');
   const mapDataRef = useRef<MapData | null>(null);
   const resetViewRef = useRef<(() => void) | null>(null);
@@ -1500,6 +1513,17 @@ export default function GamePage() {
       toast(`${playerName} has surrendered!`, { icon: '🏳️', duration: 4000 });
     });
 
+    // A disconnected player returned and took their seat back from the AI. The
+    // bot badge clears automatically via the accompanying state broadcast; this
+    // is just the human-readable heads-up.
+    socket.on('game:player_reclaimed_seat', ({ player_id, username }: { player_id: string; username: string }) => {
+      const isSelf = player_id === userRef.current?.user_id;
+      toast(
+        isSelf ? 'Welcome back — you’ve reclaimed your seat' : `${username} reclaimed their seat from the AI`,
+        { icon: '🎮', duration: 4000 },
+      );
+    });
+
     socket.on('game:build_result', ({ success, error }: { success: boolean; error?: string }) => {
       if (!success) toast.error(error ?? 'Build failed');
       else toast.success('Building constructed!', { duration: 2000 });
@@ -2016,6 +2040,7 @@ export default function GamePage() {
       socket.off('game:chat_message');
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
+      socket.off('game:player_reclaimed_seat');
       socket.off('game:build_result');
       socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
@@ -4154,14 +4179,27 @@ export default function GamePage() {
                 <MessageSquare className="w-5 h-5" />
               </button>
             )}
-            {/* HUD drawer toggle */}
+            {/* HUD drawer toggle — labeled "Menu" and pulsed on first visit so
+                the Status / Players / Log HUD is discoverable on mobile. */}
             <button
               type="button"
-              onClick={() => setMobileHudOpen(true)}
-              className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border border-bf-border text-bf-muted hover:text-bf-text shrink-0"
-              aria-label="Open game menu"
+              onClick={() => {
+                setMobileHudOpen(true);
+                if (pulseMobileMenu) {
+                  setPulseMobileMenu(false);
+                  markMobileMenuHintSeen();
+                }
+              }}
+              className={clsx(
+                'relative flex items-center gap-1.5 px-2.5 h-10 rounded-lg border shrink-0 transition-colors',
+                pulseMobileMenu
+                  ? 'bg-bf-gold/20 border-bf-gold/60 text-bf-gold animate-pulse'
+                  : 'bg-bf-dark border-bf-border text-bf-muted hover:text-bf-text',
+              )}
+              aria-label="Open game menu (Status, Players, Log)"
             >
               <Menu className="w-5 h-5" />
+              <span className="text-xs font-medium">Menu</span>
             </button>
           </div>
         );

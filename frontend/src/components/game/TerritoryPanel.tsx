@@ -570,6 +570,16 @@ export default function TerritoryPanel({
                   <Sword className="w-4 h-4" /> Select as Attacker
                 </button>
               )}
+              {/* Re-pick the attacker without cancelling first: viewing a
+                  different own territory while an attacker is already locked. */}
+              {isMine && tState.unit_count >= 2 && attackSource && attackSource !== selectedTerritory && (
+                <button
+                  className="btn-primary w-full text-sm flex items-center justify-center gap-2"
+                  onClick={() => setAttackSource(selectedTerritory)}
+                >
+                  <Sword className="w-4 h-4" /> Attack from here instead
+                </button>
+              )}
               {attackSource && isEnemy && attackSource !== selectedTerritory && (
                 hasActiveTruce ? (
                   <button
@@ -583,20 +593,30 @@ export default function TerritoryPanel({
                     className="btn-danger w-full text-sm flex items-center justify-center gap-2"
                     onClick={() => onAttack(attackSource, selectedTerritory)}
                   >
-                    <Sword className="w-4 h-4" /> Attack from {attackSource.slice(0, 8)}...
+                    <Sword className="w-4 h-4" /> Attack from {territoryNameById.get(attackSource) ?? attackSource}
                   </button>
                 )
               )}
-              {attackSource === selectedTerritory && (
-                <div>
-                  <p className="text-bf-gold text-xs mb-2">Attacking from this territory. Select an enemy territory to attack.</p>
+              {/* Always offer a clear way out while an attacker is locked in. */}
+              {attackSource && (
+                attackSource === selectedTerritory ? (
+                  <div>
+                    <p className="text-bf-gold text-xs mb-2">Attacking from this territory. Select an enemy territory to attack.</p>
+                    <button
+                      className="btn-secondary w-full text-sm"
+                      onClick={() => setAttackSource(null)}
+                    >
+                      Cancel attack
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    className="btn-secondary w-full text-sm"
+                    className="btn-secondary w-full text-sm mt-2"
                     onClick={() => setAttackSource(null)}
                   >
-                    Cancel Attack
+                    Cancel attack (from {territoryNameById.get(attackSource) ?? attackSource})
                   </button>
-                </div>
+                )
               )}
             </div>
           )}
