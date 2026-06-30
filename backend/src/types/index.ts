@@ -113,6 +113,12 @@ export interface PlayerState {
   color: string;
   is_ai: boolean;
   ai_difficulty?: AiDifficulty;
+  /**
+   * True when this seat is a disconnected human currently driven by the AI
+   * (see aiTakeoverSeat). Distinguishes a taken-over human from an original AI
+   * seat so the human can reclaim it on reconnect; cleared when they return.
+   */
+  ai_takeover?: boolean;
   is_eliminated: boolean;
   /** True when the player voluntarily resigned (ranks below other eliminated players). */
   has_resigned?: boolean;

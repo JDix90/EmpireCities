@@ -14,6 +14,7 @@ const SFX_VOLUME_KEY = 'cc-sfx-volume';
 const SFX_MUTED_KEY = 'cc-sfx-muted';
 const COLORBLIND_MODE_KEY = 'cc-colorblind-mode';
 const HIGH_CONTRAST_KEY = 'cc-high-contrast';
+const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
 
 const listeners = new Set<() => void>();
 
@@ -96,6 +97,18 @@ export function getGlobeSpinPreference(): boolean {
 
 export function setGlobeSpinPreference(enabled: boolean): void {
   writeBool(GLOBE_SPIN_KEY, enabled);
+}
+
+// ── Mobile menu discovery hint ────────────────────────────────────────────────
+// One-time attention pulse on the mobile menu button so new players discover the
+// HUD (Status / Players / Log) without needing to be told to rotate or hunt.
+
+export function hasSeenMobileMenuHint(): boolean {
+  return readBool(MOBILE_MENU_HINT_SEEN_KEY, false);
+}
+
+export function markMobileMenuHintSeen(): void {
+  writeBool(MOBILE_MENU_HINT_SEEN_KEY, true);
 }
 
 // ── Camera follow ─────────────────────────────────────────────────────────────
