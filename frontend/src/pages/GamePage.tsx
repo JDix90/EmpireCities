@@ -1513,13 +1513,20 @@ export default function GamePage() {
       toast(`${playerName} has surrendered!`, { icon: '🏳️', duration: 4000 });
     });
 
+    // A player disconnected — the AI is now covering their turns. The "Away"
+    // badge appears via the accompanying state broadcast; this is the heads-up.
+    socket.on('game:player_away', ({ player_id, username }: { player_id: string; username: string }) => {
+      if (player_id === userRef.current?.user_id) return; // self handled by the reconnect banner
+      toast(`${username} disconnected — AI is covering their turns`, { icon: '📡', duration: 4000 });
+    });
+
     // A disconnected player returned and took their seat back from the AI. The
-    // bot badge clears automatically via the accompanying state broadcast; this
-    // is just the human-readable heads-up.
-    socket.on('game:player_reclaimed_seat', ({ player_id, username }: { player_id: string; username: string }) => {
+    // "Away" badge clears automatically via the accompanying state broadcast;
+    // this is just the human-readable heads-up.
+    socket.on('game:player_returned', ({ player_id, username }: { player_id: string; username: string }) => {
       const isSelf = player_id === userRef.current?.user_id;
       toast(
-        isSelf ? 'Welcome back — you’ve reclaimed your seat' : `${username} reclaimed their seat from the AI`,
+        isSelf ? 'Welcome back — you’ve reclaimed your seat' : `${username} reconnected and reclaimed their seat`,
         { icon: '🎮', duration: 4000 },
       );
     });
@@ -2043,7 +2050,8 @@ export default function GamePage() {
       socket.off('game:chat_message');
       socket.off('game:player_eliminated');
       socket.off('game:player_resigned');
-      socket.off('game:player_reclaimed_seat');
+      socket.off('game:player_away');
+      socket.off('game:player_returned');
       socket.off('game:build_result');
       socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
@@ -3427,7 +3435,7 @@ export default function GamePage() {
                               Host
                             </span>
                           )}
-                          {p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
+                          {p.is_away ? <AiBadge away /> : p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
                         </li>
                       );
                     })}

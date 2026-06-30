@@ -30,7 +30,7 @@ import {
   getSeaDefenseBonus,
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
-import { markAiTakeover, applySeatReclaim } from '../game-engine/state/seatTakeover';
+import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
 import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
 import { projectMapToEraFloor, unlockTerritoriesForFloor } from '../game-engine/eraAdvancement/territoryUnlock';
 import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
@@ -536,40 +536,26 @@ function isSocketUsersTurn(state: GameState, socketUserId: string, _socketUserna
 /** Thrown by the AI turn's delay() when the seat is reclaimed mid-turn, to abort cleanly. */
 class SeatReclaimedDuringAiTurn extends Error {}
 
-// Disconnect → AI takeover: gameId → (playerId → timeout handle). When a human
-// disconnects mid-game and other humans remain, we start a grace timer; if they
-// reconnect it's cleared, otherwise their seat is handed to the AI so the game
-// (and their territories) stays live instead of going inert.
-const takeoverTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>();
+// Away-seat model: when a human disconnects, their seat is marked *away* (see
+// markPlayerAway / markSeatAway) — NOT converted to AI. The AI merely covers the
+// seat's turns after a short reconnect window (AWAY_AI_GRACE_MS, derived from the
+// persisted away_since so it survives restarts), and the player reclaims instantly
+// on return. These maps hold the per-game in-memory timers used to drive that.
+//
 // Background reclaim retries, keyed `${gameId}:${playerId}`. A reclaim that
-// arrives while an AI turn holds the room lock is retried until it lands (or the
-// seat is no longer reclaimable), so a reconnect is never silently dropped.
+// arrives while an away-AI turn holds the room lock is retried until it lands (or
+// the seat is no longer away), so a reconnect is never silently dropped.
 const reclaimRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
-// Grace window before a disconnected human's seat is handed to the AI. Kept
-// generous so mobile players who briefly background the app (notifications,
-// multitasking, a phone call) aren't botted out from under themselves; the
-// takeover is reversible (reclaimSeatIfTakenOver) if they return even later.
-const TAKEOVER_GRACE_MS = 5 * 60 * 1000;
+// Pending "let the AI cover the away seat's current turn" timers, keyed by gameId.
+const awayAiTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-/** Cancel any pending AI-takeover for a player who has reconnected. */
-function cancelTakeoverTimer(gameId: string, playerId: string): void {
-  const byPlayer = takeoverTimers.get(gameId);
-  const timer = byPlayer?.get(playerId);
-  if (timer) {
-    clearTimeout(timer);
-    byPlayer!.delete(playerId);
-    if (byPlayer!.size === 0) takeoverTimers.delete(gameId);
+/** Clear a game's pending away-AI + reclaim-retry timers (eviction / game over). */
+function clearGameSeatTimers(gameId: string): void {
+  const away = awayAiTimers.get(gameId);
+  if (away) {
+    clearTimeout(away);
+    awayAiTimers.delete(gameId);
   }
-}
-
-/** Clear all pending takeover timers for a game (e.g. on eviction / game over). */
-function clearAllTakeoverTimers(gameId: string): void {
-  const byPlayer = takeoverTimers.get(gameId);
-  if (byPlayer) {
-    for (const t of byPlayer.values()) clearTimeout(t);
-    takeoverTimers.delete(gameId);
-  }
-  // Also drop any in-flight reclaim retries for this game.
   for (const [key, timer] of reclaimRetryTimers) {
     if (key.startsWith(`${gameId}:`)) {
       clearTimeout(timer);
@@ -610,7 +596,7 @@ function armGameEviction(io: Server, gameId: string, mapId: string, reason: stri
           clearTurnTimer(gameId, current.state);
         }
         void evictGameRoom(gameId);
-        clearAllTakeoverTimers(gameId);
+        clearGameSeatTimers(gameId);
         clearActionIdempotency(gameId);
         spectatorSeqCounters.delete(gameId);
         spectatorStateBuffers.delete(gameId);
@@ -623,85 +609,96 @@ function armGameEviction(io: Server, gameId: string, mapId: string, reason: stri
 }
 
 /**
- * Hand a disconnected human's seat to the AI. Called when the takeover grace
- * window lapses without the player reconnecting. The seat keeps its territories
- * and army; the existing AI engine simply drives it from now on, so the game
- * continues normally rather than stalling on an absent, un-driven player.
+ * Mark a disconnected human's seat as *away*. The seat keeps its territories and
+ * army and stays a human (is_ai unchanged); the AI just covers its turns while
+ * away, and the player reclaims instantly on reconnect (reclaimAwaySeat). If it's
+ * the away player's turn, the away-AI is scheduled (after the reconnect window).
  */
-async function aiTakeoverSeat(io: Server, gameId: string, playerId: string): Promise<void> {
-  cancelTakeoverTimer(gameId, playerId);
-
+async function markSeatAway(io: Server, gameId: string, playerId: string): Promise<void> {
   try {
     await withLockedRoom(gameId, async (room) => {
-      const { state } = room;
+      const { state, map } = room;
       if (state.phase === 'game_over') return;
 
       const player = state.players.find((p) => p.player_id === playerId);
-      if (!player || player.is_ai || player.is_eliminated) return;
-
+      if (!player) return;
+      // Still connected on another socket/tab, or nothing to do.
       if (await isPlayerConnected(gameId, playerId)) return;
+      if (!markPlayerAway(player, Date.now())) return;
 
-      // Mark as a *taken-over human* (not an original AI) so the player can
-      // reclaim the seat when they reconnect — see reclaimSeatIfTakenOver.
-      markAiTakeover(player);
-
-      console.log(`[Socket] AI takeover: seat ${playerId} in game ${gameId} converted to AI after disconnect grace`);
-      recordServerEvent('seat_ai_takeover', {
+      console.log(`[Socket] Player away: ${playerId} in game ${gameId} (AI will cover their turns)`);
+      recordServerEvent('seat_player_away', {
         game_id: gameId,
         player_id: playerId,
         turn_number: state.turn_number,
-        grace_ms: TAKEOVER_GRACE_MS,
       }, playerId);
-
-      try {
-        await pgPool.query(
-          'UPDATE game_players SET is_ai = true, ai_difficulty = COALESCE(ai_difficulty, $1) WHERE game_id = $2 AND user_id = $3',
-          ['medium', gameId, playerId],
-        );
-      } catch (err) {
-        console.error('[Socket] Failed to persist AI takeover for', playerId, err);
-      }
 
       await persistGameStateAfterMutation(gameId, state);
 
-      io.to(gameId).emit('game:player_replaced_by_ai', {
+      io.to(gameId).emit('game:player_away', {
         player_id: playerId,
         username: player.username,
       });
       broadcastState(io, gameId, state);
 
-      const current = state.players[state.current_player_index];
-      if (current?.player_id === playerId && !(await isAiTurnInFlight(gameId))) {
-        if (state.phase === 'territory_select') {
-          setTimeout(() => processAiTerritorySelect(io, gameId), 800);
-        } else {
-          setTimeout(() => processAiTurn(io, gameId), 1500);
-        }
+      // If it's their turn, route through the turn driver so the AI covers it
+      // once the reconnect window elapses.
+      if (state.players[state.current_player_index]?.player_id === playerId) {
+        startTurnTimer(io, gameId, state, map);
       }
     });
   } catch (err) {
     if (!(err instanceof GameRoomNotFoundError)) {
-      console.error('[Socket] AI takeover failed for', gameId, playerId, err);
+      console.error('[Socket] markSeatAway failed for', gameId, playerId, err);
     }
   }
 }
 
 /**
- * Reverse an AI takeover when the human returns. If their seat is AI-driven
- * *because they disconnected* (the ai_takeover marker), hand control back: clear
- * the marker, restore is_ai = false in the DB so listings show them as human
- * again, announce the reclaim, and — if it's their turn — start their turn clock
- * (the AI ran without one). Original AI seats (no ai_takeover) are untouched.
+ * Schedule the AI to cover the current (away) seat's turn once its reconnect
+ * window elapses. Restart-safe: the remaining wait is derived from the persisted
+ * away_since, and the fired handler re-guards on is_ai||is_away, so a reconnect in
+ * the meantime simply makes it a no-op. Idempotent per game.
+ */
+function scheduleAwayAiTurn(io: Server, gameId: string, awaySince: number | null | undefined): void {
+  const existing = awayAiTimers.get(gameId);
+  if (existing) clearTimeout(existing);
+  const remainingMs = Math.max(0, AWAY_AI_GRACE_MS - (Date.now() - (awaySince ?? Date.now())));
+  const timer = setTimeout(() => {
+    awayAiTimers.delete(gameId);
+    void driveCurrentSeatIfAi(io, gameId);
+  }, remainingMs + 1000);
+  timer.unref();
+  awayAiTimers.set(gameId, timer);
+}
+
+/** Dispatch the AI for the current seat if it's AI-driven or away (phase-aware). */
+async function driveCurrentSeatIfAi(io: Server, gameId: string): Promise<void> {
+  const room = getCachedRoom(gameId) ?? (await loadAuthoritativeRoom(gameId).catch(() => null));
+  if (!room) return;
+  const current = room.state.players[room.state.current_player_index];
+  if (!current || (!current.is_ai && !current.is_away)) return;
+  if (room.state.phase === 'territory_select') {
+    void processAiTerritorySelect(io, gameId);
+  } else {
+    void processAiTurn(io, gameId);
+  }
+}
+
+/**
+ * Hand an away seat back when the human returns: clear the away flag, announce
+ * the return, and — if it's their turn — (re)start their turn clock (the away-AI
+ * ran without a human clock). Present / AI / eliminated seats are untouched.
  *
  * Returns:
- *  - 'reclaimed': the seat was handed back (state broadcast + DB updated).
- *  - 'noop': nothing to do (no takeover marker, eliminated, or game over).
- *  - 'contended': an AI turn currently holds the room lock; the caller should
- *    retry shortly (scheduleReclaimRetry) so the reconnect is never dropped.
+ *  - 'reclaimed': the seat was handed back (state broadcast).
+ *  - 'noop': nothing to do (not away, eliminated, or game over).
+ *  - 'contended': an away-AI turn currently holds the room lock; the caller should
+ *    retry shortly (scheduleReclaimRetry) so the return is never dropped.
  *
- * processAiTurn holds the room lock for the whole AI turn (30s TTL) and the AI's
- * delay() aborts if the seat flips to human, so a reclaim either lands between
- * turns or is retried — never interleaved with an AI action.
+ * processAiTurn holds the room lock for the whole turn (30s TTL) and its delay()
+ * aborts once the seat is no longer away, so a return either lands between turns
+ * or is retried — never interleaved with an away-AI action.
  */
 type ReclaimResult = 'reclaimed' | 'noop' | 'contended';
 
@@ -711,7 +708,7 @@ function isLockContentionError(err: unknown): boolean {
   return /ExecutionError|LockError|quorum/i.test(`${e?.name ?? ''} ${e?.message ?? String(err)}`);
 }
 
-async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: string): Promise<ReclaimResult> {
+async function reclaimAwaySeat(io: Server, gameId: string, playerId: string): Promise<ReclaimResult> {
   let reclaimed = false;
   try {
     await withLockedRoom(gameId, async (room) => {
@@ -722,34 +719,25 @@ async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: stri
       if (!player || !applySeatReclaim(player)) return;
       reclaimed = true;
 
-      try {
-        // Clear ai_difficulty too, so the row carries no stale takeover AI tier
-        // once the human is back (symmetric with markAiTakeover's COALESCE set).
-        await pgPool.query(
-          'UPDATE game_players SET is_ai = false, ai_difficulty = NULL WHERE game_id = $1 AND user_id = $2',
-          [gameId, playerId],
-        );
-      } catch (err) {
-        console.error('[Socket] Failed to persist seat reclaim for', playerId, err);
-      }
-
+      // No game_players write needed: an away seat never flipped is_ai, so the
+      // row already reads as a human — only the in-state away flag is cleared.
       await persistGameStateAfterMutation(gameId, state);
 
-      console.log(`[Socket] Seat reclaim: ${playerId} resumed control of their seat in game ${gameId}`);
-      recordServerEvent('seat_reclaimed', {
+      console.log(`[Socket] Player returned: ${playerId} resumed their seat in game ${gameId}`);
+      recordServerEvent('seat_player_returned', {
         game_id: gameId,
         player_id: playerId,
         turn_number: state.turn_number,
       }, playerId);
 
-      io.to(gameId).emit('game:player_reclaimed_seat', {
+      io.to(gameId).emit('game:player_returned', {
         player_id: playerId,
         username: player.username,
       });
       broadcastState(io, gameId, state);
 
-      // If it's now their turn, the AI had no human clock running — start it so
-      // the returning player gets a full turn timer instead of a dead 0:00 clock.
+      // If it's now their turn, the away-AI had no human clock running — start it
+      // so the returning player gets a full turn timer instead of a dead clock.
       const current = state.players[state.current_player_index];
       if (
         current?.player_id === playerId &&
@@ -760,20 +748,20 @@ async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: stri
       }
     });
   } catch (err) {
-    // An in-flight AI turn holds the lock — signal the caller to retry rather
-    // than dropping the reclaim and leaving the player botted.
+    // An in-flight away-AI turn holds the lock — signal the caller to retry rather
+    // than dropping the return and leaving the AI in their seat.
     if (isLockContentionError(err)) return 'contended';
     if (!(err instanceof GameRoomNotFoundError)) {
-      console.error('[Socket] Seat reclaim failed for', gameId, playerId, err);
+      console.error('[Socket] Seat return failed for', gameId, playerId, err);
     }
   }
   return reclaimed ? 'reclaimed' : 'noop';
 }
 
 /**
- * Keep retrying a reclaim that lost the race to an in-flight AI turn, until it
+ * Keep retrying a return that lost the race to an in-flight away-AI turn, until it
  * lands or stops being applicable. Bounded (~40s) and self-clearing; stops early
- * if the player disconnects again (the takeover path will handle that seat).
+ * if the player disconnects again (markSeatAway re-owns that seat).
  */
 function scheduleReclaimRetry(io: Server, gameId: string, playerId: string): void {
   const key = `${gameId}:${playerId}`;
@@ -781,10 +769,10 @@ function scheduleReclaimRetry(io: Server, gameId: string, playerId: string): voi
   let attemptsLeft = 20;
   const tick = async () => {
     reclaimRetryTimers.delete(key);
-    if (!(await isPlayerConnected(gameId, playerId))) return; // left again; takeover owns it
+    if (!(await isPlayerConnected(gameId, playerId))) return; // left again
     let result: ReclaimResult = 'noop';
     try {
-      result = await reclaimSeatIfTakenOver(io, gameId, playerId);
+      result = await reclaimAwaySeat(io, gameId, playerId);
     } catch {
       result = 'contended';
     }
@@ -1145,12 +1133,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         if (room) {
           await onPlayerConnected(gameId, socket.id, userId);
-          cancelTakeoverTimer(gameId, userId);
-          // If the grace window already lapsed and the AI took the seat, hand it
-          // back now that the human has returned, then reload the refreshed state.
-          // If an AI turn currently holds the lock, retry in the background so the
-          // reclaim is never silently dropped.
-          const reclaimResult = await reclaimSeatIfTakenOver(io, gameId, userId);
+          // If the player was away (AI covering their turns), hand the seat back
+          // now that they've returned, then reload the refreshed state. If an
+          // away-AI turn currently holds the lock, retry in the background so the
+          // return is never silently dropped.
+          const reclaimResult = await reclaimAwaySeat(io, gameId, userId);
           if (reclaimResult === 'reclaimed') {
             room = (await loadAuthoritativeRoom(gameId, game.map_id)) ?? room;
           } else if (reclaimResult === 'contended') {
@@ -3409,7 +3396,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
           if (!humansConnected) {
             await saveGameState(gameId, room.state);
             armGameEviction(io, gameId, room.state.map_id, 'after disconnect');
-          } else if (
+          }
+          // Mark the departed human's seat as away so the AI covers their turns
+          // (after a short reconnect window) instead of the table stalling. Runs
+          // regardless of whether other humans remain — markSeatAway re-checks
+          // presence under the lock and no-ops if they reconnected on another tab.
+          // Skip async (correspondence) games: there, being disconnected between
+          // 12–24h turns is normal, and the async deadline already covers absence.
+          if (
             departedPlayerId &&
             !room.state.settings.async_mode &&
             room.state.players.some(
@@ -3417,15 +3411,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             ) &&
             !(await isPlayerConnected(gameId, departedPlayerId))
           ) {
-            const byPlayer = takeoverTimers.get(gameId) ?? new Map();
-            takeoverTimers.set(gameId, byPlayer);
-            if (!byPlayer.has(departedPlayerId)) {
-              const timer = setTimeout(() => {
-                void aiTakeoverSeat(io, gameId, departedPlayerId);
-              }, TAKEOVER_GRACE_MS);
-              timer.unref();
-              byPlayer.set(departedPlayerId, timer);
-            }
+            void markSeatAway(io, gameId, departedPlayerId);
           }
         })();
       });
@@ -4486,7 +4472,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Clean up after a delay so clients can see final state
   setTimeout(() => {
-    clearAllTakeoverTimers(gameId);
+    clearGameSeatTimers(gameId);
     cancelEvictionTimer(gameId);
     void evictGameRoom(gameId);
     clearActionIdempotency(gameId);
@@ -4501,7 +4487,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   if (state.phase !== 'territory_select') return;
 
   const currentPlayer = state.players[state.current_player_index];
-  if (!currentPlayer.is_ai) return;
+  if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   // Orbit/Moon parity: exclude territories the AI couldn't legally claim (same gate
@@ -4665,7 +4651,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const { state, map } = room;
 
   const currentPlayer = state.players[state.current_player_index];
-  if (!currentPlayer.is_ai) return;
+  // Run for AI seats and for *away* human seats (the AI covers their turn).
+  if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
@@ -4682,10 +4669,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   const delay = async () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 600));
-    // Defense-in-depth for seat reclaim: if the human took their seat back during
-    // this pause (only reachable if the lock TTL lapsed mid-turn), abort cleanly
-    // rather than keep acting as — and then overwriting — a now-human seat.
-    if (!currentPlayer.is_ai) throw new SeatReclaimedDuringAiTurn();
+    // Defense-in-depth for seat return: if the human came back mid-turn (only
+    // reachable if the lock TTL lapsed), abort cleanly rather than keep acting as
+    // — and then overwriting — a now-present human seat. An away seat that is
+    // still away (or an original AI) keeps playing.
+    if (!currentPlayer.is_ai && !currentPlayer.is_away) throw new SeatReclaimedDuringAiTurn();
   };
 
   const doVictoryCheck = async (): Promise<boolean> => {
@@ -5353,9 +5341,24 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
   clearTurnTimer(gameId, state);
+  // Re-decide the away-AI timer for this turn (cleared here; re-armed below if the
+  // current seat is away). Keeps a returning player from leaving a stale timer.
+  const pendingAway = awayAiTimers.get(gameId);
+  if (pendingAway) {
+    clearTimeout(pendingAway);
+    awayAiTimers.delete(gameId);
+  }
+  const currentPlayer = state.players[state.current_player_index];
+  // Away human seat: the AI covers the turn after the reconnect window — in BOTH
+  // timed and untimed games, so the table never stalls on an absent player. This
+  // is checked before the no-timer early-return below for exactly that reason.
+  // (Async games never mark seats away; the async deadline handles absence.)
+  if (currentPlayer.is_away && !currentPlayer.is_ai && !state.settings.async_mode) {
+    scheduleAwayAiTurn(io, gameId, currentPlayer.away_since);
+    return;
+  }
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
-  const currentPlayer = state.players[state.current_player_index];
   if (currentPlayer.is_ai) return;
 
   // ── Async mode: use persistent BullMQ job instead of in-memory timer ──

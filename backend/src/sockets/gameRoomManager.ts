@@ -111,7 +111,7 @@ export function disconnectSocket(gameId: string, socketId: string): string | und
 
 export async function onPlayerConnected(gameId: string, socketId: string, playerId: string): Promise<void> {
   connectSocket(gameId, socketId, playerId);
-  await markPlayerConnected(gameId, playerId).catch((err) => {
+  await markPlayerConnected(gameId, playerId, socketId).catch((err) => {
     console.error('[Redis] markPlayerConnected failed', gameId, err);
   });
 }
@@ -122,7 +122,7 @@ export async function onPlayerDisconnected(
   playerId: string,
 ): Promise<void> {
   disconnectSocket(gameId, socketId);
-  await markPlayerDisconnected(gameId, playerId).catch((err) => {
+  await markPlayerDisconnected(gameId, playerId, socketId).catch((err) => {
     console.error('[Redis] markPlayerDisconnected failed', gameId, err);
   });
 }
