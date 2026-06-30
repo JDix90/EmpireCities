@@ -533,11 +533,18 @@ function isSocketUsersTurn(state: GameState, socketUserId: string, _socketUserna
   return Boolean(byId && byId.player_index === currentPlayer.player_index);
 }
 
+/** Thrown by the AI turn's delay() when the seat is reclaimed mid-turn, to abort cleanly. */
+class SeatReclaimedDuringAiTurn extends Error {}
+
 // Disconnect → AI takeover: gameId → (playerId → timeout handle). When a human
 // disconnects mid-game and other humans remain, we start a grace timer; if they
 // reconnect it's cleared, otherwise their seat is handed to the AI so the game
 // (and their territories) stays live instead of going inert.
 const takeoverTimers = new Map<string, Map<string, ReturnType<typeof setTimeout>>>();
+// Background reclaim retries, keyed `${gameId}:${playerId}`. A reclaim that
+// arrives while an AI turn holds the room lock is retried until it lands (or the
+// seat is no longer reclaimable), so a reconnect is never silently dropped.
+const reclaimRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 // Grace window before a disconnected human's seat is handed to the AI. Kept
 // generous so mobile players who briefly background the app (notifications,
 // multitasking, a phone call) aren't botted out from under themselves; the
@@ -561,6 +568,13 @@ function clearAllTakeoverTimers(gameId: string): void {
   if (byPlayer) {
     for (const t of byPlayer.values()) clearTimeout(t);
     takeoverTimers.delete(gameId);
+  }
+  // Also drop any in-flight reclaim retries for this game.
+  for (const [key, timer] of reclaimRetryTimers) {
+    if (key.startsWith(`${gameId}:`)) {
+      clearTimeout(timer);
+      reclaimRetryTimers.delete(key);
+    }
   }
 }
 
@@ -679,11 +693,25 @@ async function aiTakeoverSeat(io: Server, gameId: string, playerId: string): Pro
  * again, announce the reclaim, and — if it's their turn — start their turn clock
  * (the AI ran without one). Original AI seats (no ai_takeover) are untouched.
  *
- * The room lock serializes this against processAiTurn (which holds the lock for
- * the whole AI turn and bails when the seat is no longer is_ai), so a reclaim can
- * never land in the middle of an AI action.
+ * Returns:
+ *  - 'reclaimed': the seat was handed back (state broadcast + DB updated).
+ *  - 'noop': nothing to do (no takeover marker, eliminated, or game over).
+ *  - 'contended': an AI turn currently holds the room lock; the caller should
+ *    retry shortly (scheduleReclaimRetry) so the reconnect is never dropped.
+ *
+ * processAiTurn holds the room lock for the whole AI turn (30s TTL) and the AI's
+ * delay() aborts if the seat flips to human, so a reclaim either lands between
+ * turns or is retried — never interleaved with an AI action.
  */
-async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: string): Promise<boolean> {
+type ReclaimResult = 'reclaimed' | 'noop' | 'contended';
+
+function isLockContentionError(err: unknown): boolean {
+  if (err instanceof GameRoomNotFoundError) return false;
+  const e = err as { name?: string; message?: string } | null;
+  return /ExecutionError|LockError|quorum/i.test(`${e?.name ?? ''} ${e?.message ?? String(err)}`);
+}
+
+async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: string): Promise<ReclaimResult> {
   let reclaimed = false;
   try {
     await withLockedRoom(gameId, async (room) => {
@@ -732,11 +760,43 @@ async function reclaimSeatIfTakenOver(io: Server, gameId: string, playerId: stri
       }
     });
   } catch (err) {
+    // An in-flight AI turn holds the lock — signal the caller to retry rather
+    // than dropping the reclaim and leaving the player botted.
+    if (isLockContentionError(err)) return 'contended';
     if (!(err instanceof GameRoomNotFoundError)) {
       console.error('[Socket] Seat reclaim failed for', gameId, playerId, err);
     }
   }
-  return reclaimed;
+  return reclaimed ? 'reclaimed' : 'noop';
+}
+
+/**
+ * Keep retrying a reclaim that lost the race to an in-flight AI turn, until it
+ * lands or stops being applicable. Bounded (~40s) and self-clearing; stops early
+ * if the player disconnects again (the takeover path will handle that seat).
+ */
+function scheduleReclaimRetry(io: Server, gameId: string, playerId: string): void {
+  const key = `${gameId}:${playerId}`;
+  if (reclaimRetryTimers.has(key)) return; // already retrying this seat
+  let attemptsLeft = 20;
+  const tick = async () => {
+    reclaimRetryTimers.delete(key);
+    if (!(await isPlayerConnected(gameId, playerId))) return; // left again; takeover owns it
+    let result: ReclaimResult = 'noop';
+    try {
+      result = await reclaimSeatIfTakenOver(io, gameId, playerId);
+    } catch {
+      result = 'contended';
+    }
+    if (result === 'contended' && --attemptsLeft > 0) {
+      const t = setTimeout(() => void tick(), 2000);
+      t.unref();
+      reclaimRetryTimers.set(key, t);
+    }
+  };
+  const t = setTimeout(() => void tick(), 2000);
+  t.unref();
+  reclaimRetryTimers.set(key, t);
 }
 
 const SPECTATOR_DELAY_MS = 30_000;
@@ -1088,8 +1148,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
           cancelTakeoverTimer(gameId, userId);
           // If the grace window already lapsed and the AI took the seat, hand it
           // back now that the human has returned, then reload the refreshed state.
-          if (await reclaimSeatIfTakenOver(io, gameId, userId)) {
+          // If an AI turn currently holds the lock, retry in the background so the
+          // reclaim is never silently dropped.
+          const reclaimResult = await reclaimSeatIfTakenOver(io, gameId, userId);
+          if (reclaimResult === 'reclaimed') {
             room = (await loadAuthoritativeRoom(gameId, game.map_id)) ?? room;
+          } else if (reclaimResult === 'contended') {
+            scheduleReclaimRetry(io, gameId, userId);
           }
           // A player is here — any pending no-humans eviction is now wrong.
           cancelEvictionTimer(gameId);
@@ -4615,7 +4680,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     : state;
   const actions = await runAiWithTimeout(planningState, map, difficulty);
 
-  const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 600));
+  const delay = async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+    // Defense-in-depth for seat reclaim: if the human took their seat back during
+    // this pause (only reachable if the lock TTL lapsed mid-turn), abort cleanly
+    // rather than keep acting as — and then overwriting — a now-human seat.
+    if (!currentPlayer.is_ai) throw new SeatReclaimedDuringAiTurn();
+  };
 
   const doVictoryCheck = async (): Promise<boolean> => {
     if (maybeResolveDailyPuzzle(io, gameId, room, null, currentPlayer.player_id, finalizeGame)) {
@@ -5257,14 +5328,20 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     // Don't start timer while a choice-based event awaits human resolution
     startTurnTimer(io, gameId, state, map);
   }
-  }, { durationMs: 15000 });
+    // 30s (was 15s): an aggressive expert turn on a large map can chain enough
+    // 600ms action delays to exceed 15s, which would let the lock lapse mid-turn
+    // and a concurrent seat reclaim interleave. The wider TTL keeps the whole
+    // turn atomic; the delay() checkpoint above is the backstop if it still lapses.
+  }, { durationMs: 30000 });
   } catch (err) {
     // Every call site is a fire-and-forget setTimeout, so a rethrow here
     // becomes an unhandled rejection that takes down the whole process —
     // one bad AI turn must never end every other game on the server.
     // Recovery: the in-flight lock is released below, and any player
     // reconnect re-triggers the AI turn via the game:join resume path.
-    if (err instanceof GameRoomNotFoundError) {
+    if (err instanceof SeatReclaimedDuringAiTurn) {
+      console.warn('[AI] Seat reclaimed mid-turn; aborted AI turn for', gameId);
+    } else if (err instanceof GameRoomNotFoundError) {
       console.warn('[AI] Room unavailable for AI turn on', gameId);
     } else {
       console.error('[AI] AI turn failed for', gameId, err);
