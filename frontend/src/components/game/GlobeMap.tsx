@@ -1005,6 +1005,9 @@ function GlobeMap({
       if (ctrl && !regionalGlobeRef.current.lockRotation && autoSpin && !spinSuppressedRef.current) {
         ctrl.autoRotate = true;
         ctrl.autoRotateSpeed = 0.4;
+        // The render loop may have idled (paused) while waiting; spinning needs
+        // frames, so wake it — otherwise auto-spin is enabled but never paints.
+        globeRef.current?.resumeAnimation?.();
       }
     }, 2500);
   }, [reducedEffects, autoSpin]);
@@ -1188,7 +1191,10 @@ function GlobeMap({
     }
     const ctrl = globe.controls?.();
     const spinning = !!ctrl?.autoRotate;
-    const animating = eventQueueRef.current.length > 0 || userInteractingRef.current;
+    // isAnimatingRef covers the *currently-playing* event (already shifted off the
+    // queue), so a single long animation keeps the loop alive instead of freezing.
+    const animating =
+      eventQueueRef.current.length > 0 || isAnimatingRef.current || userInteractingRef.current;
     if (interacted || spinning || animating) {
       globe.resumeAnimation();
       // Keep polling while active so the loop can idle once spin stops, the
@@ -1203,12 +1209,14 @@ function GlobeMap({
 
   usePageVisibilityEffect((visible) => applyRenderActivity(visible));
 
-  // Re-evaluate idle state whenever a new batch of events queues up (resume to
-  // play them), when spin toggles, and on turn changes (which can re-enable the
-  // idle auto-spin), so the loop tracks actual activity rather than freezing.
+  // Re-evaluate idle state when spin toggles and on turn changes (which can
+  // re-enable the idle auto-spin). NOTE: deliberately NOT keyed on `events` — that
+  // prop is a fresh array every parent render, which would resume the loop on
+  // every re-render and prevent it from ever idling. New events instead wake the
+  // loop from the dedup'd ingestion effect below (via the `hasNew` signal).
   useEffect(() => {
     applyRenderActivity(true);
-  }, [events, autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity]);
+  }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity]);
 
   useEffect(() => () => clearTimeout(renderIdleTimerRef.current), []);
 
@@ -2444,10 +2452,13 @@ function GlobeMap({
       seenEventIdsRef.current = new Set(entries.slice(-200));
     }
     flushAnimationUi();
-    if (hasNew && !isAnimatingRef.current) {
-      playNextRef.current();
+    if (hasNew) {
+      // Wake the render loop so the queued animation actually paints if the globe
+      // had idled; this is the authoritative "a new event truly arrived" signal.
+      applyRenderActivity(true);
+      if (!isAnimatingRef.current) playNextRef.current();
     }
-  }, [events, onEventDone, flushAnimationUi]);
+  }, [events, onEventDone, flushAnimationUi, applyRenderActivity]);
 
   // Cleanup timers on unmount
   useEffect(() => {

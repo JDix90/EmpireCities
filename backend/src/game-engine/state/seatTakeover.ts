@@ -30,5 +30,8 @@ export function applySeatReclaim(player: PlayerState): boolean {
   if (!canReclaimSeat(player)) return false;
   player.is_ai = false;
   player.ai_takeover = false;
+  // markAiTakeover defaulted ai_difficulty when it seized the seat; clear it so a
+  // reclaimed human carries no stale AI tier (kept in sync with the DB reset).
+  player.ai_difficulty = undefined;
   return true;
 }

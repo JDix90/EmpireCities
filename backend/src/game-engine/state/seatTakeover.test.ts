@@ -39,6 +39,7 @@ describe('seat takeover / reclaim transitions', () => {
     expect(applySeatReclaim(p)).toBe(true);
     expect(p.is_ai).toBe(false);
     expect(p.ai_takeover).toBe(false);
+    expect(p.ai_difficulty).toBeUndefined(); // stale takeover tier cleared
     expect(canReclaimSeat(p)).toBe(false); // idempotent: nothing left to reclaim
     expect(applySeatReclaim(p)).toBe(false);
   });

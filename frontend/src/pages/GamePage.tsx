@@ -1838,8 +1838,11 @@ export default function GamePage() {
           void (async () => {
             try {
               await api.post(`/games/${gameId}/join`);
+              // Don't claim success yet — the REST add only puts us on the roster;
+              // the rejoin below still has to load the live game. A neutral
+              // "joining" hint avoids a false green toast if that rejoin fails.
+              toast('Joining game…', { icon: '⏳' });
               socket.emit('game:join', { gameId });
-              toast.success('Joined the game');
             } catch {
               if (lobbyTimeoutRef.current) {
                 clearTimeout(lobbyTimeoutRef.current);
