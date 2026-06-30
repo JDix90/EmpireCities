@@ -1576,6 +1576,43 @@ export default function GamePage() {
       }
     });
 
+    socket.on('game:board_transformed', ({ era_id, neutral }: {
+      era_id?: string;
+      board_era_index?: number;
+      neutral?: number;
+      total?: number;
+      seeds?: { player_id: string; territory_id: string }[];
+    }) => {
+      // The board has recomposed onto a new era's map (board-transform mode). The
+      // new geometry + ownership already arrived via the preceding game:map /
+      // game:state emits (mapDataRef is current); here we frame the epic morph:
+      // a banner + fanfare + the era-advance cinematic cascaded over the reborn
+      // world, one reveal per region.
+      const eraName = (era_id ?? 'a new age').replace(/_/g, ' ');
+      toast(
+        `The world turns — you have entered the ${eraName}. ${neutral ?? 0} unclaimed land${neutral === 1 ? '' : 's'} await.`,
+        { icon: '🌍', duration: 7000 },
+      );
+      try { playFrontierUnlockSound(); } catch { /* audio is best-effort */ }
+      const map = mapDataRef.current;
+      if (!map) return;
+      const byRegion = new Map<string, string[]>();
+      for (const t of map.territories) {
+        const arr = byRegion.get(t.region_id) ?? [];
+        arr.push(t.territory_id);
+        byRegion.set(t.region_id, arr);
+      }
+      for (const [regionId, regionIds] of byRegion) {
+        pushMapVisualLocal({
+          kind: 'frontier_unlock',
+          territoryId: regionIds[0],
+          regionId,
+          affectedTerritories: regionIds.map((territory_id) => ({ territory_id, delta: 0 })),
+          variant: 'frontier_unlock',
+        });
+      }
+    });
+
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
       fromId: string; toId: string;
       result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
@@ -1958,6 +1995,7 @@ export default function GamePage() {
       socket.off('game:research_result');
       socket.off('game:advance_era_result');
       socket.off('game:territories_unlocked');
+      socket.off('game:board_transformed');
       socket.off('game:naval_combat_result');
       socket.off('game:influence_result');
       socket.off('game:event_card');
