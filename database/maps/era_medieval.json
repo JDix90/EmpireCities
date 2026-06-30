@@ -1023,7 +1023,8 @@
     { "from": "madagascar", "to": "southern_africa", "type": "sea" },
     { "from": "australia", "to": "southeast_asia", "type": "sea" },
     { "from": "polynesia", "to": "australia", "type": "sea" },
-    { "from": "kamchatka", "to": "korea_japan", "type": "sea" }
+    { "from": "kamchatka", "to": "korea_japan", "type": "sea" },
+    { "from": "kamchatka", "to": "siberia", "type": "land" }
   ],
   "regions": [
     {
