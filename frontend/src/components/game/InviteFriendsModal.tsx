@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Copy, UserPlus } from 'lucide-react';
 import { api } from '../../services/api';
+import { buildInviteUrl } from '../../utils/inviteLink';
 import toast from 'react-hot-toast';
 
 interface Friend {
@@ -24,11 +25,11 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
       .catch(() => toast.error('Could not load friends'));
   }, []);
 
-  const inviteUrl = `${window.location.origin}/game/${gameId}`;
+  const inviteUrl = buildInviteUrl(window.location.origin, gameId, joinCode);
 
   const copyLink = () => {
     void navigator.clipboard.writeText(inviteUrl);
-    toast.success('Game link copied');
+    toast.success('Invite link copied');
   };
 
   const copyCode = () => {
@@ -82,7 +83,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
 
           <div className="flex flex-wrap gap-2 mb-6">
             <button type="button" onClick={copyLink} className="btn-primary text-sm flex items-center gap-1 w-full sm:w-auto justify-center">
-              <Copy className="w-4 h-4" /> Copy game link
+              <Copy className="w-4 h-4" /> Copy invite link
             </button>
             {joinCode && (
               <button type="button" onClick={copyCode} className="btn-secondary text-sm flex items-center gap-1 w-full sm:w-auto justify-center">

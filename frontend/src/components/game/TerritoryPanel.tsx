@@ -708,17 +708,25 @@ export default function TerritoryPanel({
                       );
                     }
                     return (
-                      <button
-                        className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
-                                   border border-purple-600/50 bg-purple-900/30 text-purple-200
-                                   hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
-                        onClick={() => { onInfluence(selectedTerritory); onClose(); }}
-                      >
-                        📡 Seize via Influence{' '}
-                        <span className="text-purple-400 text-xs">
-                          {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
-                        </span>
-                      </button>
+                      <div className="space-y-1">
+                        <button
+                          className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                     border border-purple-600/50 bg-purple-900/30 text-purple-200
+                                     hover:bg-purple-800/40 hover:border-purple-500 transition-colors"
+                          onClick={() => { onInfluence(selectedTerritory); onClose(); }}
+                          title="Capture this bordering territory without rolling for combat. Spends 3 units from one of your adjacent territories (target must hold 3 units or fewer). One use, then a 1-turn cooldown."
+                        >
+                          📡 Seize via Influence{' '}
+                          <span className="text-purple-400 text-xs">
+                            {isGaribaldiTarget ? '(free — Garibaldi)' : '(costs 3 units)'}
+                          </span>
+                        </button>
+                        <p className="text-[11px] leading-snug text-purple-300/70 text-center px-1">
+                          {isGaribaldiTarget
+                            ? 'Take this territory without a fight — free, one-time (Garibaldi).'
+                            : 'Take this territory without a fight — spends 3 units from a bordering territory · 1-turn cooldown.'}
+                        </p>
+                      </div>
                     );
                   })()}
 
