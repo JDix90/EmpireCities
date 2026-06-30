@@ -940,3 +940,63 @@ describe('checkVictory turn cap precedence', () => {
     expect(checkVictory(state, victoryMap)).toBeNull();
   });
 });
+
+describe('era spine snapshot (board-transform mid-line starts)', () => {
+  const spineMap: GameMap = {
+    map_id: 'era_ww2',
+    name: 'WW2',
+    territories: [
+      { territory_id: 'a', name: 'A', polygon: [], center_point: [0, 0], region_id: 'r' },
+      { territory_id: 'b', name: 'B', polygon: [], center_point: [0, 0], region_id: 'r' },
+      { territory_id: 'c', name: 'C', polygon: [], center_point: [0, 0], region_id: 'r' },
+      { territory_id: 'd', name: 'D', polygon: [], center_point: [0, 0], region_id: 'r' },
+    ],
+    connections: [
+      { from: 'a', to: 'b', type: 'land' },
+      { from: 'b', to: 'c', type: 'land' },
+      { from: 'c', to: 'd', type: 'land' },
+    ],
+    regions: [{ region_id: 'r', name: 'R', bonus: 0 }],
+  };
+
+  function initOn(era: GameState['era'], overrides?: Partial<GameSettings>) {
+    return initializeGameState(
+      `spine-${era}`,
+      era,
+      spineMap,
+      [
+        makePlayer('p1', 0),
+        makePlayer('p2', 1),
+      ],
+      makeSettings({ era_advancement_enabled: true, factions_enabled: false, ...overrides }),
+    );
+  }
+
+  it('anchors an ascension spine at the start era when board-transform is on', () => {
+    const state = initOn('ww2', { era_advancement_board_transform: true });
+    expect(state.era_spine?.map((s) => s.era_id)).toEqual(['ww2', 'coldwar', 'modern', 'space_age']);
+    // First step (the start era) is spine index 0 — players begin there.
+    expect(state.players.every((p) => p.current_era_index === 0)).toBe(true);
+  });
+
+  it('keeps the configured spine when board-transform is off', () => {
+    const state = initOn('ww2', { era_advancement_board_transform: false, era_advancement_spine_id: 'classic' });
+    expect(state.era_spine?.map((s) => s.era_id)).toEqual(
+      ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'],
+    );
+  });
+
+  it('falls back to the configured spine for a start era off the ascension line', () => {
+    // era_acw is not on the ascension line; transform-on should still yield the configured spine.
+    const state = initOn('acw' as GameState['era'], {
+      era_advancement_board_transform: true,
+      era_advancement_spine_id: 'classic',
+    });
+    expect(state.era_spine?.[0].era_id).toBe('ancient');
+  });
+
+  it('leaves the spine undefined when era advancement is disabled', () => {
+    const state = initOn('ww2', { era_advancement_enabled: false, era_advancement_board_transform: true });
+    expect(state.era_spine).toBeUndefined();
+  });
+});

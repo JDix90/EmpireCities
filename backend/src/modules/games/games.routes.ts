@@ -61,6 +61,9 @@ export const CreateGameSchema = z.object({
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
       era_advancement_preset: z.enum(['skirmish', 'standard', 'epic', 'custom']).optional(),
+      /** Board-transform model: advancing eras swaps the whole board to the next
+       * era's map and lets a game start on any ascension-line era map. */
+      era_advancement_board_transform: z.boolean().optional(),
       is_ranked: z.boolean().optional(),
       /** Turn cap: most territory when this turn ends wins. Without this entry
        * zod strips the field, which silently disabled Quick Match's 150-turn cap. */

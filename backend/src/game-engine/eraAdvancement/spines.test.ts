@@ -3,6 +3,8 @@ import type { GameState } from '../../types';
 import { getEraTechTree } from '../eras';
 import type { PlayerState } from '../../types';
 import {
+  ASCENSION_ERA_ORDER,
+  buildAscensionSpineFromEra,
   DEFAULT_ERA_SPINE_ID,
   ERA_ADVANCEMENT_SPINES,
   getCatchupGap,
@@ -12,6 +14,7 @@ import {
   getSpineById,
   getSpineEraIdAtIndex,
   getStateSpineSteps,
+  isAscensionEra,
   isValidSpineId,
 } from './spines';
 
@@ -128,6 +131,51 @@ describe('full_ascension spine', () => {
     });
     // modern is no longer terminal here, so it carries an exit gate
     expect(ERA_ADVANCEMENT_SPINES.full_ascension.steps[5].gate_overrides?.min_tier3_techs).toBe(1);
+  });
+});
+
+describe('buildAscensionSpineFromEra (non-Ancient board-transform starts)', () => {
+  it('mirrors full_ascension when started at Ancient', () => {
+    const steps = buildAscensionSpineFromEra('ancient');
+    expect(steps?.map((s) => s.era_id)).toEqual(ASCENSION_ERA_ORDER);
+    expect(steps).toEqual(ERA_ADVANCEMENT_SPINES.full_ascension.steps);
+  });
+
+  it('slices from a mid-line era so the world climbs forward from the start map', () => {
+    const steps = buildAscensionSpineFromEra('ww2');
+    expect(steps?.map((s) => s.era_id)).toEqual(['ww2', 'coldwar', 'modern', 'space_age']);
+  });
+
+  it('keeps the start era exit gate but never relies on its arrival signature', () => {
+    // ww2 is the start (index 0): its gate_overrides gate leaving ww2 and must
+    // survive; later arrivals (index ≥ 1) carry the signatures that actually fire.
+    const steps = buildAscensionSpineFromEra('ww2')!;
+    expect(steps[0].gate_overrides?.min_tier3_techs).toBe(1);
+    expect(steps[1]).toMatchObject({ era_id: 'coldwar', signature_id: 'intelligence_coup' });
+  });
+
+  it('reduces to a single terminal step when started at the Space Age', () => {
+    const steps = buildAscensionSpineFromEra('space_age');
+    expect(steps?.map((s) => s.era_id)).toEqual(['space_age']);
+  });
+
+  it('returns null for eras off the ascension line so callers fall back', () => {
+    expect(buildAscensionSpineFromEra('acw' as never)).toBeNull();
+    expect(buildAscensionSpineFromEra('galaxy' as never)).toBeNull();
+  });
+
+  it('clones steps so the snapshot never shares references with the registry', () => {
+    const steps = buildAscensionSpineFromEra('medieval')!;
+    const registryMedieval = ERA_ADVANCEMENT_SPINES.full_ascension.steps[1];
+    expect(steps[0]).toEqual(registryMedieval);
+    expect(steps[0]).not.toBe(registryMedieval);
+  });
+
+  it('isAscensionEra recognizes only on-line eras', () => {
+    expect(isAscensionEra('ancient')).toBe(true);
+    expect(isAscensionEra('modern')).toBe(true);
+    expect(isAscensionEra('acw' as never)).toBe(false);
+    expect(isAscensionEra(undefined)).toBe(false);
   });
 });
 
