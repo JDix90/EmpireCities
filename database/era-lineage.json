@@ -1,0 +1,2670 @@
+{
+  "version": 1,
+  "method": "geometry-overlap (ne_50m admin-0, geodesic area)",
+  "overlap_threshold": 0.08,
+  "parent_threshold": 0.15,
+  "sequence": [
+    "ancient",
+    "medieval",
+    "discovery",
+    "ww2",
+    "coldwar",
+    "modern",
+    "space_age"
+  ],
+  "transitions": {
+    "ancient->medieval": {
+      "from_map": "era_ancient",
+      "to_map": "era_medieval",
+      "lineage": {
+        "britannia": [
+          {
+            "to": "england",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "gaul": [
+          {
+            "to": "france",
+            "overlap": 0.851,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "holy_roman",
+            "overlap": 0.146,
+            "target_overlap": 0.198
+          }
+        ],
+        "hispania": [
+          {
+            "to": "iberia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "italia": [
+          {
+            "to": "italy_states",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "greece": [
+          {
+            "to": "byzantine",
+            "overlap": 0.704,
+            "target_overlap": 0.984,
+            "primary": true
+          },
+          {
+            "to": "hungary",
+            "overlap": 0.257,
+            "target_overlap": 0.259
+          }
+        ],
+        "anatolia": [
+          {
+            "to": "anatolia_med",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "levant": [
+          {
+            "to": "levant_crusader",
+            "overlap": 0.716,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "egypt": [
+          {
+            "to": "egypt_ayyubid",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "mesopotamia": [
+          {
+            "to": "mesopotamia_med",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "persia": [
+          {
+            "to": "persia_med",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "bactria": [
+          {
+            "to": "central_asia",
+            "overlap": 1,
+            "target_overlap": 0.031,
+            "primary": true
+          }
+        ],
+        "arabia": [
+          {
+            "to": "arabia_med",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "pontic_steppe": [
+          {
+            "to": "kievan_rus",
+            "overlap": 0.68,
+            "target_overlap": 0.136,
+            "primary": true
+          },
+          {
+            "to": "hungary",
+            "overlap": 0.281,
+            "target_overlap": 0.463
+          }
+        ],
+        "central_steppe": [
+          {
+            "to": "central_asia",
+            "overlap": 1,
+            "target_overlap": 0.543,
+            "primary": true
+          }
+        ],
+        "eastern_steppe": [
+          {
+            "to": "mongolia",
+            "overlap": 0.581,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "central_asia",
+            "overlap": 0.419,
+            "target_overlap": 0.244
+          }
+        ],
+        "northern_china": [
+          {
+            "to": "northern_china_med",
+            "overlap": 1,
+            "target_overlap": 0.835,
+            "primary": true
+          }
+        ],
+        "central_china": [
+          {
+            "to": "song_china",
+            "overlap": 1,
+            "target_overlap": 0.77,
+            "primary": true
+          }
+        ],
+        "southern_china": [
+          {
+            "to": "song_china",
+            "overlap": 0.472,
+            "target_overlap": 0.181,
+            "primary": true
+          },
+          {
+            "to": "southern_china_med",
+            "overlap": 0.45,
+            "target_overlap": 1
+          }
+        ],
+        "manchuria": [
+          {
+            "to": "korea_japan",
+            "overlap": 0.149,
+            "target_overlap": 0.372,
+            "primary": true
+          }
+        ],
+        "kushan": [
+          {
+            "to": "delhi_sultanate",
+            "overlap": 0.576,
+            "target_overlap": 0.289,
+            "primary": true
+          },
+          {
+            "to": "central_asia",
+            "overlap": 0.424,
+            "target_overlap": 0.139
+          }
+        ],
+        "northern_india": [
+          {
+            "to": "delhi_sultanate",
+            "overlap": 1,
+            "target_overlap": 0.651,
+            "primary": true
+          }
+        ],
+        "southern_india": [
+          {
+            "to": "south_india_med",
+            "overlap": 1,
+            "target_overlap": 0.942,
+            "primary": true
+          }
+        ],
+        "aksum": [
+          {
+            "to": "east_africa_med",
+            "overlap": 1,
+            "target_overlap": 0.485,
+            "primary": true
+          }
+        ],
+        "west_africa": [
+          {
+            "to": "mali_empire",
+            "overlap": 0.555,
+            "target_overlap": 0.566,
+            "primary": true
+          }
+        ],
+        "central_africa": [
+          {
+            "to": "central_africa_med",
+            "overlap": 1,
+            "target_overlap": 0.777,
+            "primary": true
+          }
+        ],
+        "germania": [
+          {
+            "to": "holy_roman",
+            "overlap": 1,
+            "target_overlap": 0.649,
+            "primary": true
+          }
+        ],
+        "sarmatia": [
+          {
+            "to": "poland_bohemia",
+            "overlap": 0.602,
+            "target_overlap": 0.799,
+            "primary": true
+          },
+          {
+            "to": "kievan_rus",
+            "overlap": 0.398,
+            "target_overlap": 0.049
+          }
+        ],
+        "scandinavia": [
+          {
+            "to": "scandinavia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "volga_bulgaria": [
+          {
+            "to": "kievan_rus",
+            "overlap": 1,
+            "target_overlap": 0.606,
+            "primary": true
+          }
+        ],
+        "sahara": [
+          {
+            "to": "mali_empire",
+            "overlap": 0.283,
+            "target_overlap": 0.41,
+            "primary": true
+          },
+          {
+            "to": "central_africa_med",
+            "overlap": 0.148,
+            "target_overlap": 0.223
+          }
+        ],
+        "nippon": [
+          {
+            "to": "korea_japan",
+            "overlap": 0.163,
+            "target_overlap": 0.332,
+            "primary": true
+          }
+        ],
+        "nusantara": [
+          {
+            "to": "southeast_asia",
+            "overlap": 0.292,
+            "target_overlap": 0.273,
+            "primary": true
+          }
+        ],
+        "indochina": [
+          {
+            "to": "southeast_asia",
+            "overlap": 1,
+            "target_overlap": 0.465,
+            "primary": true
+          }
+        ],
+        "siberia": [
+          {
+            "to": "siberia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "southern_africa": [
+          {
+            "to": "southern_africa",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "australia": [
+          {
+            "to": "australia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [
+        "antarctica",
+        "greenland",
+        "north_africa",
+        "north_america",
+        "pacifica",
+        "south_america"
+      ],
+      "new_land": [
+        "caribbean_isles",
+        "kamchatka",
+        "madagascar",
+        "polynesia",
+        "vinland"
+      ]
+    },
+    "medieval->discovery": {
+      "from_map": "era_medieval",
+      "to_map": "era_discovery",
+      "lineage": {
+        "england": [
+          {
+            "to": "britain_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "france": [
+          {
+            "to": "france_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "iberia": [
+          {
+            "to": "spain_portugal",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "holy_roman": [
+          {
+            "to": "holy_roman_disc",
+            "overlap": 1,
+            "target_overlap": 0.875,
+            "primary": true
+          }
+        ],
+        "italy_states": [
+          {
+            "to": "italy_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "poland_bohemia": [
+          {
+            "to": "holy_roman_disc",
+            "overlap": 0.201,
+            "target_overlap": 0.125,
+            "primary": true
+          }
+        ],
+        "kievan_rus": [
+          {
+            "to": "russia_disc",
+            "overlap": 1,
+            "target_overlap": 0.206,
+            "primary": true
+          }
+        ],
+        "byzantine": [
+          {
+            "to": "ottoman_balkans",
+            "overlap": 0.984,
+            "target_overlap": 0.704,
+            "primary": true
+          }
+        ],
+        "hungary": [
+          {
+            "to": "ottoman_balkans",
+            "overlap": 0.259,
+            "target_overlap": 0.257,
+            "primary": true
+          }
+        ],
+        "anatolia_med": [
+          {
+            "to": "anatolia_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "levant_crusader": [
+          {
+            "to": "levant_disc",
+            "overlap": 1,
+            "target_overlap": 0.716,
+            "primary": true
+          }
+        ],
+        "egypt_ayyubid": [
+          {
+            "to": "egypt_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "mesopotamia_med": [
+          {
+            "to": "mesopotamia_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "persia_med": [
+          {
+            "to": "persia_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "arabia_med": [
+          {
+            "to": "arabia_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "central_asia": [
+          {
+            "to": "russia_disc",
+            "overlap": 0.588,
+            "target_overlap": 0.133,
+            "primary": true
+          }
+        ],
+        "siberia": [
+          {
+            "to": "russia_disc",
+            "overlap": 1,
+            "target_overlap": 0.62,
+            "primary": true
+          }
+        ],
+        "northern_china_med": [
+          {
+            "to": "ming_north",
+            "overlap": 0.835,
+            "target_overlap": 0.642,
+            "primary": true
+          }
+        ],
+        "song_china": [
+          {
+            "to": "ming_south",
+            "overlap": 0.707,
+            "target_overlap": 0.735,
+            "primary": true
+          },
+          {
+            "to": "ming_north",
+            "overlap": 0.148,
+            "target_overlap": 0.21
+          }
+        ],
+        "southern_china_med": [
+          {
+            "to": "ming_south",
+            "overlap": 1,
+            "target_overlap": 0.18,
+            "primary": true
+          }
+        ],
+        "korea_japan": [
+          {
+            "to": "japan_disc",
+            "overlap": 0.628,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "delhi_sultanate": [
+          {
+            "to": "mughal_north",
+            "overlap": 0.985,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "south_india_med": [
+          {
+            "to": "mughal_south",
+            "overlap": 0.942,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "ceylon_spice",
+            "overlap": 0.058,
+            "target_overlap": 1
+          }
+        ],
+        "southeast_asia": [
+          {
+            "to": "southeast_asia_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "mali_empire": [
+          {
+            "to": "west_africa_disc",
+            "overlap": 0.593,
+            "target_overlap": 0.385,
+            "primary": true
+          }
+        ],
+        "east_africa_med": [
+          {
+            "to": "east_africa_disc",
+            "overlap": 1,
+            "target_overlap": 0.732,
+            "primary": true
+          }
+        ],
+        "central_africa_med": [
+          {
+            "to": "central_africa_disc",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "vinland": [
+          {
+            "to": "north_america_east",
+            "overlap": 1,
+            "target_overlap": 0.087,
+            "primary": true
+          }
+        ],
+        "southern_africa": [
+          {
+            "to": "south_africa",
+            "overlap": 0.658,
+            "target_overlap": 0.97,
+            "primary": true
+          },
+          {
+            "to": "indian_ocean",
+            "overlap": 0.198,
+            "target_overlap": 0.073
+          }
+        ],
+        "australia": [
+          {
+            "to": "australia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [
+        "caribbean_isles",
+        "kamchatka",
+        "madagascar",
+        "mongolia",
+        "polynesia",
+        "scandinavia"
+      ],
+      "new_land": [
+        "antarctica_disc",
+        "atlantic_route",
+        "brazil",
+        "micronesia",
+        "morocco",
+        "new_granada",
+        "new_spain",
+        "new_zealand",
+        "north_america_west",
+        "pacific_islands",
+        "peru_chile",
+        "polar_north",
+        "rio_plata",
+        "southern_ocean"
+      ]
+    },
+    "discovery->ww2": {
+      "from_map": "era_discovery",
+      "to_map": "era_ww2",
+      "lineage": {
+        "spain_portugal": [
+          {
+            "to": "iberia_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "france_disc": [
+          {
+            "to": "france_ww2",
+            "overlap": 1,
+            "target_overlap": 0.9,
+            "primary": true
+          }
+        ],
+        "britain_disc": [
+          {
+            "to": "britain_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "holy_roman_disc": [
+          {
+            "to": "germany",
+            "overlap": 0.568,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "eastern_europe_ww2",
+            "overlap": 0.125,
+            "target_overlap": 0.061
+          },
+          {
+            "to": "france_ww2",
+            "overlap": 0.108,
+            "target_overlap": 0.096
+          }
+        ],
+        "russia_disc": [
+          {
+            "to": "russia_east",
+            "overlap": 0.359,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "russia_central",
+            "overlap": 0.227,
+            "target_overlap": 1
+          },
+          {
+            "to": "russia_west",
+            "overlap": 0.163,
+            "target_overlap": 1
+          },
+          {
+            "to": "ukraine",
+            "overlap": 0.028,
+            "target_overlap": 1
+          }
+        ],
+        "italy_disc": [
+          {
+            "to": "italy_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "ottoman_balkans": [
+          {
+            "to": "eastern_europe_ww2",
+            "overlap": 1,
+            "target_overlap": 0.401,
+            "primary": true
+          }
+        ],
+        "anatolia_disc": [
+          {
+            "to": "turkey_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "levant_disc": [
+          {
+            "to": "levant_ww2",
+            "overlap": 1,
+            "target_overlap": 0.417,
+            "primary": true
+          }
+        ],
+        "egypt_disc": [
+          {
+            "to": "libya_egypt",
+            "overlap": 1,
+            "target_overlap": 0.382,
+            "primary": true
+          }
+        ],
+        "mesopotamia_disc": [
+          {
+            "to": "levant_ww2",
+            "overlap": 1,
+            "target_overlap": 0.583,
+            "primary": true
+          }
+        ],
+        "persia_disc": [
+          {
+            "to": "iran_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "arabia_disc": [
+          {
+            "to": "arabia_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "new_spain": [
+          {
+            "to": "caribbean",
+            "overlap": 0.21,
+            "target_overlap": 0.701,
+            "primary": true
+          }
+        ],
+        "north_america_east": [
+          {
+            "to": "usa_east",
+            "overlap": 1,
+            "target_overlap": 0.633,
+            "primary": true
+          }
+        ],
+        "north_america_west": [
+          {
+            "to": "usa_west",
+            "overlap": 0.531,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "usa_east",
+            "overlap": 0.469,
+            "target_overlap": 0.234
+          }
+        ],
+        "morocco": [
+          {
+            "to": "morocco_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "west_africa_disc": [
+          {
+            "to": "west_africa_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "central_africa_disc": [
+          {
+            "to": "central_africa_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "east_africa_disc": [
+          {
+            "to": "ethiopia_ww2",
+            "overlap": 0.732,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "south_africa": [
+          {
+            "to": "south_africa_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "mughal_north": [
+          {
+            "to": "india_ww2",
+            "overlap": 0.951,
+            "target_overlap": 0.68,
+            "primary": true
+          }
+        ],
+        "mughal_south": [
+          {
+            "to": "india_ww2",
+            "overlap": 1,
+            "target_overlap": 0.257,
+            "primary": true
+          }
+        ],
+        "ming_north": [
+          {
+            "to": "north_china_ww2",
+            "overlap": 0.913,
+            "target_overlap": 0.676,
+            "primary": true
+          }
+        ],
+        "ming_south": [
+          {
+            "to": "south_china_ww2",
+            "overlap": 1,
+            "target_overlap": 0.936,
+            "primary": true
+          }
+        ],
+        "japan_disc": [
+          {
+            "to": "japan_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "southeast_asia_disc": [
+          {
+            "to": "burma_indochina",
+            "overlap": 0.546,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "dutch_east_indies",
+            "overlap": 0.454,
+            "target_overlap": 1
+          }
+        ],
+        "indian_ocean": [
+          {
+            "to": "south_africa_ww2",
+            "overlap": 0.073,
+            "target_overlap": 0.291,
+            "primary": true
+          },
+          {
+            "to": "south_atlantic_ww2",
+            "overlap": 0.062,
+            "target_overlap": 0.446
+          }
+        ],
+        "pacific_islands": [
+          {
+            "to": "pacific_islands",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "micronesia": [
+          {
+            "to": "mid_pacific",
+            "overlap": 0.206,
+            "target_overlap": 0,
+            "primary": true
+          }
+        ],
+        "australia": [
+          {
+            "to": "australia_ww2",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "southern_ocean": [
+          {
+            "to": "southern_ocean",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [
+        "antarctica_disc",
+        "atlantic_route",
+        "brazil",
+        "ceylon_spice",
+        "new_granada",
+        "new_zealand",
+        "peru_chile",
+        "polar_north",
+        "rio_plata"
+      ],
+      "new_land": [
+        "antarctica_peninsula",
+        "caucasus",
+        "falklands_ww2",
+        "manchuria_ww2",
+        "philippines",
+        "ross_ice_shelf",
+        "scandinavia_ww2",
+        "weddell_sea"
+      ]
+    },
+    "ww2->coldwar": {
+      "from_map": "era_ww2",
+      "to_map": "era_coldwar",
+      "lineage": {
+        "britain_ww2": [
+          {
+            "to": "uk_ireland",
+            "overlap": 1,
+            "target_overlap": 0.777,
+            "primary": true
+          }
+        ],
+        "france_ww2": [
+          {
+            "to": "france_benelux",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "germany": [
+          {
+            "to": "west_germany",
+            "overlap": 0.743,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "east_germany",
+            "overlap": 0.2,
+            "target_overlap": 0.186
+          }
+        ],
+        "italy_ww2": [
+          {
+            "to": "italy_cw",
+            "overlap": 1,
+            "target_overlap": 0.698,
+            "primary": true
+          }
+        ],
+        "iberia_ww2": [
+          {
+            "to": "iberia_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "scandinavia_ww2": [
+          {
+            "to": "scandinavia_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "eastern_europe_ww2": [
+          {
+            "to": "romania_bulgaria",
+            "overlap": 0.272,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "east_germany",
+            "overlap": 0.244,
+            "target_overlap": 0.814
+          },
+          {
+            "to": "czechoslovakia",
+            "overlap": 0.171,
+            "target_overlap": 1
+          },
+          {
+            "to": "italy_cw",
+            "overlap": 0.102,
+            "target_overlap": 0.302
+          }
+        ],
+        "ukraine": [
+          {
+            "to": "ukraine_cw",
+            "overlap": 1,
+            "target_overlap": 0.734,
+            "primary": true
+          }
+        ],
+        "russia_west": [
+          {
+            "to": "russia_west_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "russia_central": [
+          {
+            "to": "russia_central_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "russia_east": [
+          {
+            "to": "russia_east_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "caucasus": [
+          {
+            "to": "caucasus_cw",
+            "overlap": 1,
+            "target_overlap": 0.045,
+            "primary": true
+          }
+        ],
+        "morocco_ww2": [
+          {
+            "to": "north_africa_cw",
+            "overlap": 1,
+            "target_overlap": 0.62,
+            "primary": true
+          }
+        ],
+        "libya_egypt": [
+          {
+            "to": "north_africa_cw",
+            "overlap": 0.618,
+            "target_overlap": 0.347,
+            "primary": true
+          },
+          {
+            "to": "egypt_cw",
+            "overlap": 0.382,
+            "target_overlap": 1
+          }
+        ],
+        "ethiopia_ww2": [
+          {
+            "to": "horn_africa",
+            "overlap": 0.906,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "west_africa_ww2": [
+          {
+            "to": "west_africa_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "turkey_ww2": [
+          {
+            "to": "turkey_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "levant_ww2": [
+          {
+            "to": "iraq_syria",
+            "overlap": 0.83,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "israel_jordan",
+            "overlap": 0.156,
+            "target_overlap": 1
+          }
+        ],
+        "iran_ww2": [
+          {
+            "to": "iran_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "arabia_ww2": [
+          {
+            "to": "arabia_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "japan_ww2": [
+          {
+            "to": "japan_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "dutch_east_indies": [
+          {
+            "to": "indonesia_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "australia_ww2": [
+          {
+            "to": "australia_cw",
+            "overlap": 1,
+            "target_overlap": 0.967,
+            "primary": true
+          }
+        ],
+        "usa_west": [
+          {
+            "to": "usa_west_cw",
+            "overlap": 0.977,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "manchuria_ww2": [
+          {
+            "to": "korea_cw",
+            "overlap": 0.194,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "china_north_cw",
+            "overlap": 0.082,
+            "target_overlap": 0.059
+          }
+        ],
+        "north_china_ww2": [
+          {
+            "to": "china_north_cw",
+            "overlap": 0.676,
+            "target_overlap": 0.913,
+            "primary": true
+          }
+        ],
+        "south_china_ww2": [
+          {
+            "to": "china_south_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "burma_indochina": [
+          {
+            "to": "vietnam_korea",
+            "overlap": 0.854,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "india_ww2": [
+          {
+            "to": "india_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "usa_east": [
+          {
+            "to": "canada",
+            "overlap": 0.385,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "usa_northeast",
+            "overlap": 0.348,
+            "target_overlap": 1
+          },
+          {
+            "to": "usa_south",
+            "overlap": 0.132,
+            "target_overlap": 1
+          }
+        ],
+        "caribbean": [
+          {
+            "to": "mexico_ca",
+            "overlap": 0.701,
+            "target_overlap": 0.21,
+            "primary": true
+          },
+          {
+            "to": "caribbean_cw",
+            "overlap": 0.299,
+            "target_overlap": 1
+          }
+        ],
+        "central_africa_ww2": [
+          {
+            "to": "central_africa_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "south_africa_ww2": [
+          {
+            "to": "southern_africa_cw",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "antarctica_peninsula": [
+          {
+            "to": "antarctic_west",
+            "overlap": 0.815,
+            "target_overlap": 0.129,
+            "primary": true
+          }
+        ],
+        "ross_ice_shelf": [
+          {
+            "to": "antarctic_east",
+            "overlap": 0.664,
+            "target_overlap": 0.049,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [
+        "falklands_ww2",
+        "mid_pacific",
+        "pacific_islands",
+        "philippines",
+        "south_atlantic_ww2",
+        "southern_ocean",
+        "weddell_sea"
+      ],
+      "new_land": [
+        "afghanistan",
+        "bering_strait",
+        "brazil_cw",
+        "colombia_venezuela",
+        "deep_pacific",
+        "indian_ocean",
+        "mongolia_cw",
+        "nonaligned_oceania",
+        "polar_arctic",
+        "southern_cone"
+      ]
+    },
+    "coldwar->modern": {
+      "from_map": "era_coldwar",
+      "to_map": "era_modern",
+      "lineage": {
+        "uk_ireland": [
+          {
+            "to": "uk_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "france_benelux": [
+          {
+            "to": "france_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "west_germany": [
+          {
+            "to": "germany_mod",
+            "overlap": 1,
+            "target_overlap": 0.473,
+            "primary": true
+          }
+        ],
+        "iberia_cw": [
+          {
+            "to": "iberia_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "italy_cw": [
+          {
+            "to": "italy_mod",
+            "overlap": 0.698,
+            "target_overlap": 0.801,
+            "primary": true
+          },
+          {
+            "to": "balkans_mod",
+            "overlap": 0.302,
+            "target_overlap": 0.159
+          }
+        ],
+        "scandinavia_cw": [
+          {
+            "to": "scandinavia_mod",
+            "overlap": 1,
+            "target_overlap": 0.922,
+            "primary": true
+          }
+        ],
+        "turkey_cw": [
+          {
+            "to": "turkey_mod",
+            "overlap": 1,
+            "target_overlap": 0.993,
+            "primary": true
+          }
+        ],
+        "east_germany": [
+          {
+            "to": "poland_baltics_mod",
+            "overlap": 0.814,
+            "target_overlap": 0.642,
+            "primary": true
+          },
+          {
+            "to": "germany_mod",
+            "overlap": 0.186,
+            "target_overlap": 0.127
+          }
+        ],
+        "czechoslovakia": [
+          {
+            "to": "balkans_mod",
+            "overlap": 0.643,
+            "target_overlap": 0.173,
+            "primary": true
+          },
+          {
+            "to": "germany_mod",
+            "overlap": 0.357,
+            "target_overlap": 0.14
+          }
+        ],
+        "romania_bulgaria": [
+          {
+            "to": "balkans_mod",
+            "overlap": 1,
+            "target_overlap": 0.427,
+            "primary": true
+          }
+        ],
+        "ukraine_cw": [
+          {
+            "to": "ukraine_mod",
+            "overlap": 1,
+            "target_overlap": 0.959,
+            "primary": true
+          }
+        ],
+        "russia_west_cw": [
+          {
+            "to": "russia_west_mod",
+            "overlap": 1,
+            "target_overlap": 0.85,
+            "primary": true
+          }
+        ],
+        "russia_central_cw": [
+          {
+            "to": "russia_east_mod",
+            "overlap": 1,
+            "target_overlap": 0.36,
+            "primary": true
+          }
+        ],
+        "russia_east_cw": [
+          {
+            "to": "russia_east_mod",
+            "overlap": 1,
+            "target_overlap": 0.57,
+            "primary": true
+          }
+        ],
+        "caucasus_cw": [
+          {
+            "to": "central_asia_mod",
+            "overlap": 0.955,
+            "target_overlap": 0.718,
+            "primary": true
+          }
+        ],
+        "usa_northeast": [
+          {
+            "to": "canada_mod",
+            "overlap": 0.658,
+            "target_overlap": 0.327,
+            "primary": true
+          },
+          {
+            "to": "usa_east_mod",
+            "overlap": 0.342,
+            "target_overlap": 0.399
+          }
+        ],
+        "usa_south": [
+          {
+            "to": "usa_east_mod",
+            "overlap": 1,
+            "target_overlap": 0.442,
+            "primary": true
+          }
+        ],
+        "usa_west_cw": [
+          {
+            "to": "usa_west_mod",
+            "overlap": 1,
+            "target_overlap": 0.977,
+            "primary": true
+          }
+        ],
+        "canada": [
+          {
+            "to": "canada_mod",
+            "overlap": 1,
+            "target_overlap": 0.548,
+            "primary": true
+          }
+        ],
+        "mexico_ca": [
+          {
+            "to": "mexico_mod",
+            "overlap": 0.79,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "central_america_mod",
+            "overlap": 0.21,
+            "target_overlap": 0.701
+          }
+        ],
+        "caribbean_cw": [
+          {
+            "to": "central_america_mod",
+            "overlap": 1,
+            "target_overlap": 0.299,
+            "primary": true
+          }
+        ],
+        "colombia_venezuela": [
+          {
+            "to": "colombia_mod",
+            "overlap": 1,
+            "target_overlap": 0.852,
+            "primary": true
+          }
+        ],
+        "brazil_cw": [
+          {
+            "to": "brazil_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "southern_cone": [
+          {
+            "to": "argentina_mod",
+            "overlap": 0.456,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "peru_mod",
+            "overlap": 0.368,
+            "target_overlap": 0.903
+          },
+          {
+            "to": "chile_mod",
+            "overlap": 0.176,
+            "target_overlap": 1
+          }
+        ],
+        "israel_jordan": [
+          {
+            "to": "levant_mod",
+            "overlap": 1,
+            "target_overlap": 0.156,
+            "primary": true
+          }
+        ],
+        "egypt_cw": [
+          {
+            "to": "egypt_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "iraq_syria": [
+          {
+            "to": "levant_mod",
+            "overlap": 1,
+            "target_overlap": 0.83,
+            "primary": true
+          }
+        ],
+        "iran_cw": [
+          {
+            "to": "iran_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "arabia_cw": [
+          {
+            "to": "saudi_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "afghanistan": [
+          {
+            "to": "pakistan_afghan_mod",
+            "overlap": 1,
+            "target_overlap": 0.424,
+            "primary": true
+          }
+        ],
+        "north_africa_cw": [
+          {
+            "to": "maghreb_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "west_africa_cw": [
+          {
+            "to": "west_africa_mod",
+            "overlap": 0.809,
+            "target_overlap": 0.749,
+            "primary": true
+          },
+          {
+            "to": "nigeria_mod",
+            "overlap": 0.191,
+            "target_overlap": 0.649
+          }
+        ],
+        "horn_africa": [
+          {
+            "to": "east_africa_mod",
+            "overlap": 0.736,
+            "target_overlap": 0.485,
+            "primary": true
+          },
+          {
+            "to": "sudan_horn_mod",
+            "overlap": 0.264,
+            "target_overlap": 0.199
+          }
+        ],
+        "central_africa_cw": [
+          {
+            "to": "central_africa_mod",
+            "overlap": 0.835,
+            "target_overlap": 0.411,
+            "primary": true
+          },
+          {
+            "to": "nigeria_mod",
+            "overlap": 0.165,
+            "target_overlap": 0.351
+          }
+        ],
+        "southern_africa_cw": [
+          {
+            "to": "southern_africa_mod",
+            "overlap": 1,
+            "target_overlap": 0.84,
+            "primary": true
+          }
+        ],
+        "india_cw": [
+          {
+            "to": "india_mod",
+            "overlap": 0.79,
+            "target_overlap": 0.929,
+            "primary": true
+          },
+          {
+            "to": "pakistan_afghan_mod",
+            "overlap": 0.21,
+            "target_overlap": 0.576
+          }
+        ],
+        "vietnam_korea": [
+          {
+            "to": "southeast_asia_mod",
+            "overlap": 1,
+            "target_overlap": 0.854,
+            "primary": true
+          }
+        ],
+        "indonesia_cw": [
+          {
+            "to": "indonesia_mod",
+            "overlap": 1,
+            "target_overlap": 0.709,
+            "primary": true
+          }
+        ],
+        "australia_cw": [
+          {
+            "to": "australia_mod",
+            "overlap": 1,
+            "target_overlap": 0.998,
+            "primary": true
+          }
+        ],
+        "china_north_cw": [
+          {
+            "to": "china_east_mod",
+            "overlap": 1,
+            "target_overlap": 0.353,
+            "primary": true
+          }
+        ],
+        "china_south_cw": [
+          {
+            "to": "china_east_mod",
+            "overlap": 0.688,
+            "target_overlap": 0.353,
+            "primary": true
+          },
+          {
+            "to": "china_west_mod",
+            "overlap": 0.312,
+            "target_overlap": 0.149
+          }
+        ],
+        "korea_cw": [
+          {
+            "to": "korea_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "japan_cw": [
+          {
+            "to": "japan_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "mongolia_cw": [
+          {
+            "to": "central_asia_mod",
+            "overlap": 1,
+            "target_overlap": 0.282,
+            "primary": true
+          }
+        ],
+        "polar_arctic": [
+          {
+            "to": "arctic_circle_mod",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "antarctic_east": [
+          {
+            "to": "antarctic_shelf_mod",
+            "overlap": 0.121,
+            "target_overlap": 0.336,
+            "primary": true
+          }
+        ],
+        "bering_strait": [
+          {
+            "to": "bering_frontier_mod",
+            "overlap": 0.8,
+            "target_overlap": 0.8,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [
+        "antarctic_west",
+        "deep_pacific",
+        "indian_ocean",
+        "nonaligned_oceania"
+      ],
+      "new_land": [
+        "lunar_outpost_mod",
+        "north_pacific_deep_mod",
+        "orbital_station_mod",
+        "southern_ocean_mod"
+      ]
+    },
+    "modern->space_age": {
+      "from_map": "era_modern",
+      "to_map": "era_space_age",
+      "lineage": {
+        "usa_east_mod": [
+          {
+            "to": "na_central_plains",
+            "overlap": 0.551,
+            "target_overlap": 0.614,
+            "primary": true
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.462,
+            "target_overlap": 0.022
+          },
+          {
+            "to": "na_eastern_corridor",
+            "overlap": 0.25,
+            "target_overlap": 0.478
+          },
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 0.194,
+            "target_overlap": 0.035
+          },
+          {
+            "to": "na_southern_belt",
+            "overlap": 0.111,
+            "target_overlap": 0.149
+          },
+          {
+            "to": "na_launch_base",
+            "overlap": 0.088,
+            "target_overlap": 1
+          }
+        ],
+        "usa_west_mod": [
+          {
+            "to": "moon_polar_north",
+            "overlap": 1,
+            "target_overlap": 0.043,
+            "primary": true
+          },
+          {
+            "to": "na_western_states",
+            "overlap": 0.951,
+            "target_overlap": 0.599
+          }
+        ],
+        "canada_mod": [
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.719,
+            "target_overlap": 0.081,
+            "primary": true
+          },
+          {
+            "to": "na_arctic_dominion",
+            "overlap": 0.401,
+            "target_overlap": 0.521
+          },
+          {
+            "to": "na_western_states",
+            "overlap": 0.241,
+            "target_overlap": 0.401
+          },
+          {
+            "to": "na_central_plains",
+            "overlap": 0.148,
+            "target_overlap": 0.386
+          },
+          {
+            "to": "na_eastern_corridor",
+            "overlap": 0.116,
+            "target_overlap": 0.522
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.093,
+            "target_overlap": 0.079
+          }
+        ],
+        "mexico_mod": [
+          {
+            "to": "na_southern_belt",
+            "overlap": 1,
+            "target_overlap": 0.627,
+            "primary": true
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.948,
+            "target_overlap": 0.021
+          }
+        ],
+        "central_america_mod": [
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 0.71,
+            "target_overlap": 0.023,
+            "primary": true
+          },
+          {
+            "to": "na_southern_belt",
+            "overlap": 0.701,
+            "target_overlap": 0.166
+          },
+          {
+            "to": "la_caribbean",
+            "overlap": 0.299,
+            "target_overlap": 0.311
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.093,
+            "target_overlap": 0.001
+          }
+        ],
+        "colombia_mod": [
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 1,
+            "target_overlap": 0.104,
+            "primary": true
+          },
+          {
+            "to": "la_amazonia",
+            "overlap": 0.565,
+            "target_overlap": 0.269
+          },
+          {
+            "to": "la_caribbean",
+            "overlap": 0.204,
+            "target_overlap": 0.689
+          }
+        ],
+        "brazil_mod": [
+          {
+            "to": "la_amazonia",
+            "overlap": 0.435,
+            "target_overlap": 0.731,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_south",
+            "overlap": 0.343,
+            "target_overlap": 0.056
+          },
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 0.293,
+            "target_overlap": 0.107
+          },
+          {
+            "to": "la_pampas",
+            "overlap": 0.082,
+            "target_overlap": 0.184
+          },
+          {
+            "to": "la_andes",
+            "overlap": 0.062,
+            "target_overlap": 0.163
+          }
+        ],
+        "peru_mod": [
+          {
+            "to": "la_andes",
+            "overlap": 1,
+            "target_overlap": 0.814,
+            "primary": true
+          },
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 0.347,
+            "target_overlap": 0.039
+          }
+        ],
+        "argentina_mod": [
+          {
+            "to": "la_pampas",
+            "overlap": 0.781,
+            "target_overlap": 0.613,
+            "primary": true
+          },
+          {
+            "to": "la_patagonia",
+            "overlap": 0.216,
+            "target_overlap": 0.694
+          },
+          {
+            "to": "moon_polar_south",
+            "overlap": 0.089,
+            "target_overlap": 0.002
+          }
+        ],
+        "chile_mod": [
+          {
+            "to": "la_pampas",
+            "overlap": 0.675,
+            "target_overlap": 0.204,
+            "primary": true
+          },
+          {
+            "to": "la_patagonia",
+            "overlap": 0.248,
+            "target_overlap": 0.306
+          },
+          {
+            "to": "moon_polar_south",
+            "overlap": 0.165,
+            "target_overlap": 0.002
+          }
+        ],
+        "uk_mod": [
+          {
+            "to": "euro_british_isles",
+            "overlap": 1,
+            "target_overlap": 0.753,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.996,
+            "target_overlap": 0.027
+          }
+        ],
+        "france_mod": [
+          {
+            "to": "euro_spaceport",
+            "overlap": 1,
+            "target_overlap": 0.607,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.424,
+            "target_overlap": 0.026
+          },
+          {
+            "to": "moon_oceanus_procellarum",
+            "overlap": 0.123,
+            "target_overlap": 0.004
+          }
+        ],
+        "germany_mod": [
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.785,
+            "target_overlap": 0.038,
+            "primary": true
+          },
+          {
+            "to": "euro_spaceport",
+            "overlap": 0.482,
+            "target_overlap": 0.232
+          },
+          {
+            "to": "euro_nordic",
+            "overlap": 0.215,
+            "target_overlap": 0.081
+          },
+          {
+            "to": "euro_balkan",
+            "overlap": 0.15,
+            "target_overlap": 0.082
+          },
+          {
+            "to": "euro_east",
+            "overlap": 0.14,
+            "target_overlap": 0.026
+          }
+        ],
+        "scandinavia_mod": [
+          {
+            "to": "euro_nordic",
+            "overlap": 0.922,
+            "target_overlap": 0.803,
+            "primary": true
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.75,
+            "target_overlap": 0.011
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.146,
+            "target_overlap": 0.016
+          },
+          {
+            "to": "euro_british_isles",
+            "overlap": 0.078,
+            "target_overlap": 0.247
+          }
+        ],
+        "iberia_mod": [
+          {
+            "to": "euro_iberia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_mare_imbrium",
+            "overlap": 0.92,
+            "target_overlap": 0.048
+          }
+        ],
+        "italy_mod": [
+          {
+            "to": "euro_spaceport",
+            "overlap": 0.497,
+            "target_overlap": 0.16,
+            "primary": true
+          },
+          {
+            "to": "euro_balkan",
+            "overlap": 0.441,
+            "target_overlap": 0.161
+          }
+        ],
+        "balkans_mod": [
+          {
+            "to": "euro_balkan",
+            "overlap": 0.941,
+            "target_overlap": 0.747,
+            "primary": true
+          }
+        ],
+        "poland_baltics_mod": [
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.957,
+            "target_overlap": 0.04,
+            "primary": true
+          },
+          {
+            "to": "euro_east",
+            "overlap": 0.642,
+            "target_overlap": 0.105
+          },
+          {
+            "to": "euro_nordic",
+            "overlap": 0.358,
+            "target_overlap": 0.117
+          }
+        ],
+        "ukraine_mod": [
+          {
+            "to": "euro_east",
+            "overlap": 1,
+            "target_overlap": 0.272,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.72,
+            "target_overlap": 0.05
+          }
+        ],
+        "russia_west_mod": [
+          {
+            "to": "euro_east",
+            "overlap": 0.443,
+            "target_overlap": 0.581,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.409,
+            "target_overlap": 0.138
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.29,
+            "target_overlap": 0.013
+          },
+          {
+            "to": "ca_steppe",
+            "overlap": 0.232,
+            "target_overlap": 0.12
+          }
+        ],
+        "russia_east_mod": [
+          {
+            "to": "asia_siberia_belt",
+            "overlap": 0.809,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_polar_north",
+            "overlap": 0.591,
+            "target_overlap": 0.086
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.228,
+            "target_overlap": 0.059
+          },
+          {
+            "to": "ca_steppe",
+            "overlap": 0.183,
+            "target_overlap": 0.313
+          }
+        ],
+        "central_asia_mod": [
+          {
+            "to": "ca_steppe",
+            "overlap": 0.772,
+            "target_overlap": 0.567,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.266,
+            "target_overlap": 0.029
+          },
+          {
+            "to": "moon_near_side_north",
+            "overlap": 0.237,
+            "target_overlap": 0.113
+          },
+          {
+            "to": "ca_tien_shan",
+            "overlap": 0.228,
+            "target_overlap": 1
+          }
+        ],
+        "turkey_mod": [
+          {
+            "to": "mena_nile",
+            "overlap": 0.992,
+            "target_overlap": 0.273,
+            "primary": true
+          }
+        ],
+        "levant_mod": [
+          {
+            "to": "mena_levant",
+            "overlap": 0.82,
+            "target_overlap": 0.999,
+            "primary": true
+          },
+          {
+            "to": "mena_persia",
+            "overlap": 0.276,
+            "target_overlap": 0.113
+          }
+        ],
+        "iran_mod": [
+          {
+            "to": "mena_persia",
+            "overlap": 1,
+            "target_overlap": 0.887,
+            "primary": true
+          }
+        ],
+        "saudi_mod": [
+          {
+            "to": "mena_arabia",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.589,
+            "target_overlap": 0.11
+          },
+          {
+            "to": "africa_horn",
+            "overlap": 0.15,
+            "target_overlap": 0.16
+          }
+        ],
+        "egypt_mod": [
+          {
+            "to": "mena_nile",
+            "overlap": 1,
+            "target_overlap": 0.352,
+            "primary": true
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.626,
+            "target_overlap": 0.042
+          }
+        ],
+        "maghreb_mod": [
+          {
+            "to": "mena_maghreb",
+            "overlap": 0.818,
+            "target_overlap": 0.909,
+            "primary": true
+          },
+          {
+            "to": "moon_mare_imbrium",
+            "overlap": 0.351,
+            "target_overlap": 0.144
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.105,
+            "target_overlap": 0.033
+          }
+        ],
+        "west_africa_mod": [
+          {
+            "to": "africa_sahel",
+            "overlap": 0.673,
+            "target_overlap": 0.517,
+            "primary": true
+          },
+          {
+            "to": "africa_west",
+            "overlap": 0.27,
+            "target_overlap": 0.594
+          },
+          {
+            "to": "moon_mare_imbrium",
+            "overlap": 0.21,
+            "target_overlap": 0.094
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.099,
+            "target_overlap": 0.034
+          }
+        ],
+        "nigeria_mod": [
+          {
+            "to": "africa_west",
+            "overlap": 0.676,
+            "target_overlap": 0.406,
+            "primary": true
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.616,
+            "target_overlap": 0.058
+          },
+          {
+            "to": "africa_sahel",
+            "overlap": 0.291,
+            "target_overlap": 0.061
+          }
+        ],
+        "central_africa_mod": [
+          {
+            "to": "africa_congo_basin",
+            "overlap": 0.702,
+            "target_overlap": 0.994,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_south",
+            "overlap": 0.609,
+            "target_overlap": 0.071
+          },
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.603,
+            "target_overlap": 0.245
+          },
+          {
+            "to": "africa_sahel",
+            "overlap": 0.209,
+            "target_overlap": 0.19
+          },
+          {
+            "to": "africa_south",
+            "overlap": 0.089,
+            "target_overlap": 0.095
+          }
+        ],
+        "sudan_horn_mod": [
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 1,
+            "target_overlap": 0.207,
+            "primary": true
+          },
+          {
+            "to": "africa_sahel",
+            "overlap": 0.501,
+            "target_overlap": 0.232
+          },
+          {
+            "to": "mena_nile",
+            "overlap": 0.345,
+            "target_overlap": 0.375
+          },
+          {
+            "to": "africa_horn",
+            "overlap": 0.152,
+            "target_overlap": 0.181
+          }
+        ],
+        "east_africa_mod": [
+          {
+            "to": "moon_mare_tranquillitatis",
+            "overlap": 0.606,
+            "target_overlap": 0.144,
+            "primary": true
+          },
+          {
+            "to": "africa_horn",
+            "overlap": 0.485,
+            "target_overlap": 0.659
+          },
+          {
+            "to": "moon_near_side_south",
+            "overlap": 0.451,
+            "target_overlap": 0.031
+          },
+          {
+            "to": "africa_east",
+            "overlap": 0.348,
+            "target_overlap": 0.882
+          },
+          {
+            "to": "africa_south",
+            "overlap": 0.167,
+            "target_overlap": 0.104
+          }
+        ],
+        "southern_africa_mod": [
+          {
+            "to": "moon_near_side_south",
+            "overlap": 1,
+            "target_overlap": 0.09,
+            "primary": true
+          },
+          {
+            "to": "africa_south",
+            "overlap": 0.965,
+            "target_overlap": 0.801
+          }
+        ],
+        "india_mod": [
+          {
+            "to": "ca_ganges",
+            "overlap": 0.578,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "ca_deccan",
+            "overlap": 0.37,
+            "target_overlap": 1
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.099,
+            "target_overlap": 0.007
+          }
+        ],
+        "pakistan_afghan_mod": [
+          {
+            "to": "ca_indus",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          }
+        ],
+        "china_west_mod": [
+          {
+            "to": "asia_heartland",
+            "overlap": 0.631,
+            "target_overlap": 0.643,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.526,
+            "target_overlap": 0.051
+          },
+          {
+            "to": "asia_cosmodrome",
+            "overlap": 0.366,
+            "target_overlap": 0.468
+          },
+          {
+            "to": "asia_coastal",
+            "overlap": 0.021,
+            "target_overlap": 0.232
+          }
+        ],
+        "china_east_mod": [
+          {
+            "to": "moon_far_side_north",
+            "overlap": 1,
+            "target_overlap": 0.089,
+            "primary": true
+          },
+          {
+            "to": "asia_cosmodrome",
+            "overlap": 0.411,
+            "target_overlap": 0.487
+          },
+          {
+            "to": "asia_heartland",
+            "overlap": 0.377,
+            "target_overlap": 0.357
+          },
+          {
+            "to": "megacity_pacific_rim",
+            "overlap": 0.183,
+            "target_overlap": 1
+          },
+          {
+            "to": "asia_coastal",
+            "overlap": 0.073,
+            "target_overlap": 0.766
+          }
+        ],
+        "japan_mod": [
+          {
+            "to": "asia_japan_islands",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 1,
+            "target_overlap": 0.007
+          }
+        ],
+        "korea_mod": [
+          {
+            "to": "asia_korea_archipelago",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 1,
+            "target_overlap": 0.004
+          }
+        ],
+        "southeast_asia_mod": [
+          {
+            "to": "moon_far_side_north",
+            "overlap": 1,
+            "target_overlap": 0.045,
+            "primary": true
+          },
+          {
+            "to": "asia_indochina",
+            "overlap": 0.91,
+            "target_overlap": 1
+          },
+          {
+            "to": "asia_malay_archipelago",
+            "overlap": 0.09,
+            "target_overlap": 0.071
+          }
+        ],
+        "indonesia_mod": [
+          {
+            "to": "asia_malay_archipelago",
+            "overlap": 1,
+            "target_overlap": 0.929,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_south",
+            "overlap": 0.756,
+            "target_overlap": 0.042
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.244,
+            "target_overlap": 0.013
+          }
+        ],
+        "australia_mod": [
+          {
+            "to": "moon_far_side_south",
+            "overlap": 0.997,
+            "target_overlap": 0.169,
+            "primary": true
+          },
+          {
+            "to": "oc_australia",
+            "overlap": 0.964,
+            "target_overlap": 1
+          },
+          {
+            "to": "oc_new_zealand",
+            "overlap": 0.033,
+            "target_overlap": 1
+          },
+          {
+            "to": "oc_polynesia",
+            "overlap": 0.002,
+            "target_overlap": 0.726
+          }
+        ],
+        "arctic_circle_mod": [
+          {
+            "to": "moon_polar_north",
+            "overlap": 1,
+            "target_overlap": 0.005,
+            "primary": true
+          },
+          {
+            "to": "arctic_reclamation",
+            "overlap": 0.632,
+            "target_overlap": 0.813
+          }
+        ],
+        "orbital_station_mod": [
+          {
+            "to": "equatorial_orbital_anchor",
+            "overlap": 0.449,
+            "target_overlap": 0.324,
+            "primary": true
+          },
+          {
+            "to": "moon_near_side_south",
+            "overlap": 0.274,
+            "target_overlap": 0.01
+          }
+        ],
+        "bering_frontier_mod": [
+          {
+            "to": "moon_polar_north",
+            "overlap": 1,
+            "target_overlap": 0.005,
+            "primary": true
+          }
+        ],
+        "north_pacific_deep_mod": [
+          {
+            "to": "north_pacific_gyre",
+            "overlap": 1,
+            "target_overlap": 1,
+            "primary": true
+          },
+          {
+            "to": "moon_far_side_north",
+            "overlap": 0.874,
+            "target_overlap": 0.035
+          }
+        ],
+        "southern_ocean_mod": [
+          {
+            "to": "moon_polar_south",
+            "overlap": 1,
+            "target_overlap": 0.034,
+            "primary": true
+          }
+        ],
+        "antarctic_shelf_mod": [
+          {
+            "to": "moon_polar_south",
+            "overlap": 1,
+            "target_overlap": 0.02,
+            "primary": true
+          }
+        ],
+        "lunar_outpost_mod": [
+          {
+            "to": "moon_near_side_south",
+            "overlap": 1,
+            "target_overlap": 0.05,
+            "primary": true
+          }
+        ]
+      },
+      "no_successor": [],
+      "new_land": [
+        "antarctic_interior_2100",
+        "antarctic_peninsula_2100",
+        "arctic_siberian_shelf",
+        "oc_micronesia",
+        "pacific_seasteads",
+        "south_atlantic_platforms"
+      ]
+    }
+  }
+}
