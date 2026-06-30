@@ -25,7 +25,7 @@ import {
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
-import { getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
+import { buildAscensionSpineFromEra, getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
@@ -302,6 +302,20 @@ export function initializeGameState(
     playerStates.length,
   );
 
+  // Era spine snapshot. Normally the configured spine (poc/classic/…) — all of
+  // which begin at Ancient. When the board-transform feature is on AND the game
+  // starts on a mid-line era map (e.g. era_ww2), anchor an ascension spine at
+  // that era so the world transforms forward from the start map rather than only
+  // from Ancient; a non-ascension start era (era_acw, galaxy, …) falls back to
+  // the configured spine.
+  let eraSpineSteps: GameState['era_spine'];
+  if (settingsNorm.era_advancement_enabled) {
+    const ascensionStart = settingsNorm.era_advancement_board_transform
+      ? buildAscensionSpineFromEra(era)
+      : null;
+    eraSpineSteps = ascensionStart ?? getSpineById(settingsNorm.era_advancement_spine_id).steps;
+  }
+
   const state: GameState = {
     game_id: gameId,
     era,
@@ -322,9 +336,7 @@ export function initializeGameState(
     draft_placements_this_turn: {},
     turn_started_at: Date.now(),
     win_probability_history: [],
-    era_spine: settingsNorm.era_advancement_enabled
-      ? getSpineById(settingsNorm.era_advancement_spine_id).steps
-      : undefined,
+    era_spine: eraSpineSteps,
     era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
     fortify_moves_used: 0,
     influence_cooldown_remaining: 0,

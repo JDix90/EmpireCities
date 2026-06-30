@@ -64,6 +64,36 @@ export function getSpineById(spineId: string | undefined): EraAdvancementSpine {
   return ERA_ADVANCEMENT_SPINES[spineId ?? DEFAULT_ERA_SPINE_ID] ?? ERA_ADVANCEMENT_SPINES[DEFAULT_ERA_SPINE_ID];
 }
 
+/** The canonical ascension order — the eras the board-transform climbs through. */
+export const ASCENSION_ERA_ORDER: EraId[] = ERA_ADVANCEMENT_SPINES.full_ascension.steps.map((s) => s.era_id);
+
+/** True when `eraId` sits on the ascension line (and so can anchor an ascension spine). */
+export function isAscensionEra(eraId: EraId | undefined): boolean {
+  return eraId !== undefined && ASCENSION_ERA_ORDER.includes(eraId);
+}
+
+/**
+ * Build an ascension spine that *starts* at `startEraId` and climbs to the Space
+ * Age — the full_ascension steps sliced from the start era onward. This lets the
+ * board-transform feature begin on any era map (e.g. an `era_ww2` start runs
+ * ww2 → coldwar → modern → space_age) rather than only Ancient.
+ *
+ * The slice is semantically exact: a step's `gate_overrides` govern advancing OUT
+ * of that era, so the start step (index 0) keeps its overrides to gate leaving the
+ * starting era; a step's `signature_id` is granted on *arrival*, and arrival is
+ * always index ≥ 1, so the start step's signature is simply never consumed — the
+ * same way Ancient's (absent) signature is ignored on a normal start.
+ *
+ * Returns `null` when `startEraId` is not on the ascension line (e.g. era_acw,
+ * era_risorgimento, galaxy), so callers can fall back to the configured spine.
+ */
+export function buildAscensionSpineFromEra(startEraId: EraId): EraSpineStep[] | null {
+  const startIndex = ASCENSION_ERA_ORDER.indexOf(startEraId);
+  if (startIndex < 0) return null;
+  // Clone each step so the snapshot can't share references with the registry.
+  return ERA_ADVANCEMENT_SPINES.full_ascension.steps.slice(startIndex).map((s) => ({ ...s }));
+}
+
 export function isValidSpineId(spineId: unknown): spineId is string {
   return typeof spineId === 'string' && spineId in ERA_ADVANCEMENT_SPINES;
 }

@@ -6,7 +6,8 @@ import {
   LOBBY_RULES_ERA_IDS,
   type LobbyMapChangeValue,
 } from './lobbyMapChange';
-import { getSpineById } from '../eraAdvancement/spines';
+import { getSpineById, isAscensionEra } from '../eraAdvancement/spines';
+import type { EraId } from '../../types';
 
 export type CompatibilityWarningTier = 'info' | 'warn';
 
@@ -157,17 +158,26 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   }
 
   if (settings.era_advancement_enabled === true) {
-    const spineId = typeof settings.era_advancement_spine_id === 'string'
-      ? settings.era_advancement_spine_id
-      : undefined;
-    const startEra = getSpineById(spineId).steps[0]?.era_id;
-    if (startEra && era_id !== startEra) {
-      const startLabel = LOBBY_ERA_LABELS[startEra] ?? startEra;
-      return {
-        allowed: false,
-        hardBlock: `Era Advancement starts in ${startLabel} — pick ${startLabel} rules or disable Era Advancement`,
-        warnings,
-      };
+    // Board-transform games anchor an ascension spine at whatever era they start
+    // on (the world then transforms forward from there), so any era on the
+    // ascension line is a valid start. Other (growth) games are pinned to the
+    // configured spine's fixed start era — all built-in spines begin at Ancient.
+    const boardTransform = settings.era_advancement_board_transform === true;
+    if (boardTransform && isAscensionEra(era_id as EraId)) {
+      // valid mid-line start — fall through to map/meta checks
+    } else {
+      const spineId = typeof settings.era_advancement_spine_id === 'string'
+        ? settings.era_advancement_spine_id
+        : undefined;
+      const startEra = getSpineById(spineId).steps[0]?.era_id;
+      if (startEra && era_id !== startEra) {
+        const startLabel = LOBBY_ERA_LABELS[startEra] ?? startEra;
+        return {
+          allowed: false,
+          hardBlock: `Era Advancement starts in ${startLabel} — pick ${startLabel} rules or disable Era Advancement`,
+          warnings,
+        };
+      }
     }
   }
 

@@ -86,4 +86,37 @@ describe('lobbyEraMapCompatibility', () => {
       ),
     ).toBeNull();
   });
+
+  it('pins growth-style era advancement to the spine start era (Ancient)', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'ww2',
+      map_id: 'era_ww2',
+      settings: { era_advancement_enabled: true },
+      map_meta: globalMeta,
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.hardBlock).toMatch(/starts in Ancient/i);
+  });
+
+  it('allows a board-transform game to start on a mid-line era map', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'ww2',
+      map_id: 'era_ww2',
+      settings: { era_advancement_enabled: true, era_advancement_board_transform: true },
+      map_meta: globalMeta,
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.hardBlock).toBeNull();
+  });
+
+  it('still blocks a board-transform start on an era off the ascension line', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'acw',
+      map_id: 'era_acw',
+      settings: { era_advancement_enabled: true, era_advancement_board_transform: true },
+      map_meta: globalMeta,
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.hardBlock).toMatch(/starts in Ancient/i);
+  });
 });

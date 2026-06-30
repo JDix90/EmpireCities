@@ -160,6 +160,11 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)
       : undefined,
+    // Board-transform model: advancing eras swaps the whole board to the next
+    // era's map (vs. growth-style frontier unlocks). Only meaningful with era
+    // advancement on; defaults off so existing games keep growth behavior.
+    era_advancement_board_transform:
+      eraAdvancementEnabled && raw.era_advancement_board_transform === true ? true : undefined,
     era_advancement_conversion_ratio: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
       : undefined,
