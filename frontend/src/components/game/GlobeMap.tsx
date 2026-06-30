@@ -69,8 +69,8 @@ function polygonAltitudeHash(territoryId: string): number {
 
 export interface GlobeEvent {
   id: string;
-  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock';
-  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock';
+  type: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock' | 'board_transform';
+  kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock' | 'board_transform';
   territoryId: string;
   fromTerritoryId?: string;
   units?: number;
@@ -2198,10 +2198,15 @@ function GlobeMap({
       panCamera(focus.lat, focus.lng, 1.5);
     }
 
-    const isFrontier = (event.kind ?? event.type) === 'frontier_unlock';
-    // Frontier unlocks glow pure gold (no owning player); era advances tint toward
-    // the advancing player's colour.
-    const playerRgb = isFrontier ? ERA_ADVANCE_GOLD_RGB : hexToRgb(event.playerColor ?? '#f39c12');
+    const visualKind = event.kind ?? event.type;
+    const isFrontier = visualKind === 'frontier_unlock';
+    // Board transform: the whole world recomposes onto the next era's map.
+    const isBoardTransform = visualKind === 'board_transform';
+    // Frontier unlocks + the reborn world glow gold (mostly neutral, up for grabs);
+    // a plain era advance tints toward the advancing player's colour.
+    const playerRgb = isFrontier || isBoardTransform
+      ? ERA_ADVANCE_GOLD_RGB
+      : hexToRgb(event.playerColor ?? '#f39c12');
     const ringIds: string[] = [];
     const overlayIds: string[] = [];
     const eraName = eraAdvanceDisplayName(event.variant);
@@ -2250,7 +2255,9 @@ function GlobeMap({
           lat: focus.lat,
           lng: focus.lng,
           alt: 0.14,
-          text: isFrontier ? 'NEW FRONTIER' : `${eraName.toUpperCase()} ERA`,
+          text: isBoardTransform
+            ? 'THE WORLD TURNS'
+            : isFrontier ? 'NEW FRONTIER' : `${eraName.toUpperCase()} ERA`,
         });
         const subId = uid('era-advance-sub');
         overlayIds.push(subId);
@@ -2260,7 +2267,9 @@ function GlobeMap({
           lat: focus.lat - 1.2,
           lng: focus.lng,
           alt: 0.11,
-          text: isFrontier ? 'Ripe for the Taking' : 'Civilization Ascends',
+          text: isBoardTransform
+            ? `${eraName} · A New World`
+            : isFrontier ? 'Ripe for the Taking' : 'Civilization Ascends',
         });
       }, 280);
     }
@@ -2331,6 +2340,7 @@ function GlobeMap({
       case 'event': animateEvent(next); break;
       case 'era_advance': animateEraAdvance(next); break;
       case 'frontier_unlock': animateEraAdvance(next); break;
+      case 'board_transform': animateEraAdvance(next); break;
       default: playNextRef.current(); break;
     }
   };

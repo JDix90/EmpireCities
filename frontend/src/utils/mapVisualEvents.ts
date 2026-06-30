@@ -10,7 +10,8 @@ export type MapVisualKind =
   | 'influence'
   | 'event'
   | 'era_advance'
-  | 'frontier_unlock';
+  | 'frontier_unlock'
+  | 'board_transform';
 
 export interface MapVisualEvent {
   id: string;

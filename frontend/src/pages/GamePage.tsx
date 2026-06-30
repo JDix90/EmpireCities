@@ -1576,7 +1576,7 @@ export default function GamePage() {
       }
     });
 
-    socket.on('game:board_transformed', ({ era_id, neutral }: {
+    socket.on('game:board_transformed', ({ era_id, neutral, seeds }: {
       era_id?: string;
       board_era_index?: number;
       neutral?: number;
@@ -1596,21 +1596,19 @@ export default function GamePage() {
       try { playFrontierUnlockSound(); } catch { /* audio is best-effort */ }
       const map = mapDataRef.current;
       if (!map) return;
-      const byRegion = new Map<string, string[]>();
-      for (const t of map.territories) {
-        const arr = byRegion.get(t.region_id) ?? [];
-        arr.push(t.territory_id);
-        byRegion.set(t.region_id, arr);
-      }
-      for (const [regionId, regionIds] of byRegion) {
-        pushMapVisualLocal({
-          kind: 'frontier_unlock',
-          territoryId: regionIds[0],
-          regionId,
-          affectedTerritories: regionIds.map((territory_id) => ({ territory_id, delta: 0 })),
-          variant: 'frontier_unlock',
-        });
-      }
+      // One dramatic recomposition cinematic ("THE WORLD TURNS · {Era}"): frame the
+      // viewer's retained seed (where their empire survived into the new world) and
+      // cascade the gold shimmer across every territory of the reborn board.
+      const myId = userRef.current?.user_id;
+      const mySeed = seeds?.find((s) => s.player_id === myId)?.territory_id;
+      const focusId = mySeed ?? map.territories[0]?.territory_id;
+      if (!focusId) return;
+      pushMapVisualLocal({
+        kind: 'board_transform',
+        territoryId: focusId,
+        variant: era_id,
+        affectedTerritories: map.territories.map((t) => ({ territory_id: t.territory_id, delta: 0 })),
+      });
     });
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
