@@ -38,6 +38,37 @@ describe('computePhaseAdjacencyTargets', () => {
     expect(targets.has('turin')).toBe(true);
     expect(targets.has('milan')).toBe(false);
   });
+
+  it('excludes neutral (unowned) neighbors from attack by default', () => {
+    const state = miniState('attack');
+    (state.territories as Record<string, unknown>).frontier = {
+      territory_id: 'frontier',
+      owner_id: null,
+      unit_count: 3,
+    };
+    const conns = [...connections, { from: 'rome', to: 'frontier', type: 'land' as const }];
+    const targets = computePhaseAdjacencyTargets(state, conns, { attackSource: 'rome' });
+    expect(targets.has('frontier')).toBe(false);
+  });
+
+  it('allows attacking neutral frontier neighbors in era-advancement games', () => {
+    // Growth spawns neutral frontiers; the backend lets you capture them, so a
+    // bordering frontier must be offered as an attack target (issue: unreachable).
+    const state = miniState('attack');
+    (state as unknown as { settings: { era_advancement_enabled: boolean } }).settings = {
+      era_advancement_enabled: true,
+    };
+    (state.territories as Record<string, unknown>).frontier = {
+      territory_id: 'frontier',
+      owner_id: null,
+      unit_count: 3,
+    };
+    const conns = [...connections, { from: 'rome', to: 'frontier', type: 'land' as const }];
+    const targets = computePhaseAdjacencyTargets(state, conns, { attackSource: 'rome' });
+    expect(targets.has('frontier')).toBe(true);
+    expect(targets.has('milan')).toBe(true); // enemy still attackable
+    expect(targets.has('turin')).toBe(false); // own territory still excluded
+  });
 });
 
 describe('listNeighborTargets — hyperspace (orbit) targets', () => {

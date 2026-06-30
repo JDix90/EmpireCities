@@ -58,6 +58,42 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'KZ', clip_bbox: [70, 42, 90, 56] },
     { iso: 'MN' },
   ],
+  // Era-growth frontier: real Volga-region geometry (central/European Russia,
+  // north of the Kazakh steppe, east of Scandinavia/Sarmatia) so it fills the
+  // gap between those territories naturally instead of as a floating block. RU is
+  // otherwise unused on the Ancient board (the `siberia` frontier clips RU east of 60°E).
+  volga_bulgaria: [{ iso: 'RU', clip_bbox: [27, 49, 58, 64] }],
+  // Era-growth frontier: the Sahara as a real desert band — Sudan fills the gap
+  // between Egypt and Aksum, and the northern deserts of Mauritania/Mali/Niger
+  // (carved from West Africa) and Chad (carved from Central Africa) give it a
+  // natural shape. The base West/Central Africa territories below are clipped to
+  // their southern halves at the SAME boundary latitudes so the carve has no gap.
+  sahara: [
+    { iso: 'SD' },
+    { iso: 'MR', clip_bbox: [-17, 19, -4.5, 28] },
+    { iso: 'ML', clip_bbox: [-12, 17, 4.5, 25] },
+    { iso: 'NE', clip_bbox: [0, 16.5, 16, 24] },
+    { iso: 'TD', clip_bbox: [13, 15, 24, 24] },
+  ],
+  // West/Central Africa carved: desert north ceded to `sahara` (matched latitudes).
+  west_africa: [
+    { iso: 'MR', clip_bbox: [-17, 14.5, -4.5, 19] },
+    { iso: 'SN' },
+    { iso: 'GM' },
+    { iso: 'GN' },
+    { iso: 'ML', clip_bbox: [-12, 10, 4.5, 17] },
+    { iso: 'BF' },
+    { iso: 'NE', clip_bbox: [0, 11.5, 16, 16.5] },
+    { iso: 'NG' },
+  ],
+  central_africa: [
+    { iso: 'TD', clip_bbox: [13, 7, 24, 15] },
+    { iso: 'CF' },
+    { iso: 'CM' },
+    { iso: 'GA' },
+    { iso: 'CG' },
+    { iso: 'GQ' },
+  ],
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MEDIEVAL ERA — shared-country splits
@@ -606,10 +642,14 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   pontic_steppe: ['UA', 'MD', 'RO'],
   kushan: ['AF', 'PK'],
   aksum: ['ET', 'ER'],
-  west_africa: ['MR', 'SN', 'GM', 'GN', 'ML', 'BF', 'NE', 'NG'],
-  central_africa: ['TD', 'CF', 'CM', 'GA', 'CG', 'GQ'],
+  // west_africa / central_africa now live in TERRITORY_GEO_CONFIG (clipped to cede
+  // their desert north to the `sahara` growth frontier).
   germania: ['DE'],
   sarmatia: ['BY', 'PL'],
+  // Era-growth frontier (unlocks at the Medieval era): mainland Southeast Asia
+  // (Indochina). Distinct id from the maritime `southeast_asia` so it never
+  // collides with the Ancient board's `nusantara` (Indonesia) frontier.
+  indochina: ['TH', 'VN', 'KH', 'LA', 'MM'],
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MEDIEVAL (entries NOT in TERRITORY_GEO_CONFIG)

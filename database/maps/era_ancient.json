@@ -825,6 +825,14 @@
       "geo_polygon": [[104,-8],[104,5],[128,5],[128,-8],[104,-8]]
     },
     {
+      "territory_id": "indochina",
+      "name": "Southeast Asia",
+      "polygon": [[985, 330], [1085, 330], [1085, 445], [985, 445]],
+      "center_point": [1035, 387],
+      "region_id": "southeast_asia",
+      "unlock_era_index": 1
+    },
+    {
       "territory_id": "siberia",
       "name": "Siberia",
       "polygon": [[600, 0], [860, 0], [860, 40], [600, 40]],
@@ -1071,8 +1079,11 @@
     },
     { "from": "scandinavia", "to": "germania", "type": "land" },
     { "from": "scandinavia", "to": "sarmatia", "type": "land" },
+    { "from": "scandinavia", "to": "britannia", "type": "land" },
     { "from": "volga_bulgaria", "to": "sarmatia", "type": "land" },
     { "from": "volga_bulgaria", "to": "central_steppe", "type": "land" },
+    { "from": "volga_bulgaria", "to": "pontic_steppe", "type": "land" },
+    { "from": "volga_bulgaria", "to": "scandinavia", "type": "land" },
     { "from": "sahara", "to": "west_africa", "type": "land" },
     { "from": "sahara", "to": "central_africa", "type": "land" },
     { "from": "sahara", "to": "aksum", "type": "land" },
@@ -1084,6 +1095,9 @@
     { "from": "nippon", "to": "northern_china", "type": "sea" },
     { "from": "nusantara", "to": "southern_china", "type": "sea" },
     { "from": "nusantara", "to": "southern_india", "type": "sea" },
+    { "from": "indochina", "to": "southern_china", "type": "land" },
+    { "from": "indochina", "to": "southern_india", "type": "sea" },
+    { "from": "indochina", "to": "nusantara", "type": "sea" },
     { "from": "siberia", "to": "eastern_steppe", "type": "land" },
     { "from": "siberia", "to": "central_steppe", "type": "land" },
     { "from": "greenland", "to": "north_america", "type": "land" },
@@ -1141,6 +1155,7 @@
     { "region_id": "saharan", "name": "Sahara", "bonus": 2 },
     { "region_id": "new_world", "name": "The New World", "bonus": 2 },
     { "region_id": "far_east", "name": "The Far East", "bonus": 3 },
+    { "region_id": "southeast_asia", "name": "Southeast Asia", "bonus": 2 },
     { "region_id": "northern_reaches", "name": "The Northern Reaches", "bonus": 2 },
     { "region_id": "southern_reaches", "name": "The Southern Reaches", "bonus": 2 },
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 }
