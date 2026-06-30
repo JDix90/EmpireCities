@@ -501,11 +501,15 @@ export default function GamePage() {
   /** Classifies mid-game GAME_NOT_FOUND errors: silent rejoin first, eject only when unrecoverable. */
   const gameNotFoundTrackerRef = useRef(new GameNotFoundTracker());
   const resolvedViewerPlayerIdRef = useRef<string | null>(null);
+  /** Guards the one-shot self-heal join attempt for a non-participant opening a
+   * shared `/game/:id` link, so a persistent NOT_PARTICIPANT can't loop. */
+  const participantJoinAttemptedRef = useRef(false);
 
   useEffect(() => {
     setJoinPlayerIndex(null);
     joinPlayerIndexRef.current = null;
     gameNotFoundTrackerRef.current.reset();
+    participantJoinAttemptedRef.current = false;
   }, [gameId]);
 
   useEffect(() => {
@@ -1800,6 +1804,30 @@ export default function GamePage() {
       // screen so they can get back to the lobby instead.
       const isNotParticipant = code === 'NOT_PARTICIPANT' || message === 'Not a participant in this game';
       if (!useGameStore.getState().gameState) {
+        // Self-heal a shared `/game/:id` link opened by someone not yet in the
+        // game: if the game is still joinable, transparently add them via the
+        // same endpoint the lobby uses, then rejoin — instead of dead-ending on
+        // "you are not a participant". One shot only (guarded), so a genuinely
+        // closed/started/full game still falls through to the error screen.
+        if (isNotParticipant && gameId && !participantJoinAttemptedRef.current) {
+          participantJoinAttemptedRef.current = true;
+          void (async () => {
+            try {
+              await api.post(`/games/${gameId}/join`);
+              socket.emit('game:join', { gameId });
+              toast.success('Joined the game');
+            } catch {
+              if (lobbyTimeoutRef.current) {
+                clearTimeout(lobbyTimeoutRef.current);
+                lobbyTimeoutRef.current = null;
+              }
+              setLobbyLoadError(
+                'This game can no longer be joined — it may have already started, filled up, or ended.',
+              );
+            }
+          })();
+          return;
+        }
         if (
           isNotParticipant ||
           isGameNotFound

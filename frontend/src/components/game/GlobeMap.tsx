@@ -26,6 +26,7 @@ import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessi
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
+import { usePageVisibilityEffect } from '../../utils/usePageVisible';
 import {
   SPACE_AGE_WASTELANDS,
   wastelandColorRgb,
@@ -1162,8 +1163,54 @@ function GlobeMap({
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe || width <= 0 || height <= 0) return;
-    globe.renderer().setSize(width, height);
+    const renderer = globe.renderer();
+    // Cap the device pixel ratio. Phones report DPR 2–3, which renders 4–9× the
+    // pixels every frame — a dominant heat/battery cost for marginal sharpness on
+    // a globe. 1.5 keeps edges crisp while roughly halving fragment work.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setSize(width, height);
   }, [width, height, globeReadyTick]);
+
+  // Heat/battery: halt the Three.js render loop while the tab is backgrounded or
+  // the screen is locked, and once the scene goes idle (no spin, no queued
+  // animation, no recent interaction). react-globe.gl exposes pauseAnimation()/
+  // resumeAnimation() for exactly this. Any pointer activity, queued event, or
+  // visibility regain resumes it via applyRenderActivity().
+  const renderIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const RENDER_IDLE_MS = 4000;
+  const applyRenderActivity = useCallback((interacted: boolean) => {
+    const globe = globeRef.current;
+    if (!globe?.pauseAnimation || !globe.resumeAnimation) return;
+    clearTimeout(renderIdleTimerRef.current);
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      globe.pauseAnimation();
+      return;
+    }
+    const ctrl = globe.controls?.();
+    const spinning = !!ctrl?.autoRotate;
+    const animating = eventQueueRef.current.length > 0 || userInteractingRef.current;
+    if (interacted || spinning || animating) {
+      globe.resumeAnimation();
+      // Keep polling while active so the loop can idle once spin stops, the
+      // animation queue drains, and interaction ends — cheap (one call / 4s).
+      renderIdleTimerRef.current = setTimeout(() => applyRenderActivity(false), RENDER_IDLE_MS);
+      return;
+    }
+    // Nothing happening — let the loop idle to save power. A pointer event,
+    // queued animation, or visibility change resumes it.
+    globe.pauseAnimation();
+  }, []);
+
+  usePageVisibilityEffect((visible) => applyRenderActivity(visible));
+
+  // Re-evaluate idle state whenever a new batch of events queues up (resume to
+  // play them), when spin toggles, and on turn changes (which can re-enable the
+  // idle auto-spin), so the loop tracks actual activity rather than freezing.
+  useEffect(() => {
+    applyRenderActivity(true);
+  }, [events, autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity]);
+
+  useEffect(() => () => clearTimeout(renderIdleTimerRef.current), []);
 
   const getPolygonAltitude = useCallback(
     (polygon: object) => {
@@ -3036,12 +3083,14 @@ function GlobeMap({
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     isDragRef.current = false;
+    // Wake the render loop if it had idled, and re-arm the idle countdown.
+    applyRenderActivity(true);
     // New gesture: any pending fallback from the previous tap is stale.
     if (fallbackTimerRef.current !== null) {
       window.clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
     }
-  }, []);
+  }, [applyRenderActivity]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!pointerDownPosRef.current) return;

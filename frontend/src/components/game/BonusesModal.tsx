@@ -16,7 +16,7 @@ const MODIFIER_INFO = [
   { key: 'castle_fortification',label: 'Castle Fortification', description: 'Defenders with 4+ units roll an extra die.',                            icon: '🏰' },
   { key: 'sea_lanes',           label: 'Sea Lanes',            description: 'Sea-route attacks are limited to 2 attack dice.',                       icon: '⚓' },
   { key: 'wartime_logistics',   label: 'Wartime Logistics',    description: 'May fortify twice per turn.',                                           icon: '🚂' },
-  { key: 'influence_spread',    label: 'Influence Spread',     description: 'May spend 3 units to seize a nearby territory without combat.',          icon: '📡' },
+  { key: 'influence_spread',    label: 'Influence Spread',     description: 'Seize via Influence: spend 3 units from a bordering territory to capture an adjacent weak target (3 units or fewer) without combat. 1-turn cooldown.', icon: '📡' },
   { key: 'precision_strike',    label: 'Precision Strike',     description: 'Attack with 3 dice when committing 4+ units.',                          icon: '🎯' },
   { key: 'rifle_doctrine',      label: 'Rifle Doctrine',       description: 'Re-roll tied attacker dice to break deadlocks.',                        icon: '🔫' },
   { key: 'carbonari_network',   label: 'Carbonari Network',    description: 'Influence operations can reach beyond adjacent territories.',            icon: '🕵️' },

@@ -20,6 +20,7 @@ import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 import { playMap2dVisualEffect, type TerritoryCentroid } from '../../utils/map2dVisualEffects';
 import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
+import { usePageVisible } from '../../utils/usePageVisible';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import {
   shouldEmphasizeAdjacencyBorders,
@@ -114,6 +115,11 @@ export default function GameMap({
 }: GameMapProps) {
   const [, setPrefsRevision] = useState(0);
   useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
+
+  // Heat/battery: when the tab is backgrounded or the screen is locked, stop the
+  // PixiJS render loop entirely instead of relying on the browser's (uneven) rAF
+  // throttling. Drives both the main app ticker and the ambient shimmer ticker.
+  const pageVisible = usePageVisible();
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
@@ -254,7 +260,9 @@ export default function GameMap({
       height,
       backgroundColor: 0x0a0e1a,
       antialias: true,
-      resolution: window.devicePixelRatio || 1,
+      // Cap DPR at 1.5: phones report 2–3, rendering 4–9× the pixels each frame
+      // for negligible sharpness gain on flat map fills — a major heat source.
+      resolution: Math.min(window.devicePixelRatio || 1, 1.5),
       autoDensity: true,
     });
 
@@ -992,6 +1000,9 @@ export default function GameMap({
     borderLayer.removeChildren();
 
     if (!ambientEnabled || prefersReducedMotion() || reducedEffects || !renderConnectionArcs) return;
+    // Don't spin up the shimmer loop while hidden; it restarts when visible again
+    // (pageVisible is in this effect's deps).
+    if (!pageVisible) return;
 
     let phase = 0;
     const ticker = new PIXI.Ticker();
@@ -1047,7 +1058,19 @@ export default function GameMap({
     gameState,
     mapData.territories,
     territoryCentroids,
+    pageVisible,
   ]);
+
+  // Stop the main PixiJS render loop while hidden; resume when visible.
+  useEffect(() => {
+    const app = appRef.current;
+    if (!app) return;
+    if (pageVisible) {
+      if (!app.ticker.started) app.ticker.start();
+    } else {
+      app.ticker.stop();
+    }
+  }, [pageVisible]);
 
   useEffect(() => {
     if (prefersReducedMotion() || reducedEffects) return;
