@@ -77,21 +77,33 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   ],
   // Era-growth frontiers of the Ancient board (unlock as the game advances). These
   // ids live ONLY on era_ancient; the Discovery/WWII/Space-Age boards use different
-  // ids for the same regions (north_america_west/east, polar_north, la_amazonia…),
-  // so these presets can't collide with them. Real ISO geometry so they render as
-  // coastlines instead of the placeholder geo_polygon rectangle (the gray block).
+  // ids for the same regions (polar_north, la_amazonia…), so these presets can't
+  // collide with them. Real ISO geometry so they render as coastlines instead of the
+  // placeholder geo_polygon rectangle (the gray block).
   nippon: [{ iso: 'JP' }],
   greenland: [{ iso: 'GL' }],
-  north_america: [
-    { iso: 'US', clip_bbox: [-125, 24, -66, 50] }, // continental US (drops the AK/HI Pacific specks)
-    { iso: 'CA', clip_bbox: [-141, 42, -52, 72] },
+  // North America is split into four Discovery-era frontiers. north_america_west and
+  // north_america_east REUSE the shared Discovery-board presets below (US+CA to 72°N).
+  // `yukon` takes Alaska + the far-NW-Canada strip WEST of -125 that those presets do
+  // not cover, so it never double-draws with them. `azteca` is Mexico + Central America.
+  yukon: [
+    { iso: 'US', clip_bbox: [-170, 51, -130, 72] }, // Alaska (mainland + panhandle)
+    { iso: 'CA', clip_bbox: [-141, 49, -125, 72] }, // Yukon/NWT west of the shared -125 clip
   ],
-  // Maritime SE Asia — no overlap with the `indochina` frontier (TH/VN/KH/LA/MM).
-  nusantara: [{ iso: 'ID' }, { iso: 'MY' }, { iso: 'PH' }, { iso: 'BN' }],
-  south_america: [
-    { iso: 'BR' }, { iso: 'AR' }, { iso: 'CL' }, { iso: 'PE' }, { iso: 'BO' }, { iso: 'CO' },
-    { iso: 'VE' }, { iso: 'EC' }, { iso: 'PY' }, { iso: 'UY' }, { iso: 'GY' }, { iso: 'SR' }, { iso: 'GF' },
+  azteca: [
+    { iso: 'MX' }, { iso: 'GT' }, { iso: 'BZ' }, { iso: 'HN' },
+    { iso: 'SV' }, { iso: 'NI' }, { iso: 'CR' }, { iso: 'PA' },
   ],
+  // South America split: brazil/peru_chile(Andes)/rio_plata REUSE the shared Discovery
+  // presets below; gran_colombia (northern SA) is new here.
+  gran_colombia: [
+    { iso: 'CO' }, { iso: 'VE' }, { iso: 'EC' }, { iso: 'GY' }, { iso: 'SR' }, { iso: 'GF' },
+  ],
+  // SE-Asian archipelago split: philippines REUSES the shared preset below; insulindia
+  // (Indonesia) and malaya (Malaysia/Brunei/Singapore) are new. No overlap with the
+  // `indochina` frontier (TH/VN/KH/LA/MM).
+  insulindia: [{ iso: 'ID' }],
+  malaya: [{ iso: 'MY' }, { iso: 'BN' }, { iso: 'SG' }],
   // SW Pacific / Melanesia — same island set the WWII `pacific_islands` uses (minus
   // PG, which sits west of this frontier's extent). Islands need no clip.
   pacifica: [{ iso: 'FJ' }, { iso: 'VU' }, { iso: 'NC' }, { iso: 'SB' }],
