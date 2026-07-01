@@ -3435,7 +3435,7 @@ export default function GamePage() {
                               Host
                             </span>
                           )}
-                          {p.is_away ? <AiBadge away /> : p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
+                          {p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
                         </li>
                       );
                     })}
