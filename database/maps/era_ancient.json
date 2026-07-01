@@ -962,7 +962,7 @@
       "name": "Hawaii",
       "polygon": [[150, 300], [210, 300], [210, 345], [150, 345]],
       "center_point": [180, 322],
-      "region_id": "oceania",
+      "region_id": "hawaii",
       "unlock_era_index": 3,
       "geo_polygon": [[-161, 18], [-161, 23], [-154, 23], [-154, 18], [-161, 18]]
     }
@@ -1266,7 +1266,8 @@
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
     { "region_id": "north_america", "name": "North America", "bonus": 4 },
     { "region_id": "south_america", "name": "South America", "bonus": 4 },
-    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 }
+    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 },
+    { "region_id": "hawaii", "name": "Hawaii", "bonus": 3 }
   ],
   "is_public": true,
   "is_moderated": true,
