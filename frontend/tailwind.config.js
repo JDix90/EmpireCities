@@ -59,5 +59,15 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Layout variants driven by a `data-mobile-layout` ancestor attribute (set on
+    // the GamePage root from the isPhoneLayout() state), so phones keep the mobile
+    // layout in landscape instead of flipping to desktop at the 768px width
+    // breakpoint. `dlayout:` applies when the desktop layout is active,
+    // `mlayout:` when the mobile layout is active.
+    function ({ addVariant }) {
+      addVariant('dlayout', '[data-mobile-layout="false"] &');
+      addVariant('mlayout', '[data-mobile-layout="true"] &');
+    },
+  ],
 };
