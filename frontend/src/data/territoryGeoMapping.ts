@@ -111,6 +111,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // Atlantic-facing AQ sector (matching its authored extent) rather than the whole
   // continent. Other eras split AQ into disjoint clipped sectors (antarctica_disc…).
   antarctica: [{ iso: 'AQ', clip_bbox: [-62, -88, 12, -64] }],
+  // Hawaii — a mid-Pacific WWII-era frontier. US clipped to the island chain, well
+  // clear of the continental/Alaska US clips (yukon, north_america_west/east), so no
+  // double-draw.
+  hawaii: [{ iso: 'US', clip_bbox: [-161, 18, -154, 23] }],
   // West/Central Africa carved: desert north ceded to `sahara` (matched latitudes).
   west_africa: [
     { iso: 'MR', clip_bbox: [-17, 14.5, -4.5, 19] },
