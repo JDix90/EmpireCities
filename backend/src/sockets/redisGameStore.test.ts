@@ -248,8 +248,8 @@ describe.runIf(redisTestEnabled)('Redis integration — setGameState / getGameSt
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
   let getGameMap: (id: string) => Promise<GameMap | null>;
   let deleteGameKeys: (id: string) => Promise<void>;
-  let markPlayerConnected: (id: string, pid: string) => Promise<void>;
-  let markPlayerDisconnected: (id: string, pid: string) => Promise<void>;
+  let markPlayerConnected: (id: string, pid: string, socketId: string) => Promise<void>;
+  let markPlayerDisconnected: (id: string, pid: string, socketId: string) => Promise<void>;
   let isPlayerConnected: (id: string, pid: string) => Promise<boolean>;
   let acquireAiInFlight: (id: string) => Promise<boolean>;
   let releaseAiInFlight: (id: string) => Promise<void>;
@@ -292,15 +292,30 @@ describe.runIf(redisTestEnabled)('Redis integration — setGameState / getGameSt
   });
 
   it('marks and queries player connected presence correctly', async () => {
-    await markPlayerConnected(TEST_GAME_ID, 'user_a');
+    await markPlayerConnected(TEST_GAME_ID, 'user_a', 'sock_a1');
     expect(await isPlayerConnected(TEST_GAME_ID, 'user_a')).toBe(true);
     expect(await isPlayerConnected(TEST_GAME_ID, 'user_b')).toBe(false);
 
-    await markPlayerConnected(TEST_GAME_ID, 'user_b');
+    await markPlayerConnected(TEST_GAME_ID, 'user_b', 'sock_b1');
     expect(await isPlayerConnected(TEST_GAME_ID, 'user_b')).toBe(true);
 
-    await markPlayerDisconnected(TEST_GAME_ID, 'user_a');
+    await markPlayerDisconnected(TEST_GAME_ID, 'user_a', 'sock_a1');
     expect(await isPlayerConnected(TEST_GAME_ID, 'user_a')).toBe(false);
+  });
+
+  it('refcounts sockets so closing one of two tabs keeps the player present', async () => {
+    const GID = 'redis-test-refcount-001';
+    await markPlayerConnected(GID, 'multi', 'tab_1');
+    await markPlayerConnected(GID, 'multi', 'tab_2');
+    expect(await isPlayerConnected(GID, 'multi')).toBe(true);
+
+    // Closing the first tab must NOT mark the player gone — the second is live.
+    await markPlayerDisconnected(GID, 'multi', 'tab_1');
+    expect(await isPlayerConnected(GID, 'multi')).toBe(true);
+
+    // Closing the last tab finally clears presence.
+    await markPlayerDisconnected(GID, 'multi', 'tab_2');
+    expect(await isPlayerConnected(GID, 'multi')).toBe(false);
   });
 
   it('AI in-flight lock acquires exclusively and releases', async () => {

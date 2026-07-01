@@ -507,7 +507,9 @@ export default function GameHUD({
                   player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
                 )}>
                   <span className="truncate">{player.username}</span>
-                  {player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
+                  {player.is_away
+                    ? <AiBadge away size="xs" showLabel={false} />
+                    : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
                 </span>
                 <span className="text-bf-muted text-xs">{player.territory_count}T</span>
                 {gameState.settings.era_advancement_enabled && !player.is_eliminated && (

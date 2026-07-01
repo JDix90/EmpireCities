@@ -114,9 +114,18 @@ export interface PlayerState {
   is_ai: boolean;
   ai_difficulty?: AiDifficulty;
   /**
-   * True when this seat is a disconnected human currently driven by the AI
-   * (see aiTakeoverSeat). Distinguishes a taken-over human from an original AI
-   * seat so the human can reclaim it on reconnect; cleared when they return.
+   * True when this human seat is currently *away* (disconnected). The seat is NOT
+   * converted to AI (`is_ai` stays false) — the AI merely covers its turns while
+   * away, and the player reclaims it instantly on reconnect. `away_since` is the
+   * disconnect timestamp (ms); a short reconnect window is derived from it before
+   * the AI starts playing. Cleared the moment the player returns.
+   */
+  is_away?: boolean;
+  away_since?: number | null;
+  /**
+   * @deprecated Legacy "converted to AI after grace" marker. Replaced by
+   * `is_away`; retained only so `repairLegacyGameState` can migrate in-flight
+   * saved games. Do not set on new states.
    */
   ai_takeover?: boolean;
   is_eliminated: boolean;

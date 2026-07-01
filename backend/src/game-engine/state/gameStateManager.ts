@@ -441,6 +441,16 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
     if (p.special_resource === undefined && state.settings.tech_trees_enabled) p.special_resource = 0;
     if (p.unlocked_techs === undefined) p.unlocked_techs = [];
     if (p.ability_uses === undefined) p.ability_uses = {};
+    // Migrate the legacy "converted to AI after grace" marker onto the away-seat
+    // model: a taken-over human becomes an away human (is_ai reverts to false) so
+    // the AI just covers their turns and they can reclaim instantly. Idempotent.
+    if (p.ai_takeover) {
+      p.is_ai = false;
+      p.ai_difficulty = undefined;
+      p.is_away = true;
+      if (p.away_since === undefined) p.away_since = null;
+      delete p.ai_takeover;
+    }
   }
   // Patch missing per-turn fields on GameState
   if (state.fortify_moves_used === undefined) state.fortify_moves_used = 0;

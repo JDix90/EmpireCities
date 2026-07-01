@@ -26,6 +26,7 @@ const keys = {
   state: (gameId: string) => `game:${gameId}:state`,
   map: (gameId: string) => `game:${gameId}:map`,
   connected: (gameId: string) => `game:${gameId}:connected`,
+  playerSockets: (gameId: string, playerId: string) => `game:${gameId}:psockets:${playerId}`,
   aiInFlight: (gameId: string) => `game:${gameId}:ai-flight`,
 };
 
@@ -83,13 +84,23 @@ export async function refreshGameTTL(gameId: string): Promise<void> {
 // Phase 6 will migrate connectedSockets tracking here fully.
 // These functions are built now so the API is stable.
 
-export async function markPlayerConnected(gameId: string, playerId: string): Promise<void> {
+export async function markPlayerConnected(gameId: string, playerId: string, socketId: string): Promise<void> {
+  // Refcount sockets per player so multiple tabs don't clobber presence: a player
+  // is "connected" while they hold ≥1 socket. The per-player set carries the same
+  // TTL as the rest of the game so a crashed node's entries self-expire.
+  await redis.sadd(keys.playerSockets(gameId, playerId), socketId);
+  await redis.expire(keys.playerSockets(gameId, playerId), STATE_TTL_SECONDS);
   await redis.sadd(keys.connected(gameId), playerId);
   await redis.expire(keys.connected(gameId), STATE_TTL_SECONDS);
 }
 
-export async function markPlayerDisconnected(gameId: string, playerId: string): Promise<void> {
-  await redis.srem(keys.connected(gameId), playerId);
+export async function markPlayerDisconnected(gameId: string, playerId: string, socketId: string): Promise<void> {
+  await redis.srem(keys.playerSockets(gameId, playerId), socketId);
+  // Only drop the player from presence once their LAST socket (tab) closes.
+  const remaining = await redis.scard(keys.playerSockets(gameId, playerId));
+  if (remaining === 0) {
+    await redis.srem(keys.connected(gameId), playerId);
+  }
 }
 
 export async function getConnectedPlayers(gameId: string): Promise<string[]> {

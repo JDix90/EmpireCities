@@ -30,6 +30,8 @@ export interface PlayerState {
   color: string;
   is_ai: boolean;
   ai_difficulty?: string | null;
+  /** Disconnected human whose turns the AI is temporarily covering (reclaimable on return). */
+  is_away?: boolean;
   is_eliminated: boolean;
   territory_count: number;
   cards: { card_id: string; symbol: string }[];
