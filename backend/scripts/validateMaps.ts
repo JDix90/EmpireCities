@@ -5,6 +5,7 @@
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { validateMapConnections, type MapDocumentLike } from '../src/game-engine/validation/mapConnections';
+import { validateMapGeometry, type GeoMapDocument } from '../src/game-engine/validation/mapGeometry';
 
 async function main(): Promise<void> {
   const mapsDir = join(__dirname, '../../database/maps');
@@ -13,8 +14,8 @@ async function main(): Promise<void> {
 
   for (const file of files.sort()) {
     const raw = await readFile(join(mapsDir, file), 'utf-8');
-    const map = JSON.parse(raw) as MapDocumentLike;
-    const errors = validateMapConnections(map);
+    const map = JSON.parse(raw) as MapDocumentLike & GeoMapDocument;
+    const errors = [...validateMapConnections(map), ...validateMapGeometry(map)];
     if (errors.length > 0) {
       failed = true;
       console.error(`\n✗ ${file} (${map.map_id ?? '?'})`);
@@ -28,7 +29,7 @@ async function main(): Promise<void> {
     console.error('\nMap validation failed.');
     process.exit(1);
   }
-  console.log(`\nAll ${files.length} map file(s) passed connection validation.`);
+  console.log(`\nAll ${files.length} map file(s) passed connection + geometry validation.`);
 }
 
 main().catch((err) => {
