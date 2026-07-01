@@ -94,7 +94,8 @@ import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
-import { prefersReducedMotion, isMobileViewport } from '../utils/device';
+import { prefersReducedMotion, isMobileViewport, isPhoneLayout } from '../utils/device';
+import { resolveJoinFailure } from '../utils/joinFailure';
 import type { SheetSnap } from '../hooks/useBottomSheetSnap';
 import {
   getInitialMapView,
@@ -428,7 +429,7 @@ export default function GamePage() {
   );
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
-  const [isMobileLayout, setIsMobileLayout] = useState(() => isMobileViewport());
+  const [isMobileLayout, setIsMobileLayout] = useState(() => isPhoneLayout());
   // Auto-settle the menu pulse after a few seconds so it isn't distracting all
   // game; not persisted, so it gently returns next session until actually used.
   useEffect(() => {
@@ -468,7 +469,7 @@ export default function GamePage() {
   }), []);
 
   useEffect(() => {
-    const syncMobileLayout = () => setIsMobileLayout(isMobileViewport());
+    const syncMobileLayout = () => setIsMobileLayout(isPhoneLayout());
     syncMobileLayout();
     window.addEventListener('resize', syncMobileLayout);
     return () => window.removeEventListener('resize', syncMobileLayout);
@@ -1850,10 +1851,18 @@ export default function GamePage() {
               // "joining" hint avoids a false green toast if that rejoin fails.
               toast('Joining game…', { icon: '⏳' });
               socket.emit('game:join', { gameId });
-            } catch {
+            } catch (err: unknown) {
               if (lobbyTimeoutRef.current) {
                 clearTimeout(lobbyTimeoutRef.current);
                 lobbyTimeoutRef.current = null;
+              }
+              const resp = (err as { response?: { status?: number; data?: { code?: string } } }).response;
+              // An already-started game can't be joined but can be watched — send
+              // the link-clicker to the live spectator view instead of a dead end.
+              if (resolveJoinFailure(resp?.status, resp?.data?.code) === 'spectate') {
+                toast('This match already started — watching live', { icon: '👁️', duration: 3500 });
+                navigate(`/spectate/${gameId}`);
+                return;
               }
               setLobbyLoadError(
                 'This game can no longer be joined — it may have already started, filled up, or ended.',
@@ -3546,7 +3555,10 @@ export default function GamePage() {
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
 
   return (
-    <div className="h-screen bg-bf-dark flex flex-col overflow-hidden">
+    <div
+      className="h-screen bg-bf-dark flex flex-col overflow-hidden"
+      data-mobile-layout={isMobileLayout ? 'true' : 'false'}
+    >
       {/* Top Bar */}
       <div className="min-h-10 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
         <BrandWordmark to="/lobby" className="text-sm" />
@@ -3570,7 +3582,7 @@ export default function GamePage() {
               setMapView(next);
               persistMapView(next);
             }}
-            className="md:hidden min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-bf-muted hover:text-bf-text flex items-center gap-1"
+            className="dlayout:hidden min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-bf-muted hover:text-bf-text flex items-center gap-1"
             aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
           >
             {mapView === 'globe' ? <MapIcon className="w-4 h-4" /> : <GlobeIcon className="w-4 h-4" />}
@@ -3581,7 +3593,7 @@ export default function GamePage() {
             onMouseEnter={preloadGlobeChunks}
             onFocus={preloadGlobeChunks}
             onClick={switchToGlobeView}
-            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
+            className={`hidden dlayout:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             Globe
           </button>
@@ -3591,7 +3603,7 @@ export default function GamePage() {
               setMapView('2d');
               persistMapView('2d');
             }}
-            className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
+            className={`hidden dlayout:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             2D Map
           </button>
@@ -3603,7 +3615,7 @@ export default function GamePage() {
                 setGlobeSpinEnabled(next);
                 persistGlobeSpinPreference(next);
               }}
-              className={`hidden md:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded items-center gap-1 ${globeSpinEnabled ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
+              className={`hidden dlayout:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded items-center gap-1 ${globeSpinEnabled ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
               aria-label="Toggle globe spin"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -3611,7 +3623,7 @@ export default function GamePage() {
             </button>
           )}
           {mapView === 'globe' && hasMoonTerritories && (
-            <span className="hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded text-bf-gold/90 bg-bf-gold/10 border border-bf-gold/25 items-center">
+            <span className="hidden dlayout:inline-flex min-h-[40px] px-2 py-1 text-xs rounded text-bf-gold/90 bg-bf-gold/10 border border-bf-gold/25 items-center">
               Earth + Moon
             </span>
           )}
@@ -3620,11 +3632,11 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setGalaxyOverviewMode(true)}
-                className={`hidden md:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
+                className={`hidden dlayout:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
               >
                 Galaxy chart
               </button>
-              <div className="hidden md:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
+              <div className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
                 {(mapData.worlds ?? []).map((w) => (
                   <button
                     key={w.world_id}
@@ -3652,7 +3664,7 @@ export default function GamePage() {
         chip row gives mobile parity: jump to the all-worlds chart or any world.
       */}
       {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
-        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
+        <div className="dlayout:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
           <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-bf-muted/80 pr-0.5">
             <GlobeIcon className="w-3.5 h-3.5" /> Worlds
           </span>
@@ -3947,7 +3959,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => resetViewRef.current?.()}
-                className="md:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
+                className="dlayout:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Reset map view"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -3955,7 +3967,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setShowShortcuts(true)}
-                className="hidden md:flex absolute bottom-3 right-3 z-20 w-9 h-9 items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
+                className="hidden dlayout:flex absolute bottom-3 right-3 z-20 w-9 h-9 items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Keyboard shortcuts (?)"
                 title="Keyboard shortcuts (?)"
               >
@@ -3993,7 +4005,7 @@ export default function GamePage() {
           {selectedTerritory && territorySheetSnap === 'full' && (
             <button
               type="button"
-              className="fixed inset-0 z-[35] bg-black/20 md:hidden"
+              className="fixed inset-0 z-[35] bg-black/20 dlayout:hidden"
               aria-label="Collapse territory panel"
               onClick={() => setTerritorySheetSnap('peek')}
             />
@@ -4107,7 +4119,7 @@ export default function GamePage() {
             )
           : 0;
         return (
-          <div className="flex md:hidden items-center gap-3 px-4 shrink-0 bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]">
+          <div className="flex dlayout:hidden items-center gap-3 px-4 shrink-0 bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]">
             {/* Player + phase info */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               {cp && (
@@ -4241,7 +4253,7 @@ export default function GamePage() {
 
       {/* ── Mobile Cards Tray ─────────────────────────────────────────────── */}
       {mobileCardsTrayOpen && mobileMyPlayer && mobileMyPlayer.cards.length > 0 && (
-        <div className="md:hidden">
+        <div className="dlayout:hidden">
           <MobileCardsTray
             cards={mobileMyPlayer.cards}
             isMyTurn={!!mobileIsMyTurn}
@@ -4260,7 +4272,7 @@ export default function GamePage() {
 
       {/* ── Mobile HUD Drawer ─────────────────────────────────────────────── */}
       {mobileHudOpen && (
-        <div className="md:hidden">
+        <div className="dlayout:hidden">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 z-40"

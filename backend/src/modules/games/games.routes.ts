@@ -613,10 +613,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return { code: 'ok', player_index: nextIndex };
     });
 
-    if (result.code === 'not_found') return reply.status(404).send({ error: 'Game not found' });
-    if (result.code === 'not_waiting') return reply.status(409).send({ error: 'Game already started' });
-    if (result.code === 'already_joined') return reply.status(409).send({ error: 'Already in this game' });
-    if (result.code === 'full') return reply.status(409).send({ error: 'Game is full' });
+    // `code` is machine-readable so clients can branch (e.g. 'not_waiting' → offer
+    // to spectate the in-progress game rather than showing a dead-end error).
+    if (result.code === 'not_found') return reply.status(404).send({ error: 'Game not found', code: 'not_found' });
+    if (result.code === 'not_waiting') return reply.status(409).send({ error: 'Game already started', code: 'not_waiting' });
+    if (result.code === 'already_joined') return reply.status(409).send({ error: 'Already in this game', code: 'already_joined' });
+    if (result.code === 'full') return reply.status(409).send({ error: 'Game is full', code: 'full' });
 
     return reply.send({ message: 'Joined game', player_index: result.player_index });
   });
