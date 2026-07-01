@@ -517,7 +517,8 @@
         655,
         53
       ],
-      "region_id": "mongol_empire"
+      "region_id": "mongol_empire",
+      "geo_config": [{ "iso": "RU", "clip_bbox": [60, 48, 150, 82] }]
     },
     {
       "territory_id": "northern_china_med",
@@ -802,6 +803,7 @@
     { "territory_id": "polynesia", "name": "Polynesia", "polygon": [[1080,610],[1195,610],[1195,690],[1080,690]], "center_point": [1137,650], "region_id": "oceania", "unlock_era_index": 4,
       "geo_polygon": [[-160,-22],[-160,-6],[-138,-6],[-138,-22],[-160,-22]] },
     { "territory_id": "kamchatka", "name": "Kamchatka", "polygon": [[1075,200],[1195,200],[1195,330],[1075,330]], "center_point": [1135,265], "region_id": "pacific_rim", "unlock_era_index": 5,
+      "geo_config": [{ "iso": "RU", "clip_bbox": [150, 48, 180, 82] }],
       "geo_polygon": [[-179,52],[-179,62],[-168,62],[-168,52],[-179,52]] }
   ],
   "connections": [

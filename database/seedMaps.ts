@@ -25,7 +25,6 @@ const MAP_FILES = [
   'era_risorgimento.json',
   'era_space_age.json',
   'era_galaxy.json',
-  'rts_slice_v1.json',
 ];
 
 const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
@@ -45,6 +44,11 @@ const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
   { file: 'community_britain_925.json', creator_id: 'system' },
   { file: 'community_horn_africa.json', creator_id: 'system' },
   { file: 'community_australia_1337.json', creator_id: 'system' },
+  { file: 'community_flooded_north_america.json', creator_id: 'system' },
+  { file: 'community_mongol_empire.json', creator_id: 'system' },
+  { file: 'community_napoleonic_europe.json', creator_id: 'system' },
+  { file: 'community_roman_empire_117.json', creator_id: 'system' },
+  { file: 'community_sengoku_japan.json', creator_id: 'system' },
 ];
 
 const MAPS_DIR = path.resolve(__dirname, 'maps');
