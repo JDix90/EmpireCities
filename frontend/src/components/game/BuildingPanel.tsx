@@ -39,6 +39,13 @@ const BUILDING_META: Record<
     icon: <Hammer className="w-3 h-3" />,
     category: 'production',
   },
+  production_4: {
+    label: 'Trade Hub (IV)',
+    description: '+7 units per turn',
+    cost: 15,
+    icon: <Hammer className="w-3 h-3" />,
+    category: 'production',
+  },
   defense_1: {
     label: 'Palisade (I)',
     description: '+1 defense die',
@@ -121,6 +128,7 @@ const BUILDING_META: Record<
 const UPGRADES: Record<string, string> = {
   production_1: 'production_2',
   production_2: 'production_3',
+  production_3: 'production_4',
   defense_1: 'defense_2',
   defense_2: 'defense_3',
   tech_gen_1: 'tech_gen_2',

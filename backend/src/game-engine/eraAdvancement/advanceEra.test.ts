@@ -89,6 +89,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
       era_advancement_enabled: true,
       era_advancement_cost_mult: 2.0,
       era_advancement_cost_escalation: 1.5,
+      era_advancement_cost_escalation_cap: 2.75,
       era_advancement_stability_gate: 60,
       era_advancement_tech_gate_mode: 'milestone',
       era_advancement_min_tier1_techs: 3,
@@ -121,8 +122,8 @@ describe('computeAdvanceCost', () => {
   it('caps the escalation term so late advances stay reachable', () => {
     const state = baseState();
     const player = basePlayer({ last_turn_production_income: 10, current_era_index: 4 });
-    // 1.5^4 ≈ 5.06 capped to 4.0 → 10 × 2.0 × 4.0 = 80 (uncapped would be 102)
-    expect(computeAdvanceCost(state, player)).toBe(80);
+    // 1.5^4 ≈ 5.06 capped to 2.75 → 10 × 2.0 × 2.75 = 55 (uncapped would be ~101)
+    expect(computeAdvanceCost(state, player)).toBe(55);
   });
 
   it('discounts a trailing player\'s cost (catch-up)', () => {

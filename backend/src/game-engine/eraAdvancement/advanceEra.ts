@@ -33,8 +33,8 @@ export function getCatchupCostMultiplier(state: GameState, player: PlayerState):
 export function computeAdvanceCost(state: GameState, player: PlayerState): number {
   const fromIndex = player.current_era_index ?? 0;
   const mult = state.settings.era_advancement_cost_mult ?? 2.0;
-  const escalation = state.settings.era_advancement_cost_escalation ?? 1.5;
-  const escalationCap = state.settings.era_advancement_cost_escalation_cap ?? 4.0;
+  const escalation = state.settings.era_advancement_cost_escalation ?? 1.35;
+  const escalationCap = state.settings.era_advancement_cost_escalation_cap ?? 2.75;
   const incomeFloor = state.settings.era_advancement_cost_income_floor ?? 8;
   // Income floor blocks the "starve income the turn before advancing" exploit;
   // the escalation cap keeps late advances reachable instead of exponential.

@@ -57,8 +57,12 @@ export function getDefaultEraAdvancementSettings(): {
     era_advancement_strength_step: 1.4,
     era_advancement_cost_step: 1.25,
     era_advancement_cost_mult: 2.0,
-    era_advancement_cost_escalation: 1.5,
-    era_advancement_cost_escalation_cap: 4.0,
+    // Gentler late-era ramp so Cold War / Modern / Space Age stay reachable
+    // before games end. cost/income (= turns-to-advance) is 2.0 * 1.35^eraIndex,
+    // capped at 2.0 * 2.75 = 5.5 turns of full income from the WWII floor onward
+    // (was 8 with escalation 1.5 / cap 4.0). Early eras are almost unchanged.
+    era_advancement_cost_escalation: 1.35,
+    era_advancement_cost_escalation_cap: 2.75,
     era_advancement_cost_income_floor: 8,
     era_advancement_stability_gate: 60,
     era_advancement_tech_gate_pct: 0.33,
