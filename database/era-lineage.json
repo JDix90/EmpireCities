@@ -305,14 +305,6 @@
             "primary": true
           }
         ],
-        "nusantara": [
-          {
-            "to": "southeast_asia",
-            "overlap": 0.292,
-            "target_overlap": 0.273,
-            "primary": true
-          }
-        ],
         "indochina": [
           {
             "to": "southeast_asia",
@@ -344,15 +336,45 @@
             "target_overlap": 1,
             "primary": true
           }
+        ],
+        "malaya": [
+          {
+            "to": "southeast_asia",
+            "overlap": 0.4,
+            "target_overlap": 0.18,
+            "primary": true
+          }
+        ],
+        "insulindia": [
+          {
+            "to": "southeast_asia",
+            "overlap": 0.5,
+            "target_overlap": 0.3,
+            "primary": true
+          }
+        ],
+        "philippines": [
+          {
+            "to": "southeast_asia",
+            "overlap": 0.3,
+            "target_overlap": 0.14,
+            "primary": true
+          }
         ]
       },
       "no_successor": [
         "antarctica",
+        "azteca",
+        "brazil",
+        "gran_colombia",
         "greenland",
         "north_africa",
-        "north_america",
+        "north_america_east",
+        "north_america_west",
         "pacifica",
-        "south_america"
+        "peru_chile",
+        "rio_plata",
+        "yukon"
       ],
       "new_land": [
         "caribbean_isles",

@@ -17,13 +17,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  *   2. a `TERRITORY_GEO_CONFIG` / `TERRITORY_ISO_MAP` preset (hasGeoMapping), else
  *   3. the crude synthetic `geo_polygon` rectangle — the flat gray BLOCK.
  *
- * Five frontiers (north_america, south_america, nippon, nusantara, greenland)
- * plus pacifica/antarctica shipped with only a placeholder `geo_polygon`, so
- * they rendered as blocks while every base territory drew real coastline. This
- * test asserts every LAND frontier resolves via (1) or (2) so a future frontier
- * can't silently regress to a block. Genuine ocean/ice tiles with no coastline
- * to trace are exempted via ALLOWED_SYNTHETIC (empty today — all Ancient
- * frontiers are land/islands, but kept for future era maps).
+ * Several frontiers once shipped with only a placeholder `geo_polygon` and
+ * rendered as gray blocks while every base territory drew real coastline. The
+ * Discovery-era continents were later split into multiple real-border tiles
+ * (north_america_west/east, yukon, azteca; gran_colombia, brazil, peru_chile,
+ * rio_plata; insulindia, philippines, malaya). This test asserts every LAND
+ * frontier resolves via (1) or (2) so a future frontier can't silently regress
+ * to a block. Genuine ocean/ice tiles with no coastline to trace are exempted
+ * via ALLOWED_SYNTHETIC (empty today — all Ancient frontiers are land/islands,
+ * but kept for future era maps).
  */
 
 // Intentional non-land frontiers that are meant to stay authored polygon blocks
