@@ -658,7 +658,8 @@ const AUSTRALIA_1337: CustomMapImmersionProfile = {
   tagline: 'Karkiyapani crowns — songlines, trade winds, and island thrones.',
   backdrop:
     'An alternate 1337 where Indigenous Australian polities, Aotearoa, and Pacific neighbors appear as structured realms. The continent is a web of trade winds, fire-country, and reef gates — empire is kinship scaled to geography.',
-  recommended_rules_era: 'discovery',
+  // 1337 A.D. — medieval rules; must match COMMUNITY_RECOMMENDED_RULES_ERA (backend).
+  recommended_rules_era: 'medieval',
   advanced: {
     territory_draft: af(
       'Elders and voyaging captains choose ceremonial grounds before the great gatherings arm.',
@@ -700,7 +701,8 @@ const NATIONS_14: CustomMapImmersionProfile = {
   tagline: 'Fourteen crowns — one continent, infinite border grudges.',
   backdrop:
     'North America reimagined as fourteen peer powers sharing one landmass. Every border is a treaty waiting to break; every heartland is someone else’s manifest destiny.',
-  recommended_rules_era: 'modern',
+  // Pre-contact nations — discovery rules; must match COMMUNITY_RECOMMENDED_RULES_ERA (backend).
+  recommended_rules_era: 'discovery',
   advanced: {
     territory_draft: af(
       'The continent is partitioned at the treaty table before armies march — manifest destiny starts in negotiation.',

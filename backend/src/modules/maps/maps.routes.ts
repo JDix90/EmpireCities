@@ -105,6 +105,8 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'era_ww2',
   'era_coldwar',
   'era_modern',
+  'era_space_age',
+  'era_galaxy',
 ]);
 
 export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
