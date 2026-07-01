@@ -956,6 +956,15 @@
       "region_id": "southern_reaches",
       "unlock_era_index": 5,
       "geo_polygon": [[-60,-82],[-60,-68],[10,-68],[10,-82],[-60,-82]]
+    },
+    {
+      "territory_id": "hawaii",
+      "name": "Hawaii",
+      "polygon": [[150, 300], [210, 300], [210, 345], [150, 345]],
+      "center_point": [180, 322],
+      "region_id": "oceania",
+      "unlock_era_index": 3,
+      "geo_polygon": [[-161, 18], [-161, 23], [-154, 23], [-154, 18], [-161, 18]]
     }
   ],
   "connections": [
@@ -1190,15 +1199,22 @@
     { "from": "west_africa", "to": "brazil", "type": "sea" },
     { "from": "azteca", "to": "gran_colombia", "type": "land" },
     { "from": "hispania", "to": "gran_colombia", "type": "sea" },
-    { "from": "malaya", "to": "insulindia", "type": "sea" },
+    { "from": "malaya", "to": "insulindia", "type": "land" },
     { "from": "insulindia", "to": "philippines", "type": "sea" },
     { "from": "malaya", "to": "philippines", "type": "sea" },
     { "from": "southern_china", "to": "malaya", "type": "sea" },
     { "from": "southern_india", "to": "insulindia", "type": "sea" },
-    { "from": "indochina", "to": "malaya", "type": "sea" },
+    { "from": "indochina", "to": "malaya", "type": "land" },
     { "from": "nippon", "to": "philippines", "type": "sea" },
     { "from": "australia", "to": "insulindia", "type": "sea" },
-    { "from": "antarctica", "to": "insulindia", "type": "sea" }
+    { "from": "antarctica", "to": "insulindia", "type": "sea" },
+    { "from": "siberia", "to": "manchuria", "type": "land" },
+    { "from": "siberia", "to": "volga_bulgaria", "type": "land" },
+    { "from": "southern_china", "to": "philippines", "type": "sea" },
+    { "from": "hawaii", "to": "north_america_west", "type": "sea" },
+    { "from": "hawaii", "to": "nippon", "type": "sea" },
+    { "from": "hawaii", "to": "philippines", "type": "sea" },
+    { "from": "hawaii", "to": "gran_colombia", "type": "sea" }
   ],
   "regions": [
     {
