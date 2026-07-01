@@ -16,6 +16,7 @@ const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   production_1: 3,
   production_2: 6,
   production_3: 10,
+  production_4: 15,
   defense_1: 3,
   defense_2: 6,
   defense_3: 10,
@@ -45,6 +46,7 @@ const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
 export const BUILDING_PREREQUISITES: Partial<Record<BuildingType, BuildingType>> = {
   production_2: 'production_1',
   production_3: 'production_2',
+  production_4: 'production_3',
   defense_2: 'defense_1',
   defense_3: 'defense_2',
   tech_gen_2: 'tech_gen_1',
@@ -56,6 +58,7 @@ const DEFAULT_BUILDING_PRODUCTION_INCOME: Partial<Record<BuildingType, number>> 
   production_1: 1,
   production_2: 2,
   production_3: 4,
+  production_4: 7,
 };
 
 /** Tech points generated per turn from tech-gen buildings. */
@@ -214,6 +217,7 @@ function BUILDING_LABEL(buildingType: string): string {
     case 'production_1': return 'Camp';
     case 'production_2': return 'Barracks';
     case 'production_3': return 'Arsenal';
+    case 'production_4': return 'Trade Hub';
     case 'defense_1': return 'Palisade';
     case 'defense_2': return 'Fortress';
     case 'defense_3': return 'Citadel';
@@ -249,6 +253,7 @@ export function applyBuild(
   const prevTierMap: Partial<Record<BuildingType, BuildingType>> = {
     production_2: 'production_1',
     production_3: 'production_2',
+    production_4: 'production_3',
     defense_2: 'defense_1',
     defense_3: 'defense_2',
     tech_gen_2: 'tech_gen_1',

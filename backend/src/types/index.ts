@@ -473,7 +473,7 @@ export interface EraModifiers {
 
 /** Building tiers: production (income), defense (dice/fortify), tech generation, era specials, and era wonders. */
 export type BuildingType =
-  | 'production_1' | 'production_2' | 'production_3'
+  | 'production_1' | 'production_2' | 'production_3' | 'production_4'
   | 'defense_1' | 'defense_2' | 'defense_3'
   | 'tech_gen_1' | 'tech_gen_2'
   | 'special_a' | 'special_b'

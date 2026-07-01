@@ -1021,7 +1021,7 @@ export default function TerritoryPanel({
         // tech (e.g. Space Age launch_pad) — standard buildings + wonders are
         // handled separately, so exclude them here.
         const STANDARD = new Set([
-          'production_1', 'production_2', 'production_3',
+          'production_1', 'production_2', 'production_3', 'production_4',
           'defense_1', 'defense_2', 'defense_3',
           'tech_gen_1', 'tech_gen_2', 'special_a', 'special_b',
           'port', 'naval_base', 'coastal_battery',

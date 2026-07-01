@@ -35,6 +35,7 @@ const BUILDING_META: Record<string, { label: string; effect: string; color: stri
   production_1: { label: 'Camp',            effect: '+1 unit reinforced/turn',    color: 'text-amber-300'  },
   production_2: { label: 'Barracks',        effect: '+2 units reinforced/turn',   color: 'text-amber-300'  },
   production_3: { label: 'War Factory',     effect: '+4 units reinforced/turn',   color: 'text-amber-300'  },
+  production_4: { label: 'Trade Hub',       effect: '+7 units reinforced/turn',   color: 'text-amber-300'  },
   tech_gen_1:   { label: 'Library',         effect: '+2 tech points/turn',        color: 'text-purple-300' },
   tech_gen_2:   { label: 'University',      effect: '+4 tech points/turn',        color: 'text-purple-300' },
   special_a:    { label: 'Workshop',        effect: 'Special production project', color: 'text-emerald-300'},

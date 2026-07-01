@@ -61,7 +61,7 @@ export interface AdminConfigState {
 const DEFAULTS: AdminConfigState = {
   economy: {
     building_costs: {
-      production_1: 3, production_2: 6, production_3: 10,
+      production_1: 3, production_2: 6, production_3: 10, production_4: 15,
       defense_1: 3, defense_2: 6, defense_3: 10,
       tech_gen_1: 4, tech_gen_2: 8,
       special_a: 5, special_b: 8,
@@ -73,7 +73,7 @@ const DEFAULTS: AdminConfigState = {
       launch_pad: 8,
     },
     production_income: {
-      production_1: 1, production_2: 2, production_3: 4,
+      production_1: 1, production_2: 2, production_3: 4, production_4: 7,
     },
   },
   xp: {

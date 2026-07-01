@@ -268,10 +268,19 @@ const FINISHER_OVERCAP = 4;
 /**
  * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming
  * free frontier land is strategically valuable (more territories → more
- * reinforcements), so the AI should reliably grab adjacent weak frontiers rather
- * than only ever fighting other players. Modest so juicy enemy targets still win.
+ * reinforcements + region bonuses), so the AI should reliably grab adjacent weak
+ * frontiers rather than only ever fighting other players. Scales with difficulty so
+ * stronger bots expand more decisively; still below a kill-shot so finishing an
+ * opponent wins. The old flat +1 was too weak to overcome the sea-lane drag, so
+ * newly-unlocked island frontiers (Hawaii, the archipelagos) sat uncaptured.
  */
-const NEUTRAL_EXPANSION_BONUS = 1;
+const NEUTRAL_EXPANSION_BONUS_BY_DIFFICULTY: Record<AiDifficulty, number> = {
+  tutorial: 1,
+  easy: 1.5,
+  medium: 2,
+  hard: 2.5,
+  expert: 3,
+};
 
 function selectAttacks(
   state: GameState,
@@ -361,7 +370,15 @@ function selectAttacks(
       const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
       const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
       const finisherBonus = eliminationAttackBonus(state, nOwner, difficulty);
-      const expansionBonus = targetIsNeutral ? NEUTRAL_EXPANSION_BONUS : 0;
+      let expansionBonus = 0;
+      if (targetIsNeutral) {
+        expansionBonus = NEUTRAL_EXPANSION_BONUS_BY_DIFFICULTY[difficulty] ?? 2;
+        // Many newly-unlocked frontiers (Hawaii, the island archipelagos) are
+        // reachable only across sea lanes, which pay the reduced-dice + seaPenalty
+        // drag below. Offset it for neutral grabs so the AI actually claims them
+        // instead of always preferring a land-adjacent fight.
+        if (isSeaLane) expansionBonus += 1.5;
+      }
       const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
@@ -746,7 +763,7 @@ export function selectAiBuildingPlacement(
       (a, b) => state.territories[b].unit_count - state.territories[a].unit_count,
     );
     for (const bType of [
-      'production_1', 'production_2', 'production_3',
+      'production_1', 'production_2', 'production_3', 'production_4',
       'tech_gen_1', 'tech_gen_2',
       'defense_2', 'defense_3',
     ] as BuildingType[]) {
@@ -765,7 +782,7 @@ export function selectAiBuildingPlacement(
   for (const bType of [
     'production_1', 'tech_gen_1', 'defense_1',
     'production_2', 'tech_gen_2', 'defense_2',
-    'production_3', 'defense_3',
+    'production_3', 'defense_3', 'production_4',
   ] as BuildingType[]) {
     const result = tryBuild(bType, byFewBuildings);
     if (result) return result;

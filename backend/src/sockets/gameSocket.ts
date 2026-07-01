@@ -4788,8 +4788,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         ? Object.values(state.territories)
             .filter((t) => t.owner_id === currentPlayer.player_id
               && (!requiresMoon || t.world_id === 'moon' || t.globe_id === 'moon')
-              && (!requiresProduction || (t.buildings ?? []).some((b) =>
-                b === 'production_1' || b === 'production_2' || b === 'production_3')))
+              && (!requiresProduction || (t.buildings ?? []).some((b) => b.startsWith('production'))))
             .sort((a, b) => b.unit_count - a.unit_count)[0]
         : undefined;
       if (!needsTarget || target) {

@@ -188,7 +188,7 @@ export function executeTechAbility(params: {
       return { success: false, error: 'Must target an owned Moon territory' };
     }
     if (def.ownPlacement.requiresProductionBuilding
-      && !(t.buildings ?? []).some((b) => b === 'production_1' || b === 'production_2' || b === 'production_3')) {
+      && !(t.buildings ?? []).some((b) => b.startsWith('production'))) {
       return { success: false, error: 'Must target a territory with a production building' };
     }
     const cost = def.techCost ?? 0;
