@@ -75,6 +75,30 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'NE', clip_bbox: [0, 16.5, 16, 24] },
     { iso: 'TD', clip_bbox: [13, 15, 24, 24] },
   ],
+  // Era-growth frontiers of the Ancient board (unlock as the game advances). These
+  // ids live ONLY on era_ancient; the Discovery/WWII/Space-Age boards use different
+  // ids for the same regions (north_america_west/east, polar_north, la_amazonia…),
+  // so these presets can't collide with them. Real ISO geometry so they render as
+  // coastlines instead of the placeholder geo_polygon rectangle (the gray block).
+  nippon: [{ iso: 'JP' }],
+  greenland: [{ iso: 'GL' }],
+  north_america: [
+    { iso: 'US', clip_bbox: [-125, 24, -66, 50] }, // continental US (drops the AK/HI Pacific specks)
+    { iso: 'CA', clip_bbox: [-141, 42, -52, 72] },
+  ],
+  // Maritime SE Asia — no overlap with the `indochina` frontier (TH/VN/KH/LA/MM).
+  nusantara: [{ iso: 'ID' }, { iso: 'MY' }, { iso: 'PH' }, { iso: 'BN' }],
+  south_america: [
+    { iso: 'BR' }, { iso: 'AR' }, { iso: 'CL' }, { iso: 'PE' }, { iso: 'BO' }, { iso: 'CO' },
+    { iso: 'VE' }, { iso: 'EC' }, { iso: 'PY' }, { iso: 'UY' }, { iso: 'GY' }, { iso: 'SR' }, { iso: 'GF' },
+  ],
+  // SW Pacific / Melanesia — same island set the WWII `pacific_islands` uses (minus
+  // PG, which sits west of this frontier's extent). Islands need no clip.
+  pacifica: [{ iso: 'FJ' }, { iso: 'VU' }, { iso: 'NC' }, { iso: 'SB' }],
+  // Antarctica — the only polar-land frontier on the Ancient board, so a single
+  // Atlantic-facing AQ sector (matching its authored extent) rather than the whole
+  // continent. Other eras split AQ into disjoint clipped sectors (antarctica_disc…).
+  antarctica: [{ iso: 'AQ', clip_bbox: [-62, -88, 12, -64] }],
   // West/Central Africa carved: desert north ceded to `sahara` (matched latitudes).
   west_africa: [
     { iso: 'MR', clip_bbox: [-17, 14.5, -4.5, 19] },
