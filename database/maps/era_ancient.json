@@ -965,6 +965,24 @@
       "region_id": "oceania",
       "unlock_era_index": 3,
       "geo_polygon": [[-161, 18], [-161, 23], [-154, 23], [-154, 18], [-161, 18]]
+    },
+    {
+      "territory_id": "cuba",
+      "name": "Cuba",
+      "polygon": [[10, 305], [70, 305], [70, 335], [10, 335]],
+      "center_point": [40, 320],
+      "region_id": "caribbean",
+      "unlock_era_index": 4,
+      "geo_polygon": [[-85, 19], [-85, 24], [-74, 24], [-74, 19], [-85, 19]]
+    },
+    {
+      "territory_id": "horn_of_africa",
+      "name": "Horn of Africa",
+      "polygon": [[490, 390], [565, 390], [565, 455], [490, 455]],
+      "center_point": [527, 422],
+      "region_id": "horn_of_africa",
+      "unlock_era_index": 3,
+      "geo_polygon": [[41, -2], [41, 12], [52, 12], [52, -2], [41, -2]]
     }
   ],
   "connections": [
@@ -1214,7 +1232,16 @@
     { "from": "hawaii", "to": "north_america_west", "type": "sea" },
     { "from": "hawaii", "to": "nippon", "type": "sea" },
     { "from": "hawaii", "to": "philippines", "type": "sea" },
-    { "from": "hawaii", "to": "gran_colombia", "type": "sea" }
+    { "from": "hawaii", "to": "gran_colombia", "type": "sea" },
+    { "from": "cuba", "to": "north_america_east", "type": "sea" },
+    { "from": "cuba", "to": "azteca", "type": "sea" },
+    { "from": "cuba", "to": "gran_colombia", "type": "sea" },
+    { "from": "cuba", "to": "hispania", "type": "sea" },
+    { "from": "cuba", "to": "west_africa", "type": "sea" },
+    { "from": "horn_of_africa", "to": "aksum", "type": "land" },
+    { "from": "horn_of_africa", "to": "southern_africa", "type": "sea" },
+    { "from": "horn_of_africa", "to": "arabia", "type": "sea" },
+    { "from": "horn_of_africa", "to": "southern_india", "type": "sea" }
   ],
   "regions": [
     {
@@ -1266,7 +1293,9 @@
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
     { "region_id": "north_america", "name": "North America", "bonus": 4 },
     { "region_id": "south_america", "name": "South America", "bonus": 4 },
-    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 }
+    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 },
+    { "region_id": "caribbean", "name": "The Caribbean", "bonus": 2 },
+    { "region_id": "horn_of_africa", "name": "Horn of Africa", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

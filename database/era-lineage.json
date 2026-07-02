@@ -360,6 +360,22 @@
             "target_overlap": 0.14,
             "primary": true
           }
+        ],
+        "cuba": [
+          {
+            "to": "caribbean_isles",
+            "overlap": 0.6,
+            "target_overlap": 0.35,
+            "primary": true
+          }
+        ],
+        "horn_of_africa": [
+          {
+            "to": "east_africa_med",
+            "overlap": 0.85,
+            "target_overlap": 0.4,
+            "primary": true
+          }
         ]
       },
       "no_successor": [
@@ -378,7 +394,6 @@
         "yukon"
       ],
       "new_land": [
-        "caribbean_isles",
         "kamchatka",
         "madagascar",
         "polynesia",

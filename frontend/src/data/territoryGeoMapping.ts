@@ -115,6 +115,12 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // clear of the continental/Alaska US clips (yukon, north_america_west/east), so no
   // double-draw.
   hawaii: [{ iso: 'US', clip_bbox: [-161, 18, -154, 23] }],
+  // Cuba — Cold-War-era Caribbean frontier. CU is unused elsewhere on the Ancient
+  // board (the medieval caribbean_isles preset lives on a different map).
+  cuba: [{ iso: 'CU' }],
+  // Horn of Africa — WWII-era frontier. Somalia + Djibouti + Kenya; no overlap with
+  // aksum (ET/ER) or the southern_africa / central_africa presets on this board.
+  horn_of_africa: [{ iso: 'SO' }, { iso: 'DJ' }, { iso: 'KE' }],
   // West/Central Africa carved: desert north ceded to `sahara` (matched latitudes).
   west_africa: [
     { iso: 'MR', clip_bbox: [-17, 14.5, -4.5, 19] },
