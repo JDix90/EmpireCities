@@ -2817,6 +2817,10 @@ export default function GamePage() {
       } catch {
         /* ignore — still show once */
       }
+      api.post('/analytics/ui-event', {
+        event: 'signup_nudge_shown',
+        properties: { is_winner: String(isWinner) },
+      }).catch(() => {});
       setSignupNudge({ onContinue, isWinner });
     },
     [user?.is_guest, signupNudgeFlag],
@@ -4669,6 +4673,7 @@ export default function GamePage() {
             // /upgrade converts the guest row in place (keeps the XP just
             // earned). We intentionally skip onContinue's lobby nav so it
             // doesn't override the upgrade route.
+            api.post('/analytics/ui-event', { event: 'signup_nudge_clicked' }).catch(() => {});
             setSignupNudge(null);
             navigate('/upgrade');
           }}

@@ -36,6 +36,7 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [emailOptIn, setEmailOptIn] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string; email?: string; password?: string; confirm?: string;
@@ -93,7 +94,7 @@ export default function RegisterPage() {
     const cleanedUsername = normalizeIdentifier(username);
     const cleanedEmail = normalizeEmail(email);
     try {
-      await register(cleanedUsername, cleanedEmail, password);
+      await register(cleanedUsername, cleanedEmail, password, emailOptIn);
       toast.success('Account created! Welcome, Commander!');
       navigate(redirectTo);
     } catch (err: unknown) {
@@ -244,6 +245,17 @@ export default function RegisterPage() {
                 <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.confirm}</p>
               )}
             </div>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-bf-gold"
+                checked={emailOptIn}
+                onChange={(e) => setEmailOptIn(e.target.checked)}
+              />
+              <span className="text-sm text-bf-muted leading-snug">
+                Email me streak reminders and comeback bonuses. Unsubscribe anytime.
+              </span>
+            </label>
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>
               {isLoading ? 'Creating account...' : 'Create Account'}
             </button>

@@ -130,3 +130,20 @@ export const ONBOARDING_QUESTS: QuestDef[] = [
   { quest_id: 'first_ranked',    title: 'Ranked Contender',   description: 'Enter a ranked match',         reward_xp: 0,   reward_gold: 50 },
   { quest_id: 'first_friend',    title: 'Allies',             description: 'Add a friend',                 reward_xp: 0,   reward_gold: 25 },
 ];
+
+// ── Daily login rewards ───────────────────────────────────────────────────
+
+/**
+ * Escalating gold for consecutive login days (index = login_streak - 1;
+ * day 5+ stays at the last value). Day 2 is deliberately bigger than day 1 —
+ * the visible jump is the "come back tomorrow" hook on the post-game screen
+ * and the login calendar. Shared so backend awards and frontend teasers can
+ * never drift apart.
+ */
+export const DAILY_LOGIN_REWARDS = [10, 15, 20, 25, 30] as const;
+
+/** Gold for a given consecutive-login day count (1-based; clamps at the cap). */
+export function dailyLoginRewardForStreak(loginStreak: number): number {
+  const idx = Math.min(Math.max(loginStreak, 1), DAILY_LOGIN_REWARDS.length) - 1;
+  return DAILY_LOGIN_REWARDS[idx]!;
+}

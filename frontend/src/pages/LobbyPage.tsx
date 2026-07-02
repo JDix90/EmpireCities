@@ -37,6 +37,7 @@ import { fetchMapById, type GameMap } from '../services/mapService';
 import LobbyEraMapWarnings from '../components/lobby/LobbyEraMapWarnings';
 import { advancedFeatureTooltip, getCustomMapImmersion } from '../data/customMapImmersion';
 import OnboardingBanner from '../components/ui/OnboardingBanner';
+import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import StreakBadge from '../components/ui/StreakBadge';
 import SeasonBanner from '../components/ui/SeasonBanner';
 import MonthlyChallenges from '../components/ui/MonthlyChallenges';
@@ -314,6 +315,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function LobbyPage() {
+  useRnParamTracker();
   const { user, logout, accessToken, refreshUser } = useAuthStore();
   const mapEditorEnabled = useMapEditorEnabled();
   const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();

@@ -5,6 +5,7 @@ import { ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
 import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import { useRnParamTracker } from '../hooks/useRnParamTracker';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -104,6 +105,7 @@ function formatTime(iso: string): string {
 }
 
 export default function DailyChallengePage() {
+  useRnParamTracker();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [data, setData] = useState<DailyResponse | null>(null);

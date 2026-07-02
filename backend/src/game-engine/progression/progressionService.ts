@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { getTier } from '../rating/ratingService';
-import { ONBOARDING_QUESTS } from '@borderfall/shared';
+import { ONBOARDING_QUESTS, dailyLoginRewardForStreak } from '@borderfall/shared';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 
@@ -39,6 +39,14 @@ export async function updateWinStreak(
 
 // ── Daily streak tracking ───────────────────────────────────────────────
 
+/** Consecutive-days-played milestone rewards (also teased on the post-game panel). */
+export const DAILY_STREAK_MILESTONES: Record<number, { gold: number; cosmetic?: string }> = {
+  3:  { gold: 25 },
+  7:  { gold: 75, cosmetic: 'frame_week_master' },
+  14: { gold: 150 },
+  28: { gold: 300, cosmetic: 'frame_month_master' },
+};
+
 export async function updateDailyStreak(
   client: PoolClient,
   userId: string,
@@ -67,15 +75,7 @@ export async function updateDailyStreak(
     [newStreak, today, userId],
   );
 
-  // Check milestones
-  const milestones: Record<number, { gold: number; cosmetic?: string }> = {
-    3:  { gold: 25 },
-    7:  { gold: 75, cosmetic: 'frame_week_master' },
-    14: { gold: 150 },
-    28: { gold: 300, cosmetic: 'frame_month_master' },
-  };
-
-  const milestone = milestones[newStreak];
+  const milestone = DAILY_STREAK_MILESTONES[newStreak];
   if (milestone) {
     await awardGold(client, userId, milestone.gold, `Daily streak ${newStreak}-day milestone`);
     if (milestone.cosmetic) {
@@ -253,7 +253,13 @@ export async function checkOnboardingQuests(
 
 // ── Daily login gold ────────────────────────────────────────────────────
 
-const DAILY_LOGIN_GOLD = 10;
+export interface DailyLoginResult {
+  claimed: boolean;
+  /** Gold credited by THIS claim (0 when already claimed today). */
+  gold_awarded: number;
+  /** Consecutive login days including today (0 when already claimed today). */
+  login_streak: number;
+}
 
 /**
  * Claim the once-per-UTC-day login bonus. Previously this performed a
@@ -267,34 +273,42 @@ const DAILY_LOGIN_GOLD = 10;
  * gives us an atomic "claim slot or fail" guard. Only the request that
  * actually flipped the date credits the gold + audit log.
  *
- * Returns true if this call claimed the bonus, false if it had already been
- * claimed today (caller surfaces that as a no-op).
+ * The same guarded UPDATE also advances `login_streak` (consecutive claim
+ * days — distinct from `daily_streak`, which counts days *played*), and the
+ * gold credited escalates along DAILY_LOGIN_REWARDS so tomorrow is always
+ * worth teasing on the post-game screen.
  */
-export async function claimDailyLogin(userId: string): Promise<boolean> {
+export async function claimDailyLogin(userId: string): Promise<DailyLoginResult> {
   const today = new Date().toISOString().slice(0, 10);
 
   return withTransaction(async (client) => {
-    const claim = await client.query<{ user_id: string }>(
+    const claim = await client.query<{ login_streak: number }>(
       `UPDATE users
-         SET last_login_date = $1
+         SET last_login_date = $1,
+             login_streak = CASE
+               WHEN last_login_date = ($1::date - 1) THEN COALESCE(login_streak, 0) + 1
+               ELSE 1
+             END
        WHERE user_id = $2
          AND (last_login_date IS DISTINCT FROM $1)
-       RETURNING user_id`,
+       RETURNING login_streak`,
       [today, userId],
     );
     if (claim.rowCount === 0) {
-      return false;
+      return { claimed: false, gold_awarded: 0, login_streak: 0 };
     }
 
+    const loginStreak = claim.rows[0]!.login_streak;
+    const gold = dailyLoginRewardForStreak(loginStreak);
     await client.query(
       'UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2',
-      [DAILY_LOGIN_GOLD, userId],
+      [gold, userId],
     );
     await client.query(
       'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
-      [userId, DAILY_LOGIN_GOLD, 'Daily login'],
+      [userId, gold, `Daily login (day ${loginStreak})`],
     );
-    return true;
+    return { claimed: true, gold_awarded: gold, login_streak: loginStreak };
   });
 }
 

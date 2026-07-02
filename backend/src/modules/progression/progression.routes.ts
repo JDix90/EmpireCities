@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import { claimDailyLogin } from '../../game-engine/progression/progressionService';
+import { claimDailyLogin, DAILY_STREAK_MILESTONES } from '../../game-engine/progression/progressionService';
 import { getTier } from '../../game-engine/rating/ratingService';
-import { ONBOARDING_QUESTS } from '@borderfall/shared';
+import { ONBOARDING_QUESTS, DAILY_LOGIN_REWARDS, dailyLoginRewardForStreak } from '@borderfall/shared';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';
 import { getSeasonHistory } from '../../game-engine/progression/seasonService';
 import { redeemReferralCode, getReferralStats, ensureReferralCode } from '../../game-engine/progression/referralService';
@@ -14,23 +14,29 @@ import { formatZodError } from '../../utils/formatZodError';
 export async function progressionRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/progression/daily-login ────────────────────────────────────
   fastify.post('/daily-login', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const claimed = await claimDailyLogin(request.userId);
+    const claim = await claimDailyLogin(request.userId);
     const user = await queryOne<{ gold: number; daily_streak: number }>(
       'SELECT COALESCE(gold, 0) AS gold, daily_streak FROM users WHERE user_id = $1',
       [request.userId],
     );
 
     // Record login in history for calendar UI
-    if (claimed) {
+    if (claim.claimed) {
       const today = new Date().toISOString().slice(0, 10);
       await query(
         `INSERT INTO user_login_history (user_id, login_date, gold_claimed)
-         VALUES ($1, $2, 10) ON CONFLICT (user_id, login_date) DO NOTHING`,
-        [request.userId, today],
+         VALUES ($1, $2, $3) ON CONFLICT (user_id, login_date) DO NOTHING`,
+        [request.userId, today, claim.gold_awarded],
       );
     }
 
-    return reply.send({ claimed, gold: user?.gold ?? 0, daily_streak: user?.daily_streak ?? 0 });
+    return reply.send({
+      claimed: claim.claimed,
+      gold_awarded: claim.gold_awarded,
+      login_streak: claim.login_streak,
+      gold: user?.gold ?? 0,
+      daily_streak: user?.daily_streak ?? 0,
+    });
   });
 
   // ── GET /api/progression/quests ──────────────────────────────────────────
@@ -202,21 +208,97 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
       [request.userId, monthStart, monthEnd],
     );
 
-    const user = await queryOne<{ daily_streak: number; last_login_date: string | null }>(
-      'SELECT daily_streak, last_login_date::text AS last_login_date FROM users WHERE user_id = $1',
+    const user = await queryOne<{ daily_streak: number; last_login_date: string | null; login_streak: number }>(
+      `SELECT daily_streak, last_login_date::text AS last_login_date,
+              COALESCE(login_streak, 0) AS login_streak
+       FROM users WHERE user_id = $1`,
       [request.userId],
     );
 
     const today = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
     const alreadyClaimed = user?.last_login_date === today;
+    const loginStreak = user?.login_streak ?? 0;
+    // Which consecutive-login day would today's claim be? Already claimed →
+    // the recorded streak; last claim was yesterday → it continues; otherwise
+    // the run restarts at day 1. Tomorrow's tease assumes today gets claimed.
+    const todayDay = alreadyClaimed
+      ? loginStreak
+      : user?.last_login_date === yesterday
+        ? loginStreak + 1
+        : 1;
+    const todayReward = dailyLoginRewardForStreak(todayDay);
+    const tomorrowReward = dailyLoginRewardForStreak(todayDay + 1);
 
     return reply.send({
       month: monthStart,
       days_in_month: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
       logins: logins.map((l) => l.login_date),
-      gold_per_day: 10,
+      rewards_schedule: DAILY_LOGIN_REWARDS,
+      login_streak: loginStreak,
+      today_reward: todayReward,
+      tomorrow_reward: tomorrowReward,
       daily_streak: user?.daily_streak ?? 0,
       already_claimed_today: alreadyClaimed,
+    });
+  });
+
+  // ── GET /api/progression/comeback ────────────────────────────────────────
+  /**
+   * Everything the post-game "come back tomorrow" panel needs in one call.
+   * Deliberately NO rejectGuest: guests get a degraded payload (their streak
+   * plus nulls for the login-bonus fields, which sit behind rejectGuest) so
+   * the panel can pitch "create an account to protect this streak".
+   */
+  fastify.get('/comeback', { preHandler: authenticate }, async (request, reply) => {
+    const user = await queryOne<{
+      is_guest: boolean; daily_streak: number; last_played_date: string | null;
+      last_login_date: string | null; login_streak: number;
+    }>(
+      `SELECT COALESCE(is_guest, false) AS is_guest,
+              COALESCE(daily_streak, 0) AS daily_streak,
+              last_played_date::text AS last_played_date,
+              last_login_date::text AS last_login_date,
+              COALESCE(login_streak, 0) AS login_streak
+       FROM users WHERE user_id = $1`,
+      [request.userId],
+    );
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    const nextMilestoneDay = Object.keys(DAILY_STREAK_MILESTONES)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .find((day) => day > user.daily_streak);
+    const nextMilestone = nextMilestoneDay
+      ? { day: nextMilestoneDay, gold: DAILY_STREAK_MILESTONES[nextMilestoneDay]!.gold }
+      : null;
+
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+    const alreadyClaimed = user.last_login_date === today;
+    // Tomorrow's claim continues today's run (see /login-calendar for the math).
+    const todayDay = alreadyClaimed
+      ? user.login_streak
+      : user.last_login_date === yesterday
+        ? user.login_streak + 1
+        : 1;
+
+    const dailyDone = await queryOne<{ entry_id: string }>(
+      `SELECT entry_id FROM daily_challenge_entries
+       WHERE user_id = $1 AND challenge_date = CURRENT_DATE`,
+      [request.userId],
+    );
+
+    return reply.send({
+      is_guest: user.is_guest,
+      daily_streak: user.daily_streak,
+      played_today: user.last_played_date === today,
+      next_streak_milestone: nextMilestone,
+      // Login bonus is a registered-only mechanic (rejectGuest on /daily-login).
+      tomorrow_login_reward: user.is_guest ? null : dailyLoginRewardForStreak(todayDay + 1),
+      already_claimed_today: user.is_guest ? null : alreadyClaimed,
+      daily_challenge_done_today: Boolean(dailyDone),
     });
   });
 

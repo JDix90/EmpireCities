@@ -7,6 +7,8 @@ import { query, queryOne } from '../../db/postgres';
 import { getLeaderboard, removeFromAllLeaderboards } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { formatZodError } from '../../utils/formatZodError';
+import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
+import { recordServerEvent } from '../../services/analyticsEvents';
 import {
   friendRequestBlockedMessage,
   isFriendRequestAllowed,
@@ -861,6 +863,40 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       [request.userId, ...values],
     );
 
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/users/unsubscribe ──────────────────────────────────────────
+  /**
+   * One-click email opt-out from an HMAC-tokenized link embedded in every
+   * engagement email (see unsubscribeUrlFor). Deliberately unauthenticated —
+   * the recipient may be logged out — and a POST behind a confirm page, not a
+   * bare GET, so mail-scanner link prefetches can't silently unsubscribe.
+   */
+  const UnsubscribeSchema = z.object({ token: z.string().min(1).max(512) });
+
+  fastify.post('/unsubscribe', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const parsed = UnsubscribeSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid unsubscribe link' });
+    }
+    const userId = verifyUnsubscribeToken(parsed.data.token);
+    if (!userId) {
+      return reply.status(400).send({ error: 'Invalid unsubscribe link' });
+    }
+    try {
+      await query(
+        `INSERT INTO user_preferences (user_id, email_notifications, updated_at)
+         VALUES ($1, false, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET email_notifications = false, updated_at = NOW()`,
+        [userId],
+      );
+    } catch {
+      // FK violation → account deleted since the email went out. Nothing to
+      // unsubscribe; still report success to the recipient.
+      return reply.send({ ok: true });
+    }
+    recordServerEvent('email_unsubscribed', {}, userId);
     return reply.send({ ok: true });
   });
 

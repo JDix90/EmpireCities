@@ -51,6 +51,7 @@
 | `SENTRY_DSN` | — | Backend error reporting (also whitelists the ingest host in CSP) |
 | `CSP_EXTRA_CONNECT_ORIGINS` | — | Comma-separated https/wss origins added to CSP `connect-src` |
 | `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs to stdout when SMTP is unconfigured |
+| `UNSUBSCRIBE_TOKEN_SECRET` | falls back to `JWT_ACCESS_SECRET` | HMAC secret for one-click email-unsubscribe links (set it so JWT secret rotation doesn't invalidate links already in inboxes) |
 
 ## Feature flags
 
@@ -63,6 +64,8 @@
 | `socketDebug` | `SOCKET_DEBUG` | off (dev-only) | Verbose Socket.io logging |
 | `mapEditorEnabled` | — (admin override only) | off | Map Editor UI + custom-map publishing |
 | `eraAdvancementLobbyEnabled` | — (admin override only) | off | Era Advancement setting in lobby create-game UI |
+| `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | off | One-time guest → create-account nudge after a finished game |
+| `retentionNotificationsEnabled` | `RETENTION_NOTIFICATIONS_ENABLED` | off | Hourly re-engagement sweep: streak-at-risk push, daily-challenge reminder, D2/D7 win-back email (see [RETENTION-PLAYBOOK.md](RETENTION-PLAYBOOK.md)) |
 
 ## Frontend environment variables
 

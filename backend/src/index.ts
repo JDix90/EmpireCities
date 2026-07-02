@@ -35,6 +35,7 @@ import { registerReplayPreviewRoutes } from './modules/share/replayPreview';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { feedRoutes } from './modules/feed/feed.routes';
 import { enhancementsRoutes } from './modules/enhancements/enhancements.routes';
+import { analyticsRoutes } from './modules/analytics/analytics.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
@@ -245,6 +246,7 @@ async function bootstrap(): Promise<void> {
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
   await app.register(feedRoutes, { prefix: '/api/feed' });
   await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });
+  await app.register(analyticsRoutes, { prefix: '/api/analytics' });
   await app.register(
     async (scope) => {
       await scope.register(fastifyRateLimit, {
@@ -440,6 +442,13 @@ async function bootstrap(): Promise<void> {
   startChallengeSweep();
   startOrphanedGameSweep();
   startGuestCleanupSweep();
+  // Hourly re-engagement sweep (streak reminders, win-back). Sends are gated
+  // by the retention_notifications_enabled flag, so starting the worker with
+  // the flag off is a safe no-op dark launch.
+  const { startRetentionNotificationWorker } = await import('./workers/retentionNotificationWorker');
+  await startRetentionNotificationWorker().catch((err) =>
+    console.error('[Retention] Worker failed to start:', err),
+  );
   await refreshAdminConfigCache().catch(() => {});
   await startAdminConfigSubscriber().catch((err) =>
     console.warn('[adminConfig] subscriber start failed (config edits will be per-instance until restart):', err),
@@ -478,6 +487,9 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
       stopChallengeSweep();
       stopOrphanedGameSweep();
       stopGuestCleanupSweep();
+      await import('./workers/retentionNotificationWorker')
+        .then((m) => m.stopRetentionNotificationWorker())
+        .catch(() => {});
       await stopAdminConfigSubscriber();
       await shutdownGameSocket(io);
       await app.close();

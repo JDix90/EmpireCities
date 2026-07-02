@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Installable web app: home-screen icon is a daily-return trigger. The FCM
+         service worker (firebase-messaging-sw.js) stays the ONLY service worker —
+         no caching SW is registered, so installability never touches push. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0f1117" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Borderfall — turn-based territory strategy across eras from ancient kingdoms to galactic fronts." />
     <link rel="canonical" href="https://borderfall.gg/" />

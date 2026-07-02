@@ -87,6 +87,7 @@ describe('authStore', () => {
     const state = useAuthStore.getState();
     expect(api.post).toHaveBeenCalledWith('/auth/upgrade', {
       username: 'RealCommander', email: 'cmd@example.com', password: 'long-password',
+      email_opt_in: false,
       attribution: { utm_source: 'reddit' },
     });
     // Same user_id (in-place conversion), progression intact, flag flipped.
