@@ -161,6 +161,17 @@ export function repairEraTerritoryGrowth(state: GameState, map: GameMap): void {
   for (const t of Object.values(state.territories)) {
     if (t.naval_units == null && coastal.has(t.territory_id)) t.naval_units = 0;
   }
+  // Prune NEUTRAL orphans: a map update can retire a territory id (e.g. the old
+  // single `antarctica` frontier, split into four sectors). A live game that had
+  // already unlocked it keeps a state entry with no map counterpart — invisible,
+  // unattackable, and excluded from every map-driven computation. Removing it is
+  // safe only while unowned; owned territories are never silently deleted.
+  const mapIds = new Set(map.territories.map((t) => t.territory_id));
+  for (const t of Object.values(state.territories)) {
+    if (t.owner_id == null && !mapIds.has(t.territory_id)) {
+      delete state.territories[t.territory_id];
+    }
+  }
   if (!mapHasEraGrowth(map)) return;
   unlockTerritoriesForFloor(state, map);
 }

@@ -42,9 +42,9 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'KP' },
     { iso: 'KR' },
   ],
+  // NP ceded to the tibet_nepal frontier (Modern-era unlock).
   northern_india: [
     { iso: 'IN', clip_bbox: [68, 21, 90, 37] },
-    { iso: 'NP' },
   ],
   southern_india: [
     { iso: 'IN', clip_bbox: [72, 6, 88, 21] },
@@ -107,10 +107,24 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // SW Pacific / Melanesia — same island set the WWII `pacific_islands` uses (minus
   // PG, which sits west of this frontier's extent). Islands need no clip.
   pacifica: [{ iso: 'FJ' }, { iso: 'VU' }, { iso: 'NC' }, { iso: 'SB' }],
-  // Antarctica — the only polar-land frontier on the Ancient board, so a single
-  // Atlantic-facing AQ sector (matching its authored extent) rather than the whole
-  // continent. Other eras split AQ into disjoint clipped sectors (antarctica_disc…).
-  antarctica: [{ iso: 'AQ', clip_bbox: [-62, -88, 12, -64] }],
+  // Antarctica — four disjoint AQ sectors (the Modern-era frontier continent on the
+  // Ancient board). ross_sea needs two clips because its sector crosses the
+  // antimeridian. Distinct ids from the WWII/Cold-War Antarctic tiles
+  // (antarctica_peninsula, antarctic_west/east…), which live on other maps.
+  antarctic_peninsula: [{ iso: 'AQ', clip_bbox: [-110, -90, -45, -60] }],
+  queen_maud_land: [{ iso: 'AQ', clip_bbox: [-45, -90, 45, -60] }],
+  wilkes_land: [{ iso: 'AQ', clip_bbox: [45, -90, 135, -60] }],
+  ross_sea: [
+    { iso: 'AQ', clip_bbox: [135, -90, 180, -60] },
+    { iso: 'AQ', clip_bbox: [-180, -90, -110, -60] },
+  ],
+  // Tibet & Nepal — the Himalayan plateau. CN clipped WEST of the Han-China tiles
+  // (their clips start at 100°E); NP moves here from northern_india (below).
+  tibet_nepal: [
+    { iso: 'CN', clip_bbox: [78, 27, 99, 37] },
+    { iso: 'NP' },
+    { iso: 'BT' },
+  ],
   // Hawaii — a mid-Pacific WWII-era frontier. US clipped to the island chain, well
   // clear of the continental/Alaska US clips (yukon, north_america_west/east), so no
   // double-draw.

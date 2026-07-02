@@ -379,7 +379,7 @@
         ]
       },
       "no_successor": [
-        "antarctica",
+        "antarctic_peninsula",
         "azteca",
         "brazil",
         "gran_colombia",
@@ -390,7 +390,11 @@
         "north_america_west",
         "pacifica",
         "peru_chile",
+        "queen_maud_land",
         "rio_plata",
+        "ross_sea",
+        "tibet_nepal",
+        "wilkes_land",
         "yukon"
       ],
       "new_land": [
