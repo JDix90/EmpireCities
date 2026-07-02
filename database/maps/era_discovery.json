@@ -895,7 +895,8 @@
         70,
         583
       ],
-      "region_id": "sea_routes"
+      "region_id": "sea_routes",
+      "geo_polygon": [[-42, -32], [-34, 38], [-22, 38], [-30, -32], [-42, -32]]
     },
     {
       "territory_id": "indian_ocean",
@@ -922,7 +923,8 @@
         650,
         500
       ],
-      "region_id": "sea_routes"
+      "region_id": "sea_routes",
+      "geo_polygon": [[52, -28], [60, 4], [94, 4], [86, -28], [52, -28]]
     },
     { "territory_id": "polar_north", "name": "Polar North", "polygon": [[560,15],[810,15],[810,85],[560,85]], "center_point": [685,50], "region_id": "far_north", "unlock_era_index": 1,
       "geo_polygon": [[-25,80],[-25,87],[45,87],[45,80],[-25,80]] },
@@ -1198,7 +1200,11 @@
     { "from": "new_zealand", "to": "australia", "type": "sea" },
     { "from": "new_zealand", "to": "pacific_islands", "type": "sea" },
     { "from": "southern_ocean", "to": "indian_ocean", "type": "sea" },
-    { "from": "antarctica_disc", "to": "southern_ocean", "type": "sea" }
+    { "from": "antarctica_disc", "to": "southern_ocean", "type": "sea" },
+    { "from": "new_spain", "to": "pacific_islands", "type": "sea" },
+    { "from": "north_america_west", "to": "polar_north", "type": "land" },
+    { "from": "antarctica_disc", "to": "south_africa", "type": "sea" },
+    { "from": "east_africa_disc", "to": "mughal_south", "type": "sea" }
   ],
   "regions": [
     {

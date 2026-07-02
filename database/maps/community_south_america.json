@@ -3527,7 +3527,7 @@
     {
       "region_id": "gran_colombia",
       "name": "Gran Colombia",
-      "bonus": 5,
+      "bonus": 4,
       "territory_ids": [
         "gc_caribbean",
         "gc_venezuela",

@@ -1594,7 +1594,13 @@
     { "from": "north_pacific_deep_mod", "to": "japan_mod", "type": "sea" },
     { "from": "southern_ocean_mod", "to": "southern_africa_mod", "type": "sea" },
     { "from": "antarctic_shelf_mod", "to": "southern_ocean_mod", "type": "sea" },
-    { "from": "lunar_outpost_mod", "to": "orbital_station_mod", "type": "sea" }
+    { "from": "lunar_outpost_mod", "to": "orbital_station_mod", "type": "sea" },
+    { "from": "usa_west_mod", "to": "japan_mod", "type": "sea" },
+    { "from": "bering_frontier_mod", "to": "russia_east_mod", "type": "sea" },
+    { "from": "arctic_circle_mod", "to": "russia_east_mod", "type": "sea" },
+    { "from": "usa_west_mod", "to": "orbital_station_mod", "type": "land" },
+    { "from": "antarctic_shelf_mod", "to": "chile_mod", "type": "sea" },
+    { "from": "north_pacific_deep_mod", "to": "usa_west_mod", "type": "sea" }
   ],
   "regions": [
     {

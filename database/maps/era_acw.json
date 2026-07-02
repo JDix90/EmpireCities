@@ -684,7 +684,8 @@
       "from": "acw_tennessee",
       "to": "acw_upper_south",
       "type": "land"
-    }
+    },
+    { "from": "acw_new_england", "to": "acw_upper_south", "type": "sea" }
   ],
   "regions": [
     {

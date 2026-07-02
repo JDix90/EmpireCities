@@ -660,21 +660,24 @@ describe('initializeGameState faction distribution', () => {
   });
 
   it('assigns each Galactic Age faction its entire home world when four players pick the four lore factions', () => {
+    // Each world is subdivided into several bonus regions; the homeworld deal
+    // derives each faction's world from its home regions, so one sub-region
+    // per world is enough here.
     const regions = [
-      { region_id: 'stellar_core', name: 'Stellar Core', bonus: 5 },
-      { region_id: 'verdant_expanse', name: 'Verdant Expanse', bonus: 4 },
-      { region_id: 'industrial_rim', name: 'Industrial Rim', bonus: 4 },
-      { region_id: 'station_corridor', name: 'Station Corridor', bonus: 3 },
+      { region_id: 'sol_americas', name: 'Sol — Western Hemisphere', bonus: 3 },
+      { region_id: 'verdan_sporefields', name: 'Verdan — Spore Fields', bonus: 3 },
+      { region_id: 'rust_foundry_core', name: 'Rust — Foundry Core', bonus: 3 },
+      { region_id: 'nexus_gate_ring', name: 'Nexus — Gate Ring', bonus: 3 },
     ];
     const territories = [
-      { territory_id: 's1', name: 'S1', polygon: [], center_point: [0, 0], region_id: 'stellar_core', world_id: 'sol' },
-      { territory_id: 's2', name: 'S2', polygon: [], center_point: [0, 0], region_id: 'stellar_core', world_id: 'sol' },
-      { territory_id: 'v1', name: 'V1', polygon: [], center_point: [0, 0], region_id: 'verdant_expanse', world_id: 'verdan' },
-      { territory_id: 'v2', name: 'V2', polygon: [], center_point: [0, 0], region_id: 'verdant_expanse', world_id: 'verdan' },
-      { territory_id: 'r1', name: 'R1', polygon: [], center_point: [0, 0], region_id: 'industrial_rim', world_id: 'rust' },
-      { territory_id: 'r2', name: 'R2', polygon: [], center_point: [0, 0], region_id: 'industrial_rim', world_id: 'rust' },
-      { territory_id: 'n1', name: 'N1', polygon: [], center_point: [0, 0], region_id: 'station_corridor', world_id: 'nexus_station' },
-      { territory_id: 'n2', name: 'N2', polygon: [], center_point: [0, 0], region_id: 'station_corridor', world_id: 'nexus_station' },
+      { territory_id: 's1', name: 'S1', polygon: [], center_point: [0, 0], region_id: 'sol_americas', world_id: 'sol' },
+      { territory_id: 's2', name: 'S2', polygon: [], center_point: [0, 0], region_id: 'sol_americas', world_id: 'sol' },
+      { territory_id: 'v1', name: 'V1', polygon: [], center_point: [0, 0], region_id: 'verdan_sporefields', world_id: 'verdan' },
+      { territory_id: 'v2', name: 'V2', polygon: [], center_point: [0, 0], region_id: 'verdan_sporefields', world_id: 'verdan' },
+      { territory_id: 'r1', name: 'R1', polygon: [], center_point: [0, 0], region_id: 'rust_foundry_core', world_id: 'rust' },
+      { territory_id: 'r2', name: 'R2', polygon: [], center_point: [0, 0], region_id: 'rust_foundry_core', world_id: 'rust' },
+      { territory_id: 'n1', name: 'N1', polygon: [], center_point: [0, 0], region_id: 'nexus_gate_ring', world_id: 'nexus_station' },
+      { territory_id: 'n2', name: 'N2', polygon: [], center_point: [0, 0], region_id: 'nexus_gate_ring', world_id: 'nexus_station' },
     ];
     const map: GameMap = {
       map_id: 'era_galaxy_test',
