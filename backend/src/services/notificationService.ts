@@ -11,6 +11,7 @@ import { config } from '../config';
 import { query, queryOne } from '../db/postgres';
 import type { GameState } from '../types';
 import { APP_NAME } from '../constants/brand';
+import { signUnsubscribeToken } from '../utils/unsubscribeToken';
 
 // ── Era labels for notification text ─────────────────────────────────────────
 
@@ -91,21 +92,28 @@ export function getSmtpTransporter(): Transporter | null {
 
 // ── Push Notifications ───────────────────────────────────────────────────────
 
+/**
+ * @param link click-through URL for web push (defaults to the lobby).
+ * @returns number of device tokens the message was accepted for — 0 means the
+ *          user is unreachable by push (no tokens, FCM down, or send failed),
+ *          which callers can use to fall back to email.
+ */
 export async function sendPushNotification(
   userId: string,
   title: string,
   body: string,
   data?: Record<string, string>,
-): Promise<void> {
+  link?: string,
+): Promise<number> {
   const admin = await getFirebaseAdmin();
-  if (!admin) return;
+  if (!admin) return 0;
 
   const tokens = await query<{ token_id: string; token: string }>(
     'SELECT token_id, token FROM push_tokens WHERE user_id = $1',
     [userId],
   );
 
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) return 0;
 
   const tokenStrings = tokens.map((t) => t.token);
   try {
@@ -114,7 +122,7 @@ export async function sendPushNotification(
       notification: { title, body },
       data: data ?? {},
       webpush: {
-        fcmOptions: { link: `${config.frontendUrl}/lobby` },
+        fcmOptions: { link: link ?? `${config.frontendUrl}/lobby` },
       },
     });
 
@@ -130,8 +138,10 @@ export async function sendPushNotification(
         }
       }
     }
+    return response.successCount;
   } catch (err) {
     console.error('[Notifications] Push send failed:', err);
+    return 0;
   }
 }
 
@@ -153,7 +163,7 @@ function isEmailConfigured(): boolean {
 }
 
 /** Send via the Resend HTTP API over HTTPS. Returns true if accepted. */
-async function sendViaResendApi(to: string, subject: string, htmlBody: string): Promise<boolean> {
+async function sendViaResendApi(to: string, subject: string, htmlBody: string, listUnsubscribeUrl?: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EMAIL_SEND_TIMEOUT_MS);
   try {
@@ -168,6 +178,9 @@ async function sendViaResendApi(to: string, subject: string, htmlBody: string): 
         to: [to],
         subject,
         html: htmlBody,
+        ...(listUnsubscribeUrl
+          ? { headers: { 'List-Unsubscribe': `<${listUnsubscribeUrl}>` } }
+          : {}),
       }),
       signal: controller.signal,
     });
@@ -187,11 +200,17 @@ async function sendViaResendApi(to: string, subject: string, htmlBody: string): 
 }
 
 /** Send via SMTP (Nodemailer). Returns true if accepted. */
-async function sendViaSmtp(to: string, subject: string, htmlBody: string): Promise<boolean> {
+async function sendViaSmtp(to: string, subject: string, htmlBody: string, listUnsubscribeUrl?: string): Promise<boolean> {
   const transporter = getSmtpTransporter();
   if (!transporter) return false;
   try {
-    await transporter.sendMail({ from: config.smtp.from, to, subject, html: htmlBody });
+    await transporter.sendMail({
+      from: config.smtp.from,
+      to,
+      subject,
+      html: htmlBody,
+      ...(listUnsubscribeUrl ? { headers: { 'List-Unsubscribe': `<${listUnsubscribeUrl}>` } } : {}),
+    });
     return true;
   } catch (err) {
     console.error('[Notifications] SMTP send failed:', err);
@@ -200,30 +219,62 @@ async function sendViaSmtp(to: string, subject: string, htmlBody: string): Promi
 }
 
 /** Unified email dispatch. Picks transport by config.email.provider. */
-async function deliverEmail(to: string, subject: string, htmlBody: string): Promise<boolean> {
+async function deliverEmail(to: string, subject: string, htmlBody: string, listUnsubscribeUrl?: string): Promise<boolean> {
   if (!isEmailConfigured()) {
     console.log('[Notifications] Email not configured; skipping send');
     return false;
   }
   return config.email.provider === 'resend_api'
-    ? sendViaResendApi(to, subject, htmlBody)
-    : sendViaSmtp(to, subject, htmlBody);
+    ? sendViaResendApi(to, subject, htmlBody, listUnsubscribeUrl)
+    : sendViaSmtp(to, subject, htmlBody, listUnsubscribeUrl);
 }
 
-// ── Email Notifications ──────────────────────────────────────────────────────
+// ── Engagement email layout ──────────────────────────────────────────────────
 
-export async function sendEmailNotification(
+/** One-click opt-out URL for a user's engagement email (see UnsubscribePage). */
+export function unsubscribeUrlFor(userId: string): string {
+  return `${config.frontendUrl}/unsubscribe?token=${encodeURIComponent(signUnsubscribeToken(userId))}`;
+}
+
+/**
+ * Shared chrome for every non-transactional (engagement) email. The
+ * unsubscribe footer is mandatory: these emails are sent to users who opted
+ * in, and one click must always get them back out.
+ */
+export function renderEmailLayout(innerHtml: string, unsubscribeUrl: string): string {
+  return `
+    <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
+      ${innerHtml}
+      <p style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #333; font-size: 12px; color: #888;">
+        You're receiving this because you opted into ${APP_NAME} gameplay emails.
+        <a href="${unsubscribeUrl}" style="color: #888;">Unsubscribe</a> ·
+        <a href="${config.frontendUrl}/settings" style="color: #888;">Notification settings</a>
+      </p>
+    </div>
+  `;
+}
+
+/**
+ * Send an engagement email (streak reminder, win-back, …) to a user, wrapped
+ * in the shared layout with their unsubscribe link. The caller is responsible
+ * for checking email_notifications consent first.
+ * @returns whether the provider accepted the send.
+ */
+export async function sendEngagementEmail(
   userId: string,
   subject: string,
-  htmlBody: string,
-): Promise<void> {
+  innerHtml: string,
+): Promise<boolean> {
   const user = await queryOne<{ email: string | null }>(
     'SELECT email FROM users WHERE user_id = $1',
     [userId],
   );
-  if (!user?.email) return;
-  await deliverEmail(user.email, subject, htmlBody);
+  if (!user?.email || user.email.toLowerCase().endsWith('@guest.local')) return false;
+  const unsubscribeUrl = unsubscribeUrlFor(userId);
+  return deliverEmail(user.email, subject, renderEmailLayout(innerHtml, unsubscribeUrl), unsubscribeUrl);
 }
+
+// ── Email Notifications ──────────────────────────────────────────────────────
 
 /**
  * Send a transactional email to a raw address (password reset, etc.).
@@ -284,29 +335,36 @@ export async function notifyTurnChange(
   const body = `${eraLabel} — Turn ${gameState.turn_number}. You have ${deadlineLabel} to play.`;
   const gameUrl = `${config.frontendUrl}/game/${gameId}`;
 
-  // Send push notification
+  // Send push notification — click through to the game, not the lobby
   if (pushEnabled) {
-    await sendPushNotification(currentPlayerId, title, body, { gameId, url: gameUrl });
+    await sendPushNotification(currentPlayerId, title, body, { gameId, url: gameUrl }, gameUrl);
   }
 
   // Send email notification
   if (emailEnabled) {
-    const htmlBody = `
-      <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
-        <h2 style="color: #d4a843;">It's Your Turn!</h2>
-        <p><strong>${eraLabel}</strong> — Turn ${gameState.turn_number}</p>
-        <p>You have <strong>${deadlineLabel}</strong> to make your move.</p>
-        <a href="${gameUrl}"
-           style="display: inline-block; padding: 12px 24px; background: #d4a843; color: #0f1117;
-                  text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 12px;">
-          Play Now
-        </a>
-        <p style="margin-top: 24px; font-size: 12px; color: #888;">
-          You can disable email notifications in your <a href="${config.frontendUrl}/profile">profile settings</a>.
-        </p>
-      </div>
+    const unsubscribeUrl = unsubscribeUrlFor(currentPlayerId);
+    const inner = `
+      <h2 style="color: #d4a843;">It's Your Turn!</h2>
+      <p><strong>${eraLabel}</strong> — Turn ${gameState.turn_number}</p>
+      <p>You have <strong>${deadlineLabel}</strong> to make your move.</p>
+      <a href="${gameUrl}"
+         style="display: inline-block; padding: 12px 24px; background: #d4a843; color: #0f1117;
+                text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 12px;">
+        Play Now
+      </a>
     `;
-    await sendEmailNotification(currentPlayerId, `${title} — ${eraLabel}`, htmlBody);
+    const user = await queryOne<{ email: string | null }>(
+      'SELECT email FROM users WHERE user_id = $1',
+      [currentPlayerId],
+    );
+    if (user?.email) {
+      await deliverEmail(
+        user.email,
+        `${title} — ${eraLabel}`,
+        renderEmailLayout(inner, unsubscribeUrl),
+        unsubscribeUrl,
+      );
+    }
   }
 
   // Log notification

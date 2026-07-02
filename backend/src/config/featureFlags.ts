@@ -92,6 +92,17 @@ export const featureFlags = {
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled', process.env.SIGNUP_NUDGE_ENABLED === 'true');
   },
+
+  /**
+   * When true, the retention notification worker sends scheduled re-engagement
+   * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
+   * Default OFF — dark-launch so the sweep can be enabled (and killed) from
+   * the admin panel via the `retention_notifications_enabled` override without
+   * a redeploy. See workers/retentionNotificationWorker.ts.
+   */
+  get retentionNotificationsEnabled(): boolean {
+    return overrideBool('retention_notifications_enabled', process.env.RETENTION_NOTIFICATIONS_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */

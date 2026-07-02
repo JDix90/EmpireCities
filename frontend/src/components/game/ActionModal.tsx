@@ -6,6 +6,7 @@ import { AiBadge } from '../ui/AiBadge';
 import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle, FastForward } from 'lucide-react';
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
+import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
@@ -1285,6 +1286,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
           </div>
         )}
       </div>
+
+      {/* Come-back-tomorrow hook: streak to protect, tomorrow's login chest,
+          daily-challenge tease. Skipped for tutorial and daily-challenge
+          games (each has its own end flow). */}
+      {!data.rematchConfig?.settings?.tutorial && !data.rematchConfig?.settings?.daily_challenge_date && (
+        <ComeBackTomorrowPanel
+          className={clsx(
+            'mb-6 transition-all duration-500 delay-450',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+        />
+      )}
 
       {/* Guest conversion: progression is the part guests keep — make the
           claim explicit at the exact moment it was just earned. Skipped in

@@ -40,11 +40,11 @@ export function signupNudgeCopy(isWinner: boolean): SignupNudgeCopy {
   return isWinner
     ? {
         title: 'Victory!',
-        body: 'You won — lock it in. Your XP, rank, and rewards are saved to this guest session. Create a free account to keep them for good.',
+        body: 'You won — lock it in. Your XP, rank, and streak are saved to this guest session. Create a free account to keep them for good and protect your streak.',
       }
     : {
         // Outcome-agnostic so it doesn't read as patronizing after a loss.
         title: 'Save your progress',
-        body: 'Your XP, level, and streaks are saved to this guest session — create a free account to make them permanent.',
+        body: 'Your XP, level, and streak are saved to this guest session — create a free account to make them permanent and protect your streak.',
       };
 }

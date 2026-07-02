@@ -71,7 +71,7 @@ export default function GuestSignupNudgeModal({
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>Add friends and play multiplayer matches. Free, no download.</span>
+            <span>Get streak and turn reminders so you never lose progress. Free, no download.</span>
           </li>
         </ul>
 

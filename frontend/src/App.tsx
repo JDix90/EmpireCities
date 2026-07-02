@@ -21,6 +21,7 @@ const LoginPage = lazyWithChunkRetry(() => import('./pages/LoginPage'));
 const RegisterPage = lazyWithChunkRetry(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazyWithChunkRetry(() => import('./pages/ResetPasswordPage'));
+const UnsubscribePage = lazyWithChunkRetry(() => import('./pages/UnsubscribePage'));
 const LobbyPage = lazyWithChunkRetry(() => import('./pages/LobbyPage'));
 const JoinGamePage = lazyWithChunkRetry(() => import('./pages/JoinGamePage'));
 const GamePage = lazyWithChunkRetry(() => import('./pages/GamePage'));
@@ -257,6 +258,16 @@ export default function App() {
     }
   }, [isAuthenticated, user]);
 
+  // PWA install attribution (fires when the user adds the app to their home
+  // screen). Best-effort: 401s for signed-out users are swallowed.
+  useEffect(() => {
+    const onInstalled = () => {
+      api.post('/analytics/ui-event', { event: 'pwa_installed' }).catch(() => {});
+    };
+    window.addEventListener('appinstalled', onInstalled);
+    return () => window.removeEventListener('appinstalled', onInstalled);
+  }, []);
+
   const isOnline = useNetworkStatus();
 
   // Track viewport width so the toaster position can flip to bottom-center on
@@ -325,6 +336,7 @@ export default function App() {
         <Route path="/upgrade" element={<GuestOnlyRoute><UpgradePage /></GuestOnlyRoute>} />
         <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         {/* Protected routes */}
         <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />

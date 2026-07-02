@@ -86,10 +86,10 @@ interface AuthState {
   bootstrapped: boolean;
 
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, emailOptIn?: boolean) => Promise<void>;
   loginAsGuest: () => Promise<void>;
   /** Convert the current guest session into a full account in place (keeps user_id and all progression). */
-  upgradeAccount: (username: string, email: string, password: string) => Promise<void>;
+  upgradeAccount: (username: string, email: string, password: string, emailOptIn?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
   setUser: (user: AuthUser) => void;
@@ -128,10 +128,14 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (username, email, password) => {
+      register: async (username, email, password, emailOptIn) => {
         set({ isLoading: true });
         try {
-          const res = await api.post('/auth/register', { username, email, password, attribution: getAttribution() });
+          const res = await api.post('/auth/register', {
+            username, email, password,
+            email_opt_in: Boolean(emailOptIn),
+            attribution: getAttribution(),
+          });
           const { accessToken, user } = res.data;
           try {
             sessionStorage.removeItem('cc-auth-notice');
@@ -157,12 +161,16 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      upgradeAccount: async (username, email, password) => {
+      upgradeAccount: async (username, email, password, emailOptIn) => {
         set({ isLoading: true });
         try {
           // Converts the guest's users row IN PLACE — same user_id, so XP,
           // level, streaks, and (now-visible) ratings all carry over.
-          const res = await api.post('/auth/upgrade', { username, email, password, attribution: getAttribution() });
+          const res = await api.post('/auth/upgrade', {
+            username, email, password,
+            email_opt_in: Boolean(emailOptIn),
+            attribution: getAttribution(),
+          });
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           // The singleton socket still authenticates with the guest JWT;

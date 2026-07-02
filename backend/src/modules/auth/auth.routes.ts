@@ -150,6 +150,9 @@ const RegisterSchema = z.object({
     .refine((u) => !isDisallowedUsername(u), { message: "That username isn't allowed. Please choose another." }),
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
+  // Opt-in consent for re-engagement email (streak reminders, win-back).
+  // Unchecked by default in the UI; absence means no consent.
+  email_opt_in: z.boolean().optional(),
 });
 
 /**
@@ -201,6 +204,21 @@ function refreshCookieOpts(maxAgeSeconds: number) {
  */
 function stampLastLogin(userId: string): void {
   query('UPDATE users SET last_login_at = NOW() WHERE user_id = $1', [userId]).catch(() => {});
+}
+
+/**
+ * Email-consent bookkeeping for signup/upgrade. Opt-in only: this only ever
+ * flips email_notifications ON, and only when the user ticked the box.
+ * Fire-and-forget — a preferences write must never fail an auth flow; the
+ * user can always toggle it later in Settings.
+ */
+function grantEmailOptIn(userId: string): void {
+  query(
+    `INSERT INTO user_preferences (user_id, email_notifications, updated_at)
+     VALUES ($1, true, NOW())
+     ON CONFLICT (user_id) DO UPDATE SET email_notifications = true, updated_at = NOW()`,
+    [userId],
+  ).catch(() => {});
 }
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
@@ -297,7 +315,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
     }
-    const { username, email, password } = body.data;
+    const { username, email, password, email_opt_in } = body.data;
 
     // Reject trivially-weak passwords. Username + email are passed in as
     // user-specific signals so zxcvbn down-scores passwords like
@@ -339,7 +357,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(user.user_id);
-    recordServerEvent('user_registered', { username: user.username, ...parseAttribution(request.body) }, user.user_id);
+    if (email_opt_in) grantEmailOptIn(user.user_id);
+    recordServerEvent(
+      'user_registered',
+      { username: user.username, email_opt_in: Boolean(email_opt_in), ...parseAttribution(request.body) },
+      user.user_id,
+    );
     return reply.status(201).send({ accessToken, user });
   });
 
@@ -359,7 +382,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
     }
-    const { username, email, password } = body.data;
+    const { username, email, password, email_opt_in } = body.data;
 
     const weak = passwordStrengthError(password, [username, email]);
     if (weak) {
@@ -448,7 +471,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
 
     stampLastLogin(upgraded.user_id);
-    recordServerEvent('guest_upgraded', parseAttribution(request.body), upgraded.user_id);
+    // Written by the trusted upgrade path itself (the /me/preferences routes
+    // reject guests, but this row belongs to the freshly-upgraded account).
+    if (email_opt_in) grantEmailOptIn(upgraded.user_id);
+    recordServerEvent(
+      'guest_upgraded',
+      { email_opt_in: Boolean(email_opt_in), ...parseAttribution(request.body) },
+      upgraded.user_id,
+    );
     return reply.send({
       accessToken,
       user: { ...upgraded, is_guest: false },

@@ -9,7 +9,11 @@ interface CalendarData {
   month: string;
   days_in_month: number;
   logins: string[];
-  gold_per_day: number;
+  /** Escalating gold per consecutive login day (day 1 → index 0, capped at the end). */
+  rewards_schedule: number[];
+  login_streak: number;
+  today_reward: number;
+  tomorrow_reward: number;
   daily_streak: number;
   already_claimed_today: boolean;
 }
@@ -56,6 +60,7 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
               already_claimed_today: true,
               logins: [...prev.logins, toLocalIsoDate(new Date())],
               daily_streak: res.data.daily_streak,
+              login_streak: res.data.login_streak || prev.login_streak,
             }
           : prev,
       );
@@ -66,7 +71,7 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
       // already redeemed (e.g. a double-tap or another device), so don't claim
       // credit for gold the server didn't award.
       if (res.data.claimed) {
-        toast.success(`+${data.gold_per_day} gold claimed!`, { icon: '🪙' });
+        toast.success(`+${res.data.gold_awarded} gold claimed!`, { icon: '🪙' });
       } else {
         toast('Already claimed today', { icon: '✅' });
       }
@@ -146,7 +151,7 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
         ))}
       </div>
 
-      {/* Claim button */}
+      {/* Claim button — teasing tomorrow's bigger reward is the point */}
       {!data.already_claimed_today ? (
         <button
           onClick={handleClaim}
@@ -154,12 +159,17 @@ export default function DailyLoginCalendar({ className }: DailyLoginCalendarProp
           className="w-full py-2.5 rounded-lg bg-bf-gold/20 border border-bf-gold/30 text-bf-gold text-sm font-medium hover:bg-bf-gold/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           <Coins size={14} />
-          {claiming ? 'Claiming...' : `Claim ${data.gold_per_day} gold`}
+          {claiming ? 'Claiming...' : `Claim ${data.today_reward} gold`}
         </button>
       ) : (
         <div className="text-center text-xs text-bf-muted py-2">
           ✅ Today&apos;s reward claimed
         </div>
+      )}
+      {data.tomorrow_reward > data.today_reward && (
+        <p className="text-center text-[10px] text-bf-muted mt-1.5">
+          Come back tomorrow for <span className="text-bf-gold">{data.tomorrow_reward} gold</span>
+        </p>
       )}
 
       {/* Streak milestones */}
