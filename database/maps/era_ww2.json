@@ -1215,7 +1215,13 @@
     { "from": "weddell_sea", "to": "south_atlantic_ww2", "type": "sea" },
     { "from": "ross_ice_shelf", "to": "antarctica_peninsula", "type": "sea" },
     { "from": "ross_ice_shelf", "to": "australia_ww2", "type": "sea" },
-    { "from": "southern_ocean", "to": "ross_ice_shelf", "type": "sea" }
+    { "from": "southern_ocean", "to": "ross_ice_shelf", "type": "sea" },
+    { "from": "philippines", "to": "mid_pacific", "type": "sea" },
+    { "from": "usa_west", "to": "mid_pacific", "type": "sea" },
+    { "from": "weddell_sea", "to": "southern_ocean", "type": "sea" },
+    { "from": "russia_east", "to": "japan_ww2", "type": "sea" },
+    { "from": "india_ww2", "to": "arabia_ww2", "type": "sea" },
+    { "from": "scandinavia_ww2", "to": "russia_west", "type": "land" }
   ],
   "regions": [
     {
@@ -1260,7 +1266,7 @@
     },
     { "region_id": "remote_frontier_th", "name": "Remote Frontiers", "bonus": 2 },
     { "region_id": "southern_ocean_th", "name": "Southern Ocean", "bonus": 2 },
-    { "region_id": "antarctic_th", "name": "Antarctica", "bonus": 4 }
+    { "region_id": "antarctic_th", "name": "Antarctica", "bonus": 3 }
   ],
   "is_public": true,
   "is_moderated": true,

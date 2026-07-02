@@ -2517,7 +2517,7 @@
     {
       "region_id": "us_zone",
       "name": "American Zone",
-      "bonus": 6,
+      "bonus": 5,
       "territory_ids": [
         "niigata",
         "fukushima",

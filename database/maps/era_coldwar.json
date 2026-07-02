@@ -1525,7 +1525,13 @@
     { "from": "bering_strait", "to": "polar_arctic", "type": "sea" },
     { "from": "nonaligned_oceania", "to": "australia_cw", "type": "sea" },
     { "from": "deep_pacific", "to": "antarctic_east", "type": "sea" },
-    { "from": "deep_pacific", "to": "indian_ocean", "type": "sea" }
+    { "from": "deep_pacific", "to": "indian_ocean", "type": "sea" },
+    { "from": "canada", "to": "usa_west_cw", "type": "land" },
+    { "from": "canada", "to": "polar_arctic", "type": "sea" },
+    { "from": "brazil_cw", "to": "west_africa_cw", "type": "sea" },
+    { "from": "usa_south", "to": "caribbean_cw", "type": "sea" },
+    { "from": "antarctic_west", "to": "antarctic_east", "type": "sea" },
+    { "from": "nonaligned_oceania", "to": "deep_pacific", "type": "sea" }
   ],
   "regions": [
     {

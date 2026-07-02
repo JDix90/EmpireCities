@@ -1026,7 +1026,12 @@
     { "from": "australia", "to": "southeast_asia", "type": "sea" },
     { "from": "polynesia", "to": "australia", "type": "sea" },
     { "from": "kamchatka", "to": "korea_japan", "type": "sea" },
-    { "from": "kamchatka", "to": "siberia", "type": "land" }
+    { "from": "kamchatka", "to": "siberia", "type": "land" },
+    { "from": "caribbean_isles", "to": "iberia", "type": "sea" },
+    { "from": "scandinavia", "to": "vinland", "type": "sea" },
+    { "from": "polynesia", "to": "kamchatka", "type": "sea" },
+    { "from": "south_india_med", "to": "madagascar", "type": "sea" },
+    { "from": "italy_states", "to": "byzantine", "type": "sea" }
   ],
   "regions": [
     {

@@ -1176,19 +1176,22 @@ function shuffleArray<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** The four `era_galaxy` region ids — each matches one lore faction home. */
-const GALAXY_HOME_REGION_IDS = new Set<string>([
-  'stellar_core',
-  'verdant_expanse',
-  'industrial_rim',
-  'station_corridor',
+/** The four `era_galaxy` world ids — each is one lore faction's homeworld. */
+const GALAXY_HOME_WORLD_IDS = new Set<string>([
+  'sol',
+  'verdan',
+  'rust',
+  'nexus_station',
 ]);
 
 /**
  * When exactly four players each pick one of the four Galactic Age factions,
- * assign every territory in each faction's home region to that player (no
- * cross-world swaps from `distributeTerritoriesGeographic` rebalance).
- * Returns false so callers fall back to geographic distribution.
+ * assign every territory on each faction's home WORLD to that player (no
+ * cross-world swaps from `distributeTerritoriesGeographic` rebalance). The
+ * home world is derived from the faction's home regions — the galaxy map
+ * subdivides each world into several bonus regions, so a faction's home
+ * regions must all live on one world. Returns false so callers fall back to
+ * geographic distribution.
  */
 function tryDistributeGalaxyAgeFactionHomeworlds(
   territories: Record<string, TerritoryState>,
@@ -1202,29 +1205,35 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
   const factionDefs = getEraFactions(era);
   const byFactionId = new Map(factionDefs.map((f) => [f.faction_id, f]));
 
-  const claimedRegions: { playerIndex: number; regionId: string }[] = [];
+  const claimedWorlds: { playerIndex: number; worldId: string }[] = [];
 
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
     if (!p.faction_id) return false;
     const fac = byFactionId.get(p.faction_id);
-    if (!fac?.home_region_ids || fac.home_region_ids.length !== 1) return false;
-    const regionId = fac.home_region_ids[0]!;
-    if (!GALAXY_HOME_REGION_IDS.has(regionId)) return false;
-    claimedRegions.push({ playerIndex: i, regionId });
+    if (!fac?.home_region_ids?.length) return false;
+    const homeRegions = new Set(fac.home_region_ids);
+    const worlds = new Set<string>();
+    for (const t of map.territories) {
+      if (t.region_id && homeRegions.has(t.region_id) && t.world_id) worlds.add(t.world_id);
+    }
+    if (worlds.size !== 1) return false;
+    const worldId = [...worlds][0]!;
+    if (!GALAXY_HOME_WORLD_IDS.has(worldId)) return false;
+    claimedWorlds.push({ playerIndex: i, worldId });
   }
 
-  const uniqueRegions = new Set(claimedRegions.map((c) => c.regionId));
-  if (uniqueRegions.size !== 4) return false;
-  for (const required of GALAXY_HOME_REGION_IDS) {
-    if (!uniqueRegions.has(required)) return false;
+  const uniqueWorlds = new Set(claimedWorlds.map((c) => c.worldId));
+  if (uniqueWorlds.size !== 4) return false;
+  for (const required of GALAXY_HOME_WORLD_IDS) {
+    if (!uniqueWorlds.has(required)) return false;
   }
 
-  for (const { playerIndex, regionId } of claimedRegions) {
+  for (const { playerIndex, worldId } of claimedWorlds) {
     const playerId = players[playerIndex]!.player_id;
     let any = false;
     for (const t of map.territories) {
-      if (t.region_id !== regionId) continue;
+      if (t.world_id !== worldId) continue;
       const st = territories[t.territory_id];
       if (!st) return false;
       st.owner_id = playerId;
