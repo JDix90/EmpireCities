@@ -130,6 +130,40 @@ describe('assignSecretMissions — era missions', () => {
   });
 });
 
+describe('assignSecretMissions — orbit-gated targets excluded', () => {
+  // A map with a Moon: moon tiles are behind the orbit-access ladder, so no
+  // mission may target them or their region — that assignment would be wildly
+  // unfair vs a rival whose mission is two ordinary tiles.
+  const moonMap: GameMap = {
+    ...miniMap,
+    map_id: 'm_moon',
+    territories: [
+      ...miniMap.territories,
+      { territory_id: 'moon_1', name: 'Moon 1', polygon: [], center_point: [0, 0], region_id: 'lunar', world_id: 'moon' },
+      { territory_id: 'moon_2', name: 'Moon 2', polygon: [], center_point: [0, 0], region_id: 'lunar', world_id: 'moon' },
+    ],
+    regions: [...miniMap.regions, { region_id: 'lunar', name: 'Lunar', bonus: 6 }],
+  } as GameMap;
+
+  it('never targets moon territories or the all-gated lunar region', () => {
+    // Sweep RNG values so every mission branch (capture / eliminate / regions) is hit.
+    for (const roll of [0.05, 0.3, 0.5, 0.7, 0.9, 0.99]) {
+      const state = baseState([mkPlayer('p1'), mkPlayer('p2')]);
+      assignSecretMissions(state, moonMap, () => roll);
+      for (const p of state.players) {
+        const m = p.secret_mission;
+        if (!m) continue;
+        if (m.kind === 'capture_territories') {
+          expect(m.territory_ids.some((t) => t.startsWith('moon_'))).toBe(false);
+        }
+        if (m.kind === 'control_regions') {
+          expect(m.region_ids.includes('lunar')).toBe(false);
+        }
+      }
+    }
+  });
+});
+
 describe('transcendence victory', () => {
   function transcendState(p1Era: number, wonderOwner: string | null): GameState {
     const state = baseState([mkPlayer('p1', { current_era_index: p1Era }), mkPlayer('p2', { current_era_index: 0 })]);

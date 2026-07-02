@@ -185,7 +185,21 @@ export function initializeGameState(
   // their lore home; the orbit-access gate then forces hyperspace tech before
   // factions can engage across worlds.
   const lunarTerritoryIds = offworldTerritoryIdsForInitialNeutral(map);
-  const NEUTRAL_LUNAR_GARRISON = 2;
+  // Landing zones (tiles on an orbit lane — where the race arrives) hold a
+  // beachhead garrison; the interior is tougher, so the first player to gain
+  // orbit access establishes a foothold but can't sweep the whole world in one
+  // push — a second lander at another gateway can still contest it.
+  const NEUTRAL_OFFWORLD_LANDING_GARRISON = 4;
+  const NEUTRAL_OFFWORLD_INTERIOR_GARRISON = 6;
+  const orbitTouched = new Set<string>();
+  for (const c of map.connections) {
+    if (c.type === 'orbit') {
+      orbitTouched.add(c.from);
+      orbitTouched.add(c.to);
+    }
+  }
+  const neutralOffworldGarrison = (tid: string): number =>
+    orbitTouched.has(tid) ? NEUTRAL_OFFWORLD_LANDING_GARRISON : NEUTRAL_OFFWORLD_INTERIOR_GARRISON;
 
   // Build a map view that excludes neutral-garrison territories AND any orbit/land
   // connections touching them, so geographic distribution never seeds or grows
@@ -225,15 +239,15 @@ export function initializeGameState(
     });
   }
 
-  // Final pass: ensure lunar territories stay neutral with a defending
-  // garrison no matter which distribution path ran. Skipped in
-  // territory_selection mode because all territories remain neutral there
-  // and we don't want to pre-spawn neutral defenders before manual picks.
-  if (!settingsNorm.territory_selection) {
-    for (const tid of lunarTerritoryIds) {
-      territories[tid].owner_id = null;
-      territories[tid].unit_count = NEUTRAL_LUNAR_GARRISON;
-    }
+  // Final pass: ensure lunar territories stay neutral with a defending garrison
+  // no matter which distribution path ran. This now also runs in
+  // territory_selection mode: orbit-gated tiles are exempt from the selection
+  // draft (nobody has orbit access at game start — see
+  // selectionExemptTerritoryIds), so pre-spawned neutral defenders can't
+  // interfere with manual picks and must exist once the game proper begins.
+  for (const tid of lunarTerritoryIds) {
+    territories[tid].owner_id = null;
+    territories[tid].unit_count = neutralOffworldGarrison(tid);
   }
 
   // Build card deck

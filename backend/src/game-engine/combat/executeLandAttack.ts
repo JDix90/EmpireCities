@@ -23,6 +23,12 @@ export interface ExecuteLandAttackOptions {
   extraAttackBonuses?: Record<string, number>;
   /** Caller-derived defender dice bonuses merged with the internal `great_wall`. */
   extraDefenseBonuses?: Record<string, number>;
+  /**
+   * True when the attacker holds orbit access (getOrbitAccessResult), allowing
+   * capture of NEUTRAL off-world garrisons (Space Age Moon, neutral galaxy
+   * worlds). Callers must derive this per-attacker; it is never implied.
+   */
+  neutralOffworldCaptureAllowed?: boolean;
   /** Called once after a successful capture (e.g. to draw a card). */
   onCapture?: (state: GameState, attackerId: string, toId: string) => void;
 }
@@ -75,16 +81,24 @@ export function executeLandAttack(
   if (!from || !to || !attacker) return null;
   if (from.owner_id !== attackerId) return null;
   if (to.owner_id === attackerId) return null;
-  // Neutral (owner-less) territories are normally not attackable. Era Advancement
-  // grows the board with neutral, garrisoned FRONTIER territories as players climb
-  // eras (see eraAdvancement/territoryUnlock.ts); those must be conquerable. Allow
-  // capturing a neutral garrison only in era-advancement games, AND never for
-  // off-world territories (the Moon / galaxy neutral worlds), which keep their
-  // "tech up to claim it" access race. Earth frontiers carry world_id 'earth'.
+  // Neutral (owner-less) territories are normally not attackable. Two exceptions:
+  //  1. Era Advancement grows the board with neutral, garrisoned FRONTIER
+  //     territories as players climb eras (eraAdvancement/territoryUnlock.ts);
+  //     those must be conquerable in era-advancement games.
+  //  2. Neutral OFF-WORLD garrisons (the Space Age Moon, neutral galaxy worlds)
+  //     are the prize of the orbit-access race: the caller passes
+  //     `neutralOffworldCaptureAllowed` after checking getOrbitAccessResult for
+  //     the attacker. Without the flag they stay untouchable — but with it the
+  //     race has a finish line (previously this returned null unconditionally,
+  //     which made the Moon uncapturable by anyone in every Space Age game).
   // All defender-dependent combat math below already handles a null defender id.
   if (!to.owner_id) {
     const targetIsOffworld = !!to.world_id && to.world_id !== 'earth';
-    if (!state.settings.era_advancement_enabled || targetIsOffworld) return null;
+    if (targetIsOffworld) {
+      if (!opts.neutralOffworldCaptureAllowed) return null;
+    } else if (!state.settings.era_advancement_enabled) {
+      return null;
+    }
   }
   if (from.unit_count < 2 || to.unit_count < 1) return null;
 

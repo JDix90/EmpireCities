@@ -224,3 +224,48 @@ describe('repairEraTerritoryGrowth (migration backfill)', () => {
     expect(Object.keys(state.territories).sort()).toEqual(['base_a', 'base_b']);
   });
 });
+
+describe('coastal marker (naval_units) on growth territories', () => {
+  function seaMap(): GameMap {
+    const m = makeMap();
+    // med_a becomes an island frontier: reachable only by sea.
+    m.connections = [
+      { from: 'base_a', to: 'base_b', type: 'land' },
+      { from: 'base_b', to: 'med_a', type: 'sea' },
+      { from: 'med_a', to: 'disc_a', type: 'land' },
+      { from: 'disc_a', to: 'disc_b', type: 'land' },
+    ] as GameMap['connections'];
+    return m;
+  }
+
+  it('marks sea-connected frontiers coastal at unlock (ports become buildable)', () => {
+    const map = seaMap();
+    const state = makeState([makePlayer('p1', 1)]);
+    unlockTerritoriesForFloor(state, map);
+    // med_a touches a sea lane → coastal marker present; disc frontiers stay locked.
+    expect(state.territories.med_a.naval_units).toBe(0);
+  });
+
+  it('leaves landlocked frontiers unmarked', () => {
+    const map = seaMap();
+    const state = makeState([makePlayer('p1', 2)]);
+    unlockTerritoriesForFloor(state, map);
+    expect(state.territories.disc_a.naval_units).toBeUndefined();
+    expect(state.territories.disc_b.naval_units).toBeUndefined();
+  });
+
+  it('repairEraTerritoryGrowth backfills the marker on territories that predate the fix', () => {
+    const map = seaMap();
+    const state = makeState([makePlayer('p1', 1)]);
+    state.settings = { era_advancement_enabled: true } as GameState['settings'];
+    // Simulate a frontier inserted before the marker existed.
+    state.territories.med_a = {
+      territory_id: 'med_a', owner_id: null, unit_count: 3, unit_type: 'infantry', region_id: 'r1',
+    };
+    // base_b is coastal on this map but was seeded without the marker too.
+    repairEraTerritoryGrowth(state, map);
+    expect(state.territories.med_a.naval_units).toBe(0);
+    expect(state.territories.base_b.naval_units).toBe(0);
+    expect(state.territories.base_a.naval_units).toBeUndefined(); // landlocked stays unmarked
+  });
+});

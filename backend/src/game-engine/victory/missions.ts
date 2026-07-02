@@ -1,5 +1,6 @@
 import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
+import { territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
 
 /**
  * Deterministic 32-bit seed from an arbitrary string (FNV-1a). Used together
@@ -51,9 +52,18 @@ export function assignSecretMissions(
   map: GameMap,
   rng: () => number,
 ): void {
-  const territoryIds = map.territories.map((t) => t.territory_id);
+  // Orbit-gated territories (the Space Age Moon, locked galaxy worlds) are
+  // excluded from mission targets: reaching them first requires a deep tech
+  // ladder, so a capture/control mission there would be wildly unfair against
+  // a rival whose mission is two ordinary tiles. Counting regions over the
+  // reachable set also drops all-gated regions (e.g. lunar_surface) from
+  // control_regions via the existing empty-region filter below.
+  const reachable = map.territories.filter(
+    (t) => !territoryRequiresOrbitAccessForClaim(map, t.territory_id),
+  );
+  const territoryIds = reachable.map((t) => t.territory_id);
   const territoriesPerRegion = new Map<string, number>();
-  for (const t of map.territories) {
+  for (const t of reachable) {
     territoriesPerRegion.set(t.region_id, (territoriesPerRegion.get(t.region_id) ?? 0) + 1);
   }
   // Only regions that actually contain at least one territory can be a

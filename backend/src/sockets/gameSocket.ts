@@ -48,6 +48,7 @@ import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
   territoryRequiresOrbitAccessForClaim,
+  selectionExemptTerritoryIds,
   getOrbitAccessResult,
   formatOrbitAccessError,
   isLaneSealedForPlayer,
@@ -1498,8 +1499,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       state.current_player_index = next;
       state.turn_started_at = Date.now();
 
-      // Check if all territories are claimed
-      const unclaimed = Object.values(state.territories).filter((t) => isUnclaimedOwner(t.owner_id)).length;
+      // Check if all territories are claimed. Orbit-gated tiles (the Space Age
+      // Moon) are exempt — nobody can hold orbit access at game start, so
+      // counting them would soft-lock the selection phase forever.
+      const selectionExempt = selectionExemptTerritoryIds(map);
+      const unclaimed = Object.values(state.territories).filter(
+        (t) => isUnclaimedOwner(t.owner_id) && !selectionExempt.has(t.territory_id),
+      ).length;
       if (unclaimed === 0) {
         // Transition to draft phase
         state.phase = 'draft';
@@ -1705,6 +1711,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const landOutcome = executeLandAttack(state, userId, fromId, toId, {
         connection,
         dieRoll: puzzleDieRoll,
+        // Neutral off-world garrisons (the Moon) are capturable once the
+        // attacker has completed the orbit-access ladder.
+        neutralOffworldCaptureAllowed: getOrbitAccessResult(state, currentPlayer, map, state.era).allowed,
         extraAttackBonuses: {
           truce_retaliation: truceRetaliationBonus,
           blitzkrieg: isBlitzkriegBonusAttack ? 1 : 0,
@@ -4578,8 +4587,12 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   state.current_player_index = next;
   state.turn_started_at = Date.now();
 
-  // Check if all territories are claimed
-  const remaining = Object.values(state.territories).filter((t) => isUnclaimedOwner(t.owner_id)).length;
+  // Check if all territories are claimed (orbit-gated tiles exempt — see the
+  // human select handler; counting them would soft-lock the phase).
+  const selectionExempt = selectionExemptTerritoryIds(map);
+  const remaining = Object.values(state.territories).filter(
+    (t) => isUnclaimedOwner(t.owner_id) && !selectionExempt.has(t.territory_id),
+  ).length;
   if (remaining === 0) {
     state.phase = 'draft';
     state.draft_placements_this_turn = {};
@@ -4945,6 +4958,32 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
   }
 
+  // AI parity: Launch Space Station — the third rung of the Moon ladder. The AI
+  // researches the ladder (aiBot tech hook) and builds the Launch Pad (aiBot
+  // build list); this fires the once-per-game launch as soon as both are in
+  // place, so an AI can finish the orbit-access race like a human can.
+  // executeTechAbility validates the tech, phase, and Launch Pad ownership.
+  if (
+    state.era === 'space_age'
+    && !currentPlayer.space_station_launched
+    && (currentPlayer.unlocked_techs?.includes('sa_space_station') ?? false)
+  ) {
+    const res = executeTechAbility({
+      state,
+      map,
+      playerId: currentPlayer.player_id,
+      abilityId: 'launch_space_station',
+    });
+    if (res.success && res.effect === 'space_station_launched' && res.territoryId) {
+      io.to(gameId).emit('game:space_station_launched', {
+        playerId: currentPlayer.player_id,
+        playerName: currentPlayer.username,
+        playerColor: currentPlayer.color,
+        launchTerritoryId: res.territoryId,
+      });
+    }
+  }
+
   // AI parity: Unification Drive converts a reachable neutral territory for free.
   // executeTechAbility enforces the influence-range reachability check, so the AI
   // scans neutral territories and takes the first one it can legally unify.
@@ -5152,6 +5191,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     const aiOutcome = executeLandAttack(state, currentPlayer.player_id, action.from, action.to, {
       connection: aiConnection,
       dieRoll: aiPuzzleDieRoll,
+      // Same orbit-access rule the human handler applies (moon capture parity).
+      neutralOffworldCaptureAllowed: getOrbitAccessResult(state, currentPlayer, map, state.era).allowed,
       extraAttackBonuses: {
         march_to_sea: aiMarchToSeaBonus,
         truce_retaliation: aiTruceRetaliationBonus,
