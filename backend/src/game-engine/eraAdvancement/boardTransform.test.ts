@@ -84,6 +84,15 @@ describe('assignSeeds', () => {
     expect(seeds.has('a')).toBe(true);
     expect(seeds.has('b')).toBe(false);
   });
+
+  it('never seeds an orbit-gated target — the player lands on an accessible tile instead', () => {
+    // A's primary successor X is gated (think lunar_outpost_mod → a Moon tile):
+    // seeding there would strand them with no orbit access on arrival.
+    const s = state([player('a')], { a1: terr('a1', 'a', 4) });
+    const seeds = assignSeeds(s, transition, ALL, new Set(['X']));
+    expect(seeds.has('a')).toBe(true);
+    expect(seeds.get('a')).not.toBe('X');
+  });
 });
 
 describe('transformBoardToEra', () => {

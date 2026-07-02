@@ -116,6 +116,20 @@ export function offworldTerritoryIdsForInitialNeutral(map: GameMap): Set<string>
 }
 
 /**
+ * Territory ids that are exempt from the territory-selection draft: orbit-gated
+ * tiles can never be claimed during selection (no player can hold orbit access
+ * at game start), so the phase must complete when every OTHER territory is
+ * claimed — counting them would soft-lock selection games on maps with a Moon.
+ */
+export function selectionExemptTerritoryIds(map: GameMap): Set<string> {
+  return new Set(
+    map.territories
+      .filter((t) => territoryRequiresOrbitAccessForClaim(map, t.territory_id))
+      .map((t) => t.territory_id),
+  );
+}
+
+/**
  * Fortify / access checks: Space Age still treats any Moon endpoint as gated;
  * galaxy maps only gate explicit orbit edges (interior offworld moves are free).
  */

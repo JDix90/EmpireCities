@@ -949,13 +949,49 @@
       "geo_polygon": [[165,-22],[165,-6],[179,-6],[179,-22],[165,-22]]
     },
     {
-      "territory_id": "antarctica",
-      "name": "Antarctica",
-      "polygon": [[450, 610], [750, 610], [750, 685], [450, 685]],
-      "center_point": [600, 648],
-      "region_id": "southern_reaches",
+      "territory_id": "antarctic_peninsula",
+      "name": "Antarctic Peninsula",
+      "polygon": [[450, 610], [525, 610], [525, 685], [450, 685]],
+      "center_point": [487, 648],
+      "region_id": "antarctica",
       "unlock_era_index": 5,
-      "geo_polygon": [[-60,-82],[-60,-68],[10,-68],[10,-82],[-60,-82]]
+      "geo_polygon": [[-80, -76], [-80, -63], [-55, -63], [-55, -76], [-80, -76]]
+    },
+    {
+      "territory_id": "queen_maud_land",
+      "name": "Queen Maud Land",
+      "polygon": [[525, 610], [600, 610], [600, 685], [525, 685]],
+      "center_point": [562, 648],
+      "region_id": "antarctica",
+      "unlock_era_index": 5,
+      "geo_polygon": [[-10, -78], [-10, -68], [40, -68], [40, -78], [-10, -78]]
+    },
+    {
+      "territory_id": "wilkes_land",
+      "name": "Wilkes Land",
+      "polygon": [[600, 610], [675, 610], [675, 685], [600, 685]],
+      "center_point": [637, 648],
+      "region_id": "antarctica",
+      "unlock_era_index": 5,
+      "geo_polygon": [[90, -78], [90, -66], [135, -66], [135, -78], [90, -78]]
+    },
+    {
+      "territory_id": "ross_sea",
+      "name": "Ross Sea Sector",
+      "polygon": [[675, 610], [750, 610], [750, 685], [675, 685]],
+      "center_point": [712, 648],
+      "region_id": "antarctica",
+      "unlock_era_index": 5,
+      "geo_polygon": [[155, -85], [155, -70], [178, -70], [178, -85], [155, -85]]
+    },
+    {
+      "territory_id": "tibet_nepal",
+      "name": "Tibet & Nepal",
+      "polygon": [[758, 220], [803, 220], [803, 295], [758, 295]],
+      "center_point": [780, 257],
+      "region_id": "himalaya",
+      "unlock_era_index": 5,
+      "geo_polygon": [[80, 27], [80, 36], [98, 36], [98, 27], [80, 27]]
     },
     {
       "territory_id": "hawaii",
@@ -965,6 +1001,24 @@
       "region_id": "oceania",
       "unlock_era_index": 3,
       "geo_polygon": [[-161, 18], [-161, 23], [-154, 23], [-154, 18], [-161, 18]]
+    },
+    {
+      "territory_id": "cuba",
+      "name": "Cuba",
+      "polygon": [[10, 305], [70, 305], [70, 335], [10, 335]],
+      "center_point": [40, 320],
+      "region_id": "caribbean",
+      "unlock_era_index": 4,
+      "geo_polygon": [[-85, 19], [-85, 24], [-74, 24], [-74, 19], [-85, 19]]
+    },
+    {
+      "territory_id": "horn_of_africa",
+      "name": "Horn of Africa",
+      "polygon": [[490, 390], [565, 390], [565, 455], [490, 455]],
+      "center_point": [527, 422],
+      "region_id": "horn_of_africa",
+      "unlock_era_index": 3,
+      "geo_polygon": [[41, -2], [41, 12], [52, 12], [52, -2], [41, -2]]
     }
   ],
   "connections": [
@@ -1179,7 +1233,6 @@
     { "from": "southern_africa", "to": "central_africa", "type": "land" },
     { "from": "pacifica", "to": "nippon", "type": "sea" },
     { "from": "pacifica", "to": "australia", "type": "sea" },
-    { "from": "antarctica", "to": "southern_africa", "type": "sea" },
     { "from": "north_america_west", "to": "north_america_east", "type": "land" },
     { "from": "north_america_east", "to": "yukon", "type": "land" },
     { "from": "north_america_west", "to": "yukon", "type": "land" },
@@ -1207,14 +1260,34 @@
     { "from": "indochina", "to": "malaya", "type": "land" },
     { "from": "nippon", "to": "philippines", "type": "sea" },
     { "from": "australia", "to": "insulindia", "type": "sea" },
-    { "from": "antarctica", "to": "insulindia", "type": "sea" },
     { "from": "siberia", "to": "manchuria", "type": "land" },
     { "from": "siberia", "to": "volga_bulgaria", "type": "land" },
     { "from": "southern_china", "to": "philippines", "type": "sea" },
     { "from": "hawaii", "to": "north_america_west", "type": "sea" },
     { "from": "hawaii", "to": "nippon", "type": "sea" },
     { "from": "hawaii", "to": "philippines", "type": "sea" },
-    { "from": "hawaii", "to": "gran_colombia", "type": "sea" }
+    { "from": "hawaii", "to": "gran_colombia", "type": "sea" },
+    { "from": "cuba", "to": "north_america_east", "type": "sea" },
+    { "from": "cuba", "to": "azteca", "type": "sea" },
+    { "from": "cuba", "to": "gran_colombia", "type": "sea" },
+    { "from": "cuba", "to": "hispania", "type": "sea" },
+    { "from": "cuba", "to": "west_africa", "type": "sea" },
+    { "from": "horn_of_africa", "to": "aksum", "type": "land" },
+    { "from": "horn_of_africa", "to": "southern_africa", "type": "sea" },
+    { "from": "horn_of_africa", "to": "arabia", "type": "sea" },
+    { "from": "horn_of_africa", "to": "southern_india", "type": "sea" },
+    { "from": "antarctic_peninsula", "to": "queen_maud_land", "type": "land" },
+    { "from": "queen_maud_land", "to": "wilkes_land", "type": "land" },
+    { "from": "wilkes_land", "to": "ross_sea", "type": "land" },
+    { "from": "ross_sea", "to": "antarctic_peninsula", "type": "land" },
+    { "from": "antarctic_peninsula", "to": "rio_plata", "type": "sea" },
+    { "from": "queen_maud_land", "to": "southern_africa", "type": "sea" },
+    { "from": "wilkes_land", "to": "australia", "type": "sea" },
+    { "from": "ross_sea", "to": "pacifica", "type": "sea" },
+    { "from": "tibet_nepal", "to": "northern_india", "type": "land" },
+    { "from": "tibet_nepal", "to": "kushan", "type": "land" },
+    { "from": "tibet_nepal", "to": "central_china", "type": "land" },
+    { "from": "tibet_nepal", "to": "southern_china", "type": "land" }
   ],
   "regions": [
     {
@@ -1266,7 +1339,11 @@
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
     { "region_id": "north_america", "name": "North America", "bonus": 4 },
     { "region_id": "south_america", "name": "South America", "bonus": 4 },
-    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 }
+    { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 },
+    { "region_id": "caribbean", "name": "The Caribbean", "bonus": 2 },
+    { "region_id": "horn_of_africa", "name": "Horn of Africa", "bonus": 2 },
+    { "region_id": "antarctica", "name": "Antarctica", "bonus": 3 },
+    { "region_id": "himalaya", "name": "The Himalayas", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,

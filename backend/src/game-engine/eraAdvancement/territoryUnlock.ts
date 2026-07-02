@@ -18,6 +18,7 @@
  */
 
 import { inferWorldId } from '@borderfall/shared';
+import { getCoastalTerritoryIds } from '../state/navalManager';
 import type { GameMap, GameState, TerritoryState } from '../../types';
 
 /**
@@ -114,6 +115,7 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
   }
 
   const added: string[] = [];
+  const coastal = getCoastalTerritoryIds(map);
   for (const t of map.territories) {
     const unlockEra = territoryUnlockEra(t);
     if (unlockEra <= prevFloor || unlockEra > newFloor) continue; // outside the (prev, new] window
@@ -125,6 +127,11 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
       unit_type: 'infantry',
       world_id: inferWorldId(t),
       region_id: t.region_id,
+      // Coastal marker: naval buildings + sea attacks read `naval_units != null`
+      // as "coastal" (navalManager.initializeNavalUnits sets it at game start,
+      // which runs before frontiers exist — without this, unlocked frontiers
+      // could never build a Port / Naval Base).
+      ...(coastal.has(t.territory_id) ? { naval_units: 0 } : {}),
     };
     state.territories[t.territory_id] = territory;
     added.push(t.territory_id);
@@ -147,6 +154,24 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
  */
 export function repairEraTerritoryGrowth(state: GameState, map: GameMap): void {
   if (state.settings?.era_advancement_enabled !== true) return;
+  // Heal the coastal marker on territories inserted before unlock/transform set
+  // it (frontiers and board-transform arrivals shipped without `naval_units`,
+  // permanently blocking Ports / Naval Bases there). Idempotent per load.
+  const coastal = getCoastalTerritoryIds(map);
+  for (const t of Object.values(state.territories)) {
+    if (t.naval_units == null && coastal.has(t.territory_id)) t.naval_units = 0;
+  }
+  // Prune NEUTRAL orphans: a map update can retire a territory id (e.g. the old
+  // single `antarctica` frontier, split into four sectors). A live game that had
+  // already unlocked it keeps a state entry with no map counterpart — invisible,
+  // unattackable, and excluded from every map-driven computation. Removing it is
+  // safe only while unowned; owned territories are never silently deleted.
+  const mapIds = new Set(map.territories.map((t) => t.territory_id));
+  for (const t of Object.values(state.territories)) {
+    if (t.owner_id == null && !mapIds.has(t.territory_id)) {
+      delete state.territories[t.territory_id];
+    }
+  }
   if (!mapHasEraGrowth(map)) return;
   unlockTerritoriesForFloor(state, map);
 }

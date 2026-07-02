@@ -360,10 +360,26 @@
             "target_overlap": 0.14,
             "primary": true
           }
+        ],
+        "cuba": [
+          {
+            "to": "caribbean_isles",
+            "overlap": 0.6,
+            "target_overlap": 0.35,
+            "primary": true
+          }
+        ],
+        "horn_of_africa": [
+          {
+            "to": "east_africa_med",
+            "overlap": 0.85,
+            "target_overlap": 0.4,
+            "primary": true
+          }
         ]
       },
       "no_successor": [
-        "antarctica",
+        "antarctic_peninsula",
         "azteca",
         "brazil",
         "gran_colombia",
@@ -374,11 +390,14 @@
         "north_america_west",
         "pacifica",
         "peru_chile",
+        "queen_maud_land",
         "rio_plata",
+        "ross_sea",
+        "tibet_nepal",
+        "wilkes_land",
         "yukon"
       ],
       "new_land": [
-        "caribbean_isles",
         "kamchatka",
         "madagascar",
         "polynesia",

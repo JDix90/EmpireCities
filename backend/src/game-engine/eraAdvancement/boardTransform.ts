@@ -23,6 +23,8 @@ import type { EraTransition } from './eraLineage';
 import { getPrimarySuccessor } from './eraLineage';
 import { buildCardDeck, syncTerritoryCounts } from '../state/gameStateManager';
 import { assignCapitals, assignSecretMissions } from '../victory/missions';
+import { territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
+import { getCoastalTerritoryIds } from '../state/navalManager';
 
 /** Garrison on a freshly-neutral territory of the arriving era (scales with era depth, capped). */
 export function neutralGarrisonForEra(eraIndex: number): number {
@@ -44,6 +46,10 @@ function playerStrength(state: GameState, playerId: string): number {
  * Assign each surviving player a single SEED territory on the arriving board.
  *
  * @param inPlayTargets  the arriving era's territory ids that will be in play.
+ * @param gatedTargets   orbit-gated ids (the Space Age Moon) that must never be
+ *                       seeds: the arriving player has no orbit access yet
+ *                       (fresh era, no techs), so a moon seed would strand them —
+ *                       unable to claim neighbors, fortify off, or attack down.
  * @returns Map<playerId, seedTerritoryId>. Every non-eliminated player with at
  *          least one territory gets exactly one seed (guaranteed foothold).
  */
@@ -51,9 +57,12 @@ export function assignSeeds(
   state: GameState,
   transition: EraTransition,
   inPlayTargets: Set<string>,
+  gatedTargets: Set<string> = new Set(),
 ): Map<string, string> {
   const seeds = new Map<string, string>();
-  const claimed = new Set<string>();
+  // Pre-claiming the gated ids excludes them from both the lineage walk and the
+  // fallback without duplicating the checks.
+  const claimed = new Set<string>(gatedTargets);
 
   // Survivors who currently hold ground, strongest empire first (deterministic
   // tiebreak by player_id keeps the result reproducible).
@@ -114,9 +123,15 @@ export function transformBoardToEra(
   transition: EraTransition,
   inPlayTargets: Set<string>,
 ): BoardTransformSummary {
-  const seeds = assignSeeds(state, transition, inPlayTargets);
+  const gatedTargets = new Set(
+    nextMap.territories
+      .filter((t) => territoryRequiresOrbitAccessForClaim(nextMap, t.territory_id))
+      .map((t) => t.territory_id),
+  );
+  const seeds = assignSeeds(state, transition, inPlayTargets, gatedTargets);
   const seedOwnerByTarget = new Map([...seeds].map(([pid, tid]) => [tid, pid]));
 
+  const coastal = getCoastalTerritoryIds(nextMap);
   const territories: Record<string, TerritoryState> = {};
   let neutral = 0;
   for (const t of nextMap.territories) {
@@ -130,6 +145,10 @@ export function transformBoardToEra(
       unit_type: 'infantry',
       world_id: inferWorldId(t),
       region_id: t.region_id,
+      // Coastal marker — naval buildings + sea attacks read `naval_units != null`
+      // as "coastal"; init only marks the starting board, so the arriving board
+      // must carry its own markers or Ports become unbuildable after a morph.
+      ...(coastal.has(t.territory_id) ? { naval_units: 0 } : {}),
     };
   }
 

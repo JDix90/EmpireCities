@@ -183,4 +183,27 @@ describe('executeLandAttack', () => {
     expect(out?.captured).toBe(true);
     expect(calls).toBe(1);
   });
+
+  it('rejects a neutral OFF-WORLD garrison without the orbit-access flag', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), moon: terr('moon', null, 4, { world_id: 'moon' }) },
+      [player('p1')],
+      { era_advancement_enabled: true }, // era-advancement alone must NOT open the moon
+    );
+    expect(executeLandAttack(s, 'p1', 'a', 'moon')).toBeNull();
+  });
+
+  it('conquers a neutral OFF-WORLD garrison when the caller grants orbit access', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), moon: terr('moon', null, 2, { world_id: 'moon' }) },
+      [player('p1', { territory_count: 1 })],
+      { era_advancement_enabled: false }, // access race is independent of era-advancement
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'moon', {
+      dieRoll: diceFrom([6, 6, 6, 1, 1]),
+      neutralOffworldCaptureAllowed: true,
+    });
+    expect(out?.captured).toBe(true);
+    expect(s.territories.moon.owner_id).toBe('p1');
+  });
 });

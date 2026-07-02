@@ -39,15 +39,22 @@ function makeMap(frontierWorldId: string): GameMap {
   } as GameMap;
 }
 
-function makeState(map: GameMap, frontier: TerritoryState, eraAdvancement: boolean): GameState {
+function makeState(
+  map: GameMap,
+  frontier: TerritoryState,
+  eraAdvancement: boolean,
+  opts: { era?: string; factionId?: string } = {},
+): GameState {
+  const p = player('ai1');
+  if (opts.factionId) (p as PlayerState & { faction_id?: string }).faction_id = opts.factionId;
   return {
     game_id: 'g',
-    era: 'ancient',
+    era: opts.era ?? 'ancient',
     map_id: map.map_id,
     phase: 'draft',
     current_player_index: 0,
     turn_number: 3,
-    players: [player('ai1')],
+    players: [p],
     territories: {
       home: terr('home', 'ai1', 8),
       frontier,
@@ -76,10 +83,24 @@ describe('AI frontier expansion', () => {
     expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(false);
   });
 
-  it('never plans an attack on a neutral OFF-WORLD garrison, even in era-advancement', () => {
+  it('skips a neutral OFF-WORLD garrison while the AI lacks orbit access', () => {
+    // Space Age gates the Moon behind the access ladder; a fresh AI has none of it.
     const map = makeMap('moon');
-    const state = makeState(map, terr('frontier', null, 3, 'moon'), true);
+    const state = makeState(map, terr('frontier', null, 3, 'moon'), true, { era: 'space_age' });
     const actions = computeAiTurn(state, map, 'hard');
     expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(false);
+  });
+
+  it('attacks a neutral OFF-WORLD garrison once orbit access is held (Lunar Pioneers)', () => {
+    // The Lunar Pioneers faction has orbit access from turn 1 — the AI must use
+    // it, or the faction's signature perk is dead weight in bot hands (this
+    // mirrors the runtime rule in executeLandAttack).
+    const map = makeMap('moon');
+    const state = makeState(map, terr('frontier', null, 3, 'moon'), true, {
+      era: 'space_age',
+      factionId: 'lunar_pioneers',
+    });
+    const actions = computeAiTurn(state, map, 'hard');
+    expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(true);
   });
 });

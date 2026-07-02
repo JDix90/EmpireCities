@@ -322,14 +322,19 @@ function selectAttacks(
       const nOwner = nState.owner_id;
       if (nOwner && isTruceActive(state, playerId, nOwner)) continue;
 
-      // Neutral targets (Era Advancement frontier territories) are only capturable
-      // in era-advancement games, and never off-world (the Moon / galaxy worlds keep
-      // their access race — see executeLandAttack). Skip un-capturable neutrals so the
-      // AI doesn't waste its per-turn attack budget on attacks the runtime would reject.
+      // Neutral targets: Earth frontiers (Era Advancement growth) are capturable
+      // only in era-advancement games; neutral OFF-WORLD garrisons (the Moon)
+      // are capturable once this AI holds orbit access — the same rule the
+      // runtime applies in executeLandAttack. Skip un-capturable neutrals so
+      // the AI doesn't waste its per-turn attack budget on rejected attacks.
       const targetIsNeutral = !nOwner;
       if (targetIsNeutral) {
         const targetOffworld = !!nState.world_id && nState.world_id !== 'earth';
-        if (!state.settings.era_advancement_enabled || targetOffworld) continue;
+        if (targetOffworld) {
+          if (!hasOrbitAccess) continue;
+        } else if (!state.settings.era_advancement_enabled) {
+          continue;
+        }
       }
 
       const attackUnits = tState.unit_count - 1;
@@ -686,6 +691,22 @@ export function selectAiBuildingPlacement(
     return null;
   }
 
+  // ── Space program priority ────────────────────────────────────────────────
+  // Space Age: the Launch Pad is the physical rung of the Moon ladder (tech →
+  // Launch Pad → Space Station → Lunar Expansion). Build it as soon as the
+  // tech is in hand — without it the AI can never finish the orbit-access race
+  // (tryBuild validates the tech unlock, so this no-ops until then).
+  if (
+    state.era === 'space_age'
+    && !owned.some((tid) => state.territories[tid].buildings?.includes('launch_pad'))
+  ) {
+    const byUnits = [...owned].sort(
+      (a, b) => state.territories[b].unit_count - state.territories[a].unit_count,
+    );
+    const result = tryBuild('launch_pad', byUnits);
+    if (result) return result;
+  }
+
   // ── Naval priority ────────────────────────────────────────────────────────
   // When naval warfare is enabled, the AI must build ports before it can
   // attack via sea lanes (each sea attack consumes a fleet, and fleets only
@@ -885,6 +906,32 @@ export function selectAiTechResearch(
       if (chartNode?.prerequisite) {
         const prereq = available.find((n) => n.tech_id === chartNode.prerequisite);
         if (prereq) return prereq.tech_id;
+      }
+    }
+  }
+
+  // Space Age priority hook (mirror of the galaxy hook above): the lunar
+  // ladder (Orbital Recon → Launch Pad tech → Orbital Station → Lunar
+  // Expansion) carries no raw combat numbers, so the score-based path below
+  // never picks it and the AI would be permanently locked out of the Moon
+  // race. Walk the ladder from the top target down its prerequisite chain and
+  // research the deepest node that is available now. Skipped for Lunar
+  // Pioneers (access is faction-granted) and on boards with no off-world
+  // territory to race for.
+  if (state.era === 'space_age' && player.faction_id !== 'lunar_pioneers'
+      && !unlocked.includes('sa_lunar_expansion')) {
+    const hasOffworld = Object.values(state.territories).some(
+      (t) => !!t.world_id && t.world_id !== 'earth',
+    );
+    if (hasOffworld) {
+      let cur: string | undefined = 'sa_lunar_expansion';
+      const walked = new Set<string>();
+      while (cur && !walked.has(cur)) {
+        walked.add(cur);
+        if (unlocked.includes(cur)) break;
+        const researchable = available.find((n) => n.tech_id === cur);
+        if (researchable) return cur;
+        cur = tree.find((n) => n.tech_id === cur)?.prerequisite;
       }
     }
   }
