@@ -5,7 +5,7 @@ import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, L
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFirstTurnCoachEnabled, useSignupNudgeEnabled } from '../store/featureFlagsStore';
+import { useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled } from '../store/featureFlagsStore';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
@@ -493,6 +493,7 @@ export default function GamePage() {
   // socket handler read the live value without re-subscribing.
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
   const signupNudgeFlag = useSignupNudgeEnabled();
+  const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const coachEligible = shouldShowFirstTurnCoach({
     xp: user?.xp,
     isTutorial,
@@ -4691,6 +4692,11 @@ export default function GamePage() {
           loading={postTutorialStarting}
           onStartSolo={() => void startSoloFromTutorial()}
           onBackToLobby={() => { setPostTutorialPrompt(false); navigate('/lobby'); }}
+          onChallengeFriend={asyncOnboardingFlag ? () => {
+            api.post('/analytics/ui-event', { event: 'async_cta_clicked', properties: { source: 'post_tutorial' } }).catch(() => {});
+            setPostTutorialPrompt(false);
+            navigate('/lobby?challenge=1');
+          } : undefined}
         />
       )}
 

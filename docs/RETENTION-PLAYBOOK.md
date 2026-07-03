@@ -72,18 +72,54 @@ referrals, and async games all pre-date this doc). Three structural holes explai
   channel, which is why the nudge and the panel push guests toward upgrade.
 - Emails are opt-in only; expect the win-back audience to grow slowly from new signups.
 
-## Wave 2 backlog (not built — ordered by expected impact)
+## Wave 2 (shipped in this change set)
 
-1. **Async-by-default onboarding** — steer new users into a multi-day async game so there's
-   always unfinished business; "your turn" notifications already exist and are the
-   strongest re-engagement trigger we have.
-2. **Unified "Today" panel on the lobby** — one surface answering "why open Borderfall
-   today?": daily challenge, login chest, quests, season countdown (today they're four
-   separate widgets).
-3. **Streak freeze** — gold-purchasable insurance for one missed day; softens the cliff
-   where a broken 10-day streak becomes a reason to quit entirely.
-4. **Guest push opt-in** — lift `rejectGuest` on push tokens if guest D1 stays weak after
+The top three backlog items, all dark-launched behind default-off flags. Flags off ⇒ the
+app is byte-for-byte the Wave 1 experience.
+
+1. **Streak freezes** (`streak_freezes_enabled`) — a 50-gold consumable (hold max 2,
+   `STREAK_FREEZE_PRICE_GOLD`/`STREAK_FREEZE_MAX_HELD` in `packages/shared`) that bridges
+   **exactly one** missed day; two or more missed days still reset. Auto-consumed lazily at
+   next play inside `updateDailyStreak` (the sole streak write site) — consumption is
+   deliberately **not** flag-gated so a sold freeze keeps working even if sales are turned
+   back off. Bought via `POST /api/progression/streak-freeze` (atomic charge+grant, 402/409),
+   surfaced in the Today panel; the post-game comeback panel reassures when freezes are armed.
+   Migration 037 (`users.streak_freezes`, `users.streak_freeze_used_on`).
+2. **Unified "Today" panel** (`today_panel_enabled`) — `TodayPanel.tsx` replaces the lobby
+   aside's Daily Challenge card + standalone login calendar: streak status + next milestone,
+   freeze state/buy, login-chest claim, daily-challenge row, and (flagged) the async CTA.
+   Month calendar lives behind a disclosure. Reads the extended `GET /progression/comeback`;
+   no new read endpoints. Guests and the flag-off path keep the old aside untouched.
+3. **Async-by-default onboarding** (`async_onboarding_enabled`) — steering only, no engine
+   changes. Async-vs-AI is pointless (AI answers in ~1.5 s), so both CTAs route to
+   **async vs humans** via the existing `ChallengeFriendModal` (async 24 h by default):
+   a secondary "Challenge a friend — play a turn a day" button on the post-tutorial modal
+   (solo stays primary; activation is never gated on a second human) and a "start a
+   multi-day game" row in the Today panel when the user has zero active async games
+   (`/lobby?challenge=1` deep-link opens the modal). New **"The Long Game"** onboarding
+   quest (`first_async`, 50 gold) completes when an async game with ≥2 humans starts —
+   the first non-sequential quest (`NON_SEQUENTIAL_QUESTS`), completable out of order.
+
+**Measurement:** ui-events `today_panel_shown`, `async_cta_clicked` (`source`:
+`post_tutorial` | `today_panel`), `streak_freeze_buy_clicked`; server events
+`streak_freeze_purchased`, `streak_freeze_consumed`; plus the post-game payload's
+`streak_freeze_used`. Success looks like: freeze buyers' 28-day retention > matched
+non-buyers, async-game starters' D7 ≫ solo-only cohort, chest-claim rate up after the
+Today panel replaces the buried calendar.
+
+**Wave 2 rollout order** (after the Wave 1 sequence below): flip `streak_freezes_enabled`
+first (self-contained economy change), then `today_panel_enabled` (presentation swap —
+eyeball a staging lobby), then `async_onboarding_enabled` (funnel-adjacent; watch that
+tutorial→first-game conversion doesn't dip once the second CTA appears).
+
+## Wave 3 backlog (not built — ordered by expected impact)
+
+1. **Guest push opt-in** — lift `rejectGuest` on push tokens if guest D1 stays weak after
    Wave 1 (guests are the majority of first sessions and currently unreachable).
-5. **Weekly digest email** — rank changes, friend activity, season countdown (opt-in list).
-6. **Rivalry notifications** — "X just passed you on the weekly leaderboard" from existing
+2. **Weekly digest email** — rank changes, friend activity, season countdown (opt-in list).
+3. **Rivalry notifications** — "X just passed you on the weekly leaderboard" from existing
    `player_streaks`/friends data.
+4. **Async matchmaking liquidity** — async ranked buckets exist but need two queued humans;
+   consider a "waiting room" ladder or cross-era pooling once async CTAs create volume.
+5. **Retention-worker copy upgrade** — mention an armed freeze in the streak-at-risk push
+   ("your freeze has you covered — but the streak grows only if you play").

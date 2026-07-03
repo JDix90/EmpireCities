@@ -2,7 +2,14 @@ import type { PoolClient } from 'pg';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { getTier } from '../rating/ratingService';
-import { ONBOARDING_QUESTS, dailyLoginRewardForStreak } from '@borderfall/shared';
+import {
+  ONBOARDING_QUESTS,
+  NON_SEQUENTIAL_QUESTS,
+  dailyLoginRewardForStreak,
+  STREAK_FREEZE_PRICE_GOLD,
+  STREAK_FREEZE_MAX_HELD,
+} from '@borderfall/shared';
+import { recordServerEvent } from '../../services/analyticsEvents';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 
@@ -50,22 +57,43 @@ export const DAILY_STREAK_MILESTONES: Record<number, { gold: number; cosmetic?: 
 export async function updateDailyStreak(
   client: PoolClient,
   userId: string,
-): Promise<{ streak: number; milestone: number | null }> {
+): Promise<{ streak: number; milestone: number | null; freeze_used: boolean }> {
   const row = await client.query<{ daily_streak: number; last_played_date: string | null }>(
     'SELECT daily_streak, last_played_date::text AS last_played_date FROM users WHERE user_id = $1',
     [userId],
   );
   const current = row.rows[0];
-  if (!current) return { streak: 0, milestone: null };
+  if (!current) return { streak: 0, milestone: null, freeze_used: false };
 
   const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const dayBeforeYesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   let newStreak: number;
+  let freezeUsed = false;
 
   if (current.last_played_date === today) {
-    return { streak: current.daily_streak, milestone: null };
+    return { streak: current.daily_streak, milestone: null, freeze_used: false };
   } else if (current.last_played_date === yesterday) {
     newStreak = current.daily_streak + 1;
+  } else if (current.last_played_date === dayBeforeYesterday && current.daily_streak >= 1) {
+    // Exactly one missed day: a held streak freeze bridges it. The guarded
+    // decrement makes consumption race-safe if two game-ends land at once;
+    // gaps of two or more days fall through to the reset below and never
+    // consume a freeze. The bridged day counts as protected, not played, so
+    // the streak advances by one (milestones aren't skipped).
+    const freeze = await client.query(
+      `UPDATE users
+          SET streak_freezes = streak_freezes - 1, streak_freeze_used_on = $2
+        WHERE user_id = $1 AND streak_freezes > 0`,
+      [userId, yesterday],
+    );
+    if ((freeze.rowCount ?? 0) > 0) {
+      newStreak = current.daily_streak + 1;
+      freezeUsed = true;
+      recordServerEvent('streak_freeze_consumed', { streak: newStreak }, userId);
+    } else {
+      newStreak = 1;
+    }
   } else {
     newStreak = 1;
   }
@@ -87,7 +115,7 @@ export async function updateDailyStreak(
     }
   }
 
-  return { streak: newStreak, milestone: milestone ? newStreak : null };
+  return { streak: newStreak, milestone: milestone ? newStreak : null, freeze_used: freezeUsed };
 }
 
 // ── Gold award on game win ──────────────────────────────────────────────
@@ -180,7 +208,7 @@ export async function checkLevelCosmetic(
 
 export async function checkOnboardingQuests(
   userId: string,
-  trigger: 'game_complete' | 'build' | 'research' | 'ranked_join' | 'friend_accept',
+  trigger: 'game_complete' | 'build' | 'research' | 'ranked_join' | 'friend_accept' | 'async_start',
 ): Promise<{ quest_id: string; title: string; reward_gold: number; reward_xp: number } | null> {
   // Find the next incomplete quest
   const completed = await query<{ quest_id: string }>(
@@ -189,8 +217,16 @@ export async function checkOnboardingQuests(
   );
   const completedIds = new Set(completed.map((r) => r.quest_id));
 
+  // Sequential quests unlock strictly in order: only the first incomplete
+  // one is eligible. NON_SEQUENTIAL_QUESTS (first_async) are always eligible —
+  // the players their CTAs target are early in the chain.
+  let sequentialSeen = false;
   for (const quest of ONBOARDING_QUESTS) {
     if (completedIds.has(quest.quest_id)) continue;
+    const nonSequential = NON_SEQUENTIAL_QUESTS.has(quest.quest_id);
+    const eligible = nonSequential || !sequentialSeen;
+    if (!nonSequential) sequentialSeen = true;
+    if (!eligible) continue;
 
     // Check if trigger matches this quest
     let matched = false;
@@ -216,6 +252,9 @@ export async function checkOnboardingQuests(
         break;
       case 'first_friend':
         matched = trigger === 'friend_accept';
+        break;
+      case 'first_async':
+        matched = trigger === 'async_start';
         break;
     }
 
@@ -244,8 +283,6 @@ export async function checkOnboardingQuests(
       }
       return quest;
     }
-    // Quests are sequential — stop at first incomplete
-    break;
   }
 
   return null;
@@ -310,6 +347,54 @@ export async function claimDailyLogin(userId: string): Promise<DailyLoginResult>
     );
     return { claimed: true, gold_awarded: gold, login_streak: loginStreak };
   });
+}
+
+// ── Streak freeze purchase ──────────────────────────────────────────────
+
+export type StreakFreezePurchase =
+  | { code: 'ok'; streak_freezes: number; gold: number }
+  | { code: 'at_cap'; held: number }
+  | { code: 'insufficient_gold'; balance: number };
+
+/**
+ * Buy one streak freeze for gold. Same atomic overdraft guard as the store:
+ * a single UPDATE both charges and grants, and its WHERE clause enforces the
+ * balance and the held cap, so concurrent double-buys can't overdraw gold or
+ * exceed STREAK_FREEZE_MAX_HELD.
+ */
+export async function purchaseStreakFreeze(userId: string): Promise<StreakFreezePurchase> {
+  const result = await withTransaction(async (client) => {
+    const buy = await client.query<{ streak_freezes: number; gold: number }>(
+      `UPDATE users
+          SET gold = COALESCE(gold, 0) - $1,
+              streak_freezes = COALESCE(streak_freezes, 0) + 1
+        WHERE user_id = $2
+          AND COALESCE(gold, 0) >= $1
+          AND COALESCE(streak_freezes, 0) < $3
+        RETURNING streak_freezes, COALESCE(gold, 0) AS gold`,
+      [STREAK_FREEZE_PRICE_GOLD, userId, STREAK_FREEZE_MAX_HELD],
+    );
+    if (buy.rowCount === 0) return null;
+    await client.query(
+      'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
+      [userId, -STREAK_FREEZE_PRICE_GOLD, 'Purchased: Streak Freeze'],
+    );
+    return buy.rows[0]!;
+  });
+
+  if (!result) {
+    const u = await queryOne<{ gold: number; streak_freezes: number }>(
+      'SELECT COALESCE(gold, 0) AS gold, COALESCE(streak_freezes, 0) AS streak_freezes FROM users WHERE user_id = $1',
+      [userId],
+    );
+    if ((u?.streak_freezes ?? 0) >= STREAK_FREEZE_MAX_HELD) {
+      return { code: 'at_cap', held: u?.streak_freezes ?? 0 };
+    }
+    return { code: 'insufficient_gold', balance: u?.gold ?? 0 };
+  }
+
+  recordServerEvent('streak_freeze_purchased', { held: result.streak_freezes }, userId);
+  return { code: 'ok', streak_freezes: result.streak_freezes, gold: result.gold };
 }
 
 // ── Referral code generation ────────────────────────────────────────────

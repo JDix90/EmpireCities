@@ -103,6 +103,36 @@ export const featureFlags = {
   get retentionNotificationsEnabled(): boolean {
     return overrideBool('retention_notifications_enabled', process.env.RETENTION_NOTIFICATIONS_ENABLED === 'true');
   },
+
+  /**
+   * When true, users can buy streak freezes (POST /progression/streak-freeze)
+   * and the Today panel / comeback panel show freeze state. Consumption of an
+   * already-held freeze in updateDailyStreak is deliberately NOT gated — once
+   * sold, a freeze must keep working even if sales are switched back off.
+   * Default OFF — dark-launch.
+   */
+  get streakFreezesEnabled(): boolean {
+    return overrideBool('streak_freezes_enabled', process.env.STREAK_FREEZES_ENABLED === 'true');
+  },
+
+  /**
+   * When true, the lobby's right column swaps the Daily Challenge card +
+   * DailyLoginCalendar for the unified Today panel. Purely presentational —
+   * same endpoints either way. Default OFF — dark-launch.
+   */
+  get todayPanelEnabled(): boolean {
+    return overrideBool('today_panel_enabled', process.env.TODAY_PANEL_ENABLED === 'true');
+  },
+
+  /**
+   * When true, new-user surfaces nudge toward multi-day async games vs humans:
+   * the post-tutorial "challenge a friend" CTA and the Today panel's
+   * "start a multi-day game" row. Default OFF — dark-launch; activation-neutral
+   * because instant solo stays the primary CTA everywhere.
+   */
+  get asyncOnboardingEnabled(): boolean {
+    return overrideBool('async_onboarding_enabled', process.env.ASYNC_ONBOARDING_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -112,5 +142,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    streak_freezes_enabled: featureFlags.streakFreezesEnabled,
+    today_panel_enabled: featureFlags.todayPanelEnabled,
+    async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
   };
 }
