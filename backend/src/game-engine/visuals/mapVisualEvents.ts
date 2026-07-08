@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Server } from 'socket.io';
 import type { EventEffect, EventEffectResult, GameState } from '../../types';
+import { queueSpectatorEvent } from '../../sockets/spectatorBroadcast';
 
 export type MapVisualKind =
   | 'reinforce'
@@ -258,6 +259,8 @@ export function emitMapVisual(
 ): MapVisualEventPayload {
   const payload: MapVisualEventPayload = { ...event, id: randomUUID() };
   io.to(gameId).emit('game:map_visual', payload);
-  io.to(`${gameId}:spectators`).emit('game:map_visual', payload);
+  // Spectators get the visual through the delayed feed so it fires when their
+  // (30s-delayed) board shows the matching state, not half a minute early.
+  queueSpectatorEvent(gameId, 'game:map_visual', payload);
   return payload;
 }

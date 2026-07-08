@@ -71,7 +71,10 @@ interface MapData {
 export default function SpectatorPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
-  const accessToken = useAuthStore((s) => s.accessToken);
+  // Subscribe to token *presence*, not the token itself: access tokens rotate
+  // every few minutes, and re-running the join/leave effect on each rotation
+  // churned the spectator session (and leaked listeners under the old guard).
+  const hasToken = useAuthStore((s) => Boolean(s.accessToken));
   const { gameState, setGameState, clearGame } = useGameStore();
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
@@ -87,7 +90,8 @@ export default function SpectatorPage() {
   const [mapStrikeFlash, setMapStrikeFlash] = useState<MapStrikeFlashProps | null>(null);
   const mapStrikeFlashKeyRef = useRef(0);
   const mapDataRef = useRef<MapData | null>(null);
-  const cleanedUp = useRef(false);
+  const mapFetchInFlightRef = useRef(false);
+  const lastSpectatorSeqRef = useRef<number | null>(null);
   const {
     mapVisualEvents,
     globeEvents,
@@ -181,44 +185,71 @@ export default function SpectatorPage() {
   }, [mapVisualEvents]);
 
   useEffect(() => {
-    if (!gameId || !accessToken) return;
+    if (!gameId || !hasToken) return;
 
     connectSocket();
     const socket = getSocket();
+    lastSpectatorSeqRef.current = null;
 
-    socket.emit('game:spectate_join', { gameId });
+    // Re-emitted on every (re)connect: a transient drop removes us from the
+    // server's spectator room, and without a fresh join the page silently
+    // freezes on the last state it received.
+    const join = () => socket.emit('game:spectate_join', { gameId });
+    socket.on('connect', join);
+    if (socket.connected) join();
 
-    socket.on('game:state', (state: GameState) => {
+    const onGameState = (state: GameState & { _spectator_seq?: number }) => {
+      // The delayed feed re-broadcasts snapshots; skip ones we already have so
+      // an unchanged state doesn't force a re-render every tick.
+      const seq = state._spectator_seq;
+      if (typeof seq === 'number') {
+        if (lastSpectatorSeqRef.current === seq) return;
+        lastSpectatorSeqRef.current = seq;
+      }
       setGameState(state);
       setConnected(true);
-      // Load map data from the state's map_id
-      if (state.map_id && !mapData) {
+      if (state.phase === 'game_over') {
+        navigate(`/replay/${gameId}`, { replace: true });
+        return;
+      }
+      // Load map data from the state's map_id — once. Checked via refs (not
+      // the mapData state binding, which this closure would see stale) so a
+      // fetch fires only until one succeeds.
+      if (state.map_id && !mapDataRef.current && !mapFetchInFlightRef.current) {
+        mapFetchInFlightRef.current = true;
         api.get(`/maps/${state.map_id}`).then((res) => {
           mapDataRef.current = res.data.map;
           setMapData(res.data.map);
-        }).catch(() => {});
+        }).catch(() => {
+          mapFetchInFlightRef.current = false;
+        });
       }
-    });
+    };
+    socket.on('game:state', onGameState);
 
-    socket.on('game:spectate_joined', () => {
+    const onSpectateJoined = () => {
       setConnected(true);
-    });
+    };
+    socket.on('game:spectate_joined', onSpectateJoined);
 
-    socket.on('game:spectator_count', ({ count }: { count: number }) => {
+    const onSpectatorCount = ({ count }: { count: number }) => {
       setSpectatorCount(count);
-    });
+    };
+    socket.on('game:spectator_count', onSpectatorCount);
 
-    socket.on('game:over', () => {
+    const onGameOver = () => {
       navigate(`/replay/${gameId}`, { replace: true });
-    });
+    };
+    socket.on('game:over', onGameOver);
 
-    socket.on('game:spectator_emote', ({ emote, username }: { emote: string; username: string }) => {
+    const onSpectatorEmote = ({ emote, username }: { emote: string; username: string }) => {
       const id = Date.now() + Math.random();
       setEmotes((prev) => [...prev, { id, emote, username }]);
       window.setTimeout(() => {
         setEmotes((prev) => prev.filter((item) => item.id !== id));
       }, 1800);
-    });
+    };
+    socket.on('game:spectator_emote', onSpectatorEmote);
 
     const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
       if (!isMapStrikeAbility(event.abilityId)) return;
@@ -255,21 +286,23 @@ export default function SpectatorPage() {
 
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
 
-    socket.on('game:map_visual', (payload: MapVisualEvent) => {
+    const onMapVisual = (payload: MapVisualEvent) => {
       markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
       handleMapVisualEvent(payload);
-    });
+    };
+    socket.on('game:map_visual', onMapVisual);
 
-    socket.on('game:event_card', (card: EventCard) => {
+    const onEventCard = (card: EventCard) => {
       scheduleEventCardMapVisualBackup(
         card,
         (cardId) => mapVisualEventsRef.current.some((e) => e.kind === 'event' && e.cardId === cardId),
         pushMapVisualLocal,
         eventCardVisualSeenRef.current,
       );
-    });
+    };
+    socket.on('game:event_card', onEventCard);
 
-    socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
+    const onNavalCombatResult = ({ fromId, toId, result }: {
       fromId: string; toId: string;
       result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
     }) => {
@@ -279,9 +312,10 @@ export default function SpectatorPage() {
         ? `Fleet victory — ${fromName} → ${toName}`
         : `Fleet repelled at ${toName}`;
       toast(outcome, { icon: '⚓', duration: 3000 });
-    });
+    };
+    socket.on('game:naval_combat_result', onNavalCombatResult);
 
-    socket.on('game:influence_result', ({ success, targetId, variant }: {
+    const onInfluenceResult = ({ success, targetId, variant }: {
       success: boolean;
       targetId?: string;
       variant?: 'seize' | 'garibaldi' | 'detente';
@@ -292,51 +326,36 @@ export default function SpectatorPage() {
         : variant === 'detente' ? 'Détente'
           : 'Influence';
       toast(`📡 ${label} — ${targetName} seized`, { duration: 3000 });
-    });
+    };
+    socket.on('game:influence_result', onInfluenceResult);
 
-    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId, attackerId, targetOwnerId, targetOwnerName }: {
-      attackerId?: string;
-      attackerName: string;
-      attackerColor: string;
-      territoryId: string;
-      targetOwnerId?: string | null;
-      targetOwnerName?: string | null;
-    }) => {
-      handleStrikeAnimationEvent({
-        abilityId: 'atom_bomb',
-        attackerId: attackerId ?? '',
-        attackerName,
-        attackerColor,
-        territoryId,
-        targetOwnerId: targetOwnerId ?? null,
-        targetOwnerName: targetOwnerName ?? null,
-      });
-    });
-
-    socket.on('error', ({ message }: { message: string }) => {
+    const onError = ({ message }: { message: string }) => {
       setError(message);
-    });
+    };
+    socket.on('error', onError);
 
     return () => {
-      if (!cleanedUp.current) {
-        cleanedUp.current = true;
+      socket.off('connect', join);
+      socket.off('game:state', onGameState);
+      socket.off('game:spectate_joined', onSpectateJoined);
+      socket.off('game:spectator_count', onSpectatorCount);
+      socket.off('game:over', onGameOver);
+      socket.off('game:spectator_emote', onSpectatorEmote);
+      socket.off('game:strike_animation', handleStrikeAnimationEvent);
+      socket.off('game:map_visual', onMapVisual);
+      socket.off('game:event_card', onEventCard);
+      socket.off('game:naval_combat_result', onNavalCombatResult);
+      socket.off('game:influence_result', onInfluenceResult);
+      socket.off('error', onError);
+      // Only tell the server we left while actually connected — a leave
+      // buffered across a reconnect would arrive for a game we may have
+      // already rejoined.
+      if (socket.connected) {
         socket.emit('game:spectate_leave', { gameId });
-        socket.off('game:state');
-        socket.off('game:spectate_joined');
-        socket.off('game:spectator_count');
-        socket.off('game:over');
-        socket.off('game:spectator_emote');
-        socket.off('game:strike_animation');
-        socket.off('game:atom_bomb');
-        socket.off('game:map_visual');
-        socket.off('game:event_card');
-        socket.off('game:naval_combat_result');
-        socket.off('game:influence_result');
-        socket.off('error');
-        clearGame();
       }
+      clearGame();
     };
-  }, [gameId, accessToken]);
+  }, [gameId, hasToken]);
 
   if (error) {
     return (
@@ -385,8 +404,12 @@ export default function SpectatorPage() {
         </Link>
 
         <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium animate-pulse">
+          <span
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium animate-pulse"
+            title="Spectator view runs ~30 seconds behind the live game to prevent scouting"
+          >
             <Eye className="w-3 h-3" /> SPECTATING
+            <span className="text-red-400/70 font-normal">· ~30s delay</span>
           </span>
 
           {currentPlayer && (

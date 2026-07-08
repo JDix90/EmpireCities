@@ -4,6 +4,15 @@ import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import { emitGameError, GameErrorCode } from './socketErrors';
+import {
+  trackSpectator,
+  untrackSpectator,
+  pushSpectatorState,
+  getDelayedSpectatorState,
+  queueSpectatorEvent,
+  ensureSpectatorBroadcastLoop,
+  clearSpectatorGame,
+} from './spectatorBroadcast';
 import { armEvictionTimer, cancelEvictionTimer, pendingEvictionCount } from './evictionTimers';
 import { decideTurnTimerRearm } from './turnTimerRearm';
 import {
@@ -599,8 +608,7 @@ function armGameEviction(io: Server, gameId: string, mapId: string, reason: stri
         void evictGameRoom(gameId);
         clearGameSeatTimers(gameId);
         clearActionIdempotency(gameId);
-        spectatorSeqCounters.delete(gameId);
-        spectatorStateBuffers.delete(gameId);
+        clearSpectatorGame(gameId);
         console.log(`[Socket] Evicted inactive game ${gameId} from memory (${reason})`);
       } catch (err) {
         console.error('[Socket] Eviction check failed for', gameId, err);
@@ -788,11 +796,6 @@ function scheduleReclaimRetry(io: Server, gameId: string, playerId: string): voi
   reclaimRetryTimers.set(key, t);
 }
 
-const SPECTATOR_DELAY_MS = 30_000;
-const SPECTATOR_BROADCAST_MS = 3_000;
-const SPECTATOR_BUFFER_LIMIT = 24;
-const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
-
 // Adjacency cache: map_id → territory_id → neighbour_ids[]
 // Built once per unique map when the first room using it loads; reused for fog
 // visibility in buildClientState across all subsequent calls for that map.
@@ -811,11 +814,6 @@ function getOrBuildAdjacency(map: GameMap): Map<string, string[]> {
   adjacencyByMapId.set(map.map_id, adj);
   return adj;
 }
-
-const spectatorSocketsByGame = new Map<string, Set<string>>();
-const spectatorStateBuffers = new Map<string, Array<{ timestamp: number; state: GameState; seq: number }>>();
-const spectatorBroadcastLoops = new Map<string, ReturnType<typeof setInterval>>();
-const spectatorSeqCounters = new Map<string, number>();
 
 let gameIoSingleton: Server | null = null;
 
@@ -1260,39 +1258,39 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!game) return emitGameError(socket, GameErrorCode.GAME_DELETED, 'Game not found');
         if (game.status !== 'in_progress') return socket.emit('error', { message: 'Game is not in progress' });
 
+        // A socket spectates one game at a time. Settle the previous game's
+        // accounting if the client switched without an explicit leave.
+        const previous = socket.data?.spectating as string | undefined;
+        if (previous && previous !== gameId) {
+          await removeSpectatorSocket(io, socket, previous);
+        }
+
+        const room = await loadAuthoritativeRoom(gameId, game.map_id);
+        if (!room) {
+          // Without a snapshot the client would sit on "Connecting…" forever —
+          // surface a retryable error instead.
+          return emitGameError(socket, GameErrorCode.GAME_NOT_FOUND, 'Failed to load the game — please try again');
+        }
+        getOrBuildAdjacency(room.map);
+
         const spectatorRoom = `${gameId}:spectators`;
         socket.join(spectatorRoom);
         socket.data = { ...socket.data, spectating: gameId };
 
-        const room = await loadAuthoritativeRoom(gameId, game.map_id);
-        if (room) getOrBuildAdjacency(room.map);
-
-        // Increment spectator count
-        await query('UPDATE games SET spectator_count = spectator_count + 1 WHERE game_id = $1', [gameId]).catch(() => {});
-
-        let spectators = spectatorSocketsByGame.get(gameId);
-        if (!spectators) {
-          spectators = new Set();
-          spectatorSocketsByGame.set(gameId, spectators);
+        // Idempotent count: a duplicate join from the same socket (reconnect
+        // races, remount double-effects) must not inflate the persistent count.
+        if (trackSpectator(gameId, socket.id)) {
+          await query('UPDATE games SET spectator_count = spectator_count + 1 WHERE game_id = $1', [gameId]).catch(() => {});
         }
-        spectators.add(socket.id);
 
-        if (room) {
-          recordSpectatorState(gameId, room.state);
-          const initEntry = getDelayedSpectatorState(gameId);
-          socket.emit('game:state', initEntry
-            ? { ...initEntry.state, _spectator_seq: initEntry.seq }
-            : buildClientState(room.state, null, room.state.settings.fog_of_war));
-          ensureSpectatorBroadcastLoop(io, gameId);
+        recordSpectatorState(gameId, room.state);
+        const initEntry = getDelayedSpectatorState(gameId);
+        socket.emit('game:state', initEntry
+          ? { ...initEntry.state, _spectator_seq: initEntry.seq }
+          : buildClientState(room.state, null, room.state.settings.fog_of_war));
+        ensureSpectatorBroadcastLoop(io, gameId);
 
-          // Broadcast updated spectator count
-          const countRow = await queryOne<{ spectator_count: number }>(
-            'SELECT spectator_count FROM games WHERE game_id = $1',
-            [gameId],
-          );
-          io.to(gameId).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
-          io.to(spectatorRoom).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
-        }
+        await broadcastSpectatorCount(io, gameId);
 
         socket.emit('game:spectate_joined', { gameId });
       } catch (err) {
@@ -1302,28 +1300,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     socket.on('game:spectate_leave', async ({ gameId }: { gameId: string }) => {
-      const spectatorRoom = `${gameId}:spectators`;
-      socket.leave(spectatorRoom);
-      socket.data = { ...socket.data, spectating: undefined };
-
-      const spectators = spectatorSocketsByGame.get(gameId);
-      spectators?.delete(socket.id);
-      if (spectators && spectators.size === 0) {
-        spectatorSocketsByGame.delete(gameId);
-        stopSpectatorBroadcastLoop(gameId);
-      }
-
-      await query(
-        'UPDATE games SET spectator_count = GREATEST(spectator_count - 1, 0) WHERE game_id = $1',
-        [gameId],
-      ).catch(() => {});
-
-      const countRow = await queryOne<{ spectator_count: number }>(
-        'SELECT spectator_count FROM games WHERE game_id = $1',
-        [gameId],
-      );
-      io.to(gameId).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
-      io.to(spectatorRoom).emit('game:spectator_count', { count: countRow?.spectator_count ?? 0 });
+      await removeSpectatorSocket(io, socket, gameId);
     });
 
     // ── Start Game ──────────────────────────────────────────────────────────
@@ -1656,10 +1633,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         const crossing = resolveSeaCrossing(fromTerritory, toTerritory);
         if (crossing.navalResult) {
-          io.to(gameId).emit('game:naval_combat_result', {
-            fromId, toId,
-            result: crossing.navalResult,
-          });
+          const navalPayload = { fromId, toId, result: crossing.navalResult };
+          io.to(gameId).emit('game:naval_combat_result', navalPayload);
+          queueSpectatorEvent(gameId, 'game:naval_combat_result', navalPayload);
           emitMapVisual(io, gameId, buildNavalMapVisual({
             fromId,
             toId,
@@ -2255,6 +2231,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         navalAttackProbBefore,
       );
       io.to(gameId).emit('game:naval_combat_result', { fromId, toId, result: navalResult });
+      queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId, toId, result: navalResult });
       emitMapVisual(io, gameId, buildNavalMapVisual({
         fromId,
         toId,
@@ -2784,7 +2761,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         variant: influenceVariant,
       };
       io.to(gameId).emit('game:influence_result', influenceResultPayload);
-      io.to(`${gameId}:spectators`).emit('game:influence_result', influenceResultPayload);
+      queueSpectatorEvent(gameId, 'game:influence_result', influenceResultPayload);
       broadcastState(io, gameId, state);
       });
     });
@@ -2824,7 +2801,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       io.to(gameId).emit('game:event_card_resolved', { cardId: eventCardId });
-      io.to(`${gameId}:spectators`).emit('game:event_card_resolved', { cardId: eventCardId });
+      queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: eventCardId });
       broadcastState(io, gameId, state);
       // Restart turn timer now that the blocking event choice is resolved (human players only)
       if (!room.state.players[room.state.current_player_index].is_ai) {
@@ -3281,6 +3258,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
             achievements_unlocked: {},
             xp_earned_by_player: {},
           });
+          // Spectators run on the delayed feed; a slim end-signal lands when
+          // their board reaches the final state (client only navigates on it).
+          queueSpectatorEvent(gameId, 'game:over', {
+            winner_ids: [],
+            victory_condition: 'abandoned' as const,
+            turn_count: state.turn_number,
+          });
           broadcastState(io, gameId, state);
           return;
         }
@@ -3364,24 +3348,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Clean up spectator count
       const spectatingGameId = socket.data?.spectating as string | undefined;
       if (spectatingGameId) {
-        const spectatorRoom = `${spectatingGameId}:spectators`;
-        const spectators = spectatorSocketsByGame.get(spectatingGameId);
-        spectators?.delete(socket.id);
-        if (spectators && spectators.size === 0) {
-          spectatorSocketsByGame.delete(spectatingGameId);
-          stopSpectatorBroadcastLoop(spectatingGameId);
-        }
-        query(
-          'UPDATE games SET spectator_count = GREATEST(spectator_count - 1, 0) WHERE game_id = $1',
-          [spectatingGameId],
-        ).catch(() => {});
-        queryOne<{ spectator_count: number }>(
-          'SELECT spectator_count FROM games WHERE game_id = $1',
-          [spectatingGameId],
-        ).then((row) => {
-          io.to(spectatingGameId).emit('game:spectator_count', { count: row?.spectator_count ?? 0 });
-          io.to(spectatorRoom).emit('game:spectator_count', { count: row?.spectator_count ?? 0 });
-        }).catch(() => {});
+        void removeSpectatorSocket(io, socket, spectatingGameId).catch(() => {});
       }
 
       // Clean up matchmaking queue on disconnect
@@ -3497,7 +3464,7 @@ function broadcastEventCard(io: Server, gameId: string, state: GameState, map: G
   }
 
   io.to(gameId).emit('game:event_card', card);
-  io.to(`${gameId}:spectators`).emit('game:event_card', card);
+  queueSpectatorEvent(gameId, 'game:event_card', card);
 
   if (resolvedResult) {
     emitEventCardMapVisuals(io, gameId, {
@@ -3816,60 +3783,38 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 function recordSpectatorState(gameId: string, state: GameState): void {
   // Pass the game's real fog setting so spectators of a fog game get masked
   // territory intel (board control only), not the full board.
-  const snapshot = buildClientState(state, null, state.settings.fog_of_war);
-  const seq = (spectatorSeqCounters.get(gameId) ?? 0) + 1;
-  spectatorSeqCounters.set(gameId, seq);
-  const buffer = spectatorStateBuffers.get(gameId) ?? [];
-  buffer.push({
-    timestamp: Date.now(),
-    seq,
-    state: JSON.parse(JSON.stringify(snapshot)) as GameState,
-  });
-  while (buffer.length > SPECTATOR_BUFFER_LIMIT) {
-    buffer.shift();
-  }
-  spectatorStateBuffers.set(gameId, buffer);
+  pushSpectatorState(gameId, buildClientState(state, null, state.settings.fog_of_war));
 }
 
-function getDelayedSpectatorState(gameId: string): { state: GameState; seq: number } | null {
-  const buffer = spectatorStateBuffers.get(gameId);
-  if (!buffer || buffer.length === 0) return null;
-
-  const cutoff = Date.now() - SPECTATOR_DELAY_MS;
-  for (let index = buffer.length - 1; index >= 0; index -= 1) {
-    if (buffer[index].timestamp <= cutoff) {
-      return { state: buffer[index].state, seq: buffer[index].seq };
-    }
+/**
+ * Settle a spectator socket's departure from a game: room membership,
+ * socket.data, in-memory tracking, the persistent count, and the count
+ * broadcast. Idempotent — only a socket that was actually tracked touches the
+ * persistent count, so a stray leave (e.g. one the client buffered across a
+ * reconnect) cannot skew it.
+ */
+async function removeSpectatorSocket(io: Server, socket: Socket, gameId: string): Promise<void> {
+  socket.leave(`${gameId}:spectators`);
+  if (socket.data?.spectating === gameId) {
+    socket.data = { ...socket.data, spectating: undefined };
   }
+  if (!untrackSpectator(gameId, socket.id)) return;
 
-  return { state: buffer[0].state, seq: buffer[0].seq };
+  await query(
+    'UPDATE games SET spectator_count = GREATEST(spectator_count - 1, 0) WHERE game_id = $1',
+    [gameId],
+  ).catch(() => {});
+  await broadcastSpectatorCount(io, gameId);
 }
 
-function ensureSpectatorBroadcastLoop(io: Server, gameId: string): void {
-  if (spectatorBroadcastLoops.has(gameId)) return;
-
-  const timer = setInterval(() => {
-    const spectators = spectatorSocketsByGame.get(gameId);
-    if (!spectators || spectators.size === 0) {
-      stopSpectatorBroadcastLoop(gameId);
-      return;
-    }
-
-    const entry = getDelayedSpectatorState(gameId);
-    if (entry) {
-      io.to(`${gameId}:spectators`).emit('game:state', { ...entry.state, _spectator_seq: entry.seq });
-    }
-  }, SPECTATOR_BROADCAST_MS);
-  timer.unref();
-  spectatorBroadcastLoops.set(gameId, timer);
-}
-
-function stopSpectatorBroadcastLoop(gameId: string): void {
-  const timer = spectatorBroadcastLoops.get(gameId);
-  if (timer) {
-    clearInterval(timer);
-    spectatorBroadcastLoops.delete(gameId);
-  }
+async function broadcastSpectatorCount(io: Server, gameId: string): Promise<void> {
+  const countRow = await queryOne<{ spectator_count: number }>(
+    'SELECT spectator_count FROM games WHERE game_id = $1',
+    [gameId],
+  ).catch(() => null);
+  const count = countRow?.spectator_count ?? 0;
+  io.to(gameId).emit('game:spectator_count', { count });
+  io.to(`${gameId}:spectators`).emit('game:spectator_count', { count });
 }
 
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
@@ -4466,6 +4411,13 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     decision_summary: decisionSummary,
   };
   io.to(gameId).emit('game:over', stats);
+  // Spectators run on the delayed feed; a slim end-signal lands when their
+  // board reaches the final state (client only navigates to the replay on it).
+  queueSpectatorEvent(gameId, 'game:over', {
+    winner_ids: stats.winner_ids,
+    victory_condition: stats.victory_condition,
+    turn_count: stats.turn_count,
+  });
   gameCombatStats.delete(gameId);
   turnReadyAcked.delete(gameId);
 
@@ -5150,6 +5102,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       const aiCrossing = resolveSeaCrossing(from, to);
       if (aiCrossing.navalResult) {
         io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiCrossing.navalResult });
+        queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiCrossing.navalResult });
         emitMapVisual(io, gameId, buildNavalMapVisual({
           fromId: action.from,
           toId: action.to,
@@ -5345,7 +5298,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       });
     }
     io.to(gameId).emit('game:event_card_resolved', { cardId: '' });
-    io.to(`${gameId}:spectators`).emit('game:event_card_resolved', { cardId: '' });
+    queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: '' });
     broadcastState(io, gameId, state);
   }
 
