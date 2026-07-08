@@ -3,6 +3,7 @@ import type { GameMap, GameState } from '../../types';
 import { getAdjacentTerritoryIds } from '../state/influenceManager';
 import { TERRITORY_ABILITY_DEFS } from './techAbilities';
 import { buildStrikeMapVisual, emitMapVisual } from '../visuals/mapVisualEvents';
+import { queueSpectatorEvent } from '../../sockets/spectatorBroadcast';
 
 /** Abilities with full-screen overlay + map/globe strike visuals. */
 export const FULL_SCREEN_STRIKE_ABILITIES = new Set([
@@ -137,7 +138,9 @@ export function emitAbilityStrikeVisuals(
       : undefined);
 
   io.to(gameId).emit('game:strike_animation', payload);
-  io.to(`${gameId}:spectators`).emit('game:strike_animation', payload);
+  // Spectators get the strike through the delayed feed so the animation lands
+  // when their (30s-delayed) board shows the matching state.
+  queueSpectatorEvent(gameId, 'game:strike_animation', payload);
 
   const unitReduction = payload.unitReduction ?? def?.unitReduction;
   emitMapVisual(io, gameId, buildStrikeMapVisual({

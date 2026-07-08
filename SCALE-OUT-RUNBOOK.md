@@ -38,6 +38,7 @@ Without limits, one runaway container can OOM the co-located Postgres/Redis/ngin
 
 ### Gate 4 — Turn on multi-instance + smoke test
 - [ ] Uncomment `backend_2` in `docker-compose.prod.yml` and the `ip_hash` directive + second `server` line in `docker/nginx.prod.conf`.
+- [ ] ⚠️ **Spectator mode is NOT multi-instance-ready** (`sockets/spectatorBroadcast.ts`): the 30s-delay state/event buffers and broadcast loop are per-process, and the persistent `games.spectator_count` is reset on every node boot. A spectator landing on a node that isn't processing the game's actions would watch a frozen board. Before enabling: move the delay buffers to Redis (or route spectators to the game's node), and make the count reset single-node (Redis lease like the boot sweeps).
 - [ ] Smoke test cross-instance correctness:
   - Two clients from **different IPs** (so `ip_hash` routes them to different backends) join the **same** game → moves, chat, and broadcasts work for both.
   - Change an admin config on one instance → reflected on the other within ~1s (pub/sub).

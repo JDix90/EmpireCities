@@ -116,6 +116,15 @@ async function bootstrap(): Promise<void> {
   await connectPostgres();
   await connectRedis();
 
+  // Spectator counts are live per-connection tallies persisted in Postgres; a
+  // crash/restart orphans whatever increments were outstanding, and /live uses
+  // the column for its featured flag and sort order. Reset on boot so stale
+  // ghosts don't promote dead games. (Single-writer today — revisit alongside
+  // the per-process spectator loop before enabling multi-instance.)
+  await query(
+    `UPDATE games SET spectator_count = 0 WHERE status = 'in_progress' AND spectator_count <> 0`,
+  ).catch((err) => console.error('[Boot] spectator_count reset failed:', err));
+
   const app = Fastify({
     logger: config.nodeEnv === 'development',
     trustProxy: true,
