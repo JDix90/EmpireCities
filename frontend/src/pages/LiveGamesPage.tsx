@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, Users, Clock, RefreshCw, Radio } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
 import { AiBadge } from '../components/ui/AiBadge';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
+import { useFeatureFlagsStore, useSpectateEnabled } from '../store/featureFlagsStore';
 
 interface LiveGame {
   game_id: string;
@@ -25,6 +26,8 @@ export default function LiveGamesPage() {
   const [loading, setLoading] = useState(true);
   const [eraFilter, setEraFilter] = useState<string>('');
   const navigate = useNavigate();
+  const spectateEnabled = useSpectateEnabled();
+  const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
 
   const fetchLiveGames = async () => {
     setLoading(true);
@@ -41,10 +44,28 @@ export default function LiveGamesPage() {
   };
 
   useEffect(() => {
+    if (!spectateEnabled) return;
     fetchLiveGames();
     const interval = setInterval(fetchLiveGames, 15_000);
     return () => clearInterval(interval);
-  }, [eraFilter]);
+  }, [eraFilter, spectateEnabled]);
+
+  // Deep links land here regardless of the flag — show a friendly notice
+  // instead of a permanently empty list. Wait for the flag fetch so a slow
+  // load doesn't flash the notice at users who do have spectating enabled.
+  if (flagsLoaded && !spectateEnabled) {
+    return (
+      <SubpageShell title="LIVE GAMES" icon={Radio} maxWidth="4xl">
+        <div className="py-16 text-center">
+          <Eye className="w-12 h-12 text-bf-muted/30 mx-auto mb-4" />
+          <p className="text-bf-muted">Spectating is currently disabled</p>
+          <Link to="/lobby" className="inline-block mt-3 text-bf-gold hover:text-white transition-colors text-sm">
+            ← Back to the lobby
+          </Link>
+        </div>
+      </SubpageShell>
+    );
+  }
 
   return (
     <SubpageShell

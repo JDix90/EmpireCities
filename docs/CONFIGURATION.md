@@ -66,6 +66,7 @@
 | `eraAdvancementLobbyEnabled` | — (admin override only) | off | Era Advancement setting in lobby create-game UI |
 | `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | off | One-time guest → create-account nudge after a finished game |
 | `retentionNotificationsEnabled` | `RETENTION_NOTIFICATIONS_ENABLED` | off | Hourly re-engagement sweep: streak-at-risk push, daily-challenge reminder, D2/D7 win-back email (see [RETENTION-PLAYBOOK.md](RETENTION-PLAYBOOK.md)) |
+| `spectateEnabled` | `SPECTATE_ENABLED` | off | Watch/Spectate surface: Live nav + lobby Watch entries, `GET /api/games/live`, spectator socket joins. Off while player counts are low (an empty/stale live list reads worse than none) |
 
 ## Frontend environment variables
 

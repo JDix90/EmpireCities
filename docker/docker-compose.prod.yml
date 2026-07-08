@@ -87,6 +87,10 @@ services:
       # JSON log line per event. Default off — opt-in data collection. Read with
       # `pnpm exec tsx scripts/funnelReport.ts` inside this container.
       ANALYTICS_EVENTS_ENABLED: ${ANALYTICS_EVENTS_ENABLED:-false}
+      # Watch/Spectate surface (Live nav, live-games list, spectator joins).
+      # Default off at low player counts — an empty/stale live list reads worse
+      # than none. Also flippable live via the spectate_enabled admin override.
+      SPECTATE_ENABLED: ${SPECTATE_ENABLED:-false}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       SMTP_HOST: ${SMTP_HOST:-}

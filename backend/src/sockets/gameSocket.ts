@@ -4,6 +4,7 @@ import { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import { emitGameError, GameErrorCode } from './socketErrors';
+import { featureFlags } from '../config/featureFlags';
 import {
   trackSpectator,
   untrackSpectator,
@@ -1251,6 +1252,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Spectate Game ───────────────────────────────────────────────────────
     socket.on('game:spectate_join', async ({ gameId }: { gameId: string }) => {
       try {
+        // Server-side backstop for the spectate flag — hiding the client
+        // entry points alone would leave direct socket joins working.
+        if (!featureFlags.spectateEnabled) {
+          return socket.emit('error', { message: 'Spectating is currently disabled' });
+        }
+
         const game = await queryOne<{ game_id: string; status: string; map_id: string }>(
           'SELECT game_id, status, map_id FROM games WHERE game_id = $1',
           [gameId],

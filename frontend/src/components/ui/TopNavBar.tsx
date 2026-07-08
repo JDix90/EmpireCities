@@ -6,7 +6,7 @@ import {
 import styles from './TopNavBar.module.css';
 import UserMenu from './UserMenu';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
-import { useMapEditorEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
@@ -17,6 +17,7 @@ type NavItem = {
   hideForGuest?: boolean;
   hideForNonAdmin?: boolean;
   requiresMapEditor?: boolean;
+  requiresSpectate?: boolean;
   exact?: boolean;
 };
 
@@ -26,7 +27,7 @@ const mainNav: NavItem[] = [
   { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily', hideForGuest: true },
   { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
   { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
-  { to: '/live-games', label: 'Live', icon: Eye, title: 'Live' },
+  { to: '/live-games', label: 'Live', icon: Eye, title: 'Live', requiresSpectate: true },
   { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true, requiresMapEditor: true },
   { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
 ];
@@ -38,6 +39,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAdmin = selectIsAdminFromToken(accessToken);
   const mapEditorEnabled = useMapEditorEnabled();
+  const spectateEnabled = useSpectateEnabled();
   // Read gold from the store (not the prop) so it stays reactive after daily
   // claims, purchases, and game rewards update the balance elsewhere.
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
@@ -54,10 +56,11 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Main nav groups */}
       <div className={styles.mainNav}>
         <div className={styles.navLinks}>
-          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, requiresMapEditor, exact }) =>
+          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate, exact }) =>
             (!hideForGuest || !user?.is_guest)
             && (!hideForNonAdmin || isAdmin)
-            && (!requiresMapEditor || mapEditorEnabled) && (
+            && (!requiresMapEditor || mapEditorEnabled)
+            && (!requiresSpectate || spectateEnabled) && (
               <Link
                 key={to}
                 to={to}

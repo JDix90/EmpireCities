@@ -362,6 +362,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/games/live ──────────────────────────────────────────────────
   // List in-progress games available for spectating
   fastify.get('/live', { preHandler: [shedIfPoolSaturated, authenticate] }, async (request, reply) => {
+    // Spectating dark-launched off: an empty list (rather than an error) keeps
+    // every client rendering its normal "no live games" state.
+    if (!featureFlags.spectateEnabled) return reply.send([]);
+
     const qs = request.query as { era_id?: string; limit?: string };
     const limit = Math.min(parseInt(qs.limit ?? '20', 10) || 20, 50);
 
