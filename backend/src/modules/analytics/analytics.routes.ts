@@ -16,6 +16,9 @@ const UiEventSchema = z.object({
     'signup_nudge_shown',
     'signup_nudge_clicked',
     'pwa_installed',
+    'today_panel_shown',
+    'async_cta_clicked',
+    'streak_freeze_buy_clicked',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 });

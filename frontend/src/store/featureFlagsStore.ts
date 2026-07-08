@@ -6,6 +6,9 @@ export interface ClientFeatureFlags {
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
   signup_nudge_enabled: boolean;
+  streak_freezes_enabled: boolean;
+  today_panel_enabled: boolean;
+  async_onboarding_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
@@ -17,6 +20,10 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_turn_coach_enabled: false,
   // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
   signup_nudge_enabled: false,
+  // Wave 2 retention flags — all default off (dark-launch).
+  streak_freezes_enabled: false,
+  today_panel_enabled: false,
+  async_onboarding_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -55,4 +62,16 @@ export function useFirstTurnCoachEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
+}
+
+export function useStreakFreezesEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.streak_freezes_enabled);
+}
+
+export function useTodayPanelEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.today_panel_enabled);
+}
+
+export function useAsyncOnboardingEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.async_onboarding_enabled);
 }

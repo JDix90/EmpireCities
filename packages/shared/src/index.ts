@@ -129,7 +129,15 @@ export const ONBOARDING_QUESTS: QuestDef[] = [
   { quest_id: 'first_tech',      title: 'Age of Discovery',   description: 'Research a technology',        reward_xp: 0,   reward_gold: 30 },
   { quest_id: 'first_ranked',    title: 'Ranked Contender',   description: 'Enter a ranked match',         reward_xp: 0,   reward_gold: 50 },
   { quest_id: 'first_friend',    title: 'Allies',             description: 'Add a friend',                 reward_xp: 0,   reward_gold: 25 },
+  { quest_id: 'first_async',     title: 'The Long Game',      description: 'Start a multi-day game against another player', reward_xp: 0, reward_gold: 50 },
 ];
+
+/**
+ * Quests completable in any order. The rest of ONBOARDING_QUESTS gate
+ * sequentially; first_async must not, because the players it targets are
+ * early in the chain when the async CTA is shown to them.
+ */
+export const NON_SEQUENTIAL_QUESTS = new Set(['first_async']);
 
 // ── Daily login rewards ───────────────────────────────────────────────────
 
@@ -147,3 +155,14 @@ export function dailyLoginRewardForStreak(loginStreak: number): number {
   const idx = Math.min(Math.max(loginStreak, 1), DAILY_LOGIN_REWARDS.length) - 1;
   return DAILY_LOGIN_REWARDS[idx]!;
 }
+
+// ── Streak freezes ────────────────────────────────────────────────────────
+
+/**
+ * A streak freeze bridges exactly one missed day of the daily play streak;
+ * gaps of two or more days still reset. Priced between the 3-day (25g) and
+ * 7-day (75g) streak milestones so a freeze is a real purchase but cheaper
+ * than the streak it protects. The cap keeps streaks mortal.
+ */
+export const STREAK_FREEZE_PRICE_GOLD = 50;
+export const STREAK_FREEZE_MAX_HELD = 2;

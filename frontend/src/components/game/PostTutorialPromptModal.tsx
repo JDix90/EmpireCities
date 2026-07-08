@@ -1,9 +1,15 @@
-import { Bot, X } from 'lucide-react';
+import { Bot, Hourglass, X } from 'lucide-react';
 
 interface PostTutorialPromptModalProps {
   loading?: boolean;
   onStartSolo: () => void;
   onBackToLobby: () => void;
+  /**
+   * When set (async_onboarding_enabled), adds a secondary "challenge a friend"
+   * CTA that routes into async game creation. Solo stays the primary CTA —
+   * the async path is additive so activation is never gated on a second human.
+   */
+  onChallengeFriend?: () => void;
 }
 
 /**
@@ -15,6 +21,7 @@ export default function PostTutorialPromptModal({
   loading,
   onStartSolo,
   onBackToLobby,
+  onChallengeFriend,
 }: PostTutorialPromptModalProps) {
   return (
     <div
@@ -54,6 +61,17 @@ export default function PostTutorialPromptModal({
           <Bot className="w-4 h-4" aria-hidden />
           {loading ? 'Starting…' : 'Start Solo Game'}
         </button>
+
+        {onChallengeFriend && (
+          <button
+            type="button"
+            onClick={onChallengeFriend}
+            className="w-full flex items-center justify-center gap-2 mb-3 py-2.5 rounded-lg border border-bf-border bg-bf-dark/40 text-bf-text text-sm hover:border-bf-gold/40 transition-colors"
+          >
+            <Hourglass className="w-4 h-4 text-purple-300" aria-hidden />
+            Challenge a friend — play a turn a day
+          </button>
+        )}
 
         <button
           type="button"

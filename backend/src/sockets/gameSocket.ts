@@ -3651,6 +3651,18 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   lobbyProposalsByGame.delete(gameId);
 
   io.to(gameId).emit('game:started', buildGameStartedPayload(gameId, state));
+
+  // "The Long Game" onboarding quest: starting a multi-day async game against
+  // at least one other human. Credited to every human seat — both players are
+  // starting their first async game. Fire-and-forget like the other quest hooks.
+  if (state.settings.async_mode && humanCount >= 2) {
+    for (const player of state.players) {
+      if (!player.is_ai) {
+        checkOnboardingQuests(player.player_id, 'async_start').catch(() => {});
+      }
+    }
+  }
+
   recordServerEvent('game_started', {
     game_id: gameId,
     map_id: state.map_id,
@@ -4243,6 +4255,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     win_streak: number;
     daily_streak: number;
     daily_streak_milestone: number | null;
+    streak_freeze_used: boolean;
     gold_awarded: number;
     gold_multiplier: number;
     level_cosmetic: string | null;
@@ -4324,6 +4337,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           win_streak: winStreak,
           daily_streak: dailyResult.streak,
           daily_streak_milestone: dailyResult.milestone,
+          streak_freeze_used: dailyResult.freeze_used,
           gold_awarded: goldAwarded,
           gold_multiplier: isWinner ? (winStreak >= 10 ? 2.0 : winStreak >= 7 ? 1.75 : winStreak >= 5 ? 1.5 : winStreak >= 3 ? 1.25 : 1.0) : 1.0,
           level_cosmetic: levelCosmetic,

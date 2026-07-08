@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, Coins, Swords } from 'lucide-react';
+import { Flame, Coins, Swords, Snowflake } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface ComebackData {
@@ -11,6 +11,7 @@ interface ComebackData {
   tomorrow_login_reward: number | null;
   already_claimed_today: boolean | null;
   daily_challenge_done_today: boolean;
+  streak_freezes: number | null;
 }
 
 /**
@@ -58,6 +59,16 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
             {data.is_guest && (
               <span className="text-bf-muted"> Create a free account to protect it.</span>
             )}
+          </span>
+        </p>
+      )}
+
+      {!data.is_guest && (data.streak_freezes ?? 0) > 0 && data.daily_streak > 0 && (
+        <p className="text-xs text-sky-300/90 flex items-start gap-2">
+          <Snowflake size={13} className="mt-0.5 shrink-0" />
+          <span>
+            {data.streak_freezes} streak freeze{data.streak_freezes === 1 ? '' : 's'} armed — one missed day
+            won&apos;t break your streak.
           </span>
         </p>
       )}

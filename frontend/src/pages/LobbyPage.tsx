@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -44,6 +44,7 @@ import MonthlyChallenges from '../components/ui/MonthlyChallenges';
 import DailyLoginCalendar from '../components/ui/DailyLoginCalendar';
 import ActivityFeed from '../components/ui/ActivityFeed';
 import LeaderboardWidget from '../components/lobby/LeaderboardWidget';
+import TodayPanel from '../components/lobby/TodayPanel';
 import ChallengeFriendModal from '../components/lobby/ChallengeFriendModal';
 import MobileTabBar from '../components/ui/MobileTabBar';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
@@ -319,6 +320,7 @@ export default function LobbyPage() {
   const { user, logout, accessToken, refreshUser } = useAuthStore();
   const mapEditorEnabled = useMapEditorEnabled();
   const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();
+  const todayPanelEnabled = useTodayPanelEnabled();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -385,9 +387,12 @@ export default function LobbyPage() {
       try {
         const res = await api.get<{ quests: { completed_at: string | null }[] }>('/progression/quests');
         const quests = res.data?.quests ?? [];
-        const completedCount = quests.filter((q) => q.completed_at).length;
+        // Index of the first incomplete quest, not the completed count —
+        // first_async can complete out of order, which would otherwise skew
+        // the banner onto the wrong quest.
+        const firstIncomplete = quests.findIndex((q) => !q.completed_at);
         if (!cancelled) {
-          setQuestStage(completedCount >= quests.length ? null : completedCount);
+          setQuestStage(firstIncomplete === -1 ? null : firstIncomplete);
         }
       } catch {
         if (!cancelled) setQuestStage(null); // on failure, just hide the banner
@@ -627,6 +632,14 @@ export default function LobbyPage() {
     if (searchParams.has('era') || searchParams.has('map')) {
       setSearchParams({}, { replace: true });
     }
+  }, [searchParams, setSearchParams]);
+
+  // ?challenge=1 → open the challenge-a-friend modal (async-by-default). Used
+  // by the post-tutorial "play a turn a day" CTA and retention deep links.
+  useEffect(() => {
+    if (searchParams.get('challenge') !== '1') return;
+    setShowChallenge(true);
+    setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
@@ -2374,35 +2387,44 @@ export default function LobbyPage() {
             )}
             {user && !user.is_guest ? (
               <>
-                {!isNewUser && (
-                  <Link
-                    to="/daily"
-                    className="card block hover:border-bf-gold/40 transition-colors group"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="font-display text-bf-gold flex items-center gap-2">
-                        <Calendar className="w-4 h-4" /> Daily Challenge
-                      </h3>
-                      {dailySummary?.completed && (
-                        <span className="text-[10px] uppercase tracking-wide text-green-300 border border-green-700/40 bg-green-950/30 rounded px-1.5 py-0.5">
-                          Done
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-bf-muted text-sm">
-                      {dailySummary
-                        ? `Today: ${ERA_LABELS[dailySummary.era_id] ?? dailySummary.era_id} · same map for everyone.`
-                        : 'One puzzle per day, same map for everyone.'}
-                    </p>
-                    {dailySummary && dailySummary.attempts_today > 0 && (
-                      <p className="text-xs text-bf-gold/80 mt-2">
-                        {dailySummary.attempts_today} commander{dailySummary.attempts_today === 1 ? '' : 's'} attempted today
+                {todayPanelEnabled ? (
+                  <TodayPanel
+                    isNewUser={isNewUser}
+                    dailySummary={dailySummary}
+                    hasActiveAsyncGames={activeGames.some((g) => g.async_mode)}
+                    onStartAsyncGame={() => setShowChallenge(true)}
+                  />
+                ) : (
+                  !isNewUser && (
+                    <Link
+                      to="/daily"
+                      className="card block hover:border-bf-gold/40 transition-colors group"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h3 className="font-display text-bf-gold flex items-center gap-2">
+                          <Calendar className="w-4 h-4" /> Daily Challenge
+                        </h3>
+                        {dailySummary?.completed && (
+                          <span className="text-[10px] uppercase tracking-wide text-green-300 border border-green-700/40 bg-green-950/30 rounded px-1.5 py-0.5">
+                            Done
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-bf-muted text-sm">
+                        {dailySummary
+                          ? `Today: ${ERA_LABELS[dailySummary.era_id] ?? dailySummary.era_id} · same map for everyone.`
+                          : 'One puzzle per day, same map for everyone.'}
                       </p>
-                    )}
-                  </Link>
+                      {dailySummary && dailySummary.attempts_today > 0 && (
+                        <p className="text-xs text-bf-gold/80 mt-2">
+                          {dailySummary.attempts_today} commander{dailySummary.attempts_today === 1 ? '' : 's'} attempted today
+                        </p>
+                      )}
+                    </Link>
+                  )
                 )}
                 <LeaderboardWidget />
-                <DailyLoginCalendar />
+                {!todayPanelEnabled && <DailyLoginCalendar />}
                 <MonthlyChallenges />
                 <SeasonBanner />
               </>

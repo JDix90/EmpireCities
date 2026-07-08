@@ -50,4 +50,28 @@ describe('featureFlags', () => {
     expect(featureFlags.signupNudgeEnabled).toBe(true);
     expect(getClientFeatureFlags().signup_nudge_enabled).toBe(true);
   });
+
+  it('streak_freezes_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.streakFreezesEnabled).toBe(false);
+    expect(getClientFeatureFlags().streak_freezes_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { streak_freezes_enabled: true } });
+    expect(featureFlags.streakFreezesEnabled).toBe(true);
+    expect(getClientFeatureFlags().streak_freezes_enabled).toBe(true);
+  });
+
+  it('today_panel_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.todayPanelEnabled).toBe(false);
+    expect(getClientFeatureFlags().today_panel_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { today_panel_enabled: true } });
+    expect(featureFlags.todayPanelEnabled).toBe(true);
+    expect(getClientFeatureFlags().today_panel_enabled).toBe(true);
+  });
+
+  it('async_onboarding_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.asyncOnboardingEnabled).toBe(false);
+    expect(getClientFeatureFlags().async_onboarding_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { async_onboarding_enabled: true } });
+    expect(featureFlags.asyncOnboardingEnabled).toBe(true);
+    expect(getClientFeatureFlags().async_onboarding_enabled).toBe(true);
+  });
 });

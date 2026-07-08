@@ -3,9 +3,17 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import { claimDailyLogin, DAILY_STREAK_MILESTONES } from '../../game-engine/progression/progressionService';
+import { claimDailyLogin, DAILY_STREAK_MILESTONES, purchaseStreakFreeze } from '../../game-engine/progression/progressionService';
 import { getTier } from '../../game-engine/rating/ratingService';
-import { ONBOARDING_QUESTS, DAILY_LOGIN_REWARDS, dailyLoginRewardForStreak } from '@borderfall/shared';
+import {
+  ONBOARDING_QUESTS,
+  NON_SEQUENTIAL_QUESTS,
+  DAILY_LOGIN_REWARDS,
+  dailyLoginRewardForStreak,
+  STREAK_FREEZE_PRICE_GOLD,
+  STREAK_FREEZE_MAX_HELD,
+} from '@borderfall/shared';
+import { featureFlags } from '../../config/featureFlags';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';
 import { getSeasonHistory } from '../../game-engine/progression/seasonService';
 import { redeemReferralCode, getReferralStats, ensureReferralCode } from '../../game-engine/progression/referralService';
@@ -50,6 +58,11 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
     let foundCurrent = false;
     const quests = ONBOARDING_QUESTS.map((q) => {
       const completedAt = completedMap.get(q.quest_id) ?? null;
+      // Non-sequential quests (first_async) are always completable: never
+      // locked, and they don't occupy the chain's "current" slot.
+      if (NON_SEQUENTIAL_QUESTS.has(q.quest_id)) {
+        return { ...q, completed_at: completedAt, is_current: false, is_locked: false };
+      }
       const isCurrent = !completedAt && !foundCurrent;
       if (isCurrent) foundCurrent = true;
       return {
@@ -254,12 +267,15 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
     const user = await queryOne<{
       is_guest: boolean; daily_streak: number; last_played_date: string | null;
       last_login_date: string | null; login_streak: number;
+      streak_freezes: number; streak_freeze_used_on: string | null;
     }>(
       `SELECT COALESCE(is_guest, false) AS is_guest,
               COALESCE(daily_streak, 0) AS daily_streak,
               last_played_date::text AS last_played_date,
               last_login_date::text AS last_login_date,
-              COALESCE(login_streak, 0) AS login_streak
+              COALESCE(login_streak, 0) AS login_streak,
+              COALESCE(streak_freezes, 0) AS streak_freezes,
+              streak_freeze_used_on::text AS streak_freeze_used_on
        FROM users WHERE user_id = $1`,
       [request.userId],
     );
@@ -297,9 +313,34 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
       next_streak_milestone: nextMilestone,
       // Login bonus is a registered-only mechanic (rejectGuest on /daily-login).
       tomorrow_login_reward: user.is_guest ? null : dailyLoginRewardForStreak(todayDay + 1),
+      today_login_reward: user.is_guest ? null : dailyLoginRewardForStreak(todayDay),
+      login_streak: user.is_guest ? null : user.login_streak,
       already_claimed_today: user.is_guest ? null : alreadyClaimed,
       daily_challenge_done_today: Boolean(dailyDone),
+      // Streak freezes are registered-only (rejectGuest on the buy endpoint).
+      // Counts are returned even when sales are flagged off so a held freeze
+      // stays visible; `purchasable` tells the client whether to offer the buy.
+      streak_freezes: user.is_guest ? null : user.streak_freezes,
+      streak_freeze_used_on: user.is_guest ? null : user.streak_freeze_used_on,
+      streak_freeze_price: STREAK_FREEZE_PRICE_GOLD,
+      streak_freeze_max: STREAK_FREEZE_MAX_HELD,
+      streak_freezes_purchasable: !user.is_guest && featureFlags.streakFreezesEnabled,
     });
+  });
+
+  // ── POST /api/progression/streak-freeze ──────────────────────────────────
+  fastify.post('/streak-freeze', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    if (!featureFlags.streakFreezesEnabled) {
+      return reply.status(404).send({ error: 'Streak freezes are not available' });
+    }
+    const result = await purchaseStreakFreeze(request.userId);
+    if (result.code === 'at_cap') {
+      return reply.status(409).send({ error: 'You already hold the maximum number of streak freezes', held: result.held });
+    }
+    if (result.code === 'insufficient_gold') {
+      return reply.status(402).send({ error: 'Insufficient gold', required: STREAK_FREEZE_PRICE_GOLD, balance: result.balance });
+    }
+    return reply.send({ streak_freezes: result.streak_freezes, gold: result.gold });
   });
 
   // ── POST /api/progression/referral/redeem ────────────────────────────────
