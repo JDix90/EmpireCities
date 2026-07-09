@@ -35,6 +35,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Show the Era Advancement advanced game setting in the lobby. Does not affect games already created with the option on.',
   },
+  {
+    key: 'spectate_enabled',
+    label: 'Watch / Spectate',
+    description:
+      'Show the Live nav, lobby Watch entries, and the live-games list, and allow spectator joins. Off by default until there is enough concurrent traffic for the list to look alive.',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

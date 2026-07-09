@@ -5,7 +5,7 @@ import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, L
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled } from '../store/featureFlagsStore';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
@@ -1860,7 +1860,13 @@ export default function GamePage() {
               const resp = (err as { response?: { status?: number; data?: { code?: string } } }).response;
               // An already-started game can't be joined but can be watched — send
               // the link-clicker to the live spectator view instead of a dead end.
-              if (resolveJoinFailure(resp?.status, resp?.data?.code) === 'spectate') {
+              // (One-shot decision, so a plain store read beats threading a hook
+              // value into this effect; falls through to the error message when
+              // spectating is flagged off.)
+              if (
+                resolveJoinFailure(resp?.status, resp?.data?.code) === 'spectate'
+                && useFeatureFlagsStore.getState().flags.spectate_enabled
+              ) {
                 toast('This match already started — watching live', { icon: '👁️', duration: 3500 });
                 navigate(`/spectate/${gameId}`);
                 return;

@@ -133,6 +133,18 @@ export const featureFlags = {
   get asyncOnboardingEnabled(): boolean {
     return overrideBool('async_onboarding_enabled', process.env.ASYNC_ONBOARDING_ENABLED === 'true');
   },
+
+  /**
+   * When true, the Watch/Spectate surface is live: the "Live" nav + lobby
+   * entries, GET /api/games/live, and `game:spectate_join`. Default OFF — at a
+   * small player count the live list is mostly empty or stale, which reads
+   * worse than no list at all. Flip on via `SPECTATE_ENABLED=true` or the
+   * `spectate_enabled` admin override once there's enough concurrent traffic.
+   * Enforced server-side (list + socket join), not just hidden in the client.
+   */
+  get spectateEnabled(): boolean {
+    return overrideBool('spectate_enabled', process.env.SPECTATE_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -145,5 +157,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
+    spectate_enabled: featureFlags.spectateEnabled,
   };
 }

@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -321,6 +321,7 @@ export default function LobbyPage() {
   const mapEditorEnabled = useMapEditorEnabled();
   const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();
   const todayPanelEnabled = useTodayPanelEnabled();
+  const spectateEnabled = useSpectateEnabled();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
@@ -1311,13 +1312,15 @@ export default function LobbyPage() {
               <span className="font-semibold">Custom Game</span>
               <span className="text-[11px] font-normal opacity-75">Your rules, map &amp; opponents</span>
             </button>
-            <button
-              onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
-              className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
-            >
-              <span className="font-semibold">Watch</span>
-              <span className="text-[11px] font-normal opacity-75">Spectate a live game</span>
-            </button>
+            {spectateEnabled && (
+              <button
+                onClick={() => navigate(topLiveGameId ? `/spectate/${topLiveGameId}` : '/live-games')}
+                className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
+              >
+                <span className="font-semibold">Watch</span>
+                <span className="text-[11px] font-normal opacity-75">Spectate a live game</span>
+              </button>
+            )}
             {!user?.is_guest && mapEditorEnabled && (
               <Link to="/editor" className="btn-secondary items-center gap-2 hidden lg:flex">
                 Map Editor

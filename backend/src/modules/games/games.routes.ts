@@ -360,8 +360,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/games/live ──────────────────────────────────────────────────
-  // List in-progress games available for spectating
+  // List in-progress games available for spectating.
+  // Only games with recent state activity are listed (see the freshness
+  // predicate below) — a stale list reads worse than a short one.
+  // NOTE: interpolated into SQL as a literal — must stay a compile-time number.
+  const LIVE_ACTIVITY_WINDOW_MINUTES = 30;
   fastify.get('/live', { preHandler: [shedIfPoolSaturated, authenticate] }, async (request, reply) => {
+    // Spectating dark-launched off: an empty list (rather than an error) keeps
+    // every client rendering its normal "no live games" state.
+    if (!featureFlags.spectateEnabled) return reply.send([]);
+
     const qs = request.query as { era_id?: string; limit?: string };
     const limit = Math.min(parseInt(qs.limit ?? '20', 10) || 20, 50);
 
@@ -423,7 +431,17 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
            FROM game_players human_gp
            WHERE human_gp.game_id = g.game_id
              AND human_gp.is_ai = false
-         ) ${eraFilter}
+         )
+         -- Freshness: only games whose state actually moved recently. Postgres
+         -- backups are debounced ~1s behind every mutation, so MAX(saved_at) is
+         -- a live-activity signal; games stuck in_progress (abandoned tabs,
+         -- stalled asyncs) age out of the list instead of cluttering it.
+         -- COALESCE(created_at) keeps a just-started game visible before its
+         -- first snapshot lands.
+         AND COALESCE(
+           (SELECT MAX(gs_recent.saved_at) FROM game_states gs_recent WHERE gs_recent.game_id = g.game_id),
+           g.created_at
+         ) > NOW() - INTERVAL '${LIVE_ACTIVITY_WINDOW_MINUTES} minutes' ${eraFilter}
        ORDER BY featured DESC, g.spectator_count DESC, g.created_at DESC
        LIMIT $1`,
       params,

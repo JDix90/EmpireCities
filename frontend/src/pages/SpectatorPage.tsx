@@ -2,6 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore, useSpectateEnabled } from '../store/featureFlagsStore';
 import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -75,6 +76,8 @@ export default function SpectatorPage() {
   // every few minutes, and re-running the join/leave effect on each rotation
   // churned the spectator session (and leaked listeners under the old guard).
   const hasToken = useAuthStore((s) => Boolean(s.accessToken));
+  const spectateEnabled = useSpectateEnabled();
+  const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
   const { gameState, setGameState, clearGame } = useGameStore();
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
@@ -186,6 +189,9 @@ export default function SpectatorPage() {
 
   useEffect(() => {
     if (!gameId || !hasToken) return;
+    // Wait for the flag fetch: joining while spectating is disabled would just
+    // bounce off the server-side gate and flash its error at the user.
+    if (!flagsLoaded || !spectateEnabled) return;
 
     connectSocket();
     const socket = getSocket();
@@ -355,7 +361,19 @@ export default function SpectatorPage() {
       }
       clearGame();
     };
-  }, [gameId, hasToken]);
+  }, [gameId, hasToken, flagsLoaded, spectateEnabled]);
+
+  if (flagsLoaded && !spectateEnabled) {
+    return (
+      <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4">
+        <Eye className="w-12 h-12 text-bf-muted/30" />
+        <p className="text-bf-muted">Spectating is currently disabled</p>
+        <Link to="/lobby" className="text-bf-gold hover:text-white transition-colors text-sm">
+          ← Back to the lobby
+        </Link>
+      </div>
+    );
+  }
 
   if (error) {
     return (

@@ -9,6 +9,7 @@ export interface ClientFeatureFlags {
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
+  spectate_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
@@ -24,6 +25,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   streak_freezes_enabled: false,
   today_panel_enabled: false,
   async_onboarding_enabled: false,
+  // Default off — Watch/Spectate is hidden until there's enough live traffic
+  // for the list to look alive; GET /feature-flags reconciles once enabled.
+  spectate_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -74,4 +78,8 @@ export function useTodayPanelEnabled(): boolean {
 
 export function useAsyncOnboardingEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.async_onboarding_enabled);
+}
+
+export function useSpectateEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.spectate_enabled);
 }

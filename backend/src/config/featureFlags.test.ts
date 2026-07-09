@@ -74,4 +74,12 @@ describe('featureFlags', () => {
     expect(featureFlags.asyncOnboardingEnabled).toBe(true);
     expect(getClientFeatureFlags().async_onboarding_enabled).toBe(true);
   });
+
+  it('spectate_enabled defaults to off and is admin-overridable', () => {
+    expect(featureFlags.spectateEnabled).toBe(false);
+    expect(getClientFeatureFlags().spectate_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { spectate_enabled: true } });
+    expect(featureFlags.spectateEnabled).toBe(true);
+    expect(getClientFeatureFlags().spectate_enabled).toBe(true);
+  });
 });

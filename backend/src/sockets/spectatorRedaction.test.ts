@@ -39,6 +39,11 @@ describe.runIf(enabled)('spectator state redaction integration', () => {
   const openClients: ClientSocket[] = [];
 
   beforeAll(async () => {
+    // Spectating is dark-launched off by default; this suite exercises the
+    // spectate path itself, so enable it via the admin-config override.
+    const adminConfig = await import('../services/adminConfig');
+    adminConfig.setAdminConfigCacheForTests({ feature_flags: { spectate_enabled: true } });
+
     const sockets = await import('./gameSocket');
     shutdownGameSocket = sockets.shutdownGameSocket;
     ({ signAccessToken } = await import('../utils/jwt'));
@@ -67,6 +72,8 @@ describe.runIf(enabled)('spectator state redaction integration', () => {
   }, 30_000);
 
   afterAll(async () => {
+    const adminConfig = await import('../services/adminConfig');
+    adminConfig.resetAdminConfigCacheForTests();
     for (const c of openClients) c.disconnect();
     for (const gid of [FOG_GID, NOFOG_GID]) {
       await deleteGameKeys(gid).catch(() => {});
