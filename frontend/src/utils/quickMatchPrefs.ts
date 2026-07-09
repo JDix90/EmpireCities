@@ -38,7 +38,10 @@ export const QUICK_MATCH_DIFFICULTY_HINTS: Record<QuickMatchAiDifficulty, string
   expert: 'Ruthless — deepest planning, no slack.',
 };
 
-const STORAGE_KEY = 'cc-quick-match-prefs';
+// Quick Match and Full Game Start remember their setups independently — a
+// player's "quick stomp" table and their "long campaign" table usually differ.
+const QUICK_MATCH_STORAGE_KEY = 'cc-quick-match-prefs';
+const FULL_GAME_STORAGE_KEY = 'cc-full-game-prefs';
 
 /** Coerce anything (bad JSON shapes, stale values) into valid prefs, field by field. */
 export function sanitizeQuickMatchPrefs(raw: unknown): QuickMatchPrefs {
@@ -57,10 +60,10 @@ export function sanitizeQuickMatchPrefs(raw: unknown): QuickMatchPrefs {
   return prefs;
 }
 
-export function loadQuickMatchPrefs(): QuickMatchPrefs {
+function loadPrefs(storageKey: string): QuickMatchPrefs {
   if (typeof window === 'undefined') return { ...DEFAULT_QUICK_MATCH_PREFS };
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return { ...DEFAULT_QUICK_MATCH_PREFS };
     return sanitizeQuickMatchPrefs(JSON.parse(stored));
   } catch {
@@ -68,12 +71,28 @@ export function loadQuickMatchPrefs(): QuickMatchPrefs {
   }
 }
 
-export function saveQuickMatchPrefs(prefs: QuickMatchPrefs): void {
+function savePrefs(storageKey: string, prefs: QuickMatchPrefs): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeQuickMatchPrefs(prefs)));
+    localStorage.setItem(storageKey, JSON.stringify(sanitizeQuickMatchPrefs(prefs)));
   } catch {
     // Storage unavailable (private mode etc.) — prefs just won't persist.
   }
+}
+
+export function loadQuickMatchPrefs(): QuickMatchPrefs {
+  return loadPrefs(QUICK_MATCH_STORAGE_KEY);
+}
+
+export function saveQuickMatchPrefs(prefs: QuickMatchPrefs): void {
+  savePrefs(QUICK_MATCH_STORAGE_KEY, prefs);
+}
+
+export function loadFullGamePrefs(): QuickMatchPrefs {
+  return loadPrefs(FULL_GAME_STORAGE_KEY);
+}
+
+export function saveFullGamePrefs(prefs: QuickMatchPrefs): void {
+  savePrefs(FULL_GAME_STORAGE_KEY, prefs);
 }
 
 /** Short human description, e.g. "3 Medium AI" — used on the lobby buttons. */
