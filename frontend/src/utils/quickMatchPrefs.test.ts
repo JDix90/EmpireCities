@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   DEFAULT_QUICK_MATCH_PREFS,
   describeQuickMatchPrefs,
+  loadFullGamePrefs,
   loadQuickMatchPrefs,
   sanitizeQuickMatchPrefs,
+  saveFullGamePrefs,
   saveQuickMatchPrefs,
 } from './quickMatchPrefs';
 
@@ -57,6 +59,21 @@ describe('quickMatchPrefs', () => {
     it('sanitizes stale/out-of-range stored values', () => {
       localStorage.setItem('cc-quick-match-prefs', JSON.stringify({ aiCount: 42, aiDifficulty: 'nightmare' }));
       expect(loadQuickMatchPrefs()).toEqual(DEFAULT_QUICK_MATCH_PREFS);
+    });
+  });
+
+  describe('full game prefs', () => {
+    it('round-trips independently of quick match prefs', () => {
+      saveQuickMatchPrefs({ aiCount: 7, aiDifficulty: 'easy' });
+      saveFullGamePrefs({ aiCount: 2, aiDifficulty: 'hard' });
+
+      expect(loadQuickMatchPrefs()).toEqual({ aiCount: 7, aiDifficulty: 'easy' });
+      expect(loadFullGamePrefs()).toEqual({ aiCount: 2, aiDifficulty: 'hard' });
+    });
+
+    it('defaults when only quick match prefs exist', () => {
+      saveQuickMatchPrefs({ aiCount: 7, aiDifficulty: 'easy' });
+      expect(loadFullGamePrefs()).toEqual(DEFAULT_QUICK_MATCH_PREFS);
     });
   });
 

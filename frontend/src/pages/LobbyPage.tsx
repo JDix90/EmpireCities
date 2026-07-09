@@ -28,9 +28,13 @@ import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import { isCommunityTheaterMap, pickQuickMatchEra } from '../constants/lobbyMapOptions';
 import QuickMatchOptions from '../components/lobby/QuickMatchOptions';
+import AiOpponentPicker from '../components/lobby/AiOpponentPicker';
 import {
   describeQuickMatchPrefs,
+  loadFullGamePrefs,
   loadQuickMatchPrefs,
+  QUICK_MATCH_DIFFICULTY_LABELS,
+  saveFullGamePrefs,
   saveQuickMatchPrefs,
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
@@ -241,7 +245,12 @@ const ERA_MAP_IDS: Record<string, string> = {
 
 // Shown in the Full Game confirm modal so players see exactly what the complete
 // experience turns on before committing. Mirrors the startFullGame() payload.
-const FULL_GAME_SUMMARY_CHIPS = ['Ancient World', '3 AI · Medium', 'Domination', '5-min turns'];
+const fullGameSummaryChips = (prefs: QuickMatchPrefs): string[] => [
+  'Ancient World',
+  `${prefs.aiCount} AI · ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]}`,
+  'Domination',
+  '5-min turns',
+];
 const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
   { label: 'Era Advancement', desc: 'Advance from the Ancient world to the Modern day mid-match (Standard pace).' },
   { label: 'Economy & Buildings', desc: 'Production, income, and construction across your territories.' },
@@ -341,6 +350,13 @@ export default function LobbyPage() {
   const [quickOptionsOpen, setQuickOptionsOpen] = useState(false);
   const quickOptionsRef = useRef<HTMLDivElement>(null);
   const [fullGameLoading, setFullGameLoading] = useState(false);
+  // Full Game setup — separate prefs from Quick Match (a long campaign table
+  // and a quick-stomp table are different choices).
+  const [fullGamePrefs, setFullGamePrefs] = useState<QuickMatchPrefs>(() => loadFullGamePrefs());
+  const updateFullGamePrefs = (prefs: QuickMatchPrefs) => {
+    setFullGamePrefs(prefs);
+    saveFullGamePrefs(prefs);
+  };
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
   const presetEra = searchParams.get('era');
@@ -1163,7 +1179,7 @@ export default function LobbyPage() {
   };
 
   // One-click "the complete game": Ancient + Era Advancement (standard) + the full
-  // mode bundle, auto-started vs 3 AI. Mirrors startQuickMatch's pattern. The server
+  // mode bundle, auto-started vs the chosen AI table. Mirrors startQuickMatch's pattern. The server
   // expands the 'standard' preset (gameSettings.applyEraAdvancementPreset) — no
   // client-side bundle math. NOTE: factions are intentionally omitted (known
   // imbalance, and they conflict with territory draft); ai_count must stay
@@ -1176,9 +1192,11 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: 'ancient',
         map_id: ERA_MAP_IDS.ancient,
-        max_players: 4,
-        ai_count: 3,
-        ai_difficulty: 'medium',
+        // Auto-start needs every non-host seat AI-filled, so the table size
+        // follows the chosen opponent count.
+        max_players: fullGamePrefs.aiCount + 1,
+        ai_count: fullGamePrefs.aiCount,
+        ai_difficulty: fullGamePrefs.aiDifficulty,
         auto_start: true,
         settings: {
           turn_timer_seconds: 300,
@@ -1232,10 +1250,10 @@ export default function LobbyPage() {
       >
         <p className="text-bf-muted text-sm mb-4">
           The complete Borderfall experience — every system on, advancing through the ages
-          against 3 AI commanders.
+          against {fullGamePrefs.aiCount} AI commander{fullGamePrefs.aiCount === 1 ? '' : 's'}.
         </p>
         <div className="flex flex-wrap gap-2 mb-4">
-          {FULL_GAME_SUMMARY_CHIPS.map((c) => (
+          {fullGameSummaryChips(fullGamePrefs).map((c) => (
             <span key={c} className="px-2 py-1 rounded-full border border-bf-border bg-bf-dark text-bf-text text-xs">
               {c}
             </span>
@@ -1252,6 +1270,9 @@ export default function LobbyPage() {
             </li>
           ))}
         </ul>
+        <div className="mb-6 rounded-xl border border-bf-border bg-bf-dark/40 p-3">
+          <AiOpponentPicker prefs={fullGamePrefs} onChange={updateFullGamePrefs} />
+        </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={() => setShowFullGameModal(false)}>
             Cancel
@@ -1321,14 +1342,16 @@ export default function LobbyPage() {
               <button
                 onClick={() => setShowFullGameModal(true)}
                 data-testid="full-game-start"
-                title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game, vs 3 AI"
+                title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game. Choose your opponents in the next step."
                 className="btn-primary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
               >
                 <span className="flex items-center gap-2 font-semibold">
                   <Trophy className="w-4 h-4" aria-hidden />
                   Full Game Start
                 </span>
-                <span className="text-[11px] font-normal opacity-75">Every system on · vs 3 AI</span>
+                <span className="text-[11px] font-normal opacity-75">
+                  Every system on · vs {describeQuickMatchPrefs(fullGamePrefs)}
+                </span>
               </button>
             )}
             <div ref={quickOptionsRef} className="sm:relative flex sm:flex-none">
