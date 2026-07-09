@@ -27,6 +27,13 @@ import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import { isCommunityTheaterMap, pickQuickMatchEra } from '../constants/lobbyMapOptions';
+import QuickMatchOptions from '../components/lobby/QuickMatchOptions';
+import {
+  describeQuickMatchPrefs,
+  loadQuickMatchPrefs,
+  saveQuickMatchPrefs,
+  type QuickMatchPrefs,
+} from '../utils/quickMatchPrefs';
 import {
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
@@ -55,7 +62,7 @@ import {
 } from '../constants/galacticAgeAccess';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules } from '../tutorial';
-import { Settings2, FlaskConical, Radio, Activity, Eye, Swords } from 'lucide-react';
+import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
 
 interface LiveGameSummary {
   game_id: string;
@@ -327,6 +334,11 @@ export default function LobbyPage() {
   const [activeGames, setActiveGames] = useState<ActiveGame[]>([]);
   const [creating, setCreating] = useState(false);
   const [quickSoloLoading, setQuickSoloLoading] = useState(false);
+  // Quick Match setup (opponent count + AI difficulty) — persisted so the main
+  // button stays one-click with the player's last choice.
+  const [quickMatchPrefs, setQuickMatchPrefs] = useState<QuickMatchPrefs>(() => loadQuickMatchPrefs());
+  const [quickOptionsOpen, setQuickOptionsOpen] = useState(false);
+  const quickOptionsRef = useRef<HTMLDivElement>(null);
   const [fullGameLoading, setFullGameLoading] = useState(false);
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
@@ -1086,9 +1098,34 @@ export default function LobbyPage() {
   };
 
   // Shared "play now" path: instant solo game vs AI with sensible defaults — no lobby wait.
+  const updateQuickMatchPrefs = (prefs: QuickMatchPrefs) => {
+    setQuickMatchPrefs(prefs);
+    saveQuickMatchPrefs(prefs);
+  };
+
+  // Close the Quick Match options popover on outside click / Escape.
+  useEffect(() => {
+    if (!quickOptionsOpen) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (!quickOptionsRef.current?.contains(e.target as Node)) setQuickOptionsOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setQuickOptionsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [quickOptionsOpen]);
+
   const startQuickMatch = async () => {
     if (quickSoloLoading) return;
     setQuickSoloLoading(true);
+    setQuickOptionsOpen(false);
     try {
       // Random era each match — always-Ancient got repetitive (player
       // feedback). Pool: the seven global world maps; see QUICK_MATCH_ERAS.
@@ -1096,9 +1133,11 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: era,
         map_id: ERA_MAP_IDS[era],
-        max_players: 4,
-        ai_count: 3,
-        ai_difficulty: 'medium',
+        // Auto-start needs every non-host seat AI-filled, so the table size
+        // follows the chosen opponent count.
+        max_players: quickMatchPrefs.aiCount + 1,
+        ai_count: quickMatchPrefs.aiCount,
+        ai_difficulty: quickMatchPrefs.aiDifficulty,
         // "Quick" means quick: the server starts the match before responding,
         // so the player lands directly in turn 1 instead of a pre-game room.
         auto_start: true,
@@ -1276,7 +1315,7 @@ export default function LobbyPage() {
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+          <div className="relative grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             {eraAdvancementLobbyEnabled && (
               <button
                 onClick={() => setShowFullGameModal(true)}
@@ -1291,17 +1330,46 @@ export default function LobbyPage() {
                 <span className="text-[11px] font-normal opacity-75">Every system on · vs 3 AI</span>
               </button>
             )}
-            <button
-              onClick={() => void startQuickMatch()}
-              disabled={quickSoloLoading}
-              className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              <span className="flex items-center gap-2 font-semibold">
-                <Bot className="w-4 h-4" aria-hidden />
-                {quickSoloLoading ? 'Starting…' : 'Quick Match'}
-              </span>
-              <span className="text-[11px] font-normal opacity-75">Classic Risk-style game vs 3 AI</span>
-            </button>
+            <div ref={quickOptionsRef} className="sm:relative flex sm:flex-none">
+              <button
+                onClick={() => void startQuickMatch()}
+                disabled={quickSoloLoading}
+                className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex-1 flex flex-col items-center justify-center gap-0.5 leading-tight rounded-r-none disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                <span className="flex items-center gap-2 font-semibold">
+                  <Bot className="w-4 h-4" aria-hidden />
+                  {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+                </span>
+                <span className="text-[11px] font-normal opacity-75">
+                  Classic Risk vs {describeQuickMatchPrefs(quickMatchPrefs)}
+                </span>
+              </button>
+              <button
+                onClick={() => setQuickOptionsOpen((v) => !v)}
+                disabled={quickSoloLoading}
+                aria-label="Quick Match options"
+                aria-haspopup="true"
+                aria-expanded={quickOptionsOpen}
+                aria-controls="quick-match-options"
+                title="Choose opponents & AI difficulty"
+                className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} rounded-l-none border-l border-l-black/20 px-2 sm:px-2.5 disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${quickOptionsOpen ? 'rotate-180' : ''}`} aria-hidden />
+              </button>
+              {quickOptionsOpen && (
+                <div
+                  id="quick-match-options"
+                  className="absolute z-30 top-full mt-2 inset-x-0 sm:inset-x-auto sm:left-0 sm:w-72"
+                >
+                  <QuickMatchOptions
+                    prefs={quickMatchPrefs}
+                    onChange={updateQuickMatchPrefs}
+                    onStart={() => void startQuickMatch()}
+                    starting={quickSoloLoading}
+                  />
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setShowCreate(true)}
               className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
@@ -1611,7 +1679,9 @@ export default function LobbyPage() {
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">
                       {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                     </p>
-                    <p className="text-bf-muted text-xs mt-1">3 AI opponents ready — start now. Random era map.</p>
+                    <p className="text-bf-muted text-xs mt-1">
+                      {describeQuickMatchPrefs(quickMatchPrefs)} opponents ready — start now. Random era map.
+                    </p>
                   </button>
                   <button
                     onClick={() => navigate('/daily')}
