@@ -1376,9 +1376,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (!currentPlayer) return socket.emit('error', { message: 'Not your turn' });
-      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
-      if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
+      if (!currentPlayer) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+      if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+      if (state.phase !== 'draft') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in draft phase');
 
       repairDraftUnitsIfMissing(state, map);
       // Reject non-integer counts (e.g. a crafted `units: 1.5`) before the range
@@ -1386,11 +1386,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // combat/reinforcement math. (game:fortify already guards this via
       // getFortifyUnitsValidationError; draft/naval did not.)
       if (!Number.isInteger(units)) {
-        return socket.emit('error', { message: 'Unit count must be a whole number' });
+        return emitGameError(socket, GameErrorCode.NON_INTEGER_UNITS, 'Unit count must be a whole number');
       }
       const poolRemaining = state.draft_units_remaining ?? 0;
       if (units < 1 || units > poolRemaining) {
-        return socket.emit('error', { message: `Cannot place ${units} units (${poolRemaining} remaining)` });
+        return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, `Cannot place ${units} units (${poolRemaining} remaining)`);
       }
 
       // Use the seated player's id (not raw JWT subject) so draft placement stays
@@ -1398,7 +1398,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const actingPlayerId = currentPlayer.player_id;
       const territory = state.territories[territoryId];
       if (!territory || territory.owner_id !== actingPlayerId) {
-        return socket.emit('error', { message: 'Invalid territory' });
+        return emitGameError(socket, GameErrorCode.NOT_OWNER, 'Invalid territory');
       }
 
       if (state.settings.stability_enabled) {
@@ -1412,14 +1412,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const alreadyPlaced = placements[territoryId] ?? 0;
         if (alreadyPlaced + units > cap) {
           const remainingCap = Math.max(0, cap - alreadyPlaced);
-          return socket.emit('error', {
-            message: `Stability cap reached — ${remainingCap} unit${remainingCap === 1 ? '' : 's'} left for this territory this draft`,
-          });
+          return emitGameError(
+            socket,
+            GameErrorCode.STABILITY_CAP,
+            `Stability cap reached — ${remainingCap} unit${remainingCap === 1 ? '' : 's'} left for this territory this draft`,
+          );
         }
       }
 
       if (!checkAndRecordActionId(gameId, userId, action_id)) {
-        return socket.emit('error', { message: 'Action already processed — please wait' });
+        return emitGameError(socket, GameErrorCode.ACTION_IN_FLIGHT, 'Action already processed — please wait');
       }
 
       const draftProbBefore = captureProbBefore(state, actingPlayerId);
@@ -1452,18 +1454,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
 
-      if (state.phase !== 'territory_select') return socket.emit('error', { message: 'Not in territory selection phase' });
+      if (state.phase !== 'territory_select') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in territory selection phase');
       const currentPlayer = state.players[state.current_player_index];
-      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
 
       const territory = state.territories[territoryId];
-      if (!territory) return socket.emit('error', { message: 'Territory not found' });
-      if (!isUnclaimedOwner(territory.owner_id)) return socket.emit('error', { message: 'Territory already claimed' });
+      if (!territory) return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Territory not found');
+      if (!isUnclaimedOwner(territory.owner_id)) return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Territory already claimed');
 
       if (territoryRequiresOrbitAccessForClaim(map, territoryId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatOrbitAccessError(access) });
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
       }
 
@@ -1530,38 +1532,38 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
-      if (state.phase !== 'attack') return socket.emit('error', { message: 'Not in attack phase' });
+      if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+      if (state.phase !== 'attack') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in attack phase');
       if (currentPlayer.era_advanced_this_turn) {
-        return socket.emit('error', { message: 'Cannot attack after advancing this turn' });
+        return emitGameError(socket, GameErrorCode.ALREADY_ADVANCED, 'Cannot attack after advancing this turn');
       }
 
       const fromTerritory = state.territories[fromId];
       const toTerritory = state.territories[toId];
 
       if (!fromTerritory || fromTerritory.owner_id !== userId) {
-        return socket.emit('error', { message: 'Invalid attacking territory' });
+        return emitGameError(socket, GameErrorCode.NOT_OWNER, 'Invalid attacking territory');
       }
       if (!toTerritory || toTerritory.owner_id === userId) {
-        return socket.emit('error', { message: 'Invalid defending territory' });
+        return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Invalid defending territory');
       }
       if (fromTerritory.unit_count < 2) {
-        return socket.emit('error', { message: 'Not enough units to attack' });
+        return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Not enough units to attack');
       }
 
       // Verify adjacency
       const isAdjacent = map.connections.some(
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
-      if (!isAdjacent) return socket.emit('error', { message: 'Territories not adjacent' });
+      if (!isAdjacent) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
 
       if (connectionRequiresMoonAccess(map, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatOrbitAccessError(access) });
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
         if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
-          return socket.emit('error', { message: 'That hyperspace lane is sealed' });
+          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
         }
       }
 
@@ -1592,7 +1594,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         );
         if (truceEntry?.status === 'truce' && truceEntry.truce_turns_remaining > 0) {
           if (!breakTruce) {
-            return socket.emit('error', { message: 'You have an active truce with this player' });
+            return emitGameError(socket, GameErrorCode.TRUCE_ACTIVE, 'You have an active truce with this player');
           }
           // Player confirmed the truce break — nullify and apply loyalty penalties
           truceEntry.status = 'neutral';
@@ -1636,7 +1638,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       let navalBombardmentDefenseBonus = 0;
       if (state.settings.naval_enabled && connection?.type === 'sea') {
         if (!fromTerritory.naval_units || fromTerritory.naval_units <= 0) {
-          return socket.emit('error', { message: 'No fleet to traverse sea lane' });
+          return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'No fleet to traverse sea lane');
         }
         const crossing = resolveSeaCrossing(fromTerritory, toTerritory);
         if (crossing.navalResult) {
@@ -1715,13 +1717,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         },
       });
       if (!landOutcome) {
-        return socket.emit('error', { message: 'Invalid attack' });
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Invalid attack');
       }
       const result = landOutcome.result;
       // Bail out if combat was invalid (e.g. defender hit 0 units via a race).
       // executeLandAttack left state unmutated in this case.
       if (result.error) {
-        return socket.emit('error', { message: result.error });
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, result.error);
       }
 
       // Air-strike pre-attack damage visual (the damage was applied inside
@@ -1989,45 +1991,47 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const { state, map } = room;
 
       const currentPlayer = state.players[state.current_player_index];
-      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
-      if (state.phase !== 'fortify') return socket.emit('error', { message: 'Not in fortify phase' });
+      if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+      if (state.phase !== 'fortify') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in fortify phase');
 
       const from = state.territories[fromId];
       const to = state.territories[toId];
       if (!from || from.owner_id !== userId || !to || to.owner_id !== userId) {
-        return socket.emit('error', { message: 'Invalid territories for fortification' });
+        return emitGameError(socket, GameErrorCode.NOT_OWNER, 'Invalid territories for fortification');
       }
       const fortifyUnitsError = getFortifyUnitsValidationError(units);
       if (fortifyUnitsError) {
-        return socket.emit('error', { message: fortifyUnitsError });
+        return emitGameError(socket, GameErrorCode.NON_INTEGER_UNITS, fortifyUnitsError);
       }
       if (units >= from.unit_count) {
-        return socket.emit('error', { message: 'Must leave at least 1 unit behind' });
+        return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Must leave at least 1 unit behind');
       }
 
       // Verify path exists via BFS
       if (!pathExists(fromId, toId, state, map, userId)) {
-        return socket.emit('error', { message: 'No connected path between territories' });
+        return emitGameError(socket, GameErrorCode.PATH_NOT_CONNECTED, 'No connected path between territories');
       }
 
       if (fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
-          return socket.emit('error', { message: formatOrbitAccessError(access) });
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
         if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
-          return socket.emit('error', { message: 'That hyperspace lane is sealed' });
+          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
         }
       }
 
       const fortifyMoveLimit = getFortifyMoveLimit(state, userId);
       const movesUsed = state.fortify_moves_used ?? 0;
       if (movesUsed >= fortifyMoveLimit) {
-        return socket.emit('error', {
-          message: fortifyMoveLimit === 1
+        return emitGameError(
+          socket,
+          GameErrorCode.FORTIFY_LIMIT,
+          fortifyMoveLimit === 1
             ? 'You can only fortify once per turn.'
             : `Fortify limit reached (${fortifyMoveLimit} moves per turn)`,
-        });
+        );
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
