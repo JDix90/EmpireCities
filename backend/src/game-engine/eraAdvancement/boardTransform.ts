@@ -217,6 +217,7 @@ export function executeBoardTransform(
   }
   // 5) Per-turn transients that point at territories that no longer exist.
   state.draft_placements_this_turn = {};
+  state.draft_deployments_this_turn = [];
   state.blitzkrieg_active = false;
   state.blitzkrieg_bonus_source_id = null;
   state.blitzkrieg_bonus_attacks_remaining = 0;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap, ScrollText, ChevronDown, ChevronUp, Undo2 } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
@@ -34,6 +34,8 @@ import { Link } from 'react-router-dom';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
+  /** Reverse the last manual reinforcement placement this turn (turn-clarity flag). */
+  onDraftUndo?: () => void;
   onRedeemCards: (cardIds: string[]) => void;
   onResign?: () => void;
   onSaveAndLeave?: () => void;
@@ -85,6 +87,7 @@ function readStoredHudTab(): HudTab {
 
 export default function GameHUD({
   onAdvancePhase,
+  onDraftUndo,
   onRedeemCards,
   onResign,
   onSaveAndLeave,
@@ -298,6 +301,17 @@ export default function GameHUD({
           <p className="text-bf-gold text-sm mt-2 font-medium">
             {draftPool} units to place
           </p>
+        )}
+        {turnClarityEnabled && onDraftUndo && gameState.phase === 'draft' && isMyTurn &&
+          (gameState.draft_deployments_this_turn?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={onDraftUndo}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-bf-border bg-bf-dark/50 px-2.5 py-1 text-xs font-medium text-bf-muted hover:text-bf-text hover:border-bf-gold/40 transition-colors"
+          >
+            <Undo2 className="w-3.5 h-3.5" aria-hidden="true" />
+            Undo last placement
+          </button>
         )}
         {spectatorCount > 0 && (
           <p className="text-xs text-sky-300 mt-2 font-medium">{spectatorCount} watching</p>

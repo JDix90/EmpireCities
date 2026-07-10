@@ -348,6 +348,7 @@ export function initializeGameState(
     settings: settingsNorm,
     draft_units_remaining: initialDraft,
     draft_placements_this_turn: {},
+    draft_deployments_this_turn: [],
     turn_started_at: Date.now(),
     win_probability_history: [],
     era_spine: eraSpineSteps,
@@ -686,6 +687,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   state.current_player_index = next;
   state.phase = 'draft';
   state.draft_placements_this_turn = {};
+  state.draft_deployments_this_turn = [];
   state.turn_started_at = Date.now();
 
   // Expire any pending truce proposals sent by the player whose turn is now starting.

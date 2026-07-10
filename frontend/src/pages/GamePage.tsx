@@ -1073,6 +1073,24 @@ export default function GamePage() {
       const seatPid = seatPidFor(state);
       setDraftUnitsRemaining(computeDraftPool(state, myId, myName, prevDraft, seatPid));
 
+      // Reconcile the reinforcement recap from the server's authoritative per-turn
+      // deployment log, so optimistic placement/undo can't drift it (e.g. a
+      // rejected undo would otherwise drop a recap entry that was never reversed).
+      // Only while we're the acting player: the turn-transition broadcast is the
+      // NEXT player's and carries no deployments for us, so it must not wipe the
+      // recap before the playerChanged flush below reads it.
+      if (
+        myId &&
+        state.players[state.current_player_index]?.player_id === myId &&
+        Array.isArray(state.draft_deployments_this_turn)
+      ) {
+        ownTurnReinforcementsRef.current = state.draft_deployments_this_turn.map((d) => ({
+          territoryName:
+            mapDataRef.current?.territories.find((t) => t.territory_id === d.territory_id)?.name ?? d.territory_id,
+          units: d.units,
+        }));
+      }
+
       // ── Turn change detection ────────────────────────────────────────
       const newIndex = state.current_player_index;
       const prevIndex = prevPlayerIndexRef.current;
@@ -1940,8 +1958,10 @@ export default function GamePage() {
       const uname = userRef.current?.username;
       const seatPid = seatPidFor(gs);
       if (gs?.phase === 'draft') {
+        // Restore the pool; the reinforcement recap self-heals from the next
+        // authoritative broadcast (draft_deployments_this_turn), so no optimistic
+        // pop here — that used to double-count against a rejected undo.
         setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, 0, seatPid));
-        ownTurnReinforcementsRef.current.pop();
       }
       // Prefer specific, actionable guidance when the server tagged the
       // rejection with a known code; otherwise show the raw server message
@@ -2560,7 +2580,10 @@ export default function GamePage() {
     setSelectedTerritory(null);
 
     const tName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
-    ownTurnReinforcementsRef.current.push({ territoryName: tName, units });
+    // The turn-summary recap is reconciled from the server's authoritative
+    // draft_deployments_this_turn on the next broadcast (see the game:state
+    // handler), so we don't push optimistically here — that would double with a
+    // subsequent undo and could drift on rejection.
     showNotification({
       type: 'reinforce',
       text: `+${units} troops deployed to ${tName}`,
@@ -2572,6 +2595,23 @@ export default function GamePage() {
     });
 
     // Map visual emitted by server on game:draft success.
+  };
+
+  const handleDraftUndo = () => {
+    if (!gameId) return;
+    const gs = useGameStore.getState().gameState;
+    const deployments = gs?.draft_deployments_this_turn ?? [];
+    const last = deployments[deployments.length - 1];
+    if (!last) return; // nothing to undo (button shouldn't be shown, but guard anyway)
+    const socket = getSocket();
+    if (!socket.connected) {
+      toast.error('Not connected to the game server');
+      return;
+    }
+    socket.emit('game:draft_undo', { gameId, action_id: generateActionId() });
+    // No optimistic mutation: the authoritative game:state broadcast reconciles
+    // both the pool (draftUnitsRemaining) and the reinforcement recap, so a
+    // rejected undo (e.g. racing End-phase) can't drift either.
   };
 
   const handleRedeemCards = (cardIds: string[]) => {
@@ -4091,6 +4131,7 @@ export default function GamePage() {
           <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 border-l border-bf-border">
             <GameHUD
               onAdvancePhase={handleAdvancePhase}
+              onDraftUndo={handleDraftUndo}
               onRedeemCards={handleRedeemCards}
               onResign={isTutorial ? undefined : handleResignRequest}
               onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
@@ -4325,6 +4366,7 @@ export default function GamePage() {
             <GameHUD
               mobile
               onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
+              onDraftUndo={handleDraftUndo}
               onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
               onResign={isTutorial ? undefined : handleResignRequest}
               onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
