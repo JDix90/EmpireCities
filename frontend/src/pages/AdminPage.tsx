@@ -41,6 +41,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Show the Live nav, lobby Watch entries, and the live-games list, and allow spectator joins. Off by default until there is enough concurrent traffic for the list to look alive.',
   },
+  {
+    key: 'turn_clarity_enabled',
+    label: 'Turn clarity (in-game)',
+    description:
+      'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. Off by default (dark-launch).',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

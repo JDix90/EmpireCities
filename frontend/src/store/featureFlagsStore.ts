@@ -5,6 +5,7 @@ export interface ClientFeatureFlags {
   map_editor_enabled: boolean;
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
+  turn_clarity_enabled: boolean;
   signup_nudge_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
@@ -19,6 +20,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_advancement_lobby_enabled: true,
   // Default off (dark-launch); GET /feature-flags reconciles once admin enables it.
   first_turn_coach_enabled: false,
+  // Default off (dark-launch); in-game phase bar / target highlighting / undo.
+  turn_clarity_enabled: false,
   // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
   signup_nudge_enabled: false,
   // Wave 2 retention flags — all default off (dark-launch).
@@ -62,6 +65,10 @@ export function useEraAdvancementLobbyEnabled(): boolean {
 
 export function useFirstTurnCoachEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_coach_enabled);
+}
+
+export function useTurnClarityEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.turn_clarity_enabled);
 }
 
 export function useSignupNudgeEnabled(): boolean {
