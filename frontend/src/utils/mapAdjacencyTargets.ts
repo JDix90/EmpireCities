@@ -27,6 +27,109 @@ function neighborsOf(
   return out;
 }
 
+/** Undirected adjacency map (territory id → neighbor ids) built once per call. */
+function buildAdjacency(connections: MapConnection[]): Map<string, string[]> {
+  const adj = new Map<string, string[]>();
+  const add = (a: string, b: string) => {
+    const list = adj.get(a);
+    if (list) list.push(b);
+    else adj.set(a, [b]);
+  };
+  for (const conn of connections) {
+    add(conn.from, conn.to);
+    add(conn.to, conn.from);
+  }
+  return adj;
+}
+
+/**
+ * Territories reachable from `sourceId` through a connected chain of territories
+ * all owned by `ownerId` — the client mirror of the backend fortify `pathExists`
+ * BFS (gameSocket.ts). Excludes the source itself. Used to decide whether a
+ * territory is a valid fortify SOURCE (can it move anywhere?) and, for the map,
+ * which owned territories a selected source can reach beyond direct neighbors.
+ *
+ * Advisory only — the server stays authoritative. Like the backend BFS it walks
+ * every connection type (land/sea/orbit); the optional `filter` scopes results
+ * to the active world for galaxy maps.
+ */
+export function computeFortifyReachable(
+  gameState: GameState,
+  connections: MapConnection[],
+  sourceId: string,
+  ownerId: string,
+  filter: (territoryId: string) => boolean = () => true,
+): Set<string> {
+  const reachable = new Set<string>();
+  if (!gameState) return reachable;
+  const adjacency = buildAdjacency(connections);
+  const visited = new Set<string>([sourceId]);
+  const queue: string[] = [sourceId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of adjacency.get(current) ?? []) {
+      // Mirror pathExists: only traverse (and count) territories the owner holds.
+      if (!visited.has(neighbor) && gameState.territories[neighbor]?.owner_id === ownerId && filter(neighbor)) {
+        visited.add(neighbor);
+        reachable.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+  return reachable;
+}
+
+/**
+ * The set of territories the viewer can act FROM this phase — the "which of my
+ * territories can do something?" hint that guides a new player's first click:
+ *  - attack:  owned, ≥2 units, and bordering at least one valid attack target
+ *             (enemy, or an era-advancement neutral frontier).
+ *  - fortify: owned, ≥2 units (must leave one behind), and able to reach at least
+ *             one other owned territory via a connected friendly path.
+ * Empty outside attack/fortify. Advisory — the server validates every action.
+ *
+ * Turn-level gates that aren't adjacency rules (era-advanced-this-turn lockout,
+ * fortify-move-limit) are applied by the caller (see GamePage's validSourceOwnerId).
+ * Orbit/moon access + sealed-lane gates are NOT mirrored here: on the globe the
+ * caller's per-world territoryFilter drops cross-world endpoints, and on maps
+ * without orbit lanes it never applies — a residual orbit false-positive just
+ * yields the server's clear rejection toast.
+ */
+export function computeValidSources(
+  gameState: GameState,
+  connections: MapConnection[],
+  viewerId: string | null | undefined,
+  options: { territoryFilter?: (territoryId: string) => boolean } = {},
+): Set<string> {
+  const result = new Set<string>();
+  if (!gameState || !viewerId) return result;
+  const phase = gameState.phase;
+  if (phase !== 'attack' && phase !== 'fortify') return result;
+
+  const filter = options.territoryFilter ?? (() => true);
+
+  for (const [territoryId, territory] of Object.entries(gameState.territories)) {
+    if (territory.owner_id !== viewerId) continue;
+    if (!filter(territoryId)) continue;
+    // ≥2 units: an attack needs 2 (one must stay to hold); a fortify must leave 1 behind.
+    if ((territory.unit_count ?? 0) < 2) continue;
+
+    if (phase === 'attack') {
+      const targets = computePhaseAdjacencyTargets(gameState, connections, {
+        sourceTerritoryId: territoryId,
+        attackSource: territoryId,
+        territoryFilter: options.territoryFilter,
+      });
+      if (targets.size > 0) result.add(territoryId);
+    } else {
+      const reachable = computeFortifyReachable(gameState, connections, territoryId, viewerId, filter);
+      if (reachable.size > 0) result.add(territoryId);
+    }
+  }
+
+  return result;
+}
+
 /**
  * Valid neighbor territories for the current attack / fortify interaction.
  * Mirrors the adjacency arc rules in GlobeMap without depending on arc geometry.

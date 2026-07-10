@@ -27,7 +27,7 @@ import {
   shouldRenderConnectionArcs,
   type ResolvedConnectionHintMode,
 } from '../../utils/connectionHints';
-import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
+import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 interface MapTerritory {
@@ -79,6 +79,12 @@ interface GameMapProps {
   resetViewRef?: React.MutableRefObject<(() => void) | null>;
   /** How aggressively to render connection overlays vs border highlights. */
   connectionHintMode?: ResolvedConnectionHintMode;
+  /**
+   * When set (turn-clarity flag, your attack/fortify turn, no source picked yet),
+   * outline every territory this player can act FROM this phase. Cleared once a
+   * source is selected so target highlighting takes over.
+   */
+  validSourceOwnerId?: string | null;
 }
 
 function hexToPixi(hex: string): number {
@@ -109,6 +115,7 @@ export default function GameMap({
   resetViewRef,
   ambientEnabled = false,
   turnHolderPlayerId,
+  validSourceOwnerId = null,
   turnHolderColor,
   contestedBorders = [],
   connectionHintMode = 'full',
@@ -656,6 +663,14 @@ export default function GameMap({
     });
   }, [gameState, attackSource, selectedTerritory, mapData.connections]);
 
+  // Valid-source hint (turn-clarity): territories the viewer can act FROM this
+  // phase, outlined until they pick one. Only populated when validSourceOwnerId
+  // is set (flag on, my attack/fortify turn, no source selected).
+  const validSources = useMemo(() => {
+    if (!gameState || !validSourceOwnerId) return new Set<string>();
+    return computeValidSources(gameState, mapData.connections, validSourceOwnerId);
+  }, [gameState, validSourceOwnerId, mapData.connections]);
+
   const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
   const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
 
@@ -727,6 +742,9 @@ export default function GameMap({
         borderColor = 0xffd700;
       } else if (adjacencyTargets.has(territory.territory_id)) {
         borderColor = gameState.phase === 'attack' ? 0xf87171 : 0x4ade80;
+      } else if (validSources.has(territory.territory_id)) {
+        // Emerald "you can act from here" outline (only when no source is picked).
+        borderColor = 0x34d399;
       }
 
       // Wonder glow: thick golden border for territories with a wonder building
@@ -748,13 +766,15 @@ export default function GameMap({
       }
       const adjacencyBorderWidth = adjacencyTargets.has(territory.territory_id) && emphasizeAdjacencyBorders
         ? 3.25
-        : isTurnHolder
-          ? 3
-          : hasWonder
-            ? 4
-            : isContested
-              ? 2.25
-              : 1.25;
+        : validSources.has(territory.territory_id)
+          ? 2.5
+          : isTurnHolder
+            ? 3
+            : hasWonder
+              ? 4
+              : isContested
+                ? 2.25
+                : 1.25;
       drawTerritory(g, scaledRings, fillColor, borderColor, adjacencyBorderWidth);
 
       // ── Unit-count badge (Risk-style army counter at the territory center) ──
@@ -843,6 +863,7 @@ export default function GameMap({
     selectedTerritory,
     attackSource,
     adjacencyTargets,
+    validSources,
     emphasizeAdjacencyBorders,
     neighborMap,
     ringsFor,

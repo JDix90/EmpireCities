@@ -555,6 +555,32 @@ export default function GamePage() {
     [gameState, viewerPlayer],
   );
 
+  // Turn-clarity valid-source hint: highlight which of the viewer's territories
+  // can act this phase, but only on their own attack/fortify turn and only before
+  // a source is picked (once selected, target highlighting takes over). Null =
+  // no hint (feeds the maps' validSourceOwnerId prop). Flag-gated.
+  const validSourceOwnerId = useMemo<string | null>(() => {
+    if (!turnClarityFlag || !gameState || !resolvedViewerPlayerId) return null;
+    const phase = gameState.phase;
+    if (phase !== 'attack' && phase !== 'fortify') return null;
+    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === resolvedViewerPlayerId;
+    if (!isMyTurn) return null;
+    if (attackSource ?? selectedTerritory) return null;
+    // Suppress the hint when the phase is technically active but no action is
+    // actually allowed — otherwise we'd ring sources the server then rejects:
+    //  - attack: advancing an era this turn locks out all further attacks.
+    if (phase === 'attack' && viewerPlayer?.era_advanced_this_turn) return null;
+    //  - fortify: the per-turn move allowance is spent. We mirror the common
+    //    limit (base 1, +1 in the wartime-logistics era, + faction bonus); the
+    //    rarer tech-derived extra moves aren't mirrored, so at worst the hint
+    //    hides a move early — advisory, never a wrong click (server is authoritative).
+    if (phase === 'fortify') {
+      const fortifyLimit = (gameState.era_modifiers?.wartime_logistics ? 2 : 1) + (viewerPlayer?.bonus_fortify_moves ?? 0);
+      if ((gameState.fortify_moves_used ?? 0) >= fortifyLimit) return null;
+    }
+    return resolvedViewerPlayerId;
+  }, [turnClarityFlag, gameState, resolvedViewerPlayerId, viewerPlayer, attackSource, selectedTerritory]);
+
   // Era board re-skin (Layer 1): the board atmosphere follows the VIEWING player's
   // current era, so advancing visibly transforms the world. Gated to era-advancement
   // games so classic games keep their default backdrop. Real terrain/globe textures
@@ -3930,6 +3956,7 @@ export default function GamePage() {
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                         selfPlayerId={resolvedViewerPlayerId}
                         coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
+                        validSourceOwnerId={validSourceOwnerId}
                         contestedBorders={contestedBorders}
                         connectionHintMode={connectionHintMode}
                         activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
@@ -3987,6 +4014,7 @@ export default function GamePage() {
                             reducedEffects={true}
                             autoSpin={false}
                             activeWorldId="moon"
+                            validSourceOwnerId={validSourceOwnerId}
                             globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/moon_1024.jpg"
                             bumpImageUrl=""
                             showAtmosphere={false}
@@ -4011,6 +4039,7 @@ export default function GamePage() {
                 reducedEffects={reducedGlobe}
                 ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                 turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                validSourceOwnerId={validSourceOwnerId}
                 turnHolderColor={turnHolderPlayer?.color}
                 contestedBorders={contestedBorders}
                 connectionHintMode={connectionHintMode}
