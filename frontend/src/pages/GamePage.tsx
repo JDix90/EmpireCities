@@ -12,6 +12,7 @@ import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnT
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
+import { resolveRejectionText } from '../constants/rejectionMessages';
 import { colorDisplayName } from '../utils/colorName';
 import { shouldShowFirstTurnCoach, coachPhaseForGamePhase, type CoachPhase } from '../utils/firstTurnCoach';
 
@@ -1937,7 +1938,10 @@ export default function GamePage() {
         setDraftUnitsRemaining(computeDraftPool(gs, uid, uname, 0, seatPid));
         ownTurnReinforcementsRef.current.pop();
       }
-      toast.error(message);
+      // Prefer specific, actionable guidance when the server tagged the
+      // rejection with a known code; otherwise show the raw server message
+      // (which for un-mapped codes already carries the relevant detail).
+      toast.error(resolveRejectionText(code, message));
     });
 
     socket.on('game:wonder_built', (payload: {

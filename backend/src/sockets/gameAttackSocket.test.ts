@@ -378,10 +378,11 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const client = await connect('p1'); // p1 is not the current player (p2 is)
     await joinRoom('p1', gameId);
 
-    const err = waitFor<{ message: string }>(client, 'error');
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
     client.emit('game:attack', { gameId, fromId: 'a', toId: 'b' });
     const e = await err;
     expect(e.message).toMatch(/not your turn/i);
+    expect(e.code).toBe('NOT_YOUR_TURN');
   });
 
   // ── Fortify confirmation (no double-toast bug) ──────────────────────────────
@@ -415,10 +416,12 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
 
     let resultFired = false;
     client.on('game:fortify_result', () => { resultFired = true; });
-    const err = waitFor<{ message: string }>(client, 'error');
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
     client.emit('game:fortify', { gameId, fromId: 'a', toId: 'c', units: 2 });
 
-    expect((await err).message).toBe('No connected path between territories');
+    const fortifyErr = await err;
+    expect(fortifyErr.message).toBe('No connected path between territories');
+    expect(fortifyErr.code).toBe('PATH_NOT_CONNECTED');
     // The success confirmation must NOT also fire — the whole point of the fix.
     await new Promise((r) => setTimeout(r, 50));
     expect(resultFired).toBe(false);
