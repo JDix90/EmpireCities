@@ -423,4 +423,73 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(resultFired).toBe(false);
   });
+
+  // ── Draft undo (reinforcement placement reversal) ──────────────────────────
+
+  function draftState(gameId: string, overrides: Partial<GameState> = {}): GameState {
+    return buildState(gameId, [], {
+      phase: 'draft',
+      current_player_index: 0,
+      draft_units_remaining: 3,
+      territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+      ...overrides,
+    });
+  }
+
+  it('undoes the last reinforcement placement, restoring units and the pool', async () => {
+    const gameId = 'itest-draft-undo';
+    await seed(gameId, draftState(gameId), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    client.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'd1' });
+    await waitForRedisState(gameId, (s) =>
+      s.territories.a.unit_count === 4 && s.draft_units_remaining === 1 &&
+      (s.draft_deployments_this_turn?.length ?? 0) === 1);
+
+    client.emit('game:draft_undo', { gameId, action_id: 'u1' });
+    await waitForRedisState(gameId, (s) =>
+      s.territories.a.unit_count === 2 && s.draft_units_remaining === 3 &&
+      (s.draft_deployments_this_turn?.length ?? 0) === 0);
+  });
+
+  it('undoes only the most recent placement when several were made', async () => {
+    const gameId = 'itest-draft-undo-last';
+    await seed(gameId, draftState(gameId), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    client.emit('game:draft', { gameId, territoryId: 'a', units: 1, action_id: 'd1' });
+    await waitForRedisState(gameId, (s) => s.territories.a.unit_count === 3);
+    client.emit('game:draft', { gameId, territoryId: 'a', units: 1, action_id: 'd2' });
+    await waitForRedisState(gameId, (s) =>
+      s.territories.a.unit_count === 4 && (s.draft_deployments_this_turn?.length ?? 0) === 2);
+
+    client.emit('game:draft_undo', { gameId, action_id: 'u1' });
+    await waitForRedisState(gameId, (s) =>
+      s.territories.a.unit_count === 3 && s.draft_units_remaining === 2 &&
+      (s.draft_deployments_this_turn?.length ?? 0) === 1);
+  });
+
+  it('rejects draft undo when there is nothing to undo', async () => {
+    const gameId = 'itest-draft-undo-empty';
+    await seed(gameId, draftState(gameId), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const err = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:draft_undo', { gameId, action_id: 'u1' });
+    expect((await err).message).toBe('Nothing to undo');
+  });
+
+  it('rejects draft undo outside the draft phase', async () => {
+    const gameId = 'itest-draft-undo-phase';
+    await seed(gameId, buildState(gameId, []), buildMap(gameId)); // default phase: 'attack'
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const err = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:draft_undo', { gameId, action_id: 'u1' });
+    expect((await err).message).toBe('Not in draft phase');
+  });
 });

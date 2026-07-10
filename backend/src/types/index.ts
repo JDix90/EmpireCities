@@ -670,6 +670,14 @@ export interface GameState {
   draft_units_remaining: number;
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
   draft_placements_this_turn?: Record<string, number>;
+  /**
+   * Ordered log of the current player's own manual reinforcement placements this
+   * turn — the undo stack for `game:draft_undo`. Only user-initiated draft
+   * placements are recorded (never AI/timeout auto-placements or card bonuses);
+   * reset at every turn boundary alongside `draft_placements_this_turn`. Scoped
+   * to the acting player in `buildClientState` (fog-safe).
+   */
+  draft_deployments_this_turn?: Array<{ territory_id: string; units: number }>;
   turn_started_at: number;       // Unix timestamp ms
   /**
    * Server-authoritative deadline (Unix ms) for the current phase's turn timer.

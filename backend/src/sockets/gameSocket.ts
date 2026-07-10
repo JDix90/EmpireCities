@@ -1429,6 +1429,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
         state.draft_placements_this_turn[territoryId] = (state.draft_placements_this_turn[territoryId] ?? 0) + units;
       }
+      // Record this manual placement on the per-turn undo stack (always, not just
+      // under stability) so game:draft_undo can reverse it. AI/timeout auto-placements
+      // and card bonuses deliberately do NOT push here — only the human's own picks.
+      state.draft_deployments_this_turn = state.draft_deployments_this_turn ?? [];
+      state.draft_deployments_this_turn.push({ territory_id: territoryId, units });
       commitActionDecision(
         gameId, state, userId, 'draft',
         `Deployed ${units} unit${units === 1 ? '' : 's'} to ${territoryName(map, territoryId)}`,
@@ -1441,6 +1446,50 @@ export function initGameSocket(httpServer: HttpServer): Server {
         playerId: actingPlayerId,
         state,
       }));
+      broadcastState(io, gameId, state);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
+    // ── Draft Undo ────────────────────────────────────────────────────────
+    // Reverse the most recent manual reinforcement placement this turn. Only
+    // valid on the acting player's own draft phase; never touches auto-placed
+    // (timeout/AI) units or card bonuses (those are not on the undo stack).
+    socket.on('game:draft_undo', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+      const { state } = room;
+
+      const currentPlayer = state.players[state.current_player_index];
+      if (!currentPlayer) return socket.emit('error', { message: 'Not your turn' });
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
+      if (state.phase !== 'draft') return socket.emit('error', { message: 'Not in draft phase' });
+      if (!checkAndRecordActionId(gameId, userId, action_id)) {
+        return socket.emit('error', { message: 'Action already processed — please wait' });
+      }
+
+      const log = state.draft_deployments_this_turn ?? [];
+      const last = log[log.length - 1];
+      if (!last) return socket.emit('error', { message: 'Nothing to undo' });
+
+      const territory = state.territories[last.territory_id];
+      // Reverse only when cleanly reversible: still owned by the actor and holding
+      // enough units that removing the placement leaves ≥1 behind. (Draft phase
+      // never changes ownership or unit counts otherwise, so this should hold.)
+      if (!territory || territory.owner_id !== currentPlayer.player_id || territory.unit_count < last.units + 1) {
+        return socket.emit('error', { message: 'Cannot undo that placement' });
+      }
+
+      log.pop();
+      territory.unit_count -= last.units;
+      state.draft_units_remaining = (state.draft_units_remaining ?? 0) + last.units;
+      // Keep the stability-cap tally in step with the reversal.
+      if (state.draft_placements_this_turn && state.draft_placements_this_turn[last.territory_id] != null) {
+        const remainingAtTerr = state.draft_placements_this_turn[last.territory_id] - last.units;
+        if (remainingAtTerr > 0) state.draft_placements_this_turn[last.territory_id] = remainingAtTerr;
+        else delete state.draft_placements_this_turn[last.territory_id];
+      }
+      state.draft_deployments_this_turn = log;
+
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -1494,6 +1543,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // Transition to draft phase
         state.phase = 'draft';
         state.draft_placements_this_turn = {};
+        state.draft_deployments_this_turn = [];
         const starterIdx = getStartingPlayerIndex(state);
         state.current_player_index = starterIdx;
         state.turn_number = 1;
@@ -3846,6 +3896,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     return preview ? { ...s, era_advancement_preview: preview } : s;
   };
 
+  const actingPlayerId = state.players[state.current_player_index]?.player_id;
   const stripSecretMissions = (s: GameState): GameState => ({
     ...s,
     // mission_seed_salt is server-only; leaking it would let a client
@@ -3855,6 +3906,11 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     // at game_over, and — when there is no viewing player (spectator/public
     // snapshot) — empty every card hand so spectators can't read players' cards.
     players: redactPlayersForViewer(s.players, playerId, state.phase),
+    // The reinforcement undo stack is the acting player's private working state —
+    // strip it for every other viewer (and spectators) so fog can't be sidestepped
+    // by reading where the current player just deployed.
+    draft_deployments_this_turn:
+      playerId !== null && playerId === actingPlayerId ? s.draft_deployments_this_turn : undefined,
   });
 
   // No fog → everyone (players and spectators) sees full territory intel.
@@ -4569,6 +4625,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   if (remaining === 0) {
     state.phase = 'draft';
     state.draft_placements_this_turn = {};
+    state.draft_deployments_this_turn = [];
     const starterIdx = getStartingPlayerIndex(state);
     state.current_player_index = starterIdx;
     state.turn_number = 1;

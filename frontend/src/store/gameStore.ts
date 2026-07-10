@@ -225,6 +225,12 @@ export interface GameState {
   };
   /** Server-authoritative; may be absent on older saved games. */
   draft_units_remaining?: number;
+  /**
+   * The acting player's own manual reinforcement placements this turn (undo
+   * stack for game:draft_undo). Only sent to the current player (fog-safe);
+   * absent for other viewers and older servers.
+   */
+  draft_deployments_this_turn?: Array<{ territory_id: string; units: number }>;
   turn_started_at: number;
   /**
    * Server-authoritative deadline (Unix ms) for the current phase's timer.
