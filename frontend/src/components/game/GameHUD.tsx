@@ -8,7 +8,9 @@ import EraModifierBadge from './EraModifierBadge';
 import AdvanceEraPanel from './AdvanceEraPanel';
 import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
-import { phaseAdvanceLabel } from '../../constants/phaseLabels';
+import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
+import { PhaseProgressBar } from './PhaseProgressBar';
+import { useTurnClarityEnabled } from '../../store/featureFlagsStore';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
@@ -58,14 +60,6 @@ interface GameHUDProps {
   onConnectionHintPreferenceChange?: (value: ConnectionHintPreference) => void;
   denseMap?: boolean;
 }
-
-const PHASE_LABELS: Record<string, string> = {
-  territory_select: 'Territory Draft',
-  draft:     'Reinforcement',
-  attack:    'Attack',
-  fortify:   'Fortify',
-  game_over: 'Game Over',
-};
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
   territory_select: <Flag className="w-4 h-4" />,
@@ -154,6 +148,7 @@ export default function GameHUD({
         (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
       );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
+  const turnClarityEnabled = useTurnClarityEnabled();
   const draftPool = computeDraftPool(
     gameState,
     user?.user_id,
@@ -263,6 +258,14 @@ export default function GameHUD({
             {PHASE_LABELS[gameState.phase] ?? gameState.phase}
           </span>
         </div>
+        {turnClarityEnabled && (
+          <PhaseProgressBar
+            phase={gameState.phase}
+            isMyTurn={isMyTurn}
+            variant={mobile ? 'compact' : 'full'}
+            className="mb-2"
+          />
+        )}
         <p className="text-xs text-bf-muted">
           Turn {gameState.turn_number} · {isMyTurn ? 'Your turn' : `${currentPlayer?.username}'s turn`}
         </p>

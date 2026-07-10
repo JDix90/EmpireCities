@@ -5,7 +5,7 @@ import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, L
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled } from '../store/featureFlagsStore';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
@@ -495,6 +495,7 @@ export default function GamePage() {
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
   const signupNudgeFlag = useSignupNudgeEnabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
+  const turnClarityFlag = useTurnClarityEnabled();
   const coachEligible = shouldShowFirstTurnCoach({
     xp: user?.xp,
     isTutorial,
@@ -820,6 +821,10 @@ export default function GamePage() {
     defenderName: string;
     defenderColor: string;
   } | null>(null);
+
+  // Guards ending the reinforcement phase with unplaced units (the server would
+  // auto-place them). Only armed when the turn-clarity flag is on.
+  const [endDraftConfirm, setEndDraftConfirm] = useState<number | null>(null);
 
   const [wonderNotif, setWonderNotif] = useState<{
     wonderId: string;
@@ -2470,13 +2475,23 @@ export default function GamePage() {
     setSelectedTerritory(null);
   };
 
-  const handleAdvancePhase = () => {
+  const advancePhaseNow = () => {
     hapticImpact(ImpactStyle.Medium);
     getSocket().emit('game:advance_phase', { gameId });
     setSelectedTerritory(null);
     setAttackSource(null);
     setNavalSource(null);
     setFortifyUnits(1);
+  };
+
+  const handleAdvancePhase = () => {
+    // Leaving the reinforcement phase with unplaced units silently auto-places
+    // them server-side — confirm first so a new player doesn't waste them.
+    if (turnClarityFlag && gameState?.phase === 'draft' && draftUnitsRemaining > 0) {
+      setEndDraftConfirm(draftUnitsRemaining);
+      return;
+    }
+    advancePhaseNow();
   };
 
   const handleAttack = (fromId: string, toId: string) => {
@@ -4546,6 +4561,42 @@ export default function GamePage() {
                            border border-amber-500/40 text-amber-300 font-medium text-sm transition-all"
               >
                 ⚔️ Break Truce &amp; Attack
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {endDraftConfirm !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+             style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="bg-[#1e2332] border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="text-3xl mb-3 text-center">🛡️</div>
+            <h3 className="font-display text-lg text-amber-400 text-center mb-1">End reinforcement?</h3>
+            <p className="text-white/60 text-sm text-center mb-5">
+              You still have{' '}
+              <span className="text-amber-300 font-semibold">
+                {endDraftConfirm} reinforcement{endDraftConfirm === 1 ? '' : 's'}
+              </span>{' '}
+              to place. If you continue, they'll be placed for you automatically.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEndDraftConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                           text-white/60 font-medium text-sm transition-all"
+              >
+                Keep placing
+              </button>
+              <button
+                onClick={() => {
+                  setEndDraftConfirm(null);
+                  advancePhaseNow();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-600/25 hover:bg-amber-600/35
+                           border border-amber-500/40 text-amber-300 font-medium text-sm transition-all"
+              >
+                End reinforcement
               </button>
             </div>
           </div>

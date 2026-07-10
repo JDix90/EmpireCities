@@ -63,6 +63,17 @@ export const featureFlags = {
   },
 
   /**
+   * When true, the in-game "turn clarity" affordances are shown: the persistent
+   * phase-progression bar, valid source/target highlighting, and reinforcement
+   * undo. Purely presentational/quality-of-life; the server stays authoritative.
+   * Default OFF — dark-launch; flip on via `TURN_CLARITY_ENABLED=true` or the
+   * `turn_clarity_enabled` admin override after a staging check.
+   */
+  get turnClarityEnabled(): boolean {
+    return overrideBool('turn_clarity_enabled', process.env.TURN_CLARITY_ENABLED === 'true');
+  },
+
+  /**
    * When true, Era Advancement is surfaced in the lobby — the one-click "Full Game
    * Start" CTA and the in-form Era Advancement toggle (for Ancient). Default ON so
    * the flagship mode is highlighted; admin config can override off. (Ranked Era
@@ -153,6 +164,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     map_editor_enabled: featureFlags.mapEditorEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
+    turn_clarity_enabled: featureFlags.turnClarityEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
