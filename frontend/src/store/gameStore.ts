@@ -212,6 +212,8 @@ export interface GameState {
   era_spine?: Array<{ era_id: string; signature_id?: string }>;
   /** Viewer-scoped era advancement status — present when era advancement is enabled. */
   era_advancement_preview?: AdvanceEraClientPreview;
+  /** Fortify moves the current player has spent this turn (vs the per-turn limit). */
+  fortify_moves_used?: number;
   era_modifiers?: {
     legion_reroll?: boolean;
     castle_fortification?: boolean;

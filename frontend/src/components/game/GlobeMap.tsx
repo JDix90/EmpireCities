@@ -52,7 +52,7 @@ import {
   shouldRenderConnectionArcs,
   type ResolvedConnectionHintMode,
 } from '../../utils/connectionHints';
-import { computePhaseAdjacencyTargets } from '../../utils/mapAdjacencyTargets';
+import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -194,6 +194,13 @@ interface GlobeMapProps {
   selfPlayerId?: string | null;
   /** When set, pulse every territory owned by this player (first-turn reinforcement coach, WI1). */
   coachHighlightOwnerId?: string | null;
+  /**
+   * When set (turn-clarity flag, your attack/fortify turn, no source picked yet),
+   * softly ring every territory this player can act FROM this phase — the "which
+   * of mine can do something?" hint. Cleared once a source is selected so target
+   * highlighting takes over.
+   */
+  validSourceOwnerId?: string | null;
   contestedBorders?: Array<{ fromId: string; toId: string; sea: boolean }>;
   /** How aggressively to render animated connection lines vs border highlights. */
   connectionHintMode?: ResolvedConnectionHintMode;
@@ -683,6 +690,7 @@ function GlobeMap({
   turnHolderPlayerId,
   selfPlayerId = null,
   coachHighlightOwnerId = null,
+  validSourceOwnerId = null,
   contestedBorders = [],
   connectionHintMode = 'full',
   onGlobeReady,
@@ -3069,11 +3077,39 @@ function GlobeMap({
     return out;
   }, [coachHighlightOwnerId, gameState, territoryCenters]);
 
+  // Valid-source hint (turn-clarity): softly ring the territories the viewer can
+  // act FROM this attack/fortify turn, so the first click is obvious. Emerald so
+  // it never reads as the gold tutorial/coach pulse; scoped to the active world.
+  const validSourceRings = useMemo((): RingDatum[] => {
+    if (!validSourceOwnerId || !gameState) return [];
+    const sources = computeValidSources(gameState, mapData.connections, validSourceOwnerId, {
+      territoryFilter: (territoryId) => {
+        const terr = territoryById.get(territoryId);
+        return !!terr && inferWorldId(terr) === activeWorldId;
+      },
+    });
+    const out: RingDatum[] = [];
+    for (const tid of sources) {
+      const center = territoryCenters.get(tid);
+      if (!center) continue;
+      out.push({
+        id: `valid-source-${tid}`,
+        lat: center.lat,
+        lng: center.lng,
+        maxRadius: 0.8,
+        speed: 1.0,
+        repeatPeriod: 1400,
+        colorFn: (x: number) => `rgba(52, 211, 153, ${Math.max(0, 0.55 - x)})`,
+      });
+    }
+    return out;
+  }, [validSourceOwnerId, gameState, mapData.connections, territoryById, activeWorldId, territoryCenters]);
+
   const combinedRings = useMemo(() => {
-    const out = [...rings, ...wastelandRings, ...coachOwnedRings];
+    const out = [...rings, ...wastelandRings, ...coachOwnedRings, ...validSourceRings];
     if (tutorialRing) out.push(tutorialRing);
     return out;
-  }, [rings, tutorialRing, wastelandRings, coachOwnedRings]);
+  }, [rings, tutorialRing, wastelandRings, coachOwnedRings, validSourceRings]);
 
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,
