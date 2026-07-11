@@ -4199,6 +4199,21 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       },
       human.player_id,
     );
+    // First-session funnel: a dedicated, authoritative tutorial-completion
+    // signal (reaching the end of the guided first match), distinct from the
+    // general game_finished above so the funnel can key on it directly.
+    if (state.settings.tutorial) {
+      recordServerEvent(
+        'tutorial_completed',
+        {
+          game_id: gameId,
+          won: winnerIds.includes(human.player_id),
+          lesson_module: state.settings.tutorial_lesson_module ?? 'core',
+          is_guest: resultCtx.guestPlayerIds.has(human.player_id),
+        },
+        human.player_id,
+      );
+    }
   }
 
   if (resultCtx.isRanked && humanPlayers.length > 0) {

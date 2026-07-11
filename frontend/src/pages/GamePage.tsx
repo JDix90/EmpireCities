@@ -560,10 +560,15 @@ export default function GamePage() {
   // a source is picked (once selected, target highlighting takes over). Null =
   // no hint (feeds the maps' validSourceOwnerId prop). Flag-gated.
   const validSourceOwnerId = useMemo<string | null>(() => {
-    if (!turnClarityFlag || !gameState || !resolvedViewerPlayerId) return null;
+    // Resolve the viewer via viewerPlayer (which falls back to user id/username)
+    // rather than resolvedViewerPlayerId alone — the latter is only set once the
+    // `game:joined` seat arrives, so on some join/resume timings the player sees
+    // "your turn" + the phase bar but the rings would never appear.
+    const viewerId = viewerPlayer?.player_id ?? null;
+    if (!turnClarityFlag || !gameState || !viewerId) return null;
     const phase = gameState.phase;
     if (phase !== 'attack' && phase !== 'fortify') return null;
-    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === resolvedViewerPlayerId;
+    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === viewerId;
     if (!isMyTurn) return null;
     if (attackSource ?? selectedTerritory) return null;
     // Suppress the hint when the phase is technically active but no action is
@@ -578,8 +583,8 @@ export default function GamePage() {
       const fortifyLimit = (gameState.era_modifiers?.wartime_logistics ? 2 : 1) + (viewerPlayer?.bonus_fortify_moves ?? 0);
       if ((gameState.fortify_moves_used ?? 0) >= fortifyLimit) return null;
     }
-    return resolvedViewerPlayerId;
-  }, [turnClarityFlag, gameState, resolvedViewerPlayerId, viewerPlayer, attackSource, selectedTerritory]);
+    return viewerId;
+  }, [turnClarityFlag, gameState, viewerPlayer, attackSource, selectedTerritory]);
 
   // Era board re-skin (Layer 1): the board atmosphere follows the VIEWING player's
   // current era, so advancing visibly transforms the world. Gated to era-advancement
@@ -646,6 +651,12 @@ export default function GamePage() {
   // so this is the only moment the just-granted ability is knowable. Consumed in
   // the game:advance_era_result handler.
   const pendingAdvancePayoffRef = useRef<Omit<EraAdvanceModalData, 'type' | 'eraId'> | null>(null);
+  // First-session activation funnel: each event fires at most once per game.
+  // Reset when the game changes so a second match is measured fresh.
+  const funnelEmittedRef = useRef({ map: false, attack: false, capture: false });
+  useEffect(() => {
+    funnelEmittedRef.current = { map: false, attack: false, capture: false };
+  }, [gameId]);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
@@ -1096,6 +1107,17 @@ export default function GamePage() {
       setLobbyLoadError(null);
       setGameStarted(true);
       setGameState(state);
+      // First-session funnel: the map is interactive as soon as the first
+      // authoritative state lands. Fire once per game (guests are authenticated,
+      // so this posts through the ui-event endpoint; dropped server-side if the
+      // analytics flag is off).
+      if (!funnelEmittedRef.current.map) {
+        funnelEmittedRef.current.map = true;
+        api.post('/analytics/ui-event', {
+          event: 'map_rendered',
+          properties: { era: String(state.era ?? ''), is_tutorial: String(state.settings?.tutorial === true) },
+        }).catch(() => {});
+      }
       // Clear territory-select pending flag so the next player's turn is interactive.
       territorySelectPendingRef.current = false;
       const myId = userRef.current?.user_id;
@@ -1359,6 +1381,21 @@ export default function GamePage() {
       const isMyDefense = defenderOwner === userRef.current?.user_id;
 
       const { attacker_losses, defender_losses, territory_captured } = data.result;
+
+      // First-session funnel: the viewer's first attack, and first capture, this
+      // game (fire-and-forget, once each; dropped server-side if the flag is off).
+      if (isMyAttack) {
+        const isTut = String(state?.settings?.tutorial === true);
+        const era = String(state?.era ?? '');
+        if (!funnelEmittedRef.current.attack) {
+          funnelEmittedRef.current.attack = true;
+          api.post('/analytics/ui-event', { event: 'first_attack', properties: { era, is_tutorial: isTut } }).catch(() => {});
+        }
+        if (territory_captured && !funnelEmittedRef.current.capture) {
+          funnelEmittedRef.current.capture = true;
+          api.post('/analytics/ui-event', { event: 'first_territory_captured', properties: { era, is_tutorial: isTut } }).catch(() => {});
+        }
+      }
       // Prefer the server's count: deriving it locally double-subtracted
       // losses whenever the game:state broadcast landed before this event,
       // making "Attack again" vanish mid-battle. Fallback covers old servers.

@@ -9,6 +9,9 @@ export interface FunnelMetrics {
   signups: number;
   created_game: number;
   started_game: number;
+  map_rendered: number;
+  first_attack: number;
+  first_capture: number;
   finished_game: number;
   upgraded: number;
 }
@@ -109,6 +112,9 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
         <div className="mt-3 space-y-2">
           <FunnelStep label="Signed up" n={f.signups} total={f.signups} />
           <FunnelStep label="Created a game" n={f.created_game} total={f.signups} />
+          <FunnelStep label="Reached the map" n={f.map_rendered} total={f.signups} />
+          <FunnelStep label="Made first attack" n={f.first_attack} total={f.signups} />
+          <FunnelStep label="Captured a territory" n={f.first_capture} total={f.signups} />
           <FunnelStep label="Finished a game ★" n={f.finished_game} total={f.signups} highlight />
         </div>
         <p className="mt-2 text-xs text-bf-muted">
