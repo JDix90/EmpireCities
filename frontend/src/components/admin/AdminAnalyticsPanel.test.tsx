@@ -5,7 +5,7 @@ import AdminAnalyticsPanel, { type AnalyticsReport } from './AdminAnalyticsPanel
 const report: AnalyticsReport = {
   window_days: 30,
   total_events: 250,
-  funnel: { signups: 100, created_game: 70, started_game: 65, finished_game: 40, upgraded: 12 },
+  funnel: { signups: 100, created_game: 70, started_game: 65, map_rendered: 60, first_attack: 52, first_capture: 44, finished_game: 40, upgraded: 12 },
   retention: { d1_cohort: 90, d1: 27, d7_cohort: 60, d7: 9 },
   completion: { finishes: 40, wins: 18, tutorial_finishes: 14, avg_minutes: 22.4, avg_turns: 31 },
   volume: [
@@ -32,6 +32,10 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('Activation funnel')).toBeTruthy();
     expect(screen.getByText('Signed up')).toBeTruthy();
     expect(screen.getByText('Created a game')).toBeTruthy();
+    // First-session activation steps
+    expect(screen.getByText('Reached the map')).toBeTruthy();
+    expect(screen.getByText('Made first attack')).toBeTruthy();
+    expect(screen.getByText('Captured a territory')).toBeTruthy();
     expect(screen.getByText('Finished a game ★')).toBeTruthy();
     expect(screen.getByText(/Guest → account: 12/)).toBeTruthy();
     // retention

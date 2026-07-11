@@ -23,14 +23,18 @@ describe('analyticsQueries', () => {
 
   it('getFunnelMetrics targets the signup cohort, passes the window, coerces to numbers', async () => {
     queryMock.mockResolvedValueOnce([
-      { signups: 10, created_game: 7, started_game: 6, finished_game: 4, upgraded: 2 },
+      { signups: 10, created_game: 7, started_game: 6, map_rendered: 6, first_attack: 5, first_capture: 4, finished_game: 4, upgraded: 2 },
     ]);
     const f = await getFunnelMetrics(14);
     const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain('analytics_events');
     expect(sql).toContain("event IN ('guest_created', 'user_registered')");
+    // The first-session activation steps are part of the funnel query.
+    expect(sql).toContain("e.event = 'map_rendered'");
+    expect(sql).toContain("e.event = 'first_attack'");
+    expect(sql).toContain("e.event = 'first_territory_captured'");
     expect(params).toEqual([14]);
-    expect(f).toEqual({ signups: 10, created_game: 7, started_game: 6, finished_game: 4, upgraded: 2 });
+    expect(f).toEqual({ signups: 10, created_game: 7, started_game: 6, map_rendered: 6, first_attack: 5, first_capture: 4, finished_game: 4, upgraded: 2 });
   });
 
   it('getFunnelMetrics defaults a missing row to zeros', async () => {
@@ -39,6 +43,9 @@ describe('analyticsQueries', () => {
       signups: 0,
       created_game: 0,
       started_game: 0,
+      map_rendered: 0,
+      first_attack: 0,
+      first_capture: 0,
       finished_game: 0,
       upgraded: 0,
     });

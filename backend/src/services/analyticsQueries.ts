@@ -13,6 +13,10 @@ export interface FunnelMetrics {
   signups: number;
   created_game: number;
   started_game: number;
+  /** First-session activation steps (turn-clarity funnel). */
+  map_rendered: number;
+  first_attack: number;
+  first_capture: number;
   finished_game: number;
   upgraded: number;
 }
@@ -85,6 +89,12 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_started'))::int AS started_game,
        COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'map_rendered'))::int AS map_rendered,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_attack'))::int AS first_attack,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_territory_captured'))::int AS first_capture,
+       COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_finished'))::int AS finished_game,
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'guest_upgraded'))::int AS upgraded
@@ -95,6 +105,9 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
     signups: num(row?.signups),
     created_game: num(row?.created_game),
     started_game: num(row?.started_game),
+    map_rendered: num(row?.map_rendered),
+    first_attack: num(row?.first_attack),
+    first_capture: num(row?.first_capture),
     finished_game: num(row?.finished_game),
     upgraded: num(row?.upgraded),
   };

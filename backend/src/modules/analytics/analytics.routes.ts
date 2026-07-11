@@ -19,6 +19,12 @@ const UiEventSchema = z.object({
     'today_panel_shown',
     'async_cta_clicked',
     'streak_freeze_buy_clicked',
+    // First-session activation funnel (guests are authenticated, so they post
+    // through this same endpoint). Each fires at most once per game client-side.
+    // `tutorial_completed` is emitted server-side (authoritative) and is not here.
+    'map_rendered',
+    'first_attack',
+    'first_territory_captured',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 });
