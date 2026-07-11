@@ -32,9 +32,16 @@ export interface EventVolumeRow {
   event: string;
   n: number;
 }
+export interface VisitorFunnelMetrics {
+  landed: number;
+  clicked_play: number;
+  signed_up: number;
+}
 export interface AnalyticsReport {
   window_days: number;
   total_events: number;
+  /** Optional for rollout: older backends won't send it. */
+  visitors?: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
   retention: RetentionMetrics;
   completion: CompletionStats;
@@ -104,6 +111,24 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
 
   return (
     <div className="space-y-6">
+      {data.visitors && data.visitors.landed > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold text-bf-text">Visitor funnel</p>
+            <p className="text-xs text-bf-muted">anonymous sessions · last {data.window_days}d</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            <FunnelStep label="Landed" n={data.visitors.landed} total={data.visitors.landed} />
+            <FunnelStep label="Clicked Play" n={data.visitors.clicked_play} total={data.visitors.landed} />
+            <FunnelStep label="Signed up ★" n={data.visitors.signed_up} total={data.visitors.landed} highlight />
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            Pre-signup sessions stitched to signups via the anonymous session id; visitors with
+            storage blocked aren't counted here (they still appear below once signed up).
+          </p>
+        </section>
+      )}
+
       <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
         <div className="flex items-baseline justify-between">
           <p className="text-sm font-semibold text-bf-text">Activation funnel</p>

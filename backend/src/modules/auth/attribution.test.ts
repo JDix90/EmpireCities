@@ -44,4 +44,24 @@ describe('parseAttribution', () => {
     expect(parseAttribution({ attribution: 'not-an-object' })).toEqual({});
     expect(parseAttribution({ attribution: { utm_source: 123 } })).toEqual({});
   });
+
+  it('carries a valid anon_session_id through (visitor-funnel stitching)', () => {
+    const anon = '4f9b1a6e-2f10-4b8a-9a2e-3d5c7b9f0a11';
+    expect(
+      parseAttribution({ attribution: { utm_source: 'reddit', anon_session_id: anon } }),
+    ).toEqual({ utm_source: 'reddit', anon_session_id: anon });
+    // The anon id alone (organic/direct visit) still parses.
+    expect(parseAttribution({ attribution: { anon_session_id: anon } })).toEqual({
+      anon_session_id: anon,
+    });
+  });
+
+  it('drops a malformed anon_session_id without losing the UTM data', () => {
+    expect(
+      parseAttribution({ attribution: { utm_source: 'reddit', anon_session_id: 'not-a-uuid' } }),
+    ).toEqual({ utm_source: 'reddit' });
+    expect(
+      parseAttribution({ attribution: { utm_source: 'reddit', anon_session_id: 42 } }),
+    ).toEqual({ utm_source: 'reddit' });
+  });
 });

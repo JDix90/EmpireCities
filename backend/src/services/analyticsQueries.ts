@@ -51,9 +51,19 @@ export interface AcquisitionRow {
   activated: number;
 }
 
+export interface VisitorFunnelMetrics {
+  /** Distinct anonymous sessions that viewed the landing page. */
+  landed: number;
+  /** …that clicked a primary Play CTA. */
+  clicked_play: number;
+  /** …whose anon_session_id later appears on a guest_created/user_registered event. */
+  signed_up: number;
+}
+
 export interface AnalyticsReport {
   window_days: number;
   total_events: number;
+  visitors: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
   retention: RetentionMetrics;
   completion: CompletionStats;
@@ -215,9 +225,45 @@ export async function getAcquisitionBySource(days: number): Promise<AcquisitionR
   }));
 }
 
+/**
+ * Pre-signup visitor funnel: landed → clicked Play → signed up, counted by
+ * DISTINCT anonymous session id. Signup linkage works because the same
+ * anon_session_id the /analytics/visit beacons carry also rides the signup
+ * attribution payload into guest_created / user_registered properties
+ * (see modules/auth/attribution.ts). Sessions without the id (blocked storage)
+ * simply never enter this funnel — the authenticated funnel still counts them.
+ */
+export async function getVisitorFunnel(days: number): Promise<VisitorFunnelMetrics> {
+  const [row] = await query<Record<string, unknown>>(
+    `WITH visitors AS (
+       SELECT DISTINCT properties->>'anon_session_id' AS anon_id
+       FROM analytics_events
+       WHERE event = 'landing_viewed' AND properties->>'anon_session_id' IS NOT NULL
+         AND created_at >= NOW() - make_interval(days => $1::int)
+     )
+     SELECT
+       COUNT(*)::int AS landed,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.event = 'hero_play_clicked' AND e.properties->>'anon_session_id' = v.anon_id))::int AS clicked_play,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.event IN ('guest_created', 'user_registered')
+           AND e.properties->>'anon_session_id' = v.anon_id))::int AS signed_up
+     FROM visitors v`,
+    [days],
+  );
+  return {
+    landed: num(row?.landed),
+    clicked_play: num(row?.clicked_play),
+    signed_up: num(row?.signed_up),
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number): Promise<AnalyticsReport> {
-  const [funnel, retention, completion, acquisition, volume, totalRow] = await Promise.all([
+  const [visitors, funnel, retention, completion, acquisition, volume, totalRow] = await Promise.all([
+    getVisitorFunnel(days),
     getFunnelMetrics(days),
     getRetentionMetrics(),
     getCompletionStats(days),
@@ -228,6 +274,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
   return {
     window_days: days,
     total_events: num(totalRow?.total),
+    visitors,
     funnel,
     retention,
     completion,

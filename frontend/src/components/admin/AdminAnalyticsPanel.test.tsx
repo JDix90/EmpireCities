@@ -20,6 +20,20 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText(/Loading/i)).toBeTruthy();
   });
 
+  it('hides the visitor funnel when absent/empty, shows it when populated', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Visitor funnel')).toBeNull();
+    unmount();
+    render(
+      <AdminAnalyticsPanel
+        data={{ ...report, visitors: { landed: 40, clicked_play: 15, signed_up: 9 } }}
+      />,
+    );
+    expect(screen.getByText('Visitor funnel')).toBeTruthy();
+    expect(screen.getByText('Clicked Play')).toBeTruthy();
+    expect(screen.getByText('Signed up ★')).toBeTruthy();
+  });
+
   it('shows an enable hint when nothing has been recorded yet', () => {
     render(<AdminAnalyticsPanel data={{ ...report, total_events: 0 }} />);
     expect(screen.getByText(/No analytics events yet/i)).toBeTruthy();

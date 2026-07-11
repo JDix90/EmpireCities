@@ -10,6 +10,8 @@
  * it, so a user who arrives via an ad and returns later directly is still
  * credited to the ad.
  */
+import { getAnonSessionId } from './anonSession';
+
 const STORAGE_KEY = 'bf_attribution';
 const MAX_LEN = 200;
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const;
@@ -77,4 +79,18 @@ export function getAttribution(): Attribution | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Attribution payload for the account-creating auth calls (guest / register /
+ * upgrade): first-touch UTMs/referrer PLUS the anonymous visitor session id,
+ * which is what stitches pre-signup landing_viewed / hero_play_clicked beacons
+ * to the signup event in the visitor funnel. Unlike getAttribution(), this is
+ * defined for organic/direct visits too — the anon id alone is worth sending.
+ */
+export function getSignupAttribution(): (Attribution & { anon_session_id?: string }) | undefined {
+  const attribution = getAttribution() ?? {};
+  const anonId = getAnonSessionId();
+  const merged = anonId ? { ...attribution, anon_session_id: anonId } : attribution;
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
