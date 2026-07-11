@@ -13,6 +13,9 @@ import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
 import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { getFastCombatPreference } from '../../utils/userPreferences';
+import { eraBoardTheme } from '../../constants/eraBoardTheme';
+import { eraMeta } from '../../constants/eraMeta';
+import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -192,13 +195,31 @@ export interface DraftSummaryModalData {
   ratings: DraftRatingRow[];
 }
 
+/**
+ * The advancing player's "payoff" moment (dark-launched behind
+ * era_advance_payoff_enabled). Content is captured client-side at advance time
+ * from the pre-advance era preview + the arriving era id.
+ */
+export interface EraAdvanceModalData {
+  type: 'era_advance';
+  eraId: string;
+  /** The era signature ability granted on arrival — the headline new capability. */
+  signatureName?: string;
+  signatureDescription?: string;
+  /** A once-per-game ability carried forward from the prior era, if any. */
+  legacyLabel?: string;
+  /** True while the post-advance vulnerability window is open (this turn). */
+  vulnerable?: boolean;
+}
+
 export type ModalData =
   | CombatModalData
   | TurnSummaryModalData
   | GameOverModalData
   | EliminationModalData
   | ResignModalData
-  | DraftSummaryModalData;
+  | DraftSummaryModalData
+  | EraAdvanceModalData;
 
 /**
  * Pivotal modals that "Skip all" must NOT discard — the player needs to see and
@@ -211,7 +232,10 @@ export function isCriticalModal(data: ModalData): boolean {
     data.type === 'game_over' ||
     data.type === 'elimination' ||
     data.type === 'resign_confirm' ||
-    data.type === 'draft_summary'
+    data.type === 'draft_summary' ||
+    // The era-advance payoff is a rare, deliberate signature moment — a
+    // Skip-all backlog clear should never swallow it.
+    data.type === 'era_advance'
   ) {
     return true;
   }
@@ -1816,6 +1840,73 @@ interface ActionModalProps {
   players?: Array<{ player_id: string; username: string }>;
 }
 
+/**
+ * The advancing player's era-advancement payoff — the "signature moment" for the
+ * game's headline differentiator. Leads with the era entered, then spotlights the
+ * ONE new capability (the era signature ability) so the player knows what changed
+ * and what to do next, plus the legacy carry and the vulnerability warning.
+ */
+function EraAdvanceView({ data, onDismiss }: { data: EraAdvanceModalData; onDismiss: () => void }) {
+  const theme = eraBoardTheme(data.eraId);
+  const title = ERA_LABELS[data.eraId] ?? `${theme.label} Era`;
+  const flavor = eraMeta(data.eraId).flavor;
+  return (
+    <div className="text-center" data-testid="era-advance-modal">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-bf-muted">Civilization Ascends</p>
+      <div
+        className="mx-auto mt-3 flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+        style={{ backgroundColor: `${theme.accent}22`, border: `1px solid ${theme.accent}66` }}
+        aria-hidden="true"
+      >
+        {theme.glyph}
+      </div>
+      <h2 className="mt-3 font-display text-2xl sm:text-3xl" style={{ color: theme.accent }}>{title}</h2>
+      {flavor && <p className="mt-1 text-sm text-bf-muted">{flavor}</p>}
+
+      <div className="mt-5 space-y-3 text-left">
+        {data.signatureName && (
+          <div
+            className="rounded-xl border p-3"
+            style={{ backgroundColor: `${theme.accent}14`, borderColor: `${theme.accent}55` }}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: theme.accent }}>
+              New power unlocked
+            </p>
+            <p className="mt-1 font-medium text-bf-text">{data.signatureName}</p>
+            {data.signatureDescription && (
+              <p className="mt-0.5 text-sm text-bf-muted">{data.signatureDescription}</p>
+            )}
+            <p className="mt-1.5 text-xs text-bf-muted">Ready this era — use it on your turn.</p>
+          </div>
+        )}
+        <div className="flex items-start gap-2 text-sm text-bf-muted">
+          <ArrowRight size={16} className="mt-0.5 shrink-0 text-bf-gold" />
+          <span>A fresh tech tree is open — research new {theme.label}-era technologies.</span>
+        </div>
+        {data.legacyLabel && (
+          <div className="flex items-start gap-2 text-sm text-bf-muted">
+            <Crown size={16} className="mt-0.5 shrink-0 text-bf-gold" />
+            <span>Carried forward: <span className="text-bf-text">{data.legacyLabel}</span> (one last use).</span>
+          </div>
+        )}
+        {data.vulnerable && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-200">
+            <Shield size={16} className="mt-0.5 shrink-0" />
+            <span>Vulnerable window — opponents hit harder until your next turn.</span>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onDismiss}
+        className="mt-6 w-full rounded-xl bg-bf-gold/90 py-2.5 font-medium text-bf-dark transition-colors hover:bg-bf-gold"
+      >
+        Onward →
+      </button>
+    </div>
+  );
+}
+
 export default function ActionModal({
   data,
   onDismiss,
@@ -1900,6 +1991,7 @@ export default function ActionModal({
         )}
         {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}
+        {data.type === 'era_advance' && <EraAdvanceView data={data} onDismiss={onDismiss} />}
       </div>
     </div>
   );
