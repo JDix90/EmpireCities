@@ -88,7 +88,12 @@ describe('authStore', () => {
     expect(api.post).toHaveBeenCalledWith('/auth/upgrade', {
       username: 'RealCommander', email: 'cmd@example.com', password: 'long-password',
       email_opt_in: false,
-      attribution: { utm_source: 'reddit' },
+      // First-touch UTM plus the anonymous visitor session id (visitor-funnel
+      // stitching) — getSignupAttribution mints the id when absent.
+      attribution: {
+        utm_source: 'reddit',
+        anon_session_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+      },
     });
     // Same user_id (in-place conversion), progression intact, flag flipped.
     expect(state.user?.user_id).toBe('u1');
