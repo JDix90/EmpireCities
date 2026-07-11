@@ -560,10 +560,15 @@ export default function GamePage() {
   // a source is picked (once selected, target highlighting takes over). Null =
   // no hint (feeds the maps' validSourceOwnerId prop). Flag-gated.
   const validSourceOwnerId = useMemo<string | null>(() => {
-    if (!turnClarityFlag || !gameState || !resolvedViewerPlayerId) return null;
+    // Resolve the viewer via viewerPlayer (which falls back to user id/username)
+    // rather than resolvedViewerPlayerId alone — the latter is only set once the
+    // `game:joined` seat arrives, so on some join/resume timings the player sees
+    // "your turn" + the phase bar but the rings would never appear.
+    const viewerId = viewerPlayer?.player_id ?? null;
+    if (!turnClarityFlag || !gameState || !viewerId) return null;
     const phase = gameState.phase;
     if (phase !== 'attack' && phase !== 'fortify') return null;
-    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === resolvedViewerPlayerId;
+    const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === viewerId;
     if (!isMyTurn) return null;
     if (attackSource ?? selectedTerritory) return null;
     // Suppress the hint when the phase is technically active but no action is
@@ -578,8 +583,8 @@ export default function GamePage() {
       const fortifyLimit = (gameState.era_modifiers?.wartime_logistics ? 2 : 1) + (viewerPlayer?.bonus_fortify_moves ?? 0);
       if ((gameState.fortify_moves_used ?? 0) >= fortifyLimit) return null;
     }
-    return resolvedViewerPlayerId;
-  }, [turnClarityFlag, gameState, resolvedViewerPlayerId, viewerPlayer, attackSource, selectedTerritory]);
+    return viewerId;
+  }, [turnClarityFlag, gameState, viewerPlayer, attackSource, selectedTerritory]);
 
   // Era board re-skin (Layer 1): the board atmosphere follows the VIEWING player's
   // current era, so advancing visibly transforms the world. Gated to era-advancement

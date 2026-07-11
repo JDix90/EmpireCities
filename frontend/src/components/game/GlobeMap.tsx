@@ -3096,10 +3096,14 @@ function GlobeMap({
         id: `valid-source-${tid}`,
         lat: center.lat,
         lng: center.lng,
-        maxRadius: 0.8,
-        speed: 1.0,
-        repeatPeriod: 1400,
-        colorFn: (x: number) => `rgba(52, 211, 153, ${Math.max(0, 0.55 - x)})`,
+        // Bright, prominent emerald pulse — the whole point of the hint is to be
+        // impossible to miss. Was too faint (0.55 opacity / 0.8 radius) to read
+        // over the textured globe; now on par with the tutorial/coach rings but
+        // kept emerald so it never reads as the gold tutorial/coach pulse.
+        maxRadius: 1.3,
+        speed: 1.6,
+        repeatPeriod: 850,
+        colorFn: (x: number) => `rgba(52, 231, 160, ${Math.max(0, 0.9 - x)})`,
       });
     }
     return out;
