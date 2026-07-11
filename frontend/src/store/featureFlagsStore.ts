@@ -7,6 +7,7 @@ export interface ClientFeatureFlags {
   first_turn_coach_enabled: boolean;
   turn_clarity_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
+  hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
   streak_freezes_enabled: boolean;
@@ -26,6 +27,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   turn_clarity_enabled: false,
   // Default off (dark-launch); route landing guests straight into the tutorial.
   onboarding_tutorial_first_enabled: false,
+  // Default off (dark-launch); collapse the landing hero to one dominant Play CTA.
+  hero_single_cta_enabled: false,
   // Default off (dark-launch); celebratory era-advance payoff modal.
   era_advance_payoff_enabled: false,
   // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
@@ -79,6 +82,10 @@ export function useTurnClarityEnabled(): boolean {
 
 export function useOnboardingTutorialFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
+}
+
+export function useHeroSingleCtaEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.hero_single_cta_enabled);
 }
 
 export function useEraAdvancePayoffEnabled(): boolean {

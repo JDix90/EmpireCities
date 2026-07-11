@@ -59,6 +59,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. Off by default (dark-launch).',
   },
+  {
+    key: 'hero_single_cta_enabled',
+    label: 'Landing hero: single CTA',
+    description:
+      'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. Off by default.',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
