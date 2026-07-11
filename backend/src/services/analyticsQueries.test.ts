@@ -9,6 +9,7 @@ vi.mock('../db/postgres', () => ({
 
 import {
   getFunnelMetrics,
+  getVisitorFunnel,
   getCompletionStats,
   getEventVolume,
   getAcquisitionBySource,
@@ -91,10 +92,28 @@ describe('analyticsQueries', () => {
     ]);
   });
 
+  it('getVisitorFunnel counts distinct anon sessions and stitches signups', async () => {
+    queryMock.mockResolvedValueOnce([{ landed: 12, clicked_play: 5, signed_up: 3 }]);
+    const v = await getVisitorFunnel(7);
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("event = 'landing_viewed'");
+    expect(sql).toContain("event = 'hero_play_clicked'");
+    expect(sql).toContain("event IN ('guest_created', 'user_registered')");
+    expect(sql).toContain("properties->>'anon_session_id'");
+    expect(params).toEqual([7]);
+    expect(v).toEqual({ landed: 12, clicked_play: 5, signed_up: 3 });
+  });
+
+  it('getVisitorFunnel defaults a missing row to zeros', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    expect(await getVisitorFunnel(30)).toEqual({ landed: 0, clicked_play: 0, signed_up: 0 });
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
     // Promise.all invokes the section queries in array order:
-    // funnel, retention, completion, acquisition, volume — then queryOne(total).
+    // visitors, funnel, retention, completion, acquisition, volume — then queryOne(total).
     queryMock
+      .mockResolvedValueOnce([{ landed: 10, clicked_play: 4, signed_up: 3 }])
       .mockResolvedValueOnce([{ signups: 3, created_game: 2, started_game: 2, finished_game: 1, upgraded: 0 }])
       .mockResolvedValueOnce([{ d1_cohort: 3, d1: 1, d7_cohort: 0, d7: 0 }])
       .mockResolvedValueOnce([{ finishes: 1, wins: 1, tutorial_finishes: 0, avg_minutes: '15.0', avg_turns: '20.0' }])
@@ -105,6 +124,7 @@ describe('analyticsQueries', () => {
     const r = await getAnalyticsReport(30);
     expect(r.window_days).toBe(30);
     expect(r.total_events).toBe(42);
+    expect(r.visitors).toEqual({ landed: 10, clicked_play: 4, signed_up: 3 });
     expect(r.funnel.finished_game).toBe(1);
     expect(r.retention.d1).toBe(1);
     expect(r.completion.avg_minutes).toBe(15);

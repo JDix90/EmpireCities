@@ -31,6 +31,15 @@ export const AttributionSchema = z
 export type Attribution = z.infer<typeof AttributionSchema>;
 
 /**
+ * The anonymous visitor session id (see frontend/src/utils/anonSession.ts) rides
+ * the same attribution payload and stitches pre-signup landing_viewed /
+ * hero_play_clicked beacons to this signup in the visitor funnel. Validated
+ * SEPARATELY from the UTM schema so a malformed id can never cost us the
+ * campaign attribution (and vice versa).
+ */
+const AnonSessionIdSchema = z.string().uuid();
+
+/**
  * Pull the optional `attribution` object off an auth request body and flatten it
  * into an analytics payload. Never throws: a missing / malformed / oversized
  * body just yields `{}` (an un-attributed event), so wiring this into an auth
@@ -39,11 +48,16 @@ export type Attribution = z.infer<typeof AttributionSchema>;
 export function parseAttribution(body: unknown): Record<string, string> {
   if (!body || typeof body !== 'object') return {};
   const raw = (body as Record<string, unknown>).attribution;
-  const parsed = AttributionSchema.safeParse(raw);
-  if (!parsed.success) return {};
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(parsed.data)) {
-    if (typeof value === 'string' && value.length > 0) out[key] = value;
+  const parsed = AttributionSchema.safeParse(raw);
+  if (parsed.success) {
+    for (const [key, value] of Object.entries(parsed.data)) {
+      if (typeof value === 'string' && value.length > 0) out[key] = value;
+    }
+  }
+  if (raw && typeof raw === 'object') {
+    const anon = AnonSessionIdSchema.safeParse((raw as Record<string, unknown>).anon_session_id);
+    if (anon.success) out.anon_session_id = anon.data;
   }
   return out;
 }

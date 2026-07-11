@@ -4,7 +4,7 @@ import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
-import { getAttribution } from '../utils/attribution';
+import { getSignupAttribution } from '../utils/attribution';
 
 const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
 
@@ -134,7 +134,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await api.post('/auth/register', {
             username, email, password,
             email_opt_in: Boolean(emailOptIn),
-            attribution: getAttribution(),
+            attribution: getSignupAttribution(),
           });
           const { accessToken, user } = res.data;
           try {
@@ -151,7 +151,7 @@ export const useAuthStore = create<AuthState>()(
       loginAsGuest: async () => {
         set({ isLoading: true });
         try {
-          const res = await rawHttp.post('/auth/guest', { attribution: getAttribution() });
+          const res = await rawHttp.post('/auth/guest', { attribution: getSignupAttribution() });
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           resyncSocketAuth();
@@ -169,7 +169,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await api.post('/auth/upgrade', {
             username, email, password,
             email_opt_in: Boolean(emailOptIn),
-            attribution: getAttribution(),
+            attribution: getSignupAttribution(),
           });
           const { accessToken, user } = res.data;
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });

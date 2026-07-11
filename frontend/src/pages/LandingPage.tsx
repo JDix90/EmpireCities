@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useOnboardingTutorialFirstEnabled } from '../store/featureFlagsStore';
+import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
@@ -390,6 +391,17 @@ export default function LandingPage() {
   const user = useAuthStore((s) => s.user);
   const tutorialFirst = useOnboardingTutorialFirstEnabled();
 
+  // Pre-auth visitor funnel: landing_viewed once per tab, hero_play_clicked on
+  // every Play CTA (placement prop tells the variants apart). Logged-in users
+  // are not "visitors" — skip so return traffic doesn't inflate the funnel.
+  useEffect(() => {
+    if (!user) trackVisitEvent('landing_viewed', undefined, { oncePerTab: true });
+    // Intentionally mount-only (oncePerTab also dedupes remounts).
+  }, []);
+  const trackPlayClick = (placement: string) => {
+    if (!user) trackVisitEvent('hero_play_clicked', { placement });
+  };
+
   const handleGuest = async () => {
     setGuestLoading(true);
     try {
@@ -436,7 +448,7 @@ export default function LandingPage() {
             type="button"
             className="btn-secondary text-sm sm:hidden"
             disabled={guestLoading}
-            onClick={() => void handleGuest()}
+            onClick={() => { trackPlayClick('nav_mobile_guest'); void handleGuest(); }}
           >
             {guestLoading ? 'Starting…' : 'Play as Guest'}
           </button>
@@ -444,7 +456,7 @@ export default function LandingPage() {
           <button
             type="button"
             className="btn-primary text-sm hidden sm:inline-flex"
-            onClick={() => setShowGetStarted(true)}
+            onClick={() => { trackPlayClick('nav'); setShowGetStarted(true); }}
           >
             Play Free
           </button>
@@ -466,7 +478,7 @@ export default function LandingPage() {
           <button
             type="button"
             className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
-            onClick={() => setShowGetStarted(true)}
+            onClick={() => { trackPlayClick('hero'); setShowGetStarted(true); }}
           >
             Play Free Now
           </button>
@@ -529,7 +541,7 @@ export default function LandingPage() {
       {showGetStarted && (
         <GetStartedModal
           onClose={() => setShowGetStarted(false)}
-          onGuest={handleGuest}
+          onGuest={() => { trackPlayClick('modal_guest'); void handleGuest(); }}
           guestLoading={guestLoading}
         />
       )}
@@ -542,7 +554,7 @@ export default function LandingPage() {
         <button
           type="button"
           className="btn-primary text-lg px-12 py-3"
-          onClick={() => setShowGetStarted(true)}
+          onClick={() => { trackPlayClick('bottom'); setShowGetStarted(true); }}
         >
           Play Free Now
         </button>
