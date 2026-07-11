@@ -53,6 +53,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. Off by default (dark-launch) so it can be A/B’d against the first-session funnel.',
   },
+  {
+    key: 'era_advance_payoff_enabled',
+    label: 'Era-advance payoff',
+    description:
+      'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. Off by default (dark-launch).',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

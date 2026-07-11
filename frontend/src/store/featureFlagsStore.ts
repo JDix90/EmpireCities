@@ -7,6 +7,7 @@ export interface ClientFeatureFlags {
   first_turn_coach_enabled: boolean;
   turn_clarity_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
+  era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
@@ -25,6 +26,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   turn_clarity_enabled: false,
   // Default off (dark-launch); route landing guests straight into the tutorial.
   onboarding_tutorial_first_enabled: false,
+  // Default off (dark-launch); celebratory era-advance payoff modal.
+  era_advance_payoff_enabled: false,
   // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
   signup_nudge_enabled: false,
   // Wave 2 retention flags — all default off (dark-launch).
@@ -76,6 +79,10 @@ export function useTurnClarityEnabled(): boolean {
 
 export function useOnboardingTutorialFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
+}
+
+export function useEraAdvancePayoffEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.era_advance_payoff_enabled);
 }
 
 export function useSignupNudgeEnabled(): boolean {
