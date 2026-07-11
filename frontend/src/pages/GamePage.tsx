@@ -646,6 +646,12 @@ export default function GamePage() {
   const [showStartModal, setShowStartModal] = useState(false);
   const startModalOpenRef = useRef(false);
   const startModalShownRef = useRef(false);
+  // First-session activation funnel: each event fires at most once per game.
+  // Reset when the game changes so a second match is measured fresh.
+  const funnelEmittedRef = useRef({ map: false, attack: false, capture: false });
+  useEffect(() => {
+    funnelEmittedRef.current = { map: false, attack: false, capture: false };
+  }, [gameId]);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
@@ -1096,6 +1102,17 @@ export default function GamePage() {
       setLobbyLoadError(null);
       setGameStarted(true);
       setGameState(state);
+      // First-session funnel: the map is interactive as soon as the first
+      // authoritative state lands. Fire once per game (guests are authenticated,
+      // so this posts through the ui-event endpoint; dropped server-side if the
+      // analytics flag is off).
+      if (!funnelEmittedRef.current.map) {
+        funnelEmittedRef.current.map = true;
+        api.post('/analytics/ui-event', {
+          event: 'map_rendered',
+          properties: { era: String(state.era ?? ''), is_tutorial: String(state.settings?.tutorial === true) },
+        }).catch(() => {});
+      }
       // Clear territory-select pending flag so the next player's turn is interactive.
       territorySelectPendingRef.current = false;
       const myId = userRef.current?.user_id;
@@ -1359,6 +1376,21 @@ export default function GamePage() {
       const isMyDefense = defenderOwner === userRef.current?.user_id;
 
       const { attacker_losses, defender_losses, territory_captured } = data.result;
+
+      // First-session funnel: the viewer's first attack, and first capture, this
+      // game (fire-and-forget, once each; dropped server-side if the flag is off).
+      if (isMyAttack) {
+        const isTut = String(state?.settings?.tutorial === true);
+        const era = String(state?.era ?? '');
+        if (!funnelEmittedRef.current.attack) {
+          funnelEmittedRef.current.attack = true;
+          api.post('/analytics/ui-event', { event: 'first_attack', properties: { era, is_tutorial: isTut } }).catch(() => {});
+        }
+        if (territory_captured && !funnelEmittedRef.current.capture) {
+          funnelEmittedRef.current.capture = true;
+          api.post('/analytics/ui-event', { event: 'first_territory_captured', properties: { era, is_tutorial: isTut } }).catch(() => {});
+        }
+      }
       // Prefer the server's count: deriving it locally double-subtracted
       // losses whenever the game:state broadcast landed before this event,
       // making "Attack again" vanish mid-battle. Fallback covers old servers.
