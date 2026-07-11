@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useOnboardingTutorialFirstEnabled } from '../store/featureFlagsStore';
+import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled } from '../store/featureFlagsStore';
 import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
@@ -390,16 +390,18 @@ export default function LandingPage() {
   const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
   const user = useAuthStore((s) => s.user);
   const tutorialFirst = useOnboardingTutorialFirstEnabled();
+  const singleCta = useHeroSingleCtaEnabled();
 
   // Pre-auth visitor funnel: landing_viewed once per tab, hero_play_clicked on
-  // every Play CTA (placement prop tells the variants apart). Logged-in users
-  // are not "visitors" — skip so return traffic doesn't inflate the funnel.
+  // every Play CTA. `placement` tells the buttons apart; `variant` labels the
+  // hero A/B (single dominant CTA vs control) so the funnel reads the test
+  // directly. Logged-in users are not "visitors" — skip them.
   useEffect(() => {
     if (!user) trackVisitEvent('landing_viewed', undefined, { oncePerTab: true });
     // Intentionally mount-only (oncePerTab also dedupes remounts).
   }, []);
   const trackPlayClick = (placement: string) => {
-    if (!user) trackVisitEvent('hero_play_clicked', { placement });
+    if (!user) trackVisitEvent('hero_play_clicked', { placement, variant: singleCta ? 'single' : 'control' });
   };
 
   const handleGuest = async () => {
@@ -441,25 +443,33 @@ export default function LandingPage() {
       <nav className="border-b border-bf-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
         <BrandWordmark className="text-lg sm:text-2xl" />
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
-            Learn to play
-          </Link>
-          <button
-            type="button"
-            className="btn-secondary text-sm sm:hidden"
-            disabled={guestLoading}
-            onClick={() => { trackPlayClick('nav_mobile_guest'); void handleGuest(); }}
-          >
-            {guestLoading ? 'Starting…' : 'Play as Guest'}
-          </button>
+          {/* Single-CTA variant: the hero owns the Play action; the nav keeps
+              only the Sign In utility so nothing competes with the primary. */}
+          {!singleCta && (
+            <>
+              <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
+                Learn to play
+              </Link>
+              <button
+                type="button"
+                className="btn-secondary text-sm sm:hidden"
+                disabled={guestLoading}
+                onClick={() => { trackPlayClick('nav_mobile_guest'); void handleGuest(); }}
+              >
+                {guestLoading ? 'Starting…' : 'Play as Guest'}
+              </button>
+            </>
+          )}
           <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
-          <button
-            type="button"
-            className="btn-primary text-sm hidden sm:inline-flex"
-            onClick={() => { trackPlayClick('nav'); setShowGetStarted(true); }}
-          >
-            Play Free
-          </button>
+          {!singleCta && (
+            <button
+              type="button"
+              className="btn-primary text-sm hidden sm:inline-flex"
+              onClick={() => { trackPlayClick('nav'); setShowGetStarted(true); }}
+            >
+              Play Free
+            </button>
+          )}
         </div>
       </nav>
 
@@ -474,23 +484,47 @@ export default function LandingPage() {
         <p className="text-bf-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
           {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
-          <button
-            type="button"
-            className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
-            onClick={() => { trackPlayClick('hero'); setShowGetStarted(true); }}
-          >
-            Play Free Now
-          </button>
-          <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
-            Learn to play
-          </Link>
-          <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>
-        </div>
+        {singleCta ? (
+          /* One dominant action: click → guest session → straight into play
+             (pairs with onboarding_tutorial_first for landing → tutorial).
+             Friction-removers under the button; one low-emphasis secondary. */
+          <div className="flex flex-col gap-3 justify-center items-center max-w-sm mx-auto">
+            <button
+              type="button"
+              className="btn-primary text-lg sm:text-xl px-12 sm:px-14 py-4 w-full sm:w-auto disabled:opacity-60"
+              disabled={guestLoading}
+              onClick={() => { trackPlayClick('hero'); void handleGuest(); }}
+            >
+              {guestLoading ? 'Starting…' : 'Play Free Now'}
+            </button>
+            <p className="text-bf-muted text-sm">No account · No download · About 7 minutes</p>
+            <button
+              type="button"
+              className="text-bf-gold/80 hover:text-bf-gold text-sm underline underline-offset-4"
+              onClick={() => document.getElementById('gameplay')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              See gameplay
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
+            <button
+              type="button"
+              className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
+              onClick={() => { trackPlayClick('hero'); setShowGetStarted(true); }}
+            >
+              Play Free Now
+            </button>
+            <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
+              Learn to play
+            </Link>
+            <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>
+          </div>
+        )}
       </section>
 
       {/* Gameplay showcase — show the game instead of pitching it (replaces the old "Why Borderfall?" grid) */}
-      <section className="py-12 sm:py-16 px-6 max-w-6xl mx-auto">
+      <section id="gameplay" className="py-12 sm:py-16 px-6 max-w-6xl mx-auto">
         <GameplayShowcase />
         <p className="mt-4 text-center text-sm text-bf-muted">
           Real gameplay on the Modern Day globe — one of the maps below.

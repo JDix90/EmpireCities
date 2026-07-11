@@ -85,6 +85,18 @@ export const featureFlags = {
   },
 
   /**
+   * When true, the landing hero collapses to ONE dominant Play CTA (direct
+   * guest start + "No account • No download" microcopy + a single "See
+   * gameplay" secondary); the competing nav Play/Learn buttons hide and Sign
+   * In demotes to a header utility. Presentational A/B — hero_play_clicked
+   * carries a `variant` prop so the visitor funnel reads the test directly.
+   * Default OFF — dark-launch.
+   */
+  get heroSingleCtaEnabled(): boolean {
+    return overrideBool('hero_single_cta_enabled', process.env.HERO_SINGLE_CTA_ENABLED === 'true');
+  },
+
+  /**
    * When true, advancing an era shows the advancing player a "payoff" moment —
    * a celebratory modal naming the era entered, the newly-unlocked signature
    * ability, the legacy carry, and the vulnerability window — instead of just a
@@ -188,6 +200,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
+    hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
