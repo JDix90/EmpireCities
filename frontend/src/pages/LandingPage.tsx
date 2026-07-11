@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useOnboardingTutorialFirstEnabled } from '../store/featureFlagsStore';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
@@ -387,16 +388,25 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
   const user = useAuthStore((s) => s.user);
+  const tutorialFirst = useOnboardingTutorialFirstEnabled();
 
   const handleGuest = async () => {
     setGuestLoading(true);
     try {
       await loginAsGuest();
-      // Plain /lobby: the welcome modal owns first-visit triage (Start
-      // Tutorial / Quick Match / lobby). The old ?quickstart=true param
-      // auto-opened the dense Configure New Game form ON TOP of that modal,
-      // making the config form every new guest's first screen.
-      navigate('/lobby');
+      if (tutorialFirst) {
+        // One-click onboarding: a landing guest is always brand-new (loginAsGuest
+        // mints a fresh account), so drop them straight into the guided tutorial
+        // match — collapsing landing → lobby → welcome-modal → tutorial into one
+        // click. `?start=1` auto-starts the core lesson and routes into the game.
+        navigate('/tutorial?start=1');
+      } else {
+        // Plain /lobby: the welcome modal owns first-visit triage (Start
+        // Tutorial / Quick Match / lobby). The old ?quickstart=true param
+        // auto-opened the dense Configure New Game form ON TOP of that modal,
+        // making the config form every new guest's first screen.
+        navigate('/lobby');
+      }
     } catch {
       toast.error('Could not start guest session');
       setGuestLoading(false);

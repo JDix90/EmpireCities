@@ -6,6 +6,7 @@ export interface ClientFeatureFlags {
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
   turn_clarity_enabled: boolean;
+  onboarding_tutorial_first_enabled: boolean;
   signup_nudge_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
@@ -22,6 +23,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_turn_coach_enabled: false,
   // Default off (dark-launch); in-game phase bar / target highlighting / undo.
   turn_clarity_enabled: false,
+  // Default off (dark-launch); route landing guests straight into the tutorial.
+  onboarding_tutorial_first_enabled: false,
   // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
   signup_nudge_enabled: false,
   // Wave 2 retention flags — all default off (dark-launch).
@@ -69,6 +72,10 @@ export function useFirstTurnCoachEnabled(): boolean {
 
 export function useTurnClarityEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.turn_clarity_enabled);
+}
+
+export function useOnboardingTutorialFirstEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
 }
 
 export function useSignupNudgeEnabled(): boolean {

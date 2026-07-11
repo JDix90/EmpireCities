@@ -74,6 +74,17 @@ export const featureFlags = {
   },
 
   /**
+   * When true, the landing page's "Play as Guest" CTA drops a brand-new guest
+   * straight into the guided tutorial match (/tutorial?start=1) instead of the
+   * lobby — collapsing landing → lobby → welcome-modal → tutorial into one click.
+   * Client-side routing only. Default OFF — dark-launch so it can be A/B'd
+   * (guest → tutorial vs guest → lobby) against the first-session funnel.
+   */
+  get onboardingTutorialFirstEnabled(): boolean {
+    return overrideBool('onboarding_tutorial_first_enabled', process.env.ONBOARDING_TUTORIAL_FIRST_ENABLED === 'true');
+  },
+
+  /**
    * When true, Era Advancement is surfaced in the lobby — the one-click "Full Game
    * Start" CTA and the in-form Era Advancement toggle (for Ancient). Default ON so
    * the flagship mode is highlighted; admin config can override off. (Ranked Era
@@ -165,6 +176,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
+    onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
