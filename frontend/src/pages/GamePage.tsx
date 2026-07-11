@@ -50,7 +50,7 @@ import {
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import FeatureExplainerModal from '../components/ui/FeatureExplainerModal';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, isCriticalModal } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, EraAdvanceModalData, isCriticalModal } from '../components/game/ActionModal';
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
@@ -641,6 +641,11 @@ export default function GamePage() {
   const [showStartModal, setShowStartModal] = useState(false);
   const startModalOpenRef = useRef(false);
   const startModalShownRef = useRef(false);
+  // Snapshot the era payoff details from the pre-advance preview at click time:
+  // after advancing, the preview's next_signature rolls to the *following* era,
+  // so this is the only moment the just-granted ability is knowable. Consumed in
+  // the game:advance_era_result handler.
+  const pendingAdvancePayoffRef = useRef<Omit<EraAdvanceModalData, 'type' | 'eraId'> | null>(null);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
@@ -1612,10 +1617,22 @@ export default function GamePage() {
     socket.on('game:advance_era_result', ({ era_id }: { success: boolean; era_id?: string }) => {
       const label = era_id ? (ERA_LABELS[era_id] ?? era_id) : 'the next era';
       setShowTechTree(false);
-      toast.success(
-        `Advanced to ${label}! New tech tree unlocked — research fresh Medieval technologies.`,
-        { icon: '✨', duration: 6000 },
-      );
+      const payoff = pendingAdvancePayoffRef.current;
+      pendingAdvancePayoffRef.current = null;
+      const payoffEnabled = useFeatureFlagsStore.getState().flags.era_advance_payoff_enabled;
+      if (payoffEnabled && era_id) {
+        // The advancing player's signature moment (dark-launched). Supersedes the
+        // toast with a richer payoff card naming the newly-unlocked ability.
+        setModalQueue((prev) => [
+          ...prev,
+          { type: 'era_advance', eraId: era_id, ...(payoff ?? {}) } as EraAdvanceModalData,
+        ]);
+      } else {
+        toast.success(
+          `Advanced to ${label}! New tech tree unlocked — research fresh technologies.`,
+          { icon: '✨', duration: 6000 },
+        );
+      }
       const gs = useGameStore.getState().gameState;
       if (gs?.settings?.tutorial) {
         const step = tutorialStepsRef.current[tutorialStepRef.current];
@@ -2655,6 +2672,16 @@ export default function GamePage() {
   }, [gameId]);
 
   const handleAdvanceEra = useCallback(() => {
+    const gs = useGameStore.getState().gameState;
+    const preview = gs?.era_advancement_preview;
+    pendingAdvancePayoffRef.current = {
+      signatureName: preview?.next_signature?.name,
+      signatureDescription: preview?.next_signature?.description,
+      legacyLabel: preview?.legacy_ability?.label,
+      // Advancing opens the transition vulnerability window in the standard
+      // ruleset; the exact turn count isn't on the client, so warn by default.
+      vulnerable: true,
+    };
     getSocket().emit('game:advance_era', { gameId, action_id: generateActionId() });
   }, [gameId]);
 

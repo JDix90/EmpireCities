@@ -74,6 +74,17 @@ export const featureFlags = {
   },
 
   /**
+   * When true, advancing an era shows the advancing player a "payoff" moment —
+   * a celebratory modal naming the era entered, the newly-unlocked signature
+   * ability, the legacy carry, and the vulnerability window — instead of just a
+   * toast. Client-side only (era advancement itself is unchanged). Default OFF —
+   * dark-launch; flip via `ERA_ADVANCE_PAYOFF_ENABLED=true` or the admin override.
+   */
+  get eraAdvancePayoffEnabled(): boolean {
+    return overrideBool('era_advance_payoff_enabled', process.env.ERA_ADVANCE_PAYOFF_ENABLED === 'true');
+  },
+
+  /**
    * When true, Era Advancement is surfaced in the lobby — the one-click "Full Game
    * Start" CTA and the in-form Era Advancement toggle (for Ancient). Default ON so
    * the flagship mode is highlighted; admin config can override off. (Ranked Era
@@ -165,6 +176,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
+    era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,

@@ -47,6 +47,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. Off by default (dark-launch).',
   },
+  {
+    key: 'era_advance_payoff_enabled',
+    label: 'Era-advance payoff',
+    description:
+      'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. Off by default (dark-launch).',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
