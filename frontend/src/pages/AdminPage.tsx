@@ -48,6 +48,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. Off by default (dark-launch).',
   },
   {
+    key: 'onboarding_tutorial_first_enabled',
+    label: 'Guest → tutorial first',
+    description:
+      'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. Off by default (dark-launch) so it can be A/B’d against the first-session funnel.',
+  },
+  {
     key: 'era_advance_payoff_enabled',
     label: 'Era-advance payoff',
     description:
