@@ -481,11 +481,21 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       games_today: number;
       games_total: number;
     }>(
+      // "Being played right now" must mean RIGHT NOW: without a freshness
+      // filter this counted every in_progress row ever left behind (saved solo
+      // games, stalled asyncs, abandoned tabs), which dwarfed "played today"
+      // and made both numbers read as fake. Same liveness predicate as
+      // GET /live above: state snapshots are debounced ~1s behind every
+      // mutation, so MAX(saved_at) is a real activity signal.
       `SELECT
          (SELECT COUNT(*) FROM games g
             WHERE g.status = 'in_progress'
               AND EXISTS (SELECT 1 FROM game_players gp
-                          WHERE gp.game_id = g.game_id AND gp.is_ai = false))::int AS games_in_progress,
+                          WHERE gp.game_id = g.game_id AND gp.is_ai = false)
+              AND COALESCE(
+                (SELECT MAX(gs_recent.saved_at) FROM game_states gs_recent WHERE gs_recent.game_id = g.game_id),
+                g.created_at
+              ) > NOW() - INTERVAL '${LIVE_ACTIVITY_WINDOW_MINUTES} minutes')::int AS games_in_progress,
          (SELECT COUNT(*) FROM games
             WHERE status IN ('completed', 'abandoned')
               AND ended_at >= NOW() - INTERVAL '24 hours')::int AS games_today,
