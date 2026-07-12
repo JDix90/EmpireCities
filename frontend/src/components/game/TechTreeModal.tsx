@@ -3,6 +3,13 @@ import clsx from 'clsx';
 import { X, Lock, CheckCircle, Zap } from 'lucide-react';
 import type { GameState } from '../../store/gameStore';
 import TechTreeEraProgress from './TechTreeEraProgress';
+import { BUILDING_META } from './BuildingPanel';
+import { TERRITORY_ABILITY_UI } from '../../utils/techAbilities';
+
+/** Fallback for ids without a UI entry: "launch_pad" → "Launch Pad". */
+function humanizeId(id: string): string {
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // Matches the backend TechNode shape
 export interface TechNode {
@@ -36,8 +43,12 @@ function NodeBonusTags({ node }: { node: TechNode }) {
   if (node.defense_bonus) tags.push(`+${node.defense_bonus} Def`);
   if (node.reinforce_bonus) tags.push(`+${node.reinforce_bonus} Reinf`);
   if (node.tech_point_income) tags.push(`+${node.tech_point_income} TP/turn`);
-  if (node.unlocks_building) tags.push(`Unlocks: ${node.unlocks_building}`);
-  if (node.unlocks_ability) tags.push(`Ability: ${node.unlocks_ability}`);
+  if (node.unlocks_building) {
+    tags.push(`Unlocks: ${BUILDING_META[node.unlocks_building]?.label ?? humanizeId(node.unlocks_building)}`);
+  }
+  if (node.unlocks_ability) {
+    tags.push(`Ability: ${TERRITORY_ABILITY_UI[node.unlocks_ability]?.label ?? humanizeId(node.unlocks_ability)}`);
+  }
   return (
     <div className="flex flex-wrap gap-1 mt-1">
       {tags.map((t) => (
