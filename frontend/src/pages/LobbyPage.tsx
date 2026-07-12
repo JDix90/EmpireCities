@@ -1407,7 +1407,7 @@ export default function LobbyPage() {
                   {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  Classic Risk vs {describeQuickMatchPrefs(quickMatchPrefs)}
+                  Classic Risk vs {describeQuickMatchPrefs(quickMatchPrefs)} unless changed
                 </span>
               </button>
               <button
