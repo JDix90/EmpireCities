@@ -4073,7 +4073,7 @@
     {
       "region_id": "hokuriku",
       "name": "Hokuriku & Shinano",
-      "bonus": 3,
+      "bonus": 4,
       "territory_ids": [
         "shinano",
         "echizen",
