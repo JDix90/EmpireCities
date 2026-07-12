@@ -64,6 +64,11 @@ import {
   canAccessGalacticAge,
   GALACTIC_AGE_ERA_ID,
 } from '../constants/galacticAgeAccess';
+import {
+  transitionEraSystemDefaults,
+  missingEraSystemsWarning,
+  type EraSystemKey,
+} from '../utils/eraSystemDefaults';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules } from '../tutorial';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
@@ -496,6 +501,38 @@ export default function LobbyPage() {
   useEffect(() => {
     if (selectedEra !== 'ancient') setEraAdvancementEnabled(false);
   }, [selectedEra]);
+
+  // Era-aware defaults: eras whose headline mechanics need certain systems
+  // (Space Age's Moon ladder, Galactic hyperspace) pre-check those toggles on
+  // selection. The set tracks which toggles WE enabled so switching away
+  // reverts only those — a checkbox the player touched is theirs (the manual
+  // onChange handlers below clear the mark). Runs on mount too, so ?era=
+  // deep links from the era gallery get the same defaults.
+  const autoEnabledSystemsRef = useRef<Set<EraSystemKey>>(new Set());
+  useEffect(() => {
+    const transition = transitionEraSystemDefaults({
+      nextEra: selectedEra,
+      current: { economy: economyEnabled, tech_trees: techTreesEnabled },
+      autoEnabled: autoEnabledSystemsRef.current,
+    });
+    autoEnabledSystemsRef.current = transition.nextAutoEnabled;
+    for (const key of transition.enable) {
+      if (key === 'economy') setEconomyEnabled(true);
+      else setTechTreesEnabled(true);
+    }
+    for (const key of transition.disable) {
+      if (key === 'economy') setEconomyEnabled(false);
+      else setTechTreesEnabled(false);
+    }
+    // Deliberately keyed on the era alone: the toggles are read fresh from the
+    // render that the era change produced; re-running on toggle changes would
+    // fight the player's manual unchecks.
+  }, [selectedEra]);
+
+  const eraSystemsWarning = missingEraSystemsWarning(selectedEra, {
+    economy: economyEnabled,
+    tech_trees: techTreesEnabled,
+  });
 
   // Conditional advanced settings — each only matters under certain other choices,
   // so they're surfaced in a dedicated "Conditional Settings" section instead of
@@ -2138,6 +2175,11 @@ export default function LobbyPage() {
                   </div>
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
+                      {eraSystemsWarning && (
+                        <p className="text-[11px] text-amber-400/90 mb-3 leading-relaxed" role="alert">
+                          ⚠ {eraSystemsWarning}
+                        </p>
+                      )}
                       {mapImmersion && (
                         <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                           Hover each (i) for theater-specific lore layered on the normal rules — tuned for this map.
@@ -2147,14 +2189,14 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => setEconomyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => setTechTreesEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Technology Trees</span>
                           </label>
                         </div>
