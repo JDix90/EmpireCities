@@ -616,6 +616,17 @@ function buildHtmlOverlayElement(
 
 // ── Animation Keyframes (injected as <style>) ─────────────────────────────────
 
+/**
+ * Stable default for the `events` prop. An inline `events = []` default creates
+ * a NEW array identity on every render, which re-runs the event-ingestion
+ * effect each render; that effect calls flushAnimationUi → setAnimationUi with
+ * a fresh object, which re-renders — an infinite self-sustaining loop for any
+ * GlobeMap mounted without an `events` prop (the lobby map preview crashed
+ * with "Maximum update depth exceeded"; the Space Age Moon inset re-rendered
+ * forever, burning CPU all game).
+ */
+const EMPTY_EVENTS: GlobeEvent[] = [];
+
 const ANIMATION_STYLES = `
 @keyframes globeFloatUp {
   0%   { transform: translateY(0) scale(0.3); opacity: 0; }
@@ -671,7 +682,7 @@ function GlobeMap({
   onTerritoryClick,
   width = 900,
   height = 600,
-  events = [],
+  events = EMPTY_EVENTS,
   onEventDone,
   reducedEffects = false,
   autoSpin = true,
@@ -763,9 +774,13 @@ function GlobeMap({
   /** Drives visibility of the "Skip animations" control (refs → React state). */
   const [animationUi, setAnimationUi] = useState({ playing: false, backlog: 0 });
   const flushAnimationUi = useCallback(() => {
-    setAnimationUi({
-      playing: isAnimatingRef.current,
-      backlog: eventQueueRef.current.length,
+    // Bail out when nothing changed: this runs from the events-ingestion effect,
+    // and an unconditional fresh object here turns any parent re-render into
+    // another re-render (see EMPTY_EVENTS above for the loop this caused).
+    setAnimationUi((prev) => {
+      const playing = isAnimatingRef.current;
+      const backlog = eventQueueRef.current.length;
+      return prev.playing === playing && prev.backlog === backlog ? prev : { playing, backlog };
     });
   }, []);
 
