@@ -14,7 +14,7 @@ const WONDER_NAME_BY_ID: Record<string, string> = Object.values(ERA_WONDERS).red
   {} as Record<string, string>,
 );
 
-const BUILDING_META: Record<
+export const BUILDING_META: Record<
   string,
   { label: string; description: string; cost: number; icon: React.ReactNode; category: string }
 > = {
