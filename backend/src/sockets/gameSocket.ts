@@ -4957,6 +4957,37 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // (AI build + research run at the top of the draft phase, before the advance check.)
 
+  // AI parity: Launch Space Station — the third rung of the Moon ladder. The AI
+  // researches the ladder (aiBot tech hook) and builds the Launch Pad (aiBot
+  // build list); this fires the once-per-game launch as soon as both are in
+  // place, so an AI can finish the orbit-access race like a human can.
+  // executeTechAbility validates the tech, phase, and Launch Pad ownership.
+  // It MUST run while the phase is still draft: the executor rejects launches
+  // during the attack phase, and this block previously ran after the phase
+  // transition below — every AI launch attempt failed silently, so bots never
+  // reached the Moon (0 launches across 120 simulated games; see
+  // backend/scripts/simSpaceAgeBalance.ts SIM_LAUNCH_PHASE=attack).
+  if (
+    state.era === 'space_age'
+    && !currentPlayer.space_station_launched
+    && (currentPlayer.unlocked_techs?.includes('sa_space_station') ?? false)
+  ) {
+    const res = executeTechAbility({
+      state,
+      map,
+      playerId: currentPlayer.player_id,
+      abilityId: 'launch_space_station',
+    });
+    if (res.success && res.effect === 'space_station_launched' && res.territoryId) {
+      io.to(gameId).emit('game:space_station_launched', {
+        playerId: currentPlayer.player_id,
+        playerName: currentPlayer.username,
+        playerColor: currentPlayer.color,
+        launchTerritoryId: res.territoryId,
+      });
+    }
+  }
+
   // ── Attack Phase ───────────────────────────────────────────────────────
   state.draft_units_remaining = 0;
   state.phase = 'attack';
@@ -5004,32 +5035,6 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [strikeId]: 1 };
         }
       }
-    }
-  }
-
-  // AI parity: Launch Space Station — the third rung of the Moon ladder. The AI
-  // researches the ladder (aiBot tech hook) and builds the Launch Pad (aiBot
-  // build list); this fires the once-per-game launch as soon as both are in
-  // place, so an AI can finish the orbit-access race like a human can.
-  // executeTechAbility validates the tech, phase, and Launch Pad ownership.
-  if (
-    state.era === 'space_age'
-    && !currentPlayer.space_station_launched
-    && (currentPlayer.unlocked_techs?.includes('sa_space_station') ?? false)
-  ) {
-    const res = executeTechAbility({
-      state,
-      map,
-      playerId: currentPlayer.player_id,
-      abilityId: 'launch_space_station',
-    });
-    if (res.success && res.effect === 'space_station_launched' && res.territoryId) {
-      io.to(gameId).emit('game:space_station_launched', {
-        playerId: currentPlayer.player_id,
-        playerName: currentPlayer.username,
-        playerColor: currentPlayer.color,
-        launchTerritoryId: res.territoryId,
-      });
     }
   }
 
