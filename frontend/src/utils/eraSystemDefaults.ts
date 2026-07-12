@@ -54,6 +54,33 @@ export function missingEraSystemsWarning(
   return requirement.systems.some((key) => !current[key]) ? requirement.warning : null;
 }
 
+/** Create-API settings key for each system. */
+const SYSTEM_SETTING_KEYS = {
+  economy: 'economy_enabled',
+  tech_trees: 'tech_trees_enabled',
+} as const satisfies Record<EraSystemKey, string>;
+
+/**
+ * Merge the systems an era requires into a create-game settings payload.
+ *
+ * For one-click flows that never show the Advanced Features form — Quick
+ * Match's random era rotation above all — landing on an orbit-gated era must
+ * still produce a game where its headline mechanic works: a Space Age quick
+ * match without Economy + Tech Trees has an unreachable Moon and an
+ * unwinnable domination objective. Eras without requirements pass through
+ * untouched, so classic quick matches stay classic.
+ */
+export function withRequiredEraSystems<T extends Record<string, unknown>>(
+  eraId: string,
+  settings: T,
+): T & { economy_enabled?: boolean; tech_trees_enabled?: boolean } {
+  const required = requiredSystemsForEra(eraId);
+  if (required.length === 0) return settings;
+  const merged: Record<string, unknown> = { ...settings };
+  for (const key of required) merged[SYSTEM_SETTING_KEYS[key]] = true;
+  return merged as T & { economy_enabled?: boolean; tech_trees_enabled?: boolean };
+}
+
 export interface EraSystemTransition {
   /** Toggles to switch on for the newly selected era. */
   enable: EraSystemKey[];
