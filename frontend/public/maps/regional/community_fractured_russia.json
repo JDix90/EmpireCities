@@ -3497,7 +3497,7 @@
     {
       "region_id": "caucasus",
       "name": "Caucasus",
-      "bonus": 3,
+      "bonus": 2,
       "territory_ids": [
         "north_caucasus",
         "transcaucasia"

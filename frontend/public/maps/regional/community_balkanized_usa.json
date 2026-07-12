@@ -3499,7 +3499,7 @@
     {
       "region_id": "california",
       "name": "California Republic",
-      "bonus": 4,
+      "bonus": 3,
       "territory_ids": [
         "ca_north",
         "ca_south"

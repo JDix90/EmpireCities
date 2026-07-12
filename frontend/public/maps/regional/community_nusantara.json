@@ -3249,7 +3249,7 @@
     {
       "region_id": "philippines",
       "name": "the Philippine Isles",
-      "bonus": 5,
+      "bonus": 4,
       "territory_ids": [
         "luzon",
         "manila",

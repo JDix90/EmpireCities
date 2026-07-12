@@ -2949,7 +2949,7 @@
     {
       "region_id": "manchuria",
       "name": "Fengtian Clique / Manchuria",
-      "bonus": 5,
+      "bonus": 4,
       "territory_ids": [
         "heilongjiang",
         "jilin",
