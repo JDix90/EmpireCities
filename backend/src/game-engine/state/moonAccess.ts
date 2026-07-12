@@ -18,6 +18,8 @@ export interface MoonAccessState {
 export interface OrbitAccessResult {
   allowed: boolean;
   missing: string[];
+  /** Which gate produced this result — drives player-facing denial copy. */
+  mode: OrbitAccessMode;
 }
 
 export function resolveOrbitAccessMode(map: GameMap, era: EraId): OrbitAccessMode {
@@ -155,31 +157,41 @@ export function getOrbitAccessResult(
   era: EraId,
 ): OrbitAccessResult {
   const mode = resolveOrbitAccessMode(map, era);
-  if (mode === 'none') return { allowed: true, missing: [] };
+  if (mode === 'none') return { allowed: true, missing: [], mode };
 
   if (mode === 'space_age_moon') {
     const m = getMoonAccessState(state, player);
-    return { allowed: m.allowed, missing: m.missing };
+    return { allowed: m.allowed, missing: m.missing, mode };
   }
 
   // galaxy_hyperspace
   if (player.faction_id === 'helion_navigators') {
-    return { allowed: true, missing: [] };
+    return { allowed: true, missing: [], mode };
   }
   const hasAnchor = Object.values(state.territories ?? {}).some(
     (t) =>
       t.owner_id === player.player_id &&
       (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),
   );
-  if (hasAnchor) return { allowed: true, missing: [] };
+  if (hasAnchor) return { allowed: true, missing: [], mode };
   const hasTech = player.unlocked_techs?.includes('ga_hyperspace_chart') ?? false;
-  if (hasTech) return { allowed: true, missing: [] };
-  return { allowed: false, missing: ['Hyperspace Chart tech'] };
+  if (hasTech) return { allowed: true, missing: [], mode };
+  return { allowed: false, missing: ['Hyperspace Chart tech'], mode };
 }
 
+/**
+ * Player-facing denial copy, worded for the gate that fired: the Space Age
+ * Moon ladder says "Moon access requires: …" (matching the client-side hint in
+ * frontend/src/utils/orbitAccess.ts), while Galactic hyperspace keeps
+ * "Hyperspace travel requires: …". Previously every mode used the hyperspace
+ * wording, so Space Age players were told about hyperspace on a Moon attack.
+ */
 export function formatOrbitAccessError(access: OrbitAccessResult): string {
   if (access.allowed) return '';
   if (access.missing.length === 0) return 'Orbit access denied';
+  if (access.mode === 'space_age_moon') {
+    return `Moon access requires: ${access.missing.join(' + ')}`;
+  }
   return `Hyperspace travel requires: ${access.missing.join(' + ')}`;
 }
 
