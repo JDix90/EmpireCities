@@ -67,6 +67,7 @@ import {
 import {
   transitionEraSystemDefaults,
   missingEraSystemsWarning,
+  withRequiredEraSystems,
   type EraSystemKey,
 } from '../utils/eraSystemDefaults';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
@@ -1195,7 +1196,11 @@ export default function LobbyPage() {
         // "Quick" means quick: the server starts the match before responding,
         // so the player lands directly in turn 1 instead of a pre-game room.
         auto_start: true,
-        settings: {
+        // withRequiredEraSystems: when the rotation lands on an orbit-gated
+        // era (Space Age), enable the systems its headline mechanic needs —
+        // otherwise the Moon is unreachable and domination can't complete.
+        // Classic eras pass through unchanged.
+        settings: withRequiredEraSystems(era, {
           turn_timer_seconds: 300,
           allowed_victory_conditions: ['domination'],
           initial_unit_count: 3,
@@ -1204,7 +1209,7 @@ export default function LobbyPage() {
           // Stalemate guard: most territories wins at the cap, so a solo
           // match can't grind on for hundreds of turns.
           max_turns: 150,
-        },
+        }),
       });
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
@@ -1402,7 +1407,7 @@ export default function LobbyPage() {
                   {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  Classic Risk vs {describeQuickMatchPrefs(quickMatchPrefs)}
+                  Classic Risk vs {quickMatchPrefs.aiCount} AI
                 </span>
               </button>
               <button

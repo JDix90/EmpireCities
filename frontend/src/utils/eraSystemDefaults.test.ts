@@ -3,6 +3,7 @@ import {
   transitionEraSystemDefaults,
   missingEraSystemsWarning,
   requiredSystemsForEra,
+  withRequiredEraSystems,
 } from './eraSystemDefaults';
 
 const off = { economy: false, tech_trees: false };
@@ -75,6 +76,46 @@ describe('transitionEraSystemDefaults', () => {
     });
     expect(t.enable).toEqual(['tech_trees']);
     expect([...t.nextAutoEnabled].sort()).toEqual(['economy', 'tech_trees']);
+  });
+});
+
+describe('withRequiredEraSystems', () => {
+  const quickMatchSettings = {
+    turn_timer_seconds: 300,
+    card_set_escalating: true,
+    diplomacy_enabled: true,
+    max_turns: 150,
+  };
+
+  it('adds the required system flags when the rotation lands on Space Age', () => {
+    const merged = withRequiredEraSystems('space_age', quickMatchSettings);
+    expect(merged).toEqual({
+      ...quickMatchSettings,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+    });
+  });
+
+  it('passes classic eras through untouched — no system keys added', () => {
+    const merged = withRequiredEraSystems('ww2', quickMatchSettings);
+    expect(merged).toEqual(quickMatchSettings);
+    expect('economy_enabled' in merged).toBe(false);
+    expect('tech_trees_enabled' in merged).toBe(false);
+  });
+
+  it('overrides an explicitly disabled required system (the era cannot function without it)', () => {
+    const merged = withRequiredEraSystems('galaxy_age', {
+      ...quickMatchSettings,
+      economy_enabled: false,
+    });
+    expect(merged.economy_enabled).toBe(true);
+    expect(merged.tech_trees_enabled).toBe(true);
+  });
+
+  it('does not mutate the input settings object', () => {
+    const input = { ...quickMatchSettings };
+    withRequiredEraSystems('space_age', input);
+    expect(input).toEqual(quickMatchSettings);
   });
 });
 
