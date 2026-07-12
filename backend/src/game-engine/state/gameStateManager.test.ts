@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   autoPlaceDraftUnits,
   advancePhaseOnTimeout,
@@ -692,8 +694,9 @@ describe('initializeGameState faction distribution', () => {
     });
 
     it('initializes the real era_space_age map with factions enabled (live crash repro)', () => {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const realMap = require('../../../../database/maps/era_space_age.json') as GameMap;
+      const realMap = JSON.parse(
+        readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
+      ) as GameMap;
       const state = initializeGameState(
         'space-age-real-map-factions',
         'space_age',
