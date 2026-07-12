@@ -4074,7 +4074,6 @@ export default function GamePage() {
                             onTerritoryClick={handleTerritoryClick}
                             width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
                             height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
-                            events={[]}
                             reducedEffects={true}
                             autoSpin={false}
                             activeWorldId="moon"
