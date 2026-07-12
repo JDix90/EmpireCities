@@ -278,6 +278,15 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     max_players: typeof ext.max_players === 'number' ? ext.max_players : undefined,
     economy_snapshot: ext.economy_snapshot && typeof ext.economy_snapshot === 'object' ? ext.economy_snapshot : undefined,
     xp_snapshot: ext.xp_snapshot && typeof ext.xp_snapshot === 'object' ? ext.xp_snapshot : undefined,
+    // Galaxy per-world identity snapshot, written by createInitialGameState from
+    // the map's worlds[] (never user input — the create API whitelist doesn't
+    // admit it). It must survive re-normalization: repairLegacyGameState runs
+    // normalizeGameSettings on every room load, which used to wipe it and turn
+    // all live galaxy world modifiers off while sims kept them.
+    world_modifiers:
+      worldModifiersEnabled && ext.world_modifiers && typeof ext.world_modifiers === 'object'
+        ? ext.world_modifiers
+        : undefined,
   };
 }
 

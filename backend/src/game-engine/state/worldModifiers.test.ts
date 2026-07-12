@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState } from '../../types';
 import { buildWorldModifierSnapshot, getWorldModifier, applyWorldBuildCost } from './worldModifiers';
+import { normalizeGameSettings } from './gameSettings';
 
 function stateWith(mods?: Record<string, Record<string, number>>): GameState {
   return { settings: { world_modifiers: mods } } as unknown as GameState;
@@ -57,5 +58,28 @@ describe('applyWorldBuildCost', () => {
     expect(applyWorldBuildCost(state, 'verdan', 10)).toBe(10);
     expect(applyWorldBuildCost(state, 'sol', 10)).toBe(10);
     expect(applyWorldBuildCost(state, undefined, 10)).toBe(10);
+  });
+});
+
+describe('world_modifiers survives re-normalization', () => {
+  // repairLegacyGameState runs normalizeGameSettings(state.settings) on every
+  // room load; before the passthrough this silently wiped the snapshot and all
+  // live galaxy games ran without per-world modifiers (sims kept them).
+  const snapshot = {
+    sol: { production_bonus: 0.3, stability_bonus: 1 },
+    rust: { production_bonus: 0.4, build_cost_mult: 0.8 },
+  };
+
+  it('keeps the snapshot across normalizeGameSettings', () => {
+    const first = normalizeGameSettings({ world_modifiers: snapshot });
+    expect(first.world_modifiers).toEqual(snapshot);
+    // A second pass (the repair-on-load path) must not lose it either.
+    const second = normalizeGameSettings(first);
+    expect(second.world_modifiers).toEqual(snapshot);
+  });
+
+  it('drops the snapshot when world modifiers are explicitly disabled', () => {
+    const norm = normalizeGameSettings({ world_modifiers: snapshot, world_modifiers_enabled: false });
+    expect(norm.world_modifiers).toBeUndefined();
   });
 });
