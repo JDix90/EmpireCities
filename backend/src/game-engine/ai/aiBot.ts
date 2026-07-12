@@ -859,8 +859,14 @@ export function selectAiTechResearch(
   if (difficulty === 'tutorial') return null;
   if (!state.settings.tech_trees_enabled) return null;
   // Easy stays passive in normal games, but must research in era-advancement
-  // games or it can never pass the gate (steamroll bug).
-  if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
+  // games or it can never pass the gate (steamroll bug). Galactic Age is the
+  // other exception: it has no era advancement, so a non-Helion easy bot that
+  // never researches can never unlock hyperspace lanes and is permanently
+  // locked to its home world. Easy falls through to the galaxy hook below,
+  // which lets it buy the Hyperspace Chart and nothing else.
+  if (difficulty === 'easy' && !state.settings.era_advancement_enabled && state.era !== 'galaxy_age') {
+    return null;
+  }
 
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
@@ -870,7 +876,7 @@ export function selectAiTechResearch(
   const unlocked = player.unlocked_techs ?? [];
   const techPoints = player.tech_points ?? 0;
 
-  const available = tree.filter(
+  let available = tree.filter(
     (node) =>
       !unlocked.includes(node.tech_id) &&
       node.cost <= techPoints &&
@@ -907,7 +913,17 @@ export function selectAiTechResearch(
         const prereq = available.find((n) => n.tech_id === chartNode.prerequisite);
         if (prereq) return prereq.tech_id;
       }
+    } else {
+      // Lane access is already granted (Helion faction, Hyperlane Anchor, or
+      // the chart itself) — the chart is pure waste now, but the generic
+      // cheapest/score paths below would still buy it (observed live: Helion
+      // medium bots burning 5 TP on it). Drop it from the candidate pool.
+      available = available.filter((n) => n.tech_id !== 'ga_hyperspace_chart');
+      if (available.length === 0) return null;
     }
+    // Easy bots in the Galactic Age research the chart and nothing else —
+    // they only reach this function for the world-lock exception above.
+    if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
   }
 
   // Space Age priority hook (mirror of the galaxy hook above): the lunar
