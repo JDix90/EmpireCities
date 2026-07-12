@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   autoPlaceDraftUnits,
   advancePhaseOnTimeout,
@@ -656,6 +658,72 @@ describe('initializeGameState faction distribution', () => {
       // Lunar Pioneer player still gets their orbit-access perk so they can race for moon.
       const pioneer = state.players.find((p) => p.faction_id === 'lunar_pioneers');
       expect(pioneer?.space_station_launched).toBe(true);
+    });
+
+    it('does not crash or assign era-locked frontier territories when factions are enabled', () => {
+      // Regression: the faction distribution path iterates the map view's
+      // territory list; tiles held back by unlock_era_index have no state entry,
+      // and writing an owner into one crashed game start on era_space_age.
+      const mapWithFrontier: GameMap = {
+        ...spaceAgeMap,
+        territories: [
+          ...spaceAgeMap.territories,
+          { territory_id: 'frontier_locked', name: 'Frontier', polygon: [], center_point: [0, 0], region_id: 'na', unlock_era_index: 2 },
+        ],
+        connections: [
+          ...spaceAgeMap.connections,
+          { from: 'earth_d', to: 'frontier_locked', type: 'land' },
+        ],
+      };
+
+      const state = initializeGameState(
+        'space-age-frontier-factions',
+        'space_age',
+        mapWithFrontier,
+        [
+          { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'lunar_pioneers' },
+          { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'pacific_megacities' },
+        ],
+        makeSettings({ factions_enabled: true }),
+      );
+
+      expect(state.territories['frontier_locked']).toBeUndefined();
+      for (const earthId of ['earth_a', 'earth_b', 'earth_c', 'earth_d']) {
+        expect(state.territories[earthId]!.owner_id).not.toBeNull();
+      }
+    });
+
+    it('initializes the real era_space_age map with factions enabled (live crash repro)', () => {
+      const realMap = JSON.parse(
+        readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
+      ) as GameMap;
+      const state = initializeGameState(
+        'space-age-real-map-factions',
+        'space_age',
+        realMap,
+        ['lunar_pioneers', 'terran_federation', 'climate_alliance', 'corporate_enclave'].map((faction_id, i) => ({
+          player_id: `p${i + 1}`,
+          player_index: i,
+          username: `P${i + 1}`,
+          color: '#abc',
+          is_ai: i > 0,
+          is_eliminated: false,
+          mmr: 1000,
+          faction_id,
+        })),
+        makeSettings({ factions_enabled: true }),
+      );
+
+      // Every owned territory must exist in state; era-locked frontier tiles must not spawn.
+      const frontierIds = realMap.territories
+        .filter((t) => (t.unlock_era_index ?? 0) > 0)
+        .map((t) => t.territory_id);
+      expect(frontierIds.length).toBeGreaterThan(0);
+      for (const tid of frontierIds) expect(state.territories[tid]).toBeUndefined();
+      const moonIds = realMap.territories.filter((t) => t.globe_id === 'moon').map((t) => t.territory_id);
+      for (const tid of moonIds) expect(state.territories[tid]!.owner_id).toBeNull();
+      const earthOwned = Object.values(state.territories).filter((t) => t.owner_id != null).length;
+      expect(earthOwned).toBe(Object.keys(state.territories).length - moonIds.length);
     });
   });
 

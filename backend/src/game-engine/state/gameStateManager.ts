@@ -203,17 +203,18 @@ export function initializeGameState(
 
   // Build a map view that excludes neutral-garrison territories AND any orbit/land
   // connections touching them, so geographic distribution never seeds or grows
-  // into them through Earth-side launch bases.
-  const earthMap: GameMap =
-    lunarTerritoryIds.size === 0
-      ? map
-      : {
-          ...map,
-          territories: map.territories.filter((t) => !lunarTerritoryIds.has(t.territory_id)),
-          connections: map.connections.filter(
-            (c) => !lunarTerritoryIds.has(c.from) && !lunarTerritoryIds.has(c.to),
-          ),
-        };
+  // into them through Earth-side launch bases. It must also exclude territories
+  // held back by `unlock_era_index` (they have no entry in `territories` yet):
+  // the faction path distributes over this view's territory list, and writing an
+  // owner into a not-yet-unlocked tile crashes game start (seen live as
+  // "Cannot set properties of undefined (setting 'owner_id')" on
+  // era_space_age + factions, whose 8 frontier tiles never spawn at init).
+  const distributable = (tid: string) => territories[tid] != null && !lunarTerritoryIds.has(tid);
+  const earthMap: GameMap = {
+    ...map,
+    territories: map.territories.filter((t) => distributable(t.territory_id)),
+    connections: map.connections.filter((c) => distributable(c.from) && distributable(c.to)),
+  };
 
   // Distribute territories — skip when territory_selection enabled (players pick manually)
   const earthTerritoryIds = Object.keys(territories).filter((tid) => !lunarTerritoryIds.has(tid));
