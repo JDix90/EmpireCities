@@ -68,6 +68,13 @@ export const CreateGameSchema = z.object({
       /** Turn cap: most territory when this turn ends wins. Without this entry
        * zod strips the field, which silently disabled Quick Match's 150-turn cap. */
       max_turns: z.number().int().min(10).max(1000).optional(),
+      /** Anti-fortress dice cap + ceilings (normalizeGameSettings clamps the
+       * ceilings up to the natural base of atk 3 / def 2). */
+      combat_dice_cap_enabled: z.boolean().optional(),
+      combat_max_attacker_dice: z.number().int().min(3).max(10).optional(),
+      combat_max_defender_dice: z.number().int().min(2).max(10).optional(),
+      /** Galaxy contestable hyperspace lanes (seal-lane mechanic). */
+      lanes_contestable_enabled: z.boolean().optional(),
     })
     .superRefine((data, ctx) => {
       const list =

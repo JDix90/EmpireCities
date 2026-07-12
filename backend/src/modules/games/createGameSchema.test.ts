@@ -42,6 +42,51 @@ describe('CreateGameSchema settings whitelist', () => {
   });
 });
 
+describe('Galactic Age lobby payload', () => {
+  // LobbyPage sends these four alongside the base bundle (LobbyPage.tsx
+  // handleCreateGame); before they were whitelisted, zod stripped them and the
+  // Contestable Lanes + Combat Dice Cap toggles silently never reached the engine.
+  const galaxyPayload = {
+    era_id: 'galaxy_age',
+    map_id: 'era_galaxy',
+    max_players: 8,
+    ai_count: 3,
+    ai_difficulty: 'medium',
+    settings: {
+      turn_timer_seconds: 0,
+      allowed_victory_conditions: ['domination'],
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: true,
+      factions_enabled: true,
+      lanes_contestable_enabled: true,
+      combat_dice_cap_enabled: true,
+      combat_max_attacker_dice: 5,
+      combat_max_defender_dice: 4,
+    },
+  };
+
+  it('keeps lanes_contestable_enabled and the dice-cap trio', () => {
+    const parsed = CreateGameSchema.safeParse(galaxyPayload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const s = parsed.data.settings;
+      expect(s.lanes_contestable_enabled).toBe(true);
+      expect(s.combat_dice_cap_enabled).toBe(true);
+      expect(s.combat_max_attacker_dice).toBe(5);
+      expect(s.combat_max_defender_dice).toBe(4);
+    }
+  });
+
+  it('rejects dice ceilings below the natural combat base', () => {
+    const bad = {
+      ...galaxyPayload,
+      settings: { ...galaxyPayload.settings, combat_max_attacker_dice: 2 },
+    };
+    expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
 describe('Full Game Start payload', () => {
   const fullGamePayload = {
     era_id: 'ancient',
