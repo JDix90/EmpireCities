@@ -11,6 +11,7 @@ export interface FactionLoreInfo {
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
   reinforce_bonus?: number;
+  tech_cost_discount?: number;
   stability_recovery_bonus?: number;
   ability_description?: string;
 }
@@ -66,11 +67,13 @@ export default function FactionLoreModal({ faction, onClose }: { faction: Factio
         {((faction.passive_attack_bonus ?? 0) > 0 ||
           (faction.passive_defense_bonus ?? 0) > 0 ||
           (faction.reinforce_bonus ?? 0) > 0 ||
+          (faction.tech_cost_discount ?? 0) > 0 ||
           (faction.stability_recovery_bonus ?? 0) > 0) && (
           <div className="flex flex-wrap gap-2 mb-4">
             {(faction.passive_attack_bonus ?? 0) > 0 && <Chip label={`+${faction.passive_attack_bonus} Attack`} />}
             {(faction.passive_defense_bonus ?? 0) > 0 && <Chip label={`+${faction.passive_defense_bonus} Defence`} />}
             {(faction.reinforce_bonus ?? 0) > 0 && <Chip label={`+${faction.reinforce_bonus} Reinforce`} />}
+            {(faction.tech_cost_discount ?? 0) > 0 && <Chip label={`−${faction.tech_cost_discount} Research Cost`} />}
             {(faction.stability_recovery_bonus ?? 0) > 0 && (
               <Chip label={`+${faction.stability_recovery_bonus} Stability`} />
             )}

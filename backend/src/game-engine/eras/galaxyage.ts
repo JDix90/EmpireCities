@@ -13,6 +13,15 @@ import type { Faction, TechNode, EraWonder } from './types';
 // - Forge Syndicate now carries a passive `reinforce_bonus: 1` so it isn't
 //   the only faction without a sustained passive (parity with the era's
 //   other factions).
+// - Stellar Mandate's passive is a research discount (`tech_cost_discount: 2`)
+//   — its old copy claimed a +1 defense die that was never wired (always-on
+//   defensive dice were removed game-wide; see defenderReactions.ts), which
+//   left Sol the only passive-less faction (~13% win rate in 400-game sims).
+//   The lever is deliberately a DISCOUNT, not per-turn tech income: +1
+//   TP/turn compounds all game and sim-tested at ~39% (and crushed Helion's
+//   hyperspace head start). Discount ladder sim-tested at 400g×2 seeds
+//   (expert, threshold-60 meta): 1 → Sol 18.6%, 2 → all four factions in
+//   20-35% (Sol 33.8 / Rust 22.2 / Verdan 22.3 / Nexus 21.9 avg).
 // - Ability IDs reuse legacy handlers so the abilities work end-to-end today;
 //   the user-facing labels and lore have been refreshed for galaxy flavor.
 // ──────────────────────────────────────────────────────────────────────────
@@ -21,10 +30,11 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'stellar_mandate',
     name: 'Stellar Mandate',
-    description: 'Central admiralty doctrine — +1 defense die on owned territories; cyber warfare unlocked.',
+    description: 'Central admiralty doctrine — every technology costs 2 less to research; cyber warfare unlocked.',
     lore: 'The Mandate believes stability flows from a single chain of command spanning every recognized star system.',
     flavor_quote: 'Order is not imposed — it is synchronized.',
     home_region_ids: ['sol_americas', 'sol_atlantic_arc', 'sol_crescent', 'sol_asian_rim'],
+    tech_cost_discount: 2,
     ability_id: 'cyber_attack',
     ability_description: 'Cyber Strike: once per turn, remove 1 enemy unit from an adjacent territory.',
     color: '#5dade2',
