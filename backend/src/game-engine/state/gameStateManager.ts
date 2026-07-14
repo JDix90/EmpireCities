@@ -26,7 +26,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { buildAscensionSpineFromEra, getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
-import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
+import { territoryUnlockEra, seedsFullBoardAtStart, seedStandaloneFrontierTerritories } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
 
@@ -251,6 +251,19 @@ export function initializeGameState(
     territories[tid].unit_count = neutralOffworldGarrison(tid);
   }
 
+  // Standalone Space Age full board: with era advancement OFF the progressive
+  // territory-growth machinery never runs, so the authored `unlock_era_index`
+  // frontiers would be permanently dead content. Seed them now as neutral
+  // garrisons and record the era floor so every `game:map` projection includes
+  // them. Runs AFTER distribution + the lunar pass (frontiers are never in the
+  // distributable set, so they're never dealt to a player) and BEFORE the
+  // buildings / naval / stability init below (which then cover them exactly like
+  // the neutral Moon). No-op unless the space_age_frontiers_enabled flag is on.
+  let initialEraFloor = 0;
+  if (seedsFullBoardAtStart(era, settingsNorm, map)) {
+    initialEraFloor = seedStandaloneFrontierTerritories(territories, map);
+  }
+
   // Build card deck
   const cardDeck = buildCardDeck(map.territories.map((t) => t.territory_id));
 
@@ -341,7 +354,7 @@ export function initializeGameState(
     turn_number: 1,
     players: playerStates,
     territories,
-    map_era_floor: 0,
+    map_era_floor: initialEraFloor,
     card_deck: cardDeck,
     discard_pile: [],
     card_set_redemption_count: 0,

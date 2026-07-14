@@ -5,11 +5,15 @@ import {
   globalEraFloor,
   lockedTerritoryIds,
   mapHasEraGrowth,
+  maxUnlockEra,
   projectMapToEraFloor,
+  seedsFullBoardAtStart,
+  seedStandaloneFrontierTerritories,
   territoryUnlockEra,
   unlockTerritoriesForFloor,
   repairEraTerritoryGrowth,
 } from './territoryUnlock';
+import type { TerritoryState } from '../../types';
 
 function mapTerritory(id: string, unlock?: number) {
   return {
@@ -103,6 +107,56 @@ describe('territoryUnlock helpers', () => {
     expect(globalEraFloor(makeState([makePlayer('p1', 0), makePlayer('p2', 1)]))).toBe(1);
     // Eliminated leader does not count.
     expect(globalEraFloor(makeState([makePlayer('p1', 0), makePlayer('p2', 3, true)]))).toBe(0);
+  });
+});
+
+describe('standalone full-board seeding (Space Age frontiers)', () => {
+  it('maxUnlockEra returns the highest authored unlock index (0 for plain maps)', () => {
+    expect(maxUnlockEra(makeMap())).toBe(2);
+    const plain = { ...makeMap(), territories: [mapTerritory('a'), mapTerritory('b')] } as GameMap;
+    expect(maxUnlockEra(plain)).toBe(0);
+  });
+
+  it('seedsFullBoardAtStart is true only for space_age + flag on + growth map, advancement off', () => {
+    const map = makeMap();
+    const on = { space_age_frontiers_enabled: true };
+    expect(seedsFullBoardAtStart('space_age', on, map)).toBe(true);
+    // flag off
+    expect(seedsFullBoardAtStart('space_age', {}, map)).toBe(false);
+    // era advancement on → growth handles frontiers, don't seed the full board
+    expect(seedsFullBoardAtStart('space_age', { ...on, era_advancement_enabled: true }, map)).toBe(false);
+    // other eras are out of scope
+    expect(seedsFullBoardAtStart('ancient', on, map)).toBe(false);
+    // plain map has nothing to seed
+    const plain = { ...map, territories: [mapTerritory('a')] } as GameMap;
+    expect(seedsFullBoardAtStart('space_age', on, plain)).toBe(false);
+  });
+
+  it('seedStandaloneFrontierTerritories inserts every frontier as a neutral garrison and returns the floor', () => {
+    const map = makeMap();
+    const territories: Record<string, TerritoryState> = {
+      base_a: { territory_id: 'base_a', owner_id: 'p1', unit_count: 5, unit_type: 'infantry', region_id: 'r1' },
+    };
+    const floor = seedStandaloneFrontierTerritories(territories, map);
+    expect(floor).toBe(2);
+    // All three frontier tiles (med_a era1, disc_a/disc_b era2) now present, neutral, garrisoned.
+    for (const [id, era] of [['med_a', 1], ['disc_a', 2], ['disc_b', 2]] as const) {
+      expect(territories[id]).toBeDefined();
+      expect(territories[id].owner_id).toBeNull();
+      expect(territories[id].unit_count).toBe(unlockGarrisonForEra(era));
+    }
+    // Existing base tile untouched.
+    expect(territories.base_a.owner_id).toBe('p1');
+  });
+
+  it('seedStandaloneFrontierTerritories never overwrites an existing entry (idempotent)', () => {
+    const map = makeMap();
+    const territories: Record<string, TerritoryState> = {
+      med_a: { territory_id: 'med_a', owner_id: 'p2', unit_count: 9, unit_type: 'infantry', region_id: 'r1' },
+    };
+    seedStandaloneFrontierTerritories(territories, map);
+    expect(territories.med_a.owner_id).toBe('p2');
+    expect(territories.med_a.unit_count).toBe(9);
   });
 });
 

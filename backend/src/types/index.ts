@@ -368,6 +368,14 @@ export interface GameSettings {
    */
   lanes_contestable_enabled?: boolean;
   /**
+   * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
+   * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
+   * non-era-advancement space_age game plays the full authored board. Baked at
+   * create from the `space_age_frontiers_enabled` feature flag; no-op off space_age
+   * or when era advancement is on (growth handles frontiers then).
+   */
+  space_age_frontiers_enabled?: boolean;
+  /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
    * the map at init into `world_modifiers` so per-turn calc sites don't need the

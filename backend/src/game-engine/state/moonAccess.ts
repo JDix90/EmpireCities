@@ -120,13 +120,18 @@ export function offworldTerritoryIdsForInitialNeutral(map: GameMap): Set<string>
 /**
  * Territory ids that are exempt from the territory-selection draft: orbit-gated
  * tiles can never be claimed during selection (no player can hold orbit access
- * at game start), so the phase must complete when every OTHER territory is
- * claimed — counting them would soft-lock selection games on maps with a Moon.
+ * at game start), and seeded neutral frontiers (`unlock_era_index > 0`) are
+ * conquered, not drafted. Counting either would soft-lock the selection phase,
+ * which only completes when every OTHER territory is claimed.
  */
 export function selectionExemptTerritoryIds(map: GameMap): Set<string> {
   return new Set(
     map.territories
-      .filter((t) => territoryRequiresOrbitAccessForClaim(map, t.territory_id))
+      .filter(
+        (t) =>
+          territoryRequiresOrbitAccessForClaim(map, t.territory_id) ||
+          (t.unlock_era_index ?? 0) > 0,
+      )
       .map((t) => t.territory_id),
   );
 }

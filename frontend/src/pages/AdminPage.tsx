@@ -65,6 +65,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. Off by default.',
   },
+  {
+    key: 'space_age_frontiers_enabled',
+    label: 'Space Age frontiers (standalone)',
+    description:
+      'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation. Off by default (dark-launch) until the enlarged board is balance-checked.',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

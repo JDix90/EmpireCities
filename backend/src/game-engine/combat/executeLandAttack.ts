@@ -96,7 +96,11 @@ export function executeLandAttack(
     const targetIsOffworld = !!to.world_id && to.world_id !== 'earth';
     if (targetIsOffworld) {
       if (!opts.neutralOffworldCaptureAllowed) return null;
-    } else if (!state.settings.era_advancement_enabled) {
+    } else if (!state.settings.era_advancement_enabled && (state.map_era_floor ?? 0) <= 0) {
+      // Earth-side neutral frontiers are capturable in era-advancement games AND
+      // in a standalone game that seeded the full authored board (map_era_floor>0,
+      // e.g. Space Age frontiers). Classic non-growth boards keep map_era_floor 0,
+      // so their neutrals stay untouchable.
       return null;
     }
   }

@@ -53,6 +53,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const combatDiceCapEnabled = typeof raw.combat_dice_cap_enabled === 'boolean' ? raw.combat_dice_cap_enabled : false;
   // Galaxy contestable hyperspace lanes (lane seals). Off by default — real rule change.
   const lanesContestableEnabled = typeof raw.lanes_contestable_enabled === 'boolean' ? raw.lanes_contestable_enabled : false;
+  // Standalone Space Age frontier seeding. Off by default — baked at create from
+  // the space_age_frontiers_enabled feature flag; no-op off space_age.
+  const spaceAgeFrontiersEnabled = typeof raw.space_age_frontiers_enabled === 'boolean' ? raw.space_age_frontiers_enabled : false;
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
@@ -249,6 +252,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     // Galaxy contestable lanes — only persisted when explicitly enabled.
     lanes_contestable_enabled: lanesContestableEnabled || undefined,
+    // Standalone Space Age frontier seeding — persisted only when explicitly enabled.
+    space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.

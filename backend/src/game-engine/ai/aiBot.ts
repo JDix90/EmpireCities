@@ -333,7 +333,10 @@ function selectAttacks(
         const targetOffworld = !!nState.world_id && nState.world_id !== 'earth';
         if (targetOffworld) {
           if (!hasOrbitAccess) continue;
-        } else if (!state.settings.era_advancement_enabled) {
+        } else if (!state.settings.era_advancement_enabled && (state.map_era_floor ?? 0) <= 0) {
+          // Earth frontiers are capturable in era-advancement games AND in a
+          // standalone seeded-board game (map_era_floor>0) — mirror the same gate
+          // executeLandAttack uses so the AI doesn't skip conquerable frontiers.
           continue;
         }
       }

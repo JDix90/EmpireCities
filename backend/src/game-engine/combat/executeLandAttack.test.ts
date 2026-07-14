@@ -67,8 +67,23 @@ describe('executeLandAttack', () => {
       [player('p1')],
       { era_advancement_enabled: false },
     );
+    // No map_era_floor (classic non-growth board) → neutrals stay untouchable.
     expect(executeLandAttack(s, 'p1', 'a', 'neutral', { dieRoll: diceFrom([6, 6, 6, 1]) })).toBeNull();
     expect(s.territories.neutral.owner_id).toBeNull();
+  });
+
+  it('conquers a neutral Earth frontier in a standalone seeded-board game (map_era_floor > 0)', () => {
+    // Standalone Space Age: era advancement OFF but the full authored board was
+    // seeded, so map_era_floor > 0 opens Earth-side frontiers to capture.
+    const s = state(
+      { a: terr('a', 'p1', 10), frontier: terr('frontier', null, 2, { world_id: 'earth' }) },
+      [player('p1', { territory_count: 1 })],
+      { era_advancement_enabled: false },
+    );
+    s.map_era_floor = 5;
+    const out = executeLandAttack(s, 'p1', 'a', 'frontier', { dieRoll: diceFrom([6, 6, 6, 1, 1]) });
+    expect(out?.captured).toBe(true);
+    expect(s.territories.frontier.owner_id).toBe('p1');
   });
 
   it('never allows conquering a neutral OFF-WORLD garrison, even in era-advancement games', () => {
