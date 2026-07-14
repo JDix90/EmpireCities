@@ -367,6 +367,23 @@ export default function TerritoryPanel({
         );
       })()}
 
+      {/* Orbit gateway badge — an Earth-side tile that anchors an orbit lane (Space
+          Age launch sites: na_launch_base / euro_spaceport / asia_cosmodrome). Data-
+          driven and self-scoping: galaxy world tiles aren't 'earth' and Moon tiles
+          aren't Earth-side, so this only lights up for the Space Age launch anchors. */}
+      {!isMobileCompactInfo
+        && inferWorldId(mapTerritory) === 'earth'
+        && mapConnections.some(
+          (c) => c.type === 'orbit'
+            && (c.from === mapTerritory.territory_id || c.to === mapTerritory.territory_id),
+        ) && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs flex items-center gap-1.5">
+          <span aria-hidden>🛰</span>
+          <span className="font-semibold text-bf-text">Orbit Gateway</span>
+          <span className="text-bf-muted">— launch to the Moon from here</span>
+        </div>
+      )}
+
       {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
       {!isMobileCompactInfo && (() => {
         if (!mapRegions || !mapTerritory.region_id || mapTerritory.region_id === 'sea_routes') return null;

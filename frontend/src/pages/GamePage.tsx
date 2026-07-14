@@ -595,10 +595,13 @@ export default function GamePage() {
     [gameState?.settings.era_advancement_enabled, playerTechEra],
   );
   // Per-era globe surface texture (Layer 2): null for eras without a real asset, so
-  // the globe keeps its default Earth. Only `space_age` ships one today.
+  // the globe keeps its default Earth. Only `space_age` ships one today (NASA Black
+  // Marble). NOT gated on era advancement — a standalone Space Age game should get
+  // its own globe too; the theme lookup already returns null for every other era,
+  // so this is a no-op outside space_age.
   const eraGlobeTexture = useMemo(
-    () => (gameState?.settings.era_advancement_enabled ? (eraBoardTheme(playerTechEra).globeTextureUrl ?? undefined) : undefined),
-    [gameState?.settings.era_advancement_enabled, playerTechEra],
+    () => eraBoardTheme(playerTechEra).globeTextureUrl ?? undefined,
+    [playerTechEra],
   );
 
   // When the server emits `game:campaign_advanced`, we stash the campaign_id so
