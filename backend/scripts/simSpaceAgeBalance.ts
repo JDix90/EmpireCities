@@ -16,8 +16,10 @@
  * era-advancement OFF (deterministic, isolates the Moon race — noted in output).
  * Victory: domination (+ implicit last_standing). NOTE: 'domination' requires
  * EVERY territory including the 9 neutral Moon tiles, so most decisive games end
- * via last_standing. The 8 unlock_era_index>0 frontier tiles never spawn with era
- * advancement off → 55 tiles in play (46 Earth + 9 neutral Moon).
+ * via last_standing. With space_age_frontiers_enabled ON (default here), the 8
+ * authored unlock_era_index>0 frontier tiles are seeded neutral at start → the
+ * full 63-tile board (46 Earth + 8 frontier + 9 neutral Moon). Set SIM_FRONTIERS=0
+ * for the 55-tile pre-feature baseline.
  *
  * ENGINE-vs-SOCKET NOTE (production discrepancy, replicated honestly here):
  * The AI's "Launch Space Station" step exists ONLY in the socket layer
@@ -66,6 +68,8 @@ const MASTER_SEED = process.env.SIM_SEED ?? 'borderfall-space-age';
 const CSV_PATH = process.env.SIM_CSV ?? '';
 /** 'draft' = intended behavior; 'attack' = replicate the production socket ordering (launch always rejected). */
 const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'attack';
+/** Standalone frontier seeding (the full 63-tile board). Default ON — set SIM_FRONTIERS=0 for the 55-tile baseline. */
+const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 const LADDER = [
@@ -96,6 +100,7 @@ function simSettings(): GameSettings {
     tech_trees_enabled: true,
     stability_enabled: true,
     era_advancement_enabled: false, // space_age is the start AND terminal era here
+    space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
     allowed_victory_conditions: ['domination'],
     victory_type: 'domination',
     max_turns: MAX_TURNS,
@@ -274,6 +279,8 @@ interface GameStat {
   t10AnchorLeaderWon: boolean;
   winnerLadderDepth: number;
   perPlayerDepths: string; // "5@t22|3@-|..." depth@stationTurn per seat
+  frontierTilesInPlay: number; // seeded Earth frontiers (0 when SIM_FRONTIERS=0)
+  frontierNeutralEnd: number; // frontiers still unowned at game end (should trend to ~0)
 }
 
 /** Highest territory_count non-eliminated player; null on a tie. */
@@ -304,7 +311,7 @@ function strictMaxKey(m: Map<string, number>): string | null {
   return tie ? null : best;
 }
 
-function runGame(map: GameMap, moonTileIds: string[], gameIndex: number): GameStat {
+function runGame(map: GameMap, moonTileIds: string[], frontierIds: string[], gameIndex: number): GameStat {
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   const players = Array.from({ length: PLAYERS }, (_, i) => ({
@@ -376,6 +383,7 @@ function runGame(map: GameMap, moonTileIds: string[], gameIndex: number): GameSt
     if (o) moonEnd.set(o, (moonEnd.get(o) ?? 0) + 1);
   }
   const moonTilesPlayerHeldEnd = [...moonEnd.values()].reduce((a, b) => a + b, 0);
+  const frontierNeutralEnd = frontierIds.filter((tid) => !state.territories[tid]?.owner_id).length;
   const moonLeader = strictMaxKey(moonEnd);
   const winnerMoonTilesEnd = winner ? (moonEnd.get(winner) ?? 0) : 0;
   const loserMoon = players.filter((p) => p.player_id !== winner).map((p) => moonEnd.get(p.player_id) ?? 0);
@@ -419,6 +427,8 @@ function runGame(map: GameMap, moonTileIds: string[], gameIndex: number): GameSt
     perPlayerDepths: simList
       .map((s) => `${ladderDepth(s)}@${s.stationLaunchTurn != null ? `t${s.stationLaunchTurn}` : '-'}`)
       .join('|'),
+    frontierTilesInPlay: frontierIds.length,
+    frontierNeutralEnd,
   };
 }
 
@@ -446,9 +456,13 @@ function main(): void {
   const moonTileIds = map.territories
     .filter((t) => t.region_id === 'lunar_surface')
     .map((t) => t.territory_id);
+  // Earth-side frontiers seeded only when the flag is on; empty otherwise.
+  const frontierIds = FRONTIERS
+    ? map.territories.filter((t) => (t.unlock_era_index ?? 0) > 0).map((t) => t.territory_id)
+    : [];
   const started = Date.now();
   const stats: GameStat[] = [];
-  for (let i = 0; i < GAMES; i++) stats.push(runGame(map, moonTileIds, i));
+  for (let i = 0; i < GAMES; i++) stats.push(runGame(map, moonTileIds, frontierIds, i));
   const elapsedS = (Date.now() - started) / 1000;
 
   const decisive = stats.filter((s) => s.decisive);
@@ -462,9 +476,11 @@ function main(): void {
   const withRegion = stats.filter((s) => s.lunarRegionHolder);
   const totalRejected = stats.reduce((a, s) => a + s.launchRejectedAttackPhase, 0);
 
-  const inPlay = map.territories.filter((t) => (t.unlock_era_index ?? 0) <= 0).length;
-  console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS} · launchPhase=${LAUNCH_PHASE}`);
-  console.log(`Map: ${map.territories.length} territories in file · ${inPlay} in play (${inPlay - moonTileIds.length} Earth + ${moonTileIds.length} neutral Moon; era-locked frontiers never spawn)`);
+  const baseInPlay = map.territories.filter((t) => (t.unlock_era_index ?? 0) <= 0).length;
+  const frontierCount = map.territories.length - baseInPlay;
+  const inPlay = FRONTIERS ? map.territories.length : baseInPlay;
+  console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS} · launchPhase=${LAUNCH_PHASE} · frontiers=${FRONTIERS ? 'on' : 'off'}`);
+  console.log(`Map: ${map.territories.length} territories in file · ${inPlay} in play (${baseInPlay - moonTileIds.length} Earth${FRONTIERS ? ` + ${frontierCount} frontier` : ''} + ${moonTileIds.length} neutral Moon${FRONTIERS ? '' : '; era-locked frontiers never spawn'})`);
   console.log(`Seed "${MASTER_SEED}" · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)`);
   console.log(`Ruleset: economy+tech+stability ON · naval/events/factions/era-advancement OFF · domination(+last_standing)\n`);
 
@@ -501,6 +517,10 @@ function main(): void {
   console.log(`Decisive (non-turn-limit) wins:              ${pct(decisive.length, GAMES)}`);
   console.log(`Victory distribution:                        ${Object.entries(victories).map(([k, v]) => `${k}:${v}`).join('  ')}`);
   console.log(`Territory-leader@turn10 win rate:            ${pct(withT10.filter((s) => s.t10LeaderWon).length, withT10.length)}  (n=${withT10.length}; baseline ${pct(1, PLAYERS)})`);
+  if (FRONTIERS && frontierIds.length > 0) {
+    // Confirms seeded frontiers get conquered rather than sitting decorative.
+    console.log(`Frontier tiles (${frontierIds.length}): avg still-neutral at end:  ${fmt(avg(stats.map((s) => s.frontierNeutralEnd)))} (0 = all conquered)`);
+  }
 
   if (CSV_PATH) {
     const header = [

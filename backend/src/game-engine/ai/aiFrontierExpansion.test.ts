@@ -43,7 +43,7 @@ function makeState(
   map: GameMap,
   frontier: TerritoryState,
   eraAdvancement: boolean,
-  opts: { era?: string; factionId?: string } = {},
+  opts: { era?: string; factionId?: string; mapEraFloor?: number } = {},
 ): GameState {
   const p = player('ai1');
   if (opts.factionId) (p as PlayerState & { faction_id?: string }).faction_id = opts.factionId;
@@ -59,7 +59,7 @@ function makeState(
       home: terr('home', 'ai1', 8),
       frontier,
     },
-    map_era_floor: 1,
+    map_era_floor: opts.mapEraFloor ?? 1,
     card_deck: [],
     card_set_redemption_count: 0,
     diplomacy: [],
@@ -76,11 +76,20 @@ describe('AI frontier expansion', () => {
     expect(attacksFrontier).toBe(true);
   });
 
-  it('does NOT plan a neutral attack when era advancement is off', () => {
+  it('does NOT plan a neutral attack on a classic non-growth board (era off, floor 0)', () => {
     const map = makeMap('earth');
-    const state = makeState(map, terr('frontier', null, 3), false);
+    const state = makeState(map, terr('frontier', null, 3), false, { mapEraFloor: 0 });
     const actions = computeAiTurn(state, map, 'hard');
     expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(false);
+  });
+
+  it('plans an attack on a neutral Earth frontier in a standalone seeded-board game (era off, floor > 0)', () => {
+    // Standalone Space Age: advancement off but the full board was seeded, so
+    // map_era_floor > 0 — the AI must conquer frontiers (mirrors executeLandAttack).
+    const map = makeMap('earth');
+    const state = makeState(map, terr('frontier', null, 3), false, { era: 'space_age', mapEraFloor: 5 });
+    const actions = computeAiTurn(state, map, 'hard');
+    expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(true);
   });
 
   it('skips a neutral OFF-WORLD garrison while the AI lacks orbit access', () => {

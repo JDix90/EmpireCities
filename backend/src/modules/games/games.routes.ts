@@ -159,9 +159,17 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         : rawSettings.victory_type
           ? [rawSettings.victory_type]
           : ['domination'];
+    // Standalone Space Age frontier seeding is server-controlled via the feature
+    // flag (the schema never accepts it from the client). Bake the live value into
+    // the settings at create so the engine reads a fixed setting and stays pure.
+    const isSpaceAge = era_id === 'space_age' || map_id === 'era_space_age';
     const settings = normalizeGameSettings(
       applyGalaxyVictoryDefaults(
-        { ...rawSettings, allowed_victory_conditions: mergedList },
+        {
+          ...rawSettings,
+          allowed_victory_conditions: mergedList,
+          space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
+        },
         {
           isGalacticAge,
           callerChoseVictory:

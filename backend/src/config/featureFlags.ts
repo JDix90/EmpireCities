@@ -190,6 +190,20 @@ export const featureFlags = {
   get spectateEnabled(): boolean {
     return overrideBool('spectate_enabled', process.env.SPECTATE_ENABLED === 'true');
   },
+
+  /**
+   * When true, a standalone (non-era-advancement) Space Age game seeds the 8
+   * authored `unlock_era_index` frontier tiles (the 2100 expansion) as neutral
+   * garrisons at start — the full authored 63-tile board instead of the 55-tile
+   * base. Without it those tiles are dead content standalone (the growth machinery
+   * only runs under era advancement). Default OFF — dark-launch so the enlarged
+   * board can be balance-checked before flipping on via `SPACE_AGE_FRONTIERS_ENABLED=true`
+   * or the `space_age_frontiers_enabled` admin override. Baked into game settings
+   * at create; the engine reads the setting (stays pure).
+   */
+  get spaceAgeFrontiersEnabled(): boolean {
+    return overrideBool('space_age_frontiers_enabled', process.env.SPACE_AGE_FRONTIERS_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -207,5 +221,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
     spectate_enabled: featureFlags.spectateEnabled,
+    space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
   };
 }

@@ -7,6 +7,7 @@ import {
   fortifyEndpointsRequireOrbitAccess,
   territoryRequiresOrbitAccessForClaim,
   offworldTerritoryIdsForInitialNeutral,
+  selectionExemptTerritoryIds,
 } from './moonAccess';
 
 describe('orbit access (galaxy_age)', () => {
@@ -214,5 +215,25 @@ describe('formatOrbitAccessError copy', () => {
     const access = getOrbitAccessResult(state, pioneer, spaceAgeMap, 'space_age');
     expect(access.allowed).toBe(true);
     expect(formatOrbitAccessError(access)).toBe('');
+  });
+});
+
+describe('selectionExemptTerritoryIds', () => {
+  it('exempts orbit-gated Moon tiles AND seeded frontiers, never plain Earth tiles', () => {
+    const map: GameMap = {
+      map_id: 'sel_exempt',
+      name: 'Selection Exempt',
+      territories: [
+        { territory_id: 'earth_1', name: 'Earth 1', polygon: [], center_point: [0, 0], region_id: 'na' },
+        { territory_id: 'moon_1', name: 'Moon 1', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+        { territory_id: 'frontier_1', name: 'Frontier 1', polygon: [], center_point: [0, 0], region_id: 'na', unlock_era_index: 2 },
+      ],
+      connections: [{ from: 'earth_1', to: 'moon_1', type: 'orbit' }],
+      regions: [{ region_id: 'na', name: 'NA', bonus: 2 }, { region_id: 'lunar_surface', name: 'Moon', bonus: 2 }],
+    };
+    const exempt = selectionExemptTerritoryIds(map);
+    expect(exempt.has('moon_1')).toBe(true); // orbit-gated: unclaimable at start
+    expect(exempt.has('frontier_1')).toBe(true); // seeded frontier: conquered, not drafted
+    expect(exempt.has('earth_1')).toBe(false); // ordinary tile: still drafted
   });
 });

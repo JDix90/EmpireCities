@@ -13,6 +13,7 @@ import {
   initializeGameState,
 } from './gameStateManager';
 import { calculateReinforcements } from '../combat/combatResolver';
+import { projectMapToEraFloor } from '../eraAdvancement/territoryUnlock';
 import type { GameState, PlayerState, TerritoryState, GameSettings, TerritoryCard, GameMap } from '../../types';
 
 function makeSettings(overrides?: Partial<GameSettings>): GameSettings {
@@ -684,6 +685,7 @@ describe('initializeGameState faction distribution', () => {
           { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'lunar_pioneers' },
           { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'pacific_megacities' },
         ],
+        // Frontier seeding OFF (default): the frontier tile is held back entirely.
         makeSettings({ factions_enabled: true }),
       );
 
@@ -691,6 +693,39 @@ describe('initializeGameState faction distribution', () => {
       for (const earthId of ['earth_a', 'earth_b', 'earth_c', 'earth_d']) {
         expect(state.territories[earthId]!.owner_id).not.toBeNull();
       }
+    });
+
+    it('seeds era-locked frontiers as neutral (never dealt) when space_age_frontiers_enabled', () => {
+      const mapWithFrontier: GameMap = {
+        ...spaceAgeMap,
+        territories: [
+          ...spaceAgeMap.territories,
+          { territory_id: 'frontier_locked', name: 'Frontier', polygon: [], center_point: [0, 0], region_id: 'na', unlock_era_index: 2 },
+        ],
+        connections: [
+          ...spaceAgeMap.connections,
+          { from: 'earth_d', to: 'frontier_locked', type: 'land' },
+        ],
+      };
+
+      const state = initializeGameState(
+        'space-age-frontier-seeded',
+        'space_age',
+        mapWithFrontier,
+        [
+          { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'lunar_pioneers' },
+          { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: false, is_eliminated: false, mmr: 1000, faction_id: 'pacific_megacities' },
+        ],
+        makeSettings({ factions_enabled: true, space_age_frontiers_enabled: true }),
+      );
+
+      // Frontier now exists, neutral and garrisoned, never dealt to a player.
+      const frontier = state.territories['frontier_locked'];
+      expect(frontier).toBeDefined();
+      expect(frontier!.owner_id).toBeNull();
+      expect(frontier!.unit_count).toBeGreaterThan(0);
+      // Floor rose to include it, so map projection will emit it.
+      expect(state.map_era_floor).toBe(2);
     });
 
     it('initializes the real era_space_age map with factions enabled (live crash repro)', () => {
@@ -724,6 +759,38 @@ describe('initializeGameState faction distribution', () => {
       for (const tid of moonIds) expect(state.territories[tid]!.owner_id).toBeNull();
       const earthOwned = Object.values(state.territories).filter((t) => t.owner_id != null).length;
       expect(earthOwned).toBe(Object.keys(state.territories).length - moonIds.length);
+    });
+
+    it('seeds the full 63-tile board on the real era_space_age map when frontiers are enabled', () => {
+      const realMap = JSON.parse(
+        readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
+      ) as GameMap;
+      const state = initializeGameState(
+        'space-age-real-map-frontiers',
+        'space_age',
+        realMap,
+        [
+          { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000 },
+          { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: true, is_eliminated: false, mmr: 1000 },
+        ],
+        makeSettings({ space_age_frontiers_enabled: true }),
+      );
+
+      const frontierIds = realMap.territories.filter((t) => (t.unlock_era_index ?? 0) > 0).map((t) => t.territory_id);
+      const moonIds = realMap.territories.filter((t) => t.globe_id === 'moon').map((t) => t.territory_id);
+      // Full authored board is in play (base 55 + 8 frontiers = 63).
+      expect(Object.keys(state.territories).length).toBe(realMap.territories.length);
+      expect(state.map_era_floor).toBe(5);
+      // Every frontier present, neutral, never dealt.
+      for (const tid of frontierIds) {
+        expect(state.territories[tid]!.owner_id).toBeNull();
+        expect(state.territories[tid]!.unit_count).toBeGreaterThan(0);
+      }
+      // The projected map the socket emits carries all 63 tiles at this floor.
+      const projected = projectMapToEraFloor(realMap, state.map_era_floor ?? 0);
+      expect(projected.territories.length).toBe(realMap.territories.length);
+      // Moon stays neutral (its own access race), unaffected by frontier seeding.
+      for (const tid of moonIds) expect(state.territories[tid]!.owner_id).toBeNull();
     });
   });
 

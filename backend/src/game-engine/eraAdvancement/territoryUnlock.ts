@@ -19,7 +19,7 @@
 
 import { inferWorldId } from '@borderfall/shared';
 import { getCoastalTerritoryIds } from '../state/navalManager';
-import type { GameMap, GameState, TerritoryState } from '../../types';
+import type { EraId, GameMap, GameState, TerritoryState } from '../../types';
 
 /**
  * Garrison placed on a freshly unlocked neutral frontier. Scales with the unlock
@@ -54,6 +54,77 @@ export const ERA_GROWTH_MAP_IDS: ReadonlySet<string> = new Set([
 /** True when the map tags any territory for later-era unlocking. */
 export function mapHasEraGrowth(map: GameMap): boolean {
   return map.territories.some((t) => territoryUnlockEra(t) > 0);
+}
+
+/** Highest `unlock_era_index` authored on the map (0 when the map has no growth). */
+export function maxUnlockEra(map: GameMap): number {
+  let max = 0;
+  for (const t of map.territories) {
+    const e = territoryUnlockEra(t);
+    if (e > max) max = e;
+  }
+  return max;
+}
+
+/**
+ * Build a neutral, garrisoned frontier territory-state from a map tile. Single
+ * source of truth for the garrison size / world / region across the two spawn
+ * paths (progressive era-advancement unlock and the standalone full-board seeder)
+ * so they can't drift. Coastal `naval_units` is deliberately NOT set here — each
+ * caller handles it: init seeding leaves it to `initializeNavalUnits` (called
+ * after, naval-aware, exactly like base tiles + the neutral Moon), while mid-game
+ * unlock sets it directly since naval init has already run.
+ */
+function buildNeutralFrontier(t: GameMap['territories'][number]): TerritoryState {
+  return {
+    territory_id: t.territory_id,
+    owner_id: null,
+    unit_count: unlockGarrisonForEra(territoryUnlockEra(t)),
+    unit_type: 'infantry',
+    world_id: inferWorldId(t),
+    region_id: t.region_id,
+  };
+}
+
+/**
+ * True when a game should seed the FULL authored board (all `unlock_era_index`
+ * frontiers, neutral) at start instead of growing it via era advancement. This is
+ * the standalone Space Age case: with advancement OFF the progressive-unlock
+ * machinery never runs (`globalEraFloor` stays 0), so the authored 2100 frontiers
+ * would be permanently dead content. Scoped to space_age and gated by the
+ * `space_age_frontiers_enabled` dark-launch flag (baked into settings at create
+ * from featureFlags), so the blast radius is one board and it can be flipped from
+ * the admin panel.
+ */
+export function seedsFullBoardAtStart(
+  era: EraId,
+  settings: { era_advancement_enabled?: boolean; space_age_frontiers_enabled?: boolean },
+  map: GameMap,
+): boolean {
+  return (
+    era === 'space_age' &&
+    settings.era_advancement_enabled !== true &&
+    settings.space_age_frontiers_enabled === true &&
+    mapHasEraGrowth(map)
+  );
+}
+
+/**
+ * Insert every `unlock_era_index > 0` tile into `territories` as a neutral
+ * garrisoned frontier (in place), for a standalone full-board start. Returns the
+ * era floor to record on the state (the map's max unlock era) so
+ * `projectMapToEraFloor` includes them in every emission. Idempotent — never
+ * overwrites an existing entry.
+ */
+export function seedStandaloneFrontierTerritories(
+  territories: Record<string, TerritoryState>,
+  map: GameMap,
+): number {
+  for (const t of map.territories) {
+    if (territoryUnlockEra(t) <= 0) continue;
+    if (!territories[t.territory_id]) territories[t.territory_id] = buildNeutralFrontier(t);
+  }
+  return maxUnlockEra(map);
 }
 
 /** Map territory_ids that are NOT yet in play at the given era floor. */
@@ -120,19 +191,12 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
     const unlockEra = territoryUnlockEra(t);
     if (unlockEra <= prevFloor || unlockEra > newFloor) continue; // outside the (prev, new] window
     if (state.territories[t.territory_id]) continue; // already in play — never duplicate
-    const territory: TerritoryState = {
-      territory_id: t.territory_id,
-      owner_id: null,
-      unit_count: unlockGarrisonForEra(unlockEra),
-      unit_type: 'infantry',
-      world_id: inferWorldId(t),
-      region_id: t.region_id,
-      // Coastal marker: naval buildings + sea attacks read `naval_units != null`
-      // as "coastal" (navalManager.initializeNavalUnits sets it at game start,
-      // which runs before frontiers exist — without this, unlocked frontiers
-      // could never build a Port / Naval Base).
-      ...(coastal.has(t.territory_id) ? { naval_units: 0 } : {}),
-    };
+    const territory = buildNeutralFrontier(t);
+    // Coastal marker: naval buildings + sea attacks read `naval_units != null`
+    // as "coastal" (navalManager.initializeNavalUnits sets it at game start,
+    // which runs before frontiers exist — without this, unlocked frontiers
+    // could never build a Port / Naval Base).
+    if (coastal.has(t.territory_id)) territory.naval_units = 0;
     state.territories[t.territory_id] = territory;
     added.push(t.territory_id);
   }

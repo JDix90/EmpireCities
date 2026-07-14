@@ -42,7 +42,7 @@ import {
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
 import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
-import { projectMapToEraFloor, unlockTerritoriesForFloor } from '../game-engine/eraAdvancement/territoryUnlock';
+import { projectMapToEraFloor, unlockTerritoriesForFloor, seedsFullBoardAtStart, maxUnlockEra } from '../game-engine/eraAdvancement/territoryUnlock';
 import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
 import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
@@ -88,7 +88,7 @@ import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { incrementPlayCount } from '../modules/maps/mapService';
-import type { GameState, GameMap, AiDifficulty, PlayerState } from '../types';
+import type { GameState, GameMap, AiDifficulty, PlayerState, EraId } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
@@ -457,9 +457,12 @@ async function applyApprovedLobbyMapChange(
 
   const gameMap = await resolveMap(value.map_id);
   if (gameMap) {
-    // Lobby preview shows the starting board (era floor 0); growth territories
-    // appear in-game as eras advance. No-op for maps without growth tags.
-    io.to(gameId).emit('game:map', { mapId: value.map_id, map: projectMapToEraFloor(gameMap, 0) });
+    // Lobby preview: for a standalone Space Age game with frontier seeding baked
+    // in, show the full authored board so preview matches the in-game board;
+    // otherwise the starting board (era-advancement growth appears in-game as eras
+    // advance). No-op for maps without growth tags.
+    const previewFloor = seedsFullBoardAtStart(value.era_id as EraId, lobby.settings, gameMap) ? maxUnlockEra(gameMap) : 0;
+    io.to(gameId).emit('game:map', { mapId: value.map_id, map: projectMapToEraFloor(gameMap, previewFloor) });
   }
 }
 
@@ -1116,7 +1119,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           await emitLobbyProposalUpdates(io, gameId, waitingDetails);
           const waitingMap = await resolveMap(game.map_id);
           if (waitingMap) {
-            socket.emit('game:map', { mapId: game.map_id, map: projectMapToEraFloor(waitingMap, 0) });
+            const previewFloor = seedsFullBoardAtStart(game.era_id as EraId, waitingDetails.settings, waitingMap)
+              ? maxUnlockEra(waitingMap)
+              : 0;
+            socket.emit('game:map', { mapId: game.map_id, map: projectMapToEraFloor(waitingMap, previewFloor) });
           }
         }
 
@@ -1510,6 +1516,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const territory = state.territories[territoryId];
       if (!territory) return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Territory not found');
       if (!isUnclaimedOwner(territory.owner_id)) return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Territory already claimed');
+
+      // Seeded neutral frontiers (standalone Space Age) are conquered in play, not
+      // drafted during selection — reject the pick (the completion check exempts
+      // them too, via selectionExemptTerritoryIds).
+      const pickedMapTerritory = map.territories.find((t) => t.territory_id === territoryId);
+      if ((pickedMapTerritory?.unlock_era_index ?? 0) > 0) {
+        return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Frontier territories are conquered, not claimed');
+      }
 
       if (territoryRequiresOrbitAccessForClaim(map, territoryId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
@@ -4554,7 +4568,9 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   const unclaimed = Object.entries(state.territories)
     .filter(([id, t]) =>
       isUnclaimedOwner(t.owner_id)
-      && (aiHasOrbitAccess || !territoryRequiresOrbitAccessForClaim(map, id)))
+      && (aiHasOrbitAccess || !territoryRequiresOrbitAccessForClaim(map, id))
+      // Seeded neutral frontiers are conquered in play, not drafted in selection.
+      && (map.territories.find((mt) => mt.territory_id === id)?.unlock_era_index ?? 0) <= 0)
     .map(([id]) => id);
 
   if (unclaimed.length === 0) return;
