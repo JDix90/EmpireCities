@@ -1362,7 +1362,11 @@ export default function GamePage() {
       const attackerOwner = state?.territories[data.fromId]?.owner_id;
       const defenderOwner = state?.territories[data.toId]?.owner_id;
       const attackerName = state?.players.find(p => p.player_id === attackerOwner)?.username ?? 'Unknown';
-      const defenderName = state?.players.find(p => p.player_id === defenderOwner)?.username ?? 'Unknown';
+      // A neutral garrison (Moon / seeded frontier) has no owning player — read it
+      // as "Neutral", not "Unknown", so the combat readout is honest.
+      const defenderName = defenderOwner
+        ? (state?.players.find(p => p.player_id === defenderOwner)?.username ?? 'Unknown')
+        : 'Neutral';
 
       const enriched: CombatResult = {
         ...data.result,
