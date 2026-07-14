@@ -116,6 +116,29 @@ export const CreateGameSchema = z.object({
   auto_start: z.boolean().default(false),
 });
 
+/**
+ * Galaxy default endgame, exported for tests. Domination-only with no turn cap
+ * never ends on the 4-world orbit-gated map (sims: ~16% decisive at medium in
+ * 90 turns — digging a faction out of its home world is too slow), so galaxy
+ * creates that didn't pick victory conditions get threshold 60% alongside
+ * domination, and any galaxy create without an explicit turn cap gets the
+ * max_turns 90 leader-wins backstop. Explicit caller choices always win.
+ */
+export const GALAXY_DEFAULT_VICTORY_THRESHOLD = 60;
+export const GALAXY_DEFAULT_MAX_TURNS = 90;
+export function applyGalaxyVictoryDefaults<
+  T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
+>(settings: T, opts: { isGalacticAge: boolean; callerChoseVictory: boolean }): T {
+  if (!opts.isGalacticAge) return settings;
+  const out = { ...settings };
+  if (!opts.callerChoseVictory) {
+    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), 'threshold' as VictoryType])];
+    if (typeof out.victory_threshold !== 'number') out.victory_threshold = GALAXY_DEFAULT_VICTORY_THRESHOLD;
+  }
+  if (typeof out.max_turns !== 'number') out.max_turns = GALAXY_DEFAULT_MAX_TURNS;
+  return out;
+}
+
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/games ──────────────────────────────────────────────────────
   fastify.post('/', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -136,10 +159,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         : rawSettings.victory_type
           ? [rawSettings.victory_type]
           : ['domination'];
-    const settings = normalizeGameSettings({
-      ...rawSettings,
-      allowed_victory_conditions: mergedList,
-    });
+    const settings = normalizeGameSettings(
+      applyGalaxyVictoryDefaults(
+        { ...rawSettings, allowed_victory_conditions: mergedList },
+        {
+          isGalacticAge,
+          callerChoseVictory:
+            (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
+        },
+      ),
+    );
 
     if (settings.era_advancement_enabled) {
       if (!featureFlags.eraAdvancementLobbyEnabled && !request.isAdmin) {

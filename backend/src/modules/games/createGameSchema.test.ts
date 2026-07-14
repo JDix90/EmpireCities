@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { CreateGameSchema } from './games.routes';
+import {
+  applyGalaxyVictoryDefaults,
+  CreateGameSchema,
+  GALAXY_DEFAULT_MAX_TURNS,
+  GALAXY_DEFAULT_VICTORY_THRESHOLD,
+} from './games.routes';
 
 /**
  * Regression guard: zod object schemas STRIP unknown keys, so any settings
@@ -84,6 +89,46 @@ describe('Galactic Age lobby payload', () => {
       settings: { ...galaxyPayload.settings, combat_max_attacker_dice: 2 },
     };
     expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('applyGalaxyVictoryDefaults', () => {
+  // Domination-only + no turn cap never ends on the orbit-gated 4-world map
+  // (sims: ~16% decisive at medium in 90 turns), so galaxy creates get a
+  // threshold+turn-limit endgame unless the caller chose otherwise.
+  it('adds threshold 60% and max_turns 90 when the caller chose nothing', () => {
+    const out = applyGalaxyVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const] },
+      { isGalacticAge: true, callerChoseVictory: false },
+    );
+    expect(out.allowed_victory_conditions).toEqual(['domination', 'threshold']);
+    expect(out.victory_threshold).toBe(GALAXY_DEFAULT_VICTORY_THRESHOLD);
+    expect(out.max_turns).toBe(GALAXY_DEFAULT_MAX_TURNS);
+  });
+
+  it('respects an explicit victory choice but still backstops max_turns', () => {
+    const out = applyGalaxyVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const] },
+      { isGalacticAge: true, callerChoseVictory: true },
+    );
+    expect(out.allowed_victory_conditions).toEqual(['domination']);
+    expect(out.victory_threshold).toBeUndefined();
+    expect(out.max_turns).toBe(GALAXY_DEFAULT_MAX_TURNS);
+  });
+
+  it('never overrides an explicit turn cap or threshold', () => {
+    const out = applyGalaxyVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const, 'threshold' as const], victory_threshold: 75, max_turns: 200 },
+      { isGalacticAge: true, callerChoseVictory: true },
+    );
+    expect(out.victory_threshold).toBe(75);
+    expect(out.max_turns).toBe(200);
+  });
+
+  it('is a no-op for non-galaxy creates', () => {
+    const input = { allowed_victory_conditions: ['domination' as const] };
+    const out = applyGalaxyVictoryDefaults(input, { isGalacticAge: false, callerChoseVictory: false });
+    expect(out).toBe(input);
   });
 });
 

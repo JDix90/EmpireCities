@@ -39,6 +39,8 @@ const DIFFICULTY = (process.env.SIM_DIFFICULTY ?? 'expert') as AiDifficulty;
 const MAX_TURNS = Number(process.env.SIM_MAX_TURNS ?? 90);
 const MASTER_SEED = process.env.SIM_SEED ?? 'borderfall-galaxy-balance';
 const CSV_PATH = process.env.SIM_CSV ?? '';
+/** When set (1–99), adds threshold victory at that % — mirrors the live galaxy create default. */
+const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -71,8 +73,9 @@ function simSettings(): GameSettings {
     tech_trees_enabled: true,
     stability_enabled: true,
     era_advancement_enabled: false, // galaxy is the terminal era
-    allowed_victory_conditions: ['domination'],
+    allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
+    victory_threshold: THRESHOLD ?? undefined,
     max_turns: MAX_TURNS,
   } as GameSettings;
 }
@@ -235,10 +238,13 @@ function main(): void {
   for (const f of FACTIONS) byFaction[f] = 0;
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
-  console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS} · ${terr} territories`);
+  console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
+  const byCondition = new Map<string, number>();
+  for (const s of stats) byCondition.set(s.victory, (byCondition.get(s.victory) ?? 0) + 1);
+  console.log(`Victory breakdown:                ${[...byCondition.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, GAMES)}`).join(' · ')}`);
   console.log(`Territory-leader@turn10 win rate: ${pct(withT10.filter((s) => s.t10LeaderWon).length, withT10.length)}  (snowball signal; ${pct(1, PLAYERS)} baseline)`);
   console.log(`Avg peak territory spread:        ${(stats.reduce((a, s) => a + s.maxTerritorySpread, 0) / GAMES).toFixed(1)} (leader − laggard, of ${terr})`);
   console.log(`\n— Per-faction win rate (4p baseline = 25%) —`);
