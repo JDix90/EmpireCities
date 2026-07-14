@@ -2,7 +2,7 @@
 // Tech Manager — technology tree research, passive bonuses
 // ============================================================
 
-import type { EraId, GameState } from '../../types';
+import type { EraId, GameState, PlayerState } from '../../types';
 import type { TechNode } from '../eras/types';
 import { getEraTechTree, getTechNodeById } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
@@ -67,15 +67,29 @@ export function validateResearch(
   }
 
   const techPoints = player.tech_points ?? 0;
-  const costMultiplier = state.settings.economy_enabled
-    ? getWonderTechCostMultiplier(state, playerId)
-    : 1;
-  const effectiveCost = Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0));
+  const effectiveCost = getEffectiveTechCost(state, player, node);
   if (techPoints < effectiveCost) {
     return { valid: false, error: `Not enough tech points (need ${effectiveCost}, have ${techPoints})` };
   }
 
   return { valid: true, node };
+}
+
+/**
+ * Effective research cost for a player: wonder multiplier (economy), then the
+ * one-shot House of Wisdom discount and the faction research discount
+ * (e.g. Stellar Mandate), floored at 1. Single source of truth for
+ * validateResearch and applyResearch.
+ */
+export function getEffectiveTechCost(state: GameState, player: PlayerState, node: TechNode): number {
+  const costMultiplier = state.settings.economy_enabled
+    ? getWonderTechCostMultiplier(state, player.player_id)
+    : 1;
+  let factionDiscount = 0;
+  if (state.settings.factions_enabled && player.faction_id) {
+    factionDiscount = getPlayerFaction(state, player)?.tech_cost_discount ?? 0;
+  }
+  return Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0) - factionDiscount);
 }
 
 /**
@@ -89,10 +103,7 @@ export function applyResearch(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return;
 
-  const costMultiplier = state.settings.economy_enabled
-    ? getWonderTechCostMultiplier(state, playerId)
-    : 1;
-  const effectiveCost = Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0));
+  const effectiveCost = getEffectiveTechCost(state, player, node);
   player.tech_points = (player.tech_points ?? 0) - effectiveCost;
   // House of Wisdom: the discount applies to a single research, then clears.
   if (player.pending_tech_discount) player.pending_tech_discount = 0;

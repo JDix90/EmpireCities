@@ -10,6 +10,7 @@ import { getEffectiveMilestoneGate } from '../eraAdvancement/spines';
 import { countUnlockedTechsByTier } from '../eraAdvancement/eraAdvancementReadiness';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild, countPlayerBuildings } from '../state/economyManager';
+import { getEffectiveTechCost } from '../state/techManager';
 import {
   connectionRequiresMoonAccess,
   getOrbitAccessResult,
@@ -876,10 +877,13 @@ export function selectAiTechResearch(
   const unlocked = player.unlocked_techs ?? [];
   const techPoints = player.tech_points ?? 0;
 
+  // Affordability must use the EFFECTIVE cost (wonder multiplier, faction
+  // research discount), or a discounted faction's tempo edge is invisible to
+  // the AI — it would skip a tech it can actually pay for.
   let available = tree.filter(
     (node) =>
       !unlocked.includes(node.tech_id) &&
-      node.cost <= techPoints &&
+      getEffectiveTechCost(state, player, node) <= techPoints &&
       (!node.prerequisite || unlocked.includes(node.prerequisite)),
   );
   if (available.length === 0) return null;

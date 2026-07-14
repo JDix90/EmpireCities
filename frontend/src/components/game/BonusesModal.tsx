@@ -103,6 +103,7 @@ interface FactionInfo {
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
   reinforce_bonus?: number;
+  tech_cost_discount?: number;
   stability_recovery_bonus?: number;
   ability_description?: string;
 }
@@ -280,6 +281,15 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
                           value: `+${factionData.reinforce_bonus} / turn`,
                           description: 'Added at the start of each of your draft phases.',
                           valueColor: 'text-amber-300',
+                        }]
+                      : []),
+                    ...(factionData.tech_cost_discount
+                      ? [{
+                          icon: '🔬',
+                          label: 'Faction Research Discount',
+                          value: `−${factionData.tech_cost_discount} TP / research`,
+                          description: 'Every technology costs that much less to research (minimum 1).',
+                          valueColor: 'text-cyan-300',
                         }]
                       : []),
                     ...(factionData.stability_recovery_bonus

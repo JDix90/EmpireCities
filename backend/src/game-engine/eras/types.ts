@@ -38,6 +38,12 @@ export interface Faction {
   passive_defense_bonus?: number;
   /** Extra reinforcement units per turn. */
   reinforce_bonus?: number;
+  /**
+   * Flat tech-point discount on every research (floor: effective cost 1).
+   * A deliberately gentle tempo lever: worth ~1 TP per research (~8-10/game),
+   * unlike a per-turn income which compounds every turn.
+   */
+  tech_cost_discount?: number;
   /** ID of a unique ability available once per turn. */
   ability_id?: string;
   /** Human-readable description of the special ability. */
