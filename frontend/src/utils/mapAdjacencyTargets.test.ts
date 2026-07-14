@@ -74,6 +74,38 @@ describe('computePhaseAdjacencyTargets', () => {
     expect(targets.has('milan')).toBe(true); // enemy still attackable
     expect(targets.has('turin')).toBe(false); // own territory still excluded
   });
+
+  it('offers an ORBIT-connected neutral (the Moon) as an attack target even without era advancement', () => {
+    // Standalone Space Age: the backend allows conquering the neutral Moon once the
+    // attacker has orbit access, but the quick-list previously hid it. Off-world
+    // neutrals are reached via `orbit` connections, so they must be admitted.
+    const state = miniState('attack'); // no settings → era advancement off
+    (state.territories as Record<string, unknown>).moon = {
+      territory_id: 'moon',
+      owner_id: null,
+      unit_count: 4,
+    };
+    const conns = [...connections, { from: 'rome', to: 'moon', type: 'orbit' as const }];
+    const targets = computePhaseAdjacencyTargets(state, conns, { attackSource: 'rome' });
+    expect(targets.has('moon')).toBe(true);
+  });
+
+  it('drops the orbit-connected Moon on the globe (per-world territoryFilter)', () => {
+    // On the globe the caller scopes to the active world; the cross-world Moon
+    // endpoint is filtered out, so it only surfaces in the unfiltered quick-list.
+    const state = miniState('attack');
+    (state.territories as Record<string, unknown>).moon = {
+      territory_id: 'moon',
+      owner_id: null,
+      unit_count: 4,
+    };
+    const conns = [...connections, { from: 'rome', to: 'moon', type: 'orbit' as const }];
+    const targets = computePhaseAdjacencyTargets(state, conns, {
+      attackSource: 'rome',
+      territoryFilter: (id) => id !== 'moon', // active world excludes the Moon
+    });
+    expect(targets.has('moon')).toBe(false);
+  });
 });
 
 describe('computeFortifyReachable', () => {
