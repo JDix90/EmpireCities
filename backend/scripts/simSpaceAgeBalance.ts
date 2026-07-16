@@ -70,6 +70,8 @@ const CSV_PATH = process.env.SIM_CSV ?? '';
 const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'attack';
 /** Standalone frontier seeding (the full 63-tile board). Default ON — set SIM_FRONTIERS=0 for the 55-tile baseline. */
 const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
+/** When set (1–99), adds threshold victory at that % — mirrors the live orbit-gated create default (60). */
+const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 const LADDER = [
@@ -101,8 +103,9 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: false, // space_age is the start AND terminal era here
     space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
-    allowed_victory_conditions: ['domination'],
+    allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
+    victory_threshold: THRESHOLD ?? undefined,
     max_turns: MAX_TURNS,
   } as GameSettings;
 }
@@ -479,7 +482,7 @@ function main(): void {
   const baseInPlay = map.territories.filter((t) => (t.unlock_era_index ?? 0) <= 0).length;
   const frontierCount = map.territories.length - baseInPlay;
   const inPlay = FRONTIERS ? map.territories.length : baseInPlay;
-  console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS} · launchPhase=${LAUNCH_PHASE} · frontiers=${FRONTIERS ? 'on' : 'off'}`);
+  console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · launchPhase=${LAUNCH_PHASE} · frontiers=${FRONTIERS ? 'on' : 'off'}`);
   console.log(`Map: ${map.territories.length} territories in file · ${inPlay} in play (${baseInPlay - moonTileIds.length} Earth${FRONTIERS ? ` + ${frontierCount} frontier` : ''} + ${moonTileIds.length} neutral Moon${FRONTIERS ? '' : '; era-locked frontiers never spawn'})`);
   console.log(`Seed "${MASTER_SEED}" · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)`);
   console.log(`Ruleset: economy+tech+stability ON · naval/events/factions/era-advancement OFF · domination(+last_standing)\n`);

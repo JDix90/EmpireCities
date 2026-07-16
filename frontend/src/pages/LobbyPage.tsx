@@ -665,20 +665,21 @@ export default function LobbyPage() {
     setSelectedEra('ww2');
   }, [user, selectedEra]);
 
-  // Galaxy endgame defaults: domination alone can't finish on the 4-world
-  // orbit-gated map, so entering the era pre-checks threshold victory at 60%.
-  // Fires only on the era transition — edits after that are the user's.
-  const prevEraWasGalaxy = useRef(false);
+  // Orbit-gated endgame defaults: domination alone can't finish an orbit-gated
+  // board (the galaxy's hyperspace-locked worlds, or Space Age's neutral Moon),
+  // so entering such an era pre-checks threshold victory at 60%. Fires only on
+  // the era transition — edits after that are the user's.
+  const prevEraWasOrbitGated = useRef(false);
   useEffect(() => {
-    const isGalaxy = selectedEra === GALACTIC_AGE_ERA_ID;
-    if (isGalaxy && !prevEraWasGalaxy.current) {
+    const isOrbitGated = selectedEra === GALACTIC_AGE_ERA_ID || selectedEra === 'space_age';
+    if (isOrbitGated && !prevEraWasOrbitGated.current) {
       setVictoryModes(new Set<VictoryMode>(['domination', 'threshold']));
       setVictoryThresholdPct(60);
-    } else if (!isGalaxy && prevEraWasGalaxy.current) {
+    } else if (!isOrbitGated && prevEraWasOrbitGated.current) {
       setVictoryModes(new Set<VictoryMode>(['domination']));
       setVictoryThresholdPct(65);
     }
-    prevEraWasGalaxy.current = isGalaxy;
+    prevEraWasOrbitGated.current = isOrbitGated;
   }, [selectedEra]);
 
   useEffect(() => {

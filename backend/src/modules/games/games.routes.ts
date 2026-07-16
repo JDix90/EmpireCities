@@ -117,25 +117,32 @@ export const CreateGameSchema = z.object({
 });
 
 /**
- * Galaxy default endgame, exported for tests. Domination-only with no turn cap
- * never ends on the 4-world orbit-gated map (sims: ~16% decisive at medium in
- * 90 turns — digging a faction out of its home world is too slow), so galaxy
- * creates that didn't pick victory conditions get threshold 60% alongside
- * domination, and any galaxy create without an explicit turn cap gets the
- * max_turns 90 leader-wins backstop. Explicit caller choices always win.
+ * Orbit-gated eras (Galactic Age, standalone Space Age) can't finish by
+ * domination alone: a large share of the board sits behind an orbit gate — the
+ * neutral Moon, or the three hyperspace-locked galaxy worlds — so "hold every
+ * tile" is effectively unreachable and, with no turn cap, the game never ends.
+ * Sims: galaxy ~16% decisive at medium in 90 turns; Space Age ~93% of medium
+ * games hit the 80-turn cap and domination NEVER fired in 120 games. So an
+ * orbit-gated create that picked no victory conditions gets threshold 60%
+ * alongside domination — reachable on the home board WITHOUT the gated tiles
+ * (galaxy ⌈64·0.6⌉=39; Space Age ⌈55·0.6⌉=33 ≤ 46 reachable Earth tiles) — and
+ * any such create without an explicit cap gets the max_turns 90 leader-wins
+ * backstop. `checkVictory` reads live territory count, so the threshold target
+ * self-adjusts if Space Age frontiers are seeded (63 tiles). Explicit caller
+ * choices always win. Exported for tests.
  */
-export const GALAXY_DEFAULT_VICTORY_THRESHOLD = 60;
-export const GALAXY_DEFAULT_MAX_TURNS = 90;
-export function applyGalaxyVictoryDefaults<
+export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
+export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
+export function applyOrbitGatedVictoryDefaults<
   T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
->(settings: T, opts: { isGalacticAge: boolean; callerChoseVictory: boolean }): T {
-  if (!opts.isGalacticAge) return settings;
+>(settings: T, opts: { isOrbitGated: boolean; callerChoseVictory: boolean }): T {
+  if (!opts.isOrbitGated) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
     out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), 'threshold' as VictoryType])];
-    if (typeof out.victory_threshold !== 'number') out.victory_threshold = GALAXY_DEFAULT_VICTORY_THRESHOLD;
+    if (typeof out.victory_threshold !== 'number') out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
   }
-  if (typeof out.max_turns !== 'number') out.max_turns = GALAXY_DEFAULT_MAX_TURNS;
+  if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
   return out;
 }
 
@@ -164,14 +171,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // the settings at create so the engine reads a fixed setting and stays pure.
     const isSpaceAge = era_id === 'space_age' || map_id === 'era_space_age';
     const settings = normalizeGameSettings(
-      applyGalaxyVictoryDefaults(
+      applyOrbitGatedVictoryDefaults(
         {
           ...rawSettings,
           allowed_victory_conditions: mergedList,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
         },
         {
-          isGalacticAge,
+          isOrbitGated: isGalacticAge || isSpaceAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
         },
