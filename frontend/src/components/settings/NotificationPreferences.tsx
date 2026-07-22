@@ -40,7 +40,7 @@ export default function NotificationPreferences({ embedded = false }: Notificati
       <SettingsRow
         icon={Bell}
         label="Push Notifications"
-        description="Get notified when it's your turn in async games"
+        description="Get notified when it's your turn in async games or a ranked match is found"
       >
         <SettingsToggle
           label="Push Notifications"

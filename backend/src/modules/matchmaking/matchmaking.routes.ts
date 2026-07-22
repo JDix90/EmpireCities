@@ -10,6 +10,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { applyAdminSnapshotsToSettings, getMatchmakingConfig } from '../../services/adminConfig';
 import { formatZodError } from '../../utils/formatZodError';
 import { startWaitingGame } from '../../sockets/gameSocket';
+import { notifyMatchFound } from '../../services/notificationService';
 
 const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
@@ -234,7 +235,7 @@ async function attemptMatch(eraId: string, bucket: string, preferredOpponents = 
   });
 
   if (!match) return;
-  await finalizeRankedGame(match.gameId, match.players);
+  await finalizeRankedGame(match.gameId, match.players, eraId);
 }
 
 /**
@@ -250,19 +251,28 @@ async function attemptMatch(eraId: string, bucket: string, preferredOpponents = 
  * emitting to socket_id alone reached nobody. Every authenticated socket joins
  * its `user:<id>` room on connect — emit there, plus socket_id when present.
  */
-async function finalizeRankedGame(gameId: string, players: QueueCandidate[]): Promise<void> {
-  if (!_io) return;
-  try {
-    const started = await startWaitingGame(_io, gameId);
-    if (!started.ok) {
-      console.error('[matchmaking] ranked auto-start failed:', { gameId, error: started.error });
+async function finalizeRankedGame(gameId: string, players: QueueCandidate[], eraId: string): Promise<void> {
+  // Auto-start + socket notify need the io server; push does not (it exists
+  // precisely for players with no live socket), so it runs regardless.
+  if (_io) {
+    try {
+      const started = await startWaitingGame(_io, gameId);
+      if (!started.ok) {
+        console.error('[matchmaking] ranked auto-start failed:', { gameId, error: started.error });
+      }
+    } catch (err) {
+      console.error('[matchmaking] ranked auto-start threw:', { gameId, err });
     }
-  } catch (err) {
-    console.error('[matchmaking] ranked auto-start threw:', { gameId, err });
+    for (const p of players) {
+      _io.to(`user:${p.user_id}`).emit('matchmaking:found', { game_id: gameId });
+      if (p.socket_id) _io.to(p.socket_id).emit('matchmaking:found', { game_id: gameId });
+    }
   }
-  for (const p of players) {
-    _io.to(`user:${p.user_id}`).emit('matchmaking:found', { game_id: gameId });
-    if (p.socket_id) _io.to(p.socket_id).emit('matchmaking:found', { game_id: gameId });
+  // Match-found push (flag-gated; per-user push_enabled checked inside).
+  // Fire-and-forget: FCM latency or outages must never delay the socket
+  // emits above or block the sweep/join/accept-offer callers.
+  if (featureFlags.matchAlertsEnabled) {
+    void Promise.allSettled(players.map((p) => notifyMatchFound(p.user_id, gameId, eraId)));
   }
 }
 
@@ -562,13 +572,13 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
       }
 
       const gameId = await createRankedGameTx(client, cohort, self.era_id, self.bucket as Bucket);
-      return { formed: true as const, gameId, players: cohort };
+      return { formed: true as const, gameId, players: cohort, eraId: self.era_id };
     });
 
     if (!match.formed) {
       return reply.send({ formed: false, reason: match.reason });
     }
-    await finalizeRankedGame(match.gameId, match.players);
+    await finalizeRankedGame(match.gameId, match.players, match.eraId);
     return reply.send({ formed: true, game_id: match.gameId });
   });
 

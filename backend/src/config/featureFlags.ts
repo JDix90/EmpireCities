@@ -218,6 +218,20 @@ export const featureFlags = {
   get rankedMultiSizeEnabled(): boolean {
     return overrideBool('ranked_multi_size_enabled', process.env.RANKED_MULTI_SIZE_ENABLED === 'true');
   },
+
+  /**
+   * When true, ranked match-found alerts are live: the client mounts an
+   * app-wide socket listener (toast + navigate from any page, OS notification
+   * on hidden tabs, missed-match catch-up) and the server sends an FCM push
+   * ("Match found!") to each matched player, gated on their existing
+   * user_preferences.push_enabled. Default OFF — dark-launch; the app-wide
+   * always-on websocket per authed tab is the infra change this kill switch
+   * exists for. Flip via `MATCH_ALERTS_ENABLED=true` or the
+   * `match_alerts_enabled` admin override.
+   */
+  get matchAlertsEnabled(): boolean {
+    return overrideBool('match_alerts_enabled', process.env.MATCH_ALERTS_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -237,5 +251,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     spectate_enabled: featureFlags.spectateEnabled,
     space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
+    match_alerts_enabled: featureFlags.matchAlertsEnabled,
   };
 }

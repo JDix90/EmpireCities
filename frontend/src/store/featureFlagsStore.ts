@@ -15,6 +15,7 @@ export interface ClientFeatureFlags {
   async_onboarding_enabled: boolean;
   spectate_enabled: boolean;
   ranked_multi_size_enabled: boolean;
+  match_alerts_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
@@ -43,6 +44,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   spectate_enabled: false,
   // Default off (dark-launch); ranked opponents-count dropdown + multi-size queue.
   ranked_multi_size_enabled: false,
+  // Default off (dark-launch); app-wide match-found alerts (socket + OS + push).
+  match_alerts_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -117,4 +120,8 @@ export function useSpectateEnabled(): boolean {
 
 export function useRankedMultiSizeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.ranked_multi_size_enabled);
+}
+
+export function useMatchAlertsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.match_alerts_enabled);
 }

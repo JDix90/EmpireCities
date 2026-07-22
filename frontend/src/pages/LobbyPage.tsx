@@ -14,8 +14,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
+import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -474,6 +475,7 @@ export default function LobbyPage() {
   // count for the selected era (persisted per era in cc-ranked-prefs), and the
   // join-time "complete a smaller game" offer, when the server surfaces one.
   const rankedMultiSizeEnabled = useRankedMultiSizeEnabled();
+  const matchAlertsEnabled = useMatchAlertsEnabled();
   const [rankedOpponents, setRankedOpponents] = useState(() => getRankedOpponents('ancient'));
   const [rankedOffer, setRankedOffer] = useState<{ opponents: number; era_id: string; bucket: string } | null>(null);
   const [weeklyChallenge, setWeeklyChallenge] = useState<WeeklyChallengeSummary | null>(null);
@@ -795,8 +797,13 @@ export default function LobbyPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Ranked matchmaking socket + queue timer
+  // Ranked matchmaking socket + queue timer.
+  // With match_alerts_enabled the app-wide GlobalMatchNotifier owns
+  // matchmaking:found (from any page, incl. here) — mounting a second
+  // listener would double-toast. This per-page socket remains ONLY as the
+  // flag-off path so dark-launch keeps today's lobby behavior byte-identical.
   useEffect(() => {
+    if (matchAlertsEnabled) return;
     if (lobbyTab !== 'ranked') return;
     const token = accessToken ?? useAuthStore.getState().accessToken;
     if (!token) return;
@@ -808,12 +815,13 @@ export default function LobbyPage() {
 
     sock.on('matchmaking:found', ({ game_id }: { game_id: string }) => {
       setRankedQueued(false);
+      clearRankedSearchMarker();
       toast.success('Match found!');
       navigate(`/game/${game_id}`);
     });
 
     return () => { sock.disconnect(); };
-  }, [lobbyTab, accessToken, navigate]);
+  }, [matchAlertsEnabled, lobbyTab, accessToken, navigate]);
 
   useEffect(() => {
     if (!rankedQueued) { setQueueElapsed(0); return; }
@@ -843,6 +851,9 @@ export default function LobbyPage() {
       setQueueElapsed(0);
       setRankedIntegrity(res.data.integrity ?? null);
       setRankedOffer(res.data.offer ?? null);
+      // Marker lets the app-wide notifier catch a match formed while this
+      // browser wasn't listening (tab closed / navigated away).
+      setRankedSearchMarker(rankedEra, bucket);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) toast.error(err.response?.data?.error || 'Failed to join queue');
     }
@@ -862,6 +873,7 @@ export default function LobbyPage() {
       );
       if (res.data.formed && res.data.game_id) {
         setRankedQueued(false);
+        clearRankedSearchMarker();
         toast.success('Match found!');
         navigate(`/game/${res.data.game_id}`);
       } else if (res.data.reason === 'cohort_gone') {
@@ -881,6 +893,7 @@ export default function LobbyPage() {
       setRankedQueued(false);
       setRankedIntegrity(null);
       setRankedOffer(null);
+      clearRankedSearchMarker();
     }
   };
 
@@ -2004,6 +2017,11 @@ export default function LobbyPage() {
                     {{ blitz_120: 'Blitz 2m', standard_300: 'Standard 5m', long_1200: 'Long 20m',
                        async_43200: 'Async 12h', async_86400: 'Async 24h', async_259200: 'Async 3d',
                     }[rankedBucket] ?? rankedBucket.replace('_', ' ')} &middot; {queueElapsed}s elapsed
+                  </p>
+                  <p className="text-bf-muted/80 text-xs mt-1.5 italic">
+                    {matchAlertsEnabled
+                      ? "You can leave this page — the search keeps running and we'll alert you when a match is found."
+                      : 'You can leave this page — the search keeps running in the background.'}
                   </p>
                 </div>
                 <button onClick={leaveRankedQueue} className="btn-secondary text-sm py-1.5 px-4">Cancel</button>

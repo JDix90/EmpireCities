@@ -77,6 +77,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Show the ranked opponents-count dropdown (2–6 player games, era-capped) and enable multi-player cohort matching plus join-time "complete a smaller game" offers. Off = ranked behaves as strict 1v1; queued multi-size players drain as 1v1. Off by default (dark-launch).',
   },
+  {
+    key: 'match_alerts_enabled',
+    label: 'Ranked match-found alerts',
+    description:
+      'Alert players when their ranked match is found, wherever they are: app-wide socket listener (toast + auto-navigate from any page), OS notification on hidden tabs, FCM push when the tab is closed (respects each player’s Push setting), and a missed-match catch-up check on return. Off by default (dark-launch) — this is also the kill switch for the always-on per-tab websocket.',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

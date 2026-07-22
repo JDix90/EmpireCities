@@ -293,6 +293,43 @@ export async function sendTransactionalEmailToAddress(
 const THROTTLE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Notify a matched ranked player that their game has been found and started.
+ * Push only (no email — the game starts immediately, so email is the wrong
+ * latency) and no async_notifications throttle (one match = one call per
+ * player, structurally un-spammy). Respects user_preferences.push_enabled
+ * (default on). `data.type: 'match_found'` is the client-side dedupe key: the
+ * foreground FCM handler drops these (the app-wide socket listener owns
+ * in-app surfacing) and the service worker tags them `match-<gameId>` so a
+ * page-side Notification with the same tag replaces rather than duplicates.
+ * Never throws — matchmaking must not fail because push did.
+ */
+export async function notifyMatchFound(
+  userId: string,
+  gameId: string,
+  eraId: string,
+): Promise<void> {
+  try {
+    const prefs = await queryOne<{ push_enabled: boolean }>(
+      'SELECT push_enabled FROM user_preferences WHERE user_id = $1',
+      [userId],
+    );
+    if (!(prefs?.push_enabled ?? true)) return;
+
+    const eraLabel = ERA_LABELS[eraId] ?? APP_NAME;
+    const gameUrl = `${config.frontendUrl}/game/${gameId}`;
+    await sendPushNotification(
+      userId,
+      'Match found!',
+      `${eraLabel} ranked — your game has started.`,
+      { type: 'match_found', gameId, url: gameUrl },
+      gameUrl,
+    );
+  } catch (err) {
+    console.error('[Notifications] match-found notify failed:', { userId, gameId, err });
+  }
+}
+
+/**
  * Notify a player that it's their turn in an async game.
  * Respects user preferences and applies throttling.
  */
