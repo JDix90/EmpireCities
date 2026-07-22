@@ -14,6 +14,7 @@ export interface ClientFeatureFlags {
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
   spectate_enabled: boolean;
+  ranked_multi_size_enabled: boolean;
 }
 
 const DEFAULT_FLAGS: ClientFeatureFlags = {
@@ -40,6 +41,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Default off — Watch/Spectate is hidden until there's enough live traffic
   // for the list to look alive; GET /feature-flags reconciles once enabled.
   spectate_enabled: false,
+  // Default off (dark-launch); ranked opponents-count dropdown + multi-size queue.
+  ranked_multi_size_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -110,4 +113,8 @@ export function useAsyncOnboardingEnabled(): boolean {
 
 export function useSpectateEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.spectate_enabled);
+}
+
+export function useRankedMultiSizeEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.ranked_multi_size_enabled);
 }
