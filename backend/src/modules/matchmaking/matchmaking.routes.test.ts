@@ -15,9 +15,16 @@
  *     POSTGRES_DB=borderfall POSTGRES_PASSWORD= \
  *     pnpm exec vitest run src/modules/matchmaking/matchmaking.routes.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+
+// Spy on the match-found push without touching FCM. Hoisted before the
+// dynamic import of matchmaking.routes in each describe's beforeAll.
+const notifyMatchFoundMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('../../services/notificationService', () => ({
+  notifyMatchFound: notifyMatchFoundMock,
+}));
 
 const enabled = process.env.PG_TEST === '1';
 
@@ -105,6 +112,19 @@ describe.runIf(enabled)('ranked matchmaking join (Postgres)', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('flag OFF: no match-found push is attempted (match_alerts_enabled defaults off)', async () => {
+    notifyMatchFoundMock.mockClear();
+    const a = await seedUser('mm_np_a');
+    const b = await seedUser('mm_np_b');
+    expect((await join(a, 'mm_np_a', 'discovery', 'standard_300')).statusCode).toBe(200);
+    expect((await join(b, 'mm_np_b', 'discovery', 'standard_300')).statusCode).toBe(200);
+    // The pair matched (queue drained)…
+    const stillQueued = await query('SELECT 1 FROM ranked_queue WHERE user_id = ANY($1)', [[a, b]]);
+    expect(stillQueued.length).toBe(0);
+    // …but the push path was never invoked.
+    expect(notifyMatchFoundMock).not.toHaveBeenCalled();
+  });
+
   it('flag OFF: preferred_opponents is accepted but coerced — two P=3 users still pair as 1v1', async () => {
     const a = await seedUser('mm_off_a');
     const b = await seedUser('mm_off_b');
@@ -186,7 +206,9 @@ describe.runIf(enabled)('multi-size ranked matchmaking (Postgres, flag on)', () 
 
   beforeAll(async () => {
     const adminConfig = await import('../../services/adminConfig');
-    adminConfig.setAdminConfigCacheForTests({ feature_flags: { ranked_multi_size_enabled: true } });
+    adminConfig.setAdminConfigCacheForTests({
+      feature_flags: { ranked_multi_size_enabled: true, match_alerts_enabled: true },
+    });
     resetAdminConfigCacheForTests = adminConfig.resetAdminConfigCacheForTests;
 
     ({ query } = (await import('../../db/postgres')) as unknown as {
@@ -213,6 +235,7 @@ describe.runIf(enabled)('multi-size ranked matchmaking (Postgres, flag on)', () 
   });
 
   it('three P=2 joins form one 3-player game with sequential seats and distinct colors', async () => {
+    notifyMatchFoundMock.mockClear();
     const a = await seedUser('ms_a');
     const b = await seedUser('ms_b');
     const c = await seedUser('ms_c');
@@ -228,6 +251,13 @@ describe.runIf(enabled)('multi-size ranked matchmaking (Postgres, flag on)', () 
 
     const games = await rankedGamesOf(a);
     expect(games.length).toBe(1);
+
+    // match_alerts_enabled: every matched player got a match-found push
+    // attempt, carrying the created game id and the era.
+    expect(notifyMatchFoundMock).toHaveBeenCalledTimes(3);
+    for (const uid of [a, b, c]) {
+      expect(notifyMatchFoundMock).toHaveBeenCalledWith(uid, games[0].game_id, 'ancient');
+    }
     expect(games[0].settings_json.max_players).toBe(3);
     const seats = await query<{ player_index: number; player_color: string }>(
       'SELECT player_index, player_color FROM game_players WHERE game_id = $1 ORDER BY player_index',

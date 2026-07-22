@@ -88,6 +88,10 @@ async function initWebPush(): Promise<void> {
 
     // Handle foreground messages
     onMessage(messaging, (payload) => {
+      // Match-found: the tab is open, so the app-wide socket listener
+      // (GlobalMatchNotifier) owns in-app surfacing — a second toast here
+      // would duplicate it.
+      if (payload.data?.type === 'match_found') return;
       const title = payload.notification?.title ?? "It's your turn!";
       const body = payload.notification?.body ?? '';
       toast(
@@ -137,6 +141,8 @@ async function initNativePush(): Promise<void> {
 
     // Handle received notifications when app is in foreground
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      // Match-found is surfaced by the app-wide socket listener (see web path).
+      if (notification.data?.type === 'match_found') return;
       toast(
         `${notification.title ?? "It's your turn!"}\n${notification.body ?? ''}`,
         { duration: 8000, icon: '🎮' },

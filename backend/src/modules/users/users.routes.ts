@@ -201,9 +201,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       game_id: string; era_id: string; game_type: string; created_at: Date;
       started_at: Date | null; turn_number: number | null; saved_at: Date | null;
       async_mode: boolean; async_turn_deadline: Date | null;
-      current_player_id: string | null;
+      current_player_id: string | null; is_ranked: boolean;
     }>(
       `SELECT g.game_id, g.era_id, g.game_type, g.created_at, g.started_at,
+              COALESCE(g.is_ranked, false) AS is_ranked,
               (gs.state_json::jsonb->>'turn_number')::int AS turn_number,
               gs.saved_at,
               g.async_mode,

@@ -90,4 +90,12 @@ describe('featureFlags', () => {
     expect(featureFlags.rankedMultiSizeEnabled).toBe(true);
     expect(getClientFeatureFlags().ranked_multi_size_enabled).toBe(true);
   });
+
+  it('match_alerts_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.matchAlertsEnabled).toBe(false);
+    expect(getClientFeatureFlags().match_alerts_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { match_alerts_enabled: true } });
+    expect(featureFlags.matchAlertsEnabled).toBe(true);
+    expect(getClientFeatureFlags().match_alerts_enabled).toBe(true);
+  });
 });

@@ -19,16 +19,22 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "It's your turn!";
-  const body = payload.notification?.body || 'Your opponent has made their move.';
   const gameId = payload.data?.gameId;
+  // Match-found pushes tag `match-<gameId>` so a page-side Notification with
+  // the same tag (shown when the tab was merely hidden) replaces rather than
+  // stacks; turn pushes keep their historical `turn-` tag and fallbacks.
+  const isMatchFound = payload.data?.type === 'match_found';
+  const title = payload.notification?.title || (isMatchFound ? 'Match found!' : "It's your turn!");
+  const body =
+    payload.notification?.body ||
+    (isMatchFound ? 'Your ranked game has started.' : 'Your opponent has made their move.');
 
   self.registration.showNotification(title, {
     body,
     icon: '/favicon.svg',
     badge: '/favicon.svg',
     data: { gameId, url: payload.data?.url || '/lobby' },
-    tag: gameId ? `turn-${gameId}` : 'turn-notification',
+    tag: gameId ? `${isMatchFound ? 'match' : 'turn'}-${gameId}` : 'turn-notification',
     renotify: true,
   });
 });

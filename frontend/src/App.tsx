@@ -8,6 +8,7 @@ import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import ErrorBoundary from './components/ErrorBoundary';
+import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
@@ -315,6 +316,7 @@ export default function App() {
           },
         }}
       />
+      <GlobalMatchNotifier />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
