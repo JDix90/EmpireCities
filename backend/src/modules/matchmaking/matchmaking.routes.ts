@@ -120,7 +120,12 @@ async function attemptMatch(eraId: string, bucket: string): Promise<void> {
        WHERE q.era_id = $1 AND q.bucket = $2
        ORDER BY enqueued_at
        LIMIT 20
-       FOR UPDATE SKIP LOCKED`,
+       -- Lock ONLY the ranked_queue rows (OF q). A bare FOR UPDATE tries to
+       -- lock both sides of the LEFT JOIN, and Postgres rejects locking the
+       -- nullable side of an outer join ("FOR UPDATE cannot be applied to the
+       -- nullable side of an outer join", SQLSTATE 0A000) — which threw on
+       -- every /join, since this SELECT runs before the candidate-count check.
+       FOR UPDATE OF q SKIP LOCKED`,
       [eraId, bucket],
     );
 
