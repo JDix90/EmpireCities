@@ -236,6 +236,15 @@ const ERAS = [
   { id: 'galaxy_age', label: 'Galactic Age — Coming Soon' },
 ];
 
+// Eras ranked 1v1 matchmaking accepts. Must stay in sync with the backend's
+// VALID_ERA_IDS in matchmaking.routes.ts — offering an unsupported era (e.g.
+// space_age/galaxy_age) makes /matchmaking/join reject the request. Space/
+// Galactic ages are orbit-gated content not wired for ranked pairing.
+const RANKED_ERA_IDS = new Set([
+  'ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento',
+]);
+const RANKED_ERAS = ERAS.filter((e) => RANKED_ERA_IDS.has(e.id));
+
 const ERA_MAP_IDS: Record<string, string> = {
   ancient:   'era_ancient',
   medieval:  'era_medieval',
@@ -1898,12 +1907,8 @@ export default function LobbyPage() {
             <div className="mb-4">
               <label className="label">Era</label>
               <select className="input max-w-xs" value={rankedEra} onChange={(e) => setRankedEra(e.target.value)} disabled={rankedQueued}>
-                {ERAS.map((era) => (
-                  <option
-                    key={era.id}
-                    value={era.id}
-                    disabled={era.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)}
-                  >
+                {RANKED_ERAS.map((era) => (
+                  <option key={era.id} value={era.id}>
                     {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
                   </option>
                 ))}
