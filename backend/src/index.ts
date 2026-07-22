@@ -211,6 +211,13 @@ async function bootstrap(): Promise<void> {
     // per-account abuse is invisible. See userOrIpKey for why we verify the
     // token here rather than relying on the (later) authenticate preHandler.
     keyGenerator: userOrIpKey,
+    // Every limiter registration MUST set a distinct nameSpace: the Redis
+    // store keys counters as `nameSpace + userOrIpKey`, and the default
+    // ('fastify-rate-limit-') is shared across registrations — without this,
+    // the global, auth, and admin limiters all read/increment ONE counter, so
+    // ordinary app traffic exhausted the admin scope's max=30 before the
+    // dashboard made a single request.
+    nameSpace: 'rl-global-',
     // statusCode is REQUIRED here: without it @fastify/rate-limit's thrown
     // error has no status and the global handler surfaces a 500 instead of
     // a 429 (real users saw "Internal server error" when rate-limited).
@@ -230,6 +237,8 @@ async function bootstrap(): Promise<void> {
         // shared generator keeps behaviour consistent and covers token-bearing
         // calls like /refresh and /change-password.
         keyGenerator: userOrIpKey,
+        // Distinct counter from the global limiter — see nameSpace note above.
+        nameSpace: 'rl-auth-',
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many authentication attempts. Please wait and try again.',
@@ -263,6 +272,10 @@ async function bootstrap(): Promise<void> {
         timeWindow: '1 minute',
         redis,
         keyGenerator: userOrIpKey,
+        // Distinct counter from the global limiter — see nameSpace note above.
+        // Without it, lobby/gameplay traffic in the same minute filled this
+        // scope's max=30 and the dashboard 429'd on its first request.
+        nameSpace: 'rl-admin-',
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many admin requests. Please wait and try again.',
