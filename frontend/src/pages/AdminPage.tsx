@@ -71,6 +71,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation. Off by default (dark-launch) until the enlarged board is balance-checked.',
   },
+  {
+    key: 'ranked_multi_size_enabled',
+    label: 'Ranked multi-size queue',
+    description:
+      'Show the ranked opponents-count dropdown (2–6 player games, era-capped) and enable multi-player cohort matching plus join-time "complete a smaller game" offers. Off = ranked behaves as strict 1v1; queued multi-size players drain as 1v1. Off by default (dark-launch).',
+  },
 ] as const;
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';

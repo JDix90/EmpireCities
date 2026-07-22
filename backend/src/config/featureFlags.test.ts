@@ -82,4 +82,12 @@ describe('featureFlags', () => {
     expect(featureFlags.spectateEnabled).toBe(true);
     expect(getClientFeatureFlags().spectate_enabled).toBe(true);
   });
+
+  it('ranked_multi_size_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.rankedMultiSizeEnabled).toBe(false);
+    expect(getClientFeatureFlags().ranked_multi_size_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { ranked_multi_size_enabled: true } });
+    expect(featureFlags.rankedMultiSizeEnabled).toBe(true);
+    expect(getClientFeatureFlags().ranked_multi_size_enabled).toBe(true);
+  });
 });

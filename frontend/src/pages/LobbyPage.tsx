@@ -14,7 +14,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -469,6 +470,12 @@ export default function LobbyPage() {
   const [rankedEra, setRankedEra] = useState('ancient');
   const [queueElapsed, setQueueElapsed] = useState(0);
   const [rankedIntegrity, setRankedIntegrity] = useState<RankedQueueIntegrity | null>(null);
+  // Multi-size ranked (flag ranked_multi_size_enabled): preferred opponent
+  // count for the selected era (persisted per era in cc-ranked-prefs), and the
+  // join-time "complete a smaller game" offer, when the server surfaces one.
+  const rankedMultiSizeEnabled = useRankedMultiSizeEnabled();
+  const [rankedOpponents, setRankedOpponents] = useState(() => getRankedOpponents('ancient'));
+  const [rankedOffer, setRankedOffer] = useState<{ opponents: number; era_id: string; bucket: string } | null>(null);
   const [weeklyChallenge, setWeeklyChallenge] = useState<WeeklyChallengeSummary | null>(null);
   const [weeklyPreviewLeaderboard, setWeeklyPreviewLeaderboard] = useState<Array<{ username: string; score: number }>>([]);
 
@@ -814,18 +821,56 @@ export default function LobbyPage() {
     return () => clearInterval(t);
   }, [rankedQueued]);
 
+  // Re-derive the opponents preference when the ranked era changes — each era
+  // remembers its own last choice (small regional maps default lower).
+  useEffect(() => {
+    setRankedOpponents(getRankedOpponents(rankedEra));
+  }, [rankedEra]);
+
   const joinRankedQueue = async (bucket: string) => {
     try {
       const res = await api.post<{
         queued: boolean;
         integrity?: RankedQueueIntegrity;
-      }>('/matchmaking/join', { era_id: rankedEra, bucket });
+        offer?: { opponents: number; era_id: string; bucket: string };
+      }>('/matchmaking/join', {
+        era_id: rankedEra,
+        bucket,
+        ...(rankedMultiSizeEnabled ? { preferred_opponents: rankedOpponents } : {}),
+      });
       setRankedQueued(true);
       setRankedBucket(bucket);
       setQueueElapsed(0);
       setRankedIntegrity(res.data.integrity ?? null);
+      setRankedOffer(res.data.offer ?? null);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) toast.error(err.response?.data?.error || 'Failed to join queue');
+    }
+  };
+
+  // Accept the "complete a smaller game" offer: one atomic attempt server-side.
+  // If the smaller cohort dissolved meanwhile, the player just keeps waiting in
+  // their original queue — nothing was given up by trying.
+  const acceptRankedOffer = async () => {
+    if (!rankedOffer) return;
+    const offered = rankedOffer;
+    setRankedOffer(null);
+    try {
+      const res = await api.post<{ formed: boolean; game_id?: string; reason?: string }>(
+        '/matchmaking/accept-offer',
+        { opponents: offered.opponents },
+      );
+      if (res.data.formed && res.data.game_id) {
+        setRankedQueued(false);
+        toast.success('Match found!');
+        navigate(`/game/${res.data.game_id}`);
+      } else if (res.data.reason === 'cohort_gone') {
+        toast(`That game filled up — still searching for your ${describeRankedGameSize(rankedOpponents)}.`);
+      }
+      // 'not_queued': either matchmaking:found already navigated us, or we left
+      // the queue in another tab — the status effect below reconciles quietly.
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) toast.error(err.response?.data?.error || 'Could not join that game');
     }
   };
 
@@ -835,6 +880,7 @@ export default function LobbyPage() {
     } finally {
       setRankedQueued(false);
       setRankedIntegrity(null);
+      setRankedOffer(null);
     }
   };
 
@@ -846,6 +892,7 @@ export default function LobbyPage() {
       bucket?: string;
       era_id?: string;
       enqueued_at?: string;
+      preferred_opponents?: number;
       integrity?: RankedQueueIntegrity;
     }>('/matchmaking/status')
       .then((res) => {
@@ -854,6 +901,7 @@ export default function LobbyPage() {
           setRankedQueued(true);
           if (res.data.bucket) setRankedBucket(res.data.bucket);
           if (res.data.era_id) setRankedEra(res.data.era_id);
+          if (typeof res.data.preferred_opponents === 'number') setRankedOpponents(res.data.preferred_opponents);
         }
         setRankedIntegrity(res.data.integrity ?? null);
       })
@@ -1858,10 +1906,12 @@ export default function LobbyPage() {
             {lobbyTab === 'ranked' && (
               <div className="card mb-8 animate-fade-in">
             <h3 className="font-display text-xl text-bf-gold mb-2 flex items-center gap-2">
-              Ranked 1v1 Matchmaking
+              {rankedMultiSizeEnabled ? 'Ranked Matchmaking' : 'Ranked 1v1 Matchmaking'}
             </h3>
             <p className="text-bf-muted text-sm mb-6">
-              1v1 domination. No AI. No fog of war. Rating changes apply.
+              {rankedMultiSizeEnabled
+                ? '2–6 player domination. No AI. No fog of war. Rating changes apply.'
+                : '1v1 domination. No AI. No fog of war. Rating changes apply.'}
             </p>
 
             {weeklyChallenge && (
@@ -1904,22 +1954,52 @@ export default function LobbyPage() {
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="label">Era</label>
-              <select className="input max-w-xs" value={rankedEra} onChange={(e) => setRankedEra(e.target.value)} disabled={rankedQueued}>
-                {RANKED_ERAS.map((era) => (
-                  <option key={era.id} value={era.id}>
-                    {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
-                  </option>
-                ))}
-              </select>
+            <div className="mb-4 flex flex-wrap gap-4">
+              <div>
+                <label className="label">Era</label>
+                <select className="input max-w-xs" value={rankedEra} onChange={(e) => setRankedEra(e.target.value)} disabled={rankedQueued}>
+                  {RANKED_ERAS.map((era) => (
+                    <option key={era.id} value={era.id}>
+                      {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {rankedMultiSizeEnabled && (
+                <div>
+                  <label className="label">Opponents</label>
+                  <select
+                    className="input max-w-xs"
+                    value={rankedOpponents}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setRankedOpponents(n);
+                      saveRankedOpponents(rankedEra, n);
+                    }}
+                    disabled={rankedQueued}
+                  >
+                    {Array.from(
+                      { length: rankedEraSize(rankedEra).max - RANKED_MIN_OPPONENTS + 1 },
+                      (_, i) => RANKED_MIN_OPPONENTS + i,
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n} — {describeRankedGameSize(n)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {rankedQueued ? (
               <div className="flex items-center gap-4 p-4 bg-bf-dark rounded-lg border border-bf-gold/20">
                 <div className="animate-pulse text-bf-gold"></div>
                 <div className="flex-1">
-                  <p className="text-bf-text text-sm font-medium">Searching for opponent...</p>
+                  <p className="text-bf-text text-sm font-medium">
+                    {rankedMultiSizeEnabled && rankedOpponents > 1
+                      ? `Searching for ${rankedOpponents} opponents...`
+                      : 'Searching for opponent...'}
+                  </p>
                   <p className="text-bf-muted text-xs">
                     {{ blitz_120: 'Blitz 2m', standard_300: 'Standard 5m', long_1200: 'Long 20m',
                        async_43200: 'Async 12h', async_86400: 'Async 24h', async_259200: 'Async 3d',
@@ -1997,6 +2077,40 @@ export default function LobbyPage() {
             )}
           </div>
         )}
+
+            {/* Ranked smaller-game offer: shown once at queue-join when a
+                smaller cohort is one player short. Declining keeps the player
+                queued at their own preference — nothing is reserved. */}
+            <Modal
+              open={rankedOffer !== null}
+              onClose={() => setRankedOffer(null)}
+              title="A game is almost ready"
+              showCloseButton
+            >
+              {rankedOffer && (
+                <div>
+                  <p className="text-bf-text text-sm mb-2">
+                    A <span className="text-bf-gold font-semibold">{rankedOffer.opponents + 1}-player</span> ranked
+                    game needs just one more player.
+                  </p>
+                  <p className="text-bf-muted text-sm mb-5">
+                    Want to be the final piece and start now, instead of waiting for your{' '}
+                    {describeRankedGameSize(rankedOpponents)}?
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <button onClick={() => setRankedOffer(null)} className="btn-secondary text-sm py-2 px-4">
+                      Keep waiting
+                    </button>
+                    <button
+                      onClick={acceptRankedOffer}
+                      className="rounded-lg bg-bf-gold px-4 py-2 text-sm font-semibold text-black"
+                    >
+                      Join now
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Modal>
 
             {/* Create Game Modal */}
             <Modal

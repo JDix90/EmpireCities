@@ -204,6 +204,20 @@ export const featureFlags = {
   get spaceAgeFrontiersEnabled(): boolean {
     return overrideBool('space_age_frontiers_enabled', process.env.SPACE_AGE_FRONTIERS_ENABLED === 'true');
   },
+
+  /**
+   * When true, ranked matchmaking supports variable game sizes: the lobby shows
+   * an opponents-count dropdown (1–5, era-capped), the queue matches cohorts of
+   * `preferred_opponents + 1` players, and joiners with a larger preference get
+   * a one-time offer to complete a smaller near-full game. Default OFF —
+   * dark-launch; flip via `RANKED_MULTI_SIZE_ENABLED=true` or the
+   * `ranked_multi_size_enabled` admin override. Kill-switch note: when flipped
+   * OFF, any queued rows with preferred_opponents > 1 are drained as plain 1v1
+   * (attemptMatch ignores the preference column entirely), so nobody strands.
+   */
+  get rankedMultiSizeEnabled(): boolean {
+    return overrideBool('ranked_multi_size_enabled', process.env.RANKED_MULTI_SIZE_ENABLED === 'true');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -222,5 +236,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
     spectate_enabled: featureFlags.spectateEnabled,
     space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
+    ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
   };
 }

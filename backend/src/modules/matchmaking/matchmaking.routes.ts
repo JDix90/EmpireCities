@@ -9,15 +9,41 @@ import { checkOnboardingQuests } from '../../game-engine/progression/progression
 import { featureFlags } from '../../config/featureFlags';
 import { applyAdminSnapshotsToSettings, getMatchmakingConfig } from '../../services/adminConfig';
 import { formatZodError } from '../../utils/formatZodError';
+import { startWaitingGame } from '../../sockets/gameSocket';
 
 const VALID_BUCKETS = ['blitz_120', 'standard_300', 'long_1200', 'async_43200', 'async_86400', 'async_259200'] as const;
 type Bucket = (typeof VALID_BUCKETS)[number];
 
 const VALID_ERA_IDS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento'] as const;
+type RankedEraId = (typeof VALID_ERA_IDS)[number];
+
+/**
+ * Per-era opponent-count limits for multi-size ranked (flag
+ * `ranked_multi_size_enabled`). `preferred_opponents` P ⇒ a (P+1)-player game.
+ * World maps (42–57 territories) support up to 6 players; the regional maps are
+ * capped so players don't start with ~2 territories each (ACW has 18
+ * territories, Risorgimento 14). Mirrored client-side in
+ * frontend/src/utils/rankedPrefs.ts — keep the two tables in sync.
+ */
+export const RANKED_SIZE_BY_ERA: Record<RankedEraId, { default: number; max: number }> = {
+  ancient: { default: 3, max: 5 },
+  medieval: { default: 3, max: 5 },
+  discovery: { default: 3, max: 5 },
+  ww2: { default: 3, max: 5 },
+  coldwar: { default: 3, max: 5 },
+  modern: { default: 3, max: 5 },
+  acw: { default: 2, max: 3 },
+  risorgimento: { default: 1, max: 2 },
+};
 
 const JoinSchema = z.object({
   era_id: z.enum(VALID_ERA_IDS),
   bucket: z.enum(VALID_BUCKETS),
+  preferred_opponents: z.number().int().min(1).max(5).optional(),
+});
+
+const AcceptOfferSchema = z.object({
+  opponents: z.number().int().min(1).max(5),
 });
 
 function getBucketSettings(): Record<Bucket, { turn_timer_seconds: number; label: string; async_mode?: boolean }> {
@@ -93,6 +119,71 @@ interface QueueCandidate {
   enqueued_at: Date;
   smurf_risk_score: number;
   stall_penalties: number;
+  preferred_opponents: number;
+}
+
+interface MatchmakingThresholdConfig {
+  threshold_base: number;
+  threshold_wait_bonus_per_30s: number;
+}
+
+/**
+ * Per-pair compatibility — exactly the historical 1v1 rule: mu difference
+ * within a base threshold widened by the higher uncertainty (phi) and by how
+ * long the longer-waiting player has been queued, plus the smurf/stall
+ * integrity gate.
+ */
+export function pairOk(
+  a: QueueCandidate,
+  b: QueueCandidate,
+  cfg: MatchmakingThresholdConfig,
+  now: number,
+): boolean {
+  const waitMs = now - Math.min(new Date(a.enqueued_at).getTime(), new Date(b.enqueued_at).getTime());
+  const waitBonus = cfg.threshold_wait_bonus_per_30s * Math.floor(waitMs / 30000);
+  const threshold = cfg.threshold_base + Math.max(a.phi, b.phi) + waitBonus;
+  return Math.abs(a.mu - b.mu) <= threshold && shouldPairByIntegrity(a, b, waitMs);
+}
+
+/** All-pairs pairOk over a prospective game roster. */
+export function isCliqueCompatible(
+  players: QueueCandidate[],
+  cfg: MatchmakingThresholdConfig,
+  now: number,
+): boolean {
+  for (let i = 0; i < players.length - 1; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      if (!pairOk(players[i], players[j], cfg, now)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Greedy cohort selection anchored on the longest-waiting player: walk the
+ * queue oldest-first, adding each candidate that is pairwise-compatible with
+ * everyone already picked, until `need` players are found. Falls back to the
+ * next-oldest anchor if the first can't seed a full cohort. At need=2 this
+ * degenerates to the historical first-compatible-pair behavior.
+ *
+ * `candidates` must be ordered by enqueued_at ASC (the SQL does this).
+ */
+export function findCohort(
+  candidates: QueueCandidate[],
+  need: number,
+  cfg: MatchmakingThresholdConfig,
+  now: number,
+): QueueCandidate[] | null {
+  if (candidates.length < need) return null;
+  for (let anchor = 0; anchor <= candidates.length - need; anchor++) {
+    const cohort: QueueCandidate[] = [candidates[anchor]];
+    for (let i = anchor + 1; i < candidates.length && cohort.length < need; i++) {
+      const next = candidates[i];
+      if (cohort.every((member) => pairOk(member, next, cfg, now))) cohort.push(next);
+    }
+    if (cohort.length === need) return cohort;
+  }
+  return null;
 }
 
 /**
@@ -109,7 +200,12 @@ interface QueueCandidate {
  * simply work on disjoint candidate sets. If creation of the game fails, the
  * queue DELETEs roll back and players remain queued for the next attempt.
  */
-async function attemptMatch(eraId: string, bucket: string): Promise<void> {
+async function attemptMatch(eraId: string, bucket: string, preferredOpponents = 1): Promise<void> {
+  // Flag off: ignore the preference column entirely and match everyone as 1v1
+  // (kill-switch — queued multi-size rows drain instead of stranding).
+  const multiSize = featureFlags.rankedMultiSizeEnabled;
+  const need = multiSize ? preferredOpponents + 1 : 2;
+
   const match = await withTransaction(async (client) => {
     const { rows: candidates } = await client.query<QueueCandidate>(
       `SELECT q.*,
@@ -118,6 +214,7 @@ async function attemptMatch(eraId: string, bucket: string): Promise<void> {
        FROM ranked_queue q
        LEFT JOIN ranked_placement_progress rpp ON rpp.user_id = q.user_id
        WHERE q.era_id = $1 AND q.bucket = $2
+         AND ($3::smallint IS NULL OR q.preferred_opponents = $3)
        ORDER BY enqueued_at
        LIMIT 20
        -- Lock ONLY the ranked_queue rows (OF q). A bare FOR UPDATE tries to
@@ -126,43 +223,119 @@ async function attemptMatch(eraId: string, bucket: string): Promise<void> {
        -- nullable side of an outer join", SQLSTATE 0A000) — which threw on
        -- every /join, since this SELECT runs before the candidate-count check.
        FOR UPDATE OF q SKIP LOCKED`,
-      [eraId, bucket],
+      [eraId, bucket, multiSize ? preferredOpponents : null],
     );
 
-    if (candidates.length < 2) return null;
+    const cohort = findCohort(candidates, need, getMatchmakingConfig(), Date.now());
+    if (!cohort) return null;
 
-    // O(n^2) pair search is fine at LIMIT 20.
-    for (let i = 0; i < candidates.length - 1; i++) {
-      for (let j = i + 1; j < candidates.length; j++) {
-        const a = candidates[i];
-        const b = candidates[j];
-        const waitMs = Date.now() - Math.min(
-          new Date(a.enqueued_at).getTime(),
-          new Date(b.enqueued_at).getTime(),
-        );
-        const mmCfg = getMatchmakingConfig();
-        const waitBonus = mmCfg.threshold_wait_bonus_per_30s * Math.floor(waitMs / 30000);
-        const threshold = mmCfg.threshold_base + Math.max(a.phi, b.phi) + waitBonus;
-        const integrityOk = shouldPairByIntegrity(a, b, waitMs);
-
-        if (Math.abs(a.mu - b.mu) <= threshold && integrityOk) {
-          const gameId = await createRankedGameTx(client, a, b, eraId, bucket as Bucket);
-          return { gameId, a, b };
-        }
-      }
-    }
-    return null;
+    const gameId = await createRankedGameTx(client, cohort, eraId, bucket as Bucket);
+    return { gameId, players: cohort };
   });
 
-  if (!match || !_io) return;
-  if (match.a.socket_id) _io.to(match.a.socket_id).emit('matchmaking:found', { game_id: match.gameId });
-  if (match.b.socket_id) _io.to(match.b.socket_id).emit('matchmaking:found', { game_id: match.gameId });
+  if (!match) return;
+  await finalizeRankedGame(match.gameId, match.players);
+}
+
+/**
+ * Post-commit steps shared by the join path, the sweep, and accept-offer:
+ * server-side auto-start (matched players should land straight in play, not a
+ * waiting room whose seat-0 "host" must click Start), then notify everyone.
+ * Start FIRST so the navigation triggered by matchmaking:found lands on an
+ * in_progress game; if the start fails we log and fall back to the waiting
+ * room's host-start flow — same degradation the casual auto-start accepts.
+ *
+ * Note delivery: sockets never populate ranked_queue.socket_id from the web
+ * client (the matchmaking:join socket event has no frontend emitter), so
+ * emitting to socket_id alone reached nobody. Every authenticated socket joins
+ * its `user:<id>` room on connect — emit there, plus socket_id when present.
+ */
+async function finalizeRankedGame(gameId: string, players: QueueCandidate[]): Promise<void> {
+  if (!_io) return;
+  try {
+    const started = await startWaitingGame(_io, gameId);
+    if (!started.ok) {
+      console.error('[matchmaking] ranked auto-start failed:', { gameId, error: started.error });
+    }
+  } catch (err) {
+    console.error('[matchmaking] ranked auto-start threw:', { gameId, err });
+  }
+  for (const p of players) {
+    _io.to(`user:${p.user_id}`).emit('matchmaking:found', { game_id: gameId });
+    if (p.socket_id) _io.to(p.socket_id).emit('matchmaking:found', { game_id: gameId });
+  }
+}
+
+/**
+ * Read-only scan for a smaller-size cohort this user could complete: some
+ * preference Q < P whose queue count is exactly Q (a (Q+1)-player game one
+ * seat short), where the whole group ∪ this user is mutually compatible.
+ * Returns the largest such Q (closest to the user's own preference), or null.
+ * Skipped entirely if the user is no longer queued (attemptMatch just placed
+ * them into their own-size game).
+ */
+async function findSmallerGameOffer(
+  userId: string,
+  eraId: string,
+  bucket: string,
+  preferredOpponents: number,
+  self: { mu: number; phi: number; smurf_risk_score: number; stall_penalties: number },
+): Promise<{ opponents: number; era_id: string; bucket: string } | null> {
+  const stillQueued = await queryOne<{ user_id: string }>(
+    'SELECT user_id FROM ranked_queue WHERE user_id = $1',
+    [userId],
+  );
+  if (!stillQueued) return null;
+
+  const shortCohorts = await query<{ q: number }>(
+    `SELECT preferred_opponents AS q
+     FROM ranked_queue
+     WHERE era_id = $1 AND bucket = $2 AND preferred_opponents < $3 AND user_id <> $4
+     GROUP BY preferred_opponents
+     HAVING COUNT(*) = preferred_opponents
+     ORDER BY preferred_opponents DESC`,
+    [eraId, bucket, preferredOpponents, userId],
+  );
+  if (shortCohorts.length === 0) return null;
+
+  const selfCandidate: QueueCandidate = {
+    id: '',
+    user_id: userId,
+    era_id: eraId,
+    bucket,
+    mu: self.mu,
+    phi: self.phi,
+    socket_id: null,
+    enqueued_at: new Date(),
+    smurf_risk_score: self.smurf_risk_score,
+    stall_penalties: self.stall_penalties,
+    preferred_opponents: preferredOpponents,
+  };
+  const mmCfg = getMatchmakingConfig();
+  const now = Date.now();
+
+  for (const { q } of shortCohorts) {
+    const members = await query<QueueCandidate>(
+      `SELECT q.*,
+              COALESCE(rpp.smurf_risk_score, 0) AS smurf_risk_score,
+              COALESCE(rpp.stall_penalties, 0) AS stall_penalties
+       FROM ranked_queue q
+       LEFT JOIN ranked_placement_progress rpp ON rpp.user_id = q.user_id
+       WHERE q.era_id = $1 AND q.bucket = $2 AND q.preferred_opponents = $3 AND q.user_id <> $4
+       ORDER BY enqueued_at`,
+      [eraId, bucket, q, userId],
+    );
+    if (members.length !== q) continue; // raced away between the two reads
+    if (isCliqueCompatible([...members, selfCandidate], mmCfg, now)) {
+      return { opponents: q, era_id: eraId, bucket };
+    }
+  }
+  return null;
 }
 
 async function createRankedGameTx(
   client: import('pg').PoolClient,
-  playerA: QueueCandidate,
-  playerB: QueueCandidate,
+  players: QueueCandidate[],
   eraId: string,
   bucket: Bucket,
 ): Promise<string> {
@@ -176,7 +349,7 @@ async function createRankedGameTx(
     initial_unit_count: 3,
     card_set_escalating: true,
     diplomacy_enabled: false,
-    max_players: 2,
+    max_players: players.length,
   };
   if (bucketCfg.async_mode) {
     settings.async_mode = true;
@@ -184,6 +357,8 @@ async function createRankedGameTx(
   }
   // Ranked Era Advancement: opt-in via flag (default OFF — product decision).
   // Only ancient-start buckets are eligible, since the spine begins in Ancient.
+  // NOTE: its balance review (eraBalanceTuning.md) was 1v1-scoped — keep this
+  // flag OFF while multi-size ranked is on until re-reviewed for FFA sizes.
   if (featureFlags.rankedEraAdvancementEnabled && eraId === 'ancient') {
     settings.era_advancement_enabled = true;
     settings.era_advancement_preset = 'standard';
@@ -204,19 +379,17 @@ async function createRankedGameTx(
     [gameId, eraMapIds[eraId] ?? 'era_ancient', eraId, JSON.stringify(applyAdminSnapshotsToSettings(settings)), bucket, !!bucketCfg.async_mode],
   );
 
-  await client.query(
-    `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
-     VALUES ($1, $2, 0, $3, false)`,
-    [gameId, playerA.user_id, COLORS[0]],
-  );
-  await client.query(
-    `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
-     VALUES ($1, $2, 1, $3, false)`,
-    [gameId, playerB.user_id, COLORS[1]],
-  );
+  // COLORS has 8 entries; cohort sizes cap at 6 players.
+  for (let i = 0; i < players.length; i++) {
+    await client.query(
+      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
+       VALUES ($1, $2, $3, $4, false)`,
+      [gameId, players[i].user_id, i, COLORS[i]],
+    );
+  }
 
   await client.query('DELETE FROM ranked_queue WHERE user_id = ANY($1)', [
-    [playerA.user_id, playerB.user_id],
+    players.map((p) => p.user_id),
   ]);
 
   return gameId;
@@ -279,16 +452,39 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
       [request.userId, smurfRiskScore],
     );
 
+    // Effective opponent preference: flag off → always 1 (strict 1v1, byte-
+    // identical to the pre-flag behavior regardless of payload); flag on →
+    // requested value (or the era default) clamped to the era's map-size cap.
+    const eraSize = RANKED_SIZE_BY_ERA[era_id];
+    const preferredOpponents = featureFlags.rankedMultiSizeEnabled
+      ? Math.min(Math.max(parsed.data.preferred_opponents ?? eraSize.default, 1), eraSize.max)
+      : 1;
+
     await query(
-      `INSERT INTO ranked_queue (user_id, era_id, bucket, mu, phi)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO ranked_queue (user_id, era_id, bucket, mu, phi, preferred_opponents)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (user_id) DO UPDATE
-       SET era_id = $2, bucket = $3, mu = $4, phi = $5, enqueued_at = NOW()`,
-      [request.userId, era_id, bucket, mu, phi],
+       SET era_id = $2, bucket = $3, mu = $4, phi = $5, preferred_opponents = $6, enqueued_at = NOW()`,
+      [request.userId, era_id, bucket, mu, phi, preferredOpponents],
     );
 
-    await attemptMatch(era_id, bucket);
+    await attemptMatch(era_id, bucket, preferredOpponents);
     checkOnboardingQuests(request.userId, 'ranked_join').catch(() => {});
+
+    // Join-time offer (requirement: "be the final piece of a smaller game"):
+    // if this player wasn't just matched at their own size, look for a cohort
+    // with a SMALLER preference that is exactly one seat short and fully
+    // compatible with this player, and surface it as a one-time offer. The
+    // offer is advisory — nothing is reserved; /accept-offer re-validates.
+    let offer: { opponents: number; era_id: string; bucket: string } | null = null;
+    if (featureFlags.rankedMultiSizeEnabled && preferredOpponents > 1) {
+      offer = await findSmallerGameOffer(request.userId, era_id, bucket, preferredOpponents, {
+        mu,
+        phi,
+        smurf_risk_score: smurfRiskScore,
+        stall_penalties: existingProgress?.stall_penalties ?? 0,
+      });
+    }
 
     return reply.send({
       queued: true,
@@ -297,7 +493,83 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
         smurf_risk_tier: tierFromSmurfRisk(smurfRiskScore),
         stall_penalties: existingProgress?.stall_penalties ?? 0,
       },
+      ...(offer ? { offer } : {}),
     });
+  });
+
+  // Accept a join-time smaller-game offer: try ONCE, atomically, to complete a
+  // (Q+1)-player game from the Q-preference cohort plus the caller. Nothing was
+  // reserved when the offer was surfaced, so this re-validates everything under
+  // lock; on any failure the caller's own queue row (at their original larger
+  // preference) is untouched and they simply keep waiting.
+  fastify.post('/accept-offer', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
+    if (!featureFlags.rankedMultiSizeEnabled) {
+      return reply.status(404).send({ error: 'Not available' });
+    }
+    const parsed = AcceptOfferSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send(formatZodError(parsed.error, 'Invalid offer parameters'));
+    }
+    const targetOpponents = parsed.data.opponents;
+
+    const match = await withTransaction(async (client) => {
+      // Lock the caller's own queue row first — plain FOR UPDATE (no SKIP
+      // LOCKED): if a concurrent sweep holds it we wait for its verdict rather
+      // than misreport. Absent afterwards → the sweep matched them while the
+      // modal was open (matchmaking:found already navigated them), or they
+      // left the queue.
+      const { rows: selfRows } = await client.query<QueueCandidate>(
+        `SELECT q.*, 0::real AS smurf_risk_score, 0 AS stall_penalties
+         FROM ranked_queue q
+         WHERE q.user_id = $1
+         FOR UPDATE OF q`,
+        [request.userId],
+      );
+      if (selfRows.length === 0) return { formed: false as const, reason: 'not_queued' as const };
+      const self = selfRows[0];
+      const selfIntegrity = await client.query<{ smurf_risk_score: number; stall_penalties: number }>(
+        `SELECT COALESCE(smurf_risk_score, 0) AS smurf_risk_score,
+                COALESCE(stall_penalties, 0) AS stall_penalties
+         FROM ranked_placement_progress WHERE user_id = $1`,
+        [request.userId],
+      );
+      self.smurf_risk_score = selfIntegrity.rows[0]?.smurf_risk_score ?? 0;
+      self.stall_penalties = selfIntegrity.rows[0]?.stall_penalties ?? 0;
+
+      const { rows: candidates } = await client.query<QueueCandidate>(
+        `SELECT q.*,
+                COALESCE(rpp.smurf_risk_score, 0) AS smurf_risk_score,
+                COALESCE(rpp.stall_penalties, 0) AS stall_penalties
+         FROM ranked_queue q
+         LEFT JOIN ranked_placement_progress rpp ON rpp.user_id = q.user_id
+         WHERE q.era_id = $1 AND q.bucket = $2 AND q.preferred_opponents = $3 AND q.user_id <> $4
+         ORDER BY enqueued_at
+         LIMIT 20
+         FOR UPDATE OF q SKIP LOCKED`,
+        [self.era_id, self.bucket, targetOpponents, request.userId],
+      );
+
+      // Greedy-fill Q members, each compatible with the caller and all picks.
+      const now = Date.now();
+      const mmCfg = getMatchmakingConfig();
+      const cohort: QueueCandidate[] = [self];
+      for (const c of candidates) {
+        if (cohort.length === targetOpponents + 1) break;
+        if (cohort.every((member) => pairOk(member, c, mmCfg, now))) cohort.push(c);
+      }
+      if (cohort.length < targetOpponents + 1) {
+        return { formed: false as const, reason: 'cohort_gone' as const };
+      }
+
+      const gameId = await createRankedGameTx(client, cohort, self.era_id, self.bucket as Bucket);
+      return { formed: true as const, gameId, players: cohort };
+    });
+
+    if (!match.formed) {
+      return reply.send({ formed: false, reason: match.reason });
+    }
+    await finalizeRankedGame(match.gameId, match.players);
+    return reply.send({ formed: true, game_id: match.gameId });
   });
 
   fastify.delete('/leave', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
@@ -335,10 +607,10 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
 
   fastify.get('/status', { preHandler: authenticate }, async (request, reply) => {
     const row = await queryOne<{
-      bucket: string; era_id: string; enqueued_at: Date;
+      bucket: string; era_id: string; enqueued_at: Date; preferred_opponents: number;
       smurf_risk_score: number; stall_penalties: number; provisional: boolean;
     }>(
-      `SELECT q.bucket, q.era_id, q.enqueued_at,
+      `SELECT q.bucket, q.era_id, q.enqueued_at, q.preferred_opponents,
               COALESCE(rpp.smurf_risk_score, 0) AS smurf_risk_score,
               COALESCE(rpp.stall_penalties, 0) AS stall_penalties,
               COALESCE(rpp.provisional, true) AS provisional
@@ -353,6 +625,7 @@ export async function matchmakingRoutes(fastify: FastifyInstance): Promise<void>
       bucket: row.bucket,
       era_id: row.era_id,
       enqueued_at: row.enqueued_at,
+      preferred_opponents: row.preferred_opponents,
       integrity: {
         smurf_risk_score: row.smurf_risk_score,
         smurf_risk_tier: tierFromSmurfRisk(row.smurf_risk_score),
@@ -377,6 +650,22 @@ let sweepStopped = true;
 async function runSweepOnce(): Promise<void> {
   if (matchmakingPaused) return;
   try {
+    // Flag on: one attempt per (era, bucket, size) cohort. Flag off: the
+    // preference column is ignored (attemptMatch matches everyone as 1v1), so
+    // the historical (era, bucket) grouping drains the whole queue.
+    if (featureFlags.rankedMultiSizeEnabled) {
+      const distinct = await query<{ era_id: string; bucket: string; preferred_opponents: number }>(
+        'SELECT DISTINCT era_id, bucket, preferred_opponents FROM ranked_queue',
+      );
+      for (const { era_id, bucket, preferred_opponents } of distinct) {
+        try {
+          await attemptMatch(era_id, bucket, preferred_opponents);
+        } catch (err) {
+          console.error('[matchmaking] attemptMatch failed:', { era_id, bucket, preferred_opponents, err });
+        }
+      }
+      return;
+    }
     const distinct = await query<{ era_id: string; bucket: string }>(
       'SELECT DISTINCT era_id, bucket FROM ranked_queue',
     );
