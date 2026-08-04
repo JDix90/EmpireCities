@@ -29,6 +29,33 @@ Use before major releases or public launches. Track completion in your issue tra
 - [ ] Run `pnpm audit` (or equivalent) and patch critical/high issues.
 - [ ] Lockfile committed; CI uses frozen install.
 
+## Secrets & credentials
+
+- [x] `scripts/check-secrets.sh` runs in CI (the `secrets` job) and fails the
+      build if a real-looking API key, token, or private key lands in a tracked
+      file. Run it locally with `pnpm run check:secrets`.
+- [ ] `.env*.example` files contain placeholders only — never a working value.
+      A live Resend API key was committed in `.env.production.example` (2026-06-30,
+      `71de3ec`), sat in the public history until 2026-08-04, and was used by a
+      third party to send phishing mail. It has been revoked.
+- [ ] GitHub **secret scanning + push protection** enabled (Settings → Code
+      security). Confirmed off as of 2026-08-04; both are free for public repos
+      and push protection would have blocked the Resend key at `git push` —
+      before the CI job above ever ran.
+- [ ] Machine-wide ignore installed once per dev machine:
+      `bash scripts/setup-global-gitignore.sh`. Covers `.env*`, private keys and
+      credential bundles in **every** repo you clone, not just this one.
+      Idempotent, and it preserves any global excludes file you already have.
+      Note what it does *not* do: it guards file **names**, so it would not have
+      stopped the Resend leak (a key inside a tracked `.example` file). Content
+      scanning is the control for that.
+- [ ] Third-party keys (Resend/SMTP, Sentry, Firebase) are supplied per
+      environment via `.env.production` — which is gitignored — or the host's
+      secret store, never via a file in the repo.
+- [ ] On any suspected exposure: revoke at the provider **first**, then rotate,
+      then clean the file. Deleting the line does not un-leak the value; assume
+      anything that reached a push is compromised.
+
 ## Data
 
 - [ ] Postgres and Mongo credentials not committed; least-privilege DB users where possible.

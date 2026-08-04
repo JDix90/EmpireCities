@@ -25,6 +25,7 @@
     "validate:maps": "pnpm -C backend run validate:maps",
     "test:backend": "pnpm -C backend run test",
     "test:frontend": "pnpm -C frontend exec vitest run",
+    "check:secrets": "bash scripts/check-secrets.sh",
     "lint": "pnpm run lint:backend && pnpm run lint:frontend",
     "lint:backend": "pnpm exec eslint backend/src --max-warnings 0",
     "lint:frontend": "pnpm -C frontend run lint",
