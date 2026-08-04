@@ -38,10 +38,11 @@ Use before major releases or public launches. Track completion in your issue tra
       A live Resend API key was committed in `.env.production.example` (2026-06-30,
       `71de3ec`), sat in the public history until 2026-08-04, and was used by a
       third party to send phishing mail. It has been revoked.
-- [ ] GitHub **secret scanning + push protection** enabled (Settings → Code
-      security). Confirmed off as of 2026-08-04; both are free for public repos
-      and push protection would have blocked the Resend key at `git push` —
-      before the CI job above ever ran.
+- [x] GitHub **secret scanning + push protection** enabled (Settings → Code
+      security), 2026-08-04. This is the outermost guard: it rejects a
+      recognised credential at `git push`, before the key is ever published and
+      before the CI job above runs. Keep it on — the CI scan is a backstop for
+      patterns GitHub does not recognise, not a replacement.
 - [ ] Machine-wide ignore installed once per dev machine:
       `bash scripts/setup-global-gitignore.sh`. Covers `.env*`, private keys and
       credential bundles in **every** repo you clone, not just this one.
