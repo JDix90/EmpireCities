@@ -15,6 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Cheap and dependency-free, so it reports in seconds rather than waiting on
+  # the install/build jobs. A live Resend key once shipped in
+  # .env.production.example and was harvested for phishing — this is the guard.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Scan tracked files for committed credentials
+        run: bash scripts/check-secrets.sh
+
   backend:
     runs-on: ubuntu-latest
     # NOTE: `services` is a JOB-level key. It was previously nested under the
