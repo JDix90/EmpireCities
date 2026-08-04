@@ -42,6 +42,13 @@ Use before major releases or public launches. Track completion in your issue tra
       security). Confirmed off as of 2026-08-04; both are free for public repos
       and push protection would have blocked the Resend key at `git push` —
       before the CI job above ever ran.
+- [ ] Machine-wide ignore installed once per dev machine:
+      `bash scripts/setup-global-gitignore.sh`. Covers `.env*`, private keys and
+      credential bundles in **every** repo you clone, not just this one.
+      Idempotent, and it preserves any global excludes file you already have.
+      Note what it does *not* do: it guards file **names**, so it would not have
+      stopped the Resend leak (a key inside a tracked `.example` file). Content
+      scanning is the control for that.
 - [ ] Third-party keys (Resend/SMTP, Sentry, Firebase) are supplied per
       environment via `.env.production` — which is gitignored — or the host's
       secret store, never via a file in the repo.

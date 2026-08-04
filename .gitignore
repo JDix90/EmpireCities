@@ -1,9 +1,25 @@
 node_modules/
 dist/
 build/
+
+# Env files — every variant, at any depth (backend/.env, frontend/.env.local, …).
+# The `.example` templates are the only ones tracked, and they must hold
+# placeholders only: an ignore rule cannot protect a file meant to be committed.
+# `scripts/check-secrets.sh` is what catches a real key pasted into one.
 .env
-.env.local
-.env.production
+.env.*
+!.env*.example
+
+# Credential material that should never be committed from any directory.
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+credentials.json
+secrets.json
+service-account*.json
+
 *.log
 .DS_Store
 coverage/
