@@ -218,6 +218,16 @@ async function bootstrap(): Promise<void> {
     // ordinary app traffic exhausted the admin scope's max=30 before the
     // dashboard made a single request.
     nameSpace: 'rl-global-',
+    // Degrade OPEN when the counter store is unreachable. The plugin defaults
+    // to skipOnError:false, which rethrows the store error — and because this
+    // limiter runs as a global onRequest hook, ANY Redis write failure turned
+    // every single endpoint (login, guest, even /health) into a blanket
+    // "Internal server error" 500. Redis answering PONG while refusing writes
+    // (maxmemory + noeviction, or MISCONF after a failed AOF/BGSAVE) is enough
+    // to trigger it. An unenforced rate limit during a Redis outage is a far
+    // smaller problem than a total outage; /ready write-probes Redis so the
+    // degraded state is still reported rather than hidden.
+    skipOnError: true,
     // statusCode is REQUIRED here: without it @fastify/rate-limit's thrown
     // error has no status and the global handler surfaces a 500 instead of
     // a 429 (real users saw "Internal server error" when rate-limited).
@@ -239,6 +249,10 @@ async function bootstrap(): Promise<void> {
         keyGenerator: userOrIpKey,
         // Distinct counter from the global limiter — see nameSpace note above.
         nameSpace: 'rl-auth-',
+        // Availability over enforcement while Redis is down — see the global
+        // limiter's note. Auth throttling is unenforced only for the duration
+        // of the outage; the alternative is that nobody can log in at all.
+        skipOnError: true,
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many authentication attempts. Please wait and try again.',
@@ -276,6 +290,8 @@ async function bootstrap(): Promise<void> {
         // Without it, lobby/gameplay traffic in the same minute filled this
         // scope's max=30 and the dashboard 429'd on its first request.
         nameSpace: 'rl-admin-',
+        // See the global limiter's note.
+        skipOnError: true,
         errorResponseBuilder: () => ({
           statusCode: 429,
           message: 'Too many admin requests. Please wait and try again.',
