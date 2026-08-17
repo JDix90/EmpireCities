@@ -21,9 +21,20 @@ export async function runReadinessChecks(): Promise<{ ok: boolean; checks: Readi
     });
   }
 
+  // PING alone is NOT enough: a Redis that has hit `maxmemory` under
+  // `noeviction`, or gone read-only after a failed BGSAVE/AOF write (MISCONF),
+  // still answers PONG while rejecting every write with an -OOM/-MISCONF
+  // error. The API writes to Redis on the hot path of *every* request (the
+  // rate-limit counter), so a write-rejecting Redis is a hard outage that this
+  // probe used to report as healthy. Probe an actual write.
   try {
     const pong = await redis.ping();
-    checks.push({ name: 'redis', ok: pong === 'PONG', detail: pong !== 'PONG' ? pong : undefined });
+    if (pong !== 'PONG') {
+      checks.push({ name: 'redis', ok: false, detail: pong });
+    } else {
+      await redis.set('health:write-probe', Date.now().toString(), 'EX', 60);
+      checks.push({ name: 'redis', ok: true });
+    }
   } catch (e) {
     checks.push({
       name: 'redis',
