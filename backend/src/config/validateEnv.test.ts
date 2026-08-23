@@ -20,7 +20,9 @@ function setValidProd(): void {
   process.env.JWT_REFRESH_SECRET = 'b'.repeat(64);
   process.env.POSTGRES_PASSWORD = 'strong-pg-password';
   process.env.REDIS_PASSWORD = 'strong-redis-password';
-  process.env.FRONTEND_URL = 'https://app.example.com';
+  // NOT an example.com origin: those are RFC 2606 documentation domains and
+  // validateProductionEnv now rejects them as unreplaced template values.
+  process.env.FRONTEND_URL = 'https://borderfall.gg';
   delete process.env.CORS_ORIGINS;
 }
 
@@ -110,5 +112,54 @@ describe('validateProductionEnv', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(() => validateProductionEnv()).not.toThrow();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('JWT_ACCESS_SECRET'));
+  });
+});
+
+describe('validateProductionEnv — placeholder origins', () => {
+  /**
+   * Regression test for a real outage tail: production ran for weeks with
+   * FRONTEND_URL=https://play.example.com straight out of
+   * .env.production.example. It survived the existing dev/loopback check
+   * because example.com is a syntactically valid public origin, and the site
+   * *looked* fine — nginx serves the API same-origin, so CORS never engaged.
+   * What it silently broke was every consumer of FRONTEND_URL that isn't
+   * same-origin: Socket.IO origins, password-reset links, invite links and OG
+   * share URLs.
+   */
+  it('rejects the example.com placeholder from .env.production.example', () => {
+    setValidProd();
+    process.env.FRONTEND_URL = 'https://play.example.com';
+    expect(() => validateProductionEnv()).toThrow(/placeholder origins/i);
+  });
+
+  it('rejects bare example.com and other reserved doc TLDs', () => {
+    for (const origin of ['https://example.com', 'http://example.org', 'https://www.example.net']) {
+      setValidProd();
+      process.env.FRONTEND_URL = origin;
+      expect(() => validateProductionEnv(), origin).toThrow(/placeholder origins/i);
+    }
+  });
+
+  it('rejects your-domain and replace_me templates', () => {
+    for (const origin of ['https://your-domain.com', 'https://app.your.domain.io', 'https://replace_me']) {
+      setValidProd();
+      process.env.FRONTEND_URL = origin;
+      expect(() => validateProductionEnv(), origin).toThrow(/placeholder origins/i);
+    }
+  });
+
+  it('catches a placeholder hiding in CORS_ORIGINS behind a real FRONTEND_URL', () => {
+    setValidProd();
+    process.env.FRONTEND_URL = 'https://borderfall.gg';
+    process.env.CORS_ORIGINS = 'https://cdn.borderfall.gg,https://staging.example.com';
+    expect(() => validateProductionEnv()).toThrow(/staging\.example\.com/);
+  });
+
+  it('accepts real public origins', () => {
+    for (const origin of ['https://borderfall.gg', 'https://play.borderfall.gg', 'https://exampleton.io']) {
+      setValidProd();
+      process.env.FRONTEND_URL = origin;
+      expect(() => validateProductionEnv(), origin).not.toThrow();
+    }
   });
 });

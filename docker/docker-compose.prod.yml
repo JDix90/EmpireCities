@@ -15,6 +15,11 @@ services:
     image: postgres:16-alpine
     container_name: borderfall_postgres_prod
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-3}'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chronouser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronopass}
@@ -31,12 +36,22 @@ services:
     image: redis:7-alpine
     container_name: borderfall_redis_prod
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-3}'
     # AOF persistence (fsync every second) so a Redis crash loses ≤1s of writes
     # rather than everything since the last RDB snapshot — Redis holds live game
     # state. PRODUCTION: also set `--maxmemory <sized-to-host>` with
     # `--maxmemory-policy noeviction` (see the scale-out runbook). Do NOT use an
     # lru/random policy: it would evict live game-state keys and corrupt games.
-    command: redis-server --requirepass ${REDIS_PASSWORD:-chronoredis} --appendonly yes --appendfsync everysec
+    # `--maxmemory 0` means unlimited, which is the historical behaviour; set
+    # REDIS_MAXMEMORY (e.g. 2gb) sized to the host to bound it. Deliberately NOT
+    # defaulted to a number: too low a cap makes Redis reject writes, and with
+    # noeviction that is a hard outage — the right value depends on the host and
+    # the live game-state working set, so it must be a conscious choice.
+    command: redis-server --requirepass ${REDIS_PASSWORD:-chronoredis} --appendonly yes --appendfsync everysec --maxmemory ${REDIS_MAXMEMORY:-0} --maxmemory-policy noeviction
     volumes:
       - redis_prod_data:/data
     healthcheck:
@@ -51,6 +66,11 @@ services:
       dockerfile: docker/Dockerfile.backend
     container_name: borderfall_backend_prod
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-3}'
     # Give the in-app graceful drain (≤15s, then self-forces) time to flush
     # pending Postgres writes and close sockets before Compose sends SIGKILL.
     stop_grace_period: 30s
@@ -121,6 +141,11 @@ services:
         VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-}
     container_name: borderfall_web_prod
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: '${LOG_MAX_SIZE:-10m}'
+        max-file: '${LOG_MAX_FILE:-3}'
     depends_on:
       backend:
         condition: service_healthy
