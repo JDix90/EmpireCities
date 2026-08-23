@@ -70,8 +70,75 @@ pgPool.on('error', (err) => {
   console.error('[PostgreSQL] Unexpected error on idle client:', err);
 });
 
+/**
+ * Turn a driver-level connection failure into a message that names the setting
+ * to fix.
+ *
+ * Motivated by a real outage: a deploy recreated the backend container with a
+ * `POSTGRES_USER` that had never existed in the data volume, and the only clue
+ * was `password authentication failed for user "x"`. Postgres deliberately
+ * returns 28P01 for a *nonexistent* role too (so attackers can't enumerate
+ * usernames), so hours were spent resetting a password for a role that was
+ * never there. The load-bearing fact is in the last sentence of the 28P01 case:
+ * POSTGRES_USER/PASSWORD/DB only take effect when the data directory is first
+ * initialised, so editing them later silently disagrees with the cluster.
+ *
+ * Returns null for codes we have nothing useful to add to. Never includes the
+ * password.
+ */
+export function pgConnectionHint(err: unknown): string | null {
+  const code = (err as { code?: string } | null)?.code;
+  const { host, port, user, database } = config.postgres;
+  const where = `${user}@${host}:${port}/${database}`;
+
+  switch (code) {
+    case '28P01':
+      return (
+        `[PostgreSQL] Authentication failed for ${where}. ` +
+        'Postgres returns this same error when the role does not exist at all, so verify ' +
+        'POSTGRES_USER as well as POSTGRES_PASSWORD. Note that POSTGRES_USER / ' +
+        'POSTGRES_PASSWORD / POSTGRES_DB are only applied when the data volume is FIRST ' +
+        'initialised — changing them later does not rename the role, change its password, ' +
+        'or rename the database on an existing cluster.'
+      );
+    case '3D000':
+      return (
+        `[PostgreSQL] Database "${database}" does not exist on ${host}:${port}. ` +
+        'Check POSTGRES_DB — an existing data volume keeps whatever database name it was ' +
+        'created with, regardless of what POSTGRES_DB says now.'
+      );
+    case '28000':
+      return (
+        `[PostgreSQL] Authorization rejected for ${where} by the server's pg_hba.conf rules. ` +
+        'Check POSTGRES_USER and the host-based auth configuration.'
+      );
+    case 'ECONNREFUSED':
+      return (
+        `[PostgreSQL] Connection refused at ${host}:${port}. Is the database running and ` +
+        'reachable? Check POSTGRES_HOST and POSTGRES_PORT.'
+      );
+    case 'ENOTFOUND':
+    case 'EAI_AGAIN':
+      return (
+        `[PostgreSQL] Host "${host}" could not be resolved. Check POSTGRES_HOST (on Docker ` +
+        'this is the compose service name, not localhost).'
+      );
+    default:
+      return null;
+  }
+}
+
 export async function connectPostgres(): Promise<void> {
-  const client = await pgPool.connect();
+  let client: PoolClient;
+  try {
+    client = await pgPool.connect();
+  } catch (err) {
+    // Log the actionable hint before rethrowing so it survives in container
+    // logs even when the caller only prints the raw driver error.
+    const hint = pgConnectionHint(err);
+    if (hint) console.error(hint);
+    throw err;
+  }
   console.log(`[PostgreSQL] Connected successfully (statement_timeout=${STATEMENT_TIMEOUT_MS}ms)`);
   client.release();
 }

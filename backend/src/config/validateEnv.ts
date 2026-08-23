@@ -125,7 +125,35 @@ export function validateProductionEnv(): void {
     throw new Error(
       `[config] Production CORS allowlist contains dev/wildcard origins which are not safe in production: ${offenders.join(
         ', ',
-      )}. Set FRONTEND_URL and CORS_ORIGINS to real public origins (e.g. https://app.example.com).`,
+      )}. Set FRONTEND_URL and CORS_ORIGINS to real public origins (e.g. https://borderfall.gg).`,
+    );
+  }
+
+  // Placeholder domains copied from .env.production.example. These are
+  // syntactically valid public origins, so the dev/loopback check above waves
+  // them straight through — but a production deploy pointed at example.com is
+  // misconfigured. FRONTEND_URL is the ONLY source of the CORS allowlist when
+  // CORS_ORIGINS is unset, and it also builds password-reset links, invite
+  // links and OG share URLs. Production ran for weeks on
+  // `https://play.example.com` (breaking Socket.IO origins and every emailed
+  // link) because nothing rejected the template value.
+  const PLACEHOLDER_ORIGIN_PATTERNS: RegExp[] = [
+    // RFC 2606 reserves example.com/.org/.net for documentation, so no real
+    // deploy legitimately serves from them.
+    /^https?:\/\/([a-z0-9-]+\.)*example\.(com|org|net)(:\d+)?$/i,
+    /^https?:\/\/([a-z0-9-]+\.)*your[-.]?domain\b/i,
+    /replace_me/i,
+  ];
+
+  const placeholders = origins.filter((origin) =>
+    PLACEHOLDER_ORIGIN_PATTERNS.some((re) => re.test(origin)),
+  );
+
+  if (placeholders.length > 0) {
+    throw new Error(
+      `[config] Production CORS allowlist still contains placeholder origins from ` +
+        `.env.production.example: ${placeholders.join(', ')}. Set FRONTEND_URL (and ` +
+        'CORS_ORIGINS if you serve the SPA from another origin) to the real public origin.',
     );
   }
 

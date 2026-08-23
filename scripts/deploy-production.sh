@@ -70,4 +70,28 @@ fi
 echo "[deploy] Smoke test: ${SMOKE_URL}/health"
 "${SCRIPT_DIR}/smoke-production.sh" "${SMOKE_URL}"
 
+# ── Reclaim build garbage ────────────────────────────────────────────────────
+# Every deploy above runs `up -d --build`, which leaves the previous image
+# untagged and grows the BuildKit cache. Nothing ever collected either, and on
+# one droplet ~12 deploys accumulated 47GB of build cache plus 44GB of dangling
+# images — filling the disk completely. A full disk makes Redis reject every
+# write (so the API 500s on every request) and stops sshd accepting logins, so
+# this is not merely housekeeping.
+#
+# Runs only after the smoke test passes, so a rollback still has the previous
+# image available if the deploy failed. `--filter until=` keeps recent images
+# for exactly that reason. Volumes are NEVER pruned — they hold Postgres and
+# Redis data.
+PRUNE_KEEP_HOURS="${PRUNE_KEEP_HOURS:-168}"
+if [ "${SKIP_PRUNE:-false}" = "true" ]; then
+  echo "[deploy] SKIP_PRUNE=true — leaving unused images and build cache in place"
+else
+  echo "[deploy] Pruning images/build cache older than ${PRUNE_KEEP_HOURS}h..."
+  docker image prune -af --filter "until=${PRUNE_KEEP_HOURS}h" 2>/dev/null \
+    | tail -1 | sed 's/^/[deploy] images: /' || true
+  docker builder prune -af --filter "until=${PRUNE_KEEP_HOURS}h" 2>/dev/null \
+    | tail -1 | sed 's/^/[deploy] build cache: /' || true
+  df -h / | awk 'NR==2 {print "[deploy] disk: "$3" used, "$4" available ("$5" full)"}'
+fi
+
 echo "[deploy] Done. Stack is up."
