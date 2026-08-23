@@ -247,8 +247,19 @@ export function initializeGameState(
   // selectionExemptTerritoryIds), so pre-spawned neutral defenders can't
   // interfere with manual picks and must exist once the game proper begins.
   for (const tid of lunarTerritoryIds) {
-    territories[tid].owner_id = null;
-    territories[tid].unit_count = neutralOffworldGarrison(tid);
+    // `lunarTerritoryIds` is derived from map.territories (the FULL authored
+    // map), but `territories` deliberately omits tiles tagged
+    // `unlock_era_index > 0` — they are held back until the era floor reaches
+    // them. A tile that is both offworld AND era-gated therefore has no entry
+    // here, and writing into it throws
+    // "Cannot set properties of undefined (setting 'owner_id')", which crashed
+    // EVERY game start on era_modern (its `lunar_outpost_mod` is exactly that
+    // combination). This is the same guard `distributable` above already
+    // applies for the distribution path; this sibling loop was missed.
+    const territory = territories[tid];
+    if (!territory) continue;
+    territory.owner_id = null;
+    territory.unit_count = neutralOffworldGarrison(tid);
   }
 
   // Standalone Space Age full board: with era advancement OFF the progressive

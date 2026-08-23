@@ -761,6 +761,39 @@ describe('initializeGameState faction distribution', () => {
       expect(earthOwned).toBe(Object.keys(state.territories).length - moonIds.length);
     });
 
+    it('initializes the real era_modern map — offworld tile that is ALSO era-gated (live crash repro)', () => {
+      // era_modern's `lunar_outpost_mod` is both offworld (its id contains
+      // "lunar", so inferWorldId returns 'moon' and it joins lunarTerritoryIds)
+      // AND tagged `unlock_era_index > 0`, so it is deliberately held back from
+      // `territories` at init. The final lunar pass wrote into it unguarded,
+      // throwing "Cannot set properties of undefined (setting 'owner_id')" and
+      // failing EVERY Modern Day game start in production, 100% of the time.
+      const realMap = JSON.parse(
+        readFileSync(join(__dirname, '../../../../database/maps/era_modern.json'), 'utf8'),
+      ) as GameMap;
+
+      // Pin the data shape this regression depends on, so a future map edit that
+      // removes the overlap doesn't silently turn this into a vacuous test.
+      const gated = new Set(
+        realMap.territories.filter((t) => (t.unlock_era_index ?? 0) > 0).map((t) => t.territory_id),
+      );
+      expect(gated.has('lunar_outpost_mod')).toBe(true);
+
+      const state = initializeGameState(
+        'modern-real-map',
+        'modern',
+        realMap,
+        [0, 1, 2, 3, 4].map((i) => makePlayer(`p${i + 1}`, i, { is_ai: i > 0 })),
+        makeSettings(),
+      );
+
+      // Era-gated tiles (offworld or not) must not spawn at init...
+      for (const tid of gated) expect(state.territories[tid]).toBeUndefined();
+      // ...and the rest of the board initializes normally.
+      expect(Object.keys(state.territories).length).toBe(realMap.territories.length - gated.size);
+      expect(Object.values(state.territories).every((t) => t.owner_id != null)).toBe(true);
+    });
+
     it('seeds the full 63-tile board on the real era_space_age map when frontiers are enabled', () => {
       const realMap = JSON.parse(
         readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
