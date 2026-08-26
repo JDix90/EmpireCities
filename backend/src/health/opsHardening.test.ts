@@ -62,8 +62,21 @@ describe('backup-databases.sh', () => {
     expect(src).toMatch(/mv "\$PARTIAL" "\$TARGET"/);
   });
 
-  it('prunes only after a verified dump exists', () => {
-    expect(src.indexOf('mv "$PARTIAL" "$TARGET"')).toBeLessThan(src.indexOf('-delete'));
+  it('prunes by count, not age — N days of ~29GB dumps filled the disk twice', () => {
+    expect(src).toMatch(/RETENTION_COUNT/);
+    expect(src).not.toMatch(/RETENTION_DAYS/);
+    expect(src).not.toMatch(/-mtime/);
+  });
+
+  it('prunes only after the new dump is verified and published', () => {
+    // The old dump must outlive its replacement's verification: publish (mv)
+    // strictly precedes the prune loop.
+    expect(src.indexOf('mv "$PARTIAL" "$TARGET"')).toBeLessThan(src.indexOf('RETENTION_COUNT='));
+  });
+
+  it('never prunes the newest dump, so a backup always survives', () => {
+    // `ls -1t` newest-first, then delete only from RETENTION_COUNT+1 onward.
+    expect(src).toMatch(/ls -1t .*postgres_\*\.dump.*\| tail -n \+\$\(\(RETENTION_COUNT \+ 1\)\)/);
   });
 });
 
