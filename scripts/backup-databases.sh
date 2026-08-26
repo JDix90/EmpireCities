@@ -14,9 +14,13 @@
 #   2. It writes to a .part file and only publishes it after verifying the dump
 #      is non-empty AND readable by `pg_restore -l`. A truncated dump never
 #      takes a valid backup's place.
-#   3. It prunes by age ONLY after a successful run, and never drops the last
-#      remaining valid backup. Before, pruning ran unconditionally — so two
-#      weeks of 0-byte dumps aged out every good backup that came before them.
+#   3. It prunes by COUNT (keep the newest RETENTION_COUNT dumps, default 1),
+#      and only after this run's dump has been verified — so the previous dump
+#      is deleted only once its replacement provably restores, and pruning can
+#      never leave zero backups. Age-based retention was abandoned after it
+#      filled the disk twice: N days of ~29GB dumps is a promise a 116GB disk
+#      cannot keep, and separately, unconditional pruning once aged out every
+#      good backup behind two weeks of 0-byte ones.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,7 +35,6 @@ fi
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/borderfall}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-RETENTION_DAYS="${RETENTION_DAYS:-14}"
 
 POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-borderfall_postgres_prod}"
 PG_USER="${POSTGRES_USER:-chronouser}"
@@ -101,13 +104,23 @@ mv "$PARTIAL" "$TARGET"
 trap - EXIT
 echo "[backup] Verified dump: $(du -h "$TARGET" | cut -f1) -> $TARGET"
 
-# ── Prune, but never the last good backup ────────────────────────────────────
-# Only reached after a verified dump exists, so there is always at least one
-# valid backup to keep.
-PRUNED=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'postgres_*.dump' \
-  -mtime +"$RETENTION_DAYS" ! -newer "$TARGET" -print -delete | wc -l)
-echo "[backup] Pruned ${PRUNED} backup(s) older than ${RETENTION_DAYS} days"
-
-REMAINING=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'postgres_*.dump' | wc -l)
-echo "[backup] ${REMAINING} backup(s) retained"
+# ── Prune: keep only the newest RETENTION_COUNT dumps ────────────────────────
+# Count-based, not age-based, on purpose: a dump of the pre-drain database is
+# ~29GB, so "N days of dumps" is a promise the disk cannot keep — age-based
+# retention is exactly how the nightly cron filled the disk to 100% twice.
+# Keeping a fixed COUNT makes the cycle sustainable at any dump size: write
+# the new dump, verify it restores (pg_restore -l above), and only then delete
+# its predecessor. We only reach this line after THIS run's dump is verified
+# and published, so the newest backup is always a known-good one and pruning
+# can never leave zero backups behind.
+#
+# Ad-hoc `manual_*.dump` files are deliberately left alone — someone made
+# those by hand for a reason; clean them up by hand.
+RETENTION_COUNT="${RETENTION_COUNT:-1}"
+PRUNED=0
+while IFS= read -r old_dump; do
+  rm -f -- "$old_dump"
+  PRUNED=$((PRUNED + 1))
+done < <(ls -1t "$BACKUP_DIR"/postgres_*.dump 2>/dev/null | tail -n +$((RETENTION_COUNT + 1)))
+echo "[backup] Pruned ${PRUNED} older dump(s); keeping the newest ${RETENTION_COUNT}"
 echo "[backup] Done"
