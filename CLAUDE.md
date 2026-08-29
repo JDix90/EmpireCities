@@ -10,9 +10,15 @@ prompt for Claude Console/Projects, not agent instructions.)
 ## Verify before you claim
 
 - Tests: `pnpm run test:backend`, `cd frontend && npx vitest run`; lint via
-  `pnpm run lint`; typecheck with `npx tsc --noEmit` in both `backend/` and
-  `frontend/`. Socket/integration tests are env-gated: `REDIS_TEST=1` (Redis on
-  6379) and `PG_TEST=1`.
+  `pnpm run lint`. Socket/integration tests are env-gated: `REDIS_TEST=1` (Redis
+  on 6379) and `PG_TEST=1`.
+- Typecheck with **`pnpm -C backend exec tsc --noEmit`** and
+  **`pnpm -C frontend exec tsc --noEmit`** — the same commands CI runs
+  (`.github/workflows/ci.yml`). NOT `npx tsc`: if a newer TypeScript is on PATH
+  it wins over the pinned 5.x, and TS 6 treats this repo's `baseUrl` as a config
+  ERROR (TS5101) that aborts the run before a single file is checked. It exits
+  non-zero having printed only that one line, which reads like the sole problem
+  — so `npx tsc --noEmit` reports a clean tree while missing real errors.
 - CI truth is `gh api repos/<owner>/<repo>/commits/<EXACT-SHA>/check-runs`.
   `gh pr checks` and PR status rollups can show a stale superseded run — the CI
   workflow cancels in-progress runs on new pushes.
