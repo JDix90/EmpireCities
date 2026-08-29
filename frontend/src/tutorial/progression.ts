@@ -168,6 +168,29 @@ export function tutorialStepNeedsPhaseAssist(_stepId: string | undefined): {
   };
 }
 
+/**
+ * Is the `my_turn` gate satisfied right now?
+ *
+ * Deliberately a state check, not an edge. It used to fire only on the
+ * transition INTO the viewer's turn, which stranded the tutorial whenever the
+ * step arrived after that transition had already happened — and it routinely
+ * does: steps 4–7 each wait on a phase change, there are only three per turn,
+ * so the step index lags the board. `opponent_turn` then became current during
+ * the player's OWN turn and sat there telling them to watch the opponent until
+ * the turn after next. Asking "is it my turn" instead is satisfied immediately
+ * in that case, and is identical to the edge check in the normal flow — the
+ * player cannot reach this step during their own turn without having watched
+ * the opponent's.
+ */
+export function isMyTurnGateSatisfied(args: {
+  myPlayerId: string | null;
+  players: Array<{ player_id: string }>;
+  currentPlayerIndex: number;
+}): boolean {
+  if (!args.myPlayerId) return false;
+  return args.players[args.currentPlayerIndex]?.player_id === args.myPlayerId;
+}
+
 export function shouldAdvanceTutorialOnState(args: {
   step: TutorialStep | undefined;
   prevPhase: string | null;
@@ -183,10 +206,12 @@ export function shouldAdvanceTutorialOnState(args: {
   const { step } = args;
   if (!step?.requireAction) return false;
 
-  if (step.requireAction === 'my_turn' && args.playerChanged && args.prevPlayerIndex !== null && args.myPlayerId) {
-    const prevPid = args.players[args.prevPlayerIndex]?.player_id;
-    const nowPid = args.players[args.newPlayerIndex]?.player_id;
-    return prevPid !== args.myPlayerId && nowPid === args.myPlayerId;
+  if (step.requireAction === 'my_turn') {
+    return isMyTurnGateSatisfied({
+      myPlayerId: args.myPlayerId,
+      players: args.players,
+      currentPlayerIndex: args.newPlayerIndex,
+    });
   }
 
   if (step.requireAction === 'draft') {
@@ -198,6 +223,23 @@ export function shouldAdvanceTutorialOnState(args: {
   }
 
   return false;
+}
+
+/**
+ * Has the board already moved past what this step is asking for?
+ *
+ * `advance_draft` teaches "use the gold button to leave the draft phase". A
+ * player who ends reinforcement through the confirm dialog instead ("you still
+ * have N to place — they'll be placed for you") lands in the attack phase in
+ * the same tick that satisfies the previous step, so this card arrives naming a
+ * button that has already changed label. The lesson is done; skip it rather
+ * than show an instruction the screen contradicts.
+ */
+export function isTutorialStepAlreadySatisfiedByPhase(
+  step: TutorialStep | undefined,
+  phase: string,
+): boolean {
+  return step?.id === 'advance_draft' && phase !== 'draft';
 }
 
 export function isActionOnlyRequireAction(action: TutorialRequireAction | undefined): boolean {

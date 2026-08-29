@@ -59,6 +59,7 @@ import {
   isTutorialStepCentered,
   markTutorialModuleComplete,
   shouldAdvanceTutorialOnState,
+  isTutorialStepAlreadySatisfiedByPhase,
   type TutorialLessonModule,
 } from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
@@ -829,6 +830,32 @@ export default function GamePage() {
       tutorialDwellTimerRef.current = null;
     }
   }, [tutorialStep]);
+
+  /**
+   * Advance a `my_turn` step that arrives already satisfied.
+   *
+   * The socket handler only re-evaluates gates when a `game:state` lands. A
+   * step that becomes current DURING the viewer's turn has already missed that
+   * turn's broadcast, so without this the card sits there — telling the player
+   * to watch an opponent who is not playing — until the next state arrives, or
+   * forever if they simply stop and read it. Holds the same minimum dwell as
+   * the socket path so the card is still readable.
+   */
+  const isViewerTurnNow =
+    !!gameState &&
+    !!user?.user_id &&
+    gameState.players[gameState.current_player_index]?.player_id === user.user_id;
+  useEffect(() => {
+    if (!isTutorial || !isViewerTurnNow) return;
+    const step = tutorialStepsRef.current[tutorialStep];
+    if (step?.requireAction !== 'my_turn') return;
+    const waited = Date.now() - tutorialStepShownAtRef.current;
+    const remaining = Math.max(0, TUTORIAL_MIN_DWELL_MS - waited);
+    const timer = setTimeout(() => {
+      setTutorialStep((cur) => (cur === tutorialStep ? cur + 1 : cur));
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [isTutorial, isViewerTurnNow, tutorialStep]);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   // Track the last disconnect reason so we can show different banner copy for
   // "your network dropped" (transient) vs "the server forced us off" (likely
@@ -1338,7 +1365,15 @@ export default function GamePage() {
             }
             return cur;
           }
-          return cur + 1;
+          // Skip a step the board has already moved past (see
+          // isTutorialStepAlreadySatisfiedByPhase).
+          let next = cur + 1;
+          while (
+            isTutorialStepAlreadySatisfiedByPhase(tutorialStepsRef.current[next], state.phase)
+          ) {
+            next += 1;
+          }
+          return next;
         });
       }
     });
@@ -4950,6 +4985,7 @@ export default function GamePage() {
           )}
           centered={isTutorialStepCentered(tutorialSteps[tutorialStep])}
           behindModal={!!modalQueue[0]}
+          panelOpen={showTechTree || showBonuses || showSettingsLab}
         />
       )}
 
