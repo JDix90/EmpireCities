@@ -214,6 +214,16 @@ export default function TerritoryPanel({
     myPlayerId,
   ]);
 
+  /**
+   * Can the armed attacker actually strike the territory being viewed? Reuses the
+   * same legality the neighbour picker runs on (adjacency, plus sea/orbit and
+   * fleet rules), so the panel can't offer an attack the server will reject.
+   */
+  const canAttackSelectedFromSource = React.useMemo(
+    () => attackNeighbors.some((n) => n.territoryId === selectedTerritory),
+    [attackNeighbors, selectedTerritory],
+  );
+
   const fortifyNeighborSourceId =
     gameState.phase === 'fortify' && attackSource && gameState.territories[attackSource]?.owner_id === myPlayerId
       ? attackSource
@@ -598,7 +608,23 @@ export default function TerritoryPanel({
                 </button>
               )}
               {attackSource && isEnemy && attackSource !== selectedTerritory && (
-                hasActiveTruce ? (
+                !canAttackSelectedFromSource ? (
+                  // The server would reject this with NOT_ADJACENT. Show why rather
+                  // than offering a button whose only outcome is an error toast.
+                  <div>
+                    <button
+                      className="btn-danger w-full text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+                      disabled
+                      title={`${territoryNameById.get(attackSource) ?? attackSource} does not border this territory`}
+                    >
+                      <Sword className="w-4 h-4" /> Attack from {territoryNameById.get(attackSource) ?? attackSource}
+                    </button>
+                    <p className="text-bf-muted text-xs mt-2">
+                      No border from {territoryNameById.get(attackSource) ?? attackSource}. Pick a territory next to it,
+                      or attack from here instead.
+                    </p>
+                  </div>
+                ) : hasActiveTruce ? (
                   <button
                     className="btn-warning w-full text-sm flex items-center justify-center gap-2"
                     onClick={() => onAttack(attackSource, selectedTerritory)}

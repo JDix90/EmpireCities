@@ -110,7 +110,8 @@ const DEFAULT_PLAYER_CSS_SOLID: Record<string, string> = {
   '#ecf0f1': 'rgb(236, 240, 241)',
 };
 
-const STANDARD_PLAYER_ORDER = [
+/** The default (non-colorblind) player palette, in seat order. */
+export const STANDARD_PLAYER_ORDER = [
   '#e74c3c',
   '#3498db',
   '#2ecc71',
