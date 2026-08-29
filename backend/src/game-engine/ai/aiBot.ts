@@ -141,7 +141,22 @@ export function evaluateBoard(
     .reduce((s, t) => s + t.unit_count, 0);
   const U = totalUnits > 0 ? myUnits / totalUnits : 0;
 
-  // BSR: Border Security Ratio
+  // BSR: Border Security Ratio, normalized to [0, 1].
+  //
+  // The squash matters. T, U and C are all ratios in [0, 1], but the raw
+  // per-border figure is `myUnits / enemyUnits` — unbounded above, and 2 for a
+  // border with no enemy units at all. Averaged and weighted at 0.25 alongside
+  // three bounded terms, it dominated the whole score, and it moves the WRONG
+  // WAY when you take ground: capturing a territory thins your line and pushes
+  // you up against fresh enemies, so BSR collapses.
+  //
+  // Measured on a 6-territory fixture, capturing a defended territory scored
+  // T +0.058, U +0.008, BSR -0.167 — a net -0.100, six times the threshold at
+  // which the daily challenge tells the player "Risky — consider reinforcing or
+  // a safer line next time." The single most obviously correct move in the game
+  // was graded a mistake. `r / (1 + r)` maps 0 to 0, parity to 0.5 and
+  // overwhelming strength toward 1, so a border can no longer contribute more
+  // than any other term, and an uncontested border scores a clean 1.
   const adjacency = buildAdjacencyMap(map);
   let bsrSum = 0;
   let borderCount = 0;
@@ -155,7 +170,12 @@ export function evaluateBoard(
     const enemyUnits = enemyNeighbors.reduce(
       (s, nid) => s + (state.territories[nid]?.unit_count ?? 0), 0
     );
-    bsrSum += enemyUnits > 0 ? tState.unit_count / enemyUnits : 2;
+    if (enemyUnits > 0) {
+      const ratio = tState.unit_count / enemyUnits;
+      bsrSum += ratio / (1 + ratio);
+    } else {
+      bsrSum += 1;
+    }
     borderCount++;
   }
   const BSR = borderCount > 0 ? bsrSum / borderCount : 1;
