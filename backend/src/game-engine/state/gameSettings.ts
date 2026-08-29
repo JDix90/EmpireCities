@@ -279,6 +279,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     daily_challenge_spec: ext.daily_challenge_spec && typeof ext.daily_challenge_spec === 'object'
       ? ext.daily_challenge_spec
       : undefined,
+    // Authored opening position (tutorial / puzzle / mission). Must survive
+    // re-normalization: this runs on every room load, so a key missing here is
+    // silently stripped after the first reload — the board would reshape on a
+    // fresh start and then revert.
+    authored_scenario: ext.authored_scenario && typeof ext.authored_scenario === 'object'
+      ? ext.authored_scenario
+      : undefined,
     seed: typeof ext.seed === 'number' ? ext.seed : undefined,
     max_players: typeof ext.max_players === 'number' ? ext.max_players : undefined,
     economy_snapshot: ext.economy_snapshot && typeof ext.economy_snapshot === 'object' ? ext.economy_snapshot : undefined,

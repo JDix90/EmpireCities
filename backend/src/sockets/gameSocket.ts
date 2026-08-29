@@ -153,6 +153,7 @@ import { notifyTurnChange } from '../services/notificationService';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
 import { createPuzzleDieRoll } from '../game-engine/daily/puzzleDice';
 import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleScenario';
+import { applyAuthoredScenario } from '../game-engine/scenarios/applyAuthoredScenario';
 import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
 import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
 import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
@@ -3643,15 +3644,18 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   const settings = game.settings_json as GameState['settings'];
   const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings);
 
+  const humanSeatId = playerStates.find((p) => !p.is_ai)?.player_id ?? null;
+  const aiSeat = playerStates.find((p) => p.is_ai);
+  const aiSeatId = aiSeat ? (aiSeat.player_id ?? `ai_${aiSeat.player_index}`) : null;
+
   const puzzleSpec = getDailyPuzzleSpec(state);
-  if (puzzleSpec) {
-    const humanId = playerStates.find((p) => !p.is_ai)?.player_id;
-    const aiP = playerStates.find((p) => p.is_ai);
-    const aiId = aiP?.player_id ?? `ai_${aiP?.player_index ?? 1}`;
-    if (humanId) {
-      applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanId, aiId);
-    }
+  if (puzzleSpec && humanSeatId) {
+    applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanSeatId, aiSeatId ?? `ai_1`);
   }
+
+  // Authored opening position, after the puzzle shaper so a scenario can refine
+  // a puzzle board, and before the module boost so a boost still tops up grants.
+  applyAuthoredScenario(state, state.settings.authored_scenario, humanSeatId, aiSeatId);
 
   applyTutorialModuleBoost(state);
 
