@@ -508,9 +508,13 @@ export default function GamePage() {
   const coachEligibleRef = useRef(coachEligible);
   coachEligibleRef.current = coachEligible;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
+  // Snapshotted at creation, not read from the live flag: a game that started as
+  // the combined tutorial keeps its step list even if the flag is switched off
+  // mid-session, and vice versa.
+  const tutorialCombined = gameState?.settings?.tutorial_combined === true;
   const tutorialSteps = useMemo(
-    () => getTutorialSteps(tutorialLessonModule),
-    [tutorialLessonModule],
+    () => getTutorialSteps(tutorialLessonModule, { combined: tutorialCombined }),
+    [tutorialLessonModule, tutorialCombined],
   );
 
   // Keep a ref to the current user so socket handlers never close over a stale value
@@ -2993,9 +2997,21 @@ export default function GamePage() {
     [user?.is_guest, signupNudgeFlag],
   );
 
-  const handleTutorialMarkModuleComplete = useCallback(() => {
+  /**
+   * Record this lesson as done. The combined core tutorial also covers the
+   * standalone Era Advancement lesson end to end, so it credits both — otherwise
+   * the lobby keeps recommending a deep dive the player just finished playing.
+   */
+  const markLessonComplete = useCallback(() => {
     markTutorialModuleComplete(tutorialLessonModule);
-  }, [tutorialLessonModule]);
+    if (tutorialCombined && tutorialLessonModule === 'core') {
+      markTutorialModuleComplete('era_advancement');
+    }
+  }, [tutorialLessonModule, tutorialCombined]);
+
+  const handleTutorialMarkModuleComplete = useCallback(() => {
+    markLessonComplete();
+  }, [markLessonComplete]);
 
   const handleLaunchTutorialModule = useCallback(
     async (module: TutorialLessonModule) => {
@@ -3031,14 +3047,14 @@ export default function GamePage() {
    */
   const handleTutorialContinuePlaying = useCallback(() => {
     const continueInTutorial = () => {
-      markTutorialModuleComplete(tutorialLessonModule);
+      markLessonComplete();
       setTutorialStep(tutorialSteps.length);
     };
     maybePromptTutorialAccount(
       continueInTutorial,
       'Save your progress before you keep playing — create a free account so the next match counts.',
     );
-  }, [maybePromptTutorialAccount, tutorialLessonModule, tutorialSteps.length]);
+  }, [maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
 
   /**
    * Abandon the current tutorial game and return to the lobby.

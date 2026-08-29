@@ -3655,7 +3655,7 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
 
   // Authored opening position, after the puzzle shaper so a scenario can refine
   // a puzzle board, and before the module boost so a boost still tops up grants.
-  applyAuthoredScenario(state, state.settings.authored_scenario, humanSeatId, aiSeatId);
+  applyAuthoredScenario(state, gameMap, state.settings.authored_scenario, humanSeatId, aiSeatId);
 
   applyTutorialModuleBoost(state);
 

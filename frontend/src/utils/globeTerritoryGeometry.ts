@@ -325,6 +325,11 @@ export function buildTerritoryGlobeGeometries(
   // are unaffected. NOTE: any new curated map that ships inline `geo_polygon` rings must
   // be added here (see database/maps/mapkit.py).
   const INLINE_GEO_POLYGON_REVERSE_MAP_IDS = new Set<string>([
+    // Tutorial Island builds its rings from canvas coordinates + projection_bounds
+    // (backend/src/game-engine/tutorial/tutorialScript.ts). Omitted here, its caps
+    // triangulated into a few stray shards and the island rendered as bare gold
+    // outlines over open ocean — which is what a first-time player saw.
+    'tutorial',
     'community_flooded_north_america',
     'community_charlemagne_814',
     'community_balkanized_usa',

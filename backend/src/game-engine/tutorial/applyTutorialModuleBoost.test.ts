@@ -97,6 +97,27 @@ describe('applyTutorialModuleBoost', () => {
     expect((state.players[1] as { tech_points?: number }).tech_points).toBeUndefined();
   });
 
+  it('grants gold when the lesson enabled the economy', () => {
+    // Regression: the era lessons set `economy_tech_starting_gold`, which
+    // `initializeGameState` deliberately ignores for tutorials — so the player
+    // reached the advance gate with 0 gold and had to grind income for it.
+    const state = minimalState({ economy_enabled: true, tutorial_grant_gold: 60 });
+    applyTutorialModuleBoost(state);
+    expect(state.players[0].special_resource).toBe(60);
+  });
+
+  it('does not grant gold when the lesson left the economy off', () => {
+    const state = minimalState({ economy_enabled: false, tutorial_grant_gold: 60 });
+    applyTutorialModuleBoost(state);
+    expect(state.players[0].special_resource).toBeUndefined();
+  });
+
+  it('does not grant gold to the AI seat', () => {
+    const state = minimalState({ economy_enabled: true, tutorial_grant_gold: 60 });
+    applyTutorialModuleBoost(state);
+    expect((state.players[1] as { special_resource?: number }).special_resource).toBeUndefined();
+  });
+
   it('faction_ability lesson: human player should be china_ww2', () => {
     // This is a contract test: the tutorial/start endpoint sets faction_id = 'china_ww2'.
     // Here we verify the boost function does not interfere with faction-only modules

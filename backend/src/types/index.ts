@@ -303,6 +303,15 @@ export interface GameSettings {
   tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
   tutorial_grant_tech_points?: number;
+  /**
+   * Bonus gold granted at tutorial module start (era-advancement lessons).
+   * Tutorials are deliberately excluded from the economy/tech bootstrap in
+   * `initializeGameState`, so `economy_tech_starting_gold` does nothing here —
+   * a lesson that needs a treasury asks for one explicitly.
+   */
+  tutorial_grant_gold?: number;
+  /** This tutorial is the combined first game (island board + era advancement). */
+  tutorial_combined?: boolean;
   /** True after Settings Lab choices are applied in the advanced_settings lesson. */
   tutorial_settings_lab_applied?: boolean;
   /** When true, the game runs asynchronously with long turn deadlines and notifications. */

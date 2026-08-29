@@ -128,9 +128,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     tutorial_lesson_module: isTutorialLessonModule(raw.tutorial_lesson_module)
       ? raw.tutorial_lesson_module
       : undefined,
+    tutorial_combined: typeof raw.tutorial_combined === 'boolean' ? raw.tutorial_combined : undefined,
     tutorial_grant_tech_points:
       typeof raw.tutorial_grant_tech_points === 'number' && raw.tutorial_grant_tech_points > 0
         ? raw.tutorial_grant_tech_points
+        : undefined,
+    tutorial_grant_gold:
+      typeof raw.tutorial_grant_gold === 'number' && raw.tutorial_grant_gold > 0
+        ? raw.tutorial_grant_gold
         : undefined,
     tutorial_settings_lab_applied:
       typeof raw.tutorial_settings_lab_applied === 'boolean'

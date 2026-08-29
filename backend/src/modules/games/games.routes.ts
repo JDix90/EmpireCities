@@ -17,6 +17,7 @@ import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
+import { COMBINED_TUTORIAL_SCENARIO } from '../../game-engine/tutorial/combinedTutorialScenario';
 import {
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
@@ -316,8 +317,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // Advancement is the exception: it must start in the Ancient era (the spine's
     // first step), so it runs on the Ancient map.
     const isEraAdvancement = lessonModule === 'era_advancement';
-    const mapId = isEraAdvancement ? 'era_ancient' : 'era_ww2';
-    const eraId = isEraAdvancement ? 'ancient' : 'ww2';
+    // The combined core lesson is one continuous first game: the three phases AND
+    // the era climb that makes Borderfall not-Risk, instead of ending in preview
+    // modals for systems this match doesn't have. It runs on Tutorial Island —
+    // 6 territories, locked rotation, authored globe framing — which is Ancient
+    // and small enough that the whole board is legible at a glance. Flag off
+    // returns new tutorials to the WW2 core lesson; games already created keep
+    // whatever shape they started with (`tutorial_combined` is snapshotted).
+    const isCombinedCore = lessonModule === 'core' && featureFlags.combinedTutorialEnabled;
+    const mapId = isCombinedCore ? 'tutorial' : isEraAdvancement ? 'era_ancient' : 'era_ww2';
+    const eraId = isCombinedCore || isEraAdvancement ? 'ancient' : 'ww2';
 
     const gameId = uuidv4();
     const tutorialSettings: Record<string, unknown> = {
@@ -341,7 +350,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       tutorialSettings.tech_trees_enabled = true;
       tutorialSettings.tutorial_grant_tech_points = 8;
     }
-    if (isEraAdvancement) {
+    if (isEraAdvancement || isCombinedCore) {
       // The short 2-era PoC spine (Skirmish preset) with a tech-only gate so the
       // lesson stays focused on research → advance. Stability and the building
       // requirement are dropped, and we grant generous research points + gold so
@@ -353,7 +362,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       tutorialSettings.era_advancement_preset = 'skirmish';
       tutorialSettings.era_advancement_min_buildings = 0;
       tutorialSettings.tutorial_grant_tech_points = 24;
-      tutorialSettings.economy_tech_starting_gold = 60;
+      // NOT economy_tech_starting_gold: initializeGameState skips the
+      // economy/tech bootstrap for tutorials on purpose, so that key is inert
+      // here. The grant seam is what actually funds the advance.
+      tutorialSettings.tutorial_grant_gold = 60;
+    }
+    if (isCombinedCore) {
+      tutorialSettings.tutorial_combined = true;
+      tutorialSettings.authored_scenario = COMBINED_TUTORIAL_SCENARIO;
     }
 
     // china_ww2 has "guerrilla_warfare" — a draft-phase ability the tutorial explicitly demos.

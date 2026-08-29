@@ -31,7 +31,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     title: 'Research Toward the Gate',
     message: 'Research an affordable tier-1 technology. Watch the gate chips at the top of the tree update as you go.',
     requireAction: 'tech_researched',
-    hint: 'Pick any tier-1 node — the gate needs a couple of techs in total.',
+    hint: 'Pick any tier-1 node. The gate wants a couple of those plus one tier-2 built on top of one of them.',
   },
   {
     id: 'ea_gate',
@@ -43,9 +43,11 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
   {
     id: 'ea_advance',
     title: 'Advance to Medieval',
-    message: 'Your gate is clear — open the Era panel and use **Advance Era**. Your units carry forward, your tech resets to the new era, and you gain a signature payoff.',
+    // Do not assert the gate is already clear: this step is reached after the
+    // first research, and the gate needs a tier-2 tech on top of the tier-1s.
+    message: 'Once every gate chip is green, open the Era panel and use **Advance Era**. Your units carry forward, your tech resets to the new era, and you gain a signature payoff.',
     requireAction: 'era_advanced',
-    hint: 'Find the Era Advancement panel in your sidebar and press Advance.',
+    hint: 'Still short? Research the missing nodes first — the Era Advancement panel in your sidebar shows what is left, and the Advance button lights up when nothing is.',
   },
   {
     id: 'ea_signature',

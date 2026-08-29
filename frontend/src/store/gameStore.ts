@@ -147,8 +147,10 @@ export interface GameState {
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;
     tutorial_step?: number;
-    tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree';
+    tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
     tutorial_grant_tech_points?: number;
+    /** This tutorial was created as the combined first game (island + era climb). */
+    tutorial_combined?: boolean;
     tutorial_settings_lab_applied?: boolean;
     victory_type?: string;
     allowed_victory_conditions?: string[];

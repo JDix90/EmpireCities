@@ -1,5 +1,7 @@
-import type { AuthoredScenario, GameState } from '../../types';
-import { syncTerritoryCounts } from '../state/gameStateManager';
+import type { AuthoredScenario, GameMap, GameState } from '../../types';
+import { calculateContinentBonuses, syncTerritoryCounts } from '../state/gameStateManager';
+import { calculateReinforcements } from '../combat/combatResolver';
+import { getPlayerReinforceBonus } from '../state/techManager';
 
 /**
  * Apply a hand-authored opening position on top of a freshly initialised game.
@@ -23,6 +25,7 @@ import { syncTerritoryCounts } from '../state/gameStateManager';
  */
 export function applyAuthoredScenario(
   state: GameState,
+  map: GameMap,
   scenario: AuthoredScenario | undefined,
   humanPlayerId: string | null,
   aiPlayerId: string | null,
@@ -70,4 +73,32 @@ export function applyAuthoredScenario(
   }
 
   syncTerritoryCounts(state);
+
+  if (scenario.starting_board || scenario.clear_board) {
+    recomputeOpeningDraft(state, map);
+  }
+}
+
+/**
+ * `initializeGameState` computes the opening draft from the board it dealt, so
+ * reshaping ownership afterwards leaves a reinforcement count for a board that
+ * no longer exists — including any region bonus the scenario just handed the
+ * player. Recompute it the same way init does.
+ *
+ * Only the opening draft, and only when it is non-zero: `applyDailyPuzzleScenario`
+ * runs at this same seam and deliberately zeroes the draft (a puzzle opens in
+ * the attack the player must find, not in a placement), and that choice must
+ * survive a scenario layered on top of it.
+ */
+function recomputeOpeningDraft(state: GameState, map: GameMap): void {
+  if (state.phase !== 'draft' || state.turn_number !== 1) return;
+  if (state.draft_units_remaining <= 0) return;
+
+  const firstPlayer = state.players[state.current_player_index];
+  if (!firstPlayer) return;
+
+  const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
+  state.draft_units_remaining =
+    calculateReinforcements(firstPlayer.territory_count, bonus, state.players.length)
+    + getPlayerReinforceBonus(state, firstPlayer.player_id);
 }
