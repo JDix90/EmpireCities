@@ -1122,12 +1122,20 @@ function GlobeMap({
   // memo object plus `autoSpin`. Both threw the camera away: `regionalGlobe` is
   // rebuilt whenever `mapData.globe_view` changes identity, which is every
   // `game:state` broadcast, so a player's zoom was reset by the opponent taking
-  // a turn — and toggling Spin re-snapped it too. Depending on the three numbers
-  // means it re-frames only when the map's authored framing actually changes,
-  // or when the globe remounts.
+  // a turn — and toggling Spin re-snapped it too. Depending on the values means
+  // it re-frames only when the map's authored framing actually changes.
+  //
+  // `width`/`height` are in the deps because the framing depends on them: the
+  // camera's vertical FOV is fixed, so the same altitude covers a different
+  // theater at a different canvas size. Applying the authored view only at
+  // `globeReadyTick` ran it against whatever size the canvas had at mount and
+  // left regional maps framed too far out. Re-running on resize is also the
+  // right behavior for a fixed regional camera — and unlike the old deps, a
+  // state broadcast or a spin toggle is not a resize.
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe) return;
+    if (width <= 0 || height <= 0) return;
     globe.pointOfView(
       {
         lat: regionalGlobe.centerLat,
@@ -1136,7 +1144,14 @@ function GlobeMap({
       },
       0,
     );
-  }, [regionalGlobe.centerLat, regionalGlobe.centerLng, regionalGlobe.altitude, globeReadyTick]);
+  }, [
+    regionalGlobe.centerLat,
+    regionalGlobe.centerLng,
+    regionalGlobe.altitude,
+    globeReadyTick,
+    width,
+    height,
+  ]);
 
   // WI2 — pause idle auto-spin while it's the viewing player's turn (so their
   // territories don't drift off-screen), and resume the gentle spin on others'

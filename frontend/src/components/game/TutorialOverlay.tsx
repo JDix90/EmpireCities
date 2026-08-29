@@ -59,6 +59,13 @@ interface TutorialOverlayProps {
    * sit).
    */
   behindModal?: boolean;
+  /**
+   * A full-screen game panel (tech tree, bonuses, settings lab) is open. Unlike
+   * `behindModal` the card must stay on top and readable — its copy is what
+   * tells the player what to do inside that panel — so it docks out of the
+   * panel's way instead of dropping behind it.
+   */
+  panelOpen?: boolean;
 }
 
 export default function TutorialOverlay({
@@ -78,6 +85,7 @@ export default function TutorialOverlay({
   playerColorName,
   centered = false,
   behindModal = false,
+  panelOpen = false,
 }: TutorialOverlayProps) {
   const step = steps[stepIndex];
   const [whyOpen, setWhyOpen] = useState(false);
@@ -86,6 +94,14 @@ export default function TutorialOverlay({
   const completedModules = getCompletedTutorialModules();
   const isMobile = isMobileViewport();
   const anchorTop = isMobile && !centered && !!step.requireAction;
+  /**
+   * Dock left of a centered full-screen panel. The coaching card sits
+   * bottom-center by default, which is exactly where the tech tree's Research
+   * buttons are — it covered the very controls its own copy was telling the
+   * player to press. Desktop only; on mobile the panel fills the screen and
+   * `anchorTop` already moves the card clear.
+   */
+  const dockAside = panelOpen && !isMobile && !centered;
 
   const handleModuleComplete = () => {
     onMarkModuleComplete?.();
@@ -111,7 +127,9 @@ export default function TutorialOverlay({
             ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg'
             : anchorTop
               ? 'absolute left-1/2 -translate-x-1/2 max-w-md top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
-              : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
+              : dockAside
+                ? 'absolute bottom-20 left-0 max-w-[19rem]'
+                : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
         )}
       >
         <div
