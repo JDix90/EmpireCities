@@ -138,7 +138,9 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
       className={clsx(
         'overflow-hidden',
         embedded
-          ? 'w-full shrink-0 border-t border-bf-border bg-bf-dark/50'
+          // Capped so the composer, emoji and GIF rows can't grow the chat into
+          // the sidebar's action button above it.
+          ? 'w-full shrink-0 max-h-[45%] flex flex-col border-t border-bf-border bg-bf-dark/50'
           : 'fixed bottom-4 right-4 z-[80] w-[280px] max-w-[calc(100vw-2rem)] rounded-lg border border-bf-border bg-bf-surface/95 shadow-xl backdrop-blur-sm',
       )}
     >

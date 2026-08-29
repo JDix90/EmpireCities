@@ -237,18 +237,27 @@ export default function GameHUD({
 
   return (
     <div className={clsx(
+      // No `h-full` here: inside the flex-col sidebar it resolves against the
+      // full column height, so the HUD claimed the lot and the shrink-0 chat
+      // below it had nowhere to go — the overflow painted over the chat and the
+      // pinned action button.
       'flex flex-col min-h-0 bg-bf-surface',
       mobile
         ? 'flex-1 overflow-y-auto'
-        : 'flex flex-1 min-h-0 h-full',
+        : 'flex flex-1 min-h-0',
     )}>
       {/* ── Pinned header: phase + era progress (the always-on "glance" zone) ── */}
       {/* Exposed as a polite live region so screen-reader users hear "Turn 4,
           attack phase, your turn" each time it changes, not just on first focus.
           `aria-current="step"` flags the active phase semantically. */}
+      {/* Scrolls internally rather than growing without bound: AdvanceEraPanel
+          expands itself the moment advancement becomes available, and on a short
+          window that growth used to push the phase-advance button out of the
+          column entirely. */}
       <div
         className={clsx(
-          'shrink-0 p-4 border-b border-bf-border',
+          'p-4 border-b border-bf-border',
+          mobile ? 'shrink-0' : 'min-h-0 overflow-y-auto',
           isMyTurn ? 'bg-bf-gold/10' : 'bg-bf-dark/50',
         )}
         role="status"

@@ -4231,7 +4231,9 @@ export default function GamePage() {
 
         {/* HUD Sidebar (desktop only — chat lives here too; see single mobile chat below) */}
         {!isMobileLayout && (
-          <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 border-l border-bf-border">
+          // overflow-hidden is the containment backstop: without it any residual
+          // overflow paints over the chat instead of being clipped.
+          <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 overflow-hidden border-l border-bf-border">
             <GameHUD
               onAdvancePhase={handleAdvancePhase}
               onDraftUndo={handleDraftUndo}
