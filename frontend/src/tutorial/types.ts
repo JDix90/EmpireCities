@@ -54,9 +54,16 @@ export interface TutorialModuleMeta {
 export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
   {
     id: 'core',
+    // Describes the combined core tutorial, which is what `combined_tutorial_enabled`
+    // (on by default) ships. With the flag off this module is the classic WW2
+    // lesson instead — shorter, and about cards rather than the era climb.
     title: 'Core Tutorial',
-    description: 'Draft, attack, fortify, cards, and victory basics.',
-    estimatedMinutes: 6,
+    description: 'Draft, attack, fortify, and your first era advance.',
+    // ~4 min of reading across 15 cards (817 words) plus 8 interactive beats:
+    // three turns of the loop, an opponent turn, three techs and the advance.
+    // Provisional until real `game_finished.duration_ms` medians exist — but
+    // measured, not the 6 min this claimed when it was a different lesson.
+    estimatedMinutes: 9,
   },
   {
     id: 'advanced_settings',
@@ -83,3 +90,8 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     estimatedMinutes: 5,
   },
 ];
+
+/** Single source for the core tutorial's advertised length. */
+export function tutorialModuleMinutes(id: TutorialLessonModule): number {
+  return TUTORIAL_MODULES.find((m) => m.id === id)?.estimatedMinutes ?? 5;
+}
