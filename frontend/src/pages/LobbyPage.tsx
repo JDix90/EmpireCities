@@ -24,6 +24,7 @@ import {
   Trash2, Timer, GraduationCap, Bot, Info, Calendar, Sword, Trophy,
 } from 'lucide-react';
 import TopNavBar from '../components/ui/TopNavBar';
+import GuestGate from '../components/GuestGate';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
@@ -836,6 +837,10 @@ export default function LobbyPage() {
   }, [rankedEra]);
 
   const joinRankedQueue = async (bucket: string) => {
+    if (user?.is_guest) {
+      navigate('/upgrade');
+      return;
+    }
     try {
       const res = await api.post<{
         queued: boolean;
@@ -1574,25 +1579,13 @@ export default function LobbyPage() {
 
         {/* Solo campaign — lobby CTA (context-aware) */}
         {user?.is_guest ? (
-          <div className="card mb-6 border border-bf-border/80 bg-bf-surface/40">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-start gap-3 min-w-0">
-                <Sword className="w-6 h-6 text-bf-gold shrink-0 mt-0.5" aria-hidden />
-                <div>
-                  <h3 className="font-display text-lg text-bf-gold">Solo campaign</h3>
-                  <p className="text-bf-muted text-sm mt-1">
-                    Play the six-era narrative — create a free account to save progress and unlock paths.
-                  </p>
-                </div>
-              </div>
-              <Link
-                to="/upgrade"
-                className="btn-secondary self-start sm:self-center shrink-0 min-h-[44px] inline-flex items-center justify-center px-4 touch-manipulation"
-              >
-                Create account
-              </Link>
-            </div>
-          </div>
+          <GuestGate
+            className="mb-6"
+            icon={Sword}
+            title="Solo campaign"
+            description="Play the six-era narrative — create a free account to save progress and unlock paths."
+            ctaLabel="Create account"
+          />
         ) : !campaignMeReady ? (
           <div
             className="card mb-6 h-[108px] animate-pulse bg-bf-surface/40 border border-bf-border/60 rounded-xl"
@@ -1849,6 +1842,11 @@ export default function LobbyPage() {
                         ? `${dailySummary.attempts_today} commander${dailySummary.attempts_today === 1 ? '' : 's'} attempted today.`
                         : 'One puzzle per day, same map for everyone.'}
                     </p>
+                    {/* Playing one needs an account (rejectGuest on POST /daily/start) — say so
+                        here rather than letting the click dead-end. */}
+                    {user?.is_guest && (
+                      <p className="text-bf-gold/70 text-[11px] mt-1.5">Free account required</p>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1916,7 +1914,19 @@ export default function LobbyPage() {
             </div>
 
             {/* Ranked Matchmaking Panel */}
-            {lobbyTab === 'ranked' && (
+            {lobbyTab === 'ranked' && user?.is_guest && (
+              // Ranked is registered-only end to end (rejectGuest on
+              // /matchmaking/join and the weekly submit), so show the offer
+              // instead of a queue whose buttons would all 403.
+              <GuestGate
+                className="mb-8 animate-fade-in"
+                icon={Trophy}
+                title="Ranked matchmaking"
+                description="Ranked games and the weekly seeded challenge need a free account — that's what a rating and a leaderboard place attach to. Everything you've played so far carries over."
+              />
+            )}
+
+            {lobbyTab === 'ranked' && !user?.is_guest && (
               <div className="card mb-8 animate-fade-in">
             <h3 className="font-display text-xl text-bf-gold mb-2 flex items-center gap-2">
               {rankedMultiSizeEnabled ? 'Ranked Matchmaking' : 'Ranked 1v1 Matchmaking'}
