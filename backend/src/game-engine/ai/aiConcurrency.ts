@@ -48,8 +48,9 @@ export class Semaphore {
 /**
  * Global cap on concurrent AI turn computations.
  *
- * Each AI turn spawns a worker THREAD running depth-3/4 minimax (see
- * runAiWithTimeout). With no cap, a burst of solo-vs-AI games (the default
+ * Each AI turn spawns a worker THREAD (see runAiWithTimeout). The planner is
+ * cheap, but the thread itself plus the structured-clone of state+map is not.
+ * With no cap, a burst of solo-vs-AI games (the default
  * new-player path) spins up hundreds of worker threads at once, oversubscribing
  * CPU, blowing AI time budgets, and stalling the main Socket.IO event loop —
  * which delays HUMAN broadcasts too. We bound concurrency to roughly the core

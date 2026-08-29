@@ -12,6 +12,7 @@ import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { hapticImpact } from '../../utils/haptics';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
+import { HIGHLIGHT_PIXI } from '../../constants/highlightColors';
 import {
   STRIKE_MAP_STYLES,
   type MapStrikeFlashProps,
@@ -739,12 +740,12 @@ export default function GameMap({
 
       // Highlight selected territory
       if (territory.territory_id === selectedTerritory || territory.territory_id === attackSource) {
-        borderColor = 0xffd700;
+        borderColor = HIGHLIGHT_PIXI.selected;
       } else if (adjacencyTargets.has(territory.territory_id)) {
-        borderColor = gameState.phase === 'attack' ? 0xf87171 : 0x4ade80;
+        borderColor = gameState.phase === 'attack' ? HIGHLIGHT_PIXI.attackTarget : HIGHLIGHT_PIXI.fortifyTarget;
       } else if (validSources.has(territory.territory_id)) {
-        // Emerald "you can act from here" outline (only when no source is picked).
-        borderColor = 0x34d399;
+        // "You can act from here" outline (only when no source is picked).
+        borderColor = HIGHLIGHT_PIXI.validSource;
       }
 
       // Wonder glow: thick golden border for territories with a wonder building
@@ -755,14 +756,14 @@ export default function GameMap({
         g.clear();
         for (const scaledPolygon of scaledRings) {
           if (scaledPolygon.length < 3) continue;
-          g.lineStyle(4, 0xffd700, 0.75);
+          g.lineStyle(4, HIGHLIGHT_PIXI.wonder, 0.75);
           g.beginFill(0, 0);
           g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
           for (let i = 1; i < scaledPolygon.length; i++) g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
           g.closePath();
           g.endFill();
         }
-        borderColor = 0xffd700;
+        borderColor = HIGHLIGHT_PIXI.wonder;
       }
       const adjacencyBorderWidth = adjacencyTargets.has(territory.territory_id) && emphasizeAdjacencyBorders
         ? 3.25
@@ -920,7 +921,7 @@ export default function GameMap({
       const alpha = 0.55 + 0.45 * Math.abs(Math.sin(t));
       const r = 20 * scale;
       ring.clear();
-      ring.lineStyle(3, 0xffd700, alpha);
+      ring.lineStyle(3, HIGHLIGHT_PIXI.coach, alpha);
       ring.drawCircle(cx, cy, r);
     });
     // Don't start while hidden; the visibility effect starts it on resume.

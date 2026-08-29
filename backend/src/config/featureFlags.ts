@@ -1,22 +1,127 @@
 import { config } from './index';
 import { getFeatureFlagOverrides } from '../services/adminConfig';
 
-function overrideBool(key: string, envDefault: boolean): boolean {
+/** Opt-in env flag: OFF unless the variable is exactly 'true'. */
+function envOptIn(name: string): boolean {
+  return process.env[name] === 'true';
+}
+
+/** Opt-out env flag: ON unless the variable is exactly 'false'. */
+function envOptOut(name: string): boolean {
+  return process.env[name] !== 'false';
+}
+
+/**
+ * Explicit env value wins ('true'/'false'); with nothing set, ON only in
+ * production. For flags that should be live for players but must never fire
+ * from a developer's laptop or a test run (outbound email/push).
+ */
+function envOrProdOnly(name: string): boolean {
+  const value = process.env[name];
+  if (value != null && value !== '') return value === 'true';
+  return config.nodeEnv === 'production';
+}
+
+/**
+ * The code default for every admin-manageable flag — the single source of truth.
+ *
+ * Precedence is: `admin_config.feature_flags` override (if the key is present
+ * with a boolean) → this table. Nothing else may seed the override row; a key
+ * pre-seeded into `DEFAULTS.feature_flags` would shadow its entry here forever
+ * (see the comment on `DEFAULTS.feature_flags` in services/adminConfig.ts).
+ *
+ * Consumed by `overrideBool`, `getFeatureFlagStates` (admin panel three-state
+ * display), and `scripts/pruneFeatureFlagOverrides.ts`.
+ */
+export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
+  // Product analytics: on everywhere except tests, where the emitted JSON lines
+  // and fire-and-forget inserts are pure noise.
+  analytics_events_enabled: () => envOptOut('ANALYTICS_EVENTS_ENABLED') && config.nodeEnv !== 'test',
+  metrics_endpoint_enabled: () => {
+    const envValue = process.env.METRICS_ENDPOINT_ENABLED;
+    if (envValue == null || envValue === '') return config.nodeEnv !== 'production';
+    return envValue === 'true';
+  },
+  socket_debug: () => config.nodeEnv === 'development' && envOptIn('SOCKET_DEBUG'),
+
+  map_editor_enabled: () => envOptIn('MAP_EDITOR_ENABLED'),
+  first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
+  turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
+  onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
+  hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
+  era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
+  era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
+  ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
+  signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  // Outbound email/push — production-only unless explicitly set.
+  retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
+  streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
+  today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
+  async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
+  spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
+  space_age_frontiers_enabled: () => envOptIn('SPACE_AGE_FRONTIERS_ENABLED'),
+  ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
+  match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
+};
+
+/** The code default for one flag (no admin override consulted). */
+export function getFeatureFlagCodeDefault(key: string): boolean {
+  return FLAG_CODE_DEFAULTS[key]?.() ?? false;
+}
+
+function overrideBool(key: string): boolean {
   const o = getFeatureFlagOverrides();
   if (Object.prototype.hasOwnProperty.call(o, key) && typeof (o as Record<string, unknown>)[key] === 'boolean') {
     return (o as Record<string, boolean>)[key];
   }
-  return envDefault;
+  return getFeatureFlagCodeDefault(key);
+}
+
+export interface FeatureFlagState {
+  /** What the code/env says with no admin override in play. */
+  code_default: boolean;
+  /** True when `admin_config.feature_flags` pins this key (a forced on/off). */
+  overridden: boolean;
+  /** What the app actually sees right now. */
+  effective: boolean;
 }
 
 /**
- * Feature flags from environment (Phase C rollout). Defaults favor safe/off in production.
- * Admin may override via `admin_config.feature_flags` (see `getFeatureFlagOverrides`).
+ * Every admin-manageable flag with its code default, whether an override pins
+ * it, and the resulting effective value. Backs the admin panel's
+ * default / forced-on / forced-off display and the prune script.
+ */
+export function getFeatureFlagStates(): Record<string, FeatureFlagState> {
+  const overrides = getFeatureFlagOverrides() as Record<string, unknown>;
+  const states: Record<string, FeatureFlagState> = {};
+  for (const key of Object.keys(FLAG_CODE_DEFAULTS)) {
+    const codeDefault = getFeatureFlagCodeDefault(key);
+    const overridden =
+      Object.prototype.hasOwnProperty.call(overrides, key) && typeof overrides[key] === 'boolean';
+    states[key] = {
+      code_default: codeDefault,
+      overridden,
+      effective: overridden ? (overrides[key] as boolean) : codeDefault,
+    };
+  }
+  return states;
+}
+
+/**
+ * Feature flags. Each getter resolves an admin override first, then falls back
+ * to its `FLAG_CODE_DEFAULTS` entry — so a flag's committed default lives in
+ * exactly one place and the `admin_config.feature_flags` row means "explicit
+ * operator override" (the kill switch), nothing more.
  */
 export const featureFlags = {
-  /** When true, emit structured analytics events to logs (see analyticsEvents). */
+  /**
+   * When true, emit structured analytics events to logs and persist them to
+   * `analytics_events`. Default ON (off in tests) — the funnel and retention
+   * reports are only as good as the cohort history, which accrues from the
+   * moment this is live.
+   */
   get analyticsEventsEnabled(): boolean {
-    return overrideBool('analytics_events_enabled', process.env.ANALYTICS_EVENTS_ENABLED === 'true');
+    return overrideBool('analytics_events_enabled');
   },
 
   /**
@@ -29,82 +134,71 @@ export const featureFlags = {
    * an internal-only listener) when you want to scrape it.
    */
   get metricsEndpointEnabled(): boolean {
-    const envValue = process.env.METRICS_ENDPOINT_ENABLED;
-    let envDefault: boolean;
-    if (envValue == null || envValue === '') {
-      envDefault = config.nodeEnv !== 'production';
-    } else {
-      envDefault = envValue === 'true';
-    }
-    return overrideBool('metrics_endpoint_enabled', envDefault);
+    return overrideBool('metrics_endpoint_enabled');
   },
 
   /** Verbose socket debug (development only — never enable in prod). */
   get socketDebug(): boolean {
-    return overrideBool(
-      'socket_debug',
-      config.nodeEnv === 'development' && process.env.SOCKET_DEBUG === 'true',
-    );
+    return overrideBool('socket_debug');
   },
 
-  /** When true, registered users can access the Map Editor UI and create/publish custom maps. */
+  /**
+   * When true, registered users can access the Map Editor UI and create/publish
+   * custom maps. Default OFF until the publish → moderation → community loop
+   * is wired end to end.
+   */
   get mapEditorEnabled(): boolean {
-    return overrideBool('map_editor_enabled', false);
+    return overrideBool('map_editor_enabled');
   },
 
   /**
    * When true, brand-new players (xp 0) get a lightly-coached first turn on the
    * globe — place/attack/fortify prompts + an owned-territory pulse. First-game
-   * only, globe only, gated client-side. Default OFF — dark-launch; flip on
-   * after a staging check.
+   * only, globe only, gated client-side. Default ON.
    */
   get firstTurnCoachEnabled(): boolean {
-    return overrideBool('first_turn_coach_enabled', process.env.FIRST_TURN_COACH_ENABLED === 'true');
+    return overrideBool('first_turn_coach_enabled');
   },
 
   /**
    * When true, the in-game "turn clarity" affordances are shown: the persistent
    * phase-progression bar, valid source/target highlighting, and reinforcement
    * undo. Purely presentational/quality-of-life; the server stays authoritative.
-   * Default OFF — dark-launch; flip on via `TURN_CLARITY_ENABLED=true` or the
-   * `turn_clarity_enabled` admin override after a staging check.
+   * Default ON.
    */
   get turnClarityEnabled(): boolean {
-    return overrideBool('turn_clarity_enabled', process.env.TURN_CLARITY_ENABLED === 'true');
+    return overrideBool('turn_clarity_enabled');
   },
 
   /**
    * When true, the landing page's "Play as Guest" CTA drops a brand-new guest
    * straight into the guided tutorial match (/tutorial?start=1) instead of the
    * lobby — collapsing landing → lobby → welcome-modal → tutorial into one click.
-   * Client-side routing only. Default OFF — dark-launch so it can be A/B'd
-   * (guest → tutorial vs guest → lobby) against the first-session funnel.
+   * Client-side routing only. Default ON.
    */
   get onboardingTutorialFirstEnabled(): boolean {
-    return overrideBool('onboarding_tutorial_first_enabled', process.env.ONBOARDING_TUTORIAL_FIRST_ENABLED === 'true');
+    return overrideBool('onboarding_tutorial_first_enabled');
   },
 
   /**
    * When true, the landing hero collapses to ONE dominant Play CTA (direct
    * guest start + "No account • No download" microcopy + a single "See
    * gameplay" secondary); the competing nav Play/Learn buttons hide and Sign
-   * In demotes to a header utility. Presentational A/B — hero_play_clicked
-   * carries a `variant` prop so the visitor funnel reads the test directly.
-   * Default OFF — dark-launch.
+   * In demotes to a header utility. `hero_play_clicked` carries a `variant`
+   * prop so the visitor funnel still reads the split. Default ON.
    */
   get heroSingleCtaEnabled(): boolean {
-    return overrideBool('hero_single_cta_enabled', process.env.HERO_SINGLE_CTA_ENABLED === 'true');
+    return overrideBool('hero_single_cta_enabled');
   },
 
   /**
    * When true, advancing an era shows the advancing player a "payoff" moment —
    * a celebratory modal naming the era entered, the newly-unlocked signature
    * ability, the legacy carry, and the vulnerability window — instead of just a
-   * toast. Client-side only (era advancement itself is unchanged). Default OFF —
-   * dark-launch; flip via `ERA_ADVANCE_PAYOFF_ENABLED=true` or the admin override.
+   * toast. Client-side only (era advancement itself is unchanged). Default ON.
    */
   get eraAdvancePayoffEnabled(): boolean {
-    return overrideBool('era_advance_payoff_enabled', process.env.ERA_ADVANCE_PAYOFF_ENABLED === 'true');
+    return overrideBool('era_advance_payoff_enabled');
   },
 
   /**
@@ -114,7 +208,7 @@ export const featureFlags = {
    * Advancement is a separate flag, `ranked_era_advancement_enabled`, still off.)
    */
   get eraAdvancementLobbyEnabled(): boolean {
-    return overrideBool('era_advancement_lobby_enabled', true);
+    return overrideBool('era_advancement_lobby_enabled');
   },
 
   /**
@@ -124,29 +218,29 @@ export const featureFlags = {
    * on the 1v1 snowball). Server-side only.
    */
   get rankedEraAdvancementEnabled(): boolean {
-    return overrideBool('ranked_era_advancement_enabled', false);
+    return overrideBool('ranked_era_advancement_enabled');
   },
 
   /**
    * When true, guests get a one-time "save your progress — create a free
    * account" nudge after finishing a non-tutorial game (once per tab session,
-   * client-side). Default OFF (dark-launch, matching first_turn_coach) — flip on
-   * via `SIGNUP_NUDGE_ENABLED=true` or the `signup_nudge_enabled` admin override
-   * after a staging eyeball.
+   * client-side). Default ON.
    */
   get signupNudgeEnabled(): boolean {
-    return overrideBool('signup_nudge_enabled', process.env.SIGNUP_NUDGE_ENABLED === 'true');
+    return overrideBool('signup_nudge_enabled');
   },
 
   /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
-   * Default OFF — dark-launch so the sweep can be enabled (and killed) from
-   * the admin panel via the `retention_notifications_enabled` override without
-   * a redeploy. See workers/retentionNotificationWorker.ts.
+   * Default ON **in production only** — outbound mail must never fire from a
+   * developer's machine or a test run. Set `RETENTION_NOTIFICATIONS_ENABLED`
+   * explicitly to force either way; the `retention_notifications_enabled`
+   * admin override is the live kill switch.
+   * See workers/retentionNotificationWorker.ts.
    */
   get retentionNotificationsEnabled(): boolean {
-    return overrideBool('retention_notifications_enabled', process.env.RETENTION_NOTIFICATIONS_ENABLED === 'true');
+    return overrideBool('retention_notifications_enabled');
   },
 
   /**
@@ -157,7 +251,7 @@ export const featureFlags = {
    * Default OFF — dark-launch.
    */
   get streakFreezesEnabled(): boolean {
-    return overrideBool('streak_freezes_enabled', process.env.STREAK_FREEZES_ENABLED === 'true');
+    return overrideBool('streak_freezes_enabled');
   },
 
   /**
@@ -166,7 +260,7 @@ export const featureFlags = {
    * same endpoints either way. Default OFF — dark-launch.
    */
   get todayPanelEnabled(): boolean {
-    return overrideBool('today_panel_enabled', process.env.TODAY_PANEL_ENABLED === 'true');
+    return overrideBool('today_panel_enabled');
   },
 
   /**
@@ -176,7 +270,7 @@ export const featureFlags = {
    * because instant solo stays the primary CTA everywhere.
    */
   get asyncOnboardingEnabled(): boolean {
-    return overrideBool('async_onboarding_enabled', process.env.ASYNC_ONBOARDING_ENABLED === 'true');
+    return overrideBool('async_onboarding_enabled');
   },
 
   /**
@@ -188,7 +282,7 @@ export const featureFlags = {
    * Enforced server-side (list + socket join), not just hidden in the client.
    */
   get spectateEnabled(): boolean {
-    return overrideBool('spectate_enabled', process.env.SPECTATE_ENABLED === 'true');
+    return overrideBool('spectate_enabled');
   },
 
   /**
@@ -202,7 +296,7 @@ export const featureFlags = {
    * at create; the engine reads the setting (stays pure).
    */
   get spaceAgeFrontiersEnabled(): boolean {
-    return overrideBool('space_age_frontiers_enabled', process.env.SPACE_AGE_FRONTIERS_ENABLED === 'true');
+    return overrideBool('space_age_frontiers_enabled');
   },
 
   /**
@@ -216,7 +310,7 @@ export const featureFlags = {
    * (attemptMatch ignores the preference column entirely), so nobody strands.
    */
   get rankedMultiSizeEnabled(): boolean {
-    return overrideBool('ranked_multi_size_enabled', process.env.RANKED_MULTI_SIZE_ENABLED === 'true');
+    return overrideBool('ranked_multi_size_enabled');
   },
 
   /**
@@ -230,7 +324,7 @@ export const featureFlags = {
    * `match_alerts_enabled` admin override.
    */
   get matchAlertsEnabled(): boolean {
-    return overrideBool('match_alerts_enabled', process.env.MATCH_ALERTS_ENABLED === 'true');
+    return overrideBool('match_alerts_enabled');
   },
 };
 

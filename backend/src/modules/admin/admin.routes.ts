@@ -6,11 +6,14 @@ import { query, queryOne, withTransaction } from '../../db/postgres';
 import { removeFromAllLeaderboards } from '../../db/redis';
 import { getInitialRatings } from '../../game-engine/rating/ratingService';
 import {
+  applyFeatureFlagPatch,
   getAdminConfigSnapshot,
+  getFeatureFlagOverrides,
   refreshAdminConfigCache,
   upsertAdminConfig,
   type AdminConfigState,
 } from '../../services/adminConfig';
+import { getFeatureFlagStates } from '../../config/featureFlags';
 import {
   isMatchmakingPaused,
   setMatchmakingPaused,
@@ -344,6 +347,9 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/config', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
     return reply.send({
       config: getAdminConfigSnapshot(),
+      // Per-flag code default / override / effective value, so the panel can show
+      // whether a flag is running on its committed default or is being forced.
+      feature_flag_states: getFeatureFlagStates(),
       matchmaking_paused: isMatchmakingPaused(),
     });
   });
@@ -364,10 +370,18 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: 'Unsupported config key' });
     }
 
-    await upsertAdminConfig(key, parsed.data.value, request.userId);
+    let nextValue = parsed.data.value;
+    if (key === 'feature_flags') {
+      // Flags patch as a delta; null clears an override. See applyFeatureFlagPatch.
+      const merged = applyFeatureFlagPatch(getFeatureFlagOverrides(), parsed.data.value);
+      if ('error' in merged) return reply.status(400).send({ error: merged.error });
+      nextValue = merged.next;
+    }
+
+    await upsertAdminConfig(key, nextValue, request.userId);
     await writeAuditLog(request.userId, 'admin_config_updated', {
       key,
-      value: parsed.data.value,
+      value: nextValue,
     });
     return reply.send({ ok: true });
   });

@@ -23,6 +23,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
+import { HIGHLIGHT_CSS, highlightRgba } from '../../constants/highlightColors';
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
@@ -2972,10 +2973,11 @@ function GlobeMap({
     (polygon: object) => {
       const p = polygon as PolygonData;
       if (p.territory_id === selectedTerritory || p.territory_id === attackSource) {
-        return '#ffd700';
+        return HIGHLIGHT_CSS.selected;
       }
       if (adjacencyTargets.has(p.territory_id)) {
-        const phaseColor = gameState?.phase === 'attack' ? '#f87171' : '#4ade80';
+        const phaseColor =
+          gameState?.phase === 'attack' ? HIGHLIGHT_CSS.attackTarget : HIGHLIGHT_CSS.fortifyTarget;
         return emphasizeAdjacencyBorders ? phaseColor : phaseColor;
       }
       if (
@@ -3111,14 +3113,15 @@ function GlobeMap({
         id: `valid-source-${tid}`,
         lat: center.lat,
         lng: center.lng,
-        // Bright, prominent emerald pulse — the whole point of the hint is to be
+        // Bright, prominent pulse — the whole point of the hint is to be
         // impossible to miss. Was too faint (0.55 opacity / 0.8 radius) to read
-        // over the textured globe; now on par with the tutorial/coach rings but
-        // kept emerald so it never reads as the gold tutorial/coach pulse.
+        // over the textured globe; now on par with the tutorial/coach rings, in
+        // the shared validSource colour so it reads neither as the gold coach
+        // pulse nor as a player's faction.
         maxRadius: 1.3,
         speed: 1.6,
         repeatPeriod: 850,
-        colorFn: (x: number) => `rgba(52, 231, 160, ${Math.max(0, 0.9 - x)})`,
+        colorFn: (x: number) => highlightRgba('validSource', Math.max(0, 0.9 - x)),
       });
     }
     return out;

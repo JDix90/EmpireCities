@@ -7,7 +7,13 @@
 3. **Configure** `.env.production` (see [DEPLOYMENT.md](../DEPLOYMENT.md) and `.env.production.example`).
 4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed`).
 5. **Smoke:** `./scripts/smoke-production.sh https://your-domain` — checks `/health` and `/ready`.
-6. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
+6. **Feature flags** — after a release that changes a committed default in `FLAG_CODE_DEFAULTS`, clear overrides that merely restate it, or the old pins keep winning:
+   ```bash
+   pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts          # preview
+   pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts --apply
+   ```
+   Then confirm in Admin → Config that each flag reads *Default* or an intended *Forced on/off*, and spot-check `GET /api/feature-flags`.
+7. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
 
 ### Deploy key (private repo access)
 
@@ -92,9 +98,11 @@ git checkout <previous-good-sha>
 | `GET /ready` | Postgres and Redis respond — use for load balancer readiness. |
 | `GET /metrics/json` | Process metrics (`METRICS_ENDPOINT_ENABLED=false` to disable). |
 
-## Structured analytics (optional)
+## Structured analytics
 
-Set `ANALYTICS_EVENTS_ENABLED=true` to emit JSON lines for events such as `daily_challenge_settled` (see `backend/src/services/analyticsEvents.ts`). Forward logs to your analytics or warehouse pipeline.
+On by default (`analytics_events_enabled`): events such as `daily_challenge_settled` are written to the `analytics_events` table and emitted as JSON log lines (see `backend/src/services/analyticsEvents.ts`). Forward logs to your analytics or warehouse pipeline if you want them there too.
+
+Cohorts only accrue while this is on, so turning it off blinds every later funnel/retention readout for that window — prefer leaving it on. Read the funnel with `pnpm -C backend exec tsx scripts/funnelReport.ts 30` or Admin → Analytics. To disable for one deployment, set `ANALYTICS_EVENTS_ENABLED=false`; to kill it live, force the flag off in Admin → Config.
 
 ## Incident checklist
 

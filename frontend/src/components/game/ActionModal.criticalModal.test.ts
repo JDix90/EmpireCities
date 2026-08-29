@@ -32,10 +32,16 @@ describe('isCriticalModal', () => {
     expect(isCriticalModal(combat({ territory_captured: true, capitalLost: true }))).toBe(true);
   });
 
-  it('drops ordinary combat results and turn summaries', () => {
+  it('drops ordinary combat results', () => {
     expect(isCriticalModal(combat())).toBe(false);
     expect(isCriticalModal(combat({ territory_captured: true }))).toBe(false);
-    expect(isCriticalModal({ type: 'turn_summary' } as ModalData)).toBe(false);
+  });
+
+  it('keeps the turn summary, which now carries the whole turn', () => {
+    // The turn's own combat modals are folded into the summary at end of turn
+    // (utils/modalQueueOps), so dropping it on a Skip-all would erase the only
+    // record of what happened that turn.
+    expect(isCriticalModal({ type: 'turn_summary' } as ModalData)).toBe(true);
   });
 
   it('filters a mixed backlog down to only the critical entries', () => {
@@ -47,7 +53,11 @@ describe('isCriticalModal', () => {
       { type: 'game_over' } as ModalData,
     ];
     const kept = queue.filter(isCriticalModal);
-    expect(kept).toHaveLength(2);
-    expect(kept.map((m) => (m.type === 'combat' ? 'capital' : m.type))).toEqual(['capital', 'game_over']);
+    expect(kept).toHaveLength(3);
+    expect(kept.map((m) => (m.type === 'combat' ? 'capital' : m.type))).toEqual([
+      'capital',
+      'turn_summary',
+      'game_over',
+    ]);
   });
 });

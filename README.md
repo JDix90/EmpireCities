@@ -112,7 +112,7 @@ borderfall/
 │       └── game-engine/
 │           ├── combat/           # Dice resolver, card bonuses, reinforcements
 │           ├── state/            # Game state initializer and mutators
-│           ├── ai/               # AI bot (minimax + alpha-beta, timeout worker)
+│           ├── ai/               # AI bot (single-ply greedy planner, timeout worker)
 │           ├── eras/             # Factions, tech trees, wonders per era
 │           ├── events/           # Event card decks + effect applicator
 │           ├── victory/          # Secret mission assignment + evaluation

@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { UserPlus, Users, UserMinus, Check, X } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import GuestGate from '../components/GuestGate';
 
 interface Friend {
   user_id: string;
@@ -122,10 +123,12 @@ export default function FriendsPage() {
   if (user?.is_guest) {
     return (
       <SubpageShell title="FRIENDS" icon={Users} maxWidth="lg">
-        <div className="text-center py-12 space-y-4">
-          <p className="text-bf-muted">Create a free account to use friends — your progress carries over.</p>
-          <Link to="/upgrade" className="btn-primary">Create Account</Link>
-        </div>
+        <GuestGate
+          variant="page"
+          title="Friends"
+          description="Create a free account to add friends and challenge them — your progress carries over."
+          ctaLabel="Create Account"
+        />
       </SubpageShell>
     );
   }

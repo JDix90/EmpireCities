@@ -8,7 +8,7 @@ import { redis } from '../db/redis';
  * served the request; other nodes keep serving stale economy/matchmaking/XP
  * config until they restart.
  */
-const ADMIN_CONFIG_CHANNEL = 'admin-config:invalidate';
+export const ADMIN_CONFIG_CHANNEL = 'admin-config:invalidate';
 let configSub: ReturnType<typeof redis.duplicate> | null = null;
 
 export type GameType = 'solo' | 'multiplayer' | 'hybrid';
@@ -58,7 +58,7 @@ export interface AdminConfigState {
   feature_flags: Record<string, boolean>;
 }
 
-const DEFAULTS: AdminConfigState = {
+export const DEFAULTS: AdminConfigState = {
   economy: {
     building_costs: {
       production_1: 3, production_2: 6, production_3: 10, production_4: 15,
@@ -107,10 +107,15 @@ const DEFAULTS: AdminConfigState = {
     turn_timer_seconds: 300,
     initial_unit_count: 3,
   },
-  feature_flags: {
-    map_editor_enabled: false,
-    era_advancement_lobby_enabled: false,
-  },
+  /**
+   * Intentionally empty: this block is merged UNDER the `feature_flags` DB row
+   * (see `mergeFromDb`), so any key seeded here is always present in the merged
+   * cache and therefore always wins inside `overrideBool` — permanently
+   * shadowing that flag's code default. Flag defaults belong in exactly one
+   * place, `config/featureFlags.ts` → `FLAG_CODE_DEFAULTS`; the DB row means
+   * "explicit operator override" (the kill switch) and nothing else.
+   */
+  feature_flags: {},
 };
 
 let cache: AdminConfigState = structuredClone(DEFAULTS);
@@ -192,6 +197,37 @@ export function getDefaultGameSettingsConfig(): AdminConfigState['default_game_s
 
 export function getFeatureFlagOverrides(): Record<string, boolean> {
   return cache.feature_flags;
+}
+
+/**
+ * Merge a feature-flag patch over the current override row.
+ *
+ * Flags patch as a DELTA: send only the keys you mean to change. A `null` value
+ * removes that key so the flag falls back to its code default
+ * (`FLAG_CODE_DEFAULTS`). Replacing the whole object instead would pin every
+ * flag at whatever the caller last read — the drift this delta form exists to
+ * prevent.
+ *
+ * @returns the row to persist, or an `error` describing the first bad entry.
+ */
+export function applyFeatureFlagPatch(
+  current: Record<string, boolean>,
+  patch: unknown,
+): { next: Record<string, boolean> } | { error: string } {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    return { error: 'feature_flags patch must be an object' };
+  }
+  const next: Record<string, boolean> = { ...current };
+  for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+    if (value === null) {
+      delete next[key];
+    } else if (typeof value === 'boolean') {
+      next[key] = value;
+    } else {
+      return { error: `feature_flags.${key} must be a boolean, or null to clear the override` };
+    }
+  }
+  return { next };
 }
 
 export function applyAdminSnapshotsToSettings<T extends Record<string, unknown>>(settings: T): T {

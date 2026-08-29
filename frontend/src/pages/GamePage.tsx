@@ -10,6 +10,7 @@ import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNu
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
+import { replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
@@ -1160,7 +1161,7 @@ export default function GamePage() {
           const reinforcements = [...ownTurnReinforcementsRef.current];
           const fortifications = [...ownTurnFortificationsRef.current];
           if (combats.length > 0 || reinforcements.length > 0 || fortifications.length > 0) {
-            setModalQueue(q => [...q, {
+            const summary = {
               type: 'turn_summary' as const,
               playerName: myPlayerData?.username ?? prevPlayer.username,
               playerColor: myPlayerData?.color ?? prevPlayer.color,
@@ -1169,7 +1170,10 @@ export default function GamePage() {
               isOwnTurn: true,
               reinforcements,
               fortifications,
-            }]);
+            };
+            // Fold this turn's own combat modals into the summary and show it now,
+            // rather than appending behind them where it surfaces a turn late.
+            setModalQueue(q => replaceOwnCombatsWithSummary(q, combats, summary));
           }
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
@@ -4227,7 +4231,9 @@ export default function GamePage() {
 
         {/* HUD Sidebar (desktop only — chat lives here too; see single mobile chat below) */}
         {!isMobileLayout && (
-          <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 border-l border-bf-border">
+          // overflow-hidden is the containment backstop: without it any residual
+          // overflow paints over the chat instead of being clipped.
+          <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 overflow-hidden border-l border-bf-border">
             <GameHUD
               onAdvancePhase={handleAdvancePhase}
               onDraftUndo={handleDraftUndo}

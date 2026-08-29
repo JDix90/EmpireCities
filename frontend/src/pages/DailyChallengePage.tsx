@@ -5,6 +5,8 @@ import { ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
 import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import GuestGate from '../components/GuestGate';
+import { useAuthStore } from '../store/authStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 
 interface DailyPuzzleSpecPublic {
@@ -108,6 +110,7 @@ export default function DailyChallengePage() {
   useRnParamTracker();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isGuest = useAuthStore((s) => !!s.user?.is_guest);
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -148,16 +151,27 @@ export default function DailyChallengePage() {
 
   const handlePlay = async () => {
     if (starting || !data) return;
+    if (isGuest) {
+      navigate('/upgrade');
+      return;
+    }
     setStarting(true);
     try {
       const res = await api.post<{ game_id: string }>('/daily/start');
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
-      const msg =
+      const response =
         err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+          ? (err as { response?: { status?: number; data?: { error?: string } } }).response
           : null;
-      toast.error(msg ?? 'Could not start challenge');
+      // rejectGuest's 403 body is developer-facing ("Guest accounts cannot access
+      // this resource"); never show it to a player.
+      if (response?.status === 403) {
+        toast.error('Create a free account to play the Daily Challenge');
+        navigate('/upgrade');
+        return;
+      }
+      toast.error(response?.data?.error ?? 'Could not start challenge');
     } finally {
       setStarting(false);
     }
@@ -267,6 +281,15 @@ export default function DailyChallengePage() {
             ) : (
               <p className="text-center text-bf-muted text-sm">Come back tomorrow for a new challenge!</p>
             )
+          ) : isGuest ? (
+            // Starting a daily is registered-only (rejectGuest on POST /daily/start).
+            // Guests still see the challenge and the board — they just get the offer
+            // instead of a button that would 403.
+            <GuestGate
+              title="Play today's challenge"
+              description="The Daily Challenge is a free-account feature — one puzzle a day, the same map for everyone, with your runs on the leaderboard. Your guest progress carries over."
+              ctaLabel="Create free account"
+            />
           ) : active_game_id ? (
             <button
               type="button"
@@ -352,12 +375,14 @@ export default function DailyChallengePage() {
                 <p className="text-bf-muted text-xs">Ranked by: {formatWeeklyScoring(weeklyChallenge.rules_json.scoring)}</p>
               )}
               <div className="flex flex-col sm:flex-row gap-2">
+                {/* The weekly queue lives in the ranked tab, which is registered-only
+                    (rejectGuest on /matchmaking/join and the weekly submit). */}
                 <button
                   type="button"
-                  onClick={() => navigate('/lobby?weekly=1')}
+                  onClick={() => navigate(isGuest ? '/upgrade' : '/lobby?weekly=1')}
                   className="btn-primary flex-1"
                 >
-                  Enter Weekly Queue
+                  {isGuest ? 'Create account to enter' : 'Enter Weekly Queue'}
                 </button>
               </div>
               {weeklyLeaderboard.length > 0 && (

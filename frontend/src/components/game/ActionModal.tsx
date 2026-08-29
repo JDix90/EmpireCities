@@ -223,9 +223,13 @@ export type ModalData =
 
 /**
  * Pivotal modals that "Skip all" must NOT discard — the player needs to see and
- * acknowledge them. Everything else (ordinary combat recaps, turn summaries) is
- * safe to drop when clearing the backlog. Losing your capital is a combat modal
- * but is flagged critical so it always surfaces (matches the lite-mode rule).
+ * acknowledge them. Ordinary combat recaps are safe to drop when clearing the
+ * backlog. Losing your capital is a combat modal but is flagged critical so it
+ * always surfaces (matches the lite-mode rule).
+ *
+ * The turn summary is critical because it is now the ONLY record of the turn's
+ * attacks in the queue — the individual combat modals are folded into it
+ * (see utils/modalQueueOps). Skipping the backlog must not erase the turn.
  */
 export function isCriticalModal(data: ModalData): boolean {
   if (
@@ -233,6 +237,7 @@ export function isCriticalModal(data: ModalData): boolean {
     data.type === 'elimination' ||
     data.type === 'resign_confirm' ||
     data.type === 'draft_summary' ||
+    data.type === 'turn_summary' ||
     // The era-advance payoff is a rare, deliberate signature moment — a
     // Skip-all backlog clear should never swallow it.
     data.type === 'era_advance'
@@ -636,7 +641,17 @@ interface SlideConfig {
 
 // ─── Turn Summary Slide Carousel ────────────────────────────────────────────
 
-function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDismiss: () => void }) {
+function TurnSummaryView({
+  data,
+  onDismiss,
+  onSkipAll,
+  backlogCount = 0,
+}: {
+  data: TurnSummaryModalData;
+  onDismiss: () => void;
+  onSkipAll?: () => void;
+  backlogCount?: number;
+}) {
   const { playerName, playerColor, turnNumber, combats, isOwnTurn, reinforcements, fortifications } = data;
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
@@ -915,6 +930,20 @@ function TurnSummaryView({ data, onDismiss }: { data: TurnSummaryModalData; onDi
         {isLastSlide ? 'Continue' : 'Next'}
         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
       </button>
+
+      {/* Same backlog relief valve CombatView offers: the summary can sit ahead of
+          a pile of other modals, and the player should be able to clear it here. */}
+      {onSkipAll && backlogCount > 1 && (
+        <button
+          type="button"
+          onClick={onSkipAll}
+          className="w-full mt-2 py-2 rounded-xl text-white/45 hover:text-white/80 text-sm
+                     transition-colors flex items-center justify-center gap-1.5"
+        >
+          <FastForward className="w-3.5 h-3.5" />
+          Skip all ({backlogCount})
+        </button>
+      )}
     </div>
   );
 }
@@ -1978,6 +2007,8 @@ export default function ActionModal({
             key={`turn-summary-${data.turnNumber}-${data.playerName}-${data.isOwnTurn ? 'me' : 'opp'}-${data.combats.length}-${data.reinforcements?.length ?? 0}-${data.fortifications?.length ?? 0}-${(data.combats ?? []).map((c) => `${c.fromName ?? ''}->${c.toName ?? ''}`).join(';')}`}
             data={data}
             onDismiss={onDismiss}
+            onSkipAll={onSkipAll}
+            backlogCount={backlogCount}
           />
         )}
         {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} />}

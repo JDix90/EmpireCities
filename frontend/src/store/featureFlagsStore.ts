@@ -18,23 +18,22 @@ export interface ClientFeatureFlags {
   match_alerts_enabled: boolean;
 }
 
+/**
+ * Pre-fetch paint values: these MUST mirror the backend's `FLAG_CODE_DEFAULTS`
+ * (backend/src/config/featureFlags.ts). GET /feature-flags reconciles a moment
+ * later, so a mismatch here shows the wrong variant on first paint and then
+ * visibly swaps it — worst on the landing hero, which is the first thing a
+ * visitor sees. An admin override still wins once the fetch lands.
+ */
 const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_editor_enabled: false,
-  // Mirrors the backend default (on) so the Full Game CTA + Era Advancement toggle
-  // paint immediately; GET /feature-flags still reconciles (admin can override off).
   era_advancement_lobby_enabled: true,
-  // Default off (dark-launch); GET /feature-flags reconciles once admin enables it.
-  first_turn_coach_enabled: false,
-  // Default off (dark-launch); in-game phase bar / target highlighting / undo.
-  turn_clarity_enabled: false,
-  // Default off (dark-launch); route landing guests straight into the tutorial.
-  onboarding_tutorial_first_enabled: false,
-  // Default off (dark-launch); collapse the landing hero to one dominant Play CTA.
-  hero_single_cta_enabled: false,
-  // Default off (dark-launch); celebratory era-advance payoff modal.
-  era_advance_payoff_enabled: false,
-  // Default off (dark-launch); GET /feature-flags reconciles once it's enabled.
-  signup_nudge_enabled: false,
+  first_turn_coach_enabled: true,
+  turn_clarity_enabled: true,
+  onboarding_tutorial_first_enabled: true,
+  hero_single_cta_enabled: true,
+  era_advance_payoff_enabled: true,
+  signup_nudge_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,
