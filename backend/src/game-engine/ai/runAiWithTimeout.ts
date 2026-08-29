@@ -6,10 +6,15 @@ import { aiTurnLimiter } from './aiConcurrency';
 import type { GameState, GameMap, AiDifficulty } from '../../types';
 import type { AiAction } from './aiBot';
 
-// Per-difficulty time budgets. Hard/expert are intentionally generous because
-// they search depth-3/4 minimax trees — cutting them off at 2s starves them
-// down to easy heuristics on big maps. The hard-cap is a safety net the
-// outer Promise.race uses if inner cleanup leaks.
+// Per-difficulty time budgets. There is no tree search: computeAiTurn is a
+// single-ply greedy planner (see aiBot), so these are generous ceilings, not
+// measured needs — planning itself costs microseconds. What they actually bound
+// is worker startup plus the structured-clone of state+map, which scales with
+// map size (up to 500 territories). Hard/expert get more room because they also
+// run the build/research ladders. Blowing the budget is not graceful: the
+// fallback substitutes an 'easy' plan (2 attacks, no build/research), so any
+// future search must check its own deadline rather than rely on the timeout.
+// The hard-cap is a safety net the outer Promise.race uses if inner cleanup leaks.
 const TIME_BUDGET_BY_DIFFICULTY: Record<AiDifficulty, number> = {
   tutorial: 750,
   easy: 1_000,

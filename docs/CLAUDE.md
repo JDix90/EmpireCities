@@ -26,7 +26,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 - **Core loop:** Players draft reinforcements, **attack adjacent territories** (via explicit land/sea **connections**), and **fortify** between connected friendly territories. Combat is resolved on the server. Victory conditions include domination, threshold control, or capital capture depending on game settings.
 - **Eras:** Content is organized around historical eras (e.g. Ancient, Medieval, Age of Discovery, WWII, Cold War) with matching maps and theming.
 - **Surfaces:** Landing/auth, lobby (create/join games), **live game** with HUD, **2D tactical map** (PixiJS / WebGL) and **3D globe** (react-globe.gl) where enabled, **D3-based map editor**, **community map hub**, profiles and leaderboards.
-- **AI:** Server-side bots use heuristic search (minimax-style); difficulty is configured in the backend AI module.
+- **AI:** Server-side bots are a **single-ply greedy planner** (no tree search): each turn they score draft, attack and fortify candidates independently against the pre-turn board. Difficulty varies score jitter and the per-turn attack cap, not search depth.
 
 ### 3. Technical stack (ground truth)
 
@@ -42,7 +42,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 | Auth | Custom **JWT** (access + refresh), refresh rotation |
 | PostgreSQL | Drizzle ORM — users, games, snapshots, achievements, **maps (JSONB)**, etc. |
 | Redis | **Authoritative live game state**, per-game locks, BullMQ queues, sessions, leaderboards |
-| AI | Server-side minimax / alpha-beta style heuristics |
+| AI | Server-side single-ply greedy heuristics (no tree search) |
 
 ### 4. Architecture invariants
 
