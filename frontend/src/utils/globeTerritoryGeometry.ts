@@ -318,44 +318,31 @@ export function buildTerritoryGlobeGeometries(
     regionalAdmin1Geo = null,
   }: GlobeGeometryInputs,
 ): PolygonData[] {
-  // Authored inline `geo_polygon` / canvas rings must rewind to a counter-clockwise
-  // exterior for three-globe's ConicPolygonGeometry — otherwise @turf/rewind's default
-  // (clockwise) makes the cap triangulation explode into spiky shards on the globe.
-  // Maps resolved via Natural-Earth admin geometry never reach the ring paths, so they
-  // are unaffected. NOTE: any new curated map that ships inline `geo_polygon` rings must
-  // be added here (see database/maps/mapkit.py).
-  const INLINE_GEO_POLYGON_REVERSE_MAP_IDS = new Set<string>([
-    // Tutorial Island builds its rings from canvas coordinates + projection_bounds
-    // (backend/src/game-engine/tutorial/tutorialScript.ts). Omitted here, its caps
-    // triangulated into a few stray shards and the island rendered as bare gold
-    // outlines over open ocean — which is what a first-time player saw.
-    'tutorial',
-    'community_flooded_north_america',
-    'community_charlemagne_814',
-    'community_balkanized_usa',
-    'community_fractured_china',
-    'community_balkanized_india',
-    'community_uncolonized_africa',
-    'community_south_america',
-    'community_divided_japan',
-    'community_fractured_russia',
-    'community_byzantium_megali',
-    'community_balkanized_spain',
-    'community_nusantara',
-    // Era world maps: growth frontiers ship inline `geo_polygon` rings (CW) for
-    // their later-era lands (volga_bulgaria, americas, antarctica sectors, ocean
-    // frontiers, …). Same winding contract as the community maps above.
-    'era_ancient',
-    'era_medieval',
-    'era_discovery',
-    'era_ww2',
-    'era_coldwar',
-    'era_modern',
-    'era_space_age',
-  ]);
-  const shouldReverseExteriorWinding = INLINE_GEO_POLYGON_REVERSE_MAP_IDS.has(
-    mapData.map_id ?? '',
-  );
+  /**
+   * Winding for authored inline rings (`geo_polygon`, `geo_multipolygon`, and
+   * canvas polygons projected through `projection_bounds`).
+   *
+   * `@turf/rewind`'s default normalizes the exterior ring to the Shapefile
+   * convention; `reverse: true` gives the opposite, and that is the one
+   * three-globe's ConicPolygonGeometry triangulates into real caps. Without it
+   * the caps collapse into a few stray shards and a territory draws as bare
+   * side walls — which is what Tutorial Island did for its whole existence.
+   *
+   * This used to be an allow-list of map ids, and it was the wrong shape twice
+   * over. The winding a ring needs is a property of the renderer, not of the
+   * map: `rewind` normalizes either input order to the same output, so the list
+   * never encoded anything about the maps on it — only who had remembered to
+   * add themselves. And it could not work at all for the maps that matter next:
+   * `MapEditorPage` saves `geo_polygon` for every user-drawn territory, and no
+   * user-created map can be in a hardcoded list, so every community map would
+   * have rendered as shards the moment the editor opened.
+   *
+   * The galaxy cap path below has always passed `reverse: true` unconditionally
+   * — this just brings the other three ring paths in line with it.
+   *
+   * Maps resolved via Natural-Earth admin geometry never reach these paths.
+   */
+  const shouldReverseExteriorWinding = true;
 
   const canvasW = mapData.canvas_width ?? 1200;
   const canvasH = mapData.canvas_height ?? 700;
