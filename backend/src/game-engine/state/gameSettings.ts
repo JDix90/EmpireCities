@@ -128,9 +128,14 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     tutorial_lesson_module: isTutorialLessonModule(raw.tutorial_lesson_module)
       ? raw.tutorial_lesson_module
       : undefined,
+    tutorial_combined: typeof raw.tutorial_combined === 'boolean' ? raw.tutorial_combined : undefined,
     tutorial_grant_tech_points:
       typeof raw.tutorial_grant_tech_points === 'number' && raw.tutorial_grant_tech_points > 0
         ? raw.tutorial_grant_tech_points
+        : undefined,
+    tutorial_grant_gold:
+      typeof raw.tutorial_grant_gold === 'number' && raw.tutorial_grant_gold > 0
+        ? raw.tutorial_grant_gold
         : undefined,
     tutorial_settings_lab_applied:
       typeof raw.tutorial_settings_lab_applied === 'boolean'
@@ -278,6 +283,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     daily_challenge_spec: ext.daily_challenge_spec && typeof ext.daily_challenge_spec === 'object'
       ? ext.daily_challenge_spec
+      : undefined,
+    // Authored opening position (tutorial / puzzle / mission). Must survive
+    // re-normalization: this runs on every room load, so a key missing here is
+    // silently stripped after the first reload — the board would reshape on a
+    // fresh start and then revert.
+    authored_scenario: ext.authored_scenario && typeof ext.authored_scenario === 'object'
+      ? ext.authored_scenario
       : undefined,
     seed: typeof ext.seed === 'number' ? ext.seed : undefined,
     max_players: typeof ext.max_players === 'number' ? ext.max_players : undefined,

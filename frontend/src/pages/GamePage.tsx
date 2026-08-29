@@ -508,9 +508,13 @@ export default function GamePage() {
   const coachEligibleRef = useRef(coachEligible);
   coachEligibleRef.current = coachEligible;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
+  // Snapshotted at creation, not read from the live flag: a game that started as
+  // the combined tutorial keeps its step list even if the flag is switched off
+  // mid-session, and vice versa.
+  const tutorialCombined = gameState?.settings?.tutorial_combined === true;
   const tutorialSteps = useMemo(
-    () => getTutorialSteps(tutorialLessonModule),
-    [tutorialLessonModule],
+    () => getTutorialSteps(tutorialLessonModule, { combined: tutorialCombined }),
+    [tutorialLessonModule, tutorialCombined],
   );
 
   // Keep a ref to the current user so socket handlers never close over a stale value
@@ -971,13 +975,18 @@ export default function GamePage() {
     pendingDraftSummaryRef.current = null;
   }, [gameId]);
 
-  /** Default every game to globe on first load, clearing any stale 2D localStorage preference. */
+  /**
+   * Open every game on the globe. Deliberately does NOT write the stored
+   * preference: this is the product's default, not a choice the player made, and
+   * persisting it overwrote the 2D preference of anyone who had explicitly
+   * picked 2D — so their next game reset to globe and their setting was gone.
+   * Only the view toggles (`switchToGlobeView` and the 2D buttons) persist.
+   */
   useEffect(() => {
     if (!gameStarted || !gameState) return;
     if (globeDefaultAppliedRef.current) return;
     globeDefaultAppliedRef.current = true;
     setMapView('globe');
-    persistMapView('globe');
     preloadGlobeChunks();
   }, [gameStarted, gameState]);
 
@@ -2993,9 +3002,21 @@ export default function GamePage() {
     [user?.is_guest, signupNudgeFlag],
   );
 
-  const handleTutorialMarkModuleComplete = useCallback(() => {
+  /**
+   * Record this lesson as done. The combined core tutorial also covers the
+   * standalone Era Advancement lesson end to end, so it credits both — otherwise
+   * the lobby keeps recommending a deep dive the player just finished playing.
+   */
+  const markLessonComplete = useCallback(() => {
     markTutorialModuleComplete(tutorialLessonModule);
-  }, [tutorialLessonModule]);
+    if (tutorialCombined && tutorialLessonModule === 'core') {
+      markTutorialModuleComplete('era_advancement');
+    }
+  }, [tutorialLessonModule, tutorialCombined]);
+
+  const handleTutorialMarkModuleComplete = useCallback(() => {
+    markLessonComplete();
+  }, [markLessonComplete]);
 
   const handleLaunchTutorialModule = useCallback(
     async (module: TutorialLessonModule) => {
@@ -3031,14 +3052,14 @@ export default function GamePage() {
    */
   const handleTutorialContinuePlaying = useCallback(() => {
     const continueInTutorial = () => {
-      markTutorialModuleComplete(tutorialLessonModule);
+      markLessonComplete();
       setTutorialStep(tutorialSteps.length);
     };
     maybePromptTutorialAccount(
       continueInTutorial,
       'Save your progress before you keep playing — create a free account so the next match counts.',
     );
-  }, [maybePromptTutorialAccount, tutorialLessonModule, tutorialSteps.length]);
+  }, [maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
 
   /**
    * Abandon the current tutorial game and return to the lobby.

@@ -74,7 +74,7 @@ import {
   type EraSystemKey,
 } from '../utils/eraSystemDefaults';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
-import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules } from '../tutorial';
+import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules, tutorialModuleMinutes } from '../tutorial';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
 
 interface LiveGameSummary {
@@ -1811,7 +1811,7 @@ export default function LobbyPage() {
                       </span>
                     </div>
                     <p className="text-bf-muted text-xs leading-relaxed">
-                      ~6 min. Learn draft, attack, fortify, and cards in an interactive practice match. No experience needed.
+                      ~{tutorialModuleMinutes('core')} min. Learn draft, attack and fortify in a practice match, then climb from Ancient to Medieval. No experience needed.
                     </p>
                   </div>
                 </button>

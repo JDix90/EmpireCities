@@ -47,6 +47,15 @@ describe('shouldShowFirstTurnCoach', () => {
   it('hides after turn 1', () => {
     expect(shouldShowFirstTurnCoach({ ...base, turnNumber: 2 })).toBe(false);
   });
+
+  it('reads the active view, not the stored preference', () => {
+    // GamePage opens every game on the globe but no longer writes that choice
+    // to `cc-preferred-map-view`. A player whose stored preference is 2D is
+    // therefore still on the globe for their first game, and still gets coached
+    // — `mapView` here is the live view GamePage is rendering, not the
+    // preference it read at mount.
+    expect(shouldShowFirstTurnCoach({ ...base, mapView: 'globe' })).toBe(true);
+  });
 });
 
 describe('coachPhaseForGamePhase', () => {

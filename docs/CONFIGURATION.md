@@ -82,6 +82,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |
 | `rankedEraAdvancementEnabled` | `RANKED_ERA_ADVANCEMENT_ENABLED` | off | Ranked matchmaking creates Era Advancement games (pending balance review) |
 | `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | **on** | One-time guest → create-account nudge after a finished game |
+| `combinedTutorialEnabled` | `COMBINED_TUTORIAL_ENABLED` | **on** | Core tutorial runs as one continuous match on Tutorial Island with economy/tech/era advancement on — the player researches and advances an era instead of reading preview cards. Off returns *new* tutorials to the WW2 core lesson; in-flight games keep the shape they started with (`tutorial_combined` is snapshotted at creation) |
 | `retentionNotificationsEnabled` | `RETENTION_NOTIFICATIONS_ENABLED` | **on in production only** | Hourly re-engagement sweep: streak-at-risk push, daily-challenge reminder, D2/D7 win-back email. Never fires from dev/test unless the env var is set explicitly (see [RETENTION-PLAYBOOK.md](RETENTION-PLAYBOOK.md)) |
 | `streakFreezesEnabled` | `STREAK_FREEZES_ENABLED` | off | Streak-freeze purchase + freeze state in Today/comeback panels (consuming a held freeze is never gated) |
 | `todayPanelEnabled` | `TODAY_PANEL_ENABLED` | off | Lobby right column swaps to the unified Today panel |

@@ -49,6 +49,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default.',
   },
   {
+    key: 'combined_tutorial_enabled',
+    label: 'Combined first tutorial',
+    description:
+      'Run the core tutorial as one continuous match on Tutorial Island with economy, tech and era advancement on, so a first-timer researches and advances an era instead of reading preview cards. On by default. Switching it off returns NEW tutorials to the WW2 core lesson; games already created keep the shape they started with.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',

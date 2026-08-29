@@ -255,6 +255,31 @@ export interface TerritoryCard {
   symbol: 'infantry' | 'cavalry' | 'artillery' | 'wild';
 }
 
+/** One territory's opening state in an authored scenario. */
+export interface AuthoredScenarioTerritory {
+  /** 'human' / 'ai' resolve against seat order at apply time; null is neutral. */
+  owner: 'human' | 'ai' | null;
+  unit_count: number;
+  buildings?: BuildingType[];
+}
+
+/**
+ * A designed opening position. Territories named here are set exactly as given;
+ * anything omitted keeps whatever `initializeGameState` dealt it, so a scenario
+ * can shape one front and leave the rest of a big map alone.
+ */
+export interface AuthoredScenario {
+  /** Keyed by territory_id. */
+  starting_board?: Record<string, AuthoredScenarioTerritory>;
+  /** Resource floors for the human seat (never lowers what they already have). */
+  grants?: {
+    tech_points?: number;
+    gold?: number;
+  };
+  /** Wipe every territory to neutral/0 before applying `starting_board`. */
+  clear_board?: boolean;
+}
+
 export interface GameSettings {
   fog_of_war: boolean;
   /** @deprecated Prefer allowed_victory_conditions; kept for legacy DB rows. */
@@ -278,6 +303,15 @@ export interface GameSettings {
   tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
   tutorial_grant_tech_points?: number;
+  /**
+   * Bonus gold granted at tutorial module start (era-advancement lessons).
+   * Tutorials are deliberately excluded from the economy/tech bootstrap in
+   * `initializeGameState`, so `economy_tech_starting_gold` does nothing here —
+   * a lesson that needs a treasury asks for one explicitly.
+   */
+  tutorial_grant_gold?: number;
+  /** This tutorial is the combined first game (island board + era advancement). */
+  tutorial_combined?: boolean;
   /** True after Settings Lab choices are applied in the advanced_settings lesson. */
   tutorial_settings_lab_applied?: boolean;
   /** When true, the game runs asynchronously with long turn deadlines and notifications. */
@@ -427,6 +461,12 @@ export interface GameSettings {
   daily_challenge_date?: string;
   /** Serialized daily puzzle spec from `daily_challenges.spec_json`. */
   daily_challenge_spec?: Record<string, unknown>;
+  /**
+   * Hand-authored opening position, applied after `initializeGameState` by
+   * `applyAuthoredScenario`. Lets a tutorial, daily puzzle or campaign mission
+   * start from a designed board instead of the uniform random shuffle.
+   */
+  authored_scenario?: AuthoredScenario;
   /** Lobby / daily generator seed. */
   seed?: number;
   /** Snapshot of economy tuning used for this game instance. */

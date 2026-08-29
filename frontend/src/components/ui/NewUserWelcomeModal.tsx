@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, GraduationCap, Zap, BookOpen } from 'lucide-react';
 import { APP_NAME } from '../../constants/brand';
+import { tutorialModuleMinutes } from '../../tutorial';
 
 const WELCOME_SEEN_KEY = 'bf-lobby-welcomed';
 
@@ -83,7 +84,7 @@ export default function NewUserWelcomeModal({
               </span>
             </div>
             <p className="text-bf-muted text-xs leading-relaxed">
-              ~6 minutes. Interactive match against a practice AI — learn draft, attack, fortify, and cards at your own pace.
+              ~{tutorialModuleMinutes('core')} minutes. Interactive match against a practice AI — learn draft, attack and fortify, then advance an era, at your own pace.
             </p>
           </div>
         </button>

@@ -3,13 +3,33 @@ import { CORE_TUTORIAL_STEPS } from './modules/coreSteps';
 import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
+import { COMBINED_CORE_TUTORIAL_STEPS } from './modules/combinedCoreSteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
 import { TUTORIAL_V2_ENABLED } from './types';
 import { api } from '../services/api';
 
 const STORAGE_KEY = 'borderfall_tutorial_modules_completed_v2';
 
-export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
+export interface TutorialStepsOptions {
+  /**
+   * This game was created as the combined core tutorial (Tutorial Island with
+   * era systems on). Read from `settings.tutorial_combined`, which the server
+   * snapshots at creation — so flipping `combined_tutorial_enabled` never
+   * changes the step list under a game already in progress.
+   *
+   * A variant rather than a sixth lesson module id: the module id is a key in
+   * six synced registries (the `TutorialLessonModule` union, `TUTORIAL_MODULES`,
+   * two validator arrays below, the backend zod enum, completion tracking), and
+   * "same module, different step list" is the precedent `TUTORIAL_V2_ENABLED`
+   * already set.
+   */
+  combined?: boolean;
+}
+
+export function getTutorialSteps(
+  module: TutorialLessonModule,
+  options: TutorialStepsOptions = {},
+): TutorialStep[] {
   switch (module) {
     case 'advanced_settings':
       return ADVANCED_SETTINGS_STEPS;
@@ -21,6 +41,7 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return ERA_ADVANCEMENT_STEPS;
     case 'core':
     default: {
+      if (options.combined) return COMBINED_CORE_TUTORIAL_STEPS;
       if (TUTORIAL_V2_ENABLED) return CORE_TUTORIAL_STEPS;
       return CORE_TUTORIAL_STEPS.filter(
         (s) => !['advanced_settings_primer', 'ability_primer', 'tech_primer'].includes(s.id),
@@ -93,6 +114,7 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
   const centeredIds = new Set([
     'welcome',
     'draft_explain',
+    'economy_intro',
     'cards_explain',
     'victory_explain',
     'settings_overview',

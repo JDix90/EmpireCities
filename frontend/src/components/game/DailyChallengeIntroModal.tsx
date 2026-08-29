@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Calendar, Clock, Target, Trophy } from 'lucide-react';
+import { estimatedTime } from '../../utils/dailyEstimate';
 
 export interface DailyIntroSpec {
   archetype?: 'domination' | 'military_capture' | 'economy_build' | 'tech_research' | string;
@@ -27,22 +28,6 @@ const ARCHETYPE_LABELS: Record<string, string> = {
   economy_build: 'Economy Build',
   tech_research: 'Tech Research',
 };
-
-/** Heuristic time-to-completion buckets. Uses max_turns when present. */
-function estimatedTime(spec: DailyIntroSpec): string {
-  const t = typeof spec.max_turns === 'number' ? spec.max_turns : null;
-  switch (spec.archetype) {
-    case 'military_capture':
-      return t ? `~${Math.max(5, t)}\u2013${t + 5} min` : '8\u201315 min';
-    case 'economy_build':
-      return t ? `~${Math.max(8, t)}\u2013${t + 8} min` : '12\u201320 min';
-    case 'tech_research':
-      return t ? `~${Math.max(10, t)}\u2013${t + 10} min` : '15\u201325 min';
-    case 'domination':
-    default:
-      return '20\u201335 min';
-  }
-}
 
 function archetypeLabel(archetype: string | undefined): string {
   if (!archetype) return 'Daily Mission';

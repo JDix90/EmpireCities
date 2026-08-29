@@ -53,6 +53,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -231,6 +232,19 @@ export const featureFlags = {
   },
 
   /**
+   * When true, the core tutorial is the combined first game: one continuous
+   * match on Tutorial Island that teaches draft/attack/fortify AND carries the
+   * player through researching a tech and advancing an era, instead of ending
+   * in preview modals for features the match doesn't have. Default ON — this is
+   * the first-session path, and era advancement is the thing that makes
+   * Borderfall not-Risk. Switching it off returns new tutorials to the WW2
+   * core lesson; games already in flight keep the shape they started with.
+   */
+  get combinedTutorialEnabled(): boolean {
+    return overrideBool('combined_tutorial_enabled');
+  },
+
+  /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
    * Default ON **in production only** — outbound mail must never fire from a
@@ -339,6 +353,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    combined_tutorial_enabled: featureFlags.combinedTutorialEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
