@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Calendar, Clock, Target, Trophy } from 'lucide-react';
+import { estimatedTime } from '../../utils/dailyEstimate';
 
 export interface DailyIntroSpec {
   archetype?: 'domination' | 'military_capture' | 'economy_build' | 'tech_research' | string;
