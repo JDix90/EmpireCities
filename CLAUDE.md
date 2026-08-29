@@ -27,12 +27,14 @@ prompt for Claude Console/Projects, not agent instructions.)
 - `@borderfall/shared` resolves from its built `dist/`, not `src/`. After a
   fresh checkout, branch switch, or rebase that touches it:
   `pnpm --filter @borderfall/shared build`.
-- Feature flags have TWO default layers: the code default in
-  `backend/src/config/featureFlags.ts` AND the seed overrides in
-  `backend/src/services/adminConfig.ts` `DEFAULTS.feature_flags`. A key present
-  in the latter silently wins (e.g. `era_advancement_lobby_enabled` is `false`
-  there despite the flag's "default ON" docstring) — check both when a flag
-  reads wrong on a fresh database.
+- Feature-flag defaults live in ONE place: `FLAG_CODE_DEFAULTS` in
+  `backend/src/config/featureFlags.ts`. `admin_config.feature_flags` holds only
+  deliberate operator overrides (the kill switch) and wins when present;
+  `DEFAULTS.feature_flags` in `adminConfig.ts` is intentionally empty, because a
+  key seeded there sits in the merged cache forever and shadows its code default.
+  When a flag reads wrong on a real database, a stale override is pinning it —
+  `pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts` previews and
+  `--apply` clears the redundant ones.
 - The local dev Redis carries live admin-config cache; for isolated testing
   spin a throwaway `redis-server --port 6399 --save '' --appendonly no` instead
   of flushing anything shared.
@@ -45,11 +47,14 @@ prompt for Claude Console/Projects, not agent instructions.)
 
 ## Conventions
 
-- New player-facing features ship dark-launched behind a flag: env-var default
-  in `featureFlags.ts` + `admin_config` live override, exposed via
+- New player-facing features ship dark-launched behind a flag: an entry in
+  `FLAG_CODE_DEFAULTS` + a getter in `featureFlags.ts`, exposed via
   `getClientFeatureFlags()` → `frontend/src/store/featureFlagsStore.ts`, with a
   toggle entry in the Admin → Config panel (`CLIENT_FEATURE_FLAGS` in
-  `AdminPage.tsx`).
+  `AdminPage.tsx`) — every flag that defaults ON needs its kill switch visible
+  there. Promote the code default to ON once the feature has been checked on
+  staging; leaving it OFF in code while prod runs on an override is how the repo
+  starts lying about what players actually see.
 - Client-side persisted preferences use `cc-`-prefixed localStorage keys and
   are sanitized on load (see `utils/userPreferences.ts`,
   `utils/quickMatchPrefs.ts`).

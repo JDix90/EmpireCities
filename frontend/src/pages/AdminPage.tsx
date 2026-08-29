@@ -25,6 +25,30 @@ import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const CLIENT_FEATURE_FLAGS = [
   {
+    key: 'analytics_events_enabled',
+    label: 'Product analytics',
+    description:
+      'Record funnel and retention events to analytics_events (and the JSON log stream). On by default — cohorts only accrue while this is live, so switching it off blinds every later readout for that period.',
+  },
+  {
+    key: 'retention_notifications_enabled',
+    label: 'Retention email & push',
+    description:
+      'Hourly sweep that sends streak-at-risk push, the daily-challenge reminder, and D2/D7 win-back email. On by default in production only (never from a developer machine). Opt-in users only, capped at one message per user per day.',
+  },
+  {
+    key: 'signup_nudge_enabled',
+    label: 'Guest → account nudge',
+    description:
+      'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
+  },
+  {
+    key: 'first_turn_coach_enabled',
+    label: 'First-turn coaching',
+    description:
+      'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
@@ -84,6 +108,13 @@ const CLIENT_FEATURE_FLAGS = [
       'Alert players when their ranked match is found, wherever they are: app-wide socket listener (toast + auto-navigate from any page), OS notification on hidden tabs, FCM push when the tab is closed (respects each player’s Push setting), and a missed-match catch-up check on return. Off by default (dark-launch) — this is also the kill switch for the always-on per-tab websocket.',
   },
 ] as const;
+
+/** Per-flag resolution from GET /admin/config — mirrors the backend's FeatureFlagState. */
+interface FeatureFlagState {
+  code_default: boolean;
+  overridden: boolean;
+  effective: boolean;
+}
 
 type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
 
@@ -483,15 +514,19 @@ export default function AdminPage() {
     }
   }
 
-  async function toggleFeatureFlag(key: string, enabled: boolean) {
-    const cfg = (config as { config?: { feature_flags?: Record<string, boolean> } } | null)?.config;
-    const current = cfg?.feature_flags ?? {};
+  /**
+   * Writes one flag as a delta. `enabled: null` clears the override so the flag
+   * follows its committed code default again — sending the whole flag object
+   * would pin every other flag at whatever this page last read.
+   */
+  async function toggleFeatureFlag(key: string, enabled: boolean | null) {
     setFlagSaving(key);
     try {
-      await api.patch('/admin/config/feature_flags', {
-        value: { ...current, [key]: enabled },
-      });
-      toast.success(`${key.replace(/_/g, ' ')} ${enabled ? 'enabled' : 'disabled'}`);
+      await api.patch('/admin/config/feature_flags', { value: { [key]: enabled } });
+      const label = key.replace(/_/g, ' ');
+      toast.success(
+        enabled === null ? `${label} back to default` : `${label} forced ${enabled ? 'on' : 'off'}`,
+      );
       await loadTab('config');
       await useFeatureFlagsStore.getState().load();
       setError(null);
@@ -1071,30 +1106,59 @@ export default function AdminPage() {
               <div>
                 <p className="text-sm font-semibold">Feature flags</p>
                 <p className="text-xs text-bf-muted mt-1">
-                  Player-facing toggles — take effect immediately without a redeploy.
+                  Take effect immediately without a redeploy. Each flag runs on its committed code
+                  default until you force it here; “Back to default” removes the override.
                 </p>
               </div>
               {CLIENT_FEATURE_FLAGS.map(({ key, label, description }) => {
-                const flags = (config as { config?: { feature_flags?: Record<string, boolean> } } | null)
-                  ?.config?.feature_flags ?? {};
+                const states =
+                  (config as { feature_flag_states?: Record<string, FeatureFlagState> } | null)
+                    ?.feature_flag_states ?? {};
+                const state = states[key];
+                const effective = state?.effective ?? false;
+                const overridden = state?.overridden ?? false;
                 return (
-                  <label
+                  <div
                     key={key}
-                    className="flex items-start justify-between gap-4 rounded-lg border border-bf-border/80 bg-bf-dark/40 px-3 py-3 cursor-pointer"
+                    className="flex items-start justify-between gap-4 rounded-lg border border-bf-border/80 bg-bf-dark/40 px-3 py-3"
                   >
                     <span>
                       <span className="text-sm font-medium text-bf-text">{label}</span>
+                      <span
+                        className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          overridden
+                            ? effective
+                              ? 'bg-emerald-500/20 text-emerald-200'
+                              : 'bg-amber-500/20 text-amber-200'
+                            : 'bg-bf-border/60 text-bf-muted'
+                        }`}
+                      >
+                        {overridden ? (effective ? 'Forced on' : 'Forced off') : `Default · ${effective ? 'on' : 'off'}`}
+                      </span>
                       <span className="block text-xs text-bf-muted mt-0.5">{description}</span>
                       <span className="block text-[10px] text-bf-muted/80 mt-1 font-mono">{key}</span>
                     </span>
-                    <input
-                      type="checkbox"
-                      checked={!!flags[key]}
-                      disabled={flagSaving === key}
-                      onChange={(e) => void toggleFeatureFlag(key, e.target.checked)}
-                      className="mt-1 h-4 w-4 shrink-0 accent-bf-gold cursor-pointer"
-                    />
-                  </label>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <input
+                        type="checkbox"
+                        aria-label={label}
+                        checked={effective}
+                        disabled={flagSaving === key}
+                        onChange={(e) => void toggleFeatureFlag(key, e.target.checked)}
+                        className="mt-1 h-4 w-4 shrink-0 accent-bf-gold cursor-pointer"
+                      />
+                      {overridden && (
+                        <button
+                          type="button"
+                          disabled={flagSaving === key}
+                          onClick={() => void toggleFeatureFlag(key, null)}
+                          className="text-[10px] text-bf-muted underline hover:text-bf-text disabled:opacity-50"
+                        >
+                          Back to default
+                        </button>
+                      )}
+                    </span>
+                  </div>
                 );
               })}
             </div>
@@ -1111,6 +1175,8 @@ export default function AdminPage() {
                 <p className="text-sm font-semibold">Patch config block</p>
                 <p className="text-xs text-bf-muted">
                   Economy &amp; XP are snapshotted into new games. Glicko, matchmaking buckets, and feature flags apply live where noted in code.
+                  A <span className="font-mono">feature_flags</span> block merges as a delta — send only the keys you mean to change, and{' '}
+                  <span className="font-mono">null</span> clears an override.
                 </p>
                 <select
                   value={patchKey}

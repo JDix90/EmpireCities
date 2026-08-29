@@ -55,18 +55,41 @@
 
 ## Feature flags
 
-> Source of truth: [backend/src/config/featureFlags.ts](../backend/src/config/featureFlags.ts). Every flag can be **overridden at runtime by admins** via the `admin_config.feature_flags` table (DB value beats env). Client-visible flags are served by `GET /api/feature-flags`.
+> Source of truth: [backend/src/config/featureFlags.ts](../backend/src/config/featureFlags.ts) → `FLAG_CODE_DEFAULTS`. Client-visible flags are served by `GET /api/feature-flags`.
+
+**Precedence.** An `admin_config.feature_flags` entry wins; with no entry for that key, the code default below applies. The DB row means *"an operator is deliberately forcing this flag"* — it is the kill switch, nothing more, and `DEFAULTS.feature_flags` in `services/adminConfig.ts` is deliberately empty because anything seeded there would shadow a code default permanently.
+
+Admin → Config shows each flag as **Default · on/off**, **Forced on**, or **Forced off**, and "Back to default" removes the override. Toggles write a *delta* (one key), so they never pin unrelated flags. If a flag ignores a code-default change, an old override is pinning it — preview and clear the redundant ones with:
+
+```bash
+pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts          # preview
+pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts --apply  # write + invalidate caches
+```
+
+Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **off** is enabled with `X=true`.
 
 | Flag | Env var | Default | Effect |
 |---|---|---|---|
-| `analyticsEventsEnabled` | `ANALYTICS_EVENTS_ENABLED` | off | Structured JSON analytics events in logs |
+| `analyticsEventsEnabled` | `ANALYTICS_EVENTS_ENABLED` | **on** (off under test) | Funnel/retention events → `analytics_events` + JSON log lines. Cohorts only accrue while this is live |
 | `metricsEndpointEnabled` | `METRICS_ENDPOINT_ENABLED` | **on in dev, off in prod** | `GET /metrics/json` (room count, lock/persistence failure counters, memory) |
 | `socketDebug` | `SOCKET_DEBUG` | off (dev-only) | Verbose Socket.io logging |
-| `mapEditorEnabled` | — (admin override only) | off | Map Editor UI + custom-map publishing |
-| `eraAdvancementLobbyEnabled` | — (admin override only) | off | Era Advancement setting in lobby create-game UI |
-| `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | off | One-time guest → create-account nudge after a finished game |
-| `retentionNotificationsEnabled` | `RETENTION_NOTIFICATIONS_ENABLED` | off | Hourly re-engagement sweep: streak-at-risk push, daily-challenge reminder, D2/D7 win-back email (see [RETENTION-PLAYBOOK.md](RETENTION-PLAYBOOK.md)) |
+| `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | off | Map Editor UI + custom-map publishing |
+| `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
+| `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
+| `onboardingTutorialFirstEnabled` | `ONBOARDING_TUTORIAL_FIRST_ENABLED` | **on** | Landing "Play as Guest" goes straight into the tutorial match |
+| `heroSingleCtaEnabled` | `HERO_SINGLE_CTA_ENABLED` | **on** | Landing hero collapses to one dominant Play CTA |
+| `eraAdvancePayoffEnabled` | `ERA_ADVANCE_PAYOFF_ENABLED` | **on** | Celebratory modal on era advancement instead of a toast |
+| `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |
+| `rankedEraAdvancementEnabled` | `RANKED_ERA_ADVANCEMENT_ENABLED` | off | Ranked matchmaking creates Era Advancement games (pending balance review) |
+| `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | **on** | One-time guest → create-account nudge after a finished game |
+| `retentionNotificationsEnabled` | `RETENTION_NOTIFICATIONS_ENABLED` | **on in production only** | Hourly re-engagement sweep: streak-at-risk push, daily-challenge reminder, D2/D7 win-back email. Never fires from dev/test unless the env var is set explicitly (see [RETENTION-PLAYBOOK.md](RETENTION-PLAYBOOK.md)) |
+| `streakFreezesEnabled` | `STREAK_FREEZES_ENABLED` | off | Streak-freeze purchase + freeze state in Today/comeback panels (consuming a held freeze is never gated) |
+| `todayPanelEnabled` | `TODAY_PANEL_ENABLED` | off | Lobby right column swaps to the unified Today panel |
+| `asyncOnboardingEnabled` | `ASYNC_ONBOARDING_ENABLED` | off | Multi-day async nudges: post-tutorial "challenge a friend", Today-panel async row |
 | `spectateEnabled` | `SPECTATE_ENABLED` | off | Watch/Spectate surface: Live nav + lobby Watch entries, `GET /api/games/live`, spectator socket joins. Off while player counts are low (an empty/stale live list reads worse than none) |
+| `spaceAgeFrontiersEnabled` | `SPACE_AGE_FRONTIERS_ENABLED` | off | Standalone Space Age seeds the 8 authored frontier tiles (63-tile board instead of 55) |
+| `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
+| `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
 
 ## Frontend environment variables
 
