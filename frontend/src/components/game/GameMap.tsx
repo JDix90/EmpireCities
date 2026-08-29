@@ -11,6 +11,7 @@ import { isFogHidden } from '../../utils/fogVisibility';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { hapticImpact } from '../../utils/haptics';
+import { isTapGesture } from '../../utils/tapGesture';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
 import { HIGHLIGHT_PIXI } from '../../constants/highlightColors';
 import {
@@ -416,16 +417,11 @@ export default function GameMap({
 
       // Tap detection: only fire click if pointer hasn't moved far (avoids conflict with pan)
       let tapDownPos: { x: number; y: number } | null = null;
-      let tapDownTime = 0;
       g.on('pointerdown', (e: PIXI.FederatedPointerEvent) => {
         tapDownPos = { x: e.globalX, y: e.globalY };
-        tapDownTime = Date.now();
       });
       g.on('pointerup', (e: PIXI.FederatedPointerEvent) => {
-        if (!tapDownPos) return;
-        const dist = Math.hypot(e.globalX - tapDownPos.x, e.globalY - tapDownPos.y);
-        const elapsed = Date.now() - tapDownTime;
-        if (dist <= 10 && elapsed < 300) {
+        if (isTapGesture(tapDownPos, { x: e.globalX, y: e.globalY })) {
           hapticImpact();
           onTerritoryClickRef.current(territory.territory_id);
         }

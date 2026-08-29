@@ -1015,6 +1015,27 @@ function GlobeMap({
     globeRef.current?.pointOfView({ lat, lng, altitude }, ms);
   }, []);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Altitude bounds for player-driven zoom. The floor is not cosmetic: below
+   * ~0.1 globe radii the polygon caps stop drawing and territories become bare
+   * outlines, so zooming in past it would look like the map disappeared.
+   */
+  const MIN_ZOOM_ALTITUDE = 0.1;
+  const MAX_ZOOM_ALTITUDE = 3.5;
+
+  /** Multiply the current altitude, clamped. `factor < 1` zooms in. */
+  const zoomByFactor = useCallback((factor: number, ms = 0) => {
+    const globe = globeRef.current;
+    if (!globe?.pointOfView) return;
+    const current = globe.pointOfView();
+    const currentAltitude = typeof current?.altitude === 'number' ? current.altitude : 1;
+    const next = Math.min(MAX_ZOOM_ALTITUDE, Math.max(MIN_ZOOM_ALTITUDE, currentAltitude * factor));
+    if (Math.abs(next - currentAltitude) < 1e-4) return;
+    globe.pointOfView({ altitude: next }, ms);
+  }, []);
+
   const pauseAutoRotate = useCallback(() => {
     clearTimeout(autoRotateTimerRef.current);
     const ctrl = globeRef.current?.controls?.();
@@ -1081,17 +1102,32 @@ function GlobeMap({
     };
   }, [globeReadyTick, pauseAutoRotate, scheduleAutoRotateResume]);
 
-  // Regional maps: fixed camera, no idle spin; world maps: rotate when not in combat anim
+  // Regional maps: fixed camera, no idle spin; world maps: rotate when not in combat anim.
+  //
+  // Split deliberately from the camera snap below. These two used to share one
+  // effect with `autoSpin` in its deps, so toggling Spin re-ran `pointOfView`
+  // and threw away whatever the player had zoomed or panned to — pausing the
+  // spin to study a border snapped the view back out from under them.
   useEffect(() => {
-    const globe = globeRef.current;
-    if (!globe) return;
-    const ctrl = globe.controls?.();
+    const ctrl = globeRef.current?.controls?.();
     if (!ctrl) return;
-
     const lock = regionalGlobe.lockRotation || reducedEffects || !autoSpin || spinSuppressedRef.current;
     ctrl.autoRotate = !lock;
     ctrl.autoRotateSpeed = lock ? 0 : 0.4;
+  }, [regionalGlobe.lockRotation, reducedEffects, autoSpin, globeReadyTick]);
 
+  // Frame the authored view — on the values, not the `regionalGlobe` object.
+  //
+  // This used to share an effect with the spin control above and depend on the
+  // memo object plus `autoSpin`. Both threw the camera away: `regionalGlobe` is
+  // rebuilt whenever `mapData.globe_view` changes identity, which is every
+  // `game:state` broadcast, so a player's zoom was reset by the opponent taking
+  // a turn — and toggling Spin re-snapped it too. Depending on the three numbers
+  // means it re-frames only when the map's authored framing actually changes,
+  // or when the globe remounts.
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
     globe.pointOfView(
       {
         lat: regionalGlobe.centerLat,
@@ -1100,7 +1136,7 @@ function GlobeMap({
       },
       0,
     );
-  }, [regionalGlobe, reducedEffects, autoSpin, globeReadyTick]);
+  }, [regionalGlobe.centerLat, regionalGlobe.centerLng, regionalGlobe.altitude, globeReadyTick]);
 
   // WI2 — pause idle auto-spin while it's the viewing player's turn (so their
   // territories don't drift off-screen), and resume the gentle spin on others'
@@ -1230,6 +1266,40 @@ function GlobeMap({
     // queued animation, or visibility change resumes it.
     globe.pauseAnimation();
   }, []);
+
+  /**
+   * Drive wheel zoom ourselves. OrbitControls scales its own `zoomSpeed` by the
+   * camera's distance to the target, and at the altitudes these maps sit at a
+   * wheel tick moves the camera so little that the control reads as dead. A
+   * capture-phase, non-passive listener on the container runs before
+   * OrbitControls' own handler on the canvas, so `stopPropagation` leaves pinch
+   * and drag alone and only replaces the wheel.
+   */
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return; // browser page zoom — leave it to the browser
+      e.preventDefault();
+      e.stopPropagation();
+      // Normalize line/page deltas to pixels, then cap so a flung trackpad and a
+      // coarse mouse notch land comparable steps. At this coefficient one mouse
+      // notch (|deltaY| ≈ 100) is about 11%, so zooming feels continuous rather
+      // than either dead or teleporting.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const delta = Math.max(-120, Math.min(120, e.deltaY * unit));
+      // Non-zero duration on purpose: react-globe.gl's instant path does not
+      // apply an altitude-only point of view, so a 0 ms wheel zoom silently did
+      // nothing. The short tween also smooths a fast scroll.
+      zoomByFactor(Math.exp(delta * 0.0012), 90);
+      // The render loop idles after a few seconds of inactivity, and stopping
+      // the wheel from reaching OrbitControls also stops the 'change' event that
+      // would normally wake it — so the camera tween ran with nothing painting.
+      applyRenderActivity(true);
+    };
+    el.addEventListener('wheel', onWheel, { capture: true, passive: false });
+    return () => el.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions);
+  }, [zoomByFactor, applyRenderActivity]);
 
   usePageVisibilityEffect((visible) => applyRenderActivity(visible));
 
@@ -3238,6 +3308,7 @@ function GlobeMap({
 
   return (
     <div
+      ref={rootRef}
       className="w-full h-full rounded-lg overflow-hidden bg-bf-dark relative"
       style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
       data-testid="globe-map-root"
@@ -3249,6 +3320,37 @@ function GlobeMap({
       onPointerCancel={handlePointerEnd}
     >
       <style dangerouslySetInnerHTML={{ __html: ANIMATION_STYLES }} />
+      {/*
+        Visible zoom controls. The globe had none: zoom was wheel-only on
+        desktop and pinch-only on touch, so nothing on screen said the view
+        could be zoomed at all.
+      */}
+      <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-1">
+        <button
+          type="button"
+          data-testid="globe-zoom-in"
+          onClick={() => zoomByFactor(0.7, 200)}
+          aria-label="Zoom in"
+          title="Zoom in"
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-[rgba(18,22,35,0.92)]
+            border border-bf-gold/40 text-bf-gold text-lg leading-none shadow-lg backdrop-blur-sm
+            hover:bg-bf-gold/10 hover:border-bf-gold/70 transition-colors"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          data-testid="globe-zoom-out"
+          onClick={() => zoomByFactor(1 / 0.7, 200)}
+          aria-label="Zoom out"
+          title="Zoom out"
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-[rgba(18,22,35,0.92)]
+            border border-bf-gold/40 text-bf-gold text-lg leading-none shadow-lg backdrop-blur-sm
+            hover:bg-bf-gold/10 hover:border-bf-gold/70 transition-colors"
+        >
+          −
+        </button>
+      </div>
       {showSkipAnimations && (
         <button
           type="button"
