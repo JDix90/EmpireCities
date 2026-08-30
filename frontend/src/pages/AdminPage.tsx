@@ -55,6 +55,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Run the core tutorial as one continuous match on Tutorial Island with economy, tech and era advancement on, so a first-timer researches and advances an era instead of reading preview cards. On by default. Switching it off returns NEW tutorials to the WW2 core lesson; games already created keep the shape they started with.',
   },
   {
+    key: 'ai_attack_grind_enabled',
+    label: 'AI presses attacks',
+    description:
+      'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
