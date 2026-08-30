@@ -55,6 +55,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
+  ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -254,6 +255,17 @@ export const featureFlags = {
    */
   get aiAttackGrindEnabled(): boolean {
     return overrideBool('ai_attack_grind_enabled');
+  },
+
+  /**
+   * When true, the AI ranks attack candidates by an exact capture probability
+   * (combat/combatOdds.ts) fed with the same dice modifiers the resolver will
+   * apply, instead of the legacy saturating dice differential that ignored
+   * garrison size and every combat bonus. Default ON; this is the kill switch
+   * if the odds-aware target choice plays badly.
+   */
+  get aiCaptureOddsEnabled(): boolean {
+    return overrideBool('ai_capture_odds_enabled');
   },
 
   /**

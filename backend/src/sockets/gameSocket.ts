@@ -4748,7 +4748,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const planningState = state.settings.fog_of_war
     ? buildClientState(state, currentPlayer.player_id, true)
     : state;
-  const actions = await runAiWithTimeout(planningState, map, difficulty);
+  // The capture-odds flag is threaded explicitly because planning may run in a
+  // worker thread, where the admin-config override cache is not loaded.
+  const actions = await runAiWithTimeout(planningState, map, difficulty, {
+    captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
+  });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's
   // ranked candidate list is a priority order; this is what actually limits how

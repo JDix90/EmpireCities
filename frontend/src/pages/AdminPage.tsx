@@ -61,6 +61,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'ai_capture_odds_enabled',
+    label: 'AI odds-aware targeting',
+    description:
+      'Rank the AI’s attack candidates by an exact capture probability fed with the real dice modifiers (tech, buildings, factions, wonders, era gaps), instead of the legacy dice differential that ignored garrison size and every bonus. Changes which territories the AI attacks, not how combat resolves. On by default; switch off to restore the old target choice.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',

@@ -4,7 +4,7 @@ import path from 'path';
 import { computeAiTurn } from './aiBot';
 import { aiTurnLimiter } from './aiConcurrency';
 import type { GameState, GameMap, AiDifficulty } from '../../types';
-import type { AiAction } from './aiBot';
+import type { AiAction, AiTurnOptions } from './aiBot';
 
 // Per-difficulty time budgets. There is no tree search: computeAiTurn is a
 // single-ply greedy planner (see aiBot), so these are generous ceilings, not
@@ -39,11 +39,12 @@ const HARD_CAP_PADDING_MS = 1_500;
 export async function runAiWithTimeout(
   state: GameState,
   map: GameMap,
-  difficulty: AiDifficulty
+  difficulty: AiDifficulty,
+  options?: AiTurnOptions
 ): Promise<AiAction[]> {
   const workerPath = path.join(__dirname, 'aiWorker.js');
   if (!fs.existsSync(workerPath)) {
-    return computeAiTurn(state, map, difficulty);
+    return computeAiTurn(state, map, difficulty, options);
   }
 
   // Bound global AI concurrency: acquire a slot BEFORE spawning the worker and
@@ -52,7 +53,7 @@ export async function runAiWithTimeout(
   // burst of solo-vs-AI games.
   const release = await aiTurnLimiter.acquire();
   try {
-    return await runAiTurnInWorker(state, map, difficulty, workerPath);
+    return await runAiTurnInWorker(state, map, difficulty, workerPath, options);
   } finally {
     release();
   }
@@ -63,6 +64,7 @@ async function runAiTurnInWorker(
   map: GameMap,
   difficulty: AiDifficulty,
   workerPath: string,
+  options?: AiTurnOptions,
 ): Promise<AiAction[]> {
   const timeBudgetMs = TIME_BUDGET_BY_DIFFICULTY[difficulty] ?? 2_000;
   const hardCapMs = timeBudgetMs + HARD_CAP_PADDING_MS;
@@ -85,14 +87,14 @@ async function runAiTurnInWorker(
     };
 
     const worker = new Worker(workerPath, {
-      workerData: { state, map, difficulty },
+      workerData: { state, map, difficulty, options },
     });
     workerRef = worker;
 
     softFallbackTimer = setTimeout(() => {
       if (!resolved) {
         console.warn(`[AI] Time budget exceeded for ${difficulty}, using easy fallback`);
-        settle(computeAiTurn(state, map, 'easy'));
+        settle(computeAiTurn(state, map, 'easy', options));
       }
     }, timeBudgetMs);
 
@@ -101,7 +103,7 @@ async function runAiTurnInWorker(
     worker.on('error', (err) => {
       if (!resolved) {
         console.error('[AI Worker] Error:', err);
-        settle(computeAiTurn(state, map, 'easy'));
+        settle(computeAiTurn(state, map, 'easy', options));
       }
     });
 
@@ -111,7 +113,7 @@ async function runAiTurnInWorker(
     worker.on('exit', (code) => {
       if (!resolved) {
         console.error(`[AI Worker] Exited with code ${code} before producing a result; falling back.`);
-        settle(computeAiTurn(state, map, 'easy'));
+        settle(computeAiTurn(state, map, 'easy', options));
       }
     });
   });
@@ -131,7 +133,7 @@ async function runAiTurnInWorker(
       if (workerRef) {
         void workerRef.terminate().catch(() => {});
       }
-      resolve(computeAiTurn(state, map, 'easy'));
+      resolve(computeAiTurn(state, map, 'easy', options));
     }, hardCapMs);
   });
 

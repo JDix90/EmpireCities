@@ -1,6 +1,8 @@
 import { randomInt } from 'crypto';
 import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types';
 import { calculateReinforcements } from '../combat/combatResolver';
+import { captureProbability } from '../combat/combatOdds';
+import { computeLandCombatModifiers } from '../combat/combatModifiers';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getEraTechTree } from '../eras';
@@ -33,6 +35,16 @@ const DIFFICULTY_CONFIG: Record<AiDifficulty, { depth: number; randomFactor: num
   tutorial: { depth: 1, randomFactor: 0.9  },
 };
 
+export interface AiTurnOptions {
+  /**
+   * Rank attack candidates by exact capture probability (combatOdds) instead of
+   * the legacy saturating dice differential. Mirrors ai_capture_odds_enabled —
+   * the socket threads the flag through explicitly because the planner may run
+   * in a worker thread where the admin-config override cache is not loaded.
+   */
+  captureOddsScoring?: boolean;
+}
+
 /**
  * Compute the AI's complete turn actions for the current player.
  * Returns an ordered list of actions to execute.
@@ -40,7 +52,8 @@ const DIFFICULTY_CONFIG: Record<AiDifficulty, { depth: number; randomFactor: num
 export function computeAiTurn(
   state: GameState,
   map: GameMap,
-  difficulty: AiDifficulty
+  difficulty: AiDifficulty,
+  options?: AiTurnOptions
 ): AiAction[] {
   // Tutorial AI: draft to random territory, never attack, skip fortify
   if (difficulty === 'tutorial') {
@@ -89,7 +102,14 @@ export function computeAiTurn(
   actions.push({ type: 'end_phase' }); // draft → attack
 
   // ── Attack Phase ─────────────────────────────────────────────────────────
-  const attackActions = selectAttacks(state, map, playerId, cfg.randomFactor, difficulty);
+  const attackActions = selectAttacks(
+    state,
+    map,
+    playerId,
+    cfg.randomFactor,
+    difficulty,
+    options?.captureOddsScoring ?? true,
+  );
   actions.push(...attackActions);
 
   // Use influence ability if era supports it (medium+ difficulty)
@@ -308,7 +328,8 @@ function selectAttacks(
   map: GameMap,
   playerId: string,
   randomFactor: number,
-  difficulty: AiDifficulty
+  difficulty: AiDifficulty,
+  useCaptureOdds: boolean
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
@@ -393,8 +414,57 @@ function selectAttacks(
       const attackDice = isPrecision ? 3 : isSeaLane ? Math.min(attackUnits, 2) : Math.min(attackUnits, 3);
       const defDice = Math.min(nState.unit_count, 2);
 
-      // Simple favorability: attacker dice advantage
-      // Sea-lane attacks get a slight penalty for the reduced dice
+      // Favorability. Odds-aware path: exact P(capture the garrison, pressing
+      // the assault) computed by the combatOdds DP, fed the same state-derived
+      // dice modifiers the resolver will apply — so tech, buildings, factions,
+      // wonders and era gaps now steer target choice instead of being invisible
+      // to the planner. Scaled 3p-1 to occupy the legacy term's [-1, 2] range
+      // (the strategic bonuses below keep their relative weight), which makes
+      // the standalone attack threshold "P(capture) > 1/3".
+      // Legacy path (kill switch): the saturating dice differential, blind to
+      // garrison size beyond the dice caps and to every modifier.
+      let favorability: number;
+      if (useCaptureOdds) {
+        const mods = computeLandCombatModifiers({
+          state,
+          fromId: tid,
+          toId: nid,
+          attackerId: playerId,
+          defenderId: nOwner,
+          attackingUnits: tState.unit_count,
+          defendingUnits: nState.unit_count,
+          connection: conn,
+        });
+        const defenderPlayer = nOwner
+          ? state.players.find((p) => p.player_id === nOwner)
+          : undefined;
+        const vulnActive =
+          state.settings.era_advancement_enabled &&
+          (defenderPlayer?.era_transition_turns_remaining ?? 0) > 0;
+        const pCapture = captureProbability(tState.unit_count, nState.unit_count, {
+          attackBonus: mods.attackerBonusBreakdown.total,
+          defenseBonus: mods.defenderBonusBreakdown.total,
+          // Plan-time approximation: the rare Lighthouse/Naval Charts raise of
+          // the sea cap is ignored (slightly conservative on sea assaults).
+          attackerBaseCap: isSeaLane ? 2 : 3,
+          maxAttackerDice: state.settings.combat_dice_cap_enabled
+            ? state.settings.combat_max_attacker_dice ?? 5
+            : undefined,
+          maxDefenderDice: state.settings.combat_dice_cap_enabled
+            ? state.settings.combat_max_defender_dice ?? 4
+            : undefined,
+          defenderDiceMult: vulnActive
+            ? state.settings.era_advancement_vuln_defense_mult ?? 0.75
+            : undefined,
+          legionReroll: !!state.era_modifiers?.legion_reroll,
+        });
+        favorability = 3 * pCapture - 1;
+      } else {
+        favorability = attackDice - defDice;
+      }
+
+      // Sea-lane attacks get a slight penalty beyond the reduced dice: the
+      // crossing costs fleets/bombardment and can't be pressed within a turn.
       const seaPenalty = isSeaLane ? -0.5 : 0;
       const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
       const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
@@ -408,7 +478,7 @@ function selectAttacks(
         // instead of always preferring a land-adjacent fight.
         if (isSeaLane) expansionBonus += 1.5;
       }
-      const score = (attackDice - defDice) + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + Math.random() * randomFactor * 3;
+      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + Math.random() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {
