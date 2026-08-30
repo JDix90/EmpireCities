@@ -54,6 +54,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
+  ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -242,6 +243,17 @@ export const featureFlags = {
    */
   get combinedTutorialEnabled(): boolean {
     return overrideBool('combined_tutorial_enabled');
+  },
+
+  /**
+   * When true, the AI's per-turn attack budget counts dice exchanges instead of
+   * distinct edges, letting it grind one target until the target falls. Off, the
+   * AI attacks each planned edge exactly once — which makes any territory
+   * holding three or more units mathematically uncapturable by it. Default ON;
+   * this is the kill switch if the new pressure plays badly.
+   */
+  get aiAttackGrindEnabled(): boolean {
+    return overrideBool('ai_attack_grind_enabled');
   },
 
   /**

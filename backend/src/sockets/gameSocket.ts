@@ -47,6 +47,7 @@ import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTran
 import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
+import { AI_ATTACK_EXCHANGE_BUDGET, runAiAttackExchanges } from '../game-engine/ai/aiAttackGrind';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
 import { getPlayerFaction } from '../game-engine/eras/factionLineage';
@@ -4749,6 +4750,17 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     : state;
   const actions = await runAiWithTimeout(planningState, map, difficulty);
 
+  // Attack budget for the whole turn, spent in dice exchanges. The planner's
+  // ranked candidate list is a priority order; this is what actually limits how
+  // much fighting happens, so a turn that grinds one hard target does fewer
+  // separate attacks rather than more total exchanges.
+  const aiAttackGrindEnabled = featureFlags.aiAttackGrindEnabled;
+  const aiAttackBudget = {
+    left: aiAttackGrindEnabled
+      ? (AI_ATTACK_EXCHANGE_BUDGET[difficulty] ?? 4)
+      : Number.POSITIVE_INFINITY,
+  };
+
   const delay = async () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 600));
     // Defense-in-depth for seat return: if the human came back mid-turn (only
@@ -5199,19 +5211,24 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
 
     await delay();
-    const from = state.territories[action.from];
-    const to = state.territories[action.to];
+    // Hoisted so the grind callback below closes over plain strings: TypeScript
+    // cannot carry the narrowing from the `action.type` guard into an async
+    // closure.
+    const attackFromId: string = action.from;
+    const attackToId: string = action.to;
+    const from = state.territories[attackFromId];
+    const to = state.territories[attackToId];
     if (!from || !to || from.unit_count < 2 || from.owner_id !== currentPlayer.player_id) continue;
     if (to.owner_id === currentPlayer.player_id) continue;
 
     const aiConnection = map.connections.find(
-      (c) => (c.from === action.from && c.to === action.to) || (c.from === action.to && c.to === action.from),
+      (c) => (c.from === attackFromId && c.to === attackToId) || (c.from === attackToId && c.to === attackFromId),
     );
 
     // Orbit/Moon access parity: the AI must satisfy the same access requirement a
     // human does to attack across a moon/orbit connection. Without this, a stale or
     // mis-planned action could let the bot invade worlds humans cannot reach.
-    if (connectionRequiresMoonAccess(map, action.from, action.to)) {
+    if (connectionRequiresMoonAccess(map, attackFromId, attackToId)) {
       if (!getOrbitAccessResult(state, currentPlayer, map, state.era).allowed) continue;
     }
 
@@ -5223,11 +5240,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       if (!from.naval_units || from.naval_units <= 0) continue;
       const aiCrossing = resolveSeaCrossing(from, to);
       if (aiCrossing.navalResult) {
-        io.to(gameId).emit('game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiCrossing.navalResult });
-        queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId: action.from, toId: action.to, result: aiCrossing.navalResult });
+        io.to(gameId).emit('game:naval_combat_result', { fromId: attackFromId, toId: attackToId, result: aiCrossing.navalResult });
+        queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId: attackFromId, toId: attackToId, result: aiCrossing.navalResult });
         emitMapVisual(io, gameId, buildNavalMapVisual({
-          fromId: action.from,
-          toId: action.to,
+          fromId: attackFromId,
+          toId: attackToId,
           attackerId: currentPlayer.player_id,
           attackerLosses: aiCrossing.navalResult.attacker_losses,
           defenderLosses: aiCrossing.navalResult.defender_losses,
@@ -5257,89 +5274,118 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     // Attack self-buff parity: activate the faction attack buff once per turn
     // (executeLandAttack then consumes it, exactly as the human handler does).
     maybeActivateAiAttackSelfBuff(state, map, currentPlayer);
-    const aiMarchToSeaBonus = getMarchToSeaBonus(currentPlayer, action.from);
-    const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
+    const aiMarchToSeaBonus = getMarchToSeaBonus(currentPlayer, attackFromId);
 
-    // Single source of truth for the land exchange — shared with the human
-    // handler and the balance sim. Socket-only concerns (callouts, stat
-    // recording, elimination broadcast, visuals) stay here, around the call.
-    const aiOutcome = executeLandAttack(state, currentPlayer.player_id, action.from, action.to, {
-      connection: aiConnection,
-      dieRoll: aiPuzzleDieRoll,
-      // Same orbit-access rule the human handler applies (moon capture parity).
-      neutralOffworldCaptureAllowed: getOrbitAccessResult(state, currentPlayer, map, state.era).allowed,
-      extraAttackBonuses: {
-        march_to_sea: aiMarchToSeaBonus,
-        truce_retaliation: aiTruceRetaliationBonus,
-      },
-      extraDefenseBonuses: {
-        naval_bombardment: aiNavalBombardmentDefenseBonus,
-      },
-      onCapture: (s, pid) => {
-        // One card per turn — gated by state flag (see advanceToNextPlayer reset).
-        if (!currentPlayer.card_earned_this_turn) {
-          drawCard(s, pid);
-          currentPlayer.card_earned_this_turn = true;
-        }
-      },
-    });
-    if (!aiOutcome) continue;
-    const result = aiOutcome.result;
-
-    attachCombatAbilityCallouts(
-      result,
-      buildCombatAbilityCallouts({
-        state,
-        attackerId: currentPlayer.player_id,
-        toId: action.to,
-        attackBuffs: aiOutcome.attackBuffs,
-        abilityUses: currentPlayer.ability_uses,
-        rawAttackerLosses: aiOutcome.rawAttackerLosses,
-      }),
-    );
-
-    // If resolveCombat returned an error, skip this attack (state was not mutated).
-    if (result.error) {
-      console.warn?.('AI attempted invalid combat:', result.error, { from: from.unit_count, to: to.unit_count });
-      continue;
-    }
-    recordCombatResult(gameId, currentPlayer.player_id, aiDefenderId ?? null, result, {
-      isSea: aiConnection?.type === 'sea',
-    });
-    recordMarchToSeaResult(currentPlayer, aiMarchToSeaBonus > 0, action.to, result.territory_captured);
-    // Elimination broadcast (cards already transferred + is_eliminated set inside executeLandAttack).
-    if (aiOutcome.defenderEliminated) {
-      const defenderPlayer = state.players.find((p) => p.player_id === aiDefenderId);
-      if (defenderPlayer) {
-        recordElimination(gameId, currentPlayer.player_id);
-        io.to(gameId).emit('game:player_eliminated', {
-          playerId: aiDefenderId,
-          eliminatorId: currentPlayer.player_id,
-          eliminatorName: currentPlayer.username,
-          eliminatedName: defenderPlayer.username,
-          secretMission: defenderPlayer.secret_mission ?? null,
-        });
-      }
-    }
-    syncTerritoryCounts(state);
-    io.to(gameId).emit('game:combat_result', { fromId: action.from, toId: action.to, result });
-    emitMapVisual(io, gameId, buildCombatMapVisual({
-      fromId: action.from,
-      toId: action.to,
-      attackerId: currentPlayer.player_id,
-      defenderId: aiDefenderId,
-      attackerLosses: result.attacker_losses,
-      defenderLosses: result.defender_losses,
-      territoryCaptured: result.territory_captured,
+    // Grind this edge until it falls or the turn's exchange budget runs out.
+    //
+    // The budget counts EXCHANGES, not edges: one executeLandAttack removes at
+    // most two defenders, so attacking each planned edge exactly once left any
+    // 3+ unit territory uncapturable by the AI at every difficulty. Spending the
+    // same number of exchanges on the best target instead is the whole fix; the
+    // per-exchange delay() below is unchanged, so turn length is too.
+    //
+    // Sea lanes are deliberately excluded: the crossing, its fleet losses and
+    // its bombardment penalty are once-per-action, and repeating an exchange
+    // would silently reuse them.
+    const grindOutcome = await runAiAttackExchanges({
       state,
-    }));
-    broadcastState(io, gameId, state);
+      attackerId: currentPlayer.player_id,
+      fromId: attackFromId,
+      toId: attackToId,
+      budget: aiAttackBudget,
+      canGrind: aiAttackGrindEnabled && aiConnection?.type !== 'sea',
+      betweenExchanges: delay,
+      exchange: async (exchangeIndex) => {
+        // A fresh scripted die per exchange — the queue is consumed, not reused.
+        const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
 
-    if (await doVictoryCheck()) return;
-    if (result.territory_captured) {
-      const defP = state.players.find((p) => p.player_id === aiDefenderId);
-      if (defP?.is_eliminated) appendWinProbabilitySnapshot(state);
-    }
+        // Single source of truth for the land exchange — shared with the human
+        // handler and the balance sim. Socket-only concerns (callouts, stat
+        // recording, elimination broadcast, visuals) stay here, around the call.
+        const aiOutcome = executeLandAttack(state, currentPlayer.player_id, attackFromId, attackToId, {
+          connection: aiConnection,
+          dieRoll: aiPuzzleDieRoll,
+          // Same orbit-access rule the human handler applies (moon capture parity).
+          neutralOffworldCaptureAllowed: getOrbitAccessResult(state, currentPlayer, map, state.era).allowed,
+          extraAttackBonuses: {
+            march_to_sea: aiMarchToSeaBonus,
+            // Spliced out of the player once; it must not re-apply on every grind
+            // exchange against the same target.
+            truce_retaliation: exchangeIndex === 0 ? aiTruceRetaliationBonus : 0,
+          },
+          extraDefenseBonuses: {
+            naval_bombardment: aiNavalBombardmentDefenseBonus,
+          },
+          onCapture: (s, pid) => {
+            // One card per turn — gated by state flag (see advanceToNextPlayer reset).
+            if (!currentPlayer.card_earned_this_turn) {
+              drawCard(s, pid);
+              currentPlayer.card_earned_this_turn = true;
+            }
+          },
+        });
+        if (!aiOutcome) return 'stop';
+        const result = aiOutcome.result;
+
+        attachCombatAbilityCallouts(
+          result,
+          buildCombatAbilityCallouts({
+            state,
+            attackerId: currentPlayer.player_id,
+            toId: attackToId,
+            attackBuffs: aiOutcome.attackBuffs,
+            abilityUses: currentPlayer.ability_uses,
+            rawAttackerLosses: aiOutcome.rawAttackerLosses,
+          }),
+        );
+
+        // If resolveCombat returned an error, skip this attack (state was not mutated).
+        if (result.error) {
+          console.warn?.('AI attempted invalid combat:', result.error, { from: from.unit_count, to: to.unit_count });
+          return 'stop';
+        }
+        recordCombatResult(gameId, currentPlayer.player_id, aiDefenderId ?? null, result, {
+          isSea: aiConnection?.type === 'sea',
+        });
+        recordMarchToSeaResult(currentPlayer, aiMarchToSeaBonus > 0, attackToId, result.territory_captured);
+        // Elimination broadcast (cards already transferred + is_eliminated set inside executeLandAttack).
+        if (aiOutcome.defenderEliminated) {
+          const defenderPlayer = state.players.find((p) => p.player_id === aiDefenderId);
+          if (defenderPlayer) {
+            recordElimination(gameId, currentPlayer.player_id);
+            io.to(gameId).emit('game:player_eliminated', {
+              playerId: aiDefenderId,
+              eliminatorId: currentPlayer.player_id,
+              eliminatorName: currentPlayer.username,
+              eliminatedName: defenderPlayer.username,
+              secretMission: defenderPlayer.secret_mission ?? null,
+            });
+          }
+        }
+        syncTerritoryCounts(state);
+        io.to(gameId).emit('game:combat_result', { fromId: attackFromId, toId: attackToId, result });
+        emitMapVisual(io, gameId, buildCombatMapVisual({
+          fromId: attackFromId,
+          toId: attackToId,
+          attackerId: currentPlayer.player_id,
+          defenderId: aiDefenderId,
+          attackerLosses: result.attacker_losses,
+          defenderLosses: result.defender_losses,
+          territoryCaptured: result.territory_captured,
+          state,
+        }));
+        broadcastState(io, gameId, state);
+
+        if (await doVictoryCheck()) return 'abort_turn';
+        if (result.territory_captured) {
+          const defP = state.players.find((p) => p.player_id === aiDefenderId);
+          if (defP?.is_eliminated) appendWinProbabilitySnapshot(state);
+        }
+        return 'ok';
+      },
+    });
+    if (grindOutcome.aborted) return;
+    if (aiAttackGrindEnabled && aiAttackBudget.left <= 0) break;
   }
 
   // ── Fortify Phase ──────────────────────────────────────────────────────
