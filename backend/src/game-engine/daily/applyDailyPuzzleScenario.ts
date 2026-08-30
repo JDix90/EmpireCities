@@ -2,6 +2,7 @@ import type { GameMap, GameState } from '../../types';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { syncTerritoryCounts } from '../state/gameStateManager';
 import { buildDiceQueue } from './puzzleDice';
+import { applyAuthoredScenario } from '../scenarios/applyAuthoredScenario';
 
 /**
  * After {@link initializeGameState}, reshape the board for puzzle archetypes (not domination).
@@ -22,6 +23,32 @@ export function applyDailyPuzzleScenario(
   state.puzzle_dice_queue = buildDiceQueue(spec.dice_queue_seed, 500);
   state.puzzle_dice_index = 0;
   state.puzzle_feedback_mistakes = 0;
+
+  // Authored day: the calendar's designed board replaces the archetype's
+  // hardcoded shaper, through the same applyAuthoredScenario the tutorial and
+  // campaign use. The archetype still drives objective evaluation and the
+  // route's settings, so an authored military/economy/tech day needs no new
+  // machinery — only a board worth playing.
+  if (spec.starting_board) {
+    applyAuthoredScenario(
+      state,
+      map,
+      {
+        starting_board: spec.starting_board,
+        clear_board: spec.clear_board,
+        grants: spec.grants,
+      },
+      humanPlayerId,
+      aiPlayerId,
+    );
+    if (spec.starting_phase === 'attack') {
+      // Tactical boards are fought exactly as authored: no opening draft.
+      state.phase = 'attack';
+      state.draft_units_remaining = 0;
+      state.current_player_index = 0;
+    }
+    return;
+  }
 
   if (spec.archetype === 'military_capture' && spec.target_territory_id && spec.anchor_territory_id) {
     const tids = Object.keys(state.territories).sort();

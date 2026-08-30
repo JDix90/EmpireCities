@@ -12,7 +12,7 @@ import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
 // ── Building definitions ──────────────────────────────────────────────────────
 
 /** Gold / production units required to build each type. */
-const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
+export const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   production_1: 3,
   production_2: 6,
   production_3: 10,

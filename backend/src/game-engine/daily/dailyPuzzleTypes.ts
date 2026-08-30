@@ -3,7 +3,7 @@
  * Tier C (golden solution lines) is reserved for future curated content.
  */
 
-import type { BuildingType, EraId } from '../../types';
+import type { AuthoredScenario, BuildingType, EraId } from '../../types';
 
 /** High-level puzzle categories rotated deterministically by date. */
 export type DailyPuzzleArchetype =
@@ -37,6 +37,31 @@ export interface DailyPuzzleSpec {
   tech_id?: string;
   /** Hint shown after mistakes (optional future use). */
   hint?: string;
+
+  // ── Authored-puzzle fields (dailyCalendar.ts). Generator days omit all of
+  // these. The spec is the single source of truth for a day's content: it is
+  // persisted as JSONB and rides inside game settings as an opaque extension,
+  // so authored boards survive re-normalization and room reloads unchanged. ──
+
+  /** Designed opening position, applied via the shared applyAuthoredScenario. */
+  starting_board?: AuthoredScenario['starting_board'];
+  /** Wipe the dealt board to neutral/0 before applying starting_board. */
+  clear_board?: boolean;
+  /** Resource floors for the human seat (tech points / gold). */
+  grants?: AuthoredScenario['grants'];
+  /**
+   * Open the puzzle mid-turn: 'attack' skips the human's first draft so a
+   * tactical board is fought exactly as authored. Default: normal draft start.
+   */
+  starting_phase?: 'attack';
+  /** AI difficulty for this day (generator days keep the route default). */
+  ai_difficulty?: 'easy' | 'medium' | 'hard' | 'expert';
+  /**
+   * Extra game-settings keys merged at game creation (e.g. naval_enabled).
+   * Protected keys (daily_challenge_date/spec, seed, max_players) are ignored;
+   * everything else still passes the normal settings normalizer.
+   */
+  settings_overrides?: Record<string, unknown>;
 }
 
 /** Feedback tiers for Tier A strategic coaching (evaluateBoard delta). */
