@@ -55,6 +55,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
+  ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
+  ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
+  attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -257,6 +260,37 @@ export const featureFlags = {
   },
 
   /**
+   * When true, the AI ranks attack candidates by an exact capture probability
+   * (combat/combatOdds.ts) fed with the same dice modifiers the resolver will
+   * apply, instead of the legacy saturating dice differential that ignored
+   * garrison size and every combat bonus. Default ON; this is the kill switch
+   * if the odds-aware target choice plays badly.
+   */
+  get aiCaptureOddsEnabled(): boolean {
+    return overrideBool('ai_capture_odds_enabled');
+  },
+
+  /**
+   * When true, an AI whose heuristic win probability clears the decided-game
+   * threshold doubles its per-turn exchange budget and lifts its attack cap,
+   * so games everyone can already call actually end. Default ON; this is the
+   * kill switch if the endgame press plays badly.
+   */
+  get aiDecidedGamePressEnabled(): boolean {
+    return overrideBool('ai_decided_game_press_enabled');
+  },
+
+  /**
+   * When true, players get the "Attack until captured" button: one
+   * game:attack_blitz event resolves repeated exchanges server-side (land
+   * only, never breaks a truce, never in daily puzzles). Default ON; the kill
+   * switch restores click-per-exchange combat.
+   */
+  get attackBlitzEnabled(): boolean {
+    return overrideBool('attack_blitz_enabled');
+  },
+
+  /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
    * Default ON **in production only** — outbound mail must never fire from a
@@ -373,5 +407,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
+    attack_blitz_enabled: featureFlags.attackBlitzEnabled,
   };
 }

@@ -61,6 +61,24 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'ai_capture_odds_enabled',
+    label: 'AI odds-aware targeting',
+    description:
+      'Rank the AI’s attack candidates by an exact capture probability fed with the real dice modifiers (tech, buildings, factions, wonders, era gaps), instead of the legacy dice differential that ignored garrison size and every bonus. Changes which territories the AI attacks, not how combat resolves. On by default; switch off to restore the old target choice.',
+  },
+  {
+    key: 'ai_decided_game_press_enabled',
+    label: 'AI finishes decided games',
+    description:
+      'When an AI already holds a clear majority of the board and armies (heuristic win probability above 70%), it doubles its per-turn attack budget and plans more attacks, so a game everyone can call actually ends instead of dragging. Never applies to Easy or the tutorial AI. On by default.',
+  },
+  {
+    key: 'attack_blitz_enabled',
+    label: 'Blitz attacks',
+    description:
+      'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never breaks a truce, never in daily challenges. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',

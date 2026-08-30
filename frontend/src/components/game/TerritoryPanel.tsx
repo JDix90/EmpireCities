@@ -5,6 +5,9 @@ import { useAuthStore } from '../../store/authStore';
 import { Shield, Sword, X, Anchor, Flag, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
+import { canOfferBlitz } from '../../utils/blitzEligibility';
+import { useAttackBlitzEnabled } from '../../store/featureFlagsStore';
+import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
@@ -33,6 +36,8 @@ interface TerritoryPanelProps {
   }>;
   mapRegions?: Array<{ region_id: string; name: string; bonus: number }>;
   onAttack: (fromId: string, toId: string) => void;
+  /** "Blitz until captured" (game:attack_blitz). Absent = affordance hidden. */
+  onBlitzAttack?: (fromId: string, toId: string) => void;
   onDraft: (territoryId: string, units: number) => void;
   onBuild?: (buildingType: string) => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
@@ -66,6 +71,7 @@ export default function TerritoryPanel({
   mapTerritories,
   mapRegions,
   onAttack,
+  onBlitzAttack,
   onDraft,
   onBuild,
   onNavalMove,
@@ -87,6 +93,7 @@ export default function TerritoryPanel({
   onSheetSnapChange,
 }: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
   const { gameState, draftUnitsRemaining } = useGameStore();
+  const attackBlitzFlag = useAttackBlitzEnabled();
   const {
     selectedTerritory,
     attackSource,
@@ -223,6 +230,27 @@ export default function TerritoryPanel({
     () => attackNeighbors.some((n) => n.territoryId === selectedTerritory),
     [attackNeighbors, selectedTerritory],
   );
+
+  // "Blitz until captured": same legality as the single attack, minus the
+  // cases the server refuses to auto-repeat (sea lanes, truces, dailies).
+  const attackConnectionType = attackSource
+    ? mapConnections?.find(
+        (c) =>
+          (c.from === attackSource && c.to === selectedTerritory) ||
+          (c.from === selectedTerritory && c.to === attackSource),
+      )?.type
+    : undefined;
+  const blitzOffered =
+    !!onBlitzAttack &&
+    canOfferBlitz({
+      flagEnabled: attackBlitzFlag,
+      hasActiveTruce,
+      connectionType: attackConnectionType,
+      isDailyChallenge:
+        typeof gameState.settings?.daily_challenge_date === 'string' &&
+        gameState.settings.daily_challenge_date.length > 0,
+    });
+  const blitzIsPrimary = blitzOffered && getFastCombatPreference();
 
   const fortifyNeighborSourceId =
     gameState.phase === 'fortify' && attackSource && gameState.territories[attackSource]?.owner_id === myPlayerId
@@ -632,12 +660,27 @@ export default function TerritoryPanel({
                     ⚠ Break Truce &amp; Attack
                   </button>
                 ) : (
-                  <button
-                    className="btn-danger w-full text-sm flex items-center justify-center gap-2"
-                    onClick={() => onAttack(attackSource, selectedTerritory)}
-                  >
-                    <Sword className="w-4 h-4" /> Attack from {territoryNameById.get(attackSource) ?? attackSource}
-                  </button>
+                  // Two ways to fight: one exchange, or press until decided.
+                  // The fast-combat preference decides which leads.
+                  <div className={clsx('flex gap-2', blitzIsPrimary ? 'flex-col-reverse' : 'flex-col')}>
+                    <button
+                      className="btn-danger w-full text-sm flex items-center justify-center gap-2"
+                      onClick={() => onAttack(attackSource, selectedTerritory)}
+                    >
+                      <Sword className="w-4 h-4" /> Attack from {territoryNameById.get(attackSource) ?? attackSource}
+                    </button>
+                    {blitzOffered && (
+                      <button
+                        className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                   bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40 text-bf-gold
+                                   font-medium transition-all"
+                        onClick={() => onBlitzAttack!(attackSource, selectedTerritory)}
+                        title="Attack repeatedly until the territory falls or you can no longer attack"
+                      >
+                        ⚡ Blitz until captured
+                      </button>
+                    )}
+                  </div>
                 )
               )}
               {/* Always offer a clear way out while an attacker is locked in. */}

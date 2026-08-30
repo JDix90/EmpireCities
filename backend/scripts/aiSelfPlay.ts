@@ -32,7 +32,11 @@ import {
 } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn } from '../src/game-engine/ai/aiBot';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
-import { AI_ATTACK_EXCHANGE_BUDGET, runAiAttackExchanges } from '../src/game-engine/ai/aiAttackGrind';
+import {
+  aiAttackExchangeBudget,
+  runAiAttackExchanges,
+  shouldPressDecidedGame,
+} from '../src/game-engine/ai/aiAttackGrind';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 
 const GAMES = Number(process.env.SELFPLAY_GAMES ?? 200);
@@ -41,14 +45,42 @@ const MAX_TURNS = Number(process.env.SELFPLAY_MAX_TURNS ?? 80);
 const MASTER_SEED = process.env.SELFPLAY_SEED ?? 'borderfall-ai-selfplay';
 const MAP_FILE = process.env.SELFPLAY_MAP ?? 'era_ancient';
 /**
- * ab           — one seat grinds, one pokes. Measures relative STRENGTH.
+ * ab           — one seat grinds, one pokes. Measures the GRIND policy's strength.
  * mirror-grind — both seats grind.
- * mirror-poke  — both seats poke (the old behaviour).
+ * mirror-poke  — both seats poke (the pre-grind behaviour).
+ * odds-ab      — both seats grind; one ranks targets by capture odds, the other
+ *                by the legacy dice differential. Measures the ODDS scoring's
+ *                strength on top of the grind executor.
+ * mirror-odds  — both seats grind + odds.
+ * press-ab     — both seats grind + odds; one also presses decided games
+ *                (doubled budget + lifted cap past the win-probability
+ *                threshold). A harm guard: pressing should CONVERT won games,
+ *                not throw them.
+ * mirror-press — both seats grind + odds + press (the shipped configuration).
+ *                Compare mean turns against mirror-odds.
  *
- * The two mirrors are how you answer "do decided games get shorter": a
- * head-to-head cannot, because both policies are inside the same game.
+ * The mirrors are how you answer "do decided games get shorter": a head-to-head
+ * cannot, because both policies are inside the same game.
+ *
+ * The three PR-12-era modes pin computeAiTurn to the LEGACY scoring so their
+ * numbers stay comparable with the measurements recorded when the grind landed.
  */
-const MODE = (process.env.SELFPLAY_MODE ?? 'ab') as 'ab' | 'mirror-grind' | 'mirror-poke';
+const MODE = (process.env.SELFPLAY_MODE ?? 'ab') as
+  | 'ab'
+  | 'mirror-grind'
+  | 'mirror-poke'
+  | 'odds-ab'
+  | 'mirror-odds'
+  | 'press-ab'
+  | 'mirror-press';
+
+/** Candidate-vs-baseline names for the report (candidate sits in the alternating seat). */
+const [CAND, BASE] =
+  MODE === 'press-ab' || MODE === 'mirror-press'
+    ? ['press', 'hold']
+    : MODE === 'odds-ab' || MODE === 'mirror-odds'
+      ? ['odds', 'legacy']
+      : ['grind', 'poke'];
 
 function loadMap(): GameMap {
   return JSON.parse(
@@ -119,14 +151,22 @@ async function playAiTurn(
   difficulty: AiDifficulty,
   dieRoll: () => number,
   canGrind: boolean,
+  useOdds: boolean,
+  usePress: boolean,
 ): Promise<number> {
+  // Same order as the socket: decidedness is read before planning, from the
+  // full state (the sim has no fog).
+  const decidedPress = usePress && shouldPressDecidedGame(state, pid, difficulty);
   state.phase = 'draft';
-  const plan = computeAiTurn(state, map, difficulty);
+  const plan = computeAiTurn(state, map, difficulty, {
+    captureOddsScoring: useOdds,
+    decidedGamePress: decidedPress,
+  });
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
   const budget = {
-    left: canGrind ? (AI_ATTACK_EXCHANGE_BUDGET[difficulty] ?? 4) : Number.POSITIVE_INFINITY,
+    left: canGrind ? aiAttackExchangeBudget(difficulty, decidedPress) : Number.POSITIVE_INFINITY,
   };
   let exchanges = 0;
   for (const a of plan) {
@@ -173,10 +213,18 @@ async function runGame(map: GameMap, gameIndex: number): Promise<GameResult> {
   // the first move is confounded with a seat.
   // In mirror modes no seat is "the grinder"; seat 0 is reported as `grind` so
   // the territory/exchange columns stay readable.
-  const grindSeat = gameIndex % 2;
+  const grindSeat = gameIndex % 2; // the CANDIDATE seat in the ab modes
   const startSeat = (gameIndex >> 1) % 2;
   const seatGrinds = (idx: number): boolean =>
-    MODE === 'mirror-grind' ? true : MODE === 'mirror-poke' ? false : idx === grindSeat;
+    MODE === 'ab' ? idx === grindSeat : MODE !== 'mirror-poke';
+  const seatOdds = (idx: number): boolean =>
+    MODE === 'mirror-odds' || MODE === 'press-ab' || MODE === 'mirror-press'
+      ? true
+      : MODE === 'odds-ab'
+        ? idx === grindSeat
+        : false;
+  const seatPress = (idx: number): boolean =>
+    MODE === 'mirror-press' ? true : MODE === 'press-ab' ? idx === grindSeat : false;
 
   const players = [0, 1].map((i) => ({
     player_id: `ai_${i}`,
@@ -201,6 +249,8 @@ async function runGame(map: GameMap, gameIndex: number): Promise<GameResult> {
       exchanges[player.player_index] += await playAiTurn(
         state, map, player.player_id, DIFFICULTY, dieRoll,
         seatGrinds(player.player_index),
+        seatOdds(player.player_index),
+        seatPress(player.player_index),
       );
     }
     advanceToNextPlayer(state, map);
@@ -243,7 +293,15 @@ function mean(xs: number[]): number {
     `maxTurns=${MAX_TURNS}, seed="${MASTER_SEED}"\n` +
     (MODE === 'ab'
       ? 'grind (exchange budget) vs poke (one exchange per edge) — seats and first move alternate\n'
-      : `both seats use the ${MODE === 'mirror-grind' ? 'grind' : 'poke'} policy — compare mean turns across the two mirrors\n`),
+      : MODE === 'odds-ab'
+        ? 'both seats grind; odds (capture-probability targeting) vs legacy (dice differential) — seats and first move alternate\n'
+        : MODE === 'press-ab'
+          ? 'both seats grind + odds; press (decided-game escape) vs hold — a harm guard, not a strength gate\n'
+          : MODE === 'mirror-odds'
+            ? 'both seats grind + odds targeting — compare mean turns against mirror-grind\n'
+            : MODE === 'mirror-press'
+              ? 'both seats grind + odds + decided-game press (the shipped configuration) — compare mean turns against mirror-odds\n'
+              : `both seats use the ${MODE === 'mirror-grind' ? 'grind' : 'poke'} policy — compare mean turns across the two mirrors\n`),
   );
 
   const results: GameResult[] = [];
@@ -258,29 +316,37 @@ function mean(xs: number[]): number {
 
   console.log('\n── Results ───────────────────────────────────────────');
   console.log(`decisive games:            ${decisive.length}/${results.length} (${pct(decisive.length, results.length)})`);
-  console.log(`grind wins:                ${grindWins}  (${pct(grindWins, decisive.length)} of decided)`);
-  console.log(`poke wins:                 ${pokeWins}  (${pct(pokeWins, decisive.length)} of decided)`);
+  console.log(`${CAND} wins:`.padEnd(27) + `${grindWins}  (${pct(grindWins, decisive.length)} of decided)`);
+  console.log(`${BASE} wins:`.padEnd(27) + `${pokeWins}  (${pct(pokeWins, decisive.length)} of decided)`);
   console.log(`mean turns (decided):      ${mean(decisive.map((r) => r.turns)).toFixed(1)}`);
-  console.log(`mean territories  grind:   ${mean(results.map((r) => r.grindTerritories)).toFixed(2)}`);
-  console.log(`                  poke:    ${mean(results.map((r) => r.pokeTerritories)).toFixed(2)}`);
-  console.log(`mean exchanges/game grind: ${mean(results.map((r) => r.grindExchanges)).toFixed(1)}`);
-  console.log(`                    poke:  ${mean(results.map((r) => r.pokeExchanges)).toFixed(1)}`);
+  console.log(`mean territories  ${CAND}:`.padEnd(27) + mean(results.map((r) => r.grindTerritories)).toFixed(2));
+  console.log(`                  ${BASE}:`.padEnd(27) + mean(results.map((r) => r.pokeTerritories)).toFixed(2));
+  console.log(`mean exchanges/game ${CAND}:`.padEnd(27) + mean(results.map((r) => r.grindExchanges)).toFixed(1));
+  console.log(`                    ${BASE}:`.padEnd(27) + mean(results.map((r) => r.pokeExchanges)).toFixed(1));
 
   // Acceptance gate from the Week 3 plan: the new policy should win a clear
   // majority of decided games. A near-50% result means the change is inert;
   // a very high one means the bot may now be too strong for its difficulty.
   const winRate = decisive.length === 0 ? 0 : grindWins / decisive.length;
   console.log('\n── Gate ──────────────────────────────────────────────');
-  if (MODE !== 'ab') {
+  if (MODE !== 'ab' && MODE !== 'odds-ab' && MODE !== 'press-ab') {
     console.log(`Mirror run — no strength verdict. Compare "mean turns (decided)" against the other mirror.`);
     process.exit(0);
   }
   if (decisive.length < results.length * 0.5) {
     console.log('INCONCLUSIVE — too many games hit the turn cap to judge strength.');
+  } else if (MODE === 'press-ab') {
+    // The press changes TEMPO, not strength — the gate is only that a pressing
+    // bot does not throw games it already holds.
+    if (winRate >= 0.45) {
+      console.log(`PASS — press wins ${pct(grindWins, decisive.length)} of decided games (harm guard: >= 45%).`);
+    } else {
+      console.log(`HARMFUL — press wins only ${pct(grindWins, decisive.length)} of decided games (guard >= 45%): pressing is throwing won games.`);
+    }
   } else if (winRate >= 0.55) {
-    console.log(`PASS — grind wins ${pct(grindWins, decisive.length)} of decided games (target >= 55%).`);
+    console.log(`PASS — ${CAND} wins ${pct(grindWins, decisive.length)} of decided games (target >= 55%).`);
   } else {
-    console.log(`BELOW TARGET — grind wins ${pct(grindWins, decisive.length)} of decided games (target >= 55%).`);
+    console.log(`BELOW TARGET — ${CAND} wins ${pct(grindWins, decisive.length)} of decided games (target >= 55%).`);
   }
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
