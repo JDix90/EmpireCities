@@ -6,6 +6,7 @@ import { useGameStore, CombatResult, type GameState as ClientGameState } from '.
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled } from '../store/featureFlagsStore';
+import { canOfferBlitz } from '../utils/blitzEligibility';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
@@ -1461,6 +1462,18 @@ export default function GamePage() {
         isMyAttack &&
         !territory_captured &&
         unitsAfterOnSource >= 2;
+      // Whether "blitz the same battle" may be offered alongside "attack again".
+      const repeatConnection = currentMap?.connections?.find(
+        (c) => (c.from === data.fromId && c.to === data.toId) || (c.from === data.toId && c.to === data.fromId),
+      );
+      const repeatBlitzEligible = canOfferBlitz({
+        flagEnabled: useFeatureFlagsStore.getState().flags.attack_blitz_enabled,
+        hasActiveTruce: false, // they just fought — no truce stands between them
+        connectionType: repeatConnection?.type,
+        isDailyChallenge:
+          typeof state?.settings?.daily_challenge_date === 'string' &&
+          state.settings.daily_challenge_date.length > 0,
+      });
 
       // Lite mode = "skip animations": combat already resolved server-side, so
       // suppress the dice-theater modal/queue (the combat log still records it).
@@ -1475,7 +1488,7 @@ export default function GamePage() {
               type: 'combat' as const,
               result: enriched,
               perspective: 'attacker' as const,
-              ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId } } : {}),
+              ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId, blitzEligible: repeatBlitzEligible } } : {}),
             },
           ]);
         }
@@ -2676,6 +2689,17 @@ export default function GamePage() {
     }
 
     getSocket().emit('game:attack', { gameId, fromId, toId });
+    setAttackSource(null);
+    setNavalSource(null);
+    setFortifyUnits(1);
+    setSelectedTerritory(null);
+  };
+
+  // "Blitz until captured": one event, server resolves repeated exchanges.
+  // Never offered through a truce (TerritoryPanel/modal gate it), so no
+  // break-truce dialog here; the server enforces every gate regardless.
+  const handleBlitzAttack = (fromId: string, toId: string) => {
+    getSocket().emit('game:attack_blitz', { gameId, fromId, toId });
     setAttackSource(null);
     setNavalSource(null);
     setFortifyUnits(1);
@@ -4246,6 +4270,7 @@ export default function GamePage() {
               mapTerritories={mapData.territories}
               mapRegions={mapData.regions}
               onAttack={handleAttack}
+              onBlitzAttack={handleBlitzAttack}
               onDraft={handleDraft}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
               onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
@@ -4812,6 +4837,7 @@ export default function GamePage() {
         onDismiss={modalQueue[0]?.type === 'game_over' ? handleGameOverDismiss : dismissModal}
         onResignConfirm={handleResignConfirm}
         onRepeatCombat={handleAttack}
+        onBlitzCombat={handleBlitzAttack}
         onRematch={handleRematch}
         onWatchReplay={handleWatchReplay}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}

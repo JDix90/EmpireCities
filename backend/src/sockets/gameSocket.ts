@@ -47,6 +47,7 @@ import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTran
 import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
+import { executeBlitzAttack } from '../game-engine/combat/executeBlitzAttack';
 import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from '../game-engine/ai/aiAttackGrind';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
@@ -1910,6 +1911,252 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       // Check victory
+      const victoryResult = checkVictory(state, map);
+      if (victoryResult) {
+        const { winnerIds, condition } = victoryResult;
+        const winnerId = winnerIds[0]!;
+        state.phase = 'game_over';
+        state.winner_id = winnerId;
+        state.winner_ids = winnerIds;
+        state.victory_condition = condition;
+        commitActionDecision(gameId, state, userId, 'attack', attackSummary, attackProbBefore);
+        finalizeGame(io, gameId, state, winnerIds);
+      } else if (defenderEliminated) {
+        appendWinProbabilitySnapshot(state);
+        commitActionDecision(gameId, state, userId, 'attack', attackSummary, attackProbBefore);
+      } else {
+        commitActionDecision(gameId, state, userId, 'attack', attackSummary, attackProbBefore);
+      }
+
+      io.to(gameId).emit('game:combat_result', { fromId, toId, result });
+      emitMapVisual(io, gameId, buildCombatMapVisual({
+        fromId,
+        toId,
+        attackerId: userId,
+        defenderId: defenderIdBeforeCombat,
+        attackerLosses: result.attacker_losses,
+        defenderLosses: result.defender_losses,
+        territoryCaptured: result.territory_captured,
+        state,
+      }));
+      broadcastState(io, gameId, state);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
+    // ── Attack Blitz ─────────────────────────────────────────────────────────
+    // "Attack until captured" as ONE event: repeated executeLandAttack
+    // exchanges resolved server-side (executeBlitzAttack), emitted as one
+    // aggregated game:combat_result. Deliberately narrower than game:attack —
+    // land only, never breaks a truce, never in a daily puzzle — so a
+    // convenience button cannot commit a diplomatic act or wreck a per-move
+    // graded score on the player's behalf. One event, so turn timers and the
+    // room lock see it exactly like a single attack.
+    socket.on('game:attack_blitz', async ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
+      const { state, map } = room;
+
+      if (!featureFlags.attackBlitzEnabled) {
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Blitz attacks are disabled');
+      }
+
+      const currentPlayer = state.players[state.current_player_index];
+      if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+      if (state.phase !== 'attack') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in attack phase');
+      if (currentPlayer.era_advanced_this_turn) {
+        return emitGameError(socket, GameErrorCode.ALREADY_ADVANCED, 'Cannot attack after advancing this turn');
+      }
+
+      const fromTerritory = state.territories[fromId];
+      const toTerritory = state.territories[toId];
+      if (!fromTerritory || fromTerritory.owner_id !== userId) {
+        return emitGameError(socket, GameErrorCode.NOT_OWNER, 'Invalid attacking territory');
+      }
+      if (!toTerritory || toTerritory.owner_id === userId) {
+        return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Invalid defending territory');
+      }
+      if (fromTerritory.unit_count < 2) {
+        return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Not enough units to attack');
+      }
+
+      const connection = map.connections.find(
+        (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
+      );
+      if (!connection) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
+      if (connection.type === 'sea') {
+        // The crossing pays fleet losses and bombardment per attack; an
+        // auto-repeat would burn a navy on one click. Same exclusion the AI
+        // grind makes for itself.
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Sea assaults resolve one attack at a time');
+      }
+      if (getDailyPuzzleSpec(state)) {
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Daily challenges grade each attack as its own move');
+      }
+
+      if (connectionRequiresMoonAccess(map, fromId, toId)) {
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
+        if (!access.allowed) {
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
+        }
+        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
+          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
+        }
+      }
+
+      // Truce: the blitz never carries the break — breaking is a deliberate
+      // diplomatic act with its own confirmation, made with a single attack.
+      const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
+      if (defenderPlayer) {
+        const truceEntry = state.diplomacy.find(
+          (d) =>
+            (d.player_index_a === currentPlayer.player_index && d.player_index_b === defenderPlayer.player_index) ||
+            (d.player_index_a === defenderPlayer.player_index && d.player_index_b === currentPlayer.player_index),
+        );
+        if (truceEntry?.status === 'truce' && truceEntry.truce_turns_remaining > 0) {
+          return emitGameError(socket, GameErrorCode.TRUCE_ACTIVE, 'You have an active truce with this player — break it with a single attack first');
+        }
+      }
+
+      // Retaliation die: consumed exactly as one manual attack would consume it
+      // — spliced now, applied to the first exchange only.
+      let truceRetaliationBonus = 0;
+      if (defenderPlayer && currentPlayer.truce_break_retaliations) {
+        const retalIdx = currentPlayer.truce_break_retaliations.findIndex(
+          (r) => r.against_player_id === defenderPlayer.player_id,
+        );
+        if (retalIdx !== -1) {
+          truceRetaliationBonus = currentPlayer.truce_break_retaliations[retalIdx].dice_bonus;
+          currentPlayer.truce_break_retaliations.splice(retalIdx, 1);
+        }
+      }
+
+      if (toTerritory.owner_id) {
+        currentPlayer.last_attacked_player_id = toTerritory.owner_id;
+      }
+
+      const attackProbBefore = captureProbBefore(state, userId);
+      const defenderIdBeforeCombat = toTerritory.owner_id;
+      const attackerUnitsCommitted = fromTerritory.unit_count;
+
+      // Per-exchange one-shot bookkeeping mirrors what N manual attacks do.
+      // These are set in the bonus callback and read after the exchange
+      // resolves — the loop runs both strictly in order.
+      let exchangeWasBlitzkriegBonus = false;
+      let exchangeMarchBonus = 0;
+      const blitz = executeBlitzAttack(state, userId, fromId, toId, {
+        connection,
+        neutralOffworldCaptureAllowed: getOrbitAccessResult(state, currentPlayer, map, state.era).allowed,
+        onCapture: (s) => {
+          // Classic Risk: at most one territory card per turn.
+          if (!currentPlayer.card_earned_this_turn) {
+            drawCard(s, userId);
+            currentPlayer.card_earned_this_turn = true;
+          }
+        },
+        extraAttackBonuses: (i) => {
+          exchangeWasBlitzkriegBonus =
+            !!state.blitzkrieg_active
+            && (state.blitzkrieg_bonus_attacks_remaining ?? 0) > 0
+            && state.blitzkrieg_bonus_source_id === fromId;
+          exchangeMarchBonus = getMarchToSeaBonus(currentPlayer, fromId);
+          return {
+            truce_retaliation: i === 0 ? truceRetaliationBonus : 0,
+            blitzkrieg: exchangeWasBlitzkriegBonus ? 1 : 0,
+            march_to_sea: exchangeMarchBonus,
+          };
+        },
+        onExchangeResolved: (outcome) => {
+          const exchangeCaptured = outcome.result.territory_captured;
+          // A capture re-arms blitzkrieg BEFORE the consume step — the same
+          // order game:attack applies them in.
+          if (exchangeCaptured && state.blitzkrieg_active && (state.blitzkrieg_bonus_attacks_remaining ?? 0) > 0) {
+            state.blitzkrieg_bonus_source_id = fromId;
+          }
+          if (exchangeWasBlitzkriegBonus) {
+            const remaining = (state.blitzkrieg_bonus_attacks_remaining ?? 1) - 1;
+            state.blitzkrieg_bonus_attacks_remaining = remaining;
+            state.blitzkrieg_attacked = true;
+            if (remaining <= 0) {
+              state.blitzkrieg_active = false;
+              state.blitzkrieg_bonus_source_id = null;
+            } else if (!exchangeCaptured) {
+              state.blitzkrieg_bonus_source_id = null;
+            }
+          }
+          recordMarchToSeaResult(currentPlayer, exchangeMarchBonus > 0, toId, exchangeCaptured);
+        },
+      });
+      if (!blitz) {
+        return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Invalid attack');
+      }
+      const result = blitz.result;
+      const firstExchange = blitz.exchanges[0];
+      const lastExchange = blitz.exchanges[blitz.exchanges.length - 1];
+
+      // One-shot buffs (air strike, extra die, ignore-building) were consumed
+      // by the FIRST exchange; visuals and callouts read from there.
+      if (firstExchange.preAttackDamageApplied > 0) {
+        emitPreAttackAirStrikeVisuals(io, gameId, {
+          preAttackDamage: firstExchange.preAttackDamageApplied,
+          fromTerritoryId: fromId,
+          targetTerritoryId: toId,
+          attacker: { player_id: userId, username: currentPlayer.username, color: currentPlayer.color },
+          defenderId: defenderIdBeforeCombat,
+          state,
+          map,
+        });
+      }
+      attachCombatAbilityCallouts(
+        result,
+        buildCombatAbilityCallouts({
+          state,
+          attackerId: userId,
+          toId,
+          attackBuffs: firstExchange.attackBuffs,
+          abilityUses: currentPlayer.ability_uses,
+          rawAttackerLosses: firstExchange.rawAttackerLosses,
+        }),
+      );
+
+      const defenderId = defenderIdBeforeCombat;
+      recordCombatResult(gameId, userId, defenderId ?? null, result, { isSea: false });
+
+      let defenderEliminated = false;
+      if (blitz.captured) {
+        const capturingPlayer = state.players.find((p) => p.player_id === userId);
+        if (capturingPlayer) {
+          capturingPlayer.territories_captured_this_turn = (capturingPlayer.territories_captured_this_turn ?? 0) + 1;
+          if ((capturingPlayer.territories_captured_this_turn) > (capturingPlayer.territories_captured_turn_max ?? 0)) {
+            capturingPlayer.territories_captured_turn_max = capturingPlayer.territories_captured_this_turn;
+          }
+        }
+        if (lastExchange.defenderEliminated) {
+          defenderEliminated = true;
+          const eliminatedPlayer = state.players.find((p) => p.player_id === defenderId);
+          if (eliminatedPlayer) {
+            recordElimination(gameId, userId);
+            io.to(gameId).emit('game:player_eliminated', {
+              playerId: defenderId,
+              eliminatorId: userId,
+              eliminatorName: currentPlayer.username,
+              eliminatedName: eliminatedPlayer.username,
+              secretMission: eliminatedPlayer.secret_mission ?? null,
+            });
+          }
+        }
+      }
+      syncTerritoryCounts(state);
+
+      const attackSummary = (() => {
+        const fromName = territoryName(map, fromId);
+        const toName = territoryName(map, toId);
+        const outcome = blitz.captured
+          ? `captured ${toName} in ${blitz.exchanges.length} exchange${blitz.exchanges.length === 1 ? '' : 's'}`
+          : `failed after ${blitz.exchanges.length} exchange${blitz.exchanges.length === 1 ? '' : 's'} (lost ${result.attacker_losses})`;
+        return `Blitzed ${fromName} → ${toName} with ${attackerUnitsCommitted} units; ${outcome}`;
+      })();
+
       const victoryResult = checkVictory(state, map);
       if (victoryResult) {
         const { winnerIds, condition } = victoryResult;

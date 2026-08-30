@@ -17,6 +17,7 @@ export interface ClientFeatureFlags {
   spectate_enabled: boolean;
   ranked_multi_size_enabled: boolean;
   match_alerts_enabled: boolean;
+  attack_blitz_enabled: boolean;
 }
 
 /**
@@ -48,6 +49,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   ranked_multi_size_enabled: false,
   // Default off (dark-launch); app-wide match-found alerts (socket + OS + push).
   match_alerts_enabled: false,
+  // "Attack until captured": one event resolves repeated exchanges server-side.
+  attack_blitz_enabled: true,
 };
 
 interface FeatureFlagsState {
@@ -126,4 +129,8 @@ export function useRankedMultiSizeEnabled(): boolean {
 
 export function useMatchAlertsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.match_alerts_enabled);
+}
+
+export function useAttackBlitzEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.attack_blitz_enabled);
 }

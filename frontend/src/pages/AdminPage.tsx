@@ -73,6 +73,12 @@ const CLIENT_FEATURE_FLAGS = [
       'When an AI already holds a clear majority of the board and armies (heuristic win probability above 70%), it doubles its per-turn attack budget and plans more attacks, so a game everyone can call actually ends instead of dragging. Never applies to Easy or the tutorial AI. On by default.',
   },
   {
+    key: 'attack_blitz_enabled',
+    label: 'Blitz attacks',
+    description:
+      'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never breaks a truce, never in daily challenges. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',

@@ -915,6 +915,19 @@ export interface CombatResult {
     naval_bombardment?: number;
     total?: number;
   };
+  /**
+   * Present when this result aggregates a server blitz ("attack until
+   * captured", game:attack_blitz): how many dice exchanges it covered.
+   * Additive — clients that ignore it render the aggregate as one exchange.
+   */
+  blitz_exchanges?: number;
+  /** Per-exchange dice for the blitz breakdown, first to last. */
+  blitz_rolls?: Array<{
+    attacker_rolls: number[];
+    defender_rolls: number[];
+    attacker_losses: number;
+    defender_losses: number;
+  }>;
   /** Active/passive combat abilities that affected this exchange. */
   combat_ability_callouts?: Array<{
     id:

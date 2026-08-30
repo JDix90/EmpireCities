@@ -262,6 +262,15 @@ export interface CombatResult {
   territory_captured: boolean;
   /** Server-authoritative units left on the attacking territory (newer servers). */
   source_units_after?: number;
+  /** Present when this result aggregates a server blitz: exchanges covered. */
+  blitz_exchanges?: number;
+  /** Per-exchange dice for the blitz breakdown, first to last. */
+  blitz_rolls?: Array<{
+    attacker_rolls: number[];
+    defender_rolls: number[];
+    attacker_losses: number;
+    defender_losses: number;
+  }>;
   attacker_bonus_breakdown?: {
     tech?: number;
     faction?: number;

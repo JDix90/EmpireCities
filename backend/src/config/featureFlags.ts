@@ -57,6 +57,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
+  attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -280,6 +281,16 @@ export const featureFlags = {
   },
 
   /**
+   * When true, players get the "Attack until captured" button: one
+   * game:attack_blitz event resolves repeated exchanges server-side (land
+   * only, never breaks a truce, never in daily puzzles). Default ON; the kill
+   * switch restores click-per-exchange combat.
+   */
+  get attackBlitzEnabled(): boolean {
+    return overrideBool('attack_blitz_enabled');
+  },
+
+  /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
    * Default ON **in production only** — outbound mail must never fire from a
@@ -396,5 +407,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
+    attack_blitz_enabled: featureFlags.attackBlitzEnabled,
   };
 }

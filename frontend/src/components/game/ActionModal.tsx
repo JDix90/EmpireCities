@@ -27,7 +27,7 @@ export interface CombatModalData {
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
   /** Same attack can be rolled again (not captured, enough attackers left) */
-  repeatAttack?: { fromId: string; toId: string };
+  repeatAttack?: { fromId: string; toId: string; blitzEligible?: boolean };
 }
 
 export interface TurnSummaryModalData {
@@ -337,6 +337,7 @@ export function CombatResultView({
   onDismiss,
   repeatAttack,
   onRepeatAttack,
+  onBlitzAttack,
   autoAdvance = false,
   hurry = false,
   onSkipAll,
@@ -345,8 +346,10 @@ export function CombatResultView({
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
   onDismiss: () => void;
-  repeatAttack?: { fromId: string; toId: string };
+  repeatAttack?: { fromId: string; toId: string; blitzEligible?: boolean };
   onRepeatAttack?: () => void;
+  /** "Blitz the same battle" (game:attack_blitz) — shown only when eligible. */
+  onBlitzAttack?: () => void;
   /** Auto-dismiss after the dice settle plus a short read window (theater mode). */
   autoAdvance?: boolean;
   /** Backlog is deep: shorten the auto-advance dwell so the pile drains faster. */
@@ -557,18 +560,57 @@ export function CombatResultView({
           </div>
         )}
 
-        {/* Repeat same attack (attacker only, failed capture, enough troops) */}
+        {/* Blitz aggregate: this one result covered several dice exchanges. */}
+        {showResult && (result.blitz_exchanges ?? 0) > 1 && (
+          <div className="mb-3 text-center">
+            <div className="text-bf-gold/90 text-sm font-medium">
+              ⚡ Blitz — {result.blitz_exchanges} exchanges
+            </div>
+            {result.blitz_rolls && result.blitz_rolls.length > 0 && (
+              <details className="mt-1 text-xs text-white/50">
+                <summary className="cursor-pointer hover:text-white/80 select-none">
+                  Roll breakdown
+                </summary>
+                <div className="mt-1.5 space-y-0.5 font-mono">
+                  {result.blitz_rolls.map((r, i) => (
+                    <div key={i}>
+                      #{i + 1}: [{r.attacker_rolls.join(' ')}] vs [{r.defender_rolls.join(' ')}] — att −{r.attacker_losses}, def −{r.defender_losses}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Repeat same attack (attacker only, failed capture, enough troops).
+            The fast-combat preference decides whether one exchange or the
+            blitz leads. */}
         {showResult && onRepeatAttack && repeatAttack && !result.territory_captured && perspective === 'attacker' && (
-          <button
-            type="button"
-            onClick={onRepeatAttack}
-            className="w-full mb-3 py-3 rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40
-                       text-bf-gold font-medium transition-all duration-200
-                       flex items-center justify-center gap-2"
-          >
-            <Sword className="w-4 h-4" />
-            Attack again (same battle)
-          </button>
+          <div className={clsx('mb-3 flex gap-2', repeatAttack.blitzEligible && onBlitzAttack && getFastCombatPreference() ? 'flex-col-reverse' : 'flex-col')}>
+            <button
+              type="button"
+              onClick={onRepeatAttack}
+              className="w-full py-3 rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40
+                         text-bf-gold font-medium transition-all duration-200
+                         flex items-center justify-center gap-2"
+            >
+              <Sword className="w-4 h-4" />
+              Attack again (same battle)
+            </button>
+            {repeatAttack.blitzEligible && onBlitzAttack && (
+              <button
+                type="button"
+                onClick={onBlitzAttack}
+                className="w-full py-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/40
+                           text-red-300 font-medium transition-all duration-200
+                           flex items-center justify-center gap-2"
+                title="Attack repeatedly until the territory falls or you can no longer attack"
+              >
+                ⚡ Blitz until captured
+              </button>
+            )}
+          </div>
         )}
 
         {/* Continue (manual) / Skip hint (theater auto-advances on its own) */}
@@ -1854,6 +1896,7 @@ interface ActionModalProps {
   onResignConfirm?: () => void;
   /** Re-roll the same attack after a failed capture (attacker still has 2+ on source) */
   onRepeatCombat?: (fromId: string, toId: string) => void;
+  onBlitzCombat?: (fromId: string, toId: string) => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
   onWatchReplay?: (gameId: string) => void;
@@ -1941,6 +1984,7 @@ export default function ActionModal({
   onDismiss,
   onResignConfirm,
   onRepeatCombat,
+  onBlitzCombat,
   onRematch,
   onWatchReplay,
   onChallengeFriend,
@@ -1995,6 +2039,14 @@ export default function ActionModal({
                 ? () => {
                     onDismiss();
                     onRepeatCombat(data.repeatAttack!.fromId, data.repeatAttack!.toId);
+                  }
+                : undefined
+            }
+            onBlitzAttack={
+              data.repeatAttack && onBlitzCombat
+                ? () => {
+                    onDismiss();
+                    onBlitzCombat(data.repeatAttack!.fromId, data.repeatAttack!.toId);
                   }
                 : undefined
             }
