@@ -651,13 +651,15 @@ function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): 
   return entry?.status === 'truce' && entry.truce_turns_remaining > 0;
 }
 
-// Cache adjacency maps to avoid recomputation
-const adjacencyCache = new Map<string, Record<string, string[]>>();
+// Cache adjacency maps to avoid recomputation. Keyed by the map OBJECT, not
+// map_id: a Map<string, …> here would grow without bound as community maps
+// arrive, and — worse — would serve stale adjacency for an edited map that
+// keeps its id. A WeakMap lives exactly as long as the loaded map object.
+const adjacencyCache = new WeakMap<GameMap, Record<string, string[]>>();
 
 function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
-  if (adjacencyCache.has(map.map_id)) {
-    return adjacencyCache.get(map.map_id)!;
-  }
+  const cached = adjacencyCache.get(map);
+  if (cached) return cached;
   const adj: Record<string, string[]> = {};
   for (const t of map.territories) {
     adj[t.territory_id] = [];
@@ -666,7 +668,7 @@ function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
     adj[conn.from]?.push(conn.to);
     adj[conn.to]?.push(conn.from);
   }
-  adjacencyCache.set(map.map_id, adj);
+  adjacencyCache.set(map, adj);
   return adj;
 }
 
