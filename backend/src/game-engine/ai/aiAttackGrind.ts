@@ -1,4 +1,5 @@
 import type { AiDifficulty, GameState } from '../../types';
+import { computeWinProbabilities } from '../state/gameStateManager';
 
 /**
  * The AI's per-turn attack budget, counted in DICE EXCHANGES rather than in
@@ -26,6 +27,46 @@ export const AI_ATTACK_EXCHANGE_BUDGET: Record<AiDifficulty, number> = {
   hard: 8,
   expert: 8,
 };
+
+/**
+ * Decided-game escape (ai_decided_game_press_enabled).
+ *
+ * The per-turn budget above is tuned for a live game. Once a game is DECIDED —
+ * the AI holds a clear majority of the board and the armies — that same budget
+ * becomes the reason solo games drag: the winner dribbles a few exchanges a
+ * turn while the loser lingers for ten more turns everyone can already call.
+ * When the acting AI's heuristic win probability clears the threshold, its
+ * budget doubles and the planner lifts its attack cap by FINISHER_OVERCAP, so
+ * the game ends instead of decaying.
+ *
+ * 0.7 of `computeWinProbabilities` — 55% territory share + 45% army share,
+ * renormalized over active players — is comfortably past any live game: in a
+ * 1v1 it means roughly 70% of the board and the armies combined.
+ */
+export const DECIDED_GAME_WIN_PROB = 0.7;
+export const DECIDED_GAME_BUDGET_MULT = 2;
+
+/**
+ * Should this AI spend a decided game pressing to finish it?
+ *
+ * Easy and tutorial never press: easy's whole contract is being forgiving, and
+ * the tutorial AI does not attack at all. The flag check stays with the caller
+ * (featureFlags is process-level; this must stay pure for tests and sims).
+ */
+export function shouldPressDecidedGame(
+  state: GameState,
+  playerId: string,
+  difficulty: AiDifficulty,
+): boolean {
+  if (difficulty === 'easy' || difficulty === 'tutorial') return false;
+  return (computeWinProbabilities(state)[playerId] ?? 0) > DECIDED_GAME_WIN_PROB;
+}
+
+/** The per-turn exchange budget, with the decided-game press applied. */
+export function aiAttackExchangeBudget(difficulty: AiDifficulty, decidedPress: boolean): number {
+  const base = AI_ATTACK_EXCHANGE_BUDGET[difficulty] ?? 4;
+  return decidedPress ? base * DECIDED_GAME_BUDGET_MULT : base;
+}
 
 export type GrindStop =
   | 'ok'

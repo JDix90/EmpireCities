@@ -56,6 +56,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
+  ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
@@ -266,6 +267,16 @@ export const featureFlags = {
    */
   get aiCaptureOddsEnabled(): boolean {
     return overrideBool('ai_capture_odds_enabled');
+  },
+
+  /**
+   * When true, an AI whose heuristic win probability clears the decided-game
+   * threshold doubles its per-turn exchange budget and lifts its attack cap,
+   * so games everyone can already call actually end. Default ON; this is the
+   * kill switch if the endgame press plays badly.
+   */
+  get aiDecidedGamePressEnabled(): boolean {
+    return overrideBool('ai_decided_game_press_enabled');
   },
 
   /**

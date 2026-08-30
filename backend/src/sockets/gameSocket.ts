@@ -47,7 +47,7 @@ import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTran
 import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
-import { AI_ATTACK_EXCHANGE_BUDGET, runAiAttackExchanges } from '../game-engine/ai/aiAttackGrind';
+import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from '../game-engine/ai/aiAttackGrind';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
 import { getPlayerFaction } from '../game-engine/eras/factionLineage';
@@ -4748,10 +4748,20 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const planningState = state.settings.fog_of_war
     ? buildClientState(state, currentPlayer.player_id, true)
     : state;
-  // The capture-odds flag is threaded explicitly because planning may run in a
-  // worker thread, where the admin-config override cache is not loaded.
+  // Decided-game escape: when this AI already holds the game (win probability
+  // past the threshold), it presses to finish instead of dribbling exchanges
+  // while the loser lingers. Computed from the AUTHORITATIVE state, not the
+  // fog-filtered planning view: it gates pacing, never targeting, and masked
+  // unit counts would distort the army share and trigger the press spuriously.
+  const decidedPress =
+    featureFlags.aiDecidedGamePressEnabled &&
+    shouldPressDecidedGame(state, currentPlayer.player_id, difficulty);
+
+  // The flags are threaded explicitly because planning may run in a worker
+  // thread, where the admin-config override cache is not loaded.
   const actions = await runAiWithTimeout(planningState, map, difficulty, {
     captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
+    decidedGamePress: decidedPress,
   });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's
@@ -4761,7 +4771,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const aiAttackGrindEnabled = featureFlags.aiAttackGrindEnabled;
   const aiAttackBudget = {
     left: aiAttackGrindEnabled
-      ? (AI_ATTACK_EXCHANGE_BUDGET[difficulty] ?? 4)
+      ? aiAttackExchangeBudget(difficulty, decidedPress)
       : Number.POSITIVE_INFINITY,
   };
 

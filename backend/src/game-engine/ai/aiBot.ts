@@ -43,6 +43,14 @@ export interface AiTurnOptions {
    * in a worker thread where the admin-config override cache is not loaded.
    */
   captureOddsScoring?: boolean;
+  /**
+   * The game is decided in this AI's favour (shouldPressDecidedGame): lift the
+   * attack cap by FINISHER_OVERCAP so the plan carries enough candidates to
+   * spend the doubled exchange budget and finish the game. Computed by the
+   * socket from the authoritative state — it gates pacing, not targeting, and
+   * fog-masked unit counts would distort the army share it depends on.
+   */
+  decidedGamePress?: boolean;
 }
 
 /**
@@ -109,6 +117,7 @@ export function computeAiTurn(
     cfg.randomFactor,
     difficulty,
     options?.captureOddsScoring ?? true,
+    options?.decidedGamePress ?? false,
   );
   actions.push(...attackActions);
 
@@ -329,11 +338,18 @@ function selectAttacks(
   playerId: string,
   randomFactor: number,
   difficulty: AiDifficulty,
-  useCaptureOdds: boolean
+  useCaptureOdds: boolean,
+  decidedGamePress = false
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
-  const maxAttacks = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 4 : 8;
+  const baseMaxAttacks = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 4 : 8;
+  // Decided-game press: the plan needs enough candidates to spend the doubled
+  // exchange budget; the same easy/tutorial exclusion as the finisher overcap.
+  const maxAttacks =
+    decidedGamePress && difficulty !== 'easy' && difficulty !== 'tutorial'
+      ? baseMaxAttacks + FINISHER_OVERCAP
+      : baseMaxAttacks;
 
   const aiPlayer = state.players.find((p) => p.player_id === playerId);
 

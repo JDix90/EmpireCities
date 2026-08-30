@@ -67,6 +67,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Rank the AI’s attack candidates by an exact capture probability fed with the real dice modifiers (tech, buildings, factions, wonders, era gaps), instead of the legacy dice differential that ignored garrison size and every bonus. Changes which territories the AI attacks, not how combat resolves. On by default; switch off to restore the old target choice.',
   },
   {
+    key: 'ai_decided_game_press_enabled',
+    label: 'AI finishes decided games',
+    description:
+      'When an AI already holds a clear majority of the board and armies (heuristic win probability above 70%), it doubles its per-turn attack budget and plans more attacks, so a game everyone can call actually ends instead of dragging. Never applies to Easy or the tutorial AI. On by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
