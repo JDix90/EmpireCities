@@ -20,6 +20,12 @@ import {
 } from '../matchmaking/matchmaking.routes';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import { buildDependencyReport } from './dependencyRegistry';
+import {
+  listMapsByModerationStatus,
+  setMapModeration,
+} from '../../db/postgres/mapsRepository';
+import { invalidateMapCache } from '../maps/mapService';
+import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport } from '../../services/analyticsQueries';
 
 const DateFilterSchema = z.object({
@@ -385,6 +391,82 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     });
     return reply.send({ ok: true });
   });
+
+  // ── Map moderation ───────────────────────────────────────────────────────
+  // The review queue for community maps: what is waiting, and the two
+  // decisions. Every decision is audit-logged like the other /actions/*.
+  fastify.get('/maps', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const { status = 'pending' } = request.query as Record<string, string>;
+    if (!['draft', 'pending', 'approved', 'rejected'].includes(status)) {
+      return reply.status(400).send({ error: 'Invalid status filter' });
+    }
+    const rows = await listMapsByModerationStatus(status, 50);
+    // Creator names in one query, not N.
+    const creatorIds = [...new Set(rows.map((r) => r.creator_id))];
+    const creators = creatorIds.length
+      ? await query<{ user_id: string; username: string }>(
+          'SELECT user_id, username FROM users WHERE user_id = ANY($1)',
+          [creatorIds],
+        )
+      : [];
+    const nameByCreator = new Map(creators.map((c) => [c.user_id, c.username]));
+
+    return reply.send({
+      maps: rows.map((row) => ({
+        map_id: row.map_id,
+        name: row.name,
+        description: row.description,
+        era_theme: row.era_theme,
+        creator_id: row.creator_id,
+        creator_name: nameByCreator.get(row.creator_id) ?? row.creator_id,
+        territory_count: row.territories.length,
+        connection_count: row.connections.length,
+        region_count: row.regions.length,
+        moderation_status: row.moderation_status,
+        moderation_reason: row.moderation_reason,
+        // The same checks publish enforces, so the moderator sees at a glance
+        // whether a submission even passes the machine gate.
+        validation_errors: validateMapDocument({
+          map_id: row.map_id,
+          name: row.name,
+          territories: row.territories,
+          connections: row.connections,
+          regions: row.regions,
+        }),
+        updated_at: row.updated_at,
+      })),
+    });
+  });
+
+  fastify.post<{ Params: { mapId: string } }>(
+    '/maps/:mapId/actions/approve',
+    { preHandler: [authenticate, requireAdmin] },
+    async (request, reply) => {
+      const changed = await setMapModeration(request.params.mapId, 'approved');
+      if (!changed) return reply.status(404).send({ error: 'Map not found' });
+      await invalidateMapCache(request.params.mapId);
+      await writeAuditLog(request.userId, 'map_approved', { map_id: request.params.mapId });
+      return reply.send({ ok: true });
+    },
+  );
+
+  const RejectMapSchema = z.object({ reason: z.string().min(3).max(500) });
+  fastify.post<{ Params: { mapId: string } }>(
+    '/maps/:mapId/actions/reject',
+    { preHandler: [authenticate, requireAdmin] },
+    async (request, reply) => {
+      const parsed = RejectMapSchema.safeParse(request.body ?? {});
+      if (!parsed.success) return reply.status(400).send({ error: 'A rejection reason is required (3-500 chars)' });
+      const changed = await setMapModeration(request.params.mapId, 'rejected', parsed.data.reason);
+      if (!changed) return reply.status(404).send({ error: 'Map not found' });
+      await invalidateMapCache(request.params.mapId);
+      await writeAuditLog(request.userId, 'map_rejected', {
+        map_id: request.params.mapId,
+        reason: parsed.data.reason,
+      });
+      return reply.send({ ok: true });
+    },
+  );
 
   fastify.post('/actions/ban', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
     const parsed = UserActionSchema.safeParse(request.body ?? {});

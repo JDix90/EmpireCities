@@ -146,7 +146,7 @@ interface FeatureFlagState {
   effective: boolean;
 }
 
-type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'dependencies' | 'audit';
+type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'maps' | 'dependencies' | 'audit';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
@@ -155,9 +155,26 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
+  { key: 'maps', label: 'Maps', description: 'Community map review' },
   { key: 'dependencies', label: 'Dependencies', description: 'Services, keys, renewals' },
   { key: 'audit', label: 'Audit', description: 'Admin actions log' },
 ];
+
+// --- Maps tab: community map moderation queue (backend: GET /admin/maps) ---
+interface ModerationMapRow {
+  map_id: string;
+  name: string;
+  description: string;
+  era_theme: string | null;
+  creator_name: string;
+  territory_count: number;
+  connection_count: number;
+  region_count: number;
+  moderation_status: string;
+  moderation_reason: string | null;
+  validation_errors: string[];
+  updated_at: string;
+}
 
 // --- Dependencies tab: read-only operational registry (backend: GET /admin/dependencies) ---
 type DependencyStatus = 'expired' | 'due_soon' | 'ok' | 'auto' | 'untracked';
@@ -349,6 +366,8 @@ export default function AdminPage() {
   const [rankedDist, setRankedDist] = useState<Array<{ bucket: number; count: number }>>([]);
   const [settingsToggleUsage, setSettingsToggleUsage] = useState<SettingsToggleUsagePayload | null>(null);
   const [config, setConfig] = useState<Record<string, unknown> | null>(null);
+  const [moderationMaps, setModerationMaps] = useState<ModerationMapRow[]>([]);
+  const [mapsStatusFilter, setMapsStatusFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [users, setUsers] = useState<
     Array<{
       user_id: string;
@@ -458,6 +477,11 @@ export default function AdminPage() {
             era_ids: optionsRes.data?.era_ids ?? [],
             map_ids: optionsRes.data?.map_ids ?? [],
           });
+        } else if (tab === 'maps') {
+          const res = await api.get<{ maps: ModerationMapRow[] }>('/admin/maps', {
+            params: { status: mapsStatusFilter },
+          });
+          setModerationMaps(res.data?.maps ?? []);
         } else if (tab === 'audit') {
           const res = await api.get('/admin/audit-log', { params: { limit: 100 } });
           setAudit(res.data ?? []);
@@ -472,12 +496,30 @@ export default function AdminPage() {
         setLoading(false);
       }
     },
-    [overviewParams, search, trendDays],
+    [overviewParams, search, trendDays, mapsStatusFilter],
   );
 
   useEffect(() => {
     void loadTab(activeTab);
   }, [activeTab, loadTab]);
+
+  // Approve/reject a community map, then refresh the queue. Reject prompts
+  // for the reason the owner will see in My Maps.
+  const moderateMap = async (mapId: string, action: 'approve' | 'reject') => {
+    let body: { reason?: string } = {};
+    if (action === 'reject') {
+      const reason = window.prompt('Rejection reason (shown to the map author):');
+      if (!reason || reason.trim().length < 3) return;
+      body = { reason: reason.trim() };
+    }
+    try {
+      await api.post(`/admin/maps/${mapId}/actions/${action}`, body);
+      await loadTab('maps');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      setError(err?.response?.data?.error ?? `Failed to ${action} map`);
+    }
+  };
 
   useEffect(() => {
     if (!config || typeof config !== 'object') return;
@@ -1327,6 +1369,77 @@ export default function AdminPage() {
               </table>
               {users.length === 0 ? <p className="p-4 text-center text-sm text-bf-muted">No users match.</p> : null}
             </div>
+          </div>
+        )}
+
+        {!loading && activeTab === 'maps' && (
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-sm text-bf-gold tracking-widest">COMMUNITY MAP REVIEW</h3>
+              <div className="flex gap-1">
+                {(['pending', 'approved', 'rejected'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setMapsStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
+                      mapsStatusFilter === st
+                        ? 'bg-bf-gold/15 border-bf-gold/40 text-bf-gold'
+                        : 'border-bf-border text-bf-muted hover:text-bf-text'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {moderationMaps.length === 0 ? (
+              <p className="text-bf-muted text-sm">No {mapsStatusFilter} maps.</p>
+            ) : (
+              <div className="space-y-3">
+                {moderationMaps.map((m) => (
+                  <div key={m.map_id} className="border border-bf-border rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-bf-text font-medium truncate">{m.name}</p>
+                        <p className="text-bf-muted text-xs mt-0.5">
+                          by {m.creator_name} · {m.territory_count} territories · {m.connection_count} connections · {m.region_count} regions
+                          {m.era_theme ? ` · era: ${m.era_theme}` : ''}
+                        </p>
+                        {m.description && <p className="text-bf-muted text-xs mt-1 line-clamp-2">{m.description}</p>}
+                        {m.validation_errors.length > 0 ? (
+                          <div className="mt-2 text-xs text-red-400">
+                            {m.validation_errors.slice(0, 4).map((e, i) => (
+                              <p key={i}>⚠ {e}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-green-400">✓ Passes map validation</p>
+                        )}
+                        {m.moderation_status === 'rejected' && m.moderation_reason && (
+                          <p className="mt-1 text-xs text-amber-400">Rejected: {m.moderation_reason}</p>
+                        )}
+                      </div>
+                      {m.moderation_status === 'pending' && (
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <button
+                            onClick={() => void moderateMap(m.map_id, 'approve')}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => void moderateMap(m.map_id, 'reject')}
+                            className="px-3 py-1.5 rounded-lg text-xs bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/30"
+                          >
+                            Reject…
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
