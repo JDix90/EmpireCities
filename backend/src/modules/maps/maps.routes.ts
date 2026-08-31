@@ -10,7 +10,6 @@ import {
   findMapOwnedByUser,
   findMapVisibleToUser,
   getEraMapSummaries,
-  getCommunityMaps,
   getMapById,
   invalidateMapCache,
   listMapsByCreator,
@@ -23,6 +22,7 @@ import {
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
 import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/mapEditorGate';
 import { formatZodError } from '../../utils/formatZodError';
+import { validateMapDocument } from './mapValidation';
 
 const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
@@ -120,21 +120,6 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     }
   });
 
-  fastify.get('/community', async (request, reply) => {
-    const { page = '1', limit = '20', sort = 'play_count' } = request.query as Record<string, string>;
-    try {
-      const result = await getCommunityMaps(
-        Math.max(1, parseInt(page, 10)),
-        Math.min(50, Math.max(1, parseInt(limit, 10))),
-        sort as 'play_count' | 'rating' | 'created_at',
-      );
-      return reply.send(result);
-    } catch (err) {
-      fastify.log.error(err);
-      return reply.status(500).send({ error: 'Failed to fetch community maps' });
-    }
-  });
-
   fastify.post('/', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
 
@@ -163,10 +148,19 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       creator_id: request.userId!,
       ...body.data,
       is_public: false,
-      moderation_status: 'pending',
+      // Saved is not submitted: a map stays the author's private draft until
+      // they explicitly send it for review (POST /:mapId/publish).
+      moderation_status: 'draft',
     });
 
-    return reply.status(201).send({ map_id: mapId, message: 'Map saved. Submit for review to publish.' });
+    // The publish-quality checks run here too, as WARNINGS — the author sees
+    // what review will block on while iterating, without being blocked.
+    const warnings = validateMapDocument(body.data);
+    return reply.status(201).send({
+      map_id: mapId,
+      message: 'Draft saved. Submit it for review when it is ready to publish.',
+      warnings,
+    });
   });
 
   fastify.put<{ Params: { mapId: string } }>('/:mapId', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -205,11 +199,27 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       territories: body.data.territories,
       connections: body.data.connections,
       regions: body.data.regions,
+      era_theme: body.data.era_theme,
+      background_image_url: body.data.background_image_url,
     });
     if (!updated) return reply.status(404).send({ error: 'Map not found or not owned by you' });
 
+    // Editing an approved map unlists it pending re-review — otherwise
+    // "approved" would cover content the moderator never saw.
+    const wasApproved = owned.moderation_status === 'approved';
+    if (wasApproved) {
+      await submitMapForModeration(mapId, request.userId!);
+    }
+
     await invalidateMapCache(mapId);
-    return reply.send({ map_id: mapId, message: 'Map updated.' });
+    const warnings = validateMapDocument(body.data);
+    return reply.send({
+      map_id: mapId,
+      message: wasApproved
+        ? 'Map updated. It is unlisted until a moderator re-reviews the new version.'
+        : 'Map updated.',
+      warnings,
+    });
   });
 
   fastify.get('/public', async (request, reply) => {
@@ -250,6 +260,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       rating: Number(row.rating),
       play_count: row.play_count,
       moderation_status: row.moderation_status,
+      moderation_reason: row.moderation_reason,
       created_at: row.created_at,
     }));
     return reply.send(maps);
@@ -295,9 +306,31 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
 
       const map = await findMapOwnedByUser(request.params.mapId, request.userId!);
       if (!map) return reply.status(404).send({ error: 'Map not found or not owned by you' });
-      if (map.moderation_status === 'rejected') {
-        return reply.status(403).send({ error: 'Map was rejected by moderation' });
+      // draft | rejected -> pending. A rejected map is explicitly
+      // resubmittable — the author fixed it, review looks again.
+      if (map.moderation_status === 'approved') {
+        return reply.status(409).send({ error: 'Map is already approved and public' });
       }
+      if (map.moderation_status === 'pending') {
+        return reply.send({ message: 'Map is already under review' });
+      }
+
+      // Publishing is where quality is enforced: the same checks the built-in
+      // maps pass in CI. Saving never blocks; submitting a broken map does.
+      const errors = validateMapDocument({
+        map_id: map.map_id,
+        name: map.name,
+        territories: map.territories,
+        connections: map.connections,
+        regions: map.regions,
+      });
+      if (errors.length > 0) {
+        return reply.status(400).send({
+          error: 'Map failed validation — fix these before submitting for review',
+          errors,
+        });
+      }
+
       await submitMapForModeration(request.params.mapId, request.userId!);
       await invalidateMapCache(request.params.mapId);
       return reply.send({ message: 'Map submitted for moderation review' });
