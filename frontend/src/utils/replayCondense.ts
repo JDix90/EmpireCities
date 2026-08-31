@@ -29,11 +29,21 @@ export interface CondensedTimeline {
   totalMs: number;
 }
 
+export interface HighlightHint {
+  turn: number;
+  /** 'high' moments outrank 'medium' ones when the frame budget forces a choice. */
+  impact?: 'high' | 'medium';
+  /** Signed win-probability change of the decision — bigger swings score higher. */
+  prob_delta?: number;
+}
+
 export interface CondenseOptions {
   /** Target total runtime in ms. Default 55s. */
   targetMs?: number;
   /** Server highlight turn numbers (from match_replay_highlights). */
   highlightTurns?: number[];
+  /** Richer server highlights; supersedes highlightTurns for matching turns. */
+  highlights?: HighlightHint[];
 }
 
 const DEFAULT_TARGET_MS = 55_000;
@@ -97,7 +107,10 @@ export function buildCondensedTimeline(
   options: CondenseOptions = {},
 ): CondensedTimeline {
   const targetMs = options.targetMs ?? DEFAULT_TARGET_MS;
-  const highlightTurns = new Set(options.highlightTurns ?? []);
+  // Legacy turn lists and rich hints merge; a rich hint wins for its turn.
+  const highlightByTurn = new Map<number, HighlightHint>();
+  for (const turn of options.highlightTurns ?? []) highlightByTurn.set(turn, { turn });
+  for (const h of options.highlights ?? []) highlightByTurn.set(h.turn, h);
   const n = snapshots.length;
 
   if (n === 0) return { frames: [], totalMs: 0 };
@@ -138,8 +151,15 @@ export function buildCondensedTimeline(
       if (reason === 'keyframe') reason = 'swing';
     }
 
-    if (highlightTurns.has(cur.turn_number)) {
-      score += 5;
+    const highlight = highlightByTurn.get(cur.turn_number);
+    if (highlight) {
+      // A high-impact moment outweighs a plain one, and the magnitude of the
+      // decision's probability swing adds a bounded boost — so when the frame
+      // budget forces a choice, the clip keeps the turn the game swung on.
+      score += highlight.impact === 'high' ? 12 : 5;
+      if (highlight.prob_delta) {
+        score += Math.min(8, Math.abs(highlight.prob_delta) * 20);
+      }
       if (reason === 'keyframe') reason = 'highlight';
     }
 

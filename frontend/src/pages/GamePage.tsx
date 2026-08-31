@@ -2978,6 +2978,15 @@ export default function GamePage() {
     [navigate],
   );
 
+  // "Clip": straight into the replay's exporter with generation running —
+  // the share-a-clip path in two clicks instead of six.
+  const handleShareClip = useCallback(
+    (id: string) => {
+      navigate(`/replay/${id}?source=share&clip=auto`);
+    },
+    [navigate],
+  );
+
   const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
     try {
       const res = await api.post<{ game_id: string }>('/games', {
@@ -4840,6 +4849,7 @@ export default function GamePage() {
         onBlitzCombat={handleBlitzAttack}
         onRematch={handleRematch}
         onWatchReplay={handleWatchReplay}
+        onShareClip={handleShareClip}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
         onUpgradeAccount={user?.is_guest ? handleGameOverUpgrade : undefined}
         onSkipAll={skipAllBacklog}

@@ -115,6 +115,9 @@ export default function ReplayPage() {
   // Shared links append ?source=share. Those open straight into the condensed
   // Highlights reel so a first-time viewer sees the best moments immediately.
   const fromShare = searchParams.get('source') === 'share';
+  // Game-over "Clip" CTA deep-links ?clip=auto: open the exporter and start
+  // generating as soon as the replay is ready — share in two clicks, not six.
+  const autoClip = searchParams.get('clip') === 'auto';
   const { replaySnapshots, replayFrame, loadReplay, setReplayFrame, clearGame, gameState } = useGameStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -141,7 +144,7 @@ export default function ReplayPage() {
   /** Make-public confirmation gate — sharing publishes the replay. */
   const [confirmShare, setConfirmShare] = useState(false);
   const [clipExporterOpen, setClipExporterOpen] = useState(false);
-  const [highlights, setHighlights] = useState<Array<{ turn: number; label: string; type: string }>>([]);
+  const [highlights, setHighlights] = useState<Array<{ turn: number; label: string; type: string; impact?: 'high' | 'medium'; prob_delta?: number }>>([]);
   const [insights, setInsights] = useState<ReplayInsight[]>([]);
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [activeTip, setActiveTip] = useState<ReplayInsight | null>(null);
@@ -299,7 +302,7 @@ export default function ReplayPage() {
         // endpoints; skip them for public (non-participant) viewers.
         if (!result.isPublic) {
           api
-            .get<{ highlights: Array<{ turn: number; label: string; type: string }> }>(`/enhancements/replays/${gameId}/highlights`)
+            .get<{ highlights: Array<{ turn: number; label: string; type: string; impact?: 'high' | 'medium'; prob_delta?: number }> }>(`/enhancements/replays/${gameId}/highlights`)
             .then((highlightsRes) => {
               if (!mounted) return;
               setHighlights(highlightsRes.data.highlights ?? []);
@@ -367,10 +370,21 @@ export default function ReplayPage() {
   const condensedTimeline = useMemo(
     () =>
       buildCondensedTimeline(replaySnapshots, {
-        highlightTurns: highlights.map((h) => h.turn),
+        highlights,
       }),
     [replaySnapshots, highlights],
   );
+
+  // ?clip=auto: once the replay is loaded and viewable, open the clip
+  // exporter (which auto-generates via its autoStart prop). One-shot — if the
+  // viewer closes it, it stays closed.
+  const autoClipOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!autoClip || autoClipOpenedRef.current) return;
+    if (loading || notPublic || replaySnapshots.length === 0 || !mapData) return;
+    autoClipOpenedRef.current = true;
+    setClipExporterOpen(true);
+  }, [autoClip, loading, notPublic, replaySnapshots.length, mapData]);
   const highlightIndices = useMemo(
     () => condensedTimeline.frames.map((f) => f.index),
     [condensedTimeline],
@@ -1223,6 +1237,7 @@ export default function ReplayPage() {
         <ReplayClipExporter
           open={clipExporterOpen}
           onClose={() => setClipExporterOpen(false)}
+          autoStart={autoClip}
           frames={condensedTimeline.frames}
           snapshots={replaySnapshots}
           mapData={mapData}

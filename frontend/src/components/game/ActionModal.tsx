@@ -3,7 +3,7 @@ import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
-import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, MessageCircle, FastForward } from 'lucide-react';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward } from 'lucide-react';
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
@@ -1101,11 +1101,13 @@ function WinProbabilityChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFriend, onUpgradeAccount }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount }: {
   data: GameOverModalData;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   onWatchReplay?: (gameId: string) => void;
+  /** Deep-links into the replay's auto-generated share clip (clip=auto). */
+  onShareClip?: (gameId: string) => void;
   onChallengeFriend?: () => void;
   onUpgradeAccount?: () => void;
 }) {
@@ -1234,7 +1236,10 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
       onRematch,
   );
   const showChallenge = Boolean(onChallengeFriend);
-  const tertiaryCount = 1 + (showWatchReplay ? 1 : 0) + (showChallenge ? 1 : 0);
+  // The clip CTA rides the same availability gate as Watch Replay — both need
+  // a persisted replay to deep-link into.
+  const showShareClip = showWatchReplay && !!onShareClip;
+  const tertiaryCount = 1 + (showWatchReplay ? 1 : 0) + (showShareClip ? 1 : 0) + (showChallenge ? 1 : 0);
 
   return (
     <div className="w-full min-w-0 text-center">
@@ -1567,6 +1572,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
         <div
           className={clsx(
             'grid gap-2 w-full min-w-0',
+            // Four actions read better as a 2x2 than four skinny columns.
+            tertiaryCount === 4 && 'grid-cols-2',
             tertiaryCount === 3 && 'grid-cols-3',
             tertiaryCount === 2 && 'grid-cols-2',
             tertiaryCount === 1 && 'grid-cols-1',
@@ -1594,6 +1601,19 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onChallengeFr
             >
               <Film className="w-4 h-4 shrink-0" />
               <span className="truncate">Replay</span>
+            </button>
+          )}
+          {showShareClip && (
+            <button
+              type="button"
+              onClick={() => onShareClip!(data.gameId!)}
+              className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                         text-white/70 text-xs sm:text-sm font-medium transition-all
+                         flex flex-col sm:flex-row items-center justify-center gap-1.5 min-w-0"
+              title="Auto-generate a shareable highlight clip of this match"
+            >
+              <Clapperboard className="w-4 h-4 shrink-0" />
+              <span className="truncate">Clip</span>
             </button>
           )}
           {showChallenge && (
@@ -1900,6 +1920,8 @@ interface ActionModalProps {
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
   onWatchReplay?: (gameId: string) => void;
+  /** Deep-link into the replay's auto-generated share clip (rendered as a CTA on GameOverView). */
+  onShareClip?: (gameId: string) => void;
   /** Open the "Challenge a friend" flow (rendered as a CTA on GameOverView). */
   onChallengeFriend?: () => void;
   /** Guest viewers only: leave the game cleanly and open the account-upgrade page. */
@@ -1987,6 +2009,7 @@ export default function ActionModal({
   onBlitzCombat,
   onRematch,
   onWatchReplay,
+  onShareClip,
   onChallengeFriend,
   onUpgradeAccount,
   onSkipAll,
@@ -2063,7 +2086,7 @@ export default function ActionModal({
             backlogCount={backlogCount}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}

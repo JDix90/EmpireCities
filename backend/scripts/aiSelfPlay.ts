@@ -173,15 +173,20 @@ async function playAiTurn(
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
     const fromId = a.from;
     const toId = a.to;
+    // Production fidelity: the connection rides into the resolver (sea-lane
+    // dice rules) and a sea assault never grinds, exactly like the socket.
+    const connection = map.connections.find(
+      (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId),
+    );
     await runAiAttackExchanges({
       state,
       attackerId: pid,
       fromId,
       toId,
       budget,
-      canGrind,
+      canGrind: canGrind && connection?.type !== 'sea',
       exchange: () => {
-        const outcome = executeLandAttack(state, pid, fromId, toId, { dieRoll });
+        const outcome = executeLandAttack(state, pid, fromId, toId, { dieRoll, connection });
         exchanges += 1;
         return outcome ? 'ok' : 'stop';
       },

@@ -32,6 +32,11 @@ import { evaluateEraAdvancementReadiness } from '../src/game-engine/eraAdvanceme
 import { getEmpireWeightedStability } from '../src/game-engine/state/stabilityManager';
 import { getMaxEraIndex } from '../src/game-engine/eraAdvancement/spines';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
+import {
+  aiAttackExchangeBudget,
+  runAiAttackExchanges,
+  shouldPressDecidedGame,
+} from '../src/game-engine/ai/aiAttackGrind';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
@@ -110,7 +115,7 @@ function applyFortify(state: GameState, pid: string, from: string, to: string, u
 interface AdvanceEvent { pid: string; turn: number; }
 
 /** Play one AI player's full turn, mirroring processAiTurn's pure-engine sequence. */
-function playAiTurn(
+async function playAiTurn(
   state: GameState,
   map: GameMap,
   pid: string,
@@ -118,9 +123,16 @@ function playAiTurn(
   dieRoll: () => number,
   advances: AdvanceEvent[],
   aggressiveAdvance = false,
-): void {
+): Promise<void> {
   state.phase = 'draft';
-  const plan = computeAiTurn(state, map, difficulty); // planned pre-advance, like the socket
+  // Decidedness read pre-planning from full state — the same order the socket
+  // uses (the sim has no fog, so its full state IS the socket's authoritative
+  // read).
+  const decidedPress = shouldPressDecidedGame(state, pid, difficulty);
+  const plan = computeAiTurn(state, map, difficulty, {
+    captureOddsScoring: true,
+    decidedGamePress: decidedPress,
+  }); // planned pre-advance, like the socket
 
   // Economy FIRST (matches processAiTurn): build + research before the advance
   // check so a bot that just met the gate can advance the same turn.
@@ -146,10 +158,32 @@ function playAiTurn(
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
+  // The shipped executor, not a copy of it: attacks spend a turn-wide exchange
+  // budget through the SAME runAiAttackExchanges the socket drives, sea lanes
+  // never grind, and the connection is passed so sea-lane dice rules apply.
+  // Before this, the sim ran the pre-#220 one-exchange-per-edge executor and
+  // every era-balance sweep measured a bot that no longer ships.
+  const budget = { left: aiAttackExchangeBudget(difficulty, decidedPress) };
   for (const a of plan) {
-    if (a.type === 'attack' && a.from && a.to && a.from !== '__influence__') {
-      executeLandAttack(state, pid, a.from, a.to, { dieRoll });
-    }
+    if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
+    const fromId = a.from;
+    const toId = a.to;
+    const connection = map.connections.find(
+      (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId),
+    );
+    await runAiAttackExchanges({
+      state,
+      attackerId: pid,
+      fromId,
+      toId,
+      budget,
+      canGrind: connection?.type !== 'sea',
+      exchange: () => {
+        const outcome = executeLandAttack(state, pid, fromId, toId, { dieRoll, connection });
+        return outcome ? 'ok' : 'stop';
+      },
+    });
+    if (budget.left <= 0) break;
   }
 
   state.phase = 'fortify';
@@ -203,7 +237,7 @@ function diagnose(state: GameState): { gate: boolean; techMet: boolean; stabMet:
   return { gate, techMet, stabMet, techs, builds, stab };
 }
 
-function runGame(map: GameMap, gameIndex: number): GameStat {
+async function runGame(map: GameMap, gameIndex: number): Promise<GameStat> {
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   const players = Array.from({ length: PLAYERS }, (_, i) => ({
@@ -233,7 +267,7 @@ function runGame(map: GameMap, gameIndex: number): GameStat {
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
       const isProxy = PROXY_LEADER && player.player_index === 0;
-      playAiTurn(state, map, player.player_id, isProxy ? 'expert' : DIFFICULTY, dieRoll, advances, isProxy);
+      await playAiTurn(state, map, player.player_id, isProxy ? 'expert' : DIFFICULTY, dieRoll, advances, isProxy);
     }
     advanceToNextPlayer(state, map);
 
@@ -312,11 +346,11 @@ function pct(n: number, d: number): string {
   return d === 0 ? 'n/a' : `${((100 * n) / d).toFixed(1)}%`;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const map = loadMap();
   const started = Date.now();
   const stats: GameStat[] = [];
-  for (let i = 0; i < GAMES; i++) stats.push(runGame(map, i));
+  for (let i = 0; i < GAMES; i++) stats.push(await runGame(map, i));
   const elapsedS = (Date.now() - started) / 1000;
 
   const withAdvancer = stats.filter((s) => s.firstAdvancer);
@@ -357,4 +391,4 @@ function main(): void {
   }
 }
 
-main();
+main().catch((e) => { console.error(e); process.exit(1); });
