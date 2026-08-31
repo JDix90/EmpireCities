@@ -132,3 +132,53 @@ describe('buildCondensedTimeline', () => {
     expect(swingFrame?.reason).toBe('swing');
   });
 });
+
+describe('buildCondensedTimeline — impact-weighted highlights', () => {
+  // Ten quiet frames; nothing scores except the tagged highlight turns, so a
+  // tight budget forces the condenser to choose between them.
+  const quiet = (turn: number) => snap({ turn });
+  const quietRun = Array.from({ length: 10 }, (_, i) => quiet(i));
+  // targetMs 1400 → maxFrames 4 → anchors take 2, leaving 2 slots.
+  const TIGHT = { targetMs: 1400 };
+
+  it('a high-impact highlight outranks a medium one when the budget forces a choice', () => {
+    const t = buildCondensedTimeline(quietRun, {
+      ...TIGHT,
+      highlights: [
+        { turn: 3, impact: 'medium' },
+        { turn: 6, impact: 'high' },
+        { turn: 8, impact: 'medium' },
+      ],
+    });
+    const kept = t.frames.map((f) => f.index);
+    expect(kept).toContain(6);
+    const high = t.frames.find((f) => f.index === 6)!;
+    const medium = t.frames.find((f) => f.index === 3) ?? t.frames.find((f) => f.index === 8);
+    if (medium) expect(high.score).toBeGreaterThan(medium.score);
+  });
+
+  it('the biggest probability swing wins among equal-impact highlights', () => {
+    const t = buildCondensedTimeline(quietRun, {
+      targetMs: 1100, // 3 frames: two anchors + ONE highlight slot
+      highlights: [
+        { turn: 3, impact: 'medium', prob_delta: 0.02 },
+        { turn: 6, impact: 'medium', prob_delta: -0.35 },
+      ],
+    });
+    const kept = t.frames.map((f) => f.index);
+    expect(kept).toContain(6);
+    expect(kept).not.toContain(3);
+  });
+
+  it('legacy highlightTurns still work, and a rich hint supersedes them for its turn', () => {
+    const t = buildCondensedTimeline(quietRun, {
+      highlightTurns: [3, 6],
+      highlights: [{ turn: 6, impact: 'high' }],
+    });
+    const legacy = t.frames.find((f) => f.index === 3)!;
+    const rich = t.frames.find((f) => f.index === 6)!;
+    expect(legacy.reason).toBe('highlight');
+    expect(legacy.score).toBe(5);
+    expect(rich.score).toBe(12);
+  });
+});

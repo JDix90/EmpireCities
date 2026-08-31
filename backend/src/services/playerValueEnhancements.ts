@@ -9,6 +9,8 @@ export interface InsightItem {
   impact: 'high' | 'medium';
   explanation: string;
   alternative: string;
+  /** Signed win-probability change that earned this insight (when known). */
+  prob_delta?: number;
 }
 
 /**
@@ -26,6 +28,10 @@ export interface ReplayHighlightItem {
   turn: number;
   label: string;
   type: 'turning_point' | 'capture' | 'swing';
+  /** How consequential the moment was — the clip condenser weights 'high' up. */
+  impact?: 'high' | 'medium';
+  /** Signed win-probability change, so the clip centers on the biggest swing. */
+  prob_delta?: number;
 }
 
 function parseState(row: ReplaySnapshotRow): GameState {
@@ -181,6 +187,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         turn: s.turn,
         title: 'Overextension cost you ground',
         impact: impactHigh ? 'high' : 'medium',
+        prob_delta: pDelta,
         explanation:
           `You gained ${tDelta} ${tWord(tDelta)} this turn but overextended your position.` + probPhrase,
         alternative:
@@ -193,6 +200,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         turn: s.turn,
         title: 'Consolidation improved your outlook',
         impact: impactHigh ? 'high' : 'medium',
+        prob_delta: pDelta,
         explanation:
           `You lost ${Math.abs(tDelta)} ${tWord(tDelta)} this turn, but consolidated into a stronger defensive position.` + probPhrase,
         alternative:
@@ -210,6 +218,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         turn: s.turn,
         title: 'Momentum swing captured',
         impact: impactHigh ? 'high' : 'medium',
+        prob_delta: pDelta,
         explanation: body + probPhrase,
         alternative:
           'Pressure adjacent weak borders next turn to convert momentum into region bonus control.',
@@ -226,6 +235,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
       turn: s.turn,
       title: 'Map control slipped',
       impact: impactHigh ? 'high' : 'medium',
+      prob_delta: pDelta,
       explanation: body + probPhrase,
       alternative:
         'Reinforce a connected defensive cluster before attacking to avoid overextension and chain losses.',
@@ -234,10 +244,15 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
 }
 
 function buildHighlightsFromInsights(insights: InsightItem[]): ReplayHighlightItem[] {
+  // Carry impact and the probability swing through — the insights pipeline
+  // already computed both, and dropping them here was why every highlight
+  // weighed the same in the share clip.
   return insights.map((insight) => ({
     turn: insight.turn,
     label: insight.title,
     type: 'turning_point',
+    impact: insight.impact,
+    prob_delta: insight.prob_delta,
   }));
 }
 
@@ -289,6 +304,7 @@ function insightFromDecision(decision: ActionDecision): InsightItem {
     impact: impactHigh ? 'high' : 'medium',
     explanation,
     alternative,
+    prob_delta: decision.prob_delta,
   };
 }
 

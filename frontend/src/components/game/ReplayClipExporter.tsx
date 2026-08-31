@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Download, Share2, Film, Loader2, Clapperboard } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -27,6 +27,8 @@ interface ReplayClipExporterProps {
   gameId: string;
   /** Records a share analytics event for the chosen platform. */
   onShared?: (platform: 'native' | 'clipboard') => void;
+  /** Kick off generation as soon as the exporter opens (deep-linked clip=auto). */
+  autoStart?: boolean;
 }
 
 const ASPECTS: Array<{ id: ClipAspect; label: string; hint: string }> = [
@@ -44,6 +46,7 @@ export default function ReplayClipExporter({
   eraLabel,
   gameId,
   onShared,
+  autoStart = false,
 }: ReplayClipExporterProps) {
   const [aspect, setAspect] = useState<ClipAspect>('9:16');
   const [format, setFormat] = useState<ClipFormat>('video');
@@ -75,10 +78,6 @@ export default function ReplayClipExporter({
     setProgress(0);
   }, [aspect, format, open]);
 
-  if (!open) return null;
-
-  const baseName = `borderfall-replay-${gameId.slice(0, 8)}`;
-
   const handleGenerate = async () => {
     if (busy) return;
     setBusy(true);
@@ -106,6 +105,27 @@ export default function ReplayClipExporter({
       setBusy(false);
     }
   };
+  const generateRef = useRef(handleGenerate);
+  generateRef.current = handleGenerate;
+
+  // Deep-linked auto-clip (game over -> "Clip" -> /replay?clip=auto): start
+  // generating the moment the exporter opens, once per open. Runs after the
+  // reset-on-open effect above, so it never races the output reset.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoStartedRef.current = false;
+      return;
+    }
+    if (autoStart && frames.length > 0 && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      void generateRef.current();
+    }
+  }, [open, autoStart, frames.length]);
+
+  if (!open) return null;
+
+  const baseName = `borderfall-replay-${gameId.slice(0, 8)}`;
 
   const handleDownload = () => {
     if (!result) return;
