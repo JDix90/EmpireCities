@@ -10,10 +10,30 @@ import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
 /** Client-safe spec (omit deterministic dice seed). */
-function toPublicSpec(spec: DailyPuzzleSpec): Omit<DailyPuzzleSpec, 'dice_queue_seed'> {
-  const { dice_queue_seed: _d, ...rest } = spec;
+function toPublicSpec(
+  spec: DailyPuzzleSpec,
+): Omit<DailyPuzzleSpec, 'dice_queue_seed' | 'starting_board' | 'settings_overrides' | 'grants' | 'clear_board'> {
+  // The dice seed stays server-side (determinism is not a spoiler, but the
+  // stream is), and the authored internals are game-start inputs, not display
+  // data — the client sees the board when the game begins.
+  const {
+    dice_queue_seed: _d,
+    starting_board: _b,
+    settings_overrides: _o,
+    grants: _g,
+    clear_board: _c,
+    ...rest
+  } = spec;
   return rest;
 }
+
+/** Settings keys an authored spec may never override. */
+const PROTECTED_SETTINGS_KEYS = new Set([
+  'daily_challenge_date',
+  'daily_challenge_spec',
+  'seed',
+  'max_players',
+]);
 
 function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDailyChallengeForToday>>): Record<string, unknown> {
   const spec = row.spec;
@@ -30,11 +50,14 @@ function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDai
   };
 
   if (spec.archetype === 'domination') {
-    return {
-      ...common,
-      allowed_victory_conditions: ['domination'],
-      victory_type: 'domination',
-    };
+    return withSpecOverrides(
+      {
+        ...common,
+        allowed_victory_conditions: ['domination'],
+        victory_type: 'domination',
+      },
+      spec,
+    );
   }
 
   const extra: Record<string, unknown> = {
@@ -49,7 +72,26 @@ function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDai
   if (spec.archetype === 'tech_research') {
     extra.tech_trees_enabled = true;
   }
-  return extra;
+  return withSpecOverrides(extra, spec);
+}
+
+/**
+ * Authored days may layer extra settings (e.g. naval_enabled) onto the daily
+ * defaults. Protected keys are dropped, and everything that survives still
+ * passes the normal settings normalizer at game start — an override can only
+ * reach keys the normalizer understands.
+ */
+function withSpecOverrides(
+  settings: Record<string, unknown>,
+  spec: DailyPuzzleSpec,
+): Record<string, unknown> {
+  if (!spec.settings_overrides) return settings;
+  const merged = { ...settings };
+  for (const [key, value] of Object.entries(spec.settings_overrides)) {
+    if (PROTECTED_SETTINGS_KEYS.has(key)) continue;
+    merged[key] = value;
+  }
+  return merged;
 }
 
 export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
@@ -71,11 +113,12 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     const myEntry = await queryOne<{
       entry_id: string;
       won: boolean;
+      puzzle_score: number | null;
       turn_count: number | null;
       territory_count: number | null;
       completed_at: string;
     }>(
-      `SELECT entry_id, won, turn_count, territory_count, completed_at
+      `SELECT entry_id, won, puzzle_score, turn_count, territory_count, completed_at
        FROM daily_challenge_entries
        WHERE challenge_date = $1 AND user_id = $2`,
       [row.challenge_date, request.userId],
@@ -126,18 +169,23 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     // Top 10 leaderboard for today
+    // puzzle_score is the primary metric among winners: it is what the move
+    // grading actually measures (1000 minus mistake penalties). Turn count
+    // breaks ties, so domination days — where every winner scores 1000 —
+    // rank exactly as before.
     const leaderboard = await query<{
       username: string;
       won: boolean;
+      puzzle_score: number | null;
       turn_count: number | null;
       territory_count: number | null;
       completed_at: string;
     }>(
-      `SELECT u.username, dce.won, dce.turn_count, dce.territory_count, dce.completed_at
+      `SELECT u.username, dce.won, dce.puzzle_score, dce.turn_count, dce.territory_count, dce.completed_at
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
        WHERE dce.challenge_date = $1
-       ORDER BY dce.won DESC, dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
+       ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST, dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
        LIMIT 10`,
       [row.challenge_date],
     );
@@ -198,11 +246,12 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     const aiCount = Math.max(1, row.player_count - 1);
+    const aiDifficulty = row.spec.ai_difficulty ?? 'hard';
     for (let i = 0; i < aiCount; i++) {
       await query(
         `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
-         VALUES ($1, NULL, $2, $3, true, 'hard')`,
-        [gameId, i + 1, PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length]],
+         VALUES ($1, NULL, $2, $3, true, $4)`,
+        [gameId, i + 1, PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length], aiDifficulty],
       );
     }
 

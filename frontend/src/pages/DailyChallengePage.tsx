@@ -35,6 +35,7 @@ interface DailyChallenge {
 interface MyEntry {
   entry_id: string;
   won: boolean;
+  puzzle_score?: number | null;
   turn_count: number | null;
   territory_count: number | null;
   completed_at: string;
@@ -43,6 +44,7 @@ interface MyEntry {
 interface LeaderboardRow {
   username: string;
   won: boolean;
+  puzzle_score?: number | null;
   turn_count: number | null;
   territory_count: number | null;
   completed_at: string;
@@ -335,6 +337,11 @@ export default function DailyChallengePage() {
                     <p className="text-bf-text text-sm truncate">{row.username}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
+                    {typeof row.puzzle_score === 'number' && (
+                      <span className="text-bf-gold font-semibold" title="Puzzle score (1000 minus mistake penalties)">
+                        {row.puzzle_score}
+                      </span>
+                    )}
                     {row.turn_count !== null && (
                       <span className="flex items-center gap-1" title="Turns taken to finish">
                         <Clock className="w-3 h-3" /> {row.turn_count} {row.turn_count === 1 ? 'turn' : 'turns'}
