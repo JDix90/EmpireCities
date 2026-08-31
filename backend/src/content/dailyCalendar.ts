@@ -15,9 +15,12 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
  * - economy/tech days grant enough to actually afford their goal;
  * - tech ids exist in the era's tree, building types in the economy set.
  *
- * The spec is stored as JSONB the first time the date is served and then reused
- * verbatim; while authoring, reset a day with
- * `pnpm -C backend exec tsx scripts/refreshTodayDailyChallenge.ts`.
+ * The spec is stored as JSONB the first time the date is served. Editing a day
+ * here still reaches players: dailyPuzzleService reconciles a stored row against
+ * this calendar on read and rewrites a stale one. The exception is a day already
+ * in play — swapping the board under recorded scores would corrupt that date's
+ * leaderboard, so the service keeps the stored spec and logs the mismatch. Force
+ * it with `pnpm -C backend exec tsx scripts/refreshTodayDailyChallenge.ts`.
  */
 export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
   // ── Week 1 ────────────────────────────────────────────────────────────────

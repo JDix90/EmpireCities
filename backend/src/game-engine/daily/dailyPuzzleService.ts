@@ -405,28 +405,135 @@ function parseSpec(raw: unknown): DailyPuzzleSpec {
     '[daily] stored spec_json failed validation — regenerating a domination fallback for today',
     { raw_type: typeof raw },
   );
-  return dominationSpecFromBase(buildDailyPuzzleBase(new Date().toISOString().slice(0, 10)));
+  return dominationSpecFromBase(buildDailyPuzzleBase(dailyChallengeDate()));
+}
+
+/** The calendar's date key: the daily rolls over at UTC midnight, everywhere. */
+export function dailyChallengeDate(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+interface StoredChallengeRow {
+  challenge_date: string;
+  era_id: string;
+  map_id: string;
+  seed: number;
+  player_count: number;
+  kind: string;
+  spec_json: unknown;
+}
+
+const STORED_ROW_COLUMNS = 'challenge_date, era_id, map_id, seed, player_count, kind, spec_json';
+
+/** Key order survives neither a JSONB round-trip nor hand-authoring, so compare on sorted keys. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    return Object.fromEntries(Object.keys(obj).sort().map((k) => [k, canonicalize(obj[k])]));
+  }
+  return value;
 }
 
 /**
- * Idempotent: ensures today's row exists with a generated spec, returns the row for API/game start.
+ * Whether a stored spec still matches what the calendar says for its date.
+ *
+ * Both sides are compared post-enrichment: the row is enriched before it is
+ * written, and enrichment is idempotent, so the stored JSONB is directly
+ * comparable to `enrichDailyPuzzleSpecForDisplay(authored)`.
+ */
+export function specsDiffer(a: DailyPuzzleSpec, b: DailyPuzzleSpec): boolean {
+  return JSON.stringify(canonicalize(a)) !== JSON.stringify(canonicalize(b));
+}
+
+/** Attempts recorded plus games still being played on a given date's challenge. */
+async function countDailyPlay(date: string): Promise<number> {
+  const row = await queryOne<{ n: number }>(
+    `SELECT (
+       (SELECT COUNT(*) FROM daily_challenge_entries WHERE challenge_date = $1::date)
+       + (SELECT COUNT(*) FROM games
+          WHERE (settings_json->>'daily_challenge_date')::date = $1::date
+            AND status IN ('waiting', 'in_progress'))
+     )::int AS n`,
+    [date],
+  );
+  return row?.n ?? 0;
+}
+
+/**
+ * Reconcile a stored row against the authored calendar.
+ *
+ * An authored day is content, not a frozen seed. The row is written the first
+ * time a date is served, so a day authored (or corrected) after that point
+ * would otherwise never reach players — the stored generator spec wins forever
+ * and nothing says so. When the calendar disagrees with the stored copy, the
+ * stored copy is stale and is rewritten in place.
+ *
+ * The one case where it is not rewritten is a day already in play: swapping the
+ * board under recorded scores would leave that date's leaderboard ranking two
+ * different puzzles against each other. Then the stored spec stands and the
+ * mismatch is logged — loudly, because a silent no-op is the exact failure this
+ * function exists to end. `scripts/refreshTodayDailyChallenge.ts` is the
+ * deliberate override.
+ *
+ * Returns null when the date is not authored, leaving the generated row alone.
+ */
+async function reconcileAuthoredRow(
+  date: string,
+  existing: StoredChallengeRow,
+): Promise<DailyChallengeRow | null> {
+  const authored = getAuthoredDailySpec(date);
+  if (!authored) return null;
+
+  const spec = await enrichDailyPuzzleSpecForDisplay(authored);
+  const stored = parseSpec(existing.spec_json);
+  const rowFrom = (s: DailyPuzzleSpec): DailyChallengeRow => ({
+    challenge_date: existing.challenge_date,
+    era_id: s.era_id,
+    map_id: s.map_id,
+    seed: s.seed,
+    player_count: s.player_count,
+    kind: existing.kind,
+    spec: s,
+  });
+  if (!specsDiffer(stored, spec)) return rowFrom(spec);
+
+  const inPlay = await countDailyPlay(date);
+  if (inPlay > 0) {
+    console.warn(
+      `[daily] ${date} is authored as "${spec.title}" but the stored challenge is "${stored.title}". `
+        + `Keeping the stored one: ${inPlay} attempt(s)/active game(s) already exist for that date. `
+        + 'Reset it deliberately with scripts/refreshTodayDailyChallenge.ts.',
+    );
+    return rowFrom(stored);
+  }
+
+  await query(
+    `UPDATE daily_challenges
+     SET era_id = $2, map_id = $3, seed = $4, player_count = $5, kind = 'puzzle', spec_json = $6::jsonb
+     WHERE challenge_date = $1`,
+    [date, spec.era_id, spec.map_id, spec.seed, spec.player_count, JSON.stringify(spec)],
+  );
+  console.log(`[daily] ${date}: stored challenge "${stored.title}" replaced by the authored "${spec.title}"`);
+  return { ...rowFrom(spec), kind: 'puzzle' };
+}
+
+/**
+ * Idempotent: ensures the date's row exists with a spec, returns the row for API/game start.
  */
 export async function ensureDailyChallengeForToday(): Promise<DailyChallengeRow> {
-  const today = new Date().toISOString().slice(0, 10);
-  const existing = await queryOne<{
-    challenge_date: string;
-    era_id: string;
-    map_id: string;
-    seed: number;
-    player_count: number;
-    kind: string;
-    spec_json: unknown;
-  }>(
-    `SELECT challenge_date, era_id, map_id, seed, player_count, kind, spec_json
+  return ensureDailyChallengeForDate(dailyChallengeDate());
+}
+
+export async function ensureDailyChallengeForDate(today: string): Promise<DailyChallengeRow> {
+  const existing = await queryOne<StoredChallengeRow>(
+    `SELECT ${STORED_ROW_COLUMNS}
      FROM daily_challenges WHERE challenge_date = $1`,
     [today],
   );
   if (existing) {
+    const reconciled = await reconcileAuthoredRow(today, existing);
+    if (reconciled) return reconciled;
     const spec = await enrichDailyPuzzleSpecForDisplay(parseSpec(existing.spec_json));
     return {
       challenge_date: existing.challenge_date,
@@ -447,16 +554,8 @@ export async function ensureDailyChallengeForToday(): Promise<DailyChallengeRow>
     [today, spec.era_id, spec.map_id, spec.seed, spec.player_count, JSON.stringify(spec)],
   );
 
-  const again = await queryOne<{
-    challenge_date: string;
-    era_id: string;
-    map_id: string;
-    seed: number;
-    player_count: number;
-    kind: string;
-    spec_json: unknown;
-  }>(
-    `SELECT challenge_date, era_id, map_id, seed, player_count, kind, spec_json
+  const again = await queryOne<StoredChallengeRow>(
+    `SELECT ${STORED_ROW_COLUMNS}
      FROM daily_challenges WHERE challenge_date = $1`,
     [today],
   );
