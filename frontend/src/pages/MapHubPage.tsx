@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Star, Globe, Plus, Map, Users, Zap, Compass, Search, Landmark, Sparkles } from 'lucide-react';
@@ -11,6 +11,8 @@ import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
 import { useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useAuthStore } from '../store/authStore';
+import GuestGate from '../components/GuestGate';
 
 interface PublicMap {
   map_id: string;
@@ -24,7 +26,26 @@ interface PublicMap {
   created_at: string;
 }
 
-type HubTab = 'all' | 'eras' | 'regional' | 'community';
+interface MyMapRow {
+  map_id: string;
+  name: string;
+  description: string;
+  era_theme: string | null;
+  rating: number;
+  play_count: number;
+  moderation_status: 'draft' | 'pending' | 'approved' | 'rejected' | string;
+  moderation_reason: string | null;
+  created_at: string;
+}
+
+const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
+  draft: { label: 'Draft', cls: 'bg-slate-600/20 border-slate-400/40 text-slate-300' },
+  pending: { label: 'In review', cls: 'bg-amber-600/20 border-amber-400/40 text-amber-300' },
+  approved: { label: 'Approved', cls: 'bg-green-600/20 border-green-400/40 text-green-300' },
+  rejected: { label: 'Rejected', cls: 'bg-red-600/20 border-red-400/40 text-red-300' },
+};
+
+type HubTab = 'all' | 'eras' | 'regional' | 'community' | 'mine';
 
 /** A short curated row shown on the All tab to help players pick a starting map. */
 const FEATURED: Array<{ kind: 'era'; era_theme: string } | { kind: 'regional'; map_id: string }> = [
@@ -49,6 +70,7 @@ function matches(query: string, ...fields: (string | undefined)[]): boolean {
 export default function MapHubPage() {
   const navigate = useNavigate();
   const mapEditorEnabled = useMapEditorEnabled();
+  const { user, isAuthenticated } = useAuthStore();
 
   // Hub navigation
   const [tab, setTab] = useState<HubTab>('all');
@@ -69,6 +91,10 @@ export default function MapHubPage() {
   const [sort, setSort]       = useState<'rating' | 'plays' | 'new'>('rating');
   const [eraFilter, setEraFilter] = useState('');
 
+  // My Maps (the author's own, with moderation state)
+  const [myMaps, setMyMaps] = useState<MyMapRow[]>([]);
+  const [myMapsLoading, setMyMapsLoading] = useState(false);
+
   // Load era maps
   useEffect(() => {
     fetchEraMaps()
@@ -86,6 +112,32 @@ export default function MapHubPage() {
       .catch(() => toast.error('Failed to load maps'))
       .finally(() => setLoading(false));
   }, [sort, eraFilter]);
+
+  // Load my maps when the tab opens (registered authors only).
+  const loadMyMaps = useCallback(() => {
+    setMyMapsLoading(true);
+    api.get<MyMapRow[]>('/maps/me')
+      .then((res) => setMyMaps(res.data))
+      .catch(() => toast.error('Failed to load your maps'))
+      .finally(() => setMyMapsLoading(false));
+  }, []);
+  useEffect(() => {
+    if (tab === 'mine' && isAuthenticated && !user?.is_guest) loadMyMaps();
+  }, [tab, isAuthenticated, user?.is_guest, loadMyMaps]);
+
+  // Send a draft or fixed-up rejected map into the review queue.
+  const submitForReview = async (mapId: string) => {
+    try {
+      const res = await api.post<{ message: string; errors?: string[] }>(`/maps/${mapId}/publish`, {});
+      toast.success(res.data.message);
+      loadMyMaps();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string; errors?: string[] } } };
+      const details = err?.response?.data?.errors;
+      toast.error(err?.response?.data?.error ?? 'Failed to submit for review');
+      if (details?.length) details.slice(0, 3).forEach((d) => toast.error(d));
+    }
+  };
 
   const eraCards = useMemo(
     () => selectCanonicalEraMaps(eraMaps, new Set(REGIONAL_MAPS.map((m) => m.map_id))),
@@ -115,9 +167,13 @@ export default function MapHubPage() {
 
   const handleRate = async (mapId: string, rating: number) => {
     try {
-      await api.post(`/maps/${mapId}/rate`, { rating });
+      // The server returns the recomputed AGGREGATE — applying the user's own
+      // star here used to overwrite a 4.6-community-average with a personal 2.
+      const res = await api.post<{ rating: number; rating_count: number }>(`/maps/${mapId}/rate`, { rating });
       toast.success('Rating submitted!');
-      setMaps((prev) => prev.map((m) => m.map_id === mapId ? { ...m, rating } : m));
+      setMaps((prev) => prev.map((m) =>
+        m.map_id === mapId ? { ...m, rating: res.data.rating, rating_count: res.data.rating_count } : m,
+      ));
     } catch {
       toast.error('Failed to submit rating');
     }
@@ -132,6 +188,9 @@ export default function MapHubPage() {
     { id: 'eras', label: 'Eras', count: eraCards.length },
     { id: 'regional', label: 'Regional', count: REGIONAL_MAPS.length },
     { id: 'community', label: 'Community', count: maps.length },
+    // The author's shelf — needs the editor feature and a registered account
+    // (guests see the upgrade gate on the tab body instead).
+    ...(mapEditorEnabled && isAuthenticated ? [{ id: 'mine' as const, label: 'My Maps' }] : []),
   ];
 
   // ── Card renderers ──────────────────────────────────────────────────────────
@@ -448,6 +507,66 @@ export default function MapHubPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {visibleCommunity.map(renderCommunityCard)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── My Maps (the author's shelf, with moderation state) ──────────── */}
+      {tab === 'mine' && (
+        <section>
+          <SectionHeader icon={Map} title="My Maps" note="— drafts, reviews, and published work" />
+          {user?.is_guest ? (
+            <GuestGate
+              title="My Maps"
+              description="Create an account to build maps in the editor, submit them for review, and see them published in the community hub. Your guest progress carries over."
+            />
+          ) : myMapsLoading ? (
+            <p className="text-bf-muted text-sm">Loading your maps…</p>
+          ) : myMaps.length === 0 ? (
+            <div className="card p-6 text-center">
+              <p className="text-bf-muted text-sm mb-4">You haven't created any maps yet.</p>
+              <button onClick={() => navigate('/editor')} className="btn-primary text-sm inline-flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Create your first map
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myMaps.map((m) => {
+                const chip = STATUS_CHIP[m.moderation_status] ?? STATUS_CHIP.draft;
+                return (
+                  <div key={m.map_id} className="card group">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-display text-lg text-bf-gold truncate">{m.name}</h3>
+                      <span className={`badge border text-xs shrink-0 ${chip.cls}`}>{chip.label}</span>
+                    </div>
+                    {m.description && <p className="text-bf-muted text-sm mb-2 line-clamp-2">{m.description}</p>}
+                    {m.moderation_status === 'rejected' && m.moderation_reason && (
+                      <p className="text-red-300/90 text-xs mb-2">
+                        Reviewer: {m.moderation_reason}
+                      </p>
+                    )}
+                    {m.moderation_status === 'pending' && (
+                      <p className="text-bf-muted text-xs mb-2">A moderator will review this version before it is listed.</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-3">
+                      <button onClick={() => navigate(`/editor/${m.map_id}`)} className="btn-secondary text-xs py-1.5 flex-1">
+                        Edit
+                      </button>
+                      {(m.moderation_status === 'draft' || m.moderation_status === 'rejected') && (
+                        <button onClick={() => void submitForReview(m.map_id)} className="btn-primary text-xs py-1.5 flex-1">
+                          Submit for review
+                        </button>
+                      )}
+                      {m.moderation_status === 'approved' && (
+                        <button onClick={() => navigate(`/lobby?map=${m.map_id}`)} className="btn-primary text-xs py-1.5 flex-1">
+                          Play
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

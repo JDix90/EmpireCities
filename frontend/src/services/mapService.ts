@@ -275,19 +275,6 @@ export async function fetchMapById(mapId: string): Promise<GameMap> {
   }
 }
 
-/**
- * Fetch community maps (paginated).
- */
-export async function fetchCommunityMaps(
-  page: number = 1,
-  limit: number = 20,
-  sort: 'play_count' | 'rating' | 'created_at' = 'play_count'
-): Promise<{ maps: MapSummary[]; total: number }> {
-  const response = await api.get<{ maps: MapSummary[]; total: number }>(
-    `/maps/community?page=${page}&limit=${limit}&sort=${sort}`
-  );
-  return response.data;
-}
 
 /**
  * Submit a rating for a map.
