@@ -33,19 +33,19 @@ describe('featureFlags', () => {
     }
   });
 
-  it('map_editor_enabled defaults to off', () => {
-    expect(featureFlags.mapEditorEnabled).toBe(false);
-    expect(getClientFeatureFlags().map_editor_enabled).toBe(false);
-  });
-
-  it('admin override can enable map editor', () => {
-    setAdminConfigCacheForTests({ feature_flags: { map_editor_enabled: true } });
+  it('map_editor_enabled defaults to on', () => {
     expect(featureFlags.mapEditorEnabled).toBe(true);
     expect(getClientFeatureFlags().map_editor_enabled).toBe(true);
+  });
+
+  it('admin override can force the map editor off (the kill switch)', () => {
+    setAdminConfigCacheForTests({ feature_flags: { map_editor_enabled: false } });
+    expect(featureFlags.mapEditorEnabled).toBe(false);
+    expect(getClientFeatureFlags().map_editor_enabled).toBe(false);
     expect(getFeatureFlagStates().map_editor_enabled).toEqual({
-      code_default: false,
+      code_default: true,
       overridden: true,
-      effective: true,
+      effective: false,
     });
   });
 

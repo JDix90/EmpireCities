@@ -28,7 +28,8 @@ export interface ClientFeatureFlags {
  * visitor sees. An admin override still wins once the fetch lands.
  */
 const DEFAULT_FLAGS: ClientFeatureFlags = {
-  map_editor_enabled: false,
+  // ON since the editor publish -> moderation -> community loop closed.
+  map_editor_enabled: true,
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
   turn_clarity_enabled: true,
