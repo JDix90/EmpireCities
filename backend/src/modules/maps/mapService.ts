@@ -7,7 +7,6 @@ import { getRedis } from '../../db/redis';
 import {
   getMapByIdFromDb,
   incrementMapPlayCount,
-  listCommunityMapRows,
   listEraMapRows,
   rowToSummary,
 } from '../../db/postgres/mapsRepository';
@@ -53,15 +52,6 @@ export async function invalidateMapCache(mapId: string): Promise<void> {
 export async function getEraMapSummaries(): Promise<MapSummary[]> {
   const rows = await listEraMapRows();
   return rows.map(rowToSummary);
-}
-
-export async function getCommunityMaps(
-  page: number = 1,
-  limit: number = 20,
-  sortBy: 'play_count' | 'rating' | 'created_at' = 'play_count',
-): Promise<{ maps: MapSummary[]; total: number }> {
-  const { rows, total } = await listCommunityMapRows(page, limit, sortBy);
-  return { maps: rows.map(rowToSummary), total };
 }
 
 export function buildAdjacencyGraph(map: GameMap): Map<string, Set<string>> {

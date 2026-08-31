@@ -35,6 +35,8 @@ export interface MapRow {
   is_public: boolean;
   is_moderated: boolean;
   moderation_status: string;
+  /** Why the map was rejected (admin reject action); null otherwise. */
+  moderation_reason: string | null;
   rating: number;
   rating_count: number;
   play_count: number;
@@ -62,7 +64,7 @@ export interface CreateMapInput {
   regions: Region[];
   is_public?: boolean;
   is_moderated?: boolean;
-  moderation_status?: 'pending' | 'approved' | 'rejected';
+  moderation_status?: 'draft' | 'pending' | 'approved' | 'rejected';
   rating?: number;
   rating_count?: number;
   play_count?: number;
@@ -72,7 +74,7 @@ const MAP_SELECT = `
   map_id, creator_id, name, description, era_theme, background_image_url,
   canvas_width, canvas_height, projection_bounds, globe_view, map_kind, worlds,
   orbit_access, rts_terrain, territories, connections, regions,
-  is_public, is_moderated, moderation_status, rating, rating_count, play_count,
+  is_public, is_moderated, moderation_status, moderation_reason, rating, rating_count, play_count,
   created_at, updated_at
 `;
 
@@ -227,32 +229,6 @@ export async function listEraMapRows(): Promise<MapRow[]> {
   );
 }
 
-export async function listCommunityMapRows(
-  page: number,
-  limit: number,
-  sortBy: 'play_count' | 'rating' | 'created_at',
-): Promise<{ rows: MapRow[]; total: number }> {
-  const sortColumn =
-    sortBy === 'rating' ? 'rating' : sortBy === 'created_at' ? 'created_at' : 'play_count';
-  const offset = (page - 1) * limit;
-
-  const [rows, totalRow] = await Promise.all([
-    query<MapRow>(
-      `SELECT ${MAP_SELECT} FROM maps
-       WHERE creator_id <> 'system' AND is_public = true AND moderation_status = 'approved'
-       ORDER BY ${sortColumn} DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset],
-    ),
-    queryOne<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM maps
-       WHERE creator_id <> 'system' AND is_public = true AND moderation_status = 'approved'`,
-    ),
-  ]);
-
-  return { rows, total: parseInt(totalRow?.count ?? '0', 10) };
-}
-
 export async function listPublicMapRows(options: {
   era?: string;
   sort: 'rating' | 'plays' | 'new';
@@ -291,12 +267,7 @@ export async function listPublicMapRows(options: {
 
 export async function listMapsByCreator(creatorId: string): Promise<MapRow[]> {
   return query<MapRow>(
-    `SELECT map_id, creator_id, name, description, era_theme, background_image_url,
-            canvas_width, canvas_height, projection_bounds, globe_view, map_kind, worlds,
-            orbit_access, rts_terrain, territories, connections, regions,
-            is_public, is_moderated, moderation_status, rating, rating_count, play_count,
-            created_at, updated_at
-     FROM maps WHERE creator_id = $1 ORDER BY created_at DESC`,
+    `SELECT ${MAP_SELECT} FROM maps WHERE creator_id = $1 ORDER BY created_at DESC`,
     [creatorId],
   );
 }
@@ -323,7 +294,10 @@ export async function findMapOwnedByUser(mapId: string, creatorId: string): Prom
 export async function updateOwnedMap(
   mapId: string,
   creatorId: string,
-  input: Pick<CreateMapInput, 'name' | 'description' | 'territories' | 'connections' | 'regions'>,
+  input: Pick<
+    CreateMapInput,
+    'name' | 'description' | 'territories' | 'connections' | 'regions' | 'era_theme' | 'background_image_url'
+  >,
 ): Promise<boolean> {
   const result = await query<{ map_id: string }>(
     `UPDATE maps SET
@@ -332,6 +306,8 @@ export async function updateOwnedMap(
       territories = $5::jsonb,
       connections = $6::jsonb,
       regions = $7::jsonb,
+      era_theme = $8,
+      background_image_url = $9,
       updated_at = NOW()
     WHERE map_id = $1 AND creator_id = $2 AND creator_id <> 'system'
     RETURNING map_id`,
@@ -343,6 +319,8 @@ export async function updateOwnedMap(
       JSON.stringify(input.territories),
       JSON.stringify(input.connections),
       JSON.stringify(input.regions),
+      input.era_theme ?? null,
+      input.background_image_url ?? null,
     ],
   );
   return result.length > 0;
@@ -354,6 +332,40 @@ export async function submitMapForModeration(mapId: string, creatorId: string): 
      WHERE map_id = $1 AND creator_id = $2
      RETURNING map_id`,
     [mapId, creatorId],
+  );
+  return result.length > 0;
+}
+
+/** Pending-review queue for the admin moderation surface, oldest first. */
+export async function listMapsByModerationStatus(status: string, limit = 50): Promise<MapRow[]> {
+  return query<MapRow>(
+    `SELECT ${MAP_SELECT} FROM maps
+     WHERE moderation_status = $1 AND creator_id <> 'system'
+     ORDER BY updated_at ASC
+     LIMIT $2`,
+    [status, limit],
+  );
+}
+
+/**
+ * Admin decision on a submitted map. Approval lists the map (is_public) and
+ * clears any old rejection reason; rejection unlists it and records why, so
+ * the owner sees the reason in My Maps and may fix and resubmit.
+ */
+export async function setMapModeration(
+  mapId: string,
+  decision: 'approved' | 'rejected',
+  reason?: string,
+): Promise<boolean> {
+  const result = await query<{ map_id: string }>(
+    `UPDATE maps SET
+      moderation_status = $2,
+      is_public = ($2 = 'approved'),
+      moderation_reason = $3,
+      updated_at = NOW()
+     WHERE map_id = $1 AND creator_id <> 'system'
+     RETURNING map_id`,
+    [mapId, decision, decision === 'rejected' ? (reason ?? null) : null],
   );
   return result.length > 0;
 }

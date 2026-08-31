@@ -44,7 +44,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   },
   socket_debug: () => config.nodeEnv === 'development' && envOptIn('SOCKET_DEBUG'),
 
-  map_editor_enabled: () => envOptIn('MAP_EDITOR_ENABLED'),
+  map_editor_enabled: () => envOptOut('MAP_EDITOR_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
   turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
   onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
@@ -149,8 +149,10 @@ export const featureFlags = {
 
   /**
    * When true, registered users can access the Map Editor UI and create/publish
-   * custom maps. Default OFF until the publish → moderation → community loop
-   * is wired end to end.
+   * custom maps. Default ON since the publish → moderation → community loop
+   * closed (migration 039 + the admin review queue) and passed the full
+   * two-account lifecycle live. MAP_EDITOR_ENABLED=false or the Admin → Config
+   * override is the kill switch.
    */
   get mapEditorEnabled(): boolean {
     return overrideBool('map_editor_enabled');

@@ -73,7 +73,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `analyticsEventsEnabled` | `ANALYTICS_EVENTS_ENABLED` | **on** (off under test) | Funnel/retention events → `analytics_events` + JSON log lines. Cohorts only accrue while this is live |
 | `metricsEndpointEnabled` | `METRICS_ENDPOINT_ENABLED` | **on in dev, off in prod** | `GET /metrics/json` (room count, lock/persistence failure counters, memory) |
 | `socketDebug` | `SOCKET_DEBUG` | off (dev-only) | Verbose Socket.io logging |
-| `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | off | Map Editor UI + custom-map publishing |
+| `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | **on** | Map Editor UI + custom-map publishing (draft → review → approve pipeline; kill switch in Admin → Config) |
 | `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
 | `onboardingTutorialFirstEnabled` | `ONBOARDING_TUTORIAL_FIRST_ENABLED` | **on** | Landing "Play as Guest" goes straight into the tutorial match |

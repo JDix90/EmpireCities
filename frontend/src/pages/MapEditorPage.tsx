@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft, Undo2, Redo2 } from 'lucide-react';
 import axios from 'axios';
+import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import { isMobileViewport } from '../utils/device';
 import type {
   EditorTerritory,
@@ -69,6 +70,12 @@ export default function MapEditorPage() {
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [mapName, setMapName] = useState('My Custom Map');
   const [mapDescription, setMapDescription] = useState('');
+  const [eraTheme, setEraTheme] = useState('');
+  // Moderation state of the saved map (drives the status pill + submit button).
+  const [moderationStatus, setModerationStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  // Publish-quality warnings from the last save — what review would block on.
+  const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const skipDirtyRef = useRef(true); // suppress dirty on initial mount and load
@@ -345,6 +352,42 @@ export default function MapEditorPage() {
     setRegions((prev) => [...prev, { region_id: id, name: `Region ${prev.length + 1}`, bonus: 3 }]);
   };
 
+  // The map document endpoint has no moderation fields; the author's own
+  // listing does. One fetch drives the status pill and the submit button.
+  useEffect(() => {
+    if (!mapId) {
+      setModerationStatus(null);
+      return;
+    }
+    api.get<Array<{ map_id: string; moderation_status: string; era_theme: string | null }>>('/maps/me')
+      .then((res) => {
+        const mine = res.data.find((m) => m.map_id === mapId);
+        if (mine) {
+          setModerationStatus(mine.moderation_status);
+          if (mine.era_theme) setEraTheme(mine.era_theme);
+        }
+      })
+      .catch(() => {});
+  }, [mapId]);
+
+  const handleSubmitForReview = async () => {
+    if (!mapId || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await api.post<{ message: string }>(`/maps/${mapId}/publish`, {});
+      toast.success(res.data.message);
+      setModerationStatus('pending');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(err.response?.data?.error || 'Failed to submit for review');
+        const details = err.response?.data?.errors as string[] | undefined;
+        if (details?.length) setSaveWarnings(details);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSave = async () => {
     if (territories.length < 6) {
       toast.error('A map needs at least 6 territories');
@@ -359,16 +402,24 @@ export default function MapEditorPage() {
       const payload = {
         name: mapName,
         description: mapDescription,
+        // Era matching in the hub filters on this; without it a community map
+        // can never appear under its era.
+        era_theme: eraTheme || undefined,
         territories,
         connections,
         regions,
       };
       if (mapId) {
-        await api.put(`/maps/${mapId}`, payload);
-        toast.success('Map updated!');
+        const res = await api.put<{ message: string; warnings?: string[] }>(`/maps/${mapId}`, payload);
+        toast.success(res.data.message || 'Map updated!');
+        setSaveWarnings(res.data.warnings ?? []);
+        // Editing an approved map unlists it pending re-review.
+        if (moderationStatus === 'approved') setModerationStatus('pending');
       } else {
-        const res = await api.post('/maps', payload);
-        toast.success('Map saved!');
+        const res = await api.post<{ map_id: string; message: string; warnings?: string[] }>('/maps', payload);
+        toast.success(res.data.message || 'Map saved!');
+        setSaveWarnings(res.data.warnings ?? []);
+        setModerationStatus('draft');
         navigate(`/editor/${res.data.map_id}`);
       }
       skipDirtyRef.current = true;
@@ -424,11 +475,59 @@ export default function MapEditorPage() {
           onChange={(e) => setMapName(e.target.value)}
           placeholder="Map Name"
         />
+        {/* Era tag: the hub's era filter matches on this — untagged maps never
+            surface under an era. */}
+        <select
+          className="bg-bf-dark border border-bf-border rounded-lg text-xs text-bf-text py-1 px-2"
+          value={eraTheme}
+          onChange={(e) => setEraTheme(e.target.value)}
+          title="Era theme (used by the community hub's era filter)"
+        >
+          <option value="">No era tag</option>
+          {Object.entries(ERA_LABELS).map(([id, label]) => (
+            <option key={id} value={id}>{label}</option>
+          ))}
+        </select>
         <div className="flex-1" />
+        {moderationStatus && (
+          <span
+            className={`text-xs px-2.5 py-1 rounded-full border ${
+              moderationStatus === 'approved'
+                ? 'bg-green-600/20 border-green-400/40 text-green-300'
+                : moderationStatus === 'pending'
+                  ? 'bg-amber-600/20 border-amber-400/40 text-amber-300'
+                  : moderationStatus === 'rejected'
+                    ? 'bg-red-600/20 border-red-400/40 text-red-300'
+                    : 'bg-slate-600/20 border-slate-400/40 text-slate-300'
+            }`}
+            title="Moderation status — community maps are reviewed before they are listed"
+          >
+            {moderationStatus === 'pending' ? 'In review' : moderationStatus}
+          </span>
+        )}
+        {mapId && (moderationStatus === 'draft' || moderationStatus === 'rejected') && (
+          <button
+            onClick={() => void handleSubmitForReview()}
+            disabled={submitting || isDirty}
+            title={isDirty ? 'Save your changes first' : 'Send this map to moderation review'}
+            className="btn-secondary text-sm py-1.5 disabled:opacity-50"
+          >
+            {submitting ? 'Submitting…' : 'Submit for review'}
+          </button>
+        )}
         <button onClick={handleSave} disabled={saving} className="btn-primary text-sm flex items-center gap-2 py-1.5">
           <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Map'}
         </button>
       </div>
+
+      {/* Publish-quality warnings from the last save — review blocks on these. */}
+      {saveWarnings.length > 0 && (
+        <div className="bg-amber-950/60 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-200 shrink-0">
+          <span className="font-semibold mr-2">Review will block on:</span>
+          {saveWarnings.slice(0, 3).join(' · ')}
+          {saveWarnings.length > 3 ? ` · +${saveWarnings.length - 3} more` : ''}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Toolbar */}
