@@ -4,6 +4,8 @@ import { getEraTechTree } from '../eras';
 import type { EraId, GameMap } from '../../types';
 import type { DailyPuzzleArchetype, DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { getAuthoredDailySpec } from '../../content/dailyCalendar';
+import { captureProbability } from '../combat/combatOdds';
+import { createSeededRng } from '../victory/missions';
 
 /** Human-readable territory label for puzzle copy (prefers map data, else softens ids). */
 export function territoryDisplayName(map: GameMap | null, territoryId: string): string {
@@ -139,37 +141,8 @@ export async function buildCompleteDailyPuzzleSpec(today: string): Promise<Daily
 
   if (b.archetype === 'military_capture') {
     const map = await getMapById(b.map_id);
-    let target_territory_id = '';
-    let anchor_territory_id = '';
-    if (map && map.connections.length > 0) {
-      const sorted = [...map.connections].sort((a, c) => {
-        const k1 = `${a.from}\0${a.to}`;
-        const k2 = `${c.from}\0${c.to}`;
-        return k1.localeCompare(k2);
-      });
-      const edge = sorted[b.edge_pick % sorted.length];
-      anchor_territory_id = edge.from;
-      target_territory_id = edge.to;
-    }
-    if (!target_territory_id || !anchor_territory_id) {
-      return dominationSpecFromBase(b);
-    }
-    const targetLabel = territoryDisplayName(map, target_territory_id);
-    return {
-      archetype: 'military_capture',
-      title: 'Daily Tactical — Breakthrough',
-      intro: 'You hold one front; the objective territory is heavily defended. Plan assaults carefully.',
-      goal: `Capture ${targetLabel} before time runs out.`,
-      era_id: b.era_id,
-      map_id: b.map_id,
-      seed: b.seed,
-      player_count: b.player_count,
-      max_turns,
-      dice_queue_seed,
-      target_territory_id,
-      anchor_territory_id,
-      hint: 'Favor favorable exchanges and consolidate before committing to the final push.',
-    };
+    const calibrated = map ? buildCalibratedMilitarySpec(b, map, max_turns) : null;
+    return calibrated ?? dominationSpecFromBase(b);
   }
 
   if (b.archetype === 'economy_build') {
@@ -205,6 +178,131 @@ export async function buildCompleteDailyPuzzleSpec(today: string): Promise<Daily
     max_turns,
     dice_queue_seed,
     tech_id: tech.tech_id,
+  };
+}
+
+// ── Calibrated tactical generation ───────────────────────────────────────────
+//
+// The old military template was one static shape: anchor 8 vs target 4 on a
+// hash-picked edge — the same free-ish fight every time, on a board with no
+// counterplay. The authored calendar showed what a good day looks like: a
+// small designed front (main force + support vs garrison + relief), first-
+// assault capture odds in a winnable-but-not-free band, an attack-phase open
+// and a tight clock. The generator now builds exactly that shape, using the
+// same odds engine the calendar's CI review board checks authored days with —
+// hand-authoring was mostly a manual search for these numbers, so the search
+// is what shipped. Everything derives from the date via a seeded PRNG, so
+// every process generates the identical day.
+
+/** The authored band: winnable but never free (mirrors dailyCalendar.test.ts). */
+const TACTICAL_P_MIN = 0.7;
+const TACTICAL_P_MAX = 0.86;
+
+const TACTICAL_TITLES = [
+  'Daily Tactical — Breakthrough',
+  'Daily Tactical — The Salient',
+  'Daily Tactical — Forced March',
+  'Daily Tactical — The Garrison',
+  'Daily Tactical — High Water Mark',
+];
+const TACTICAL_INTROS = [
+  'One front, one objective. The garrison is dug in and relief is a border away.',
+  'Your main force is assembled; the enemy knows where. Take the objective before the relief column matters.',
+  'The line bends here or it does not bend at all. Commit where the odds are yours.',
+  'Scouts report the objective reinforced overnight. The clock, not the garrison, is the second enemy.',
+  'A narrow front rewards patience: grind the defense down, then take the ground with enough left to hold it.',
+];
+const TACTICAL_HINTS = [
+  'Favor favorable exchanges and consolidate before committing to the final push.',
+  'A split assault gives the defender two cheap rounds — mass before you march.',
+  'Win the fight with enough left to hold the prize; the relief force attacks back.',
+  'Near-even fights favor the defender. Thin the garrison before the killing blow.',
+];
+
+/**
+ * Build a calibrated tactical day. Pure: callers resolve the map (DB in prod,
+ * JSON fixtures in tests). Returns null when the map has no usable edge —
+ * the caller falls back to a domination day, as the old template did.
+ */
+export function buildCalibratedMilitarySpec(
+  b: ReturnType<typeof buildDailyPuzzleBase>,
+  map: GameMap,
+  maxTurnsBase: number,
+): DailyPuzzleSpec | null {
+  if (!map.connections || map.connections.length === 0) return null;
+
+  // Stable edge order, then hash-picked — the same target the old generator
+  // chose for a given date, so the calibration changes the fight, not the map
+  // pin players may have seen in the intro copy.
+  const sorted = [...map.connections].sort((a, c) => {
+    const k1 = `${a.from}\0${a.to}`;
+    const k2 = `${c.from}\0${c.to}`;
+    return k1.localeCompare(k2);
+  });
+  const edge = sorted[b.edge_pick % sorted.length];
+  const anchorId = edge.from;
+  const targetId = edge.to;
+  const assaultIsSea = edge.type === 'sea';
+
+  const rng = createSeededRng((b.dice_queue_seed ^ 0x7ac71ca1) >>> 0);
+  const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
+  const int = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
+
+  // Size the main fight: pick the garrison and a target win probability, then
+  // search the smallest attacking stack whose first-assault capture odds reach
+  // it. Sea assaults roll capped dice, so the search sizes the fleet-borne
+  // stack up on its own.
+  const garrison = int(5, 8);
+  const targetP = TACTICAL_P_MIN + rng() * (TACTICAL_P_MAX - TACTICAL_P_MIN);
+  const attackerBaseCap = assaultIsSea ? 2 : 3;
+  let attackers = garrison + 1;
+  let p = 0;
+  for (; attackers <= garrison + 14; attackers++) {
+    p = captureProbability(attackers, garrison, { attackerBaseCap });
+    if (p >= targetP) break;
+  }
+  if (p < TACTICAL_P_MIN || p > 0.97) return null;
+
+  // The supporting cast: one human reserve behind the anchor, one AI relief
+  // garrison beside the target — the counterplay that makes "hold it" real.
+  const neighborsOf = (tid: string): Array<{ id: string; type: string }> => {
+    const out: Array<{ id: string; type: string }> = [];
+    for (const c of map.connections) {
+      if (c.from === tid) out.push({ id: c.to, type: c.type });
+      else if (c.to === tid) out.push({ id: c.from, type: c.type });
+    }
+    return out.sort((x, y) => x.id.localeCompare(y.id));
+  };
+  const board: NonNullable<DailyPuzzleSpec['starting_board']> = {
+    [anchorId]: { owner: 'human', unit_count: attackers },
+    [targetId]: { owner: 'ai', unit_count: garrison },
+  };
+  const humanSupport = neighborsOf(anchorId).find((n) => n.id !== targetId && !board[n.id]);
+  if (humanSupport) board[humanSupport.id] = { owner: 'human', unit_count: int(3, 5) };
+  const aiRelief = neighborsOf(targetId).find((n) => n.id !== anchorId && !board[n.id]);
+  if (aiRelief) board[aiRelief.id] = { owner: 'ai', unit_count: int(3, 6) };
+
+  const targetLabel = territoryDisplayName(map, targetId);
+  return {
+    archetype: 'military_capture',
+    title: pick(TACTICAL_TITLES),
+    intro: pick(TACTICAL_INTROS),
+    goal: `Capture ${targetLabel} before time runs out.`,
+    era_id: b.era_id,
+    map_id: b.map_id,
+    seed: b.seed,
+    player_count: b.player_count,
+    // Tight, honest clock in the authored range; a sea crossing gets slack
+    // for its capped dice. maxTurnsBase kept as a ceiling for old callers.
+    max_turns: Math.min(maxTurnsBase, (assaultIsSea ? 10 : 8) + int(0, 1)),
+    dice_queue_seed: b.dice_queue_seed,
+    target_territory_id: targetId,
+    anchor_territory_id: anchorId,
+    hint: pick(TACTICAL_HINTS),
+    ai_difficulty: 'medium',
+    clear_board: true,
+    starting_phase: 'attack',
+    starting_board: board,
   };
 }
 
