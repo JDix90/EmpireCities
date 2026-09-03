@@ -19,7 +19,11 @@ export const CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'draft_do',
     title: 'Place Your Units',
-    message: 'Click one of your territories — shown in **{playerColor}** on the map — to place reinforcements there. You can spread them across multiple territories or stack them on one.',
+    // Describes the real interaction, which is two clicks per placement: the
+    // territory opens a panel, and the units only land when Place is pressed.
+    // "Click a territory to place reinforcements" read as one click, so players
+    // clicked repeatedly and nothing moved.
+    message: 'Click one of your territories — shown in **{playerColor}** on the map — then choose how many units and press **Place**. Repeat until none are left; spread them out or stack them on one.',
     requireAction: 'draft',
   },
   {

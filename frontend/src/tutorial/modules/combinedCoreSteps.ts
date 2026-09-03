@@ -54,7 +54,11 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   ...borrow(CORE_BY_ID, 'advance_draft'),
   ...borrow(CORE_BY_ID, 'attack_explain'),
   ...borrow(CORE_BY_ID, 'attack_do', {
-    message: 'Click one of your territories, then an adjacent enemy one to attack. The Eastern Forest is thinly held — a good first target, and it borders the rest of the East.',
+    // Names the source territory, not just the target. Each western territory
+    // borders exactly one eastern one, so "attack the Eastern Forest" is only
+    // actionable from Western Plains — from either of the others the player is
+    // offered the 5-unit Desert Outpost instead and the hint reads as wrong.
+    message: 'Click **Western Plains**, then the **Eastern Forest** across its border. Each of your territories reaches exactly one enemy territory, and Western Plains is the one that reaches the thinly-held Forest — which in turn borders the rest of the East.',
     hint: `Attack as many times as you like. When you're done, click the gold **${phaseAdvanceLabel('attack')}** button to continue.`,
   }),
   ...borrow(CORE_BY_ID, 'fortify_explain'),

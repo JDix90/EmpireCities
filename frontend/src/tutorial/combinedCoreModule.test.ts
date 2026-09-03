@@ -62,6 +62,17 @@ describe('combined core tutorial', () => {
     expect(skipped).toMatch(/reinforcements|blue territory/); // and what to do right now
   });
 
+  it('names the source territory in the first attack hint, not just the target', () => {
+    // Each western territory borders exactly one eastern one (tutorialScript.ts),
+    // so "attack the Eastern Forest" is actionable only from Western Plains.
+    // Two of three first clicks otherwise land on the 5-unit Desert Outpost and
+    // the hint reads as wrong.
+    const attack = COMBINED_CORE_TUTORIAL_STEPS.find((s) => s.id === 'attack_do');
+    expect(attack).toBeDefined();
+    expect(attack!.message).toContain('Western Plains');
+    expect(attack!.message).toContain('Eastern Forest');
+  });
+
   it('lays out its read-heavy cards centered', () => {
     const centered = COMBINED_CORE_TUTORIAL_STEPS.filter((s) => isTutorialStepCentered(s)).map((s) => s.id);
     expect(centered).toContain('economy_intro');
