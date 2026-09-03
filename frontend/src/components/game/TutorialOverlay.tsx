@@ -134,7 +134,11 @@ export default function TutorialOverlay({
         className={clsx(
           'pointer-events-auto w-full px-4',
           centered
-            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg'
+            // Cap the height on a phone: at full height this card covered the
+            // whole 390×844 viewport, hiding the board it describes and
+            // clipping the era banner mid-sentence. 70vh leaves ~15vh clear
+            // above (the banner sits at top-3) and below.
+            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg max-h-[70vh] overflow-y-auto'
             : anchorTop
               ? 'absolute left-1/2 -translate-x-1/2 max-w-md top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
               : dockAside

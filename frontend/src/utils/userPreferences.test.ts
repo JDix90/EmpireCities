@@ -11,6 +11,9 @@ import {
   getCameraFollowPreference,
   setCameraFollowPreference,
   persistCameraFollowPreference,
+  readTutorialProgress,
+  writeTutorialProgress,
+  clearTutorialProgress,
 } from './userPreferences';
 
 describe('userPreferences', () => {
@@ -56,5 +59,48 @@ describe('userPreferences', () => {
 
   it('exposes a persist alias for camera follow matching the setter', () => {
     expect(persistCameraFollowPreference).toBe(setCameraFollowPreference);
+  });
+
+  describe('tutorial progress', () => {
+    it('round-trips step and skipped for the same game', () => {
+      writeTutorialProgress('game-1', 7, true);
+      expect(readTutorialProgress('game-1')).toEqual({ gameId: 'game-1', step: 7, skipped: true });
+    });
+
+    it('ignores progress belonging to a different game', () => {
+      writeTutorialProgress('game-1', 7, false);
+      expect(readTutorialProgress('game-2')).toBeNull();
+    });
+
+    it('returns null with no stored progress or no game id', () => {
+      expect(readTutorialProgress('game-1')).toBeNull();
+      writeTutorialProgress('game-1', 3, false);
+      expect(readTutorialProgress(undefined)).toBeNull();
+    });
+
+    it('rejects corrupt or out-of-range stored values', () => {
+      for (const raw of [
+        'not json',
+        '"a string"',
+        JSON.stringify({ gameId: 'game-1', step: -1 }),
+        JSON.stringify({ gameId: 'game-1', step: 1.5 }),
+        JSON.stringify({ gameId: 'game-1', step: 10_000 }),
+        JSON.stringify({ gameId: 'game-1', step: 'three' }),
+      ]) {
+        localStorage.setItem('cc-tutorial-progress', raw);
+        expect(readTutorialProgress('game-1')).toBeNull();
+      }
+    });
+
+    it('treats a missing skipped flag as not skipped', () => {
+      localStorage.setItem('cc-tutorial-progress', JSON.stringify({ gameId: 'game-1', step: 2 }));
+      expect(readTutorialProgress('game-1')).toEqual({ gameId: 'game-1', step: 2, skipped: false });
+    });
+
+    it('clears stored progress', () => {
+      writeTutorialProgress('game-1', 4, false);
+      clearTutorialProgress();
+      expect(readTutorialProgress('game-1')).toBeNull();
+    });
   });
 });

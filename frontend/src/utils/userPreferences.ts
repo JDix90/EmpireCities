@@ -15,6 +15,7 @@ const SFX_MUTED_KEY = 'cc-sfx-muted';
 const COLORBLIND_MODE_KEY = 'cc-colorblind-mode';
 const HIGH_CONTRAST_KEY = 'cc-high-contrast';
 const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
+const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
 
 const listeners = new Set<() => void>();
 
@@ -242,6 +243,62 @@ export function applyAccessibilityDomPrefs(): void {
     root.dataset.colorblindMode = 'true';
   } else {
     delete root.dataset.colorblindMode;
+  }
+}
+
+// ── Tutorial progress ────────────────────────────────────────────────────────
+
+export interface TutorialProgress {
+  /** Which game this progress belongs to; progress from another game is meaningless. */
+  gameId: string;
+  /** Index into the lesson's step list. */
+  step: number;
+  /** Reached the wrap-up via "Skip to the end" rather than by playing. */
+  skipped: boolean;
+}
+
+/** Guard against a step index large enough to look like corruption. */
+const MAX_TUTORIAL_STEP = 100;
+
+/**
+ * The coached step lives in React state, so a reload used to restart an
+ * ~8-minute tutorial at "Welcome, Commander!" on a board already several turns
+ * in — game state is Redis-authoritative and survives, the coaching did not.
+ * Persisted per game id: progress from a different tutorial is discarded rather
+ * than dropping the player into the middle of a lesson they never started.
+ */
+export function readTutorialProgress(gameId: string | undefined): TutorialProgress | null {
+  if (typeof window === 'undefined' || !gameId) return null;
+  try {
+    const raw = localStorage.getItem(TUTORIAL_PROGRESS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { gameId: storedId, step, skipped } = parsed as Record<string, unknown>;
+    if (storedId !== gameId) return null;
+    if (typeof step !== 'number' || !Number.isInteger(step) || step < 0 || step > MAX_TUTORIAL_STEP) {
+      return null;
+    }
+    return { gameId, step, skipped: skipped === true };
+  } catch {
+    return null;
+  }
+}
+
+export function writeTutorialProgress(gameId: string, step: number, skipped: boolean): void {
+  try {
+    localStorage.setItem(TUTORIAL_PROGRESS_KEY, JSON.stringify({ gameId, step, skipped }));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Drop stored progress — the tutorial was abandoned, so nothing is worth resuming. */
+export function clearTutorialProgress(): void {
+  try {
+    localStorage.removeItem(TUTORIAL_PROGRESS_KEY);
+  } catch {
+    /* ignore */
   }
 }
 

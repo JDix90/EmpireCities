@@ -114,6 +114,9 @@ import {
   getConnectionHintPreference,
   persistConnectionHintPreference,
   subscribeUserPreferences,
+  readTutorialProgress,
+  writeTutorialProgress,
+  clearTutorialProgress,
 } from '../utils/userPreferences';
 import {
   resolveConnectionHintMode,
@@ -463,7 +466,6 @@ export default function GamePage() {
 
   /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
   const globeDefaultAppliedRef = useRef(false);
-  const eraAdvancementAnnouncedRef = useRef(false);
 
   useEffect(() => subscribeUserPreferences(() => {
     setGlobeSpinEnabled(getGlobeSpinPreference());
@@ -491,12 +493,23 @@ export default function GamePage() {
     setMapView('globe');
     persistMapView('globe');
   }, []);
-  const [tutorialStep, setTutorialStep] = useState(0);
+  // Resume the coached step where the player left it. Game state is
+  // Redis-authoritative and survives a reload; without this the coaching did
+  // not, so a refresh restarted the lesson at step 1 on an advanced board.
+  const [tutorialStep, setTutorialStep] = useState(
+    () => readTutorialProgress(gameId)?.step ?? 0,
+  );
   // "Skip to the end" reaches the wrap-up without playing a turn. The wrap-up
   // then shows its skip copy, and neither of its exits may record the lesson
   // as completed — a skipper has not completed anything.
-  const [tutorialSkipped, setTutorialSkipped] = useState(false);
+  const [tutorialSkipped, setTutorialSkipped] = useState(
+    () => readTutorialProgress(gameId)?.skipped ?? false,
+  );
   const isTutorial = gameState?.settings?.tutorial === true;
+  useEffect(() => {
+    if (!isTutorial || !gameId) return;
+    writeTutorialProgress(gameId, tutorialStep, tutorialSkipped);
+  }, [isTutorial, gameId, tutorialStep, tutorialSkipped]);
   // First-turn coach eligibility (WI1) — recomputed each render; a ref lets the
   // socket handler read the live value without re-subscribing.
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
@@ -522,6 +535,16 @@ export default function GamePage() {
     () => getTutorialSteps(tutorialLessonModule, { combined: tutorialCombined }),
     [tutorialLessonModule, tutorialCombined],
   );
+  /**
+   * A read-heavy coaching card is centered over the map. It also suppresses the
+   * era banner: on a phone the two overlap, clipping the banner mid-sentence,
+   * and a passive reminder under a full-attention modal is noise either way.
+   * The banner returns on interactive steps and once the lesson is done.
+   */
+  const tutorialCardIsCentered =
+    isTutorial
+    && tutorialStep < tutorialSteps.length
+    && isTutorialStepCentered(tutorialSteps[tutorialStep]);
 
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
@@ -2381,14 +2404,11 @@ export default function GamePage() {
     }
   }, [gameStarted, gameState, user?.user_id]);
 
-  useEffect(() => {
-    if (!gameState?.settings?.era_advancement_enabled || eraAdvancementAnnouncedRef.current) return;
-    eraAdvancementAnnouncedRef.current = true;
-    toast(
-      'Era Advancement is on — climb Ancient → Medieval mid-match. Check the gold panel in the sidebar (or menu on mobile).',
-      { icon: '✨', duration: 7000 },
-    );
-  }, [gameState?.settings?.era_advancement_enabled]);
+  // No era-advancement toast: EraAdvancementBanner already says this, in place,
+  // for as long as it is true and dismissible per era. The toast was the same
+  // message a second earlier, docked top-right over the sidebar's own
+  // "N units to place" header — the number the tutorial's next step asks the
+  // player to act on.
 
   // ── Load map data ─────────────────────────────────────────────────────────
   // Primary delivery path is the `game:map` socket event. This effect is a
@@ -3149,6 +3169,7 @@ export default function GamePage() {
    */
   const abandonTutorialToLobby = useCallback(async () => {
     if (!gameId) return;
+    clearTutorialProgress();
     try {
       await api.delete(`/games/${gameId}/abandon`);
       toast.success('Tutorial ended. Welcome back to the lobby.');
@@ -4060,7 +4081,7 @@ export default function GamePage() {
           ref={mapAreaRef}
           className={`flex-1 relative overflow-hidden min-h-0 min-w-0${mapPhaseTintClass ? ` ${mapPhaseTintClass}` : ''}`}
         >
-          {gameState?.settings.era_advancement_enabled && (
+          {gameState?.settings.era_advancement_enabled && !tutorialCardIsCentered && (
             <EraAdvancementBanner
               gameState={gameState}
               myPlayer={
@@ -5039,7 +5060,7 @@ export default function GamePage() {
           playerColorName={colorDisplayName(
             gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
           )}
-          centered={isTutorialStepCentered(tutorialSteps[tutorialStep])}
+          centered={tutorialCardIsCentered}
           behindModal={!!modalQueue[0]}
           panelOpen={showTechTree || showBonuses || showSettingsLab}
         />
