@@ -62,7 +62,7 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
     max_turns: 6,
     dice_queue_seed: 0x5eed0901,
     building_type: 'production_1',
-    ai_difficulty: 'easy',
+    ai_difficulty: 'medium',
     clear_board: true,
     starting_board: {
       france: { owner: 'human', unit_count: 6 },
@@ -70,7 +70,9 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
       iberia: { owner: 'human', unit_count: 4 },
       holy_roman: { owner: 'ai', unit_count: 8 },
     },
-    grants: { gold: 6 },
+    // production_1 costs 3; the grant covers one, so two turns of income
+    // (1/turn at three territories) have to be held for before you can build.
+    grants: { gold: 1 },
   },
   '2026-09-02': {
     archetype: 'military_capture',
@@ -111,14 +113,18 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
     max_turns: 5,
     dice_queue_seed: 0x5eed0903,
     tech_id: 'ww2_war_industry',
-    ai_difficulty: 'easy',
+    ai_difficulty: 'medium',
     clear_board: true,
     starting_board: {
       britain_ww2: { owner: 'human', unit_count: 6 },
       france_ww2: { owner: 'human', unit_count: 4 },
       germany: { owner: 'ai', unit_count: 7 },
     },
-    grants: { tech_points: 5 },
+    // War Industry costs 4. The grant is two short, and the bootstrap is
+    // pinned off so the grant really is the opening budget: the rest comes
+    // from holding ground for two turns at 1 point per turn.
+    grants: { tech_points: 2 },
+    settings_overrides: { economy_tech_starting_tech_points: 0 },
   },
   '2026-09-04': {
     archetype: 'domination',
@@ -177,14 +183,14 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
     max_turns: 5,
     dice_queue_seed: 0x5eed0906,
     building_type: 'production_1',
-    ai_difficulty: 'easy',
+    ai_difficulty: 'medium',
     clear_board: true,
     starting_board: {
       spain_portugal: { owner: 'human', unit_count: 5 },
       france_disc: { owner: 'human', unit_count: 4 },
       holy_roman_disc: { owner: 'ai', unit_count: 6 },
     },
-    grants: { gold: 4 },
+    grants: { gold: 1 },
   },
   // ── Week 2 ────────────────────────────────────────────────────────────────
   '2026-09-07': {
@@ -225,14 +231,15 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
     max_turns: 5,
     dice_queue_seed: 0x5eed0908,
     tech_id: 'ancient_roads',
-    ai_difficulty: 'easy',
+    ai_difficulty: 'medium',
     clear_board: true,
     starting_board: {
       italia: { owner: 'human', unit_count: 6 },
       greece: { owner: 'human', unit_count: 4 },
       anatolia: { owner: 'ai', unit_count: 6 },
     },
-    grants: { tech_points: 4 },
+    grants: { tech_points: 2 },
+    settings_overrides: { economy_tech_starting_tech_points: 0 },
   },
   '2026-09-09': {
     archetype: 'military_capture',
@@ -316,14 +323,14 @@ export const DAILY_CALENDAR: Record<string, DailyPuzzleSpec> = {
     max_turns: 5,
     dice_queue_seed: 0x5eed0912,
     building_type: 'tech_gen_1',
-    ai_difficulty: 'easy',
+    ai_difficulty: 'medium',
     clear_board: true,
     starting_board: {
       uk_ireland: { owner: 'human', unit_count: 5 },
       france_benelux: { owner: 'human', unit_count: 4 },
       east_germany: { owner: 'ai', unit_count: 6 },
     },
-    grants: { gold: 5 },
+    grants: { gold: 2 },
   },
   '2026-09-13': {
     archetype: 'military_capture',
