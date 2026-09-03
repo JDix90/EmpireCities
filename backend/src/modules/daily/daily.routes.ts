@@ -35,7 +35,7 @@ const PROTECTED_SETTINGS_KEYS = new Set([
   'max_players',
 ]);
 
-function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDailyChallengeForToday>>): Record<string, unknown> {
+export function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDailyChallengeForToday>>): Record<string, unknown> {
   const spec = row.spec;
   const common: Record<string, unknown> = {
     fog_of_war: false,
@@ -71,6 +71,14 @@ function buildGameSettingsFromChallenge(row: Awaited<ReturnType<typeof ensureDai
   }
   if (spec.archetype === 'tech_research') {
     extra.tech_trees_enabled = true;
+    // Economy too, or the day cannot be played. Tech points accrue only inside
+    // applyEconomyIncome, which returns early when economy is off, and the
+    // starting-resource bootstrap in initializeGameState requires BOTH flags.
+    // With tech alone a player begins on 0 points and earns none for the whole
+    // puzzle: an authored day was winnable only because its grant covered the
+    // full cost, and a generated tech day — which grants nothing — could never
+    // be solved at all.
+    extra.economy_enabled = true;
   }
   return withSpecOverrides(extra, spec);
 }
