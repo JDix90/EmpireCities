@@ -73,6 +73,36 @@ describe('TutorialOverlay', () => {
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
+  describe('wrap-up reached by skipping', () => {
+    const wrapup = {
+      id: 'wrapup',
+      title: "You're Ready!",
+      message: 'You ran the full turn cycle and climbed an era.',
+      skippedTitle: 'Jumping Straight In',
+      skippedMessage: 'Here is the shape of it.',
+      variant: 'wrapup',
+    } as TutorialStep;
+
+    it('shows the skip copy, never the recap of play that did not happen', () => {
+      overlay([wrapup], { skipped: true });
+      expect(screen.getByText('Jumping Straight In')).toBeInTheDocument();
+      expect(screen.getByText('Here is the shape of it.')).toBeInTheDocument();
+      expect(screen.queryByText(/climbed an era/)).toBeNull();
+      expect(screen.queryByText("You're Ready!")).toBeNull();
+    });
+
+    it('keeps the earned copy when the player played through', () => {
+      overlay([wrapup], { skipped: false });
+      expect(screen.getByText("You're Ready!")).toBeInTheDocument();
+      expect(screen.getByText(/climbed an era/)).toBeInTheDocument();
+    });
+
+    it('falls back to the normal copy on a step with no skip copy', () => {
+      overlay([{ ...wrapup, skippedTitle: undefined, skippedMessage: undefined }], { skipped: true });
+      expect(screen.getByText("You're Ready!")).toBeInTheDocument();
+    });
+  });
+
   it('uses neutral copy for action steps instead of "panel below"', () => {
     overlay([
       { id: 'draft_do', title: 'D', message: 'm', requireAction: 'draft' } as TutorialStep,
