@@ -50,6 +50,18 @@ describe('combined core tutorial', () => {
     expect(last.message.toLowerCase()).toContain('domination');
   });
 
+  it('has honest wrap-up copy for the skip path', () => {
+    // "Skip to the end" lands on this card at turn 1 with nothing placed. The
+    // earned copy recaps a session; the skip copy must not.
+    const last = COMBINED_CORE_TUTORIAL_STEPS[COMBINED_CORE_TUTORIAL_STEPS.length - 1];
+    expect(last.skippedTitle).toBeTruthy();
+    expect(last.skippedMessage).toBeTruthy();
+    const skipped = last.skippedMessage!.toLowerCase();
+    expect(skipped).not.toMatch(/you ran|you climbed|climbed an era/);
+    expect(skipped).toContain('domination'); // still explains how to win
+    expect(skipped).toMatch(/reinforcements|blue territory/); // and what to do right now
+  });
+
   it('lays out its read-heavy cards centered', () => {
     const centered = COMBINED_CORE_TUTORIAL_STEPS.filter((s) => isTutorialStepCentered(s)).map((s) => s.id);
     expect(centered).toContain('economy_intro');

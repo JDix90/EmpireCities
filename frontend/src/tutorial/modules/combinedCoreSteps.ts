@@ -81,6 +81,11 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     id: 'wrapup',
     title: 'You\'re Ready!',
     message: 'You ran the full turn cycle — draft, attack, fortify — and climbed an era. That is the whole loop. The default way to win is domination: capture every territory. Hosts can also pick Threshold (a share of the map), Capital Conquest, or Secret Missions.',
+    // The skip path: the player is still on turn 1 with reinforcements
+    // unplaced, so give them the shape of the loop and their next click —
+    // never a recap of play they didn't do.
+    skippedTitle: 'Jumping Straight In',
+    skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part Risk doesn\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Conquest, or Secret Missions.) Right now you have reinforcements to place — click any blue territory, then Begin Attack.',
     detail: 'Real matches add what this island left out: territory cards for bonus units, factions with unique powers, buildings and stability, fog of war, and the full Ancient → Modern spine instead of a two-era hop.',
     variant: 'wrapup',
   },

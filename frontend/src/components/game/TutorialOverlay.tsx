@@ -47,6 +47,12 @@ interface TutorialOverlayProps {
   onMarkModuleComplete?: () => void;
   /** Jump straight to the wrap-up step (rendered on the welcome step only). */
   onSkipToEnd?: () => void;
+  /**
+   * The player got here via "Skip to the end". A step that carries
+   * `skippedTitle`/`skippedMessage` shows those instead, so the wrap-up never
+   * congratulates a player on a turn cycle they didn't run.
+   */
+  skipped?: boolean;
   /** Human-readable name of the local player's color (fills {playerColor} in step copy). */
   playerColorName?: string;
   centered?: boolean;
@@ -82,6 +88,7 @@ export default function TutorialOverlay({
   onOpenSettingsLab,
   onMarkModuleComplete,
   onSkipToEnd,
+  skipped = false,
   playerColorName,
   centered = false,
   behindModal = false,
@@ -90,6 +97,9 @@ export default function TutorialOverlay({
   const step = steps[stepIndex];
   const [whyOpen, setWhyOpen] = useState(false);
   if (!step) return null;
+
+  const title = skipped && step.skippedTitle ? step.skippedTitle : step.title;
+  const message = skipped && step.skippedMessage ? step.skippedMessage : step.message;
 
   const completedModules = getCompletedTutorialModules();
   const isMobile = isMobileViewport();
@@ -149,7 +159,7 @@ export default function TutorialOverlay({
           <div className={centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3'}>
             <GraduationCap className={centered ? 'w-8 h-8 text-bf-gold' : 'w-5 h-5 text-bf-gold'} />
             <h3 className={centered ? 'font-display text-2xl text-bf-gold' : 'font-display text-lg text-bf-gold'}>
-              {step.title}
+              {title}
             </h3>
           </div>
 
@@ -159,7 +169,7 @@ export default function TutorialOverlay({
               centered ? 'text-lg' : anchorTop ? 'text-xs' : 'text-sm',
             )}
           >
-            {renderTutorialText(step.message, playerColorName)}
+            {renderTutorialText(message, playerColorName)}
           </p>
           {step.detail && (
             <p

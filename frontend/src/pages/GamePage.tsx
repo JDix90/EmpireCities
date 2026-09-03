@@ -492,6 +492,10 @@ export default function GamePage() {
     persistMapView('globe');
   }, []);
   const [tutorialStep, setTutorialStep] = useState(0);
+  // "Skip to the end" reaches the wrap-up without playing a turn. The wrap-up
+  // then shows its skip copy, and neither of its exits may record the lesson
+  // as completed — a skipper has not completed anything.
+  const [tutorialSkipped, setTutorialSkipped] = useState(false);
   const isTutorial = gameState?.settings?.tutorial === true;
   // First-turn coach eligibility (WI1) — recomputed each render; a ref lets the
   // socket handler read the live value without re-subscribing.
@@ -3119,6 +3123,13 @@ export default function GamePage() {
    * Marks the module complete (they earned it) and dismisses the overlay.
    */
   const handleTutorialContinuePlaying = useCallback(() => {
+    if (tutorialSkipped) {
+      // Nothing was completed and there is no progress to save: just dismiss
+      // the coach and let them play. The signup nudge still fires after their
+      // first real finished game.
+      setTutorialStep(tutorialSteps.length);
+      return;
+    }
     const continueInTutorial = () => {
       markLessonComplete();
       setTutorialStep(tutorialSteps.length);
@@ -3127,7 +3138,7 @@ export default function GamePage() {
       continueInTutorial,
       'Save your progress before you keep playing — create a free account so the next match counts.',
     );
-  }, [maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
+  }, [tutorialSkipped, maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
 
   /**
    * Abandon the current tutorial game and return to the lobby.
@@ -3152,10 +3163,15 @@ export default function GamePage() {
   /** Completion path (wrap-up / module complete): offer the account prompt to guests first. */
   const handleTutorialReturnToLobby = useCallback(() => {
     if (!gameId) return;
+    if (tutorialSkipped) {
+      // A skipped wrap-up is an exit, not a completion — same as "Exit Tutorial".
+      void abandonTutorialToLobby();
+      return;
+    }
     maybePromptTutorialAccount(() => {
       void abandonTutorialToLobby();
     });
-  }, [gameId, maybePromptTutorialAccount, abandonTutorialToLobby]);
+  }, [gameId, tutorialSkipped, maybePromptTutorialAccount, abandonTutorialToLobby]);
 
   /** Exit path (mid-lesson "Exit Tutorial"): leave immediately, no completion prompt. */
   const handleTutorialExit = useCallback(() => {
@@ -5015,7 +5031,11 @@ export default function GamePage() {
           onOpenBonuses={handleOpenBonuses}
           onOpenSettingsLab={() => setShowSettingsLab(true)}
           onMarkModuleComplete={handleTutorialMarkModuleComplete}
-          onSkipToEnd={() => setTutorialStep(Math.max(0, tutorialSteps.length - 1))}
+          onSkipToEnd={() => {
+            setTutorialSkipped(true);
+            setTutorialStep(Math.max(0, tutorialSteps.length - 1));
+          }}
+          skipped={tutorialSkipped}
           playerColorName={colorDisplayName(
             gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
           )}

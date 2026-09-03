@@ -42,6 +42,13 @@ export interface TutorialStep {
   actionOpenSettingsLab?: boolean;
   /** Collapsible “why this matters” copy */
   whyItMatters?: string;
+  /**
+   * Copy shown instead of `title`/`message` when the player reached this step
+   * via "Skip to the end" rather than by playing through. A wrap-up that
+   * recaps what the player did must not recap a session that never happened.
+   */
+  skippedTitle?: string;
+  skippedMessage?: string;
 }
 
 export interface TutorialModuleMeta {
