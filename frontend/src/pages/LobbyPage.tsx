@@ -583,7 +583,7 @@ export default function LobbyPage() {
   const [topLiveGame, setTopLiveGame] = useState<LiveGameSummary | null>(null);
   const [showChallenge, setShowChallenge] = useState(false);
   const [showFullGameModal, setShowFullGameModal] = useState(false);
-  const [dailySummary, setDailySummary] = useState<{ era_id: string; attempts_today: number; completed: boolean } | null>(null);
+  const [dailySummary, setDailySummary] = useState<{ era_id: string; title: string | null; attempts_today: number; completed: boolean } | null>(null);
   const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
   const joinFromUrlHandled = useRef(false);
 
@@ -769,9 +769,17 @@ export default function LobbyPage() {
       setTopLiveGameId(res.data[0]?.game_id ?? null);
       setTopLiveGame(res.data[0] ?? null);
     }).catch(() => {});
-    api.get<{ challenge: { era_id: string }; attempts_today?: number; my_entry: unknown | null }>('/daily/today').then((res) => {
+    api.get<{
+      challenge: { era_id: string; spec?: { title?: string } };
+      attempts_today?: number;
+      my_entry: unknown | null;
+    }>('/daily/today').then((res) => {
       setDailySummary({
         era_id: res.data.challenge.era_id,
+        // The day's authored/generated title — what the daily page calls it.
+        // This card used to name only the era ("Today: Ancient World"), which
+        // described the pre-calendar domination daily, not the puzzle it links to.
+        title: res.data.challenge.spec?.title?.trim() || null,
         attempts_today: res.data.attempts_today ?? 0,
         completed: res.data.my_entry != null,
       });
@@ -1838,9 +1846,12 @@ export default function LobbyPage() {
                     <Calendar className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">Daily Challenge</p>
                     <p className="text-bf-muted text-xs mt-1">
+                      {dailySummary?.title ?? 'One puzzle per day, same map for everyone.'}
+                    </p>
+                    <p className="text-bf-muted text-xs mt-1">
                       {dailySummary && dailySummary.attempts_today > 0
                         ? `${dailySummary.attempts_today} commander${dailySummary.attempts_today === 1 ? '' : 's'} attempted today.`
-                        : 'One puzzle per day, same map for everyone.'}
+                        : 'A new puzzle every day.'}
                     </p>
                     {/* Playing one needs an account (rejectGuest on POST /daily/start) — say so
                         here rather than letting the click dead-end. */}
@@ -2718,8 +2729,8 @@ export default function LobbyPage() {
                         )}
                       </div>
                       <p className="text-bf-muted text-sm">
-                        {dailySummary
-                          ? `Today: ${ERA_LABELS[dailySummary.era_id] ?? dailySummary.era_id} · same map for everyone.`
+                        {dailySummary?.title
+                          ? `${dailySummary.title} · ${ERA_LABELS[dailySummary.era_id] ?? dailySummary.era_id}, same for everyone.`
                           : 'One puzzle per day, same map for everyone.'}
                       </p>
                       {dailySummary && dailySummary.attempts_today > 0 && (
