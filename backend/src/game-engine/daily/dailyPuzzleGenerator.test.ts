@@ -51,6 +51,17 @@ function militarySpecs() {
 describe('calibrated daily generator', () => {
   const days = militarySpecs();
 
+  it('never generates a domination day — that shape is the authored calendar\'s alone', () => {
+    // A generated domination day was the pre-calendar daily: 4 players, a
+    // 200-turn cap, no designed board. It landed on one date in four and read
+    // as a different product from the puzzle beside it.
+    for (const date of SWEEP) {
+      const base = buildDailyPuzzleBase(date);
+      expect(base.archetype, `${date}`).not.toBe('domination');
+      expect(base.player_count, `${date}`).toBe(2);
+    }
+  });
+
   it('the sweep contains a healthy share of military days and all of them generate', () => {
     expect(days.length).toBeGreaterThanOrEqual(15);
     for (const { date, spec } of days) {
@@ -89,6 +100,9 @@ describe('calibrated daily generator', () => {
       expect(s.starting_phase, date).toBe('attack');
       expect(s.max_turns, date).toBeGreaterThanOrEqual(6);
       expect(s.max_turns, date).toBeLessThanOrEqual(12);
+      // Generated days state their difficulty rather than falling through to
+      // the route's backstop, which used to make an unset field mean 'hard'.
+      expect(s.ai_difficulty, date).toBe('medium');
 
       // First-assault odds in the authored band, measured exactly the way the
       // calendar test measures authored days.

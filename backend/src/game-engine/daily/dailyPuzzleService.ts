@@ -51,12 +51,33 @@ const ERA_MAP_IDS: Record<string, string> = {
 
 const ROTATING_ERAS: EraId[] = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw'];
 
+/**
+ * Archetypes the generator rotates through.
+ *
+ * `domination` is deliberately absent. A generated domination day was the
+ * pre-calendar daily: four players, a 200-turn cap and no designed board — a
+ * full match, not a daily challenge, landing on one date in four and reading
+ * as a different product from the 2–5 minute puzzle beside it. The archetype
+ * still exists for the *authored* calendar, where it is tuned (1v1, ~40 turns,
+ * a dealt board with a stated reason to be hard). What the calendar cannot do
+ * is run unattended, so the generator only produces puzzle-shaped days.
+ */
 const ARCHETYPES: DailyPuzzleArchetype[] = [
-  'domination',
   'military_capture',
   'economy_build',
   'tech_research',
 ];
+
+/** Every generated day is a two-player puzzle on a tight clock. */
+const GENERATED_PLAYER_COUNT = 2;
+const GENERATED_MAX_TURNS = 18;
+/**
+ * Generated days match the authored calendar's difficulty rather than the
+ * route's `?? 'hard'` backstop. Authored days set easy/medium on all 14; a
+ * generated day that simply omitted the field used to be the hardest content
+ * in the feature.
+ */
+const GENERATED_AI_DIFFICULTY = 'medium' as const;
 
 function dateHash(today: string): number {
   return today
@@ -83,7 +104,7 @@ export function buildDailyPuzzleBase(today: string): {
   const map_id = ERA_MAP_IDS[era_id] ?? 'era_ancient';
   const seed = h * 31337;
   const archetype = ARCHETYPES[h % ARCHETYPES.length];
-  const player_count = archetype === 'domination' ? 4 : 2;
+  const player_count = GENERATED_PLAYER_COUNT;
   const dice_queue_seed = (h * 7919 + 1337) >>> 0;
   const edge_pick = h % 997;
   const tech_pick = (h >> 3) % 97;
@@ -121,50 +142,26 @@ export async function buildCompleteDailyPuzzleSpec(today: string): Promise<Daily
   if (authored) return authored;
 
   const b = buildDailyPuzzleBase(today);
-  const dice_queue_seed = b.dice_queue_seed;
-  const max_turns = b.archetype === 'domination' ? 200 : 18;
-
-  if (b.archetype === 'domination') {
-    return {
-      archetype: 'domination',
-      title: "Commander's Daily — Domination",
-      intro: 'Classic solo challenge: outlast the AI commanders and dominate the map.',
-      goal: 'Eliminate rival factions and control the entire map.',
-      era_id: b.era_id,
-      map_id: b.map_id,
-      seed: b.seed,
-      player_count: b.player_count,
-      max_turns,
-      dice_queue_seed,
-    };
-  }
+  const max_turns = GENERATED_MAX_TURNS;
 
   if (b.archetype === 'military_capture') {
     const map = await getMapById(b.map_id);
     const calibrated = map ? buildCalibratedMilitarySpec(b, map, max_turns) : null;
-    return calibrated ?? dominationSpecFromBase(b);
+    if (calibrated) return calibrated;
+    console.warn(
+      `[daily] ${today}: could not calibrate a tactical board on ${b.map_id} `
+        + `(map ${map ? 'loaded' : 'MISSING'}) — serving the economy puzzle instead.`,
+    );
+    return economySpecFromBase(b);
   }
 
-  if (b.archetype === 'economy_build') {
-    return {
-      archetype: 'economy_build',
-      title: 'Daily Economy — Foundations',
-      intro: 'Industry wins wars. Accumulate production and raise a core facility.',
-      goal: 'Construct a Production (tier 1) building in any territory you control.',
-      era_id: b.era_id,
-      map_id: b.map_id,
-      seed: b.seed,
-      player_count: 2,
-      max_turns,
-      dice_queue_seed,
-      building_type: 'production_1',
-    };
-  }
+  if (b.archetype === 'economy_build') return economySpecFromBase(b);
 
   // tech_research
   const tech = pickFirstRootTech(b.era_id, b.tech_pick);
   if (!tech) {
-    return dominationSpecFromBase(b);
+    console.warn(`[daily] ${today}: era ${b.era_id} has no root tech — serving the economy puzzle instead.`);
+    return economySpecFromBase(b);
   }
   return {
     archetype: 'tech_research',
@@ -174,10 +171,11 @@ export async function buildCompleteDailyPuzzleSpec(today: string): Promise<Daily
     era_id: b.era_id,
     map_id: b.map_id,
     seed: b.seed,
-    player_count: 2,
+    player_count: GENERATED_PLAYER_COUNT,
     max_turns,
-    dice_queue_seed,
+    dice_queue_seed: b.dice_queue_seed,
     tech_id: tech.tech_id,
+    ai_difficulty: GENERATED_AI_DIFFICULTY,
   };
 }
 
@@ -306,18 +304,30 @@ export function buildCalibratedMilitarySpec(
   };
 }
 
-function dominationSpecFromBase(b: ReturnType<typeof buildDailyPuzzleBase>): DailyPuzzleSpec {
+/**
+ * The generator's always-valid day, and the fallback when a richer one cannot
+ * be built: raise one production building. It needs no map graph and no tech
+ * tree, so it can never itself fail.
+ *
+ * This replaces a domination fallback that quietly turned an intended
+ * two-minute puzzle into a 200-turn four-player match whenever calibration or
+ * a tech lookup missed — the failure was invisible, and the day it produced was
+ * the old daily.
+ */
+function economySpecFromBase(b: ReturnType<typeof buildDailyPuzzleBase>): DailyPuzzleSpec {
   return {
-    archetype: 'domination',
-    title: "Commander's Daily — Domination",
-    intro: 'Classic solo challenge: outlast the AI commanders and dominate the map.',
-    goal: 'Eliminate rival factions and control the entire map.',
+    archetype: 'economy_build',
+    title: 'Daily Economy — Foundations',
+    intro: 'Industry wins wars. Accumulate production and raise a core facility.',
+    goal: 'Construct a Production (tier 1) building in any territory you control.',
     era_id: b.era_id,
     map_id: b.map_id,
     seed: b.seed,
-    player_count: 4,
-    max_turns: 200,
+    player_count: GENERATED_PLAYER_COUNT,
+    max_turns: GENERATED_MAX_TURNS,
     dice_queue_seed: b.dice_queue_seed,
+    building_type: 'production_1',
+    ai_difficulty: GENERATED_AI_DIFFICULTY,
   };
 }
 
@@ -405,7 +415,7 @@ function parseSpec(raw: unknown): DailyPuzzleSpec {
     '[daily] stored spec_json failed validation — regenerating a domination fallback for today',
     { raw_type: typeof raw },
   );
-  return dominationSpecFromBase(buildDailyPuzzleBase(dailyChallengeDate()));
+  return economySpecFromBase(buildDailyPuzzleBase(dailyChallengeDate()));
 }
 
 /** The calendar's date key: the daily rolls over at UTC midnight, everywhere. */

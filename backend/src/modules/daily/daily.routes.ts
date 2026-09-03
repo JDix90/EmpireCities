@@ -246,7 +246,10 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     const aiCount = Math.max(1, row.player_count - 1);
-    const aiDifficulty = row.spec.ai_difficulty ?? 'hard';
+    // Backstop for a spec that omits the field — a stored row from before the
+    // generator set it. 'hard' made an unset field the hardest content in the
+    // feature; the daily is a puzzle, so the default matches the calendar.
+    const aiDifficulty = row.spec.ai_difficulty ?? 'medium';
     for (let i = 0; i < aiCount; i++) {
       await query(
         `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
