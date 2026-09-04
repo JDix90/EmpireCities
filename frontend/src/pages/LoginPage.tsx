@@ -14,6 +14,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({});
+  /**
+   * Usernames the submitted password just unlocked, when an email holds more
+   * than one account using it. Null means the ordinary single-account flow.
+   */
+  const [accountChoices, setAccountChoices] = useState<string[] | null>(null);
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -27,6 +32,46 @@ export default function LoginPage() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  /**
+   * One sign-in attempt for a given identifier. Split out because the account
+   * picker re-runs exactly the same request with a username in place of the
+   * email — it carries no token or ticket of its own, so nothing new can be
+   * replayed or stolen from it.
+   */
+  const attemptLogin = async (identifier: string) => {
+    try {
+      await login(identifier, password);
+      toast.success('Welcome back, Commander!');
+      navigate(redirectTo);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as
+          | { error?: string; code?: string; usernames?: unknown }
+          | undefined;
+        // The address holds several accounts and this password opens more than
+        // one of them, so the server refuses to guess. It answers with the
+        // names it just unlocked; the player names one and we ask again.
+        if (err.response?.status === 409 && data?.code === 'choose_account' && Array.isArray(data.usernames)) {
+          const names = data.usernames.filter((u): u is string => typeof u === 'string' && u.length > 0);
+          if (names.length > 1) {
+            setAccountChoices(names);
+            return;
+          }
+        }
+        const msg = data?.error;
+        if (msg) {
+          toast.error(msg);
+        } else if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
+          toast.error('Cannot reach the server. Check your connection and try again.');
+        } else {
+          toast.error('Login failed');
+        }
+      } else {
+        toast.error('An unexpected error occurred');
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,24 +88,7 @@ export default function LoginPage() {
     // bcrypt mismatch with no useful error message.
     const candidate = normalizeIdentifier(emailOrUsername);
     const normalized = candidate.includes('@') ? normalizeEmail(candidate) : candidate;
-    try {
-      await login(normalized, password);
-      toast.success('Welcome back, Commander!');
-      navigate(redirectTo);
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.error;
-        if (msg) {
-          toast.error(msg);
-        } else if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK') {
-          toast.error('Cannot reach the server. Check your connection and try again.');
-        } else {
-          toast.error('Login failed');
-        }
-      } else {
-        toast.error('An unexpected error occurred');
-      }
-    }
+    await attemptLogin(normalized);
   };
 
   return (
@@ -80,68 +108,102 @@ export default function LoginPage() {
               Your session ended. Sign in again to continue — you will return to the page you were on after login.
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="label">Email or username</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="commander@example.com or username"
-                value={emailOrUsername}
-                onChange={(e) => {
-                  setEmailOrUsername(e.target.value);
-                  if (fieldErrors.identifier) setFieldErrors((f) => ({ ...f, identifier: undefined }));
-                }}
-                aria-invalid={!!fieldErrors.identifier}
-                autoComplete="username"
-              />
-              {fieldErrors.identifier && (
-                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.identifier}</p>
-              )}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
-                <label htmlFor="login-password" className="text-sm font-medium text-bf-muted">
-                  Password
-                </label>
-                <Link
-                  to={redirectTo !== '/lobby' ? `/forgot-password?redirect=${encodeURIComponent(redirectTo)}` : '/forgot-password'}
-                  className="text-sm text-bf-muted hover:text-bf-gold hover:underline shrink-0 ml-auto"
-                >
-                  Forgot password?
-                </Link>
+          {accountChoices ? (
+            <div className="space-y-5">
+              <div>
+                <h2 className="font-display text-lg text-bf-gold">Choose an account</h2>
+                <p className="text-bf-muted text-sm mt-1">
+                  This email has {accountChoices.length} accounts that use the password you
+                  entered. Pick the commander you want to play as.
+                </p>
               </div>
-              <div className="relative">
+              <div className="space-y-2">
+                {accountChoices.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="btn-secondary w-full"
+                    disabled={isLoading}
+                    onClick={() => attemptLogin(name)}
+                  >
+                    {isLoading ? 'Signing in...' : `Continue as ${name}`}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="text-sm text-bf-muted hover:text-bf-gold hover:underline"
+                onClick={() => setAccountChoices(null)}
+              >
+                ← Use different details
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="label">Email or username</label>
                 <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="input pr-11"
-                  placeholder="••••••••"
-                  value={password}
+                  type="text"
+                  className="input"
+                  placeholder="commander@example.com or username"
+                  value={emailOrUsername}
                   onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }));
+                    setEmailOrUsername(e.target.value);
+                    setAccountChoices(null);
+                    if (fieldErrors.identifier) setFieldErrors((f) => ({ ...f, identifier: undefined }));
                   }}
-                  aria-invalid={!!fieldErrors.password}
-                  autoComplete="current-password"
+                  aria-invalid={!!fieldErrors.identifier}
+                  autoComplete="username"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                {fieldErrors.identifier && (
+                  <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.identifier}</p>
+                )}
               </div>
-              {fieldErrors.password && (
-                <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.password}</p>
-              )}
-            </div>
-            <button type="submit" className="btn-primary w-full" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+              <div>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1.5">
+                  <label htmlFor="login-password" className="text-sm font-medium text-bf-muted">
+                    Password
+                  </label>
+                  <Link
+                    to={redirectTo !== '/lobby' ? `/forgot-password?redirect=${encodeURIComponent(redirectTo)}` : '/forgot-password'}
+                    className="text-sm text-bf-muted hover:text-bf-gold hover:underline shrink-0 ml-auto"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    className="input pr-11"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setAccountChoices(null);
+                      if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }));
+                    }}
+                    aria-invalid={!!fieldErrors.password}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-0 inset-y-0 flex items-center justify-center w-11 text-bf-muted hover:text-bf-text transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p role="alert" className="mt-1.5 text-sm text-red-400">{fieldErrors.password}</p>
+                )}
+              </div>
+              <button type="submit" className="btn-primary w-full" disabled={isLoading}>
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          )}
 
           <p className="text-center text-bf-muted text-sm mt-6">
             No account?{' '}

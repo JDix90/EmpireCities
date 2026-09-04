@@ -67,6 +67,22 @@ const RESET_LINK_INVALID = 'Invalid or expired reset link. Request a new reset e
 export const MAX_ACCOUNTS_PER_EMAIL = 5;
 
 /**
+ * The 409 a player sees when the address is full. Written once because register
+ * and upgrade must not drift, and it names the way out: the cap is not a dead
+ * end — Profile → Delete account is a hard delete, so the row stops counting.
+ */
+export const EMAIL_CAP_ERROR =
+  `That email address already has ${MAX_ACCOUNTS_PER_EMAIL} accounts. Sign in to one of them, `
+  + 'or delete an account from your profile page to free a slot.';
+
+/**
+ * Machine-readable marker on the login 409 that means "the password matched
+ * more than one account on this address; say which one". The client keys its
+ * account picker off this rather than off the message text.
+ */
+export const AMBIGUOUS_LOGIN_CODE = 'choose_account';
+
+/**
  * Accounts a single login identifier may be checked against. Each one costs a
  * bcrypt comparison, so the cap keeps a shared address from turning one login
  * request into unbounded hashing work.
@@ -374,9 +390,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [email],
     );
     if ((onThisEmail?.count ?? 0) >= MAX_ACCOUNTS_PER_EMAIL) {
-      return reply.status(409).send({
-        error: `That email address already has ${MAX_ACCOUNTS_PER_EMAIL} accounts. Sign in to one of them instead.`,
-      });
+      return reply.status(409).send({ error: EMAIL_CAP_ERROR });
     }
 
     const password_hash = await bcrypt.hash(password, config.bcryptRounds);
@@ -456,9 +470,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [email, request.userId],
     );
     if ((onThisEmail?.count ?? 0) >= MAX_ACCOUNTS_PER_EMAIL) {
-      return reply.status(409).send({
-        error: `That email address already has ${MAX_ACCOUNTS_PER_EMAIL} accounts. Sign in to one of them instead.`,
-      });
+      return reply.status(409).send({ error: EMAIL_CAP_ERROR });
     }
 
     const password_hash = await bcrypt.hash(password, config.bcryptRounds);
@@ -599,24 +611,40 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
 
-    // Verify against each candidate in that order and take the first that
-    // matches. Two accounts on one address normally carry different
-    // passwords, so signing in by email keeps working; when they share a
-    // password too, the oldest wins and the player can name the other
-    // account explicitly by signing in with its username.
-    let user: LoginUserRow | null = null;
+    // Verify against each candidate in that order and collect every account the
+    // password opens. Two accounts on one address normally carry different
+    // passwords, so exactly one matches and signing in by email keeps working.
+    // A username, being unique, is never ambiguous — an exact username match
+    // that verifies ends the search immediately, which also keeps the common
+    // case at one bcrypt comparison.
+    const identifierLower = loginIdentifier.toLowerCase();
+    const matches: LoginUserRow[] = [];
     for (const candidate of candidates) {
       if (await verifyLoginPassword(password, candidate.password_hash)) {
-        user = candidate;
-        break;
+        matches.push(candidate);
+        if (candidate.username.trim().toLowerCase() === identifierLower) break;
       }
     }
-    if (!user) {
+    if (matches.length === 0) {
       // Keep the failure cost similar to a match so the response time does not
       // advertise whether the identifier exists.
       if (candidates.length === 0) await verifyLoginPassword(password, null);
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
+    if (matches.length > 1) {
+      // Same address, same password, several accounts: the email names all of
+      // them, so picking the oldest would silently sign the player into an
+      // identity they did not ask for. Hand back the names instead and let the
+      // client re-submit with one — no new credential is minted, and no access
+      // is granted that this password did not already open, because every
+      // account listed is one it just unlocked.
+      return reply.status(409).send({
+        code: AMBIGUOUS_LOGIN_CODE,
+        error: 'That email has more than one account with this password. Choose which one to sign in as.',
+        usernames: matches.map((m) => m.username),
+      });
+    }
+    const user = matches[0];
     if (user.is_banned) {
       return reply.status(403).send({ error: 'Account is banned' });
     }

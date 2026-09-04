@@ -114,7 +114,10 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     }
     const overflow = await register(`over_${stamp()}`, email);
     expect(overflow.statusCode).toBe(409);
-    expect(overflow.json()).toMatchObject({ error: expect.stringMatching(/already has/i) });
+    // The refusal has to name the way out, or the cap reads as a dead end.
+    const capMessage = (overflow.json() as { error: string }).error;
+    expect(capMessage).toMatch(/already has/i);
+    expect(capMessage).toMatch(/delete/i);
   });
 
   it('frees a slot when an account is deleted, so a capped address can start again', async () => {
@@ -132,9 +135,11 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     }
     expect((await register(`blocked_${stamp()}`, email)).statusCode).toBe(409);
 
-    // Delete the oldest through the real route, password and all.
-    const session = await login(email);
-    expect(session.statusCode).toBe(200);
+    // Delete the oldest through the real route, password and all. All five
+    // share a password here, so the email alone would be ambiguous — the
+    // username names the one we mean.
+    const session = await login(names[0]);
+    expect(session.statusCode, session.body).toBe(200);
     const token = (session.json() as { accessToken: string }).accessToken;
     const deleted = await usersApp.inject({
       method: 'DELETE', url: '/api/users/me',
@@ -169,7 +174,7 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     expect(asNewer.json()).toMatchObject({ user: { username: newer } });
   });
 
-  it('lets the username name an account explicitly when both share a password', async () => {
+  it('asks which account when one password opens several on the address', async () => {
     const email = `samepw_${stamp()}@test.local`;
     emails.push(email);
     const older = `dup_older_${stamp()}`;
@@ -178,15 +183,40 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     expect((await register(older, email)).statusCode).toBe(201);
     expect((await register(newer, email)).statusCode).toBe(201);
 
-    // The email is ambiguous, so it resolves deterministically to the oldest…
+    // The email names both accounts and the password opens both, so signing
+    // the player into the older one would pick an identity they never asked
+    // for. The server hands back the names instead.
     const byEmail = await login(email);
-    expect(byEmail.statusCode).toBe(200);
-    expect(byEmail.json()).toMatchObject({ user: { username: older } });
+    expect(byEmail.statusCode, byEmail.body).toBe(409);
+    const choice = byEmail.json() as { code: string; usernames: string[] };
+    expect(choice.code).toBe('choose_account');
+    expect([...choice.usernames].sort()).toEqual([older, newer].sort());
+    expect(choice).not.toHaveProperty('accessToken');
 
-    // …and the username always reaches the account it names.
-    const byName = await login(newer);
-    expect(byName.statusCode).toBe(200);
-    expect(byName.json()).toMatchObject({ user: { username: newer } });
+    // Picking one is an ordinary login with that username — no ticket, no
+    // second credential type, and it lands on the account it names.
+    for (const name of choice.usernames) {
+      const picked = await login(name);
+      expect(picked.statusCode, picked.body).toBe(200);
+      expect(picked.json()).toMatchObject({ user: { username: name } });
+    }
+  });
+
+  it('does not ask when only one account on the address takes the password', async () => {
+    // The ambiguity check must not fire on the ordinary case: three accounts
+    // on one address, only one of which this password opens.
+    const email = `onepw_${stamp()}@test.local`;
+    emails.push(email);
+    const target = `only_${stamp()}`;
+    const targetPassword = 'Bastion!Gate64';
+
+    expect((await register(`other_a_${stamp()}`, email)).statusCode).toBe(201);
+    expect((await register(target, email, targetPassword)).statusCode).toBe(201);
+    expect((await register(`other_b_${stamp()}`, email)).statusCode).toBe(201);
+
+    const res = await login(email, targetPassword);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ user: { username: target } });
   });
 
   it('rejects a wrong password rather than falling through to another account', async () => {
