@@ -19,6 +19,7 @@ const enabled = process.env.PG_TEST === '1';
 
 describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
   let app: FastifyInstance;
+  let usersApp: FastifyInstance;
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let MAX_ACCOUNTS_PER_EMAIL: number;
   const emails: string[] = [];
@@ -56,10 +57,18 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     await app.register(fastifyCookie, { secret: config.jwt.refreshSecret });
     await app.register(mod.authRoutes, { prefix: '/api/auth' });
     await app.ready();
+
+    const { usersRoutes } = await import('../users/users.routes');
+    usersApp = Fastify();
+    registerErrorHandler(usersApp);
+    await usersApp.register(fastifyCookie, { secret: config.jwt.refreshSecret });
+    await usersApp.register(usersRoutes, { prefix: '/api/users' });
+    await usersApp.ready();
   }, 30_000);
 
   afterAll(async () => {
     if (app) await app.close();
+    if (usersApp) await usersApp.close();
     if (emails.length) {
       await query(
         `DELETE FROM users WHERE LOWER(TRIM(BOTH FROM email)) = ANY($1)`,
@@ -106,6 +115,38 @@ describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
     const overflow = await register(`over_${stamp()}`, email);
     expect(overflow.statusCode).toBe(409);
     expect(overflow.json()).toMatchObject({ error: expect.stringMatching(/already has/i) });
+  });
+
+  it('frees a slot when an account is deleted, so a capped address can start again', async () => {
+    // The two features have to compose: hitting the cap must not be a dead end
+    // for someone who deletes an old identity to make room. Account deletion is
+    // a hard DELETE (users.routes.ts), so the row stops counting.
+    const email = `freeslot_${stamp()}@test.local`;
+    emails.push(email);
+
+    const names: string[] = [];
+    for (let i = 0; i < MAX_ACCOUNTS_PER_EMAIL; i++) {
+      const name = `slot${i}_${stamp()}`;
+      names.push(name);
+      expect((await register(name, email)).statusCode).toBe(201);
+    }
+    expect((await register(`blocked_${stamp()}`, email)).statusCode).toBe(409);
+
+    // Delete the oldest through the real route, password and all.
+    const session = await login(email);
+    expect(session.statusCode).toBe(200);
+    const token = (session.json() as { accessToken: string }).accessToken;
+    const deleted = await usersApp.inject({
+      method: 'DELETE', url: '/api/users/me',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { password: PASSWORD },
+    });
+    expect(deleted.statusCode, deleted.body).toBe(200);
+
+    // The slot is free, and the freed username is available again too.
+    expect((await register(`after_${stamp()}`, email)).statusCode).toBe(201);
+    expect((await register(names[0], `elsewhere_${stamp()}@test.local`)).statusCode).toBe(201);
+    emails.push(`elsewhere_${stamp()}@test.local`);
   });
 
   it('signs in to the account whose password matches, not an arbitrary row', async () => {
