@@ -15,6 +15,7 @@ import { sendTransactionalEmailToAddress } from '../../services/notificationServ
 import { isDisallowedUsername } from '../../utils/profanity';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { parseAttribution } from './attribution';
+import { escapeHtml } from '../../utils/htmlSafe';
 
 // Registration is pre-login, so its rate limiter keys by IP (see rateLimitKey).
 // The original 5/15min was too tight for shared egress IPs (mobile CGNAT,
@@ -55,23 +56,50 @@ const FORGOT_PASSWORD_RESPONSE = {
 } as const;
 const RESET_LINK_INVALID = 'Invalid or expired reset link. Request a new reset email.';
 
+/**
+ * How many registered accounts one email address may hold.
+ *
+ * Email is no longer unique (migration 040) so a player can start over under a
+ * new name. This is the brake: each additional account is another daily
+ * attempt, another ranked identity and another leaderboard row for the same
+ * person. Raise or remove it deliberately.
+ */
+export const MAX_ACCOUNTS_PER_EMAIL = 5;
+
+/**
+ * Accounts a single login identifier may be checked against. Each one costs a
+ * bcrypt comparison, so the cap keeps a shared address from turning one login
+ * request into unbounded hashing work.
+ */
+const MAX_LOGIN_CANDIDATES = MAX_ACCOUNTS_PER_EMAIL + 1;
+
 type PasswordResetUserRow = { user_id: string; username: string; email: string };
 
-/** Same Gmail-aware email resolution as login; excludes guests, banned, and @guest.local. */
-async function resolveUserForPasswordReset(normalizedEmail: string): Promise<PasswordResetUserRow | null> {
+/**
+ * Every resettable account on an address, oldest first.
+ *
+ * Returns a LIST because an address may hold several accounts (migration 040).
+ * Resolving one row and resetting it would have picked an arbitrary account and
+ * told the player nothing about which — so the reset mail now carries one link
+ * per account, labelled by username. Excludes guests, banned users and the
+ * synthetic @guest.local domain, exactly as login does.
+ */
+async function resolveUsersForPasswordReset(normalizedEmail: string): Promise<PasswordResetUserRow[]> {
   const gmailLocal = gmailDotlessLocal(normalizedEmail);
 
-  let row = await queryOne<PasswordResetUserRow>(
+  let rows = await query<PasswordResetUserRow>(
     `SELECT user_id, username, email FROM users
      WHERE LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))
        AND COALESCE(is_guest, false) = false
        AND is_banned = false
-       AND LOWER(TRIM(BOTH FROM email)) NOT LIKE '%@guest.local'`,
-    [normalizedEmail],
+       AND LOWER(TRIM(BOTH FROM email)) NOT LIKE '%@guest.local'
+     ORDER BY created_at ASC
+     LIMIT $2`,
+    [normalizedEmail, MAX_LOGIN_CANDIDATES],
   );
 
-  if (!row && gmailLocal) {
-    row = await queryOne<PasswordResetUserRow>(
+  if (rows.length === 0 && gmailLocal) {
+    rows = await query<PasswordResetUserRow>(
       `SELECT user_id, username, email FROM users
        WHERE LOWER(TRIM(BOTH FROM split_part(email, '@', 2))) IN ('gmail.com', 'googlemail.com')
          AND replace(split_part(LOWER(TRIM(BOTH FROM email)), '@', 1), '.', '') = $1::text
@@ -81,12 +109,12 @@ async function resolveUserForPasswordReset(normalizedEmail: string): Promise<Pas
        ORDER BY
          (LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $2::text))) DESC,
          created_at ASC
-       LIMIT 1`,
-      [gmailLocal, normalizedEmail],
+       LIMIT $3`,
+      [gmailLocal, normalizedEmail, MAX_LOGIN_CANDIDATES],
     );
   }
 
-  return row;
+  return rows;
 }
 
 function hashPasswordResetToken(rawToken: string): string {
@@ -325,13 +353,30 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: strength });
     }
 
-    // Check for existing user
+    // Only the username has to be unique. One address may hold several
+    // accounts so a player can start over under a new name (migration 040);
+    // the username is the public identity, so that is what stays exclusive.
     const existing = await queryOne(
-      'SELECT user_id FROM users WHERE email = $1 OR username = $2',
-      [email, username]
+      'SELECT user_id FROM users WHERE LOWER(TRIM(BOTH FROM username)) = LOWER(TRIM(BOTH FROM $1::text))',
+      [username],
     );
     if (existing) {
-      return reply.status(409).send({ error: 'Username or email already in use' });
+      return reply.status(409).send({ error: 'That username is taken' });
+    }
+
+    // A restart is a handful of accounts, not an unbounded supply of them:
+    // every extra account is another daily-challenge attempt and another
+    // leaderboard entry for one person.
+    const onThisEmail = await queryOne<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM users
+       WHERE LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))
+         AND COALESCE(is_guest, false) = false`,
+      [email],
+    );
+    if ((onThisEmail?.count ?? 0) >= MAX_ACCOUNTS_PER_EMAIL) {
+      return reply.status(409).send({
+        error: `That email address already has ${MAX_ACCOUNTS_PER_EMAIL} accounts. Sign in to one of them instead.`,
+      });
     }
 
     const password_hash = await bcrypt.hash(password, config.bcryptRounds);
@@ -392,11 +437,28 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // Pre-check excluding the guest's own row (their auto-generated
     // Guest_xxxxxxxx name and @guest.local email must not self-conflict).
     const existing = await queryOne<{ user_id: string }>(
-      'SELECT user_id FROM users WHERE (email = $1 OR username = $2) AND user_id <> $3',
-      [email, username, request.userId],
+      `SELECT user_id FROM users
+       WHERE LOWER(TRIM(BOTH FROM username)) = LOWER(TRIM(BOTH FROM $1::text))
+         AND user_id <> $2`,
+      [username, request.userId],
     );
     if (existing) {
-      return reply.status(409).send({ error: 'Username or email already in use' });
+      return reply.status(409).send({ error: 'That username is taken' });
+    }
+
+    // Same allowance as register: an address may carry several accounts, but
+    // not without limit.
+    const onThisEmail = await queryOne<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM users
+       WHERE LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))
+         AND COALESCE(is_guest, false) = false
+         AND user_id <> $2`,
+      [email, request.userId],
+    );
+    if ((onThisEmail?.count ?? 0) >= MAX_ACCOUNTS_PER_EMAIL) {
+      return reply.status(409).send({
+        error: `That email address already has ${MAX_ACCOUNTS_PER_EMAIL} accounts. Sign in to one of them instead.`,
+      });
     }
 
     const password_hash = await bcrypt.hash(password, config.bcryptRounds);
@@ -506,18 +568,25 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       is_admin: boolean;
     };
 
-    // Prefer exact username / email match first so Gmail dot-aliases cannot pick an arbitrary row
-    // when `queryOne` would otherwise return `rows[0]` from an unordered multi-match set.
-    let user = await queryOne<LoginUserRow>(
+    // An email address may hold several accounts (migration 040), so this
+    // resolves to a LIST and the password decides which one. A username is
+    // still unique, so an exact username match is ranked first and always
+    // wins; email matches follow, oldest first, so the choice is stable
+    // rather than whatever order Postgres happened to return.
+    let candidates = await query<LoginUserRow>(
       `SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin
        FROM users
        WHERE LOWER(TRIM(BOTH FROM username)) = LOWER(TRIM(BOTH FROM $1::text))
-          OR LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))`,
-      [loginIdentifier],
+          OR LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $1::text))
+       ORDER BY
+         (LOWER(TRIM(BOTH FROM username)) = LOWER(TRIM(BOTH FROM $1::text))) DESC,
+         created_at ASC
+       LIMIT $2`,
+      [loginIdentifier, MAX_LOGIN_CANDIDATES],
     );
 
-    if (!user && gmailLocal) {
-      user = await queryOne<LoginUserRow>(
+    if (candidates.length === 0 && gmailLocal) {
+      candidates = await query<LoginUserRow>(
         `SELECT user_id, username, password_hash, level, xp, mmr, is_banned, is_admin
          FROM users
          WHERE LOWER(TRIM(BOTH FROM split_part(email, '@', 2))) IN ('gmail.com', 'googlemail.com')
@@ -525,13 +594,27 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
          ORDER BY
            (LOWER(TRIM(BOTH FROM email)) = LOWER(TRIM(BOTH FROM $2::text))) DESC,
            created_at ASC
-         LIMIT 1`,
-        [gmailLocal, loginIdentifier],
+         LIMIT $3`,
+        [gmailLocal, loginIdentifier, MAX_LOGIN_CANDIDATES],
       );
     }
 
-    const passwordOk = await verifyLoginPassword(password, user?.password_hash ?? null);
-    if (!user || !passwordOk) {
+    // Verify against each candidate in that order and take the first that
+    // matches. Two accounts on one address normally carry different
+    // passwords, so signing in by email keeps working; when they share a
+    // password too, the oldest wins and the player can name the other
+    // account explicitly by signing in with its username.
+    let user: LoginUserRow | null = null;
+    for (const candidate of candidates) {
+      if (await verifyLoginPassword(password, candidate.password_hash)) {
+        user = candidate;
+        break;
+      }
+    }
+    if (!user) {
+      // Keep the failure cost similar to a match so the response time does not
+      // advertise whether the identifier exists.
+      if (candidates.length === 0) await verifyLoginPassword(password, null);
       return reply.status(401).send({ error: 'Invalid email or password' });
     }
     if (user.is_banned) {
@@ -566,33 +649,51 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
     const normalizedEmail = body.data.email.normalize('NFC').trim();
 
-    const resetUser = await resolveUserForPasswordReset(normalizedEmail);
-    if (!resetUser) {
+    // An address may hold several accounts, so reset them all: one token and
+    // one link each, labelled by username, and the player picks. Resetting a
+    // single arbitrary account would leave them unable to tell which.
+    const resetUsers = await resolveUsersForPasswordReset(normalizedEmail);
+    if (resetUsers.length === 0) {
       return reply.send(FORGOT_PASSWORD_RESPONSE);
     }
 
-    await query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL', [
-      resetUser.user_id,
-    ]);
-
-    const rawToken = randomBytes(32).toString('base64url');
-    const tokenHash = hashPasswordResetToken(rawToken);
-    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-    await query(
-      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
-      [resetUser.user_id, tokenHash, expiresAt],
-    );
-
     const baseUrl = config.frontendUrl.replace(/\/+$/, '');
-    const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
-    const htmlBody = `
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    const links: Array<{ username: string; resetUrl: string }> = [];
+
+    for (const resetUser of resetUsers) {
+      await query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL', [
+        resetUser.user_id,
+      ]);
+      const rawToken = randomBytes(32).toString('base64url');
+      await query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+        [resetUser.user_id, hashPasswordResetToken(rawToken), expiresAt],
+      );
+      links.push({
+        username: resetUser.username,
+        resetUrl: `${baseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`,
+      });
+    }
+
+    const htmlBody = links.length === 1
+      ? `
       <p>You requested a password reset for <strong>Borderfall</strong>.</p>
-      <p><a href="${resetUrl}">Set a new password</a></p>
+      <p><a href="${links[0].resetUrl}">Set a new password</a></p>
       <p>This link expires in one hour. If you did not request this, you can ignore this email.</p>
+    `.trim()
+      : `
+      <p>You requested a password reset for <strong>Borderfall</strong>. This address has
+         ${links.length} accounts — choose the one you want to reset:</p>
+      <ul>
+        ${links.map((l) => `<li><a href="${l.resetUrl}">Set a new password for ${escapeHtml(l.username)}</a></li>`).join('\n        ')}
+      </ul>
+      <p>Each link expires in one hour. If you did not request this, you can ignore this email.</p>
     `.trim();
 
+    const resetUrl = links[0].resetUrl; // dev-log fallback below
     const sent = await sendTransactionalEmailToAddress(
-      resetUser.email,
+      resetUsers[0].email,
       'Reset your Borderfall password',
       htmlBody,
     );

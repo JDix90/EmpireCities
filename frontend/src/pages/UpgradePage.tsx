@@ -101,12 +101,15 @@ export default function UpgradePage() {
         const status = err.response?.status;
         const msg = err.response?.data?.error as string | undefined;
         if (status === 409) {
-          // Server can't tell us which collided without an enumeration risk;
-          // flag both identity fields.
-          setFieldErrors({
-            username: 'This username or email is already in use.',
-            email: 'This username or email is already in use.',
-          });
+          // An email may now hold several accounts, so a 409 is either a taken
+          // username or an address at its account limit — the server says
+          // which, so point at the field that actually collided.
+          const emailCollision = !!msg && /email/i.test(msg);
+          setFieldErrors(
+            emailCollision
+              ? { email: msg }
+              : { username: msg ?? 'That username is taken.' },
+          );
         } else if (status === 400 && msg?.toLowerCase().includes('password')) {
           setFieldErrors({ password: msg });
         } else if (status === 400 && msg?.toLowerCase().includes('email')) {
