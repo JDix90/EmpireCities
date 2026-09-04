@@ -23,6 +23,7 @@ import {
   evaluateEraMapCompatibility,
 } from '../../game-engine/lobby/lobbyEraMapCompatibility';
 import { redactGameRowForViewer } from './gameRowRedaction';
+import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -889,6 +890,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       ['abandoned', request.params.gameId]
     );
 
+    // Abandoning a daily-challenge game past the grace window records a loss, so
+    // it counts as the day's one attempt (otherwise abandon → /start again is an
+    // unlimited retry of the shared, deterministic puzzle). Non-critical: never
+    // fail the abandon on a recording error. See recordDailyChallengeLoss.
+    try {
+      await recordDailyChallengeLoss(request.params.gameId, request.userId);
+    } catch (err) {
+      request.log.error({ err, gameId: request.params.gameId }, 'daily loss record (abandon) failed');
+    }
+
     return reply.send({ message: 'Game abandoned' });
   });
 
@@ -922,6 +933,15 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       'UPDATE games SET status = $1, ended_at = NOW() WHERE game_id = $2',
       ['canceled', gameId],
     );
+
+    // Symmetry with /abandon: a daily game can only be cancelled while still
+    // 'waiting' (turn 0), so this is a no-op mulligan today, but keep the call
+    // so the "attempt consumed" invariant holds if the state machine changes.
+    try {
+      await recordDailyChallengeLoss(gameId, request.userId);
+    } catch (err) {
+      request.log.error({ err, gameId }, 'daily loss record (cancel) failed');
+    }
 
     return reply.send({ message: 'Game canceled successfully' });
   });

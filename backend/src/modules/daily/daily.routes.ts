@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
@@ -211,61 +211,87 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/daily/start ─────────────────────────────────────────────────
   fastify.post('/start', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const row = await ensureDailyChallengeForToday();
+    const userId = request.userId;
 
-    // Block if user already completed today's challenge
-    const myEntry = await queryOne<{ entry_id: string }>(
-      `SELECT entry_id FROM daily_challenge_entries
-       WHERE challenge_date = $1 AND user_id = $2`,
-      [row.challenge_date, request.userId],
-    );
-    if (myEntry) {
+    // The "already played" and "resume active game" checks plus the game insert
+    // run in ONE transaction under a per-(user, day) advisory lock. Without the
+    // lock, two concurrent /start calls both read "no entry, no active game" and
+    // each create a daily game — a second live attempt at the same shared puzzle.
+    // The lock serializes them so the second caller sees the first's game and
+    // resumes it instead. (The sequential abandon → /start retry is closed
+    // separately: abandoning past the grace window records a losing entry, which
+    // the "already played" check below then blocks on — see
+    // game-engine/daily/recordDailyEntry.ts.)
+    type StartResult =
+      | { code: 'played' }
+      | { code: 'resume'; gameId: string }
+      | { code: 'created'; gameId: string };
+
+    const result = await withTransaction<StartResult>(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `daily:${userId}:${row.challenge_date}`,
+      ]);
+
+      // Block if user already has an entry for today (a completed game, or a
+      // past-grace abandon recorded by recordDailyChallengeLoss).
+      const myEntry = await client.query<{ entry_id: string }>(
+        `SELECT entry_id FROM daily_challenge_entries
+         WHERE challenge_date = $1 AND user_id = $2`,
+        [row.challenge_date, userId],
+      );
+      if (myEntry.rows.length > 0) return { code: 'played' };
+
+      // Resume if an in-progress game exists. (See /today for why we cast.)
+      const activeGame = await client.query<{ game_id: string }>(
+        `SELECT g.game_id
+         FROM games g
+         JOIN game_players gp ON gp.game_id = g.game_id
+         WHERE (g.settings_json->>'daily_challenge_date')::date = $1::date
+           AND gp.user_id = $2
+           AND g.status IN ('waiting', 'in_progress')
+         LIMIT 1`,
+        [row.challenge_date, userId],
+      );
+      if (activeGame.rows.length > 0) return { code: 'resume', gameId: activeGame.rows[0].game_id };
+
+      const gameId = uuidv4();
+      const settings = buildGameSettingsFromChallenge(row);
+
+      await client.query(
+        `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
+         VALUES ($1, $2, $3, 'waiting', $4, 'solo')`,
+        [gameId, row.map_id, row.era_id, JSON.stringify(applyAdminSnapshotsToSettings(settings))],
+      );
+
+      // Human player at index 0
+      await client.query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
+         VALUES ($1, $2, 0, $3, false)`,
+        [gameId, userId, PLAYER_COLORS[0]],
+      );
+
+      const aiCount = Math.max(1, row.player_count - 1);
+      // Backstop for a spec that omits the field — a stored row from before the
+      // generator set it. 'hard' made an unset field the hardest content in the
+      // feature; the daily is a puzzle, so the default matches the calendar.
+      const aiDifficulty = row.spec.ai_difficulty ?? 'medium';
+      for (let i = 0; i < aiCount; i++) {
+        await client.query(
+          `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
+           VALUES ($1, NULL, $2, $3, true, $4)`,
+          [gameId, i + 1, PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length], aiDifficulty],
+        );
+      }
+
+      return { code: 'created', gameId };
+    });
+
+    if (result.code === 'played') {
       return reply.status(409).send({ error: 'You have already played today\'s challenge' });
     }
-
-    // Resume if an in-progress game exists. (See /today for why we cast.)
-    const activeGame = await queryOne<{ game_id: string }>(
-      `SELECT g.game_id
-       FROM games g
-       JOIN game_players gp ON gp.game_id = g.game_id
-       WHERE (g.settings_json->>'daily_challenge_date')::date = $1::date
-         AND gp.user_id = $2
-         AND g.status IN ('waiting', 'in_progress')
-       LIMIT 1`,
-      [row.challenge_date, request.userId],
-    );
-    if (activeGame) {
-      return reply.status(200).send({ game_id: activeGame.game_id });
+    if (result.code === 'resume') {
+      return reply.status(200).send({ game_id: result.gameId });
     }
-
-    const gameId = uuidv4();
-    const settings = buildGameSettingsFromChallenge(row);
-
-    await query(
-      `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
-       VALUES ($1, $2, $3, 'waiting', $4, 'solo')`,
-      [gameId, row.map_id, row.era_id, JSON.stringify(applyAdminSnapshotsToSettings(settings))],
-    );
-
-    // Human player at index 0
-    await query(
-      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)
-       VALUES ($1, $2, 0, $3, false)`,
-      [gameId, request.userId, PLAYER_COLORS[0]],
-    );
-
-    const aiCount = Math.max(1, row.player_count - 1);
-    // Backstop for a spec that omits the field — a stored row from before the
-    // generator set it. 'hard' made an unset field the hardest content in the
-    // feature; the daily is a puzzle, so the default matches the calendar.
-    const aiDifficulty = row.spec.ai_difficulty ?? 'medium';
-    for (let i = 0; i < aiCount; i++) {
-      await query(
-        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
-         VALUES ($1, NULL, $2, $3, true, $4)`,
-        [gameId, i + 1, PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length], aiDifficulty],
-      );
-    }
-
-    return reply.status(201).send({ game_id: gameId });
+    return reply.status(201).send({ game_id: result.gameId });
   });
 }

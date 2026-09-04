@@ -88,6 +88,21 @@ export function validateProductionEnv(): void {
     );
   }
 
+  // Proxy-trust hygiene: request.ip (and the HTTP rate-limit key) is derived
+  // from X-Forwarded-For. `TRUST_PROXY=true` trusts the client-controlled
+  // leftmost entry, so it is spoofable unless the edge overwrites the header.
+  // Unset is fine — it defaults to trusting one hop (our nginx) — but flag the
+  // dangerous explicit setting.
+  const trustProxyRaw = (process.env.TRUST_PROXY || '').trim().toLowerCase();
+  if (trustProxyRaw === 'true') {
+    console.warn(
+      '[config] Warning: TRUST_PROXY=true trusts every proxy hop, so X-Forwarded-For ' +
+        'is client-spoofable and the rate limiter can be bypassed. Set it to the number ' +
+        'of trusted proxies (e.g. 1 for a single nginx) and ensure the edge overwrites ' +
+        'X-Forwarded-For with the real client IP.',
+    );
+  }
+
   // CORS hardening: in production we must not echo dev/loopback origins back
   // to clients. Allowing http://localhost:* in prod CORS would let any local
   // attacker on the same machine drive authenticated cross-origin requests

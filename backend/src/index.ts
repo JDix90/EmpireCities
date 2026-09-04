@@ -127,7 +127,11 @@ async function bootstrap(): Promise<void> {
 
   const app = Fastify({
     logger: config.nodeEnv === 'development',
-    trustProxy: true,
+    // Bounded proxy trust (default: 1 hop = our nginx). `true` would trust the
+    // client-controlled leftmost X-Forwarded-For entry, letting a client forge
+    // request.ip and rotate the rate-limit key. Tunable via TRUST_PROXY; the
+    // edge must also OVERWRITE X-Forwarded-For (docker/nginx.prod.conf).
+    trustProxy: config.trustProxy,
     genReqId: () => randomUUID(),
   });
 
