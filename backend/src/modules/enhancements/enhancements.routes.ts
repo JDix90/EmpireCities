@@ -10,6 +10,7 @@ import {
   getReplayHighlights,
 } from '../../services/playerValueEnhancements';
 import { formatZodError } from '../../utils/formatZodError';
+import { recordServerEvent } from '../../services/analyticsEvents';
 
 const QolSettingsSchema = z.object({
   animation_speed_multiplier: z.number().min(0.5).max(3).optional(),
@@ -18,11 +19,14 @@ const QolSettingsSchema = z.object({
   undo_window_seconds: z.number().int().min(0).max(30).optional(),
 });
 
-// NOTE: these values are CLIENT-REPORTED. The seeded weekly run is not recorded
-// or replayed server-side today, so the leaderboard is only as trustworthy as
-// the client. These bounds block absurd/injected values (e.g. a Number.MAX
-// score or a 0-second completion) — they are a mitigation, NOT anti-cheat. A
-// full fix requires recording + recomputing the run server-side (follow-up).
+// NOTE: score/efficiency/duration are CLIENT-REPORTED. The seeded weekly run is
+// not yet recorded or recomputed server-side, so the score itself cannot be
+// trusted — the real fix is to replay the run server-side (tracked follow-up),
+// and until then the UI presents this board as unverified. What we DO enforce
+// here reduces the blast radius: the schema bounds block absurd/injected values,
+// submissions are accepted ONLY for the current active challenge (so past/future
+// or arbitrary challenge ids can't be seeded), and every submission is logged
+// for anomaly detection.
 const WeeklySubmitSchema = z.object({
   score: z.number().int().min(0).max(1_000_000_000),
   efficiency_score: z.number().min(0).max(100),
@@ -181,6 +185,29 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
     if (!parsed.success) return reply.code(400).send(formatZodError(parsed.error, 'Invalid submission'));
     const { challengeId } = request.params;
     const payload = parsed.data;
+
+    // Only the current active challenge accepts submissions. Without this a
+    // client could write scores to any (past, future, or fabricated) challenge
+    // id it names in the URL. The active id is server-derived, never trusted
+    // from the request.
+    const active = await getOrCreateWeeklyChallenge();
+    if (challengeId !== active.challenge_id) {
+      return reply.code(409).send({ error: 'Submissions are only accepted for the current weekly challenge' });
+    }
+
+    // Audit every submission so a client-reported score that later looks bogus
+    // is attributable. (The score is still client-trusted until the run is
+    // recomputed server-side — see WeeklySubmitSchema.)
+    recordServerEvent(
+      'weekly_challenge_submitted',
+      {
+        challenge_id: challengeId,
+        score: payload.score,
+        efficiency_score: payload.efficiency_score,
+        duration_seconds: payload.duration_seconds,
+      },
+      request.userId,
+    );
 
     await query(
       `INSERT INTO weekly_seeded_submissions (
