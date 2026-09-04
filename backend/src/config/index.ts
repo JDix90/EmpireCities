@@ -40,6 +40,29 @@ function parseBooleanEnv(v: string | undefined): boolean | null {
   return null;
 }
 
+/**
+ * Fastify `trustProxy`. `true` trusts EVERY hop, so Fastify takes the leftmost
+ * (client-controlled) `X-Forwarded-For` entry as `request.ip` — and the HTTP
+ * rate limiter keys off that (`middleware/rateLimitKey.ts`), so a spoofed header
+ * hands an attacker a fresh limiter bucket per request. Default to trusting a
+ * SINGLE hop (our nginx), which makes `request.ip` the real client IP as long
+ * as the edge sets X-Forwarded-For to `$remote_addr` (see docker/nginx.prod.conf).
+ *
+ * `TRUST_PROXY` overrides for other topologies:
+ *   - an integer  → trust that many proxy hops
+ *   - a CSV of IPs/CIDRs → trust exactly those proxy addresses
+ *   - "true"/"false" → trust all / none (avoid "true" in production)
+ */
+function parseTrustProxy(): boolean | number | string {
+  const raw = (process.env.TRUST_PROXY ?? '').trim();
+  if (raw === '') return 1;
+  const lower = raw.toLowerCase();
+  if (lower === 'true') return true;
+  if (lower === 'false') return false;
+  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+  return raw; // comma-separated IPs/CIDRs, passed through to proxy-addr
+}
+
 function parseRefreshCookieSecure(): boolean {
   const explicit = parseBooleanEnv(process.env.REFRESH_COOKIE_SECURE);
   if (explicit != null) return explicit;
@@ -60,6 +83,7 @@ export const config = {
   corsOrigins: parseCorsOrigins(),
   refreshCookieSameSite: parseRefreshCookieSameSite(),
   refreshCookieSecure: parseRefreshCookieSecure(),
+  trustProxy: parseTrustProxy(),
 
   postgres: {
     host: process.env.POSTGRES_HOST || 'localhost',
