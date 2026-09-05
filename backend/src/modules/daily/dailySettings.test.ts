@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGameSettingsFromChallenge } from './daily.routes';
+import { buildGameSettingsFromChallenge } from '../../game-engine/daily/dailySettings';
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import type { DailyChallengeRow } from '../../game-engine/daily/dailyPuzzleService';
 

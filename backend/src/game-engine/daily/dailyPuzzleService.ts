@@ -98,6 +98,7 @@ export function validateDailyPuzzleSpec(raw: unknown): DailyPuzzleSpec | null {
   if (!isOptionalString(s.building_type) || !isOptionalString(s.tech_id) || !isOptionalString(s.hint)) return null;
 
   if (s.ai_difficulty !== undefined && !VALID_AI_DIFFICULTIES.has(s.ai_difficulty as string)) return null;
+  if (s.par_turns !== undefined && (!isFiniteNumber(s.par_turns) || s.par_turns < 1)) return null;
   if (s.starting_phase !== undefined && s.starting_phase !== 'attack') return null;
   if (s.clear_board !== undefined && typeof s.clear_board !== 'boolean') return null;
   if (s.settings_overrides !== undefined

@@ -24,6 +24,7 @@ import {
   type TacticalSetPiece,
 } from '../../content/dailySetPieces';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
+import { SIMULATED_ARCHETYPES, simulatePuzzle, type PuzzleSimResult } from './puzzleSim';
 import {
   buildCalibratedMilitarySpec,
   buildDailyPuzzleBase,
@@ -91,9 +92,67 @@ export interface ScheduledDay {
 
 export interface ScheduleDeps {
   loadMap: (mapId: string) => Promise<GameMap | null>;
+  /**
+   * The solvability gate. Null skips it (structural tests). The default is the
+   * headless simulator, seeded from the spec, so every process agrees.
+   */
+  simulate?: ((spec: DailyPuzzleSpec, map: GameMap) => Promise<PuzzleSimResult | null>) | null;
 }
 
-const defaultDeps: ScheduleDeps = { loadMap: getMapById };
+const defaultDeps: ScheduleDeps = {
+  loadMap: getMapById,
+  simulate: (spec, map) => simulatePuzzle(spec, map, { games: GATE_GAMES }),
+};
+
+// ── The solvability gate ─────────────────────────────────────────────────────
+//
+// A sized board is proven before it is served: the simulator plays the
+// obvious line for the verb against the shipped bot, and the day is accepted
+// only if that line lands inside a band — winnable, not free. Outside the
+// band the numbers are re-rolled (a different garrison, stack and clock from
+// the same front) up to GATE_ATTEMPTS times; if none lands, the closest is
+// served with a warning rather than a silent fallback.
+//
+// The bands were set by running the simulator over the authored calendar and
+// the first library quarter. Capture days play as a first-assault gamble with
+// a reserve for a second try, so their line solves 70–100%; the band is a
+// floor against an unwinnable board and a ceiling against a freebie. Hold
+// days vary far more with the numbers, which is what re-rolling is for.
+
+export const GATE_GAMES = 40;
+export const GATE_ATTEMPTS = 8;
+/** How far each missed attempt moves the sizing band toward the miss. */
+const GATE_BAND_STEP = 0.07;
+export const GATE_BANDS: Record<'military_capture' | 'hold_territory', { min: number; max: number }> = {
+  // Calibrated: the authored calendar's captures score 92–100% on the obvious
+  // line; the library's land at 85–98%. The ceiling is a freebie guard, the
+  // floor the unwinnable-board guard.
+  military_capture: { min: 0.5, max: 0.96 },
+  // Calibrated: the library's holds land at 35–80% once the numbers re-roll.
+  hold_territory: { min: 0.35, max: 0.8 },
+};
+
+/**
+ * Distance from the band, with a below-floor miss always counting worse than
+ * an above-ceiling one: a freebie is a dull day, an unwinnable board is a
+ * broken one.
+ */
+function bandDistance(rate: number, band: { min: number; max: number }): number {
+  if (rate < band.min) return 1 + (band.min - rate);
+  if (rate > band.max) return rate - band.max;
+  return 0;
+}
+
+/** The sizing bands one attempt uses; the gate shifts them attempt by attempt. */
+interface SizingBands {
+  tactical: TacticalBand;
+  hold: TacticalBand;
+}
+
+function shiftBand(band: TacticalBand, by: number): TacticalBand {
+  const min = Math.min(0.9, Math.max(0.2, band.min + by));
+  return { min, max: Math.min(0.95, Math.max(min + 0.05, band.max + by)) };
+}
 
 // ── Date arithmetic ──────────────────────────────────────────────────────────
 
@@ -282,10 +341,13 @@ export function pickSetPieceForDate(date: string): DailySetPiece | null {
 
 // ── Seeds ────────────────────────────────────────────────────────────────────
 
-function seedsFor(date: string, id: string): { seed: number; dice_queue_seed: number } {
+function seedsFor(date: string, id: string, attempt = 0): { seed: number; dice_queue_seed: number } {
+  // Attempt 0 is unsalted, so a day that passes the gate first time is the
+  // same day it was before the gate existed.
+  const key = attempt === 0 ? id : `${id}#${attempt}`;
   return {
-    seed: hashStringToSeed(`daily:${date}:${id}`),
-    dice_queue_seed: hashStringToSeed(`daily-dice:${date}:${id}`),
+    seed: hashStringToSeed(`daily:${date}:${key}`),
+    dice_queue_seed: hashStringToSeed(`daily-dice:${date}:${key}`),
   };
 }
 
@@ -296,6 +358,7 @@ async function materializeTactical(
   sp: TacticalSetPiece,
   band: TacticalBand,
   deps: ScheduleDeps,
+  attempt = 0,
 ): Promise<DailyPuzzleSpec | null> {
   const map = await deps.loadMap(sp.map_id);
   if (!map) {
@@ -307,7 +370,7 @@ async function materializeTactical(
     console.warn(`[daily] ${date}: set-piece "${sp.id}": ${sp.anchor} does not border ${sp.target}`);
     return null;
   }
-  const seeds = seedsFor(date, sp.id);
+  const seeds = seedsFor(date, sp.id, attempt);
   const calibrated = calibrateTactical({
     anchor: sp.anchor,
     target: sp.target,
@@ -346,6 +409,8 @@ async function materializeHold(
   date: string,
   sp: TacticalSetPiece,
   deps: ScheduleDeps,
+  attempt = 0,
+  band: TacticalBand = HOLD_BAND,
 ): Promise<DailyPuzzleSpec | null> {
   if (!sp.hold) return null;
   const map = await deps.loadMap(sp.map_id);
@@ -358,7 +423,7 @@ async function materializeHold(
     console.warn(`[daily] ${date}: set-piece "${sp.id}": ${sp.anchor} does not border ${sp.target}`);
     return null;
   }
-  const seeds = seedsFor(date, `${sp.id}:hold`);
+  const seeds = seedsFor(date, `${sp.id}:hold`, attempt);
   const calibrated = calibrateHold({
     anchor: sp.anchor,
     target: sp.target,
@@ -366,7 +431,7 @@ async function materializeHold(
     extraAi: [sp.support, ...(sp.extra_ai ?? [])].filter((x): x is string => typeof x === 'string'),
     assaultIsSea: edge.type === 'sea',
     rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
-    band: HOLD_BAND,
+    band,
   });
   if (!calibrated) return null;
 
@@ -384,7 +449,11 @@ async function materializeHold(
     target_territory_id: sp.target,
     anchor_territory_id: sp.anchor,
     ...(sp.hold.hint ? { hint: sp.hold.hint } : {}),
-    ai_difficulty: sp.ai_difficulty ?? GENERATED_AI_DIFFICULTY,
+    // Always medium. A set-piece's 'hard' describes the garrison the player
+    // has to crack on a capture day; on a hold day the AI is the attacker, and
+    // hard's eight exchanges a turn roll straight through the obvious defence
+    // (the simulator put those days at 4–17% solvable).
+    ai_difficulty: GENERATED_AI_DIFFICULTY,
     clear_board: true,
     // A normal draft open: the player reinforces before the AI moves. That
     // first draft is what the assault stack was sized against.
@@ -395,15 +464,16 @@ async function materializeHold(
 async function materialize(
   date: string,
   sp: DailySetPiece,
-  band: TacticalBand,
+  bands: SizingBands,
   deps: ScheduleDeps,
   verb: DailyVerb | 'any',
+  attempt = 0,
 ): Promise<DailyPuzzleSpec | null> {
   const seeds = seedsFor(date, sp.id);
-  if (verb === 'hold' && sp.kind === 'tactical') return materializeHold(date, sp, deps);
+  if (verb === 'hold' && sp.kind === 'tactical') return materializeHold(date, sp, deps, attempt, bands.hold);
   switch (sp.kind) {
     case 'tactical':
-      return materializeTactical(date, sp, band, deps);
+      return materializeTactical(date, sp, bands.tactical, deps, attempt);
     case 'economy':
       return buildEconomyDay({ ...sp, ...seeds });
     case 'tech':
@@ -472,6 +542,56 @@ export async function scheduleDay(date: string, deps: ScheduleDeps = defaultDeps
   return deps === defaultDeps ? remember(day) : day;
 }
 
+/**
+ * Size a set-piece and prove it: re-roll until the obvious line's solve rate
+ * lands in the verb's band, then attach par (capture days only — a hold day
+ * is solved at the clock, so its turn count carries no information).
+ */
+async function gatedMaterialize(
+  date: string,
+  sp: DailySetPiece,
+  band: TacticalBand,
+  deps: ScheduleDeps,
+  verb: DailyVerb | 'any',
+): Promise<DailyPuzzleSpec | null> {
+  const simulate = deps.simulate === undefined ? defaultDeps.simulate : deps.simulate;
+  let closest: { spec: DailyPuzzleSpec; sim: PuzzleSimResult; distance: number } | null = null;
+  // A directed search, not a blind re-roll: a miss moves the sizing band
+  // toward it. First-assault odds are the attacker's, so "easier for the
+  // player" is a higher band on a capture day and a lower one on a hold day.
+  let shift = 0;
+  for (let attempt = 0; attempt < GATE_ATTEMPTS; attempt++) {
+    const bands: SizingBands = {
+      tactical: shiftBand(band, shift),
+      hold: shiftBand(HOLD_BAND, -shift),
+    };
+    const spec = await materialize(date, sp, bands, deps, verb, attempt);
+    if (!spec) continue;
+    if (!simulate || !SIMULATED_ARCHETYPES.has(spec.archetype)) return spec;
+    const map = await deps.loadMap(spec.map_id);
+    if (!map) return spec;
+    const sim = await simulate(spec, map);
+    if (!sim) return spec;
+    const gateBand = GATE_BANDS[spec.archetype as keyof typeof GATE_BANDS];
+    const distance = bandDistance(sim.solve_rate, gateBand);
+    if (!closest || distance < closest.distance) closest = { spec, sim, distance };
+    if (distance === 0) return withPar(spec, sim);
+    // Too hard for the player: raise the player's odds next time; too easy: lower them.
+    shift += sim.solve_rate < gateBand.min ? GATE_BAND_STEP : -GATE_BAND_STEP;
+  }
+  if (!closest) return null;
+  console.warn(
+    `[daily] ${date}: no sizing of "${sp.id}" landed in the solvability band after ${GATE_ATTEMPTS} attempts `
+      + `(closest: ${(closest.sim.solve_rate * 100).toFixed(0)}% solvable) — serving the closest.`,
+  );
+  return withPar(closest.spec, closest.sim);
+}
+
+function withPar(spec: DailyPuzzleSpec, sim: PuzzleSimResult): DailyPuzzleSpec {
+  if (spec.archetype !== 'military_capture' || sim.median_turns === null) return spec;
+  return { ...spec, par_turns: sim.median_turns };
+}
+
 async function computeDay(date: string, deps: ScheduleDeps): Promise<ScheduledDay> {
   const authored = getAuthoredDailySpec(date);
   if (authored) return { date, source: 'calendar', spec: authored };
@@ -481,7 +601,7 @@ async function computeDay(date: string, deps: ScheduleDeps): Promise<ScheduledDa
 
   const picked = pickSetPieceForDate(date);
   if (picked) {
-    const spec = await materialize(date, picked, band, deps, slot.verb);
+    const spec = await gatedMaterialize(date, picked, band, deps, slot.verb);
     if (spec) return { date, source: 'library', set_piece_id: picked.id, spec };
     console.warn(`[daily] ${date}: set-piece "${picked.id}" could not be sized — using the generator.`);
   }

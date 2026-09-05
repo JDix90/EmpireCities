@@ -9,6 +9,8 @@ export interface DailyIntroSpec {
   goal?: string;
   max_turns?: number;
   player_count?: number;
+  /** Par: the turn the obvious line solves this day on. Beat it to score above 1000. */
+  par_turns?: number;
 }
 
 interface DailyChallengeIntroModalProps {
@@ -127,6 +129,12 @@ export default function DailyChallengeIntroModal({
 
         {(typeof spec.max_turns === 'number' || typeof spec.player_count === 'number') && (
           <p className="text-bf-muted text-xs text-center mb-5">
+            {typeof spec.par_turns === 'number' && (
+              <>
+                Par: <span className="text-bf-text">{spec.par_turns} {spec.par_turns === 1 ? 'turn' : 'turns'}</span>
+                <span className="mx-2 text-bf-border">•</span>
+              </>
+            )}
             {typeof spec.max_turns === 'number' && (
               <>Turn limit: <span className="text-bf-text">{spec.max_turns}</span></>
             )}
