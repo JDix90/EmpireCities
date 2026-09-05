@@ -1,0 +1,290 @@
+import type { BuildingType, EraId } from '../types';
+import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
+
+/**
+ * The daily-challenge set-piece library.
+ *
+ * A set-piece is the part of a daily only a person can write: the place, the
+ * title, the sentence that says why the fight matters, and the one tension
+ * that makes it hard — a relief column, a prize that has to be held, an income
+ * that has to be waited for. It carries NO numbers. Garrisons, stacks, clocks
+ * and grants are the generator's job (dailyGenerator.ts), sized fresh from the
+ * date every time the set-piece comes round, so a recurrence is a new fight on
+ * a familiar front rather than a repeat.
+ *
+ * The schedule (dailySchedule.ts) walks each verb's bucket in id order, one
+ * entry per cadence slot, and starts over when the bucket is exhausted. A
+ * bigger library means a longer gap between recurrences; that is the only
+ * effect of adding entries, so the library can grow a few at a time forever.
+ *
+ * Authoring rules, enforced by dailySetPieces.test.ts against the real maps:
+ * - ids unique; every territory exists on the entry's map;
+ * - tactical: the anchor borders the target; support borders the anchor;
+ *   relief borders the target; none of the four coincide;
+ * - economy/tech: human and AI holdings are non-empty and disjoint; the
+ *   building is in the cost table; the tech is in the era's tree;
+ * - domination: the spec is complete and passes the persistence validator.
+ *
+ * Community maps carry no era; a daily takes its era from the spec, so a
+ * set-piece may pair any map with any era whose rules suit the story.
+ */
+
+interface SetPieceBase {
+  /** Stable, unique, snake_case. Seeds derive from it, so renaming one re-rolls its numbers. */
+  id: string;
+  era_id: EraId;
+  map_id: string;
+  title: string;
+  intro: string;
+  hint?: string;
+  /** The AI seat's difficulty. Default medium. */
+  ai_difficulty?: 'easy' | 'medium' | 'hard';
+}
+
+export interface TacticalSetPiece extends SetPieceBase {
+  kind: 'tactical';
+  /** The human's main force; must border the target. */
+  anchor: string;
+  /** The AI garrison to capture. */
+  target: string;
+  /** A human reserve behind the anchor (must border it). */
+  support?: string;
+  /** An AI relief garrison beside the target (must border it). */
+  relief?: string;
+  /** Other AI holdings that shape the front without joining the fight. */
+  extra_ai?: readonly string[];
+}
+
+export interface EconomySetPiece extends SetPieceBase {
+  kind: 'economy';
+  human: readonly string[];
+  ai: readonly string[];
+  building_type: BuildingType;
+}
+
+export interface TechSetPiece extends SetPieceBase {
+  kind: 'tech';
+  human: readonly string[];
+  ai: readonly string[];
+  tech_id: string;
+}
+
+/**
+ * A domination day is the one shape that cannot be sized: its dealt board IS
+ * the content, and the seed deals it. The spec is kept complete; only the dice
+ * stream is re-derived from the date.
+ */
+export interface DominationSetPiece {
+  id: string;
+  kind: 'domination';
+  spec: Omit<DailyPuzzleSpec, 'dice_queue_seed'>;
+}
+
+export type DailySetPiece = TacticalSetPiece | EconomySetPiece | TechSetPiece | DominationSetPiece;
+
+export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
+  // ── Tactical ──────────────────────────────────────────────────────────────
+  {
+    id: 'crossing_the_rubicon',
+    kind: 'tactical',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'Crossing the Rubicon',
+    intro: 'Your legions mass in Gaul. Rome lies open — but Greece will reinforce it if you hesitate.',
+    hint: 'Commit the Gaul stack — a split assault gives Rome two cheap defensive rounds.',
+    anchor: 'gaul',
+    target: 'italia',
+    support: 'hispania',
+    relief: 'greece',
+  },
+  {
+    id: 'the_border_states',
+    kind: 'tactical',
+    era_id: 'acw',
+    map_id: 'era_acw',
+    title: 'The Border States',
+    intro: 'Whoever holds Kentucky holds the river war. The garrison is dug in and Tennessee stands behind it.',
+    hint: 'Tennessee can retake a thinly-held Kentucky — win the fight with enough left to hold it.',
+    anchor: 'acw_ohio_indiana',
+    target: 'acw_kentucky',
+    support: 'acw_great_lakes',
+    relief: 'acw_tennessee',
+    extra_ai: ['acw_appalachia'],
+  },
+  {
+    id: 'checkpoint',
+    kind: 'tactical',
+    era_id: 'coldwar',
+    map_id: 'era_coldwar',
+    title: 'Checkpoint',
+    intro: 'The wall has a gate and the gate has a garrison. Prague will counterattack whatever you leave behind.',
+    anchor: 'west_germany',
+    target: 'east_germany',
+    support: 'france_benelux',
+    relief: 'czechoslovakia',
+  },
+  {
+    id: 'the_crowns_reach',
+    kind: 'tactical',
+    era_id: 'medieval',
+    map_id: 'era_medieval',
+    title: 'The Crown’s Reach',
+    intro: 'England is an island only until someone builds enough boats. Sea assaults roll fewer dice — mass accordingly.',
+    hint: 'The Channel caps you at two attack dice — this crossing is won by attrition, not one charge.',
+    anchor: 'france',
+    target: 'england',
+    support: 'iberia',
+    extra_ai: ['holy_roman'],
+  },
+  {
+    id: 'andean_campaign',
+    kind: 'tactical',
+    era_id: 'modern',
+    map_id: 'era_modern',
+    title: 'Andean Campaign',
+    intro: 'Bogotá anchors the northern front, with reinforcements one border away in either direction.',
+    anchor: 'brazil_mod',
+    target: 'colombia_mod',
+    support: 'peru_mod',
+    relief: 'central_america_mod',
+  },
+  {
+    id: 'the_ottoman_gates',
+    kind: 'tactical',
+    era_id: 'discovery',
+    map_id: 'era_discovery',
+    title: 'The Ottoman Gates',
+    intro: 'The Balkans garrison is the strongest you have faced this week, and Anatolia stands behind it.',
+    hint: 'Near-even fights favour the defender — grind the garrison down before the killing blow.',
+    anchor: 'holy_roman_disc',
+    target: 'ottoman_balkans',
+    support: 'italy_disc',
+    relief: 'anatolia_disc',
+    ai_difficulty: 'hard',
+  },
+  {
+    id: 'alexanders_prize',
+    kind: 'tactical',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'Alexander’s Prize',
+    intro: 'Persepolis, at the end of the road. The hardest board of the rotation.',
+    hint: 'Bactria will feed the garrison if the siege drags — the clock is the second enemy.',
+    anchor: 'mesopotamia',
+    target: 'persia',
+    support: 'levant',
+    relief: 'bactria',
+    ai_difficulty: 'hard',
+  },
+
+  // ── Economy ───────────────────────────────────────────────────────────────
+  {
+    id: 'the_wool_trade',
+    kind: 'economy',
+    era_id: 'medieval',
+    map_id: 'era_medieval',
+    title: 'The Wool Trade',
+    intro: 'Peace for a season. Turn the treasury into something that outlasts it before the Empire stirs.',
+    human: ['france', 'england', 'iberia'],
+    ai: ['holy_roman'],
+    building_type: 'production_1',
+  },
+  {
+    id: 'plantations',
+    kind: 'economy',
+    era_id: 'discovery',
+    map_id: 'era_discovery',
+    title: 'Plantations',
+    intro: 'The colonies pay for the wars to come. Put the season’s silver into the ground.',
+    human: ['spain_portugal', 'france_disc'],
+    ai: ['holy_roman_disc'],
+    building_type: 'production_1',
+  },
+  {
+    id: 'the_listening_post',
+    kind: 'economy',
+    era_id: 'coldwar',
+    map_id: 'era_coldwar',
+    title: 'The Listening Post',
+    intro: 'Not every building makes rifles. Raise a research station — the quiet kind of power.',
+    human: ['uk_ireland', 'france_benelux'],
+    ai: ['east_germany'],
+    building_type: 'tech_gen_1',
+  },
+
+  // ── Tech ──────────────────────────────────────────────────────────────────
+  {
+    id: 'arsenal_of_ideas',
+    kind: 'tech',
+    era_id: 'ww2',
+    map_id: 'era_ww2',
+    title: 'Arsenal of Ideas',
+    intro: 'The war will be won in the factories. Your researchers wait on a signature.',
+    human: ['britain_ww2', 'france_ww2'],
+    ai: ['germany'],
+    tech_id: 'ww2_war_industry',
+  },
+  {
+    id: 'all_roads',
+    kind: 'tech',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'All Roads',
+    intro: 'An empire is only as large as the distance a legion can march in a season.',
+    human: ['italia', 'greece'],
+    ai: ['anatolia'],
+    tech_id: 'ancient_roads',
+  },
+
+  // ── Domination ────────────────────────────────────────────────────────────
+  {
+    id: 'against_the_tide',
+    kind: 'domination',
+    spec: {
+      archetype: 'domination',
+      title: 'Against the Tide',
+      intro: 'The map was dealt against you: the enemy front runs deep and reinforced. Outlast it anyway.',
+      goal: 'Eliminate the rival faction and control the entire map.',
+      era_id: 'ancient',
+      map_id: 'era_ancient',
+      seed: 83_100_005,
+      player_count: 2,
+      max_turns: 40,
+      ai_difficulty: 'medium',
+      // Additive: the dealt 1v1 board stands; these fronts are reinforced on top.
+      starting_board: {
+        italia: { owner: 'ai', unit_count: 9 },
+        greece: { owner: 'ai', unit_count: 7 },
+        gaul: { owner: 'human', unit_count: 8 },
+      },
+    },
+  },
+  {
+    id: 'fortress_europe',
+    kind: 'domination',
+    spec: {
+      archetype: 'domination',
+      title: 'Fortress Europe',
+      intro: 'The continent is dug in behind reinforced lines. Break it before the clock breaks you.',
+      goal: 'Eliminate the rival faction and control the entire map.',
+      era_id: 'ww2',
+      map_id: 'era_ww2',
+      seed: 83_100_011,
+      player_count: 2,
+      max_turns: 35,
+      ai_difficulty: 'hard',
+      // Additive on the dealt board: the Axis core is reinforced, so is London.
+      starting_board: {
+        germany: { owner: 'ai', unit_count: 10 },
+        eastern_europe_ww2: { owner: 'ai', unit_count: 8 },
+        britain_ww2: { owner: 'human', unit_count: 8 },
+      },
+    },
+  },
+];
+
+export function setPiecesOfKind<K extends DailySetPiece['kind']>(
+  kind: K,
+): ReadonlyArray<Extract<DailySetPiece, { kind: K }>> {
+  return DAILY_SET_PIECES.filter((sp): sp is Extract<DailySetPiece, { kind: K }> => sp.kind === kind);
+}

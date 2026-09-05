@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildCompleteDailyPuzzleSpec, buildDailyPuzzleBase, validateDailyPuzzleSpec } from './dailyPuzzleService';
+import { buildCompleteDailyPuzzleSpec, validateDailyPuzzleSpec } from './dailyPuzzleService';
+import { buildDailyPuzzleBase } from './dailyGenerator';
 import { DAILY_CALENDAR } from '../../content/dailyCalendar';
 
 describe('buildDailyPuzzleBase', () => {
@@ -56,11 +57,12 @@ describe('buildCompleteDailyPuzzleSpec — calendar precedence', () => {
     expect(spec).toEqual(DAILY_CALENDAR['2026-08-31']);
   });
 
-  it('falls back to the generator on an unauthored date', async () => {
-    // 2030-01-01 hashes to a non-military archetype, so the generator path
-    // needs no database.
+  it('falls through to the schedule on an unauthored date', async () => {
+    // 2030-01-01 is a Tuesday: an economy set-piece, which is sized from its
+    // own territory list and needs no database.
     const spec = await buildCompleteDailyPuzzleSpec('2030-01-01');
-    expect(spec.starting_board).toBeUndefined();
+    expect(spec.archetype).toBe('economy_build');
+    expect(spec.starting_board).toBeDefined();
     expect(validateDailyPuzzleSpec(spec)).not.toBeNull();
   });
 });

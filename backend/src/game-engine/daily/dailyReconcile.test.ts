@@ -19,6 +19,8 @@ import { DAILY_CALENDAR } from '../../content/dailyCalendar';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 
 const AUTHORED_DATE = Object.keys(DAILY_CALENDAR).sort()[0];
+/** A date the library serves (a Tuesday: economy), far enough out to be unauthored. */
+const LIBRARY_DATE = '2030-01-01';
 
 describe('specsDiffer', () => {
   const authored = DAILY_CALENDAR[AUTHORED_DATE];
@@ -117,6 +119,33 @@ describe.runIf(process.env.PG_TEST === '1')('authored reconciliation on read (Po
     // And it is stable: a second read is a no-op, not a second UPDATE.
     const again = await ensureDailyChallengeForDate(AUTHORED_DATE);
     expect(again.spec.title).toBe(DAILY_CALENDAR[AUTHORED_DATE].title);
+  });
+
+  it('reconciles a library day too — every scheduled day is content, not only dated ones', async () => {
+    // A stale generated row for a date the library now covers. Before the
+    // schedule, only dated calendar entries were reconciled; a library day
+    // whose set-piece was added or re-sized after its row was written would
+    // have stayed stale forever.
+    await query('DELETE FROM daily_challenges WHERE challenge_date = $1::date', [LIBRARY_DATE]);
+    await query(
+      `INSERT INTO daily_challenges (challenge_date, era_id, map_id, seed, player_count, kind, spec_json)
+       VALUES ($1::date, $2, $3, $4, $5, 'puzzle', $6::jsonb)`,
+      [LIBRARY_DATE, staleSpec.era_id, staleSpec.map_id, staleSpec.seed, staleSpec.player_count,
+        JSON.stringify(staleSpec)],
+    );
+    try {
+      const row = await ensureDailyChallengeForDate(LIBRARY_DATE);
+      expect(row.spec.title).not.toBe(staleSpec.title);
+      expect(row.spec.archetype).toBe('economy_build');
+      expect(row.spec.starting_board).toBeDefined();
+      const stored = (await query(
+        `SELECT spec_json->>'title' AS title FROM daily_challenges WHERE challenge_date = $1::date`,
+        [LIBRARY_DATE],
+      )) as Array<{ title: string }>;
+      expect(stored[0].title).toBe(row.spec.title);
+    } finally {
+      await query('DELETE FROM daily_challenges WHERE challenge_date = $1::date', [LIBRARY_DATE]).catch(() => {});
+    }
   });
 
   it('refuses to swap the board once the day is in play', async () => {

@@ -2,17 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
-import {
-  buildCalibratedMilitarySpec,
-  buildDailyPuzzleBase,
-  validateDailyPuzzleSpec,
-} from './dailyPuzzleService';
+import { buildCalibratedMilitarySpec, buildDailyPuzzleBase } from './dailyGenerator';
+import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 
 /**
- * The calendar's CI review board, pointed at the GENERATOR: every future
- * military day must satisfy the same invariants an authored day does. This is
- * the point of the calibration — "generated" stops being a quality tier.
+ * The calendar's CI review board, pointed at the LAST-RESORT GENERATOR: every
+ * tactical day it can produce must satisfy the same invariants an authored day
+ * does. This is the point of the calibration — "generated" stops being a
+ * quality tier. The schedule's own sweep (dailySchedule.test.ts) covers the
+ * days players actually get; this file guards the path beneath it.
  */
 
 const mapCache = new Map<string, GameMap>();

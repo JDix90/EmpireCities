@@ -43,6 +43,7 @@ import { startAsyncDeadlineWorker } from './workers/asyncDeadlineWorker';
 import { startSeasonSweep, stopSeasonSweep } from './game-engine/progression/seasonService';
 import { startChallengeSweep, stopChallengeSweep } from './game-engine/progression/challengeService';
 import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleService';
+import { describeDailySchedule } from './game-engine/daily/dailySchedule';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry, captureException } from './services/sentry';
@@ -496,6 +497,10 @@ async function bootstrap(): Promise<void> {
     console.warn('[adminConfig] subscriber start failed (config edits will be per-instance until restart):', err),
   );
 
+  // Say at boot what the daily can draw on, so a thin library or a dated
+  // calendar about to run out is visible in the log rather than discovered by
+  // a player.
+  console.log(describeDailySchedule());
   void ensureDailyChallengeForToday().catch((err) => {
     console.error('[daily] Failed to ensure today challenge row:', err);
   });
