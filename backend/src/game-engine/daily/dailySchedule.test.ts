@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
 import {
+  bucketForVerb,
   mondayOf,
   rotationOrdinal,
   scheduleDay,
@@ -17,7 +18,7 @@ import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 import { getEraTechTree } from '../eras';
 import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
-import { goldPerTurn, TACTICAL_BAND_HARD, TACTICAL_BAND_STANDARD, techPerTurn } from './dailyGenerator';
+import { goldPerTurn, HOLD_BAND, TACTICAL_BAND_HARD, TACTICAL_BAND_STANDARD, techPerTurn } from './dailyGenerator';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 
 /**
@@ -54,6 +55,7 @@ const SWEEP = [...datesFrom('2026-09-14', 365)];
 
 const VERB_TO_ARCHETYPE = {
   tactical: 'military_capture',
+  hold: 'hold_territory',
   economy: 'economy_build',
   tech: 'tech_research',
   domination: 'domination',
@@ -98,12 +100,13 @@ describe('daily schedule — calendar arithmetic', () => {
   });
 
   it('walks each verb’s bucket one slot at a time, in calendar order', () => {
-    // Mon, Wed, Fri are the three tactical slots of a week.
+    // Mon and Fri are the two capture slots of a week; Wed is the hold slot.
     const mon = rotationOrdinal('2026-09-14', 'tactical');
-    expect(rotationOrdinal('2026-09-16', 'tactical')).toBe(mon + 1);
-    expect(rotationOrdinal('2026-09-18', 'tactical')).toBe(mon + 2);
-    expect(rotationOrdinal('2026-09-21', 'tactical')).toBe(mon + 3);
+    expect(rotationOrdinal('2026-09-18', 'tactical')).toBe(mon + 1);
+    expect(rotationOrdinal('2026-09-21', 'tactical')).toBe(mon + 2);
     // A weekday that does not carry the verb has no ordinal.
+    expect(rotationOrdinal('2026-09-16', 'tactical')).toBe(-1);
+    expect(rotationOrdinal('2026-09-16', 'hold')).toBeGreaterThanOrEqual(0);
     expect(rotationOrdinal('2026-09-15', 'tactical')).toBe(-1);
     expect(rotationOrdinal('2026-09-15', 'economy')).toBeGreaterThanOrEqual(0);
   });
@@ -172,6 +175,37 @@ describe('daily schedule — the sweep', () => {
     }
   });
 
+  it('hold days: the human holds the target, the AI stack borders it, the odds are a real threat, and there is a reserve', async () => {
+    await ready;
+    let seen = 0;
+    for (const { date, spec } of days) {
+      if (spec.archetype !== 'hold_territory') continue;
+      seen += 1;
+      const map = (await loadMap(spec.map_id))!;
+      const board = spec.starting_board!;
+      const target = spec.target_territory_id!;
+      const anchor = spec.anchor_territory_id!;
+      expect(spec.clear_board, date).toBe(true);
+      expect(spec.starting_phase, `${date}: a hold day opens in draft so the player can reinforce first`).toBeUndefined();
+      expect(board[target]?.owner, date).toBe('human');
+      expect(board[anchor]?.owner, date).toBe('ai');
+      expect(map.connections.some((c) => (c.from === anchor && c.to === target) || (c.from === target && c.to === anchor)), date).toBe(true);
+      expect(spec.max_turns, date).toBeGreaterThanOrEqual(5);
+      expect(spec.max_turns, date).toBeLessThanOrEqual(8);
+      expect(spec.goal, date).toMatch(/^Hold .+ for \d+ turns\.$/);
+      // A reserve the player can fortify into the target.
+      const reserve = Object.entries(board).find(([tid, t]) => t.owner === 'human' && tid !== target);
+      expect(reserve, `${date}: no human reserve`).toBeDefined();
+      expect(map.connections.some((c) => (c.from === reserve![0] && c.to === target) || (c.from === target && c.to === reserve![0])), `${date}: reserve must border the target`).toBe(true);
+      // The AI is favoured against garrison + opening draft, but not overwhelmingly.
+      const sea = map.connections.some((c) => ((c.from === anchor && c.to === target) || (c.from === target && c.to === anchor)) && c.type === 'sea');
+      const p = captureProbability(board[anchor].unit_count, board[target].unit_count + 3, { attackerBaseCap: sea ? 2 : 3 });
+      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeGreaterThanOrEqual(HOLD_BAND.min);
+      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeLessThanOrEqual(0.92);
+    }
+    expect(seen).toBeGreaterThan(40);
+  });
+
   it('Friday is the harder fight', async () => {
     await ready;
     const odds = async (filter: (d: ScheduledDay) => boolean) => {
@@ -224,10 +258,20 @@ describe('daily schedule — the sweep', () => {
     }
   });
 
+  it('every hold-capable front is served as a hold day within the year', async () => {
+    await ready;
+    const holds = new Set(days.filter((d) => d.spec.archetype === 'hold_territory').map((d) => d.set_piece_id));
+    for (const sp of bucketForVerb('hold')) {
+      expect(holds.has(sp.id), `${sp.id} never comes round as a hold day`).toBe(true);
+    }
+  });
+
   it('uses every set-piece in a bucket before repeating any', async () => {
     await ready;
+    // The cursor-walked slots (hold, Saturday) defer an entry rather than
+    // repeat one, so this order property is for the plain ordinal walks.
     for (const verb of ['tactical', 'economy', 'tech', 'domination'] as const) {
-      const bucket = setPiecesOfKind(verb);
+      const bucket = bucketForVerb(verb);
       const used: string[] = [];
       for (const d of days) {
         const slot = WEEKDAY_CADENCE[weekdayOf(d.date)];
@@ -243,9 +287,10 @@ describe('daily schedule — the sweep', () => {
     await ready;
     const byId = new Map<string, ScheduledDay[]>();
     for (const d of days) {
-      const list = byId.get(d.set_piece_id!) ?? [];
+      const key = `${d.set_piece_id}:${d.spec.archetype}`;
+      const list = byId.get(key) ?? [];
       list.push(d);
-      byId.set(d.set_piece_id!, list);
+      byId.set(key, list);
     }
     let recurrences = 0;
     for (const list of byId.values()) {

@@ -236,6 +236,64 @@ export function calibrateTactical(input: TacticalCalibrationInput): TacticalCali
   };
 }
 
+// ── Hold calibration ─────────────────────────────────────────────────────────
+//
+// The tactical front flipped: the AI's assault stack sits on the anchor, the
+// human holds the target with a garrison and has a reserve beside it. The
+// human moves first, so the fight the AI actually gets is against the
+// garrison PLUS the first draft; the stack is sized against that, in a band
+// where the AI is favoured if the player does nothing clever. Reinforcing,
+// fortifying the reserve in, or hitting the stack first is the puzzle.
+
+/** P(AI captures on its first assault, after the human's opening draft). */
+export const HOLD_BAND = { min: 0.55, max: 0.75 } as const;
+/** What a two-territory human drafts on turn one (calculateReinforcements floor). */
+const HOLD_OPENING_DRAFT = 3;
+
+export interface HoldCalibrationInput {
+  /** The AI's assault stack sits here; must border the target. */
+  anchor: string;
+  /** The territory the human must keep. */
+  target: string;
+  /** Human reserve beside the target (must border it). */
+  reserve?: string | null;
+  /** Other AI holdings. */
+  extraAi?: readonly string[];
+  assaultIsSea: boolean;
+  rng: () => number;
+  band: TacticalBand;
+}
+
+export function calibrateHold(input: HoldCalibrationInput): TacticalCalibration | null {
+  const { rng, band } = input;
+  const int = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
+
+  const garrison = int(4, 7);
+  const defended = garrison + HOLD_OPENING_DRAFT;
+  const targetP = band.min + rng() * (band.max - band.min);
+  const attackerBaseCap = input.assaultIsSea ? 2 : 3;
+  let stack = defended + 1;
+  let p = 0;
+  for (; stack <= defended + 16; stack++) {
+    p = captureProbability(stack, defended, { attackerBaseCap });
+    if (p >= targetP) break;
+  }
+  if (p < band.min || p > 0.92) return null;
+
+  const board: NonNullable<DailyPuzzleSpec['starting_board']> = {
+    [input.anchor]: { owner: 'ai', unit_count: stack },
+    [input.target]: { owner: 'human', unit_count: garrison },
+  };
+  const reserveUnits = int(3, 5);
+  if (input.reserve && !board[input.reserve]) {
+    board[input.reserve] = { owner: 'human', unit_count: reserveUnits };
+  }
+  for (const tid of input.extraAi ?? []) {
+    if (!board[tid]) board[tid] = { owner: 'ai', unit_count: int(3, 6) };
+  }
+  return { board, max_turns: 6 + int(0, 1), p };
+}
+
 /** The connection between two territories, if any. */
 export function findConnection(
   map: GameMap,

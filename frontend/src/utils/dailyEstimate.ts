@@ -15,6 +15,8 @@ export function estimatedTime(spec: { archetype?: string }): string {
   switch (spec.archetype) {
     case 'military_capture':
       return '2\u20135 min';
+    case 'hold_territory':
+      return '3\u20136 min';
     case 'economy_build':
       return '4\u20138 min';
     case 'tech_research':

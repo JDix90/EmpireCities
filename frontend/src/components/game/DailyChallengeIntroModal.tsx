@@ -3,7 +3,7 @@ import { Calendar, Clock, Target, Trophy } from 'lucide-react';
 import { estimatedTime } from '../../utils/dailyEstimate';
 
 export interface DailyIntroSpec {
-  archetype?: 'domination' | 'military_capture' | 'economy_build' | 'tech_research' | string;
+  archetype?: 'domination' | 'military_capture' | 'hold_territory' | 'economy_build' | 'tech_research' | string;
   title?: string;
   intro?: string;
   goal?: string;
@@ -25,6 +25,7 @@ interface DailyChallengeIntroModalProps {
 const ARCHETYPE_LABELS: Record<string, string> = {
   domination: 'Domination',
   military_capture: 'Military Capture',
+  hold_territory: 'Hold the Line',
   economy_build: 'Economy Build',
   tech_research: 'Tech Research',
 };
