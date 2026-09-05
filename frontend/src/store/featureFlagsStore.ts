@@ -100,10 +100,6 @@ export function useHeroSingleCtaEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.hero_single_cta_enabled);
 }
 
-export function useEraAdvancePayoffEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.era_advance_payoff_enabled);
-}
-
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
 }

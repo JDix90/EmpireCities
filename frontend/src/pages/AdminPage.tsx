@@ -99,31 +99,49 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'turn_clarity_enabled',
     label: 'Turn clarity (in-game)',
     description:
-      'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. Off by default (dark-launch).',
+      'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. On by default.',
   },
   {
     key: 'onboarding_tutorial_first_enabled',
     label: 'Guest → tutorial first',
     description:
-      'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. Off by default (dark-launch) so it can be A/B’d against the first-session funnel.',
+      'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. On by default; switch off to send guests to the lobby instead.',
   },
   {
     key: 'era_advance_payoff_enabled',
     label: 'Era-advance payoff',
     description:
-      'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. Off by default (dark-launch).',
+      'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. On by default.',
   },
   {
     key: 'hero_single_cta_enabled',
     label: 'Landing hero: single CTA',
     description:
-      'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. Off by default.',
+      'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. On by default.',
   },
   {
     key: 'space_age_frontiers_enabled',
     label: 'Space Age frontiers (standalone)',
     description:
       'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation. Off by default (dark-launch) until the enlarged board is balance-checked.',
+  },
+  {
+    key: 'today_panel_enabled',
+    label: 'Lobby "Today" panel',
+    description:
+      'Replace the lobby right column with the unified Today panel (daily challenge, streak, login reward, next async turn). Off by default (dark-launch). NOTE: this is the container for the two flags below — with it off they have no surface, so turn it on first when testing either.',
+  },
+  {
+    key: 'streak_freezes_enabled',
+    label: 'Streak freezes (purchase)',
+    description:
+      'Offer streak freezes for gold in the Today panel and show the owned count. Off by default (dark-launch), and only visible when the Today panel is on. Consuming an already-owned freeze is deliberately NOT gated, so switching this off stops sales without breaking anything a player already bought.',
+  },
+  {
+    key: 'async_onboarding_enabled',
+    label: 'Async onboarding nudges',
+    description:
+      'Multi-day async nudges in the Today panel and the post-game prompt (start an async game, take your turn). Off by default (dark-launch), and only partly visible when the Today panel is on.',
   },
   {
     key: 'ranked_multi_size_enabled',

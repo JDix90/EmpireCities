@@ -42,8 +42,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
     if (envValue == null || envValue === '') return config.nodeEnv !== 'production';
     return envValue === 'true';
   },
-  socket_debug: () => config.nodeEnv === 'development' && envOptIn('SOCKET_DEBUG'),
-
   map_editor_enabled: () => envOptOut('MAP_EDITOR_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
   turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
@@ -140,11 +138,6 @@ export const featureFlags = {
    */
   get metricsEndpointEnabled(): boolean {
     return overrideBool('metrics_endpoint_enabled');
-  },
-
-  /** Verbose socket debug (development only — never enable in prod). */
-  get socketDebug(): boolean {
-    return overrideBool('socket_debug');
   },
 
   /**
@@ -391,6 +384,14 @@ export const featureFlags = {
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
+/**
+ * Flags shipped to the browser. Backend-only flags stay OUT of this payload —
+ * `space_age_frontiers_enabled` is baked into each game's settings at creation,
+ * so the client never reads it; it was sent here and silently dropped by the
+ * ClientFeatureFlags type. The Admin panel resolves flags from
+ * `feature_flag_states` on GET /admin/config, not from this payload, so a flag
+ * can be operator-togglable without being public.
+ */
 export function getClientFeatureFlags(): Record<string, boolean> {
   return {
     map_editor_enabled: featureFlags.mapEditorEnabled,
@@ -406,7 +407,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
     spectate_enabled: featureFlags.spectateEnabled,
-    space_age_frontiers_enabled: featureFlags.spaceAgeFrontiersEnabled,
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
