@@ -10,6 +10,8 @@ export type DailyPuzzleArchetype =
   | 'domination'
   | 'military_capture'
   | 'hold_territory'
+  | 'control_region'
+  | 'capture_chain'
   | 'economy_build'
   | 'tech_research';
 
@@ -30,6 +32,10 @@ export interface DailyPuzzleSpec {
   dice_queue_seed: number;
   /** military_capture: must capture this territory. hold_territory: must still own it at the clock. */
   target_territory_id?: string;
+  /** capture_chain: every one of these must be taken (order-free) and held. */
+  target_territory_ids?: string[];
+  /** control_region: every territory of this region must be held. */
+  region_id?: string;
   /** military_capture: the human's main force starts here. hold_territory: the AI's assault stack does. */
   anchor_territory_id?: string;
   /** economy_build: build this on any owned territory */

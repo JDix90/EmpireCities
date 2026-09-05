@@ -12,31 +12,87 @@ const stubMap: GameMap = {
 };
 
 describe('puzzle objective flow', () => {
-  it('military_capture is solved when the human owns the target territory', () => {
+  describe('military_capture is capture AND hold', () => {
     const humanId = 'u1';
     const spec: DailyPuzzleSpec = {
       archetype: 'military_capture',
-      title: 'T',
-      intro: 'i',
-      goal: 'g',
-      era_id: 'ancient',
-      map_id: 'm',
-      seed: 1,
-      player_count: 2,
-      max_turns: 10,
-      dice_queue_seed: 1,
+      title: 'T', intro: 'i', goal: 'g',
+      era_id: 'ancient', map_id: 'm', seed: 1, player_count: 2, max_turns: 10, dice_queue_seed: 1,
       target_territory_id: 'cap',
       anchor_territory_id: 'anc',
     };
-    const state = {
+    const board = (owner: string, turn: number, reachedTurn?: number | null) => ({
       players: [{ player_id: humanId, is_eliminated: false }],
-      territories: {
-        cap: { owner_id: humanId, unit_count: 1 },
-      },
-      turn_number: 2,
-    } as unknown as GameState;
+      territories: { cap: { owner_id: owner, unit_count: 1 } },
+      turn_number: turn,
+      puzzle_objective_reached_turn: reachedTurn,
+    }) as unknown as GameState;
 
-    expect(evaluatePuzzleObjective(state, stubMap, spec, humanId)).toBe('solved');
+    it('is only pending on the turn the target falls — the enemy still gets its reply', () => {
+      const state = board(humanId, 2);
+      expect(evaluatePuzzleObjective(state, stubMap, spec, humanId)).toBe('pending');
+      expect(state.puzzle_objective_reached_turn).toBe(2);
+    });
+
+    it('is solved once the turn counter has moved past the capture with the target still held', () => {
+      const state = board(humanId, 3, 2);
+      expect(evaluatePuzzleObjective(state, stubMap, spec, humanId)).toBe('solved');
+    });
+
+    it('resets when the target is lost, so a retake starts the hold again', () => {
+      const lost = board('ai', 3, 2);
+      expect(evaluatePuzzleObjective(lost, stubMap, spec, humanId)).toBe('pending');
+      expect(lost.puzzle_objective_reached_turn).toBeNull();
+      const retaken = board(humanId, 3, null);
+      expect(evaluatePuzzleObjective(retaken, stubMap, spec, humanId)).toBe('pending');
+      expect(retaken.puzzle_objective_reached_turn).toBe(3);
+    });
+  });
+
+  it('capture_chain needs every target, held through the reply', () => {
+    const humanId = 'u1';
+    const spec: DailyPuzzleSpec = {
+      archetype: 'capture_chain',
+      title: 'T', intro: 'i', goal: 'g',
+      era_id: 'ancient', map_id: 'm', seed: 1, player_count: 2, max_turns: 10, dice_queue_seed: 1,
+      target_territory_ids: ['a', 'b'],
+      anchor_territory_id: 'anc',
+    };
+    const one = {
+      players: [{ player_id: humanId, is_eliminated: false }],
+      territories: { a: { owner_id: humanId, unit_count: 2 }, b: { owner_id: 'ai', unit_count: 2 } },
+      turn_number: 4, puzzle_objective_reached_turn: null,
+    } as unknown as GameState;
+    expect(evaluatePuzzleObjective(one, stubMap, spec, humanId)).toBe('pending');
+    expect(one.puzzle_objective_reached_turn).toBeNull();
+    const both = { ...one, territories: { a: { owner_id: humanId, unit_count: 2 }, b: { owner_id: humanId, unit_count: 2 } }, turn_number: 5, puzzle_objective_reached_turn: 4 } as unknown as GameState;
+    expect(evaluatePuzzleObjective(both, stubMap, spec, humanId)).toBe('solved');
+  });
+
+  it('control_region needs every territory of the region, read from the map', () => {
+    const humanId = 'u1';
+    const map = {
+      ...stubMap,
+      territories: [
+        { territory_id: 'r1', region_id: 'reg' },
+        { territory_id: 'r2', region_id: 'reg' },
+        { territory_id: 'x', region_id: 'other' },
+      ],
+    } as unknown as GameMap;
+    const spec: DailyPuzzleSpec = {
+      archetype: 'control_region',
+      title: 'T', intro: 'i', goal: 'g',
+      era_id: 'ancient', map_id: 'm', seed: 1, player_count: 2, max_turns: 10, dice_queue_seed: 1,
+      region_id: 'reg',
+    };
+    const partial = {
+      players: [{ player_id: humanId, is_eliminated: false }],
+      territories: { r1: { owner_id: humanId, unit_count: 2 }, r2: { owner_id: 'ai', unit_count: 2 }, x: { owner_id: 'ai', unit_count: 2 } },
+      turn_number: 3, puzzle_objective_reached_turn: null,
+    } as unknown as GameState;
+    expect(evaluatePuzzleObjective(partial, map, spec, humanId)).toBe('pending');
+    const all = { ...partial, territories: { r1: { owner_id: humanId, unit_count: 2 }, r2: { owner_id: humanId, unit_count: 2 }, x: { owner_id: 'ai', unit_count: 2 } }, turn_number: 4, puzzle_objective_reached_turn: 3 } as unknown as GameState;
+    expect(evaluatePuzzleObjective(all, map, spec, humanId)).toBe('solved');
   });
 
   describe('hold_territory', () => {

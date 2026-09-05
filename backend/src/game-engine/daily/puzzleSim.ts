@@ -5,9 +5,11 @@
  * initializeGameState, then applyDailyPuzzleScenario — and plays it out with
  * the pure engine. The AI seat runs the shipped production bot (grind, odds
  * targeting, decided-game press, the day's difficulty). The human seat plays
- * the OBVIOUS LINE for the verb: mass on the anchor and commit; or draft onto
- * the target, fortify the reserve in, and never attack. A player who finds a
- * better line beats par; one who plays the obvious line lands on it.
+ * the OBVIOUS LINE for the verb: take the objectives one at a time from the
+ * biggest adjacent stack, commit, then mass onto what was taken and wait out
+ * the reply; or draft onto the target, fortify the reserve in, and never
+ * attack. A player who finds a better line beats par; one who plays the
+ * obvious line lands on it.
  *
  * Why not the bot in the human seat: the bot does not know the objective. It
  * would wander off to a juicier neighbour on a capture day, or strip the
@@ -19,21 +21,24 @@
  * seeded, so the same spec simulates identically on any process — the CI
  * sweep and the serving process agree on solve rate and par.
  *
- * Scope: military_capture and hold_territory. Economy and tech days keep the
- * arithmetic check (dailyGenerator.sizeEarnable), which is exact.
+ * Scope: the capture verbs (single, chain, region) and hold. Economy and
+ * tech days keep the arithmetic check (dailyGenerator.sizeEarnable), which
+ * is exact.
  */
 import type { AiDifficulty, GameMap, GameSettings, GameState, MapConnection } from '../../types';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from './dailySettings';
 import { applyDailyPuzzleScenario } from './applyDailyPuzzleScenario';
-import { evaluatePuzzleObjective, isPuzzleTimedOut, puzzleTimeoutOutcome } from './puzzleObjective';
+import { evaluatePuzzleObjective, isPuzzleTimedOut, puzzleTimeoutOutcome, regionTerritoryIds } from './puzzleObjective';
 import { advanceToNextPlayer, initializeGameState } from '../state/gameStateManager';
 import { computeAiTurn, type AiAction } from '../ai/aiBot';
 import { executeLandAttack } from '../combat/executeLandAttack';
 import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from '../ai/aiAttackGrind';
 import { createSeededRng, hashStringToSeed } from '../victory/missions';
 
-export const SIMULATED_ARCHETYPES = new Set<DailyPuzzleSpec['archetype']>(['military_capture', 'hold_territory']);
+export const SIMULATED_ARCHETYPES = new Set<DailyPuzzleSpec['archetype']>([
+  'military_capture', 'hold_territory', 'control_region', 'capture_chain',
+]);
 
 export interface PuzzleSimOptions {
   /** Games to play. Default 24. */
@@ -105,40 +110,70 @@ function resolution(state: GameState, map: GameMap, spec: DailyPuzzleSpec): 'sol
 
 // ── The human seat: the obvious line ─────────────────────────────────────────
 
+/** The territories a capture-shaped verb has to take. */
+function objectiveTargets(map: GameMap, spec: DailyPuzzleSpec): string[] {
+  if (spec.archetype === 'capture_chain') return [...(spec.target_territory_ids ?? [])];
+  if (spec.archetype === 'control_region') return spec.region_id ? regionTerritoryIds(map, spec.region_id) : [];
+  return spec.target_territory_id ? [spec.target_territory_id] : [];
+}
+
 function captureLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec, dieRoll: () => number): void {
-  const target = spec.target_territory_id!;
-  const mine = ownedBy(state, HUMAN);
-  // The anchor is the biggest owned stack that borders the target.
-  const borderStacks = mine.filter((t) => neighbours(map, t).includes(target));
-  if (borderStacks.length === 0) {
-    state.draft_units_remaining = 0;
+  const targets = objectiveTargets(map, spec);
+  const held = (t: string) => state.territories[t]?.owner_id === HUMAN;
+  const mine = () => ownedBy(state, HUMAN);
+  const biggestNeighbourOf = (t: string): string | null => {
+    const stacks = mine().filter((h) => neighbours(map, h).includes(t));
+    if (stacks.length === 0) return null;
+    return stacks.reduce((best, h) =>
+      state.territories[h].unit_count > state.territories[best].unit_count ? h : best,
+    );
+  };
+
+  // The next objective: the first not yet held that we can reach.
+  const next = targets.find((t) => !held(t) && biggestNeighbourOf(t) !== null);
+
+  if (!next) {
+    // Everything is taken (or unreachable): mass on the thinnest holding and
+    // wait out the enemy's reply.
+    const holdings = targets.filter(held);
+    state.phase = 'draft';
+    if (holdings.length > 0) {
+      const thinnest = holdings.reduce((a, b) =>
+        state.territories[b].unit_count < state.territories[a].unit_count ? b : a,
+      );
+      placeDraft(state, thinnest);
+      state.phase = 'fortify';
+      const feeder = mine().find((h) => !targets.includes(h) && neighbours(map, h).includes(thinnest));
+      if (feeder) fortifyAll(state, HUMAN, feeder, thinnest);
+    } else {
+      state.draft_units_remaining = 0;
+    }
     return;
   }
-  const anchor = borderStacks.reduce((best, t) =>
-    state.territories[t].unit_count > state.territories[best].unit_count ? t : best,
-  );
 
+  const anchor = biggestNeighbourOf(next)!;
   state.phase = 'draft';
   placeDraft(state, anchor);
 
-  // Commit: keep rolling from the anchor until the target falls or the stack
-  // cannot attack. The engine refuses an attack from a single unit.
+  // Commit: keep rolling from the anchor until the objective falls or the
+  // stack cannot attack. The engine refuses an attack from a single unit.
   state.phase = 'attack';
-  const connection = connectionBetween(map, anchor, target);
+  const connection = connectionBetween(map, anchor, next);
   for (let guard = 0; guard < 64; guard++) {
-    if (state.territories[target].owner_id === HUMAN) break;
+    if (held(next)) break;
     if (state.territories[anchor].unit_count <= 1) break;
-    const outcome = executeLandAttack(state, HUMAN, anchor, target, { dieRoll, connection });
+    const outcome = executeLandAttack(state, HUMAN, anchor, next, { dieRoll, connection });
     if (!outcome) break;
     if (outcome.captured) break;
   }
 
-  // Mass before the next march: pull the reserve up behind the anchor.
   state.phase = 'fortify';
-  if (state.territories[target].owner_id !== HUMAN) {
-    const reserve = ownedBy(state, HUMAN).find(
-      (t) => t !== anchor && neighbours(map, t).includes(anchor),
-    );
+  if (held(next)) {
+    // Win with enough left to hold it: bring the rest of the stack forward.
+    fortifyAll(state, HUMAN, anchor, next);
+  } else {
+    // Mass before the next march: pull the reserve up behind the anchor.
+    const reserve = mine().find((t) => t !== anchor && !targets.includes(t) && neighbours(map, t).includes(anchor));
     if (reserve) fortifyAll(state, HUMAN, reserve, anchor);
   }
 }

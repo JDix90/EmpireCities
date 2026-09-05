@@ -70,7 +70,8 @@ describe('puzzleSim', () => {
       { games: 30 },
     );
     expect(r!.solve_rate).toBeGreaterThanOrEqual(0.95);
-    expect(r!.median_turns).toBe(1);
+    // Captured on turn 1, held through the reply, solved as turn 2 begins.
+    expect(r!.median_turns).toBe(2);
   });
 
   it('calls a lost cause a lost cause: a token stack against a fortress', async () => {

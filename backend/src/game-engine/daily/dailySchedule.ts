@@ -20,7 +20,9 @@ import {
   DAILY_SET_PIECES,
   holdCapableSetPieces,
   setPiecesOfKind,
+  type ChainSetPiece,
   type DailySetPiece,
+  type RegionSetPiece,
   type TacticalSetPiece,
 } from '../../content/dailySetPieces';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
@@ -30,8 +32,12 @@ import {
   buildDailyPuzzleBase,
   buildEconomyDay,
   buildTechDay,
+  calibrateChain,
   calibrateHold,
+  calibrateRegion,
   calibrateTactical,
+  captureGoal,
+  regionGoal,
   HOLD_BAND,
   economySpecFromBase,
   findConnection,
@@ -46,11 +52,15 @@ import {
 } from './dailyGenerator';
 import { createSeededRng, hashStringToSeed } from '../victory/missions';
 
-export type DailyVerb = 'tactical' | 'hold' | 'economy' | 'tech' | 'domination';
+export type DailyVerb = 'tactical' | 'hold' | 'region' | 'chain' | 'economy' | 'tech' | 'domination';
+export type SlotVerb = DailyVerb | 'any';
 
 export interface CadenceSlot {
-  /** The verb for this weekday; 'any' walks every puzzle-shaped set-piece. */
-  verb: DailyVerb | 'any';
+  /**
+   * The verb(s) for this weekday, cycling by week when there is more than
+   * one; 'any' walks every puzzle-shaped set-piece.
+   */
+  cycle: readonly SlotVerb[];
   /** Tactical band. Friday is the harder fight. */
   band?: 'standard' | 'hard';
   /** What to do when the verb's bucket is empty. */
@@ -63,17 +73,25 @@ export interface CadenceSlot {
  * wants hand work, and even that runs unattended from the library.
  */
 export const WEEKDAY_CADENCE: Readonly<Record<number, CadenceSlot>> = {
-  1: { verb: 'tactical', band: 'standard' },
-  2: { verb: 'economy' },
+  1: { cycle: ['tactical'], band: 'standard' },
+  2: { cycle: ['economy'] },
   // Wednesday is the defended front: the same set-pieces read the other way.
-  3: { verb: 'hold' },
-  4: { verb: 'tech' },
-  5: { verb: 'tactical', band: 'hard' },
+  3: { cycle: ['hold'] },
+  4: { cycle: ['tech'] },
+  // Friday is the harder fight, and cycles its shape: a hard capture, a
+  // region to control, a chain to march down.
+  5: { cycle: ['tactical', 'region', 'chain'], band: 'hard' },
   // Any puzzle verb. Domination is Sunday's alone: two long days in one
   // weekend is not a rhythm, it is a wall.
-  6: { verb: 'any' },
-  0: { verb: 'domination', fallback: 'tactical' },
+  6: { cycle: ['any'] },
+  0: { cycle: ['domination'], fallback: 'tactical' },
 };
+
+/** The verb a weekday's slot carries on a given date's week. */
+export function verbForDate(date: string): SlotVerb {
+  const slot = WEEKDAY_CADENCE[weekdayOf(date)];
+  return slot.cycle[weekIndexOf(date) % slot.cycle.length];
+}
 
 /** The set-pieces Saturday walks: every puzzle-shaped entry, in id order. */
 function saturdayLibrary(): DailySetPiece[] {
@@ -123,13 +141,16 @@ export const GATE_GAMES = 40;
 export const GATE_ATTEMPTS = 8;
 /** How far each missed attempt moves the sizing band toward the miss. */
 const GATE_BAND_STEP = 0.07;
-export const GATE_BANDS: Record<'military_capture' | 'hold_territory', { min: number; max: number }> = {
+export const GATE_BANDS: Record<'military_capture' | 'hold_territory' | 'control_region' | 'capture_chain', { min: number; max: number }> = {
   // Calibrated: the authored calendar's captures score 92–100% on the obvious
   // line; the library's land at 85–98%. The ceiling is a freebie guard, the
   // floor the unwinnable-board guard.
   military_capture: { min: 0.5, max: 0.96 },
   // Calibrated: the library's holds land at 35–80% once the numbers re-roll.
   hold_territory: { min: 0.35, max: 0.8 },
+  // Multi-objective captures: the same guards as a capture.
+  control_region: { min: 0.5, max: 0.96 },
+  capture_chain: { min: 0.5, max: 0.96 },
 };
 
 /**
@@ -173,22 +194,32 @@ export function weekIndexOf(date: string): number {
   return Math.floor((dayNumber(date) + 3) / 7);
 }
 
-/** Weekdays (Mon..Sun order) whose cadence slot carries this verb. */
-function slotsForVerb(verb: DailyVerb | 'any'): number[] {
-  const order = [1, 2, 3, 4, 5, 6, 0];
-  return order.filter((wd) => WEEKDAY_CADENCE[wd].verb === verb);
-}
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /**
  * The rotation ordinal for a verb on a date: how many cadence slots of that
- * verb have occurred up to and including this one, counted from the epoch.
- * Walking a bucket by ordinal visits every entry before any repeats.
+ * verb occurred before this one, counted from the epoch. Walking a bucket by
+ * ordinal visits every entry before any repeats. -1 when the date's slot does
+ * not carry the verb this week.
  */
-export function rotationOrdinal(date: string, verb: DailyVerb | 'any'): number {
-  const slots = slotsForVerb(verb);
-  const slot = slots.indexOf(weekdayOf(date));
-  if (slot < 0) return -1;
-  return weekIndexOf(date) * slots.length + slot;
+export function rotationOrdinal(date: string, verb: SlotVerb): number {
+  const W = weekIndexOf(date);
+  const wd = weekdayOf(date);
+  const own = WEEKDAY_CADENCE[wd];
+  const ownIdx = own.cycle.indexOf(verb);
+  if (ownIdx < 0 || W % own.cycle.length !== ownIdx) return -1;
+  let ordinal = 0;
+  for (const s of WEEK_ORDER) {
+    const slot = WEEKDAY_CADENCE[s];
+    const L = slot.cycle.length;
+    const idx = slot.cycle.indexOf(verb);
+    if (idx < 0) continue;
+    // Occurrences in weeks before this one: weeks w < W with w % L === idx.
+    if (W > idx) ordinal += Math.floor((W - 1 - idx) / L) + 1;
+    // This week, on an earlier weekday.
+    if (W % L === idx && WEEK_ORDER.indexOf(s) < WEEK_ORDER.indexOf(wd)) ordinal += 1;
+  }
+  return ordinal;
 }
 
 function pickFromBucket<T extends { id: string }>(
@@ -236,7 +267,7 @@ function capturesInWeek(date: string): Set<string> {
   const served = new Set<string>();
   for (let i = 0; i < 7; i++) {
     const d = addDays(monday, i);
-    if (WEEKDAY_CADENCE[weekdayOf(d)].verb !== 'tactical') continue;
+    if (verbForDate(d) !== 'tactical') continue;
     const id = ordinalPick(d, 'tactical')?.id;
     if (id) served.add(id);
   }
@@ -329,14 +360,14 @@ const sortedById = (xs: readonly DailySetPiece[]): DailySetPiece[] =>
  */
 export function pickSetPieceForDate(date: string): DailySetPiece | null {
   if (getAuthoredDailySpec(date)) return null;
-  const slot = WEEKDAY_CADENCE[weekdayOf(date)];
-  if (slot.verb === 'any') {
+  const verb = verbForDate(date);
+  if (verb === 'any') {
     return cursorPick('saturday', sortedById(saturdayLibrary()), 6, date, servedByVerbSlots);
   }
-  if (slot.verb === 'hold') {
+  if (verb === 'hold') {
     return cursorPick('hold', sortedById(bucketForVerb('hold')), weekdayOf(date), date, capturesInWeek);
   }
-  return ordinalPick(date, slot.verb);
+  return ordinalPick(date, verb);
 }
 
 // ── Seeds ────────────────────────────────────────────────────────────────────
@@ -388,7 +419,7 @@ async function materializeTactical(
     archetype: 'military_capture',
     title: sp.title,
     intro: sp.intro,
-    goal: `Capture ${territoryDisplayName(map, sp.target)} before time runs out.`,
+    goal: captureGoal(map, [sp.target]),
     era_id: sp.era_id,
     map_id: sp.map_id,
     seed: seeds.seed,
@@ -461,6 +492,96 @@ async function materializeHold(
   };
 }
 
+async function materializeRegion(
+  date: string,
+  sp: RegionSetPiece,
+  band: TacticalBand,
+  deps: ScheduleDeps,
+  attempt = 0,
+): Promise<DailyPuzzleSpec | null> {
+  const map = await deps.loadMap(sp.map_id);
+  if (!map) {
+    console.warn(`[daily] ${date}: set-piece "${sp.id}" needs map ${sp.map_id}, which did not load`);
+    return null;
+  }
+  const seeds = seedsFor(date, sp.id, attempt);
+  const humanSide = [...sp.human, ...(sp.support ? [sp.support] : [])];
+  const calibrated = calibrateRegion({
+    human: sp.human,
+    ai: sp.ai,
+    support: sp.support ?? null,
+    extraAi: sp.extra_ai,
+    anchorFor: (aiTid) => humanSide.find((h) => !!findConnection(map, h, aiTid)) ?? null,
+    assaultIsSea: (from, to) => findConnection(map, from, to)?.type === 'sea',
+    rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
+    band,
+  });
+  if (!calibrated) return null;
+  return {
+    archetype: 'control_region',
+    title: sp.title,
+    intro: sp.intro,
+    goal: regionGoal(map, sp.region_id),
+    era_id: sp.era_id,
+    map_id: sp.map_id,
+    seed: seeds.seed,
+    player_count: GENERATED_PLAYER_COUNT,
+    max_turns: calibrated.max_turns,
+    dice_queue_seed: seeds.dice_queue_seed,
+    region_id: sp.region_id,
+    ...(sp.hint ? { hint: sp.hint } : {}),
+    ai_difficulty: sp.ai_difficulty ?? GENERATED_AI_DIFFICULTY,
+    clear_board: true,
+    starting_phase: 'attack',
+    starting_board: calibrated.board,
+  };
+}
+
+async function materializeChain(
+  date: string,
+  sp: ChainSetPiece,
+  band: TacticalBand,
+  deps: ScheduleDeps,
+  attempt = 0,
+): Promise<DailyPuzzleSpec | null> {
+  const map = await deps.loadMap(sp.map_id);
+  if (!map) {
+    console.warn(`[daily] ${date}: set-piece "${sp.id}" needs map ${sp.map_id}, which did not load`);
+    return null;
+  }
+  const seeds = seedsFor(date, sp.id, attempt);
+  const calibrated = calibrateChain({
+    anchor: sp.anchor,
+    targets: sp.targets,
+    support: sp.support ?? null,
+    relief: sp.relief ?? null,
+    extraAi: sp.extra_ai,
+    assaultIsSea: (from, to) => findConnection(map, from, to)?.type === 'sea',
+    rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
+    band,
+  });
+  if (!calibrated) return null;
+  return {
+    archetype: 'capture_chain',
+    title: sp.title,
+    intro: sp.intro,
+    goal: captureGoal(map, sp.targets),
+    era_id: sp.era_id,
+    map_id: sp.map_id,
+    seed: seeds.seed,
+    player_count: GENERATED_PLAYER_COUNT,
+    max_turns: calibrated.max_turns,
+    dice_queue_seed: seeds.dice_queue_seed,
+    target_territory_ids: [...sp.targets],
+    anchor_territory_id: sp.anchor,
+    ...(sp.hint ? { hint: sp.hint } : {}),
+    ai_difficulty: sp.ai_difficulty ?? GENERATED_AI_DIFFICULTY,
+    clear_board: true,
+    starting_phase: 'attack',
+    starting_board: calibrated.board,
+  };
+}
+
 async function materialize(
   date: string,
   sp: DailySetPiece,
@@ -474,6 +595,10 @@ async function materialize(
   switch (sp.kind) {
     case 'tactical':
       return materializeTactical(date, sp, bands.tactical, deps, attempt);
+    case 'region':
+      return materializeRegion(date, sp, bands.tactical, deps, attempt);
+    case 'chain':
+      return materializeChain(date, sp, bands.tactical, deps, attempt);
     case 'economy':
       return buildEconomyDay({ ...sp, ...seeds });
     case 'tech':
@@ -588,7 +713,7 @@ async function gatedMaterialize(
 }
 
 function withPar(spec: DailyPuzzleSpec, sim: PuzzleSimResult): DailyPuzzleSpec {
-  if (spec.archetype !== 'military_capture' || sim.median_turns === null) return spec;
+  if (spec.archetype === 'hold_territory' || sim.median_turns === null) return spec;
   return { ...spec, par_turns: sim.median_turns };
 }
 
@@ -597,32 +722,34 @@ async function computeDay(date: string, deps: ScheduleDeps): Promise<ScheduledDa
   if (authored) return { date, source: 'calendar', spec: authored };
 
   const slot = WEEKDAY_CADENCE[weekdayOf(date)];
+  const slotVerb = verbForDate(date);
   const band = slot.band === 'hard' ? TACTICAL_BAND_HARD : TACTICAL_BAND_STANDARD;
 
   const picked = pickSetPieceForDate(date);
   if (picked) {
-    const spec = await gatedMaterialize(date, picked, band, deps, slot.verb);
+    const spec = await gatedMaterialize(date, picked, band, deps, slotVerb);
     if (spec) return { date, source: 'library', set_piece_id: picked.id, spec };
     console.warn(`[daily] ${date}: set-piece "${picked.id}" could not be sized — using the generator.`);
   }
 
   const verb: DailyVerb =
-    slot.verb === 'any' || slot.verb === 'hold'
-      ? 'tactical'
-      : slot.verb === 'domination' ? (slot.fallback ?? 'tactical') : slot.verb;
+    slotVerb === 'economy' || slotVerb === 'tech'
+      ? slotVerb
+      : slotVerb === 'domination' ? (slot.fallback ?? 'tactical') : 'tactical';
   return { date, source: 'generator', spec: await generateFallback(date, verb, deps) };
 }
 
 /** One line for the startup log: what the library holds and how far the dated calendar reaches. */
 export function describeDailySchedule(): string {
-  const counts: Record<DailyVerb, number> = { tactical: 0, hold: 0, economy: 0, tech: 0, domination: 0 };
+  const counts: Record<DailyVerb, number> = { tactical: 0, hold: 0, region: 0, chain: 0, economy: 0, tech: 0, domination: 0 };
   for (const sp of DAILY_SET_PIECES) counts[sp.kind] += 1;
   counts.hold = holdCapableSetPieces().length;
   const dated = Object.keys(DAILY_CALENDAR).sort();
   const last = dated.length ? dated[dated.length - 1] : 'none';
   return (
     `[daily] library: ${DAILY_SET_PIECES.length} set-pieces `
-    + `(${counts.tactical} tactical of which ${counts.hold} hold, ${counts.economy} economy, ${counts.tech} tech, ${counts.domination} domination); `
+    + `(${counts.tactical} tactical of which ${counts.hold} hold, ${counts.region} region, ${counts.chain} chain, `
+    + `${counts.economy} economy, ${counts.tech} tech, ${counts.domination} domination); `
     + `dated calendar: ${dated.length} day(s), last ${last}`
   );
 }

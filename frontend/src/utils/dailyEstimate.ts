@@ -17,6 +17,9 @@ export function estimatedTime(spec: { archetype?: string }): string {
       return '2\u20135 min';
     case 'hold_territory':
       return '3\u20136 min';
+    case 'control_region':
+    case 'capture_chain':
+      return '4\u20138 min';
     case 'economy_build':
       return '4\u20138 min';
     case 'tech_research':
