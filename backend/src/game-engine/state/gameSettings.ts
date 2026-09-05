@@ -184,12 +184,6 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_conversion_ratio: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
       : undefined,
-    era_advancement_strength_step: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_strength_step, eraDefaults.era_advancement_strength_step)
-      : undefined,
-    era_advancement_cost_step: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_cost_step, eraDefaults.era_advancement_cost_step)
-      : undefined,
     era_advancement_cost_mult: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_cost_mult, eraDefaults.era_advancement_cost_mult)
       : undefined,

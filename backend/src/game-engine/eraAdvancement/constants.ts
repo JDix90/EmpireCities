@@ -25,8 +25,6 @@ export function getDefaultEraAdvancementSettings(): {
   era_advancement_enabled: false;
   era_advancement_spine_id: string;
   era_advancement_conversion_ratio: number;
-  era_advancement_strength_step: number;
-  era_advancement_cost_step: number;
   era_advancement_cost_mult: number;
   era_advancement_cost_escalation: number;
   era_advancement_cost_escalation_cap: number;
@@ -54,8 +52,6 @@ export function getDefaultEraAdvancementSettings(): {
     era_advancement_enabled: false,
     era_advancement_spine_id: DEFAULT_ERA_SPINE_ID,
     era_advancement_conversion_ratio: 0.7,
-    era_advancement_strength_step: 1.4,
-    era_advancement_cost_step: 1.25,
     era_advancement_cost_mult: 2.0,
     // Gentler late-era ramp so Cold War / Modern / Space Age stay reachable
     // before games end. cost/income (= turns-to-advance) is 2.0 * 1.35^eraIndex,

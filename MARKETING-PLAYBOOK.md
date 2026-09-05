@@ -110,9 +110,10 @@ Priority order:
 
 ---
 
-## 5. Highest-leverage product lever for the signups goal (optional, product call)
+## 5. Highest-leverage product lever for the signups goal (shipped)
 
-There is deliberately **no guest→account nudge** today. With the goal now explicitly *signups*,
-a single well-timed prompt — after a first win / after game 1: *"Create a free account to save your
-progress, rank, and rewards"* — is likely cheaper per account than any ad. Worth greenlighting as a
-fast-follow; it reverses a prior onboarding decision, so it's flagged here rather than assumed.
+**Shipped.** The guest→account nudge is live behind `signup_nudge_enabled` (ON by default): a
+one-time post-game prompt — *"Create a free account to save your progress, rank, and rewards"* —
+shown once per tab after a guest finishes a non-tutorial game. See
+[docs/RETENTION-PLAYBOOK.md](docs/RETENTION-PLAYBOOK.md) §Wave 1. This section previously said there
+was deliberately no such nudge, which stopped being true when the flag landed.

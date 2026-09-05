@@ -22,8 +22,6 @@ export const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   defense_3: 10,
   tech_gen_1: 4,
   tech_gen_2: 8,
-  special_a: 5,
-  special_b: 8,
   port: 5,
   naval_base: 10,
   coastal_battery: 4,
@@ -76,7 +74,7 @@ export const BUILDING_DEFENSE_BONUS: Partial<Record<BuildingType, number>> = {
 
 /**
  * Maximum one building of each category per territory:
- * production (any tier), defense (any tier), tech_gen (any tier), special_a, special_b.
+ * production (any tier), defense (any tier), tech_gen (any tier), naval, wonder.
  */
 function buildingCategory(b: BuildingType): string {
   if (b.startsWith('production')) return 'production';
@@ -84,7 +82,7 @@ function buildingCategory(b: BuildingType): string {
   if (b.startsWith('tech_gen')) return 'tech_gen';
   if (b === 'port' || b === 'naval_base') return 'naval';
   if (isWonderId(b)) return 'wonder';
-  return b; // special_a, special_b — unique each
+  return b; // launch_pad, coastal_battery — unique each
 }
 
 function resolveBuildingCosts(state: GameState): Record<BuildingType, number> {
@@ -141,7 +139,18 @@ export function validateBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return { valid: false, error: 'Player not found' };
 
-  const cost = applyWorldBuildCost(state, territory.world_id, resolveBuildingCosts(state)[buildingType]);
+  // `buildingType` reaches the socket handler as a TypeScript annotation only —
+  // there is no runtime validation on game:build — so an unknown id has to be
+  // rejected here. Otherwise the cost lookup yields undefined, `production <
+  // undefined` is false so the affordability check passes, and applyBuild
+  // subtracts undefined, leaving special_resource as NaN and pushing an
+  // arbitrary string into territory.buildings.
+  const declaredCost = resolveBuildingCosts(state)[buildingType];
+  if (typeof declaredCost !== 'number' || !Number.isFinite(declaredCost)) {
+    return { valid: false, error: 'Unknown building type' };
+  }
+
+  const cost = applyWorldBuildCost(state, territory.world_id, declaredCost);
   const playerProduction = player.special_resource ?? 0;
   if (playerProduction < cost) {
     return { valid: false, error: `Not enough production points (need ${cost}, have ${playerProduction})` };

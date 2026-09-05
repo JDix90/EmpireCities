@@ -105,7 +105,8 @@ Walk [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md):
 - [ ] Auth rate limits; socket requires JWT
 - [ ] `/ready` fails when DB down
 - [ ] Backup via `./scripts/backup-databases.sh`; restore drill once
-- [ ] Deploy restart: graceful shutdown documented; in-memory game loss understood
+- [ ] Deploy restart: graceful shutdown documented; live games survive (state reloads from Redis,
+      turn timers survive in BullMQ, clients resync) — see docs/ARCHITECTURE.md §Game state authority model
 
 ---
 

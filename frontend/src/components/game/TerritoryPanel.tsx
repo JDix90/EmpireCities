@@ -1109,7 +1109,7 @@ export default function TerritoryPanel({
         const STANDARD = new Set([
           'production_1', 'production_2', 'production_3', 'production_4',
           'defense_1', 'defense_2', 'defense_3',
-          'tech_gen_1', 'tech_gen_2', 'special_a', 'special_b',
+          'tech_gen_1', 'tech_gen_2',
           'port', 'naval_base', 'coastal_battery',
         ]);
         const unlockedTechs = new Set(myPlayer?.unlocked_techs ?? []);

@@ -81,20 +81,6 @@ export const BUILDING_META: Record<
     icon: <Zap className="w-3 h-3" />,
     category: 'tech',
   },
-  special_a: {
-    label: 'Capital Works',
-    description: 'Capital special project',
-    cost: 5,
-    icon: <Star className="w-3 h-3" />,
-    category: 'special',
-  },
-  special_b: {
-    label: 'Special Project',
-    description: 'Era wonder project',
-    cost: 8,
-    icon: <Star className="w-3 h-3" />,
-    category: 'special',
-  },
   port: {
     label: 'Port',
     description: '+1 fleet/turn',
