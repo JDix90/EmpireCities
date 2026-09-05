@@ -11,6 +11,7 @@ import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
+import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
@@ -50,6 +51,8 @@ export const CreateGameSchema = z.object({
       turn_timer_seconds: z.number().int().min(0).default(300),
       initial_unit_count: z.number().int().min(1).max(10).default(3),
       card_set_escalating: z.boolean().default(true),
+      /** 0 = uncapped (the classic unbounded schedule). */
+      card_set_bonus_cap: z.number().int().min(0).max(1000).optional(),
       diplomacy_enabled: z.boolean().default(true),
       factions_enabled: z.boolean().optional(),
       economy_enabled: z.boolean().optional(),
@@ -177,6 +180,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         {
           ...rawSettings,
           allowed_victory_conditions: mergedList,
+          // New-game rule defaults, baked HERE rather than as normalizer
+          // fallbacks: normalizeGameSettings re-runs on every room load
+          // (repairLegacyGameState → gameRoomManager.repairRoom) and re-persists,
+          // so a default changed there would silently re-rule matches already in
+          // progress. At the create boundary an in-flight game keeps the rules it
+          // started under, and an explicit client value still wins.
+          combat_dice_cap_enabled: rawSettings.combat_dice_cap_enabled ?? true,
+          card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
         },
         {

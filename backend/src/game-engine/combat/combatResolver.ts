@@ -141,16 +141,32 @@ export function resolveCombat(
 }
 
 /**
+ * Default ceiling applied to new games (baked at the create boundary, not here
+ * — see games.routes.ts). 30 lets the schedule escalate through roughly nine
+ * sets before flattening, which keeps the early "bank your cards" decision
+ * intact while bounding the runaway: uncapped, the eighth set already pays 45
+ * and a measured 60-turn match reached 95 per redemption.
+ */
+export const DEFAULT_CARD_SET_BONUS_CAP = 30;
+
+/**
  * Calculate the card set redemption bonus based on how many sets
  * have been redeemed globally in this game.
  * Schedule: 4, 6, 8, 10, 12, 15, then +5 for each subsequent set.
+ *
+ * `cap` bounds the result (see GameSettings.card_set_bonus_cap). The schedule is
+ * shared across ALL players, so by the time a four-player game has traded a
+ * dozen sets each redemption is worth more than a player's whole board, and the
+ * late game collapses into stack-vs-stack. The cap clamps the fixed head of the
+ * schedule as well as the +5 tail, so a value below 15 behaves as written rather
+ * than silently applying only after the sixth set. Absent or 0 = uncapped.
  */
-export function getCardSetBonus(redemptionCount: number): number {
+export function getCardSetBonus(redemptionCount: number, cap?: number): number {
   const schedule = [4, 6, 8, 10, 12, 15];
-  if (redemptionCount < schedule.length) {
-    return schedule[redemptionCount];
-  }
-  return 15 + (redemptionCount - schedule.length + 1) * 5;
+  const bonus = redemptionCount < schedule.length
+    ? schedule[redemptionCount]
+    : 15 + (redemptionCount - schedule.length + 1) * 5;
+  return cap && cap > 0 ? Math.min(bonus, cap) : bonus;
 }
 
 /**

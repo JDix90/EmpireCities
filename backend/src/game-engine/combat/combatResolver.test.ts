@@ -80,6 +80,25 @@ describe('getCardSetBonus', () => {
   it('ramps after schedule', () => {
     expect(getCardSetBonus(6)).toBe(20);
   });
+
+  it('is uncapped when no cap is given, or the cap is 0', () => {
+    // Games created before the cap existed carry no value and must keep the
+    // rules they started under.
+    expect(getCardSetBonus(20)).toBe(90);
+    expect(getCardSetBonus(20, 0)).toBe(90);
+  });
+
+  it('clamps the escalating tail to the cap', () => {
+    expect(getCardSetBonus(6, 30)).toBe(20);
+    expect(getCardSetBonus(9, 30)).toBe(30);
+    expect(getCardSetBonus(20, 30)).toBe(30);
+  });
+
+  it('clamps the fixed head too, so a cap below 15 means what it says', () => {
+    expect(getCardSetBonus(0, 5)).toBe(4);
+    expect(getCardSetBonus(3, 5)).toBe(5);
+    expect(getCardSetBonus(5, 5)).toBe(5);
+  });
 });
 
 describe('calculateReinforcements', () => {

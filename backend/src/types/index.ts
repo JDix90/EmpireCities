@@ -296,6 +296,14 @@ export interface GameSettings {
   turn_timer_seconds: number;    // 0 = no timer
   initial_unit_count: number;
   card_set_escalating: boolean;
+  /**
+   * Ceiling on a territory-card set bonus, in units. The escalating schedule
+   * (4, 6, 8, 10, 12, 15, then +5 per set, shared across all players) is
+   * otherwise unbounded and reaches ~95 units per redemption by turn 40, which
+   * is what turns the late game into stack-vs-stack. Absent or 0 = uncapped,
+   * so games created before the cap existed keep the rules they started under.
+   */
+  card_set_bonus_cap?: number;
   diplomacy_enabled: boolean;
   tutorial?: boolean;
   tutorial_step?: number;
