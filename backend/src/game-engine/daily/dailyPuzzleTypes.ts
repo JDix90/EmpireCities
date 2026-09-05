@@ -9,6 +9,7 @@ import type { AuthoredScenario, BuildingType, EraId } from '../../types';
 export type DailyPuzzleArchetype =
   | 'domination'
   | 'military_capture'
+  | 'hold_territory'
   | 'economy_build'
   | 'tech_research';
 
@@ -27,9 +28,9 @@ export interface DailyPuzzleSpec {
   max_turns: number;
   /** Seed for Tier B deterministic combat dice (mulberry32 stream). */
   dice_queue_seed: number;
-  /** military_capture: must capture this territory */
+  /** military_capture: must capture this territory. hold_territory: must still own it at the clock. */
   target_territory_id?: string;
-  /** military_capture: human starts owning this adjacent territory */
+  /** military_capture: the human's main force starts here. hold_territory: the AI's assault stack does. */
   anchor_territory_id?: string;
   /** economy_build: build this on any owned territory */
   building_type?: BuildingType;

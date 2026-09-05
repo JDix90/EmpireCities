@@ -1,7 +1,7 @@
 import type { Server } from 'socket.io';
 import type { GameState, GameMap } from '../types';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
-import { evaluatePuzzleObjective, isPuzzleTimedOut } from '../game-engine/daily/puzzleObjective';
+import { evaluatePuzzleObjective, isPuzzleTimedOut, puzzleTimeoutOutcome } from '../game-engine/daily/puzzleObjective';
 import { computePuzzleMoveFeedback } from '../game-engine/daily/puzzleMoveFeedback';
 
 export function getDailyPuzzleSpec(state: GameState): DailyPuzzleSpec | null {
@@ -72,6 +72,17 @@ export function maybeResolveDailyPuzzle(
   }
 
   if (isPuzzleTimedOut(state, spec)) {
+    // For a "keep it" verb the clock IS the win: the objective stayed pending
+    // (still held) all the way to the end.
+    if (puzzleTimeoutOutcome(spec) === 'solve' && status === 'pending') {
+      state.puzzle_objective_met = true;
+      state.phase = 'game_over';
+      state.winner_id = human.player_id;
+      state.winner_ids = [human.player_id];
+      state.victory_condition = 'domination';
+      void finalizeGame(io, gameId, state, [human.player_id]);
+      return true;
+    }
     const ai = state.players.find((p) => p.is_ai);
     if (ai) {
       state.puzzle_objective_met = false;

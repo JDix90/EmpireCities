@@ -5,7 +5,7 @@ import { DAILY_SET_PIECES, setPiecesOfKind } from './dailySetPieces';
 import { validateDailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleService';
 import { getEraTechTree } from '../game-engine/eras';
 import { DEFAULT_BUILDING_COSTS } from '../game-engine/state/economyManager';
-import { WEEKDAY_CADENCE } from '../game-engine/daily/dailySchedule';
+import { bucketForVerb, WEEKDAY_CADENCE } from '../game-engine/daily/dailySchedule';
 
 /**
  * The library's review board. A set-piece carries no numbers, so what can go
@@ -51,7 +51,7 @@ describe('daily set-pieces — integrity', () => {
         .filter((v): v is Exclude<typeof v, 'any'> => v !== 'any'),
     );
     for (const verb of verbs) {
-      expect(setPiecesOfKind(verb).length, `no set-pieces for ${verb}`).toBeGreaterThan(0);
+      expect(bucketForVerb(verb).length, `no set-pieces for ${verb}`).toBeGreaterThan(0);
     }
   });
 
@@ -87,6 +87,18 @@ describe('daily set-pieces — shape', () => {
       }
       const named = [sp.anchor, sp.target, sp.support, sp.relief, ...(sp.extra_ai ?? [])].filter(Boolean);
       expect(new Set(named).size, `${sp.id}: territories must be distinct`).toBe(named.length);
+    }
+  });
+
+  it('tactical: a front that reads both ways names its defended side, and has a reserve to fortify', () => {
+    for (const sp of setPiecesOfKind('tactical')) {
+      if (!sp.hold) continue;
+      expect(sp.hold.title.trim().length, sp.id).toBeGreaterThan(0);
+      expect(sp.hold.intro.trim().length, sp.id).toBeGreaterThan(0);
+      expect(sp.hold.title, `${sp.id}: hold title must differ from the capture title`).not.toBe(sp.title);
+      // The relief territory becomes the human's reserve; without one the
+      // defence has no second move.
+      expect(sp.relief, `${sp.id}: a hold day needs a relief territory to serve as the reserve`).toBeDefined();
     }
   });
 

@@ -19,6 +19,14 @@ export async function enrichDailyPuzzleSpecForDisplay(spec: DailyPuzzleSpec): Pr
       goal: `Capture ${label} before time runs out.`,
     };
   }
+  if (spec.archetype === 'hold_territory' && spec.target_territory_id) {
+    const map = await getMapById(spec.map_id);
+    const label = territoryDisplayName(map, spec.target_territory_id);
+    return {
+      ...spec,
+      goal: `Hold ${label} for ${spec.max_turns} turns.`,
+    };
+  }
   if (spec.archetype === 'tech_research' && spec.tech_id) {
     const tree = getEraTechTree(spec.era_id);
     const node = tree.find((n) => n.tech_id === spec.tech_id);
@@ -54,6 +62,7 @@ export interface DailyChallengeRow {
 const VALID_ARCHETYPES: ReadonlySet<string> = new Set([
   'domination',
   'military_capture',
+  'hold_territory',
   'economy_build',
   'tech_research',
 ]);

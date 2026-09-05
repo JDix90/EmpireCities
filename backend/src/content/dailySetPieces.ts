@@ -53,6 +53,13 @@ export interface TacticalSetPiece extends SetPieceBase {
   relief?: string;
   /** Other AI holdings that shape the front without joining the fight. */
   extra_ai?: readonly string[];
+  /**
+   * The same front, defended: the AI masses on the anchor and the human must
+   * keep the target. Support and relief swap sides (the relief territory is
+   * the human's reserve, the support territory an AI holding). Present only
+   * where the story reads both ways; a set-piece without it is capture-only.
+   */
+  hold?: { title: string; intro: string; hint?: string };
 }
 
 export interface EconomySetPiece extends SetPieceBase {
@@ -96,6 +103,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     target: 'italia',
     support: 'hispania',
     relief: 'greece',
+    hold: {
+      title: 'Hold the Tiber',
+      intro: 'The Gauls have crossed. Rome holds with what it has, and Greece can send what it can spare.',
+      hint: 'Fortify Greece into Italia before the Gauls arrive — a garrison that grows each turn is a garrison that lasts.',
+    },
   },
   {
     id: 'the_border_states',
@@ -110,6 +122,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     support: 'acw_great_lakes',
     relief: 'acw_tennessee',
     extra_ai: ['acw_appalachia'],
+    hold: {
+      title: 'Kentucky Stands',
+      intro: 'The Union masses in Ohio. Lose Kentucky and the river is theirs; Tennessee is your only reserve.',
+      hint: 'The attacker rolls more dice than you — win on numbers, not on luck.',
+    },
   },
   {
     id: 'checkpoint',
@@ -122,6 +139,10 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     target: 'east_germany',
     support: 'france_benelux',
     relief: 'czechoslovakia',
+    hold: {
+      title: 'The Wall Holds',
+      intro: 'NATO armour is massing at the border. East Germany must not fall; Prague can reinforce.',
+    },
   },
   {
     id: 'the_crowns_reach',
@@ -135,6 +156,8 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     target: 'england',
     support: 'iberia',
     extra_ai: ['holy_roman'],
+    // Capture-only: England's neighbours are all sea lanes, so a defended
+    // England would have no land reserve to fortify from.
   },
   {
     id: 'andean_campaign',
@@ -147,6 +170,10 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     target: 'colombia_mod',
     support: 'peru_mod',
     relief: 'central_america_mod',
+    hold: {
+      title: 'Bogotá Holds',
+      intro: 'Brazil comes north with everything. Colombia must hold until the rains; Central America is a border away.',
+    },
   },
   {
     id: 'the_ottoman_gates',
@@ -161,6 +188,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     support: 'italy_disc',
     relief: 'anatolia_disc',
     ai_difficulty: 'hard',
+    hold: {
+      title: 'The Gates Hold',
+      intro: 'The Empire is at the Balkans with its main army. Anatolia can feed the garrison if you move first.',
+      hint: 'Reinforce before the first assault; every unit in the garrison is a die the attacker has to beat.',
+    },
   },
   {
     id: 'alexanders_prize',
@@ -175,6 +207,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     support: 'levant',
     relief: 'bactria',
     ai_difficulty: 'hard',
+    hold: {
+      title: 'Persepolis',
+      intro: 'Alexander is in Mesopotamia and he is not going home. Persia holds or the empire ends.',
+      hint: 'Bactria’s reserve is the whole plan — fortify it into Persia on turn one.',
+    },
   },
 
   // ── Economy ───────────────────────────────────────────────────────────────
@@ -282,6 +319,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     },
   },
 ];
+
+/** The tactical set-pieces that read both ways, and so can be served as hold days. */
+export function holdCapableSetPieces(): readonly TacticalSetPiece[] {
+  return DAILY_SET_PIECES.filter((sp): sp is TacticalSetPiece => sp.kind === 'tactical' && !!sp.hold);
+}
 
 export function setPiecesOfKind<K extends DailySetPiece['kind']>(
   kind: K,
