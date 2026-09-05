@@ -11,13 +11,15 @@ export interface DailyIntroSpec {
   player_count?: number;
   /** Par: the turn the obvious line solves this day on. Beat it to score above 1000. */
   par_turns?: number;
+  /** The AI's difficulty for this day; the server defaults an unset field to medium. */
+  ai_difficulty?: string;
 }
 
 interface DailyChallengeIntroModalProps {
   spec: DailyIntroSpec;
   /** YYYY-MM-DD — used in the header. */
   challengeDate?: string;
-  /** Difficulty label, defaults to "Hard" because daily uses hard AI today. */
+  /** Difficulty label; defaults to the spec's own `ai_difficulty` (medium when unset). */
   difficultyLabel?: string;
   /** Friendly era label. */
   eraLabel?: string;
@@ -52,10 +54,13 @@ function formatChallengeDate(raw: string | undefined): string {
 export default function DailyChallengeIntroModal({
   spec,
   challengeDate,
-  difficultyLabel = 'Hard',
+  difficultyLabel,
   eraLabel,
   onBegin,
 }: DailyChallengeIntroModalProps) {
+  // Hold days run on medium on purpose (a hard AI made them 4–17% solvable),
+  // so the card has to read the day's setting rather than assume the hardest.
+  const difficulty = difficultyLabel ?? spec.ai_difficulty ?? 'medium';
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter') onBegin();
@@ -120,7 +125,7 @@ export default function DailyChallengeIntroModal({
           <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
             <Trophy className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
             <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Difficulty</p>
-            <p className="text-sm text-bf-text font-medium leading-tight capitalize">{difficultyLabel}</p>
+            <p className="text-sm text-bf-text font-medium leading-tight capitalize">{difficulty}</p>
           </div>
           <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
             <Clock className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />

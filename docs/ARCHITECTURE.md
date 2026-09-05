@@ -72,8 +72,20 @@ Layered so no single failure ejects a player or kills other games:
 | Monthly challenges | `backend/src/game-engine/progression/challengeService.ts` | hourly | Ensure current month's challenges exist |
 | Orphaned games | `backend/src/modules/games/gameCleanupService.ts` | every 15m | Delete human-less games idle >4h |
 | Guest cleanup | `backend/src/modules/users/guestCleanupService.ts` | every 6h | Delete >48h-old guests with no games |
+| Daily pre-warm | `backend/src/game-engine/daily/dailyPrewarmService.ts` | every 10m, active from 23:30 UTC | Ensure tomorrow's daily-challenge row exists before midnight, so the first player of the day never waits on the simulation gate |
 
 All are started near the end of `bootstrap()` and stopped on SIGTERM/SIGINT.
+
+## Daily challenge
+
+The daily is a **pure function of the UTC date**: every process computes the identical day, and the stored `daily_challenges` row is a cache, not the source of truth.
+
+- **Resolution order** (`backend/src/game-engine/daily/dailySchedule.ts` → `scheduleDay`): the dated calendar (`backend/src/content/dailyCalendar.ts`, hand-authored one-offs) → the set-piece library (`backend/src/content/dailySetPieces.ts`, ~50 authored fronts carrying map, era, title and intro but no numbers) → the last-resort generator (`dailyGenerator.ts`). The library is the plan; the generator only fires when a set-piece cannot materialize (map failed to load, etc.), and it warns.
+- **Weekday cadence**: Mon capture-and-hold · Tue economy · Wed hold the line · Thu tech · Fri rotates capture (hard band) / control-the-region / forced-march chain · Sat any puzzle kind from the library, interleaved by kind · Sun domination. Each verb walks its bucket by a closed-form ordinal; Wednesday and Saturday, whose buckets overlap the capture slots', use a place-keeping cursor so no set-piece is served twice in one week.
+- **Sizing and the gate**: a set-piece is sized per date (seeded on the date and id) by the calibrators in `dailyGenerator.ts`, then every capture-shaped and hold day is played out by the simulator (`puzzleSim.ts`: the obvious line for the human seat, the real AI planner for the other) for 40 seeded games. A day ships only inside its solvability band (`GATE_BANDS`); a miss moves the sizing band toward it, up to 8 attempts. The median solve turn becomes `par_turns`, which drives the score (`puzzleScore.ts`).
+- **Objectives**: `puzzleObjective.ts` is the registry (`condition`, hold-through-AI-turn, lapse-is-failure, timeout outcome); the socket consults it every turn. Capture-shaped verbs require holding the target through the AI's reply.
+- **Reconciliation**: `dailyPuzzleService.ts` recomputes the day on every read and rewrites a stored row that differs, unless the day already has a game in play (warned once per date per process). The admin action *Regenerate daily* and `backend/scripts/refreshTodayDailyChallenge.ts` are the deliberate override for that case: both delete the day's unfinished games with the row.
+- **Proof**: `dailySchedule.test.ts` sweeps a full year of served days in CI (cadence, band, par, reserve, no-repeat and coverage invariants); `dailySetPieces.test.ts` is the library's structural review board.
 
 ## Boot order
 
@@ -114,6 +126,7 @@ Other test surfaces: Playwright projects `mobile-safari-size` (iPhone 13 / WebKi
 | Room lifecycle / state authority | `backend/src/sockets/gameRoomManager.ts`, `redisGameStore.ts`, `gameLock.ts` |
 | Rules engine | `backend/src/game-engine/**` (state, combat, eras, events, ai, rating, progression, …) |
 | Workers | `backend/src/workers/` |
+| Daily challenge schedule / library / gate | `backend/src/game-engine/daily/`, `backend/src/content/dailySetPieces.ts` |
 | Health/readiness | `GET /health`, `GET /ready` (`backend/src/health/readiness.ts`) |
 | Client game page | `frontend/src/pages/GamePage.tsx` (socket wiring) |
 | Map renderers | `frontend/src/components/game/GameMap.tsx` (2D PIXI), `GlobeMap.tsx` (3D) |

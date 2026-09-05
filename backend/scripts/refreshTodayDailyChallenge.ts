@@ -9,32 +9,16 @@
  * then score against the new day.
  */
 import 'dotenv/config';
-import { connectPostgres, query, pgPool } from '../src/db/postgres/index';
-import {
-  dailyChallengeDate,
-  ensureDailyChallengeForToday,
-} from '../src/game-engine/daily/dailyPuzzleService';
+import { connectPostgres, pgPool } from '../src/db/postgres/index';
+import { regenerateDailyChallengeForToday } from '../src/game-engine/daily/dailyPuzzleService';
 
 async function main(): Promise<void> {
   await connectPostgres();
-  const today = dailyChallengeDate();
 
-  const games = await query<{ game_id: string }>(
-    `DELETE FROM games
-     WHERE (settings_json->>'daily_challenge_date')::date = $1::date
-       AND status IN ('waiting', 'in_progress')
-     RETURNING game_id`,
-    [today],
-  );
-  console.log(`[refresh-daily] Deleted ${games.length} unfinished daily game(s) for UTC ${today}`);
-
-  const deleted = await query<{ challenge_date: string }>(
-    'DELETE FROM daily_challenges WHERE challenge_date = $1::date RETURNING challenge_date',
-    [today],
-  );
-  console.log(`[refresh-daily] Deleted ${deleted.length} row(s) for UTC ${today}`);
-
-  const row = await ensureDailyChallengeForToday();
+  // The same path the admin "Regenerate daily" action takes.
+  const { row, deleted_games, deleted_rows } = await regenerateDailyChallengeForToday();
+  console.log(`[refresh-daily] Deleted ${deleted_games} unfinished daily game(s) for UTC ${row.challenge_date}`);
+  console.log(`[refresh-daily] Deleted ${deleted_rows} row(s) for UTC ${row.challenge_date}`);
   console.log(
     `[refresh-daily] Regenerated: kind=${row.kind} archetype=${row.spec.archetype} map=${row.map_id} title="${row.spec.title}"`,
   );

@@ -1,5 +1,9 @@
 import type { PlayerState, TerritoryState } from '../types';
 
+/** Settings keys whose value is a secret rather than a rule. */
+const SECRET_SETTINGS_KEYS = ['seed'] as const;
+
+
 /**
  * Redact per-player private fields from a state snapshot for a given viewer.
  *
@@ -62,4 +66,27 @@ export function maskHiddenTerritories(
     }
   }
   return out;
+}
+
+/**
+ * Strip the integrity-sensitive settings from a snapshot bound for a client.
+ *
+ * A daily challenge's dice stream is deterministic on purpose (every player
+ * gets the same rolls), and `daily_challenge_spec.dice_queue_seed` is what
+ * generates it. `/api/daily/today` withholds it and `GET /api/games/:id`
+ * redacts it, so the live socket has to as well: a client that reads the seed
+ * from `game:state` or the waiting-lobby snapshot can replay the PRNG and
+ * know every roll before it attacks. `settings.seed` goes with it for the
+ * same reason. The client reads neither field. Returns a new object; the
+ * authoritative settings are never mutated.
+ */
+export function redactSettingsForClient<T extends object>(settings: T): T {
+  const out: Record<string, unknown> = { ...(settings as Record<string, unknown>) };
+  for (const key of SECRET_SETTINGS_KEYS) delete out[key];
+  const spec = out.daily_challenge_spec;
+  if (spec && typeof spec === 'object') {
+    const { dice_queue_seed: _seed, ...rest } = spec as Record<string, unknown>;
+    out.daily_challenge_spec = rest;
+  }
+  return out as T;
 }

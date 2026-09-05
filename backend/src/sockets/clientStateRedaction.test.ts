@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { PlayerState, TerritoryState } from '../types';
-import { redactPlayersForViewer, maskHiddenTerritories } from './clientStateRedaction';
+import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient } from './clientStateRedaction';
 
 function player(overrides: Partial<PlayerState>): PlayerState {
   return {
@@ -100,5 +100,30 @@ describe('maskHiddenTerritories', () => {
     maskHiddenTerritories(input, new Set());
     expect(input.t1.unit_count).toBe(7);
     expect(input.t2.buildings).toEqual(['fort']);
+  });
+});
+
+describe('redactSettingsForClient', () => {
+  it('strips the daily dice seed and the game seed, keeps every rule, and leaves the original intact', () => {
+    const settings = {
+      fog_of_war: false,
+      seed: 4242,
+      daily_challenge_date: '2026-09-14',
+      daily_challenge_spec: { archetype: 'military_capture', title: 'Solferino', dice_queue_seed: 99, par_turns: 2 },
+    };
+    const out = redactSettingsForClient(settings);
+    expect(out.seed).toBeUndefined();
+    expect((out.daily_challenge_spec as Record<string, unknown>).dice_queue_seed).toBeUndefined();
+    expect(out.daily_challenge_spec).toMatchObject({ archetype: 'military_capture', title: 'Solferino', par_turns: 2 });
+    expect(out.fog_of_war).toBe(false);
+    expect(out.daily_challenge_date).toBe('2026-09-14');
+    // The authoritative settings are not mutated.
+    expect(settings.seed).toBe(4242);
+    expect(settings.daily_challenge_spec.dice_queue_seed).toBe(99);
+  });
+
+  it('is a no-op shape-wise for a game with no daily spec', () => {
+    const out = redactSettingsForClient({ fog_of_war: true, turn_timer_seconds: 90 });
+    expect(out).toEqual({ fog_of_war: true, turn_timer_seconds: 90 });
   });
 });

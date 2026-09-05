@@ -271,6 +271,38 @@ export async function ensureDailyChallengeForToday(): Promise<DailyChallengeRow>
   return ensureDailyChallengeForDate(dailyChallengeDate());
 }
 
+/**
+ * The deliberate override for the one case the read path refuses to reconcile
+ * on its own: a day already in play. Deletes the date's row and regenerates it
+ * from the schedule.
+ *
+ * Unfinished games for the date go first, on purpose. A daily game carries a
+ * copy of the spec in its settings, so one left standing would resume the OLD
+ * puzzle and then be scored against the new row. ON DELETE CASCADE removes the
+ * date's entries with the row, so the day reopens for everyone.
+ */
+export async function regenerateDailyChallengeForDate(
+  date: string,
+): Promise<{ row: DailyChallengeRow; deleted_games: number; deleted_rows: number }> {
+  const games = await query<{ game_id: string }>(
+    `DELETE FROM games
+     WHERE (settings_json->>'daily_challenge_date')::date = $1::date
+       AND status IN ('waiting', 'in_progress')
+     RETURNING game_id`,
+    [date],
+  );
+  const rows = await query<{ challenge_date: string }>(
+    'DELETE FROM daily_challenges WHERE challenge_date = $1::date RETURNING challenge_date',
+    [date],
+  );
+  const row = await ensureDailyChallengeForDate(date);
+  return { row, deleted_games: games.length, deleted_rows: rows.length };
+}
+
+export async function regenerateDailyChallengeForToday(): ReturnType<typeof regenerateDailyChallengeForDate> {
+  return regenerateDailyChallengeForDate(dailyChallengeDate());
+}
+
 export async function ensureDailyChallengeForDate(today: string): Promise<DailyChallengeRow> {
   const existing = await queryOne<StoredChallengeRow>(
     `SELECT ${STORED_ROW_COLUMNS}
