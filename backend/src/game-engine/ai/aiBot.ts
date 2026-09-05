@@ -37,6 +37,13 @@ const DIFFICULTY_CONFIG: Record<AiDifficulty, { depth: number; randomFactor: num
 
 export interface AiTurnOptions {
   /**
+   * Source of the heuristic jitter (randomFactor). Production leaves it on
+   * Math.random — determinism is intentionally absent from live AI play. The
+   * daily simulator passes a seeded stream so a day's solve rate and par are
+   * the same on every process.
+   */
+  rng?: () => number;
+  /**
    * Rank attack candidates by exact capture probability (combatOdds) instead of
    * the legacy saturating dice differential. Mirrors ai_capture_odds_enabled —
    * the socket threads the flag through explicitly because the planner may run
@@ -91,6 +98,7 @@ export function computeAiTurn(
   }
 
   const cfg = DIFFICULTY_CONFIG[difficulty];
+  const jitter = options?.rng ?? Math.random;
   const actions: AiAction[] = [];
   const playerId = state.players[state.current_player_index].player_id;
   const player = state.players[state.current_player_index];
@@ -103,7 +111,7 @@ export function computeAiTurn(
     state.players.length,
   );
 
-  const draftTarget = selectDraftTarget(state, map, playerId, cfg.randomFactor);
+  const draftTarget = selectDraftTarget(state, map, playerId, cfg.randomFactor, jitter);
   if (draftTarget) {
     actions.push({ type: 'draft', to: draftTarget, units: reinforcements });
   }
@@ -118,6 +126,7 @@ export function computeAiTurn(
     difficulty,
     options?.captureOddsScoring ?? true,
     options?.decidedGamePress ?? false,
+    jitter,
   );
   actions.push(...attackActions);
 
@@ -254,7 +263,8 @@ function selectDraftTarget(
   state: GameState,
   map: GameMap,
   playerId: string,
-  randomFactor: number
+  randomFactor: number,
+  jitter: () => number = Math.random
 ): string | null {
   const adjacency = buildAdjacencyMap(map);
   let bestTid: string | null = null;
@@ -284,7 +294,7 @@ function selectDraftTarget(
     const mapTerritory = map.territories.find((t) => t.territory_id === tid);
     const homeBonus = mapTerritory && factionHomeRegions.includes(mapTerritory.region_id) ? 3 : 0;
 
-    const score = threatScore - tState.unit_count + homeBonus + Math.random() * randomFactor * 10;
+    const score = threatScore - tState.unit_count + homeBonus + jitter() * randomFactor * 10;
     if (score > bestScore) {
       bestScore = score;
       bestTid = tid;
@@ -339,7 +349,8 @@ function selectAttacks(
   randomFactor: number,
   difficulty: AiDifficulty,
   useCaptureOdds: boolean,
-  decidedGamePress = false
+  decidedGamePress = false,
+  jitter: () => number = Math.random
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
@@ -494,7 +505,7 @@ function selectAttacks(
         // instead of always preferring a land-adjacent fight.
         if (isSeaLane) expansionBonus += 1.5;
       }
-      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + Math.random() * randomFactor * 3;
+      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + jitter() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {

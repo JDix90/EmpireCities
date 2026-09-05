@@ -4,6 +4,8 @@ import { join } from 'path';
 import type { GameMap } from '../../types';
 import {
   bucketForVerb,
+  GATE_BANDS,
+  GATE_GAMES,
   mondayOf,
   rotationOrdinal,
   scheduleDay,
@@ -18,8 +20,9 @@ import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 import { getEraTechTree } from '../eras';
 import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
-import { goldPerTurn, HOLD_BAND, TACTICAL_BAND_HARD, TACTICAL_BAND_STANDARD, techPerTurn } from './dailyGenerator';
+import { goldPerTurn, techPerTurn } from './dailyGenerator';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
+import { simulatePuzzle } from './puzzleSim';
 
 /**
  * The review board for the days players actually get.
@@ -168,9 +171,12 @@ describe('daily schedule — the sweep', () => {
       expect(spec.max_turns, date).toBeGreaterThanOrEqual(6);
       expect(spec.max_turns, date).toBeLessThanOrEqual(12);
 
-      const band = WEEKDAY_CADENCE[weekdayOf(date)].band === 'hard' ? TACTICAL_BAND_HARD : TACTICAL_BAND_STANDARD;
+      // The first-assault odds are a sanity range now, not the criterion: the
+      // gate shifts the sizing band to land the simulated solve rate, so a
+      // freebie front is sized below the standard band on purpose. The
+      // calendar's own honest range (0.35–0.97) is the outer bound.
       const p = primaryAssaultOdds(map, spec);
-      expect(p, `${date}: P=${p.toFixed(3)} below the ${band.min} floor`).toBeGreaterThanOrEqual(band.min);
+      expect(p, `${date}: P=${p.toFixed(3)} is a coin flip`).toBeGreaterThanOrEqual(0.5);
       expect(p, `${date}: P=${p.toFixed(3)} is a freebie`).toBeLessThanOrEqual(0.97);
     }
   });
@@ -197,13 +203,39 @@ describe('daily schedule — the sweep', () => {
       const reserve = Object.entries(board).find(([tid, t]) => t.owner === 'human' && tid !== target);
       expect(reserve, `${date}: no human reserve`).toBeDefined();
       expect(map.connections.some((c) => (c.from === reserve![0] && c.to === target) || (c.from === target && c.to === reserve![0])), `${date}: reserve must border the target`).toBe(true);
-      // The AI is favoured against garrison + opening draft, but not overwhelmingly.
+      // A real threat against garrison + opening draft, but not overwhelming.
+      // A sanity range: the simulated solve rate is the criterion, and the
+      // gate lowers the stack on purpose when the obvious defence cannot hold.
       const sea = map.connections.some((c) => ((c.from === anchor && c.to === target) || (c.from === target && c.to === anchor)) && c.type === 'sea');
       const p = captureProbability(board[anchor].unit_count, board[target].unit_count + 3, { attackerBaseCap: sea ? 2 : 3 });
-      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeGreaterThanOrEqual(HOLD_BAND.min);
+      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeGreaterThanOrEqual(0.4);
       expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeLessThanOrEqual(0.92);
     }
     expect(seen).toBeGreaterThan(40);
+  });
+
+  it('every served capture and hold day is proven by the simulator: never unwinnable, rarely a freebie', async () => {
+    await ready;
+    let simulated = 0;
+    let outOfBand = 0;
+    for (const { date, spec } of days) {
+      if (spec.archetype !== 'military_capture' && spec.archetype !== 'hold_territory') continue;
+      simulated += 1;
+      const band = GATE_BANDS[spec.archetype];
+      const r = (await simulatePuzzle(spec, (await loadMap(spec.map_id))!, { games: GATE_GAMES }))!;
+      // The floor is absolute: an unwinnable board is never served.
+      expect(r.solve_rate, `${date} ${spec.title}: ${(r.solve_rate * 100).toFixed(0)}% solvable`).toBeGreaterThanOrEqual(band.min);
+      if (r.solve_rate > band.max) outOfBand += 1;
+      if (spec.archetype === 'military_capture') {
+        expect(spec.par_turns, `${date}: capture day without par`).toBe(r.median_turns);
+      } else {
+        expect(spec.par_turns, `${date}: a hold day carries no par`).toBeUndefined();
+        expect(spec.ai_difficulty, `${date}: hold days are always medium`).toBe('medium');
+      }
+    }
+    expect(simulated).toBeGreaterThan(150);
+    // The ceiling is best-effort: when no attempt lands, the closest above the floor is served.
+    expect(outOfBand / simulated, `${outOfBand} of ${simulated} served above the band`).toBeLessThanOrEqual(0.05);
   });
 
   it('Friday is the harder fight', async () => {

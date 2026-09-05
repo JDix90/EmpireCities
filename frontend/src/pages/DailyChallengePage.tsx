@@ -16,6 +16,8 @@ interface DailyPuzzleSpecPublic {
   goal: string;
   hint?: string;
   max_turns?: number;
+  /** Par: the turn the obvious line solves this day on. */
+  par_turns?: number;
   era_id: string;
   map_id: string;
   seed: number;
@@ -235,6 +237,12 @@ export default function DailyChallengePage() {
               {challenge.spec?.goal && (
                 <p className="text-bf-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
               )}
+              {typeof challenge.spec?.par_turns === 'number' && (
+                <p className="text-bf-muted text-xs mt-2">
+                  Par <span className="text-bf-text font-medium">{challenge.spec.par_turns}</span>
+                  {' '}{challenge.spec.par_turns === 1 ? 'turn' : 'turns'} · beat it to score above 1000
+                </p>
+              )}
             </div>
             {alreadyPlayed && (
               <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
@@ -250,7 +258,9 @@ export default function DailyChallengePage() {
           {alreadyPlayed && (
             <div className="rounded-lg bg-bf-dark/60 border border-bf-border p-4 mb-4 grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-bf-muted text-xs mb-1">Turns</p>
+                <p className="text-bf-muted text-xs mb-1">
+                  Turns{typeof challenge.spec?.par_turns === 'number' ? ` · par ${challenge.spec.par_turns}` : ''}
+                </p>
                 <p className="text-bf-gold font-bold text-lg">{my_entry!.turn_count ?? '—'}</p>
               </div>
               <div>
@@ -338,7 +348,7 @@ export default function DailyChallengePage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
                     {typeof row.puzzle_score === 'number' && (
-                      <span className="text-bf-gold font-semibold" title="Puzzle score (1000 minus mistake penalties)">
+                      <span className="text-bf-gold font-semibold" title="Puzzle score: 1000 at par, more for beating it, less for risky moves">
                         {row.puzzle_score}
                       </span>
                     )}

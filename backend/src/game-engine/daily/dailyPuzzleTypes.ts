@@ -65,6 +65,12 @@ export interface DailyPuzzleSpec {
    * everything else still passes the normal settings normalizer.
    */
   settings_overrides?: Record<string, unknown>;
+  /**
+   * Par: the turn the obvious line solves this day on, median over the
+   * simulator's games (puzzleSim.ts). Scoring beats or misses it. Capture days
+   * only; a hold day is solved at the clock.
+   */
+  par_turns?: number;
 }
 
 /** Feedback tiers for Tier A strategic coaching (evaluateBoard delta). */

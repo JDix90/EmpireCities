@@ -159,6 +159,7 @@ import { applyAuthoredScenario } from '../game-engine/scenarios/applyAuthoredSce
 import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
 import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
 import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
+import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
   attackerIgnoresDefenseBuilding,
   expandFogVisibilityFromRecon,
@@ -4390,7 +4391,12 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           entryWon = state.puzzle_objective_met === true;
         }
         const mistakes = state.puzzle_feedback_mistakes ?? 0;
-        const puzzleScore = Math.max(0, 1000 - mistakes * 12);
+        const puzzleScore = computeDailyPuzzleScore({
+          won: entryWon,
+          turns: state.turn_number,
+          par: spec?.par_turns,
+          mistakes,
+        });
         await query(
           `INSERT INTO daily_challenge_entries (
              challenge_date, user_id, won, turn_count, territory_count,
