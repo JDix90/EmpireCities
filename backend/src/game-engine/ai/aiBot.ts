@@ -8,7 +8,8 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
-import { getEffectiveMilestoneGate } from '../eraAdvancement/spines';
+import { getEffectiveMilestoneGate, getMaxEraIndex } from '../eraAdvancement/spines';
+import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
 import { countUnlockedTechsByTier } from '../eraAdvancement/eraAdvancementReadiness';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild, countPlayerBuildings } from '../state/economyManager';
@@ -27,12 +28,18 @@ export interface AiAction {
   cardIds?: string[];
 }
 
-const DIFFICULTY_CONFIG: Record<AiDifficulty, { depth: number; randomFactor: number }> = {
-  easy:     { depth: 1, randomFactor: 0.35 },
-  medium:   { depth: 2, randomFactor: 0.15 },
-  hard:     { depth: 3, randomFactor: 0.05 },
-  expert:   { depth: 4, randomFactor: 0.0  },
-  tutorial: { depth: 1, randomFactor: 0.9  },
+// `randomFactor` is the jitter added to every candidate's score, so it is the
+// whole of what separates the difficulties here (the rest is per-difficulty
+// branching at the call sites). There is no tree search: this planner is
+// single-ply and evaluates each candidate once, backed by the exact
+// combat-odds table in combat/combatOdds.ts. A `depth` field used to sit here
+// implying otherwise and was never read anywhere.
+const DIFFICULTY_CONFIG: Record<AiDifficulty, { randomFactor: number }> = {
+  easy:     { randomFactor: 0.35 },
+  medium:   { randomFactor: 0.15 },
+  hard:     { randomFactor: 0.05 },
+  expert:   { randomFactor: 0.0  },
+  tutorial: { randomFactor: 0.9  },
 };
 
 export interface AiTurnOptions {
@@ -812,6 +819,33 @@ export function selectAiBuildingPlacement(
       if (result) return result;
     }
     return null;
+  }
+
+  // ── Era-advance fund ──────────────────────────────────────────────────────
+  // Buildings and the era advance are paid from the SAME purse
+  // (`player.special_resource`), and the AI turn buys before it evaluates
+  // advancement (processAiTurn in sockets/gameSocket.ts). An unreserved bot
+  // therefore spends its fare the turn it earns it and can never bank the cost,
+  // which silently disables the catch-up rubber band in aiEraAdvancement: a
+  // trailing bot is told to advance and can never afford to. Measured on
+  // scripts/simEraBalance.ts, 94.8% of bot advancement checks were failing the
+  // gold sub-gate.
+  //
+  // So once the milestone gate's building requirement is satisfied, stop buying
+  // while the treasury is still short of the fare. Guarded on the player still
+  // having an era to climb to — a bot at the final era can never spend the
+  // reserve, and would otherwise stop developing for the rest of the match.
+  if (
+    state.settings.era_advancement_enabled
+    && (player.current_era_index ?? 0) < getMaxEraIndex(state)
+  ) {
+    const gate = getEffectiveMilestoneGate(state, playerId);
+    if (
+      countPlayerBuildings(state, playerId) >= gate.min_buildings
+      && (player.special_resource ?? 0) <= computeAdvanceCost(state, player)
+    ) {
+      return null;
+    }
   }
 
   // ── Space program priority ────────────────────────────────────────────────

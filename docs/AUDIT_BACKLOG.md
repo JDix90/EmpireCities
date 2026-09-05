@@ -4,7 +4,8 @@ Tracked enhancements; not all are scheduled. Implement based on product priority
 
 ## AI (`backend/src/game-engine/ai/aiBot.ts`)
 
-- Formalize a single `AIConfig` interface (difficulty, max depth, evaluation weights).
+- Formalize a single `AIConfig` interface (difficulty, jitter, evaluation weights). The planner is
+  single-ply by design — do not reintroduce a `depth` field unless a tree search actually lands.
 - Unit tests for pure evaluation helpers where feasible.
 
 ## Achievements and leaderboards

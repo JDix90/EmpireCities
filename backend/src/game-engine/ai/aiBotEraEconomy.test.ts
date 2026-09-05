@@ -86,3 +86,68 @@ describe('selectAiBuildingPlacement — era-advancement un-freeze', () => {
     expect(selectAiBuildingPlacement(met, { connections: [] } as never, 'ai1', 'easy')).toBeNull();
   });
 });
+
+/**
+ * Buildings and the era advance are paid from the same purse, and the AI turn
+ * buys before it evaluates advancement — so without a reserve a bot spends its
+ * fare every turn and can never bank it. Measured on scripts/simEraBalance.ts,
+ * that was failing 94.8% of bot advancement checks on the gold sub-gate, which
+ * is what leaves opponents stranded in Ancient while a human climbs.
+ *
+ * The advance costs 16 here: income floors at 8 (era_advancement_cost_income_floor),
+ * times the 2.0 cost multiplier, with no era escalation at index 0.
+ */
+describe('selectAiBuildingPlacement — era-advance fund', () => {
+  const withBuilding = (): Record<string, TerritoryState> => {
+    const t = owned();
+    t.t1.buildings = ['production_1'];
+    return t;
+  };
+
+  it('stops buying once the building gate is met and the advance is unaffordable', () => {
+    const s = state(
+      { economy_enabled: true, era_advancement_enabled: true },
+      [player({ special_resource: 10 })],
+      withBuilding(),
+    );
+    expect(selectAiBuildingPlacement(s, { connections: [] } as never, 'ai1', 'medium')).toBeNull();
+  });
+
+  it('keeps building once it can already afford the advance', () => {
+    const s = state(
+      { economy_enabled: true, era_advancement_enabled: true },
+      [player({ special_resource: 40 })],
+      withBuilding(),
+    );
+    expect(selectAiBuildingPlacement(s, { connections: [] } as never, 'ai1', 'medium')).not.toBeNull();
+  });
+
+  it('still builds toward an unmet building gate even while poor', () => {
+    // Reserving before the gate's building requirement is satisfied would
+    // deadlock: it could never meet the gate it is saving for.
+    const s = state(
+      { economy_enabled: true, era_advancement_enabled: true },
+      [player({ special_resource: 10 })],
+      owned(),
+    );
+    expect(selectAiBuildingPlacement(s, { connections: [] } as never, 'ai1', 'medium')).not.toBeNull();
+  });
+
+  it('does not reserve in a game without era advancement', () => {
+    const s = state(
+      { economy_enabled: true, era_advancement_enabled: false },
+      [player({ special_resource: 10 })],
+      withBuilding(),
+    );
+    expect(selectAiBuildingPlacement(s, { connections: [] } as never, 'ai1', 'medium')).not.toBeNull();
+  });
+
+  it('does not reserve at the final era — there is nothing left to save for', () => {
+    const s = state(
+      { economy_enabled: true, era_advancement_enabled: true, era_advancement_max_era_index: 0 },
+      [player({ special_resource: 10 })],
+      withBuilding(),
+    );
+    expect(selectAiBuildingPlacement(s, { connections: [] } as never, 'ai1', 'medium')).not.toBeNull();
+  });
+});
