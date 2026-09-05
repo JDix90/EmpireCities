@@ -1,18 +1,11 @@
 import { getMapById } from '../../modules/maps/mapService';
 import { query, queryOne } from '../../db/postgres';
 import { getEraTechTree } from '../eras';
-import type { EraId, GameMap } from '../../types';
-import type { DailyPuzzleArchetype, DailyPuzzleSpec } from './dailyPuzzleTypes';
-import { getAuthoredDailySpec } from '../../content/dailyCalendar';
-import { captureProbability } from '../combat/combatOdds';
-import { createSeededRng } from '../victory/missions';
+import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
+import { buildDailyPuzzleBase, economySpecFromBase, territoryDisplayName } from './dailyGenerator';
+import { scheduleDay } from './dailySchedule';
 
-/** Human-readable territory label for puzzle copy (prefers map data, else softens ids). */
-export function territoryDisplayName(map: GameMap | null, territoryId: string): string {
-  const t = map?.territories?.find((x) => x.territory_id === territoryId);
-  if (t?.name?.trim()) return t.name.trim();
-  return territoryId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
+export { territoryDisplayName };
 
 /**
  * Rewrites goal (and related copy) using map/tech lookups so APIs never expose raw territory_id strings.
@@ -38,297 +31,14 @@ export async function enrichDailyPuzzleSpecForDisplay(spec: DailyPuzzleSpec): Pr
   return spec;
 }
 
-const ERA_MAP_IDS: Record<string, string> = {
-  ancient: 'era_ancient',
-  medieval: 'era_medieval',
-  discovery: 'era_discovery',
-  ww2: 'era_ww2',
-  coldwar: 'era_coldwar',
-  modern: 'era_modern',
-  acw: 'era_acw',
-  risorgimento: 'era_risorgimento',
-};
-
-const ROTATING_ERAS: EraId[] = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw'];
-
 /**
- * Archetypes the generator rotates through.
- *
- * `domination` is deliberately absent. A generated domination day was the
- * pre-calendar daily: four players, a 200-turn cap and no designed board — a
- * full match, not a daily challenge, landing on one date in four and reading
- * as a different product from the 2–5 minute puzzle beside it. The archetype
- * still exists for the *authored* calendar, where it is tuned (1v1, ~40 turns,
- * a dealt board with a stated reason to be hard). What the calendar cannot do
- * is run unattended, so the generator only produces puzzle-shaped days.
- */
-const ARCHETYPES: DailyPuzzleArchetype[] = [
-  'military_capture',
-  'economy_build',
-  'tech_research',
-];
-
-/** Every generated day is a two-player puzzle on a tight clock. */
-const GENERATED_PLAYER_COUNT = 2;
-const GENERATED_MAX_TURNS = 18;
-/**
- * Generated days match the authored calendar's difficulty rather than the
- * route's `?? 'hard'` backstop. Authored days set easy/medium on all 14; a
- * generated day that simply omitted the field used to be the hardest content
- * in the feature.
- */
-const GENERATED_AI_DIFFICULTY = 'medium' as const;
-
-function dateHash(today: string): number {
-  return today
-    .replace(/-/g, '')
-    .split('')
-    .reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
-}
-
-/**
- * Pure numeric picks from a calendar date (deterministic across processes).
- */
-export function buildDailyPuzzleBase(today: string): {
-  era_id: EraId;
-  map_id: string;
-  seed: number;
-  player_count: number;
-  archetype: DailyPuzzleArchetype;
-  dice_queue_seed: number;
-  edge_pick: number;
-  tech_pick: number;
-} {
-  const h = dateHash(today);
-  const era_id = ROTATING_ERAS[h % ROTATING_ERAS.length];
-  const map_id = ERA_MAP_IDS[era_id] ?? 'era_ancient';
-  const seed = h * 31337;
-  const archetype = ARCHETYPES[h % ARCHETYPES.length];
-  const player_count = GENERATED_PLAYER_COUNT;
-  const dice_queue_seed = (h * 7919 + 1337) >>> 0;
-  const edge_pick = h % 997;
-  const tech_pick = (h >> 3) % 97;
-  return {
-    era_id,
-    map_id,
-    seed,
-    player_count,
-    archetype,
-    dice_queue_seed,
-    edge_pick,
-    tech_pick,
-  };
-}
-
-function pickFirstRootTech(era: EraId, pick: number): { tech_id: string; name: string } | null {
-  const tree = getEraTechTree(era);
-  const roots = tree.filter((n) => !n.prerequisite);
-  if (roots.length === 0) return null;
-  const node = roots[pick % roots.length];
-  return { tech_id: node.tech_id, name: node.name };
-}
-
-/**
- * Full spec for persistence and API — async only to resolve map graph for military puzzles.
- *
- * Authored days win: a calendar entry for this date is used verbatim (validated
- * at write time by the calendar's own test suite), and the procedural generator
- * is the fallback for every date nobody has authored. That makes the calendar
- * safe to grow incrementally — an empty calendar reproduces today's behaviour
- * exactly.
+ * Full spec for persistence and API. The schedule decides the day — dated
+ * calendar first, then the set-piece library on its weekday cadence, then the
+ * last-resort generator — and everything derives from the date, so every
+ * process computes the identical day.
  */
 export async function buildCompleteDailyPuzzleSpec(today: string): Promise<DailyPuzzleSpec> {
-  const authored = getAuthoredDailySpec(today);
-  if (authored) return authored;
-
-  const b = buildDailyPuzzleBase(today);
-  const max_turns = GENERATED_MAX_TURNS;
-
-  if (b.archetype === 'military_capture') {
-    const map = await getMapById(b.map_id);
-    const calibrated = map ? buildCalibratedMilitarySpec(b, map, max_turns) : null;
-    if (calibrated) return calibrated;
-    console.warn(
-      `[daily] ${today}: could not calibrate a tactical board on ${b.map_id} `
-        + `(map ${map ? 'loaded' : 'MISSING'}) — serving the economy puzzle instead.`,
-    );
-    return economySpecFromBase(b);
-  }
-
-  if (b.archetype === 'economy_build') return economySpecFromBase(b);
-
-  // tech_research
-  const tech = pickFirstRootTech(b.era_id, b.tech_pick);
-  if (!tech) {
-    console.warn(`[daily] ${today}: era ${b.era_id} has no root tech — serving the economy puzzle instead.`);
-    return economySpecFromBase(b);
-  }
-  return {
-    archetype: 'tech_research',
-    title: 'Daily Research — First Principles',
-    intro: 'Your advisors await a breakthrough. Invest tech points into a foundational advance.',
-    goal: `Research “${tech.name}”.`,
-    era_id: b.era_id,
-    map_id: b.map_id,
-    seed: b.seed,
-    player_count: GENERATED_PLAYER_COUNT,
-    max_turns,
-    dice_queue_seed: b.dice_queue_seed,
-    tech_id: tech.tech_id,
-    ai_difficulty: GENERATED_AI_DIFFICULTY,
-  };
-}
-
-// ── Calibrated tactical generation ───────────────────────────────────────────
-//
-// The old military template was one static shape: anchor 8 vs target 4 on a
-// hash-picked edge — the same free-ish fight every time, on a board with no
-// counterplay. The authored calendar showed what a good day looks like: a
-// small designed front (main force + support vs garrison + relief), first-
-// assault capture odds in a winnable-but-not-free band, an attack-phase open
-// and a tight clock. The generator now builds exactly that shape, using the
-// same odds engine the calendar's CI review board checks authored days with —
-// hand-authoring was mostly a manual search for these numbers, so the search
-// is what shipped. Everything derives from the date via a seeded PRNG, so
-// every process generates the identical day.
-
-/** The authored band: winnable but never free (mirrors dailyCalendar.test.ts). */
-const TACTICAL_P_MIN = 0.7;
-const TACTICAL_P_MAX = 0.86;
-
-const TACTICAL_TITLES = [
-  'Daily Tactical — Breakthrough',
-  'Daily Tactical — The Salient',
-  'Daily Tactical — Forced March',
-  'Daily Tactical — The Garrison',
-  'Daily Tactical — High Water Mark',
-];
-const TACTICAL_INTROS = [
-  'One front, one objective. The garrison is dug in and relief is a border away.',
-  'Your main force is assembled; the enemy knows where. Take the objective before the relief column matters.',
-  'The line bends here or it does not bend at all. Commit where the odds are yours.',
-  'Scouts report the objective reinforced overnight. The clock, not the garrison, is the second enemy.',
-  'A narrow front rewards patience: grind the defense down, then take the ground with enough left to hold it.',
-];
-const TACTICAL_HINTS = [
-  'Favor favorable exchanges and consolidate before committing to the final push.',
-  'A split assault gives the defender two cheap rounds — mass before you march.',
-  'Win the fight with enough left to hold the prize; the relief force attacks back.',
-  'Near-even fights favor the defender. Thin the garrison before the killing blow.',
-];
-
-/**
- * Build a calibrated tactical day. Pure: callers resolve the map (DB in prod,
- * JSON fixtures in tests). Returns null when the map has no usable edge —
- * the caller falls back to a domination day, as the old template did.
- */
-export function buildCalibratedMilitarySpec(
-  b: ReturnType<typeof buildDailyPuzzleBase>,
-  map: GameMap,
-  maxTurnsBase: number,
-): DailyPuzzleSpec | null {
-  if (!map.connections || map.connections.length === 0) return null;
-
-  // Stable edge order, then hash-picked — the same target the old generator
-  // chose for a given date, so the calibration changes the fight, not the map
-  // pin players may have seen in the intro copy.
-  const sorted = [...map.connections].sort((a, c) => {
-    const k1 = `${a.from}\0${a.to}`;
-    const k2 = `${c.from}\0${c.to}`;
-    return k1.localeCompare(k2);
-  });
-  const edge = sorted[b.edge_pick % sorted.length];
-  const anchorId = edge.from;
-  const targetId = edge.to;
-  const assaultIsSea = edge.type === 'sea';
-
-  const rng = createSeededRng((b.dice_queue_seed ^ 0x7ac71ca1) >>> 0);
-  const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
-  const int = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
-
-  // Size the main fight: pick the garrison and a target win probability, then
-  // search the smallest attacking stack whose first-assault capture odds reach
-  // it. Sea assaults roll capped dice, so the search sizes the fleet-borne
-  // stack up on its own.
-  const garrison = int(5, 8);
-  const targetP = TACTICAL_P_MIN + rng() * (TACTICAL_P_MAX - TACTICAL_P_MIN);
-  const attackerBaseCap = assaultIsSea ? 2 : 3;
-  let attackers = garrison + 1;
-  let p = 0;
-  for (; attackers <= garrison + 14; attackers++) {
-    p = captureProbability(attackers, garrison, { attackerBaseCap });
-    if (p >= targetP) break;
-  }
-  if (p < TACTICAL_P_MIN || p > 0.97) return null;
-
-  // The supporting cast: one human reserve behind the anchor, one AI relief
-  // garrison beside the target — the counterplay that makes "hold it" real.
-  const neighborsOf = (tid: string): Array<{ id: string; type: string }> => {
-    const out: Array<{ id: string; type: string }> = [];
-    for (const c of map.connections) {
-      if (c.from === tid) out.push({ id: c.to, type: c.type });
-      else if (c.to === tid) out.push({ id: c.from, type: c.type });
-    }
-    return out.sort((x, y) => x.id.localeCompare(y.id));
-  };
-  const board: NonNullable<DailyPuzzleSpec['starting_board']> = {
-    [anchorId]: { owner: 'human', unit_count: attackers },
-    [targetId]: { owner: 'ai', unit_count: garrison },
-  };
-  const humanSupport = neighborsOf(anchorId).find((n) => n.id !== targetId && !board[n.id]);
-  if (humanSupport) board[humanSupport.id] = { owner: 'human', unit_count: int(3, 5) };
-  const aiRelief = neighborsOf(targetId).find((n) => n.id !== anchorId && !board[n.id]);
-  if (aiRelief) board[aiRelief.id] = { owner: 'ai', unit_count: int(3, 6) };
-
-  const targetLabel = territoryDisplayName(map, targetId);
-  return {
-    archetype: 'military_capture',
-    title: pick(TACTICAL_TITLES),
-    intro: pick(TACTICAL_INTROS),
-    goal: `Capture ${targetLabel} before time runs out.`,
-    era_id: b.era_id,
-    map_id: b.map_id,
-    seed: b.seed,
-    player_count: b.player_count,
-    // Tight, honest clock in the authored range; a sea crossing gets slack
-    // for its capped dice. maxTurnsBase kept as a ceiling for old callers.
-    max_turns: Math.min(maxTurnsBase, (assaultIsSea ? 10 : 8) + int(0, 1)),
-    dice_queue_seed: b.dice_queue_seed,
-    target_territory_id: targetId,
-    anchor_territory_id: anchorId,
-    hint: pick(TACTICAL_HINTS),
-    ai_difficulty: 'medium',
-    clear_board: true,
-    starting_phase: 'attack',
-    starting_board: board,
-  };
-}
-
-/**
- * The generator's always-valid day, and the fallback when a richer one cannot
- * be built: raise one production building. It needs no map graph and no tech
- * tree, so it can never itself fail.
- *
- * This replaces a domination fallback that quietly turned an intended
- * two-minute puzzle into a 200-turn four-player match whenever calibration or
- * a tech lookup missed — the failure was invisible, and the day it produced was
- * the old daily.
- */
-function economySpecFromBase(b: ReturnType<typeof buildDailyPuzzleBase>): DailyPuzzleSpec {
-  return {
-    archetype: 'economy_build',
-    title: 'Daily Economy — Foundations',
-    intro: 'Industry wins wars. Accumulate production and raise a core facility.',
-    goal: 'Construct a Production (tier 1) building in any territory you control.',
-    era_id: b.era_id,
-    map_id: b.map_id,
-    seed: b.seed,
-    player_count: GENERATED_PLAYER_COUNT,
-    max_turns: GENERATED_MAX_TURNS,
-    dice_queue_seed: b.dice_queue_seed,
-    building_type: 'production_1',
-    ai_difficulty: GENERATED_AI_DIFFICULTY,
-  };
+  return (await scheduleDay(today)).spec;
 }
 
 export interface DailyChallengeRow {
@@ -471,13 +181,16 @@ async function countDailyPlay(date: string): Promise<number> {
 }
 
 /**
- * Reconcile a stored row against the authored calendar.
+ * Reconcile a stored row against the schedule.
  *
- * An authored day is content, not a frozen seed. The row is written the first
- * time a date is served, so a day authored (or corrected) after that point
- * would otherwise never reach players — the stored generator spec wins forever
- * and nothing says so. When the calendar disagrees with the stored copy, the
- * stored copy is stale and is rewritten in place.
+ * A scheduled day is content, not a frozen seed. The row is written the first
+ * time a date is served, so a day authored, added to the library, or re-sized
+ * by a generator fix after that point would otherwise never reach players —
+ * the stored spec wins forever and nothing says so. When the schedule
+ * disagrees with the stored copy, the stored copy is stale and is rewritten in
+ * place. This applies to every day, not only dated ones: the whole schedule is
+ * deterministic in the date, so "what the code says today" is well defined
+ * for any date.
  *
  * The one case where it is not rewritten is a day already in play: swapping the
  * board under recorded scores would leave that date's leaderboard ranking two
@@ -485,17 +198,14 @@ async function countDailyPlay(date: string): Promise<number> {
  * mismatch is logged — loudly, because a silent no-op is the exact failure this
  * function exists to end. `scripts/refreshTodayDailyChallenge.ts` is the
  * deliberate override.
- *
- * Returns null when the date is not authored, leaving the generated row alone.
  */
-async function reconcileAuthoredRow(
+async function reconcileScheduledRow(
   date: string,
   existing: StoredChallengeRow,
-): Promise<DailyChallengeRow | null> {
-  const authored = getAuthoredDailySpec(date);
-  if (!authored) return null;
+): Promise<DailyChallengeRow> {
+  const scheduled = (await scheduleDay(date)).spec;
 
-  const spec = await enrichDailyPuzzleSpecForDisplay(authored);
+  const spec = await enrichDailyPuzzleSpecForDisplay(scheduled);
   const stored = parseSpec(existing.spec_json);
   const rowFrom = (s: DailyPuzzleSpec): DailyChallengeRow => ({
     challenge_date: existing.challenge_date,
@@ -511,7 +221,7 @@ async function reconcileAuthoredRow(
   const inPlay = await countDailyPlay(date);
   if (inPlay > 0) {
     console.warn(
-      `[daily] ${date} is authored as "${spec.title}" but the stored challenge is "${stored.title}". `
+      `[daily] ${date} is scheduled as "${spec.title}" but the stored challenge is "${stored.title}". `
         + `Keeping the stored one: ${inPlay} attempt(s)/active game(s) already exist for that date. `
         + 'Reset it deliberately with scripts/refreshTodayDailyChallenge.ts.',
     );
@@ -524,7 +234,7 @@ async function reconcileAuthoredRow(
      WHERE challenge_date = $1`,
     [date, spec.era_id, spec.map_id, spec.seed, spec.player_count, JSON.stringify(spec)],
   );
-  console.log(`[daily] ${date}: stored challenge "${stored.title}" replaced by the authored "${spec.title}"`);
+  console.log(`[daily] ${date}: stored challenge "${stored.title}" replaced by the scheduled "${spec.title}"`);
   return { ...rowFrom(spec), kind: 'puzzle' };
 }
 
@@ -541,20 +251,7 @@ export async function ensureDailyChallengeForDate(today: string): Promise<DailyC
      FROM daily_challenges WHERE challenge_date = $1`,
     [today],
   );
-  if (existing) {
-    const reconciled = await reconcileAuthoredRow(today, existing);
-    if (reconciled) return reconciled;
-    const spec = await enrichDailyPuzzleSpecForDisplay(parseSpec(existing.spec_json));
-    return {
-      challenge_date: existing.challenge_date,
-      era_id: existing.era_id,
-      map_id: existing.map_id,
-      seed: existing.seed,
-      player_count: existing.player_count,
-      kind: existing.kind,
-      spec,
-    };
-  }
+  if (existing) return reconcileScheduledRow(today, existing);
 
   const spec = await enrichDailyPuzzleSpecForDisplay(await buildCompleteDailyPuzzleSpec(today));
   await query(

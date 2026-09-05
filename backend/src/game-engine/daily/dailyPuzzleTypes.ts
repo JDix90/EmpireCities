@@ -38,10 +38,12 @@ export interface DailyPuzzleSpec {
   /** Hint shown after mistakes (optional future use). */
   hint?: string;
 
-  // ── Authored-puzzle fields (dailyCalendar.ts). Generator days omit all of
-  // these. The spec is the single source of truth for a day's content: it is
-  // persisted as JSONB and rides inside game settings as an opaque extension,
-  // so authored boards survive re-normalization and room reloads unchanged. ──
+  // ── Designed-board fields, set by the dated calendar (dailyCalendar.ts) and
+  // by the schedule when it sizes a set-piece (dailySchedule.ts); only the
+  // last-resort generator omits them. The spec is the single source of truth
+  // for a day's content: it is persisted as JSONB and rides inside game
+  // settings as an opaque extension, so designed boards survive
+  // re-normalization and room reloads unchanged. ──
 
   /** Designed opening position, applied via the shared applyAuthoredScenario. */
   starting_board?: AuthoredScenario['starting_board'];

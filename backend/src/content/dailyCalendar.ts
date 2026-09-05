@@ -3,10 +3,11 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
 /**
  * The authored daily-challenge calendar.
  *
- * A date listed here replaces the procedural generator for that day
- * (dailyPuzzleService consults this first). Dates not listed fall back to the
- * generator, so the calendar can be grown a batch at a time and an empty one
- * changes nothing.
+ * A date listed here is served verbatim (dailySchedule consults this first).
+ * Dates not listed come from the set-piece library on its weekday cadence
+ * (dailySetPieces.ts), so this file is for special days only — an anniversary,
+ * an event, a puzzle that wants exact numbers — and an empty one changes
+ * nothing.
  *
  * Authoring rules, enforced by dailyCalendar.test.ts:
  * - every territory id in a starting_board exists on the entry's map;
