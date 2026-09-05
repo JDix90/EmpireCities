@@ -96,7 +96,7 @@ import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
 import { registerSocketRateLimit } from './socketRateLimit';
 import { registerSocketAuth } from './socketAuth';
-import { redactPlayersForViewer, maskHiddenTerritories } from './clientStateRedaction';
+import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient } from './clientStateRedaction';
 import { aiPlayerName } from '@borderfall/shared';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
@@ -504,7 +504,7 @@ async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: Wa
     map_id: lobby.game.map_id,
     status: lobby.game.status,
     join_code: lobby.game.join_code ?? null,
-    settings_json: lobby.settings,
+    settings_json: redactSettingsForClient(lobby.settings),
     players: lobby.players.map((player) => ({
       player_index: player.player_index,
       user_id: player.user_id,
@@ -4173,6 +4173,9 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     // mission_seed_salt is server-only; leaking it would let a client
     // replay the PRNG and read every opponent's mission.
     mission_seed_salt: undefined,
+    // The daily dice seed is server-only for the same reason: with it a
+    // client knows every roll before it attacks.
+    settings: redactSettingsForClient(s.settings),
     // Reveal each player's secret_mission only to its owner / eliminated players /
     // at game_over, and — when there is no viewing player (spectator/public
     // snapshot) — empty every card hand so spectators can't read players' cards.
@@ -4768,7 +4771,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     rematch_config: {
       era_id: state.era,
       map_id: state.map_id,
-      settings: state.settings,
+      settings: redactSettingsForClient(state.settings),
       human_player_ids: state.players
         .filter((p) => !p.is_ai && p.player_id !== winnerId)
         .map((p) => p.player_id),

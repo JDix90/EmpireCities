@@ -208,6 +208,8 @@ export interface GameState {
       hint?: string;
       max_turns?: number;
       player_count?: number;
+      par_turns?: number;
+      ai_difficulty?: string;
     };
   };
   /** Era advancement spine snapshot (ordered rules eras for this match). */

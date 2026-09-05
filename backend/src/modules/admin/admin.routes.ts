@@ -18,7 +18,7 @@ import {
   isMatchmakingPaused,
   setMatchmakingPaused,
 } from '../matchmaking/matchmaking.routes';
-import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
+import { regenerateDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import { buildDependencyReport } from './dependencyRegistry';
 import {
   listMapsByModerationStatus,
@@ -635,11 +635,21 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.post('/actions/regen-daily', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
-    const today = new Date().toISOString().slice(0, 10);
-    await query('DELETE FROM daily_challenges WHERE challenge_date = $1', [today]);
-    const next = await ensureDailyChallengeForToday();
-    await writeAuditLog(request.userId, 'daily_regenerated', { challenge_date: today });
-    return reply.send({ ok: true, challenge_date: next.challenge_date, seed: next.seed });
+    // Same path as scripts/refreshTodayDailyChallenge.ts: unfinished games for
+    // the day go with the row, or they would resume the old puzzle and score
+    // against the new one.
+    const { row, deleted_games } = await regenerateDailyChallengeForToday();
+    await writeAuditLog(request.userId, 'daily_regenerated', {
+      challenge_date: row.challenge_date,
+      deleted_games,
+    });
+    return reply.send({
+      ok: true,
+      challenge_date: row.challenge_date,
+      seed: row.seed,
+      title: row.spec.title,
+      deleted_games,
+    });
   });
 
   fastify.post('/actions/matchmaking-pause', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {

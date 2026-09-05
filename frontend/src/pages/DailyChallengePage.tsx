@@ -18,6 +18,8 @@ interface DailyPuzzleSpecPublic {
   max_turns?: number;
   /** Par: the turn the obvious line solves this day on. */
   par_turns?: number;
+  /** The AI's difficulty for this day; the server defaults an unset field to medium. */
+  ai_difficulty?: string;
   era_id: string;
   map_id: string;
   seed: number;
@@ -92,6 +94,12 @@ const ERA_ICON: Record<string, string> = {
   risorgimento: '🇮🇹',
   space_age:    '🚀',
 };
+
+/** "Medium AI", "Hard AI": the day's own setting, not a fixed label. */
+export function aiDifficultyLabel(difficulty: string | undefined | null): string {
+  const d = (difficulty ?? 'medium').trim();
+  return `${d.charAt(0).toUpperCase()}${d.slice(1)} AI`;
+}
 
 function formatDate(raw: string | undefined): string {
   if (!raw || typeof raw !== 'string') return '';
@@ -225,7 +233,7 @@ export default function DailyChallengePage() {
                 <span className="text-2xl" role="img" aria-label={eraLabel}>{eraIcon}</span>
                 <h2 className="font-display text-xl text-bf-gold tracking-wide">{eraLabel}</h2>
               </div>
-              <p className="text-bf-muted text-sm mt-1">{challenge.player_count} players · Hard AI</p>
+              <p className="text-bf-muted text-sm mt-1">{challenge.player_count} players · {aiDifficultyLabel(challenge.spec?.ai_difficulty)}</p>
               {attempts_today != null && attempts_today > 0 && (
                 <p className="text-bf-gold/80 text-sm mt-1">
                   {attempts_today} commander{attempts_today === 1 ? '' : 's'} attempted today

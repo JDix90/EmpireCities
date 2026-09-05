@@ -94,8 +94,28 @@ export function verbForDate(date: string): SlotVerb {
 }
 
 /** The set-pieces Saturday walks: every puzzle-shaped entry, in id order. */
+/**
+ * Saturday's walk order. Not alphabetical: ids cluster by kind ("arsenal_of_…",
+ * "the_…"), and an alphabetical cursor served two tech days in one week twice
+ * in its first three weeks. Each kind is spread evenly along the cycle
+ * instead, so consecutive Saturdays differ in kind as often as the mix allows.
+ * Sunday's domination days are not in the walk: Saturday + Sunday would be
+ * the same verb back to back.
+ */
+const SATURDAY_KIND_ORDER: ReadonlyArray<DailySetPiece['kind']> = ['tactical', 'region', 'chain', 'economy', 'tech'];
+
 function saturdayLibrary(): DailySetPiece[] {
-  return DAILY_SET_PIECES.filter((sp) => sp.kind !== 'domination').sort((a, b) => a.id.localeCompare(b.id));
+  const kinds = [
+    ...SATURDAY_KIND_ORDER,
+    ...DAILY_SET_PIECES.map((sp) => sp.kind).filter((k) => k !== 'domination' && !SATURDAY_KIND_ORDER.includes(k)),
+  ];
+  const placed: Array<{ sp: DailySetPiece; at: number; rank: number }> = [];
+  kinds.forEach((kind, rank) => {
+    const group = DAILY_SET_PIECES.filter((sp) => sp.kind === kind).sort((a, b) => a.id.localeCompare(b.id));
+    group.forEach((sp, i) => placed.push({ sp, at: (i + 0.5) / group.length, rank }));
+  });
+  placed.sort((a, b) => a.at - b.at || a.rank - b.rank);
+  return placed.map((p) => p.sp);
 }
 
 export type DailySource = 'calendar' | 'library' | 'generator';
@@ -288,22 +308,28 @@ function servedByVerbSlots(date: string): Set<string> {
 }
 
 /**
- * A place-keeping cursor over a bucket, one entry per week, skipping whatever
- * that week's other slots already serve.
+ * A queue over a bucket, one entry per week: the first entry not excluded
+ * that week is served and goes to the back; an excluded entry keeps its place
+ * at the front and is served the next week instead.
  *
  * Why not a plain ordinal walk: two walks over overlapping buckets run in
  * lockstep. With fourteen entries and a seven-entry tactical bucket, one front
  * landed on its Saturday only in weeks it had already been served, so it
  * never landed on a Saturday at all; the hold slot, which reads the same
  * fronts the other way, collided with the capture slots the same way.
- * Consuming the bucket in order and keeping the place means every entry is
- * served in turn, and no front comes round twice in one week.
  *
- * Pure in the date: the cursor replays from a fixed origin week and is
+ * Why a queue and not a cursor that skips: a skipped entry waited a whole
+ * cycle for its next turn, and when the exclusion window grew to two weeks
+ * one tech front's turn always fell in a week its own slot served it — it
+ * never landed on a Saturday in two years. Deferring instead of skipping
+ * means an entry is starved only if it is excluded every single week, which
+ * a weekly verb slot cannot do.
+ *
+ * Pure in the date: the queue replays from a fixed origin week and is
  * memoized per process.
  */
 const CURSOR_ORIGIN_WEEK = weekIndexOf('2026-09-14');
-const cursorMemo = new Map<string, Map<number, number>>();
+const cursorMemo = new Map<string, Map<number, readonly string[]>>();
 
 function dateOfWeekday(week: number, weekday: number): string {
   // Week w starts on the Monday `w*7 - 3` days after the epoch.
@@ -328,27 +354,31 @@ function cursorPick(
     memo = new Map();
     cursorMemo.set(key, memo);
   }
+  const byId = new Map(sorted.map((sp) => [sp.id, sp]));
+  // Resume from the latest memoized week before this one, else from the origin.
   let w = CURSOR_ORIGIN_WEEK;
-  let cursor = 0;
+  let queue: readonly string[] = sorted.map((sp) => sp.id);
   for (let k = week - 1; k >= CURSOR_ORIGIN_WEEK; k--) {
     const known = memo.get(k);
     if (known !== undefined) {
       w = k + 1;
-      cursor = known + 1;
+      queue = known;
       break;
     }
   }
   for (; w <= week; w++) {
     const excluded = excludeFor(dateOfWeekday(w, weekday));
-    for (let tries = 0; tries < sorted.length && excluded.has(sorted[cursor % sorted.length].id); tries++) {
-      cursor++;
-    }
-    memo.set(w, cursor);
-    if (w === week) return sorted[cursor % sorted.length];
-    cursor++;
+    let at = queue.findIndex((id) => !excluded.has(id));
+    if (at < 0) at = 0; // Everything excluded: only possible when the bucket is tiny; serve the head.
+    const picked = queue[at];
+    queue = [...queue.slice(0, at), ...queue.slice(at + 1), picked];
+    memo.set(w, queue);
+    if (w === week) return byId.get(picked) ?? null;
   }
   return null;
 }
+
+const union = (a: Set<string>, b: Set<string>): Set<string> => new Set([...a, ...b]);
 
 const sortedById = (xs: readonly DailySetPiece[]): DailySetPiece[] =>
   [...xs].sort((a, b) => a.id.localeCompare(b.id));
@@ -361,11 +391,17 @@ const sortedById = (xs: readonly DailySetPiece[]): DailySetPiece[] =>
 export function pickSetPieceForDate(date: string): DailySetPiece | null {
   if (getAuthoredDailySpec(date)) return null;
   const verb = verbForDate(date);
+  // A queue slot avoids what the verb slots serve within a week either side
+  // of it, not just inside its own Monday-to-Sunday week. Saturday's nearest
+  // neighbours are the following Monday to Friday; a Wednesday hold is five
+  // days from the previous Friday's capture and from the following Monday's.
+  // With the week-scoped rule alone a front came round twice in four days.
   if (verb === 'any') {
-    return cursorPick('saturday', sortedById(saturdayLibrary()), 6, date, servedByVerbSlots);
+    return cursorPick('saturday', saturdayLibrary(), 6, date, (d) => union(servedByVerbSlots(d), servedByVerbSlots(addDays(d, 7))));
   }
   if (verb === 'hold') {
-    return cursorPick('hold', sortedById(bucketForVerb('hold')), weekdayOf(date), date, capturesInWeek);
+    return cursorPick('hold', sortedById(bucketForVerb('hold')), weekdayOf(date), date, (d) =>
+      union(union(capturesInWeek(addDays(d, -7)), capturesInWeek(d)), capturesInWeek(addDays(d, 7))));
   }
   return ordinalPick(date, verb);
 }

@@ -55,6 +55,16 @@ describe('daily set-pieces — integrity', () => {
     }
   });
 
+  it('every set-piece map is one seedMaps.ts puts in the database — a map on disk is not a map in production', () => {
+    const seedSource = readFileSync(join(__dirname, '../../../database/seedMaps.ts'), 'utf-8');
+    const seeded = new Set([...seedSource.matchAll(/'((?:era|community)_[a-z0-9_]+)\.json'/g)].map((m) => m[1]));
+    expect(seeded.size).toBeGreaterThan(10);
+    for (const sp of DAILY_SET_PIECES) {
+      const mapId = sp.kind === 'domination' ? sp.spec.map_id : sp.map_id;
+      expect(seeded.has(mapId), `${sp.id}: ${mapId} is not seeded by database/seedMaps.ts`).toBe(true);
+    }
+  });
+
   it('every referenced territory exists on the entry’s map', () => {
     for (const sp of DAILY_SET_PIECES) {
       const mapId = sp.kind === 'domination' ? sp.spec.map_id : sp.map_id;

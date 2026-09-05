@@ -22,6 +22,7 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 | Socket game | `backend/src/sockets/gameSocket.ts` |
 | Room lifecycle / state authority | `backend/src/sockets/gameRoomManager.ts`, `redisGameStore.ts`, `gameLock.ts` |
 | Game engine | `backend/src/game-engine/` |
+| Daily challenge (schedule, simulation gate, set-piece library) | `backend/src/game-engine/daily/`, `backend/src/content/dailySetPieces.ts` — see ARCHITECTURE.md § Daily challenge |
 | Game UI shell | `frontend/src/pages/GamePage.tsx` |
 | 2D map | `frontend/src/components/game/GameMap.tsx` |
 | Globe | `frontend/src/components/game/GlobeMap.tsx` |

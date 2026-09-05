@@ -7,6 +7,7 @@ import {
   GATE_BANDS,
   GATE_GAMES,
   mondayOf,
+  pickSetPieceForDate,
   rotationOrdinal,
   scheduleDay,
   verbForDate,
@@ -55,6 +56,7 @@ function* datesFrom(start: string, days: number): Generator<string> {
 
 // A full year after the dated calendar ends.
 const SWEEP = [...datesFrom('2026-09-14', 365)];
+const DAY = 86_400_000;
 
 const VERB_TO_ARCHETYPE = {
   tactical: 'military_capture',
@@ -223,11 +225,15 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
       expect(map.connections.some((c) => (c.from === reserve![0] && c.to === target) || (c.from === target && c.to === reserve![0])), `${date}: reserve must border the target`).toBe(true);
       // A real threat against garrison + opening draft, but not overwhelming.
       // A sanity range: the simulated solve rate is the criterion, and the
-      // gate lowers the stack on purpose when the obvious defence cannot hold.
+      // gate moves the stack on purpose — down when the obvious defence cannot
+      // hold, up when it holds too easily. The ceiling has to leave room for
+      // the latter: on a sea crossing (two attacker dice) with a fat reserve
+      // the stack that makes the day a real threat reads as overwhelming
+      // against the garrison alone.
       const sea = map.connections.some((c) => ((c.from === anchor && c.to === target) || (c.from === target && c.to === anchor)) && c.type === 'sea');
       const p = captureProbability(board[anchor].unit_count, board[target].unit_count + 3, { attackerBaseCap: sea ? 2 : 3 });
       expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeGreaterThanOrEqual(0.4);
-      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeLessThanOrEqual(0.92);
+      expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeLessThanOrEqual(0.95);
     }
     expect(seen).toBeGreaterThan(40);
   });
@@ -406,12 +412,22 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
     expect(recurrences).toBeGreaterThan(0);
   });
 
-  it('Saturday walks every puzzle set-piece, so each one eventually lands there too', async () => {
-    await ready;
-    const saturdays = new Set(days.filter((d) => weekdayOf(d.date) === 6).map((d) => d.set_piece_id));
-    for (const sp of DAILY_SET_PIECES) {
-      if (sp.kind === 'domination') continue;
-      expect(saturdays.has(sp.id), `${sp.id} never lands on a Saturday in a year`).toBe(true);
+  it('Saturday walks every puzzle set-piece, so each one eventually lands there too', () => {
+    // Coverage is a property of the pick, not the sizing, so this walks the
+    // pick alone. The library is bigger than a year of Saturdays, and the
+    // cursor passes over an entry the week its own verb slot serves it, so
+    // the window is two cycles of the library.
+    const library = DAILY_SET_PIECES.filter((sp) => sp.kind !== 'domination').map((sp) => sp.id);
+    const seen = new Set<string>();
+    let saturdays = 0;
+    for (const date of datesFrom('2026-09-14', library.length * 2 * 7)) {
+      if (weekdayOf(date) !== 6) continue;
+      saturdays += 1;
+      const picked = pickSetPieceForDate(date);
+      if (picked) seen.add(picked.id);
+    }
+    for (const id of library) {
+      expect(seen.has(id), `${id} never lands on a Saturday in ${saturdays} Saturdays`).toBe(true);
     }
   });
 
@@ -424,6 +440,21 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
     }
     for (const [monday, ids] of byWeek) {
       expect(new Set(ids).size, `week of ${monday}: ${ids.join(', ')}`).toBe(ids.length);
+    }
+  });
+
+  it('never serves the same puzzle set-piece twice in any seven consecutive days, across week boundaries too', async () => {
+    await ready;
+    // The Monday-week rule alone let a Saturday front return the next
+    // Tuesday. Domination Sundays are excluded: that bucket is small on
+    // purpose and a Sunday is never adjacent to another Sunday in a window.
+    const puzzleDays = days.filter((d) => d.spec.archetype !== 'domination');
+    for (let i = 0; i < puzzleDays.length; i++) {
+      for (let j = i + 1; j < puzzleDays.length; j++) {
+        const gap = (Date.parse(puzzleDays[j].date) - Date.parse(puzzleDays[i].date)) / DAY;
+        if (gap >= 7) break;
+        expect(puzzleDays[j].set_piece_id, `${puzzleDays[i].date} and ${puzzleDays[j].date}`).not.toBe(puzzleDays[i].set_piece_id);
+      }
     }
   });
 });

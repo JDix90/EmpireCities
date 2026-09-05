@@ -66,6 +66,9 @@ describe('specsDiffer', () => {
 describe.runIf(process.env.PG_TEST === '1')('authored reconciliation on read (Postgres)', () => {
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let ensureDailyChallengeForDate: (date: string) => Promise<{ spec: DailyPuzzleSpec }>;
+  let regenerateDailyChallengeForDate: (
+    date: string,
+  ) => Promise<{ row: { spec: DailyPuzzleSpec }; deleted_games: number; deleted_rows: number }>;
   const userIds: string[] = [];
 
   /** A stored row that is deliberately NOT what the calendar says for this date. */
@@ -100,7 +103,7 @@ describe.runIf(process.env.PG_TEST === '1')('authored reconciliation on read (Po
     ({ query } = (await import('../../db/postgres')) as unknown as {
       query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
     });
-    ({ ensureDailyChallengeForDate } = await import('./dailyPuzzleService'));
+    ({ ensureDailyChallengeForDate, regenerateDailyChallengeForDate } = await import('./dailyPuzzleService'));
   }, 30_000);
 
   afterAll(async () => {
@@ -166,5 +169,39 @@ describe.runIf(process.env.PG_TEST === '1')('authored reconciliation on read (Po
     const row = await ensureDailyChallengeForDate(AUTHORED_DATE);
     expect(row.spec.title).toBe(staleSpec.title);
     expect(await storedTitle()).toBe(staleSpec.title);
+  });
+
+  it('the regenerate override takes the day’s unfinished games with the row, so none resumes the old puzzle', async () => {
+    await seedStaleRow();
+    const userId = uuidv4();
+    userIds.push(userId);
+    await query(
+      `INSERT INTO users (user_id, username, email, password_hash)
+       VALUES ($1, $2, $3, 'x')`,
+      [userId, `daily_regen_${userId.slice(0, 8)}`, `daily_regen_${userId.slice(0, 8)}@test.local`],
+    );
+    // The day is in play: an entry (which the read path's guard honours) and a
+    // live game carrying the stale spec in its settings.
+    await query(
+      `INSERT INTO daily_challenge_entries (challenge_date, user_id, won, turn_count)
+       VALUES ($1::date, $2, true, 6)`,
+      [AUTHORED_DATE, userId],
+    );
+    const gameId = uuidv4();
+    await query(
+      `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
+       VALUES ($1, $2, $3, 'in_progress', $4, 'solo')`,
+      [gameId, staleSpec.map_id, staleSpec.era_id, JSON.stringify({ daily_challenge_date: AUTHORED_DATE, daily_challenge_spec: staleSpec })],
+    );
+    expect((await ensureDailyChallengeForDate(AUTHORED_DATE)).spec.title).toBe(staleSpec.title);
+
+    const { row, deleted_games, deleted_rows } = await regenerateDailyChallengeForDate(AUTHORED_DATE);
+    expect(deleted_games).toBe(1);
+    expect(deleted_rows).toBe(1);
+    expect(row.spec.title).toBe(DAILY_CALENDAR[AUTHORED_DATE].title);
+    expect(await storedTitle()).toBe(DAILY_CALENDAR[AUTHORED_DATE].title);
+    expect(await query('SELECT 1 FROM games WHERE game_id = $1', [gameId])).toHaveLength(0);
+    // ON DELETE CASCADE: the day reopens for everyone.
+    expect(await query('SELECT 1 FROM daily_challenge_entries WHERE challenge_date = $1::date', [AUTHORED_DATE])).toHaveLength(0);
   });
 });
