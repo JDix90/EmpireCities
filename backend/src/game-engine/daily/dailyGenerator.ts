@@ -18,13 +18,26 @@ import type { BuildingType, EraId, GameMap } from '../../types';
 import type { DailyPuzzleArchetype, DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { captureProbability } from '../combat/combatOdds';
 import { createSeededRng } from '../victory/missions';
-import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
+import { BUILDING_PREREQUISITES, DEFAULT_BUILDING_COSTS } from '../state/economyManager';
 
 /** Human-readable territory label for puzzle copy (prefers map data, else softens ids). */
 export function territoryDisplayName(map: GameMap | null, territoryId: string): string {
   const t = map?.territories?.find((x) => x.territory_id === territoryId);
   if (t?.name?.trim()) return t.name.trim();
   return territoryId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** "Capture X and hold it", or "Capture A and B and hold them", in the map's names. */
+export function captureGoal(map: GameMap | null, targets: readonly string[]): string {
+  const names = targets.map((t) => territoryDisplayName(map, t));
+  const list = names.length <= 1 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `Capture ${list} and hold ${names.length > 1 ? 'them' : 'it'} through the enemy’s turn.`;
+}
+
+export function regionGoal(map: GameMap | null, regionId: string): string {
+  const region = map?.regions?.find((r) => r.region_id === regionId);
+  const name = region?.name?.trim() || regionId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return `Control all of ${name} and hold it through the enemy’s turn.`;
 }
 
 /** Building label for economy goals, matching the authored calendar's wording. */
@@ -294,6 +307,120 @@ export function calibrateHold(input: HoldCalibrationInput): TacticalCalibration 
   return { board, max_turns: 6 + int(0, 1), p };
 }
 
+/**
+ * The smallest attacking stack whose first-assault capture odds against
+ * `garrison` reach `targetP`. Null when nothing in range does, or the fight is
+ * a freebie.
+ */
+export function searchAttackers(
+  garrison: number,
+  targetP: number,
+  attackerBaseCap: number,
+  band: TacticalBand,
+): { attackers: number; p: number } | null {
+  let attackers = garrison + 1;
+  let p = 0;
+  for (; attackers <= garrison + 16; attackers++) {
+    p = captureProbability(attackers, garrison, { attackerBaseCap });
+    if (p >= targetP) break;
+  }
+  if (p < band.min || p > 0.97) return null;
+  return { attackers, p };
+}
+
+// ── Region and chain calibration ─────────────────────────────────────────────
+//
+// Both are captures with more than one objective, so the primary fight is
+// sized exactly like a tactical day and the rest of the board is dealt
+// around it: further garrisons a little lighter, further human stacks modest,
+// and a longer clock for the extra hops. The solvability gate then re-sizes
+// until the obvious line lands in band, as it does for every capture.
+
+export interface RegionCalibrationInput {
+  /** Region territories the human starts with. */
+  human: readonly string[];
+  /** Region territories the AI garrisons; the first is the primary fight. */
+  ai: readonly string[];
+  /** A human reserve outside the region. */
+  support?: string | null;
+  extraAi?: readonly string[];
+  /** For each AI territory, the human territory its assault comes from. */
+  anchorFor: (aiTerritory: string) => string | null;
+  assaultIsSea: (from: string, to: string) => boolean;
+  rng: () => number;
+  band: TacticalBand;
+}
+
+export function calibrateRegion(input: RegionCalibrationInput): TacticalCalibration | null {
+  const { rng, band } = input;
+  const int = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
+  if (input.ai.length === 0 || input.human.length === 0) return null;
+
+  const board: NonNullable<DailyPuzzleSpec['starting_board']> = {};
+  for (const tid of input.human) board[tid] = { owner: 'human', unit_count: int(4, 6) };
+
+  const primary = input.ai[0];
+  const anchor = input.anchorFor(primary);
+  if (!anchor) return null;
+  const garrison = int(4, 7);
+  const targetP = band.min + rng() * (band.max - band.min);
+  const found = searchAttackers(garrison, targetP, input.assaultIsSea(anchor, primary) ? 2 : 3, band);
+  if (!found) return null;
+  board[primary] = { owner: 'ai', unit_count: garrison };
+  board[anchor] = { owner: 'human', unit_count: found.attackers };
+
+  for (const tid of input.ai.slice(1)) board[tid] = { owner: 'ai', unit_count: int(3, 5) };
+  const supportUnits = int(3, 5);
+  if (input.support && !board[input.support]) board[input.support] = { owner: 'human', unit_count: supportUnits };
+  for (const tid of input.extraAi ?? []) if (!board[tid]) board[tid] = { owner: 'ai', unit_count: int(3, 6) };
+
+  return { board, max_turns: 8 + input.ai.length + int(0, 1), p: found.p };
+}
+
+export interface ChainCalibrationInput {
+  anchor: string;
+  /** In order: the first borders the anchor, each next borders the previous. */
+  targets: readonly string[];
+  support?: string | null;
+  relief?: string | null;
+  extraAi?: readonly string[];
+  assaultIsSea: (from: string, to: string) => boolean;
+  rng: () => number;
+  band: TacticalBand;
+}
+
+export function calibrateChain(input: ChainCalibrationInput): TacticalCalibration | null {
+  const { rng, band } = input;
+  const int = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
+  if (input.targets.length === 0) return null;
+
+  const [first, ...rest] = input.targets;
+  const garrison = int(4, 6);
+  const targetP = band.min + rng() * (band.max - band.min);
+  const found = searchAttackers(garrison, targetP, input.assaultIsSea(input.anchor, first) ? 2 : 3, band);
+  if (!found) return null;
+
+  const board: NonNullable<DailyPuzzleSpec['starting_board']> = {
+    [first]: { owner: 'ai', unit_count: garrison },
+  };
+  // The stack has to take the first hop AND carry on: add each further
+  // garrison's weight plus one to what the primary fight needed.
+  let stack = found.attackers;
+  for (const tid of rest) {
+    const g = int(3, 5);
+    board[tid] = { owner: 'ai', unit_count: g };
+    stack += g + 1;
+  }
+  board[input.anchor] = { owner: 'human', unit_count: stack };
+  const supportUnits = int(3, 5);
+  const reliefUnits = int(3, 5);
+  if (input.support && !board[input.support]) board[input.support] = { owner: 'human', unit_count: supportUnits };
+  if (input.relief && !board[input.relief]) board[input.relief] = { owner: 'ai', unit_count: reliefUnits };
+  for (const tid of input.extraAi ?? []) if (!board[tid]) board[tid] = { owner: 'ai', unit_count: int(3, 6) };
+
+  return { board, max_turns: 7 + input.targets.length + int(0, 1), p: found.p };
+}
+
 /** The connection between two territories, if any. */
 export function findConnection(
   map: GameMap,
@@ -394,6 +521,35 @@ const CLOCK_SLACK = 3;
 export const goldPerTurn = (territories: number): number => Math.max(1, Math.floor(territories / 3));
 export const techPerTurn = (territories: number): number => Math.max(1, Math.floor(territories / 5));
 
+/**
+ * What a building goal really costs: the building plus every tier beneath it,
+ * because a tier-two goal means raising tier one first. A day that asks for
+ * production_2 is a two-step plan, and the clock has to allow both steps.
+ */
+export function buildingGoalCost(building: BuildingType): number {
+  let total = 0;
+  let cur: BuildingType | undefined = building;
+  for (let guard = 0; cur && guard < 8; guard++) {
+    total += DEFAULT_BUILDING_COSTS[cur] ?? 0;
+    cur = BUILDING_PREREQUISITES[cur];
+  }
+  return total;
+}
+
+/** What a tech goal really costs: the node plus its prerequisite chain. Null if the node is not in the tree. */
+export function techGoalCost(era: EraId, techId: string): number | null {
+  const tree = getEraTechTree(era);
+  let total = 0;
+  let cur: string | undefined = techId;
+  for (let guard = 0; cur && guard < 8; guard++) {
+    const node = tree.find((n) => n.tech_id === cur);
+    if (!node) return null;
+    total += node.cost;
+    cur = node.prerequisite;
+  }
+  return total;
+}
+
 export interface HoldingsInput {
   human: readonly string[];
   ai: readonly string[];
@@ -437,8 +593,7 @@ export interface EconomyDayInput {
 
 export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
   const rng = createSeededRng((input.dice_queue_seed ^ 0x7ac71ca1) >>> 0);
-  const cost = DEFAULT_BUILDING_COSTS[input.building_type];
-  const sizing = sizeEarnable(cost, goldPerTurn(input.human.length));
+  const sizing = sizeEarnable(buildingGoalCost(input.building_type), goldPerTurn(input.human.length));
   return {
     archetype: 'economy_build',
     title: input.title,
@@ -476,9 +631,10 @@ export interface TechDayInput {
 /** Returns null when the tech is not in the era's tree — a library error the review board catches first. */
 export function buildTechDay(input: TechDayInput): DailyPuzzleSpec | null {
   const node = getEraTechTree(input.era_id).find((n) => n.tech_id === input.tech_id);
-  if (!node) return null;
+  const cost = techGoalCost(input.era_id, input.tech_id);
+  if (!node || cost === null) return null;
   const rng = createSeededRng((input.dice_queue_seed ^ 0x7ac71ca1) >>> 0);
-  const sizing = sizeEarnable(node.cost, techPerTurn(input.human.length));
+  const sizing = sizeEarnable(cost, techPerTurn(input.human.length));
   return {
     archetype: 'tech_research',
     title: input.title,

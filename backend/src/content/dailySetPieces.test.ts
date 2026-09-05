@@ -47,7 +47,7 @@ describe('daily set-pieces — integrity', () => {
   it('every cadence verb has at least one set-piece, so the generator fallback is never the plan', () => {
     const verbs = new Set(
       Object.values(WEEKDAY_CADENCE)
-        .map((slot) => slot.verb)
+        .flatMap((slot) => [...slot.cycle])
         .filter((v): v is Exclude<typeof v, 'any'> => v !== 'any'),
     );
     for (const verb of verbs) {
@@ -64,9 +64,15 @@ describe('daily set-pieces — integrity', () => {
           ? [sp.anchor, sp.target, sp.support, sp.relief, ...(sp.extra_ai ?? [])].filter(
               (x): x is string => typeof x === 'string',
             )
-          : sp.kind === 'domination'
-            ? Object.keys(sp.spec.starting_board ?? {})
-            : [...sp.human, ...sp.ai];
+          : sp.kind === 'chain'
+            ? [sp.anchor, ...sp.targets, sp.support, sp.relief, ...(sp.extra_ai ?? [])].filter(
+                (x): x is string => typeof x === 'string',
+              )
+            : sp.kind === 'region'
+              ? [...sp.human, ...sp.ai, sp.support, ...(sp.extra_ai ?? [])].filter((x): x is string => typeof x === 'string')
+              : sp.kind === 'domination'
+                ? Object.keys(sp.spec.starting_board ?? {})
+                : [...sp.human, ...sp.ai];
       for (const tid of refs) {
         expect(ids.has(tid), `${sp.id}: ${tid} not on ${mapId}`).toBe(true);
       }
@@ -99,6 +105,40 @@ describe('daily set-pieces — shape', () => {
       // The relief territory becomes the human's reserve; without one the
       // defence has no second move.
       expect(sp.relief, `${sp.id}: a hold day needs a relief territory to serve as the reserve`).toBeDefined();
+    }
+  });
+
+  it('region: human + AI holdings are exactly the region, every garrison is reachable, support borders the human side', () => {
+    for (const sp of setPiecesOfKind('region')) {
+      const map = loadMap(sp.map_id);
+      const doc = JSON.parse(readFileSync(join(__dirname, `../../../database/maps/${sp.map_id}.json`), 'utf-8')) as {
+        territories: Array<{ territory_id: string; region_id?: string }>;
+      };
+      const region = doc.territories.filter((t) => t.region_id === sp.region_id).map((t) => t.territory_id).sort();
+      expect(region.length, `${sp.id}: region ${sp.region_id} not on ${sp.map_id}`).toBeGreaterThan(0);
+      expect([...sp.human, ...sp.ai].sort(), `${sp.id}: holdings must be exactly the region`).toEqual(region);
+      const humanSide = [...sp.human, ...(sp.support ? [sp.support] : [])];
+      for (const g of sp.ai) {
+        expect(humanSide.some((h) => borders(map, h, g)), `${sp.id}: garrison ${g} borders no human territory`).toBe(true);
+      }
+      if (sp.support) {
+        expect(region.includes(sp.support), `${sp.id}: support must sit outside the region`).toBe(false);
+        expect(sp.human.some((h) => borders(map, h, sp.support!)), `${sp.id}: support must border the human side`).toBe(true);
+      }
+    }
+  });
+
+  it('chain: the first target borders the anchor, each next borders the previous, relief borders the last', () => {
+    for (const sp of setPiecesOfKind('chain')) {
+      const map = loadMap(sp.map_id);
+      expect(borders(map, sp.anchor, sp.targets[0]), `${sp.id}: anchor must border the first target`).toBe(true);
+      for (let i = 1; i < sp.targets.length; i++) {
+        expect(borders(map, sp.targets[i - 1], sp.targets[i]), `${sp.id}: ${sp.targets[i]} must border ${sp.targets[i - 1]}`).toBe(true);
+      }
+      if (sp.support) expect(borders(map, sp.support, sp.anchor), `${sp.id}: support must border anchor`).toBe(true);
+      if (sp.relief) expect(borders(map, sp.relief, sp.targets[sp.targets.length - 1]), `${sp.id}: relief must border the last target`).toBe(true);
+      const named = [sp.anchor, ...sp.targets, sp.support, sp.relief, ...(sp.extra_ai ?? [])].filter(Boolean);
+      expect(new Set(named).size, `${sp.id}: territories must be distinct`).toBe(named.length);
     }
   });
 

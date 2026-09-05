@@ -801,6 +801,13 @@ export interface GameState {
   /** Set when a non-domination daily objective was achieved. */
   puzzle_objective_met?: boolean;
   /**
+   * Daily puzzles that must be achieved AND held: the turn the objective's
+   * condition first became true, or null while it is not. Solved once the
+   * turn counter has moved past it, i.e. the AI has had its turn and the
+   * condition still holds. Reset whenever the condition lapses.
+   */
+  puzzle_objective_reached_turn?: number | null;
+  /**
    * Random 128-bit salt used to seed secret-mission and capital-placement
    * RNGs. Generated server-side at game init; NEVER sent to clients (stripped
    * in `buildClientState`). Without this, a malicious client knowing the

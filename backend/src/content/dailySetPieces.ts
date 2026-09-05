@@ -23,6 +23,10 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
  *   relief borders the target; none of the four coincide;
  * - economy/tech: human and AI holdings are non-empty and disjoint; the
  *   building is in the cost table; the tech is in the era's tree;
+ * - region: human + AI holdings are exactly the region; every AI garrison
+ *   borders a human territory; support borders a human region territory;
+ * - chain: the first target borders the anchor and each next borders the
+ *   previous; relief borders the last target;
  * - domination: the spec is complete and passes the persistence validator.
  *
  * Community maps carry no era; a daily takes its era from the spec, so a
@@ -87,7 +91,45 @@ export interface DominationSetPiece {
   spec: Omit<DailyPuzzleSpec, 'dice_queue_seed'>;
 }
 
-export type DailySetPiece = TacticalSetPiece | EconomySetPiece | TechSetPiece | DominationSetPiece;
+/**
+ * Control a region: the human starts with most of it, the AI garrisons the
+ * rest, and every garrison has to fall and stay fallen. The first AI territory
+ * listed is the primary fight and is sized like a tactical day.
+ */
+export interface RegionSetPiece extends SetPieceBase {
+  kind: 'region';
+  region_id: string;
+  /** Region territories the human starts with. */
+  human: readonly string[];
+  /** Region territories the AI garrisons, primary fight first. Together with `human`: the whole region. */
+  ai: readonly string[];
+  /** A human reserve outside the region (must border a human region territory). */
+  support?: string;
+  extra_ai?: readonly string[];
+}
+
+/**
+ * A forced march: take the first target from the anchor, then the next from
+ * the first, and hold them all. Each target borders the one before it.
+ */
+export interface ChainSetPiece extends SetPieceBase {
+  kind: 'chain';
+  anchor: string;
+  targets: readonly [string, string, ...string[]];
+  /** A human reserve behind the anchor (must border it). */
+  support?: string;
+  /** An AI relief garrison beside the last target (must border it). */
+  relief?: string;
+  extra_ai?: readonly string[];
+}
+
+export type DailySetPiece =
+  | TacticalSetPiece
+  | EconomySetPiece
+  | TechSetPiece
+  | RegionSetPiece
+  | ChainSetPiece
+  | DominationSetPiece;
 
 export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
   // ── Tactical ──────────────────────────────────────────────────────────────
@@ -271,6 +313,86 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     human: ['italia', 'greece'],
     ai: ['anatolia'],
     tech_id: 'ancient_roads',
+  },
+
+  // ── Tier two: a two-step plan on the same clock ───────────────────────────
+  {
+    id: 'the_ruhr',
+    kind: 'economy',
+    era_id: 'ww2',
+    map_id: 'era_ww2',
+    title: 'The Ruhr',
+    intro: 'A factory is a promise. A second one on top of it is a war economy. Build the first to build the second.',
+    hint: 'Tier two needs tier one beneath it — raise both in the same territory.',
+    human: ['britain_ww2', 'france_ww2', 'iberia_ww2'],
+    ai: ['germany'],
+    building_type: 'production_2',
+  },
+  {
+    id: 'engines_of_siege',
+    kind: 'tech',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'Engines of Siege',
+    intro: 'Iron first, then the machines that use it. Two discoveries, one season.',
+    hint: 'Siege Engines needs Iron Weapons first — research in order and hold your ground for the points.',
+    human: ['italia', 'greece'],
+    ai: ['anatolia'],
+    tech_id: 'ancient_siege_engines',
+  },
+
+  // ── Region ────────────────────────────────────────────────────────────────
+  {
+    id: 'the_eastern_marches',
+    kind: 'region',
+    era_id: 'medieval',
+    map_id: 'era_medieval',
+    title: 'The Eastern Marches',
+    intro: 'Poland and Hungary are yours. Kiev and Constantinople are not. The whole march, or none of it.',
+    hint: 'Two garrisons, one clock: take the nearer one with enough left to hold it, then the other.',
+    region_id: 'eastern_europe',
+    human: ['poland_bohemia', 'hungary'],
+    ai: ['kievan_rus', 'byzantine'],
+    support: 'holy_roman',
+  },
+  {
+    id: 'the_parthian_shot',
+    kind: 'region',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'The Parthian Shot',
+    intro: 'Mesopotamia and Persia are held. Bactria and Arabia are not, and Parthia is not Parthia without them.',
+    region_id: 'parthia',
+    human: ['mesopotamia', 'persia'],
+    ai: ['bactria', 'arabia'],
+    support: 'levant',
+  },
+
+  // ── Chain ─────────────────────────────────────────────────────────────────
+  {
+    id: 'down_the_river',
+    kind: 'chain',
+    era_id: 'acw',
+    map_id: 'era_acw',
+    title: 'Down the River',
+    intro: 'Kentucky first, Tennessee after. The river war is won in two steps or not at all.',
+    hint: 'What you take Kentucky with is what you march on Tennessee with — do not bleed the stack on the first hop.',
+    anchor: 'acw_ohio_indiana',
+    targets: ['acw_kentucky', 'acw_tennessee'],
+    support: 'acw_great_lakes',
+    extra_ai: ['acw_appalachia'],
+  },
+  {
+    id: 'the_road_to_greece',
+    kind: 'chain',
+    era_id: 'ancient',
+    map_id: 'era_ancient',
+    title: 'The Road to Greece',
+    intro: 'Rome is the first prize and Greece the second. The legion that takes both has to survive both.',
+    anchor: 'gaul',
+    targets: ['italia', 'greece'],
+    support: 'hispania',
+    relief: 'anatolia',
   },
 
   // ── Domination ────────────────────────────────────────────────────────────

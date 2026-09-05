@@ -2,10 +2,10 @@ import { getMapById } from '../../modules/maps/mapService';
 import { query, queryOne } from '../../db/postgres';
 import { getEraTechTree } from '../eras';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
-import { buildDailyPuzzleBase, economySpecFromBase, territoryDisplayName } from './dailyGenerator';
+import { buildDailyPuzzleBase, captureGoal, economySpecFromBase, regionGoal, territoryDisplayName } from './dailyGenerator';
 import { scheduleDay } from './dailySchedule';
 
-export { territoryDisplayName };
+export { territoryDisplayName, captureGoal, regionGoal };
 
 /**
  * Rewrites goal (and related copy) using map/tech lookups so APIs never expose raw territory_id strings.
@@ -13,11 +13,15 @@ export { territoryDisplayName };
 export async function enrichDailyPuzzleSpecForDisplay(spec: DailyPuzzleSpec): Promise<DailyPuzzleSpec> {
   if (spec.archetype === 'military_capture' && spec.target_territory_id) {
     const map = await getMapById(spec.map_id);
-    const label = territoryDisplayName(map, spec.target_territory_id);
-    return {
-      ...spec,
-      goal: `Capture ${label} before time runs out.`,
-    };
+    return { ...spec, goal: captureGoal(map, [spec.target_territory_id]) };
+  }
+  if (spec.archetype === 'capture_chain' && spec.target_territory_ids?.length) {
+    const map = await getMapById(spec.map_id);
+    return { ...spec, goal: captureGoal(map, spec.target_territory_ids) };
+  }
+  if (spec.archetype === 'control_region' && spec.region_id) {
+    const map = await getMapById(spec.map_id);
+    return { ...spec, goal: regionGoal(map, spec.region_id) };
   }
   if (spec.archetype === 'hold_territory' && spec.target_territory_id) {
     const map = await getMapById(spec.map_id);
@@ -63,6 +67,8 @@ const VALID_ARCHETYPES: ReadonlySet<string> = new Set([
   'domination',
   'military_capture',
   'hold_territory',
+  'control_region',
+  'capture_chain',
   'economy_build',
   'tech_research',
 ]);
@@ -95,6 +101,11 @@ export function validateDailyPuzzleSpec(raw: unknown): DailyPuzzleSpec | null {
   if (!isFiniteNumber(s.seed) || !isFiniteNumber(s.player_count)) return null;
   if (!isFiniteNumber(s.max_turns) || !isFiniteNumber(s.dice_queue_seed)) return null;
   if (!isOptionalString(s.target_territory_id) || !isOptionalString(s.anchor_territory_id)) return null;
+  if (!isOptionalString(s.region_id)) return null;
+  if (s.target_territory_ids !== undefined
+      && (!Array.isArray(s.target_territory_ids) || s.target_territory_ids.some((t) => !isNonEmptyString(t)))) {
+    return null;
+  }
   if (!isOptionalString(s.building_type) || !isOptionalString(s.tech_id) || !isOptionalString(s.hint)) return null;
 
   if (s.ai_difficulty !== undefined && !VALID_AI_DIFFICULTIES.has(s.ai_difficulty as string)) return null;
@@ -176,6 +187,9 @@ export function specsDiffer(a: DailyPuzzleSpec, b: DailyPuzzleSpec): boolean {
   return JSON.stringify(canonicalize(a)) !== JSON.stringify(canonicalize(b));
 }
 
+/** Dates whose in-play mismatch has been logged this process — once is loud enough. */
+const warnedInPlay = new Set<string>();
+
 /** Attempts recorded plus games still being played on a given date's challenge. */
 async function countDailyPlay(date: string): Promise<number> {
   const row = await queryOne<{ n: number }>(
@@ -230,6 +244,8 @@ async function reconcileScheduledRow(
 
   const inPlay = await countDailyPlay(date);
   if (inPlay > 0) {
+    if (!warnedInPlay.has(date)) warnedInPlay.add(date);
+    else return rowFrom(stored);
     console.warn(
       `[daily] ${date} is scheduled as "${spec.title}" but the stored challenge is "${stored.title}". `
         + `Keeping the stored one: ${inPlay} attempt(s)/active game(s) already exist for that date. `

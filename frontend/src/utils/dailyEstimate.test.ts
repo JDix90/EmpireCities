@@ -12,7 +12,7 @@ describe('daily challenge time estimate', () => {
   });
 
   it('gives every archetype a label', () => {
-    for (const archetype of ['military_capture', 'hold_territory', 'economy_build', 'tech_research', 'domination']) {
+    for (const archetype of ['military_capture', 'hold_territory', 'control_region', 'capture_chain', 'economy_build', 'tech_research', 'domination']) {
       expect(estimatedTime({ archetype })).toMatch(/^\d+–\d+ min$/);
     }
   });

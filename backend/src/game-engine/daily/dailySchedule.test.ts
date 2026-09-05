@@ -9,7 +9,7 @@ import {
   mondayOf,
   rotationOrdinal,
   scheduleDay,
-  WEEKDAY_CADENCE,
+  verbForDate,
   weekdayOf,
   weekIndexOf,
   type ScheduledDay,
@@ -20,7 +20,7 @@ import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 import { getEraTechTree } from '../eras';
 import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
-import { goldPerTurn, techPerTurn } from './dailyGenerator';
+import { buildingGoalCost, goldPerTurn, techGoalCost, techPerTurn } from './dailyGenerator';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { simulatePuzzle } from './puzzleSim';
 
@@ -59,10 +59,14 @@ const SWEEP = [...datesFrom('2026-09-14', 365)];
 const VERB_TO_ARCHETYPE = {
   tactical: 'military_capture',
   hold: 'hold_territory',
+  region: 'control_region',
+  chain: 'capture_chain',
   economy: 'economy_build',
   tech: 'tech_research',
   domination: 'domination',
 } as const;
+
+const CAPTURE_SHAPED = new Set(['military_capture', 'control_region', 'capture_chain']);
 
 /** First-assault odds the way the calendar test measures them. */
 function primaryAssaultOdds(map: GameMap, spec: DailyPuzzleSpec): number {
@@ -102,20 +106,34 @@ describe('daily schedule — calendar arithmetic', () => {
     expect(mondayOf('2026-09-19')).toBe('2026-09-14');
   });
 
-  it('walks each verb’s bucket one slot at a time, in calendar order', () => {
-    // Mon and Fri are the two capture slots of a week; Wed is the hold slot.
-    const mon = rotationOrdinal('2026-09-14', 'tactical');
-    expect(rotationOrdinal('2026-09-18', 'tactical')).toBe(mon + 1);
-    expect(rotationOrdinal('2026-09-21', 'tactical')).toBe(mon + 2);
-    // A weekday that does not carry the verb has no ordinal.
-    expect(rotationOrdinal('2026-09-16', 'tactical')).toBe(-1);
-    expect(rotationOrdinal('2026-09-16', 'hold')).toBeGreaterThanOrEqual(0);
-    expect(rotationOrdinal('2026-09-15', 'tactical')).toBe(-1);
-    expect(rotationOrdinal('2026-09-15', 'economy')).toBeGreaterThanOrEqual(0);
+  it('cycles Friday through a hard capture, a region and a chain', () => {
+    const fridays = [...datesFrom('2026-09-18', 21)].filter((d) => weekdayOf(d) === 5);
+    expect(fridays.map(verbForDate).sort()).toEqual(['chain', 'region', 'tactical']);
+    expect(verbForDate('2026-09-14')).toBe('tactical');
+    expect(verbForDate('2026-09-16')).toBe('hold');
+    expect(verbForDate('2026-09-20')).toBe('domination');
+  });
+
+  it('the ordinal is the count of that verb’s slots before the date, verified against a brute-force count', () => {
+    // The closed form has to agree with simply counting, across a cycled slot.
+    const dates = [...datesFrom('2026-09-14', 120)];
+    for (const verb of ['tactical', 'region', 'chain', 'hold', 'economy'] as const) {
+      const first = dates.find((d) => verbForDate(d) === verb)!;
+      const base = rotationOrdinal(first, verb);
+      let seen = 0;
+      for (const d of dates) {
+        if (verbForDate(d) !== verb) {
+          expect(rotationOrdinal(d, verb), `${d} does not carry ${verb}`).toBe(-1);
+          continue;
+        }
+        expect(rotationOrdinal(d, verb), `${d} ${verb}`).toBe(base + seen);
+        seen += 1;
+      }
+    }
   });
 });
 
-describe('daily schedule — the sweep', () => {
+describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
   let days: ScheduledDay[] = [];
   const ready = (async () => {
     days = [];
@@ -134,9 +152,9 @@ describe('daily schedule — the sweep', () => {
   it('follows the weekday cadence', async () => {
     await ready;
     for (const day of days) {
-      const slot = WEEKDAY_CADENCE[weekdayOf(day.date)];
-      if (slot.verb === 'any') continue;
-      expect(day.spec.archetype, day.date).toBe(VERB_TO_ARCHETYPE[slot.verb]);
+      const verb = verbForDate(day.date);
+      if (verb === 'any') continue;
+      expect(day.spec.archetype, day.date).toBe(VERB_TO_ARCHETYPE[verb]);
     }
   });
 
@@ -219,15 +237,18 @@ describe('daily schedule — the sweep', () => {
     let simulated = 0;
     let outOfBand = 0;
     for (const { date, spec } of days) {
-      if (spec.archetype !== 'military_capture' && spec.archetype !== 'hold_territory') continue;
+      if (!CAPTURE_SHAPED.has(spec.archetype) && spec.archetype !== 'hold_territory') continue;
       simulated += 1;
-      const band = GATE_BANDS[spec.archetype];
+      const band = GATE_BANDS[spec.archetype as keyof typeof GATE_BANDS];
       const r = (await simulatePuzzle(spec, (await loadMap(spec.map_id))!, { games: GATE_GAMES }))!;
       // The floor is absolute: an unwinnable board is never served.
       expect(r.solve_rate, `${date} ${spec.title}: ${(r.solve_rate * 100).toFixed(0)}% solvable`).toBeGreaterThanOrEqual(band.min);
       if (r.solve_rate > band.max) outOfBand += 1;
-      if (spec.archetype === 'military_capture') {
+      if (CAPTURE_SHAPED.has(spec.archetype)) {
         expect(spec.par_turns, `${date}: capture day without par`).toBe(r.median_turns);
+        // Capture-and-hold: the objective has to survive the enemy's reply,
+        // so no capture-shaped day is solved on turn one.
+        expect(spec.par_turns, `${date}: par 1 means the capture never had to be held`).toBeGreaterThanOrEqual(2);
       } else {
         expect(spec.par_turns, `${date}: a hold day carries no par`).toBeUndefined();
         expect(spec.ai_difficulty, `${date}: hold days are always medium`).toBe('medium');
@@ -236,6 +257,52 @@ describe('daily schedule — the sweep', () => {
     expect(simulated).toBeGreaterThan(150);
     // The ceiling is best-effort: when no attempt lands, the closest above the floor is served.
     expect(outOfBand / simulated, `${outOfBand} of ${simulated} served above the band`).toBeLessThanOrEqual(0.05);
+  });
+
+  it('region days: the human holds most of the region, every AI garrison is reachable, and the goal names the region', async () => {
+    await ready;
+    let seen = 0;
+    for (const { date, spec } of days) {
+      if (spec.archetype !== 'control_region') continue;
+      seen += 1;
+      const map = (await loadMap(spec.map_id))!;
+      const board = spec.starting_board!;
+      const regionIds = map.territories.filter((t) => t.region_id === spec.region_id).map((t) => t.territory_id);
+      expect(regionIds.length, date).toBeGreaterThan(0);
+      const aiInRegion = regionIds.filter((t) => board[t]?.owner === 'ai');
+      const humanInRegion = regionIds.filter((t) => board[t]?.owner === 'human');
+      expect(aiInRegion.length, date).toBeGreaterThan(0);
+      expect(humanInRegion.length, date).toBeGreaterThanOrEqual(aiInRegion.length);
+      for (const g of aiInRegion) {
+        const reachable = Object.entries(board).some(([tid, t]) => t.owner === 'human' && map.connections.some((c) => (c.from === tid && c.to === g) || (c.from === g && c.to === tid)));
+        expect(reachable, `${date}: garrison ${g} borders no human territory`).toBe(true);
+      }
+      expect(spec.goal, date).toMatch(/^Control all of .+ and hold it through the enemy’s turn\.$/);
+      expect(spec.starting_phase, date).toBe('attack');
+    }
+    expect(seen).toBeGreaterThan(10);
+  });
+
+  it('chain days: each target borders the one before it, the anchor carries the march, and the goal names them all', async () => {
+    await ready;
+    let seen = 0;
+    for (const { date, spec } of days) {
+      if (spec.archetype !== 'capture_chain') continue;
+      seen += 1;
+      const map = (await loadMap(spec.map_id))!;
+      const board = spec.starting_board!;
+      const targets = spec.target_territory_ids!;
+      expect(targets.length, date).toBeGreaterThanOrEqual(2);
+      const borders = (a: string, b: string) => map.connections.some((c) => (c.from === a && c.to === b) || (c.from === b && c.to === a));
+      expect(borders(spec.anchor_territory_id!, targets[0]), date).toBe(true);
+      for (let i = 1; i < targets.length; i++) expect(borders(targets[i - 1], targets[i]), `${date}: ${targets[i]} does not border ${targets[i - 1]}`).toBe(true);
+      for (const t of targets) expect(board[t]?.owner, date).toBe('ai');
+      expect(board[spec.anchor_territory_id!]?.owner, date).toBe('human');
+      const garrisons = targets.reduce((n, t) => n + board[t].unit_count, 0);
+      expect(board[spec.anchor_territory_id!].unit_count, `${date}: the stack cannot carry the march`).toBeGreaterThan(garrisons);
+      expect(spec.goal, date).toMatch(/^Capture .+ and .+ and hold them through the enemy’s turn\.$/);
+    }
+    expect(seen).toBeGreaterThan(10);
   });
 
   it('Friday is the harder fight', async () => {
@@ -258,7 +325,9 @@ describe('daily schedule — the sweep', () => {
     for (const { date, spec } of days) {
       if (spec.archetype !== 'economy_build') continue;
       expect(spec.clear_board, date).toBe(true);
-      const cost = DEFAULT_BUILDING_COSTS[spec.building_type!];
+      // A tier-two goal costs the tier beneath it too.
+      const cost = buildingGoalCost(spec.building_type!);
+      expect(cost).toBeGreaterThanOrEqual(DEFAULT_BUILDING_COSTS[spec.building_type!]);
       const grant = spec.grants?.gold ?? 0;
       const perTurn = goldPerTurn(humanTerritories(spec));
       expect(grant, `${date}: grant ${grant} covers the cost ${cost} — a freebie`).toBeLessThan(cost);
@@ -276,8 +345,10 @@ describe('daily schedule — the sweep', () => {
       expect(spec.settings_overrides?.economy_tech_starting_tech_points, date).toBe(0);
       const grant = spec.grants?.tech_points ?? 0;
       const perTurn = techPerTurn(humanTerritories(spec));
-      expect(grant, `${date}: grant ${grant} covers the cost ${node!.cost} — a freebie`).toBeLessThan(node!.cost);
-      expect(grant + perTurn * (spec.max_turns - 1), `${date}: unreachable`).toBeGreaterThanOrEqual(node!.cost);
+      const cost = techGoalCost(spec.era_id, spec.tech_id!)!;
+      expect(cost).toBeGreaterThanOrEqual(node!.cost);
+      expect(grant, `${date}: grant ${grant} covers the cost ${cost} — a freebie`).toBeLessThan(cost);
+      expect(grant + perTurn * (spec.max_turns - 1), `${date}: unreachable`).toBeGreaterThanOrEqual(cost);
     }
   });
 
@@ -302,12 +373,11 @@ describe('daily schedule — the sweep', () => {
     await ready;
     // The cursor-walked slots (hold, Saturday) defer an entry rather than
     // repeat one, so this order property is for the plain ordinal walks.
-    for (const verb of ['tactical', 'economy', 'tech', 'domination'] as const) {
+    for (const verb of ['tactical', 'region', 'chain', 'economy', 'tech', 'domination'] as const) {
       const bucket = bucketForVerb(verb);
       const used: string[] = [];
       for (const d of days) {
-        const slot = WEEKDAY_CADENCE[weekdayOf(d.date)];
-        if (slot.verb !== verb) continue;
+        if (verbForDate(d.date) !== verb) continue;
         used.push(d.set_piece_id!);
         if (used.length === bucket.length) break;
       }
