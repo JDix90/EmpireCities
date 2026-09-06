@@ -87,6 +87,12 @@
 }
 
 @layer utilities {
+  /* Inset-only padding, for elements that want NO base padding on that edge —
+     the fixed bottom nav and the in-game action bar, which supply their own
+     height. Anywhere a base value is also wanted, use the additive scale from
+     tailwind.config.js (`pt-safe-4` = 1rem + the inset) instead: these SET
+     padding and are emitted at the same specificity as Tailwind's `py-*`, so
+     `py-4 pt-safe` silently resolved to 0px everywhere without a notch. */
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
@@ -96,6 +102,15 @@
   .px-safe {
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* Horizontal chip/tab rows that scroll: the bar itself is noise on a
+     control that is obviously swipeable. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
   .min-h-screen-safe {
     min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
@@ -117,8 +132,12 @@
   bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 0.25rem);
 }
 
+/* 28vh (186px on a 664px phone) cut the territory panel's combat button in
+   half at the default snap — the header, owner, unit count and COMBAT label
+   come first, and a two-line "Attack from X / N units" row did not fit under
+   them. The map stays the larger half either way. */
 .mobile-sheet-peek {
-  max-height: 28vh;
+  max-height: 36vh;
 }
 
 .mobile-sheet-half {

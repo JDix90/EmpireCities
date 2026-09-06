@@ -93,7 +93,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
   const tiers = [1, 2, 3, 4] as const;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm px-3 py-4 pt-safe pb-safe sm:px-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm px-3 pt-safe-4 pb-safe-4 sm:px-4">
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-3xl max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] flex flex-col overflow-hidden">
         {/* Header */}

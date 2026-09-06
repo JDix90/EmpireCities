@@ -242,6 +242,10 @@ export default function GameHUD({
       // below it had nowhere to go — the overflow painted over the chat and the
       // pinned action button.
       'flex flex-col min-h-0 bg-bf-surface',
+      // On mobile the whole HUD is one scroll region inside the drawer; on
+      // desktop the tab content below scrolls and the rest stays pinned.
+      // Nesting a second scroller inside the mobile one collapses it to zero
+      // height as soon as the drawer's own chrome grows.
       mobile
         ? 'flex-1 overflow-y-auto'
         : 'flex flex-1 min-h-0',
@@ -274,7 +278,11 @@ export default function GameHUD({
           <PhaseProgressBar
             phase={gameState.phase}
             isMyTurn={isMyTurn}
-            variant={mobile ? 'compact' : 'full'}
+            // Compact on both: the desktop sidebar is 288px wide, which fits
+            // the icons plus one label, not four. The current step keeps its
+            // word — that is the one a player reads — and every step carries
+            // its status in sr-only text either way.
+            variant="compact"
             className="mb-2"
           />
         )}

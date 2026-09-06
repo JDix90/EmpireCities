@@ -432,7 +432,7 @@ export default function TerritoryPanel({
         </div>
       )}
       {/* Content */}
-      <div className={isMobile ? 'px-4 pb-4 pb-safe' : 'p-4'}>
+      <div className={isMobile ? 'px-4 pb-safe-4' : 'p-4'}>
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>

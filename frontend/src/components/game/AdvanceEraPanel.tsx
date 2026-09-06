@@ -67,17 +67,23 @@ export default function AdvanceEraPanel({
         disabled={!buttonEnabled}
         title={status.blockers.join(' · ') || `Advance to ${ERA_LABELS[status.nextEraId] ?? status.nextEraId}`}
         className={clsx(
-          'inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 text-xs rounded-lg border shrink-0',
+          'inline-flex items-center gap-1.5 min-h-[40px] px-2.5 xs:px-3 py-2 text-xs rounded-lg border shrink-0',
           buttonEnabled
             ? 'border-bf-gold/50 bg-bf-gold/15 text-bf-gold hover:bg-bf-gold/25'
             : 'border-bf-border bg-bf-dark/80 text-bf-muted opacity-80',
         )}
       >
-        <Sparkles className="w-3.5 h-3.5" />
-        <span className="font-medium">
+        <Sparkles className="w-3.5 h-3.5 shrink-0" />
+        {/* The era name is the first thing to go below 400px: at 149px wide
+            this pill was pushing the Menu button off a 360px screen, and the
+            same name already sits in the header and the Game Info sheet. The
+            cost is what makes this a decision, so it always stays. */}
+        <span className="font-medium hidden xs:inline">
           {ERA_LABELS[status.nextEraId] ?? status.nextEraId}
         </span>
-        <span className="opacity-75">· {status.cost}g</span>
+        <span className="opacity-75 whitespace-nowrap">
+          <span className="hidden xs:inline">· </span>{status.cost}g
+        </span>
       </button>
     );
   }

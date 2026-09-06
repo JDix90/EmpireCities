@@ -59,7 +59,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
 
   return (
     <div
-      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 px-3 py-4 pt-safe pb-safe sm:px-4"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 px-3 pt-safe-4 pb-safe-4 sm:px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-friends-title"

@@ -41,4 +41,14 @@ describe('PhaseProgressBar', () => {
     // …but an upcoming label (fortify) is icon-only in compact mode.
     expect(screen.queryByText(PHASE_SHORT_LABELS.fortify)).toBeNull();
   });
+
+  it('wraps rather than overflowing its container', () => {
+    // The desktop sidebar is a fixed w-72 (288px) at every screen width, and
+    // four labelled steps plus separators do not fit it — "End Turn" was
+    // clipped mid-word at 1280, 1440 and 1920 alike. The mount site now picks
+    // `compact`; flex-wrap is the backstop for any future wide placement.
+    const { container } = render(<PhaseProgressBar phase="draft" />);
+    const rail = container.querySelector('ol');
+    expect(rail?.className).toContain('flex-wrap');
+  });
 });

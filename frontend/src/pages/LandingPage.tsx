@@ -236,7 +236,7 @@ function EraDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto px-3 py-4 pt-safe pb-safe sm:px-4 sm:py-6"
+      className="fixed inset-0 z-50 overflow-y-auto px-3 pt-safe-4 pb-safe-4 sm:px-4 sm:pt-safe-6 sm:pb-safe-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="era-modal-title"
@@ -440,7 +440,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bf-dark">
       {/* Navigation */}
-      <nav className="border-b border-bf-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between pt-safe px-safe gap-2">
+      <nav className="border-b border-bf-border px-safe-4 sm:px-safe-6 pb-3 sm:pb-4 flex items-center justify-between pt-safe-3 sm:pt-safe-4 gap-2">
         <BrandWordmark className="text-lg sm:text-2xl" />
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Single-CTA variant: the hero owns the Play action; the nav keeps
@@ -595,7 +595,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-bf-border py-8 pb-safe text-center text-bf-muted text-sm space-y-2">
+      <footer className="border-t border-bf-border pt-8 pb-safe-8 text-center text-bf-muted text-sm space-y-2">
         <p>© 2026 {APP_NAME}. All rights reserved.</p>
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
           <Link to="/about" className="text-bf-gold/80 hover:text-bf-gold">About</Link>
