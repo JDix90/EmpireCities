@@ -21,15 +21,33 @@ type NavItem = {
   exact?: boolean;
 };
 
-const mainNav: NavItem[] = [
-  { to: '/', label: 'Home', icon: Home, title: 'Home', exact: true },
-  { to: '/maps', label: 'Map Hub', icon: Map, title: 'Map Hub' },
-  { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily', hideForGuest: true },
-  { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
-  { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
-  { to: '/live-games', label: 'Live', icon: Eye, title: 'Live', requiresSpectate: true },
-  { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true, requiresMapEditor: true },
-  { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
+/**
+ * Grouped rather than flat, and ordered by what a player is looking for:
+ * ways to play first, then where to play, then everything else. As one list of
+ * eight peers, "Map Hub" — a browsing surface — sat at the head of the nav
+ * ahead of both things that actually start a game.
+ *
+ * There is no "Play" entry because this bar only renders on the lobby, which is
+ * itself the play surface; the wordmark returns here from anywhere else.
+ */
+const navGroups: NavItem[][] = [
+  // Ways to play.
+  [
+    { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily Challenge', hideForGuest: true },
+    { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
+  ],
+  // Where to play.
+  [
+    { to: '/maps', label: 'Maps', icon: Map, title: 'Map Hub' },
+    { to: '/editor', label: 'Map Editor', icon: PenSquare, title: 'Map Editor', hideForGuest: true, requiresMapEditor: true },
+  ],
+  // Everything else.
+  [
+    { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
+    { to: '/live-games', label: 'Live', icon: Eye, title: 'Live', requiresSpectate: true },
+    { to: '/', label: 'Home', icon: Home, title: 'Landing page', exact: true },
+    { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
+  ],
 ];
 
 export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () => void }) {
@@ -43,6 +61,19 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   // Read gold from the store (not the prop) so it stays reactive after daily
   // claims, purchases, and game rewards update the balance elsewhere.
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
+  // Groups are filtered before render so an empty group (all-guest-hidden, say)
+  // can't leave a divider with nothing on one side of it.
+  const visibleGroups = navGroups
+    .map((group) =>
+      group.filter(
+        ({ hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate }) =>
+          (!hideForGuest || !user?.is_guest)
+          && (!hideForNonAdmin || isAdmin)
+          && (!requiresMapEditor || mapEditorEnabled)
+          && (!requiresSpectate || spectateEnabled),
+      ),
+    )
+    .filter((group) => group.length > 0);
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to;
     return location.pathname.startsWith(to) && to !== '/';
@@ -56,22 +87,22 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       {/* Main nav groups */}
       <div className={styles.mainNav}>
         <div className={styles.navLinks}>
-          {mainNav.map(({ to, label, icon: Icon, title, hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate, exact }) =>
-            (!hideForGuest || !user?.is_guest)
-            && (!hideForNonAdmin || isAdmin)
-            && (!requiresMapEditor || mapEditorEnabled)
-            && (!requiresSpectate || spectateEnabled) && (
-              <Link
-                key={to}
-                to={to}
-                className={isActive(to, exact) ? `${styles.navLink} ${styles.active}` : styles.navLink}
-                aria-current={isActive(to, exact) ? 'page' : undefined}
-                title={title || label}
-              >
-                <Icon className={styles.icon} /> {label}
-              </Link>
-            )
-          )}
+          {visibleGroups.map((group, groupIndex) => (
+            <React.Fragment key={group[0].to}>
+              {groupIndex > 0 && <span className={styles.navDivider} aria-hidden />}
+              {group.map(({ to, label, icon: Icon, title, exact }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={isActive(to, exact) ? `${styles.navLink} ${styles.active}` : styles.navLink}
+                  aria-current={isActive(to, exact) ? 'page' : undefined}
+                  title={title || label}
+                >
+                  <Icon className={styles.icon} /> {label}
+                </Link>
+              ))}
+            </React.Fragment>
+          ))}
         </div>
       </div>
       {/* Account & Help */}

@@ -109,13 +109,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     // `{}` rather than omission: the client merges /me shallowly, and an
     // empty object overwrites any previously cached ratings.
     const ratings = user.is_guest ? {} : await fetchUserRatingsSafe(request.userId);
-    const tutorialRow = await queryOne<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt FROM user_achievements
-       WHERE user_id = $1 AND achievement_id = 'tutorial_complete'`,
-      [request.userId],
-    );
-    const has_completed_tutorial = parseInt(tutorialRow?.cnt ?? '0', 10) > 0;
-
     // Fetch server-side tutorial module completions (migration 027).
     let tutorial_modules_completed: string[] = [];
     try {
@@ -127,6 +120,21 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     } catch {
       // Table may not exist yet on older deployments — degrade gracefully.
     }
+
+    const tutorialRow = await queryOne<{ cnt: string }>(
+      `SELECT COUNT(*) AS cnt FROM user_achievements
+       WHERE user_id = $1 AND achievement_id = 'tutorial_complete'`,
+      [request.userId],
+    );
+    // Two sources, because the achievement alone is close to unreachable: it is
+    // awarded from `checkAchievements` when a tutorial GAME finishes, i.e. when
+    // the practice board is conquered — but the tutorial ends on a wrap-up card
+    // with the board still contested, and players leave there. The module row
+    // (written when the player reaches that card) is the signal that actually
+    // fires. Reading only the achievement told the lobby every tutorial graduate
+    // was a first-timer, and it pitched them the tutorial again.
+    const has_completed_tutorial =
+      parseInt(tutorialRow?.cnt ?? '0', 10) > 0 || tutorial_modules_completed.includes('core');
 
     return reply.send({ ...user, ratings, has_completed_tutorial, tutorial_modules_completed });
   });

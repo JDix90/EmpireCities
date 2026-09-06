@@ -32,6 +32,14 @@
   align-items: center;
   gap: 1.1rem;
 }
+/* Separates the nav's three groups — ways to play, where to play, everything
+   else — so the list reads as a hierarchy instead of eight equal peers. */
+.navDivider {
+  width: 1px;
+  height: 1.1rem;
+  background: var(--bf-border, #333);
+  flex-shrink: 0;
+}
 .accountNav {
   display: flex;
   align-items: center;

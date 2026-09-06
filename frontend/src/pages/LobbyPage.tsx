@@ -598,12 +598,39 @@ export default function LobbyPage() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
+  /**
+   * Has this account already been through the tutorial? Server truth, merged
+   * with the local module store so a guest (who cannot sync module completions
+   * — the sync route rejects guests) is still remembered on their own device.
+   */
+  const tutorialAlreadyDone =
+    !!user?.has_completed_tutorial
+    || !!user?.tutorial_modules_completed?.includes('core')
+    || completedModules.includes('core');
+
   useEffect(() => {
     setCompletedModules(getCompletedTutorialModules());
-    if (user && (user.xp ?? 0) === 0 && !hasSeenWelcome()) {
-      setShowWelcomeModal(true);
-    }
   }, [user?.user_id]);
+
+  /**
+   * The welcome modal exists to pitch the tutorial to a brand-new player. Two
+   * things decide "brand-new" and only one used to be consulted:
+   * `bf-lobby-welcomed` is per-device localStorage, while finishing the tutorial
+   * is recorded against the account. A player who came in through /tutorial
+   * (the onboarding-tutorial-first path never passes through the lobby), played
+   * it, and landed here was told "New here? We recommend starting with the
+   * interactive tutorial" about the thing they had just finished.
+   *
+   * It also has to be able to retract: /api/users/me resolves after first paint,
+   * so the modal can already be on screen when the answer arrives.
+   */
+  useEffect(() => {
+    if (!user || (user.xp ?? 0) !== 0 || tutorialAlreadyDone) {
+      setShowWelcomeModal(false);
+      return;
+    }
+    if (!hasSeenWelcome()) setShowWelcomeModal(true);
+  }, [user?.user_id, user?.xp, tutorialAlreadyDone]);
 
   const mapImmersion = React.useMemo(
     () => (isCommunityTheaterMap(selectedTheaterMapId) ? getCustomMapImmersion(selectedTheaterMapId) : null),
