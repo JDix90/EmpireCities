@@ -114,4 +114,51 @@ describe('NeighborTerritoryPicker — attack rows attack', () => {
     );
     expect(screen.getByText('? units')).toBeInTheDocument();
   });
+
+  it('routes the compact (mobile) row to the attack too', () => {
+    const onAttack = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Rome"
+        neighbors={[row()]}
+        compact
+        onSelect={onSelect}
+        onAttack={onAttack}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Attack Milan' }));
+    expect(onAttack).toHaveBeenCalledWith('milan');
+  });
+
+  it('keeps mobile on a scrolling strip and desktop on one row per target', () => {
+    // The desktop list went column-wise so every ⓘ lines up; the mobile strip
+    // must stay horizontal or the bottom sheet grows a target per row.
+    const { container, unmount } = render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Rome"
+        neighbors={[row(), row({ territoryId: 'turin', name: 'Turin' })]}
+        compact
+        onSelect={() => {}}
+        onAttack={() => {}}
+      />,
+    );
+    expect(container.querySelector('.overflow-x-auto')).not.toBeNull();
+    expect(container.querySelector('.flex-col')).toBeNull();
+    unmount();
+
+    const desktop = render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Rome"
+        neighbors={[row(), row({ territoryId: 'turin', name: 'Turin' })]}
+        onSelect={() => {}}
+        onAttack={() => {}}
+      />,
+    );
+    expect(desktop.container.querySelector('.flex-col')).not.toBeNull();
+    expect(desktop.container.querySelector('.overflow-x-auto')).toBeNull();
+  });
 });

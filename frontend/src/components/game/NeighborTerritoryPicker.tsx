@@ -62,7 +62,10 @@ export default function NeighborTerritoryPicker({
       <div className={clsx(
         compact
           ? 'flex gap-1.5 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 flex-nowrap scrollbar-thin'
-          : 'flex flex-wrap gap-1.5',
+          // One target per row rather than a wrapped grid: the inspect button
+          // now rides alongside each target, and wrapping left those ⓘ at
+          // ragged x-positions that read as misalignment.
+          : 'flex flex-col gap-1.5',
       )}>
         {neighbors.map((neighbor) => {
           const isOrbit = neighbor.isOrbit;
@@ -74,7 +77,10 @@ export default function NeighborTerritoryPicker({
               : 'border-emerald-700/45 bg-emerald-950/30 text-emerald-100 hover:border-emerald-500/60 hover:bg-emerald-900/35';
           const isAttack = phase === 'attack' && !!onAttack;
           return (
-            <div key={neighbor.territoryId} className={clsx('flex items-stretch gap-1', compact && 'shrink-0')}>
+            <div
+              key={neighbor.territoryId}
+              className={clsx('flex items-stretch gap-1', compact ? 'shrink-0' : 'w-full')}
+            >
               {/*
                 In the attack phase the WIDE button is the attack and the narrow
                 one inspects. It used to be the other way round: the ~10rem row
@@ -109,7 +115,7 @@ export default function NeighborTerritoryPicker({
                   else onSelect(neighbor.territoryId);
                 }}
               >
-                <span className={clsx('font-medium flex items-center gap-1', compact ? 'max-w-[8rem]' : 'max-w-[10rem]')}>
+                <span className={clsx('font-medium flex items-center gap-1', compact && 'max-w-[8rem]')}>
                   {isAttack
                     ? <Sword className="w-3 h-3 shrink-0" aria-hidden="true" />
                     : isOrbit && <Rocket className="w-3 h-3 shrink-0" aria-hidden="true" />}

@@ -258,12 +258,53 @@ export function listNeighborTargets(
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * The attacker must leave one unit behind to hold the ground, so a stack of 1
+ * can't attack at all — the server rejects `unit_count < 2` outright
+ * (gameSocket's attack handler, executeLandAttack, executeBlitzAttack).
+ */
+export const MIN_ATTACK_UNITS = 2;
+
+/** Can this territory legally launch an attack for `viewerId` right now? */
+export function canAttackFrom(
+  gameState: GameState,
+  territoryId: string,
+  viewerId: string | null | undefined,
+): boolean {
+  if (!gameState || !viewerId) return false;
+  const t = gameState.territories[territoryId];
+  return t?.owner_id === viewerId && (t.unit_count ?? 0) >= MIN_ATTACK_UNITS;
+}
+
 export interface DirectAttackSourceRow {
   territoryId: string;
   name: string;
   unitCount: number;
   /** Connection linking this source to the target — blitz eligibility reads it. */
   connectionType?: string;
+}
+
+/**
+ * The viewer's territories that border `territoryId`, whatever their strength.
+ *
+ * Distinguishes "you have nothing next to this" from "what you have next to it
+ * is too thin to attack with" — two very different pieces of advice, and the
+ * panel says which rather than leaving an empty Combat section.
+ */
+export function listBorderingOwned(
+  gameState: GameState,
+  connections: MapConnection[],
+  territoryId: string,
+  viewerId: string | null | undefined,
+): string[] {
+  if (!gameState || !viewerId) return [];
+  const owned = new Set<string>();
+  for (const conn of connections) {
+    const other = conn.from === territoryId ? conn.to : conn.to === territoryId ? conn.from : null;
+    if (!other) continue;
+    if (gameState.territories[other]?.owner_id === viewerId) owned.add(other);
+  }
+  return [...owned];
 }
 
 /**
@@ -294,17 +335,8 @@ export function listDirectAttackSources(
   // Enemy-held or a capturable neutral; never your own territory.
   if (targetOwner === viewerId) return [];
 
-  const adjacentMine = new Set<string>();
-  for (const conn of connections) {
-    const other =
-      conn.from === targetTerritoryId ? conn.to : conn.to === targetTerritoryId ? conn.from : null;
-    if (!other) continue;
-    const t = gameState.territories[other];
-    // ≥2 units: one must stay behind to hold the source.
-    if (t?.owner_id === viewerId && (t.unit_count ?? 0) >= 2) adjacentMine.add(other);
-  }
-
-  return [...adjacentMine]
+  return listBorderingOwned(gameState, connections, targetTerritoryId, viewerId)
+    .filter((sourceId) => canAttackFrom(gameState, sourceId, viewerId))
     .filter((sourceId) =>
       listNeighborTargets(gameState, connections, sourceId, territoryNames, {
         attackSource: sourceId,

@@ -5,6 +5,8 @@ import {
   computeValidSources,
   computeFortifyReachable,
   listDirectAttackSources,
+  canAttackFrom,
+  listBorderingOwned,
 } from './mapAdjacencyTargets';
 import type { GameState } from '../store/gameStore';
 
@@ -307,5 +309,75 @@ describe('listDirectAttackSources', () => {
   it('falls back to the territory id when no display name is known', () => {
     const rows = listDirectAttackSources(siegeState(), siegeConnections, 'milan', 'p1', new Map());
     expect(rows.map((r) => r.name)).toEqual(['turin', 'rome']);
+  });
+});
+
+describe('canAttackFrom', () => {
+  const state = {
+    phase: 'attack',
+    territories: {
+      rome: { territory_id: 'rome', owner_id: 'p1', unit_count: 2 },
+      genoa: { territory_id: 'genoa', owner_id: 'p1', unit_count: 1 },
+      milan: { territory_id: 'milan', owner_id: 'p2', unit_count: 9 },
+      ruins: { territory_id: 'ruins', owner_id: null, unit_count: 0 },
+    },
+    players: [],
+  } as unknown as GameState;
+
+  it('accepts my territory at the two-unit minimum', () => {
+    expect(canAttackFrom(state, 'rome', 'p1')).toBe(true);
+  });
+
+  it('rejects a drained stack — one unit has to hold the ground', () => {
+    expect(canAttackFrom(state, 'genoa', 'p1')).toBe(false);
+  });
+
+  it("rejects someone else's territory, however large", () => {
+    expect(canAttackFrom(state, 'milan', 'p1')).toBe(false);
+  });
+
+  it('rejects unowned ground and unknown ids without throwing', () => {
+    expect(canAttackFrom(state, 'ruins', 'p1')).toBe(false);
+    expect(canAttackFrom(state, 'atlantis', 'p1')).toBe(false);
+  });
+
+  it('rejects when there is no viewer', () => {
+    expect(canAttackFrom(state, 'rome', null)).toBe(false);
+  });
+});
+
+describe('listBorderingOwned', () => {
+  const state = {
+    phase: 'attack',
+    territories: {
+      rome: { territory_id: 'rome', owner_id: 'p1', unit_count: 5 },
+      genoa: { territory_id: 'genoa', owner_id: 'p1', unit_count: 1 },
+      milan: { territory_id: 'milan', owner_id: 'p2', unit_count: 3 },
+      turin: { territory_id: 'turin', owner_id: 'p2', unit_count: 3 },
+    },
+    players: [],
+  } as unknown as GameState;
+  const conns = [
+    { from: 'rome', to: 'milan', type: 'land' as const },
+    { from: 'genoa', to: 'milan', type: 'land' as const },
+    { from: 'milan', to: 'turin', type: 'land' as const },
+  ];
+
+  it('counts thin stacks too — that is the point of it', () => {
+    expect(listBorderingOwned(state, conns, 'milan', 'p1').sort()).toEqual(['genoa', 'rome']);
+  });
+
+  it('distinguishes "nothing borders it" from "what borders it is too thin"', () => {
+    // turin borders only milan (p2's), so p1 has nothing next to it at all.
+    expect(listBorderingOwned(state, conns, 'turin', 'p1')).toEqual([]);
+  });
+
+  it('never lists the same territory twice on a doubled connection', () => {
+    const doubled = [...conns, { from: 'milan', to: 'rome', type: 'sea' as const }];
+    expect(listBorderingOwned(state, doubled, 'milan', 'p1').sort()).toEqual(['genoa', 'rome']);
+  });
+
+  it('returns nothing without a viewer', () => {
+    expect(listBorderingOwned(state, conns, 'milan', null)).toEqual([]);
   });
 });

@@ -23,7 +23,14 @@ import {
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
 import NeighborTerritoryPicker from './NeighborTerritoryPicker';
-import { listNeighborTargets, listDirectAttackSources, type MapConnection } from '../../utils/mapAdjacencyTargets';
+import {
+  listNeighborTargets,
+  listDirectAttackSources,
+  canAttackFrom,
+  listBorderingOwned,
+  MIN_ATTACK_UNITS,
+  type MapConnection,
+} from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
 
@@ -276,8 +283,10 @@ export default function TerritoryPanel({
   const attackNeighborSourceId = attackSource ?? (isMine && gameState.phase === 'attack' ? selectedTerritory : null);
   const attackNeighbors = React.useMemo(() => {
     if (!isMyTurn || gameState.phase !== 'attack' || !attackNeighborSourceId || !myPlayerId) return [];
-    const sourceOwner = gameState.territories[attackNeighborSourceId]?.owner_id;
-    if (sourceOwner !== myPlayerId) return [];
+    // Ownership AND the one-must-stay-behind minimum. Adjacency alone would list
+    // neighbours for a drained stack, and now that the rows fire the attack
+    // rather than merely navigating, every one would be a guaranteed error toast.
+    if (!canAttackFrom(gameState, attackNeighborSourceId, myPlayerId)) return [];
     return listNeighborTargets(gameState, mapConnections, attackNeighborSourceId, territoryNameById, {
       attackSource: attackNeighborSourceId,
       worldNameOf: (id) => worldNameByTerritoryId.get(id),
@@ -310,7 +319,7 @@ export default function TerritoryPanel({
    */
   const directAttackSources = React.useMemo(
     () =>
-      isMyTurn && isEnemy && !attackSource
+      isMyTurn && (isEnemy || isUnowned) && !attackSource
         ? listDirectAttackSources(gameState, mapConnections, selectedTerritory, myPlayerId, territoryNameById, {
             worldNameOf: (id) => worldNameByTerritoryId.get(id),
           })
@@ -319,6 +328,7 @@ export default function TerritoryPanel({
       isMyTurn,
       gameState,
       isEnemy,
+      isUnowned,
       myPlayerId,
       attackSource,
       selectedTerritory,
@@ -326,6 +336,19 @@ export default function TerritoryPanel({
       territoryNameById,
       worldNameByTerritoryId,
     ],
+  );
+
+  /**
+   * My territories touching this one, however thin. Only used to explain why no
+   * attack is on offer — "nothing borders it" and "what borders it is too thin"
+   * need different advice, and an empty Combat section gives neither.
+   */
+  const borderingOwned = React.useMemo(
+    () =>
+      gameState.phase === 'attack'
+        ? listBorderingOwned(gameState, mapConnections, selectedTerritory, myPlayerId)
+        : [],
+    [gameState, mapConnections, selectedTerritory, myPlayerId],
   );
 
   // "Blitz until captured": same legality as the single attack, minus the
@@ -593,7 +616,8 @@ export default function TerritoryPanel({
           <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
             <Shield className="w-5 h-5 text-bf-muted" />
             <span className="text-2xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-            <span className="text-bf-muted text-sm">units</span>
+            {/* "1 units" under fog-free view read as a bug. `?` keeps the plural. */}
+            <span className="text-bf-muted text-sm">{tState.unit_count === 1 ? 'unit' : 'units'}</span>
           </div>
 
           {/* Fleet Count (naval warfare) — hidden under fog of war */}
@@ -601,7 +625,7 @@ export default function TerritoryPanel({
             <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
               <Anchor className="w-5 h-5 text-blue-400" />
               <span className="text-2xl font-bold text-bf-text">{tState.naval_units}</span>
-              <span className="text-bf-muted text-sm">fleets</span>
+              <span className="text-bf-muted text-sm">{tState.naval_units === 1 ? 'fleet' : 'fleets'}</span>
             </div>
           )}
 
@@ -695,13 +719,40 @@ export default function TerritoryPanel({
           {gameState.phase === 'attack' && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
-              {isMine && tState.unit_count >= 2 && !attackSource && (
+              {/*
+                Arming a stack is now an alternative route, not the way in. The
+                picker above already offers every legal strike from this
+                territory in one click, so a full-width `btn-primary` here read
+                as the thing to press and sent players down the long path. It
+                stays for people who'd rather find the target on the map — and
+                only when this stack has somewhere to strike, since arming a
+                cornered one leads nowhere.
+              */}
+              {isMine && tState.unit_count >= 2 && !attackSource && attackNeighbors.length > 0 && (
                 <button
-                  className="btn-primary w-full text-sm flex items-center justify-center gap-2"
+                  className="btn-secondary w-full text-xs flex items-center justify-center gap-2"
                   onClick={() => setAttackSource(selectedTerritory)}
+                  title="Arm this stack, then click a bordering enemy on the map"
                 >
-                  <Sword className="w-4 h-4" /> Select as Attacker
+                  <Sword className="w-3.5 h-3.5" /> Or pick the target on the map
                 </button>
+              )}
+              {/* Nothing to offer: say why instead of leaving the section
+                  blank, which reads as the UI having failed. */}
+              {!attackSource && (isMine || isEnemy) &&
+               (isMine ? attackNeighbors.length === 0 : directAttackSources.length === 0) && (
+                <p className="text-xs text-bf-muted/80">
+                  {isMine
+                    ? tState.unit_count >= MIN_ATTACK_UNITS
+                      ? 'No enemy borders this territory. Attack from one that does.'
+                      : `Needs at least ${MIN_ATTACK_UNITS} units to attack — one has to hold the territory.`
+                    : /* Enemy ground: if anything of mine bordered it with enough
+                         units, it would be listed above — so these two are the
+                         only reasons left. */
+                      borderingOwned.length > 0
+                        ? `Your territories next to this one are too thin — an attack needs ${MIN_ATTACK_UNITS} units.`
+                        : 'None of your territories border this one.'}
+                </p>
               )}
               {/*
                 Viewing an enemy with nothing armed: offer the strike from here.
