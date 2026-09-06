@@ -18,7 +18,7 @@ import { resolveRejectionText } from '../constants/rejectionMessages';
 import { colorDisplayName } from '../utils/colorName';
 import { shouldShowFirstTurnCoach, coachPhaseForGamePhase, type CoachPhase } from '../utils/firstTurnCoach';
 
-/** Minimum time an auto-advancing tutorial card stays readable (see opponent_turn). */
+/** Minimum time an auto-advancing tutorial card stays readable (see the `my_turn` gate). */
 const TUTORIAL_MIN_DWELL_MS = 4000;
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -60,7 +60,6 @@ import {
   isTutorialStepCentered,
   markTutorialModuleComplete,
   shouldAdvanceTutorialOnState,
-  isTutorialStepAlreadySatisfiedByPhase,
   type TutorialLessonModule,
 } from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
@@ -527,13 +526,13 @@ export default function GamePage() {
   const coachEligibleRef = useRef(coachEligible);
   coachEligibleRef.current = coachEligible;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
-  // Snapshotted at creation, not read from the live flag: a game that started as
-  // the combined tutorial keeps its step list even if the flag is switched off
-  // mid-session, and vice versa.
+  // Snapshotted at creation: this game is the core lesson on Tutorial Island,
+  // which covers the standalone Era Advancement module end to end and so credits
+  // both (see markLessonComplete).
   const tutorialCombined = gameState?.settings?.tutorial_combined === true;
   const tutorialSteps = useMemo(
-    () => getTutorialSteps(tutorialLessonModule, { combined: tutorialCombined }),
-    [tutorialLessonModule, tutorialCombined],
+    () => getTutorialSteps(tutorialLessonModule),
+    [tutorialLessonModule],
   );
   /**
    * A read-heavy coaching card is centered over the map. It also suppresses the
@@ -1384,7 +1383,7 @@ export default function GamePage() {
           // minimum dwell; the condition (it's our turn again) stays true,
           // so the delayed advance is safe.
           const visibleMs = Date.now() - tutorialStepShownAtRef.current;
-          if (step.id === 'opponent_turn' && visibleMs < TUTORIAL_MIN_DWELL_MS) {
+          if (step.requireAction === 'my_turn' && visibleMs < TUTORIAL_MIN_DWELL_MS) {
             if (!tutorialDwellTimerRef.current) {
               tutorialDwellTimerRef.current = setTimeout(() => {
                 tutorialDwellTimerRef.current = null;
@@ -1393,15 +1392,7 @@ export default function GamePage() {
             }
             return cur;
           }
-          // Skip a step the board has already moved past (see
-          // isTutorialStepAlreadySatisfiedByPhase).
-          let next = cur + 1;
-          while (
-            isTutorialStepAlreadySatisfiedByPhase(tutorialStepsRef.current[next], state.phase)
-          ) {
-            next += 1;
-          }
-          return next;
+          return cur + 1;
         });
       }
     });
@@ -3095,9 +3086,9 @@ export default function GamePage() {
   );
 
   /**
-   * Record this lesson as done. The combined core tutorial also covers the
-   * standalone Era Advancement lesson end to end, so it credits both — otherwise
-   * the lobby keeps recommending a deep dive the player just finished playing.
+   * Record this lesson as done. The core tutorial also covers the standalone
+   * Era Advancement lesson end to end, so it credits both — otherwise the lobby
+   * keeps recommending a deep dive the player just finished playing.
    */
   const markLessonComplete = useCallback(() => {
     markTutorialModuleComplete(tutorialLessonModule);
@@ -4318,6 +4309,8 @@ export default function GamePage() {
               onAttack={handleAttack}
               onBlitzAttack={handleBlitzAttack}
               onDraft={handleDraft}
+              onDraftUndo={handleDraftUndo}
+              canDraftUndo={(gameState?.draft_deployments_this_turn?.length ?? 0) > 0}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
               onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
               onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}
@@ -4568,10 +4561,18 @@ export default function GamePage() {
       )}
 
       {/* ── Mobile Combat Banner ──────────────────────────────────────────── */}
-      <MobileCombatBanner
-        lastCombatResult={lastCombatResult}
-        onOpenFullLog={() => setMobileHudOpen(true)}
-      />
+      {/*
+        Suppressed while a combat modal is queued: both render the same dice
+        result from independent triggers (the banner self-gates on a new
+        lastCombatResult, the modal on a queued entry), so on a phone every
+        attack drew its outcome twice — once behind the modal, once under it.
+      */}
+      {modalQueue[0]?.type !== 'combat' && (
+        <MobileCombatBanner
+          lastCombatResult={lastCombatResult}
+          onOpenFullLog={() => setMobileHudOpen(true)}
+        />
+      )}
 
       {/* ── Mobile HUD Drawer ─────────────────────────────────────────────── */}
       {mobileHudOpen && (
@@ -4702,6 +4703,16 @@ export default function GamePage() {
           eraLabel={playerTechEra ? (ERA_LABELS[playerTechEra] ?? playerTechEra) : undefined}
           onResearch={(techId) => { handleResearchTech(techId); }}
           onClose={() => setShowTechTree(false)}
+          onAdvanceEra={
+            gameState?.settings.era_advancement_enabled
+              ? () => { handleAdvanceEra(); setShowTechTree(false); }
+              : undefined
+          }
+          canAdvanceNow={
+            !!gameState
+            && gameState.phase === 'draft'
+            && gameState.players[gameState.current_player_index]?.player_id === user.user_id
+          }
         />
       )}
 
@@ -5063,6 +5074,7 @@ export default function GamePage() {
           centered={tutorialCardIsCentered}
           behindModal={!!modalQueue[0]}
           panelOpen={showTechTree || showBonuses || showSettingsLab}
+          territorySelected={!!selectedTerritory}
         />
       )}
 

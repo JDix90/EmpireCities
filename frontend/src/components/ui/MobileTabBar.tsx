@@ -44,21 +44,24 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
             <div className="flex justify-center py-2">
               <div className="w-8 h-1 rounded-full bg-bf-border" />
             </div>
+            {/* Same order as the desktop nav (TopNavBar): ways to play, then
+                where to play, then everything else. "How to Play" leads because
+                the sheet is where a stuck first-timer looks. */}
             <nav className="px-4 pb-4 grid grid-cols-3 gap-2">
               <MoreLink to="/how-to-play" icon={HelpCircle} label="How to Play" onClick={() => setMoreOpen(false)} />
-              <MoreLink to="/maps" icon={Map} label="Map Hub" onClick={() => setMoreOpen(false)} />
-              {!isGuest && <MoreLink to="/war-room" icon={Shield} label="War Room" onClick={() => setMoreOpen(false)} />}
-              <MoreLink to="/codex" icon={BookOpen} label="Codex" onClick={() => setMoreOpen(false)} />
               {!isGuest && <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />}
-              {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
-              {!isGuest && <MoreLink to="/settings" icon={Settings} label="Settings" onClick={() => setMoreOpen(false)} />}
+              <MoreLink to="/maps" icon={Map} label="Maps" onClick={() => setMoreOpen(false)} />
               {!isGuest && mapEditorEnabled && (
                 <MoreLink to="/editor" icon={PenSquare} label="Editor" onClick={() => setMoreOpen(false)} />
               )}
+              <MoreLink to="/codex" icon={BookOpen} label="Codex" onClick={() => setMoreOpen(false)} />
+              {!isGuest && <MoreLink to="/war-room" icon={Shield} label="War Room" onClick={() => setMoreOpen(false)} />}
               <MoreLink to="/leaderboards" icon={Trophy} label="Leaders" onClick={() => setMoreOpen(false)} />
               {spectateEnabled && (
                 <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               )}
+              {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
+              {!isGuest && <MoreLink to="/settings" icon={Settings} label="Settings" onClick={() => setMoreOpen(false)} />}
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/terms" icon={FileText} label="Terms" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { GraduationCap, ChevronDown, ChevronRight, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import clsx from 'clsx';
 import { isMobileViewport } from '../../utils/device';
 import {
@@ -72,6 +72,13 @@ interface TutorialOverlayProps {
    * panel's way instead of dropping behind it.
    */
   panelOpen?: boolean;
+  /**
+   * A territory panel is open on the board. It occupies the same bottom-left
+   * gutter an aside-docked card does and can run 500px tall, so the two cannot
+   * share the column: the card folds to a title strip while the player works
+   * the panel, and unfolds again the moment they close it (or tap the strip).
+   */
+  territorySelected?: boolean;
 }
 
 export default function TutorialOverlay({
@@ -93,9 +100,18 @@ export default function TutorialOverlay({
   centered = false,
   behindModal = false,
   panelOpen = false,
+  territorySelected = false,
 }: TutorialOverlayProps) {
   const step = steps[stepIndex];
   const [whyOpen, setWhyOpen] = useState(false);
+  /**
+   * Explicit fold choice for a docked card, or null to follow the default.
+   * Reset per step: a player who unfolds on step 3 should not find step 4
+   * already unfolded on top of the panel they are still working.
+   */
+  const [foldOverride, setFoldOverride] = useState<boolean | null>(null);
+  const stepId = step?.id;
+  useEffect(() => { setFoldOverride(null); }, [stepId]);
   if (!step) return null;
 
   const title = skipped && step.skippedTitle ? step.skippedTitle : step.title;
@@ -111,7 +127,24 @@ export default function TutorialOverlay({
    * player to press. Desktop only; on mobile the panel fills the screen and
    * `anchorTop` already moves the card clear.
    */
-  const dockAside = panelOpen && !isMobile && !centered;
+  const dockAside = (panelOpen || step.cardPosition === 'aside') && !isMobile && !centered;
+  /**
+   * A step that asks the player to click a specific territory docks to the
+   * TOP-left, not the bottom-left used for a full-screen panel: the territory
+   * panel opens along the bottom-left, so bottom-docking would trade covering
+   * the board for covering the panel.
+   */
+  const dockAsideTop = dockAside && !panelOpen;
+  /**
+   * A docked card can fold to a title strip. It defaults to folded once a
+   * territory panel is open, because the two then compete for the same space:
+   * on desktop the panel fills the left gutter this card docks into, and on a
+   * phone the card already covers the northern half of the board. Either way
+   * the player has read the card and is now acting on it; the strip keeps it
+   * one tap away.
+   */
+  const foldable = dockAsideTop || anchorTop;
+  const folded = foldable && (foldOverride ?? territorySelected);
 
   const handleModuleComplete = () => {
     onMarkModuleComplete?.();
@@ -127,37 +160,86 @@ export default function TutorialOverlay({
       )}
       data-testid="tutorial-overlay"
     >
-      {!step.requireAction && (
+      {!step.requireAction && !folded && (
         <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
       )}
+      {folded ? (
+        <button
+          type="button"
+          data-testid="tutorial-card-unfold"
+          onClick={() => setFoldOverride(false)}
+          aria-expanded={false}
+          className={clsx(
+            'pointer-events-auto absolute max-w-[17rem] flex items-center gap-2 rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl px-3 py-2 text-left',
+            anchorTop
+              ? 'left-4 top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
+              : 'top-24 left-4',
+          )}
+        >
+          <GraduationCap className="w-4 h-4 text-bf-gold shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-[10px] text-bf-muted/60 uppercase tracking-widest">
+              Step {stepIndex + 1} / {steps.length}
+            </span>
+            <span className="block font-display text-sm text-bf-gold truncate">{title}</span>
+          </span>
+          <ChevronDown className="w-4 h-4 text-bf-muted shrink-0" />
+        </button>
+      ) : (
       <div
         className={clsx(
           'pointer-events-auto w-full px-4',
           centered
             // Cap the height on a phone: at full height this card covered the
             // whole 390×844 viewport, hiding the board it describes and
-            // clipping the era banner mid-sentence. 70vh leaves ~15vh clear
-            // above (the banner sits at top-3) and below.
-            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg max-h-[70vh] overflow-y-auto'
+            // clipping the era banner mid-sentence. The card scrolls its PROSE
+            // only (see the flex column below) — when the whole card scrolled,
+            // a 390×664 phone showed the welcome step's copy cut mid-sentence
+            // with Next and "Skip to the end" below the fold and no scroll
+            // affordance, which is the first screen of the game.
+            ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg max-h-[82vh] flex'
             : anchorTop
               ? 'absolute left-1/2 -translate-x-1/2 max-w-md top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
-              : dockAside
-                ? 'absolute bottom-20 left-0 max-w-[19rem]'
-                : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
+              : dockAsideTop
+                // Capped so a long card can never reach the bottom of the
+                // gutter; `asideFolded` handles the territory panel, which
+                // needs the gutter outright.
+                ? 'absolute top-24 left-0 max-w-[19rem] max-h-[calc(100vh-8rem)] overflow-y-auto'
+                : dockAside
+                  ? 'absolute bottom-20 left-0 max-w-[19rem]'
+                  : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
         )}
       >
         <div
           className={clsx(
             centered
-              ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg p-8 shadow-2xl text-center'
+              ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg p-8 shadow-2xl text-center flex flex-col min-h-0 w-full'
               : 'rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl',
-            anchorTop ? 'p-3 max-h-[30vh] overflow-y-auto' : 'p-5',
+            // Same flex-column trick as `centered`: the prose scrolls, the
+            // actions below stay pinned. When the whole card scrolled, a phone
+            // clipped the hint and the Exit control with no affordance.
+            anchorTop ? 'p-3 max-h-[38vh] flex flex-col min-h-0' : 'p-5',
           )}
         >
+          {/* Prose scrolls; the actions below stay pinned to the card. */}
+          <div className={centered || anchorTop ? 'min-h-0 overflow-y-auto' : undefined}>
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
             <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
               Step {stepIndex + 1} / {steps.length}
             </span>
+            {foldable && (
+              <button
+                type="button"
+                data-testid="tutorial-card-fold"
+                onClick={() => setFoldOverride(true)}
+                aria-expanded
+                aria-label="Collapse the tutorial card"
+                title="Collapse — the board is behind this card"
+                className="-mr-1 -mt-1 p-1 text-bf-muted hover:text-bf-gold transition-colors"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           <div className={centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3'}>
@@ -210,6 +292,7 @@ export default function TutorialOverlay({
               {renderTutorialText(step.hint, playerColorName)}
             </p>
           )}
+          </div>
 
           {step.actionOpenTechTree && onOpenTechTree && (
             <button type="button" onClick={onOpenTechTree} className="btn-secondary text-sm w-full mb-2">
@@ -342,6 +425,7 @@ export default function TutorialOverlay({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

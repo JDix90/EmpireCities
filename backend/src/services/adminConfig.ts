@@ -64,7 +64,6 @@ export const DEFAULTS: AdminConfigState = {
       production_1: 3, production_2: 6, production_3: 10, production_4: 15,
       defense_1: 3, defense_2: 6, defense_3: 10,
       tech_gen_1: 4, tech_gen_2: 8,
-      special_a: 5, special_b: 8,
       port: 5, naval_base: 10, coastal_battery: 4,
       wonder_colosseum: 18, wonder_cathedral: 20, wonder_lighthouse: 18,
       wonder_manhattan: 25, wonder_sputnik: 20, wonder_cern: 22,

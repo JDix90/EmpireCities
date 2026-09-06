@@ -40,15 +40,27 @@ function buildAdjacency(map: GameMap): Record<string, string[]> {
   return adjacency;
 }
 
-/** Sum of enemy unit counts on land-adjacent border territories. */
+/**
+ * Sum of enemy unit counts on land-adjacent border territories.
+ *
+ * Each enemy territory is counted ONCE however many of our tiles it touches.
+ * Counting per edge instead made this dimensionally inconsistent with
+ * `countBorderStrength` below (which counts each of our own border tiles once),
+ * so a contiguous front was inflated roughly by its average degree and the
+ * ratio-based veto in `evaluateAiEraAdvancement` fired near true force parity
+ * rather than when actually outgunned.
+ */
 export function countBorderThreat(state: GameState, map: GameMap, playerId: string): number {
   const adjacency = buildAdjacency(map);
+  const counted = new Set<string>();
   let threat = 0;
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id !== playerId) continue;
     for (const nid of adjacency[tid] ?? []) {
       const neighbor = state.territories[nid];
       if (!neighbor?.owner_id || neighbor.owner_id === playerId) continue;
+      if (counted.has(nid)) continue;
+      counted.add(nid);
       threat += neighbor.unit_count;
     }
   }
@@ -130,7 +142,15 @@ export function evaluateAiEraAdvancement(
   // Hard safety: advancing opens a one-turn vulnerability window. Never do it
   // while meaningfully outgunned on the border — but measured RELATIVE to your
   // own defense, so a strong empire isn't frozen out by big-army stalemates.
-  if (borderThreat >= MIN_BLOCK_THREAT && threatRatio >= HEAVY_THREAT_RATIO) {
+  //
+  // Only for a bot that is level or ahead. This `return` sits ~60 lines before
+  // the catch-up rubber band below, so without the `gap <= 0` guard a bot that
+  // is BOTH behind and under pressure is hard-locked out of the exact mechanism
+  // written to rescue it — and the lock self-reinforces, because territory lost
+  // to the attacker leaves borderStrength while its former neighbours stay in
+  // borderThreat, raising the ratio with every lost fight. A trailing bot
+  // accepts the vulnerability window: staying an era behind is the worse risk.
+  if (gap <= 0 && borderThreat >= MIN_BLOCK_THREAT && threatRatio >= HEAVY_THREAT_RATIO) {
     return { shouldAdvance: false, score: 0, threshold, gatePassed: true };
   }
 

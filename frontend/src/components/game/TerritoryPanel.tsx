@@ -39,6 +39,10 @@ interface TerritoryPanelProps {
   /** "Blitz until captured" (game:attack_blitz). Absent = affordance hidden. */
   onBlitzAttack?: (fromId: string, toId: string) => void;
   onDraft: (territoryId: string, units: number) => void;
+  /** Undo the last placement this turn. Absent = affordance hidden. */
+  onDraftUndo?: () => void;
+  /** True when there is a placement this turn that `onDraftUndo` would revert. */
+  canDraftUndo?: boolean;
   onBuild?: (buildingType: string) => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
   onNavalAttack?: (fromId: string, toId: string) => void;
@@ -67,12 +71,80 @@ interface TerritoryPanelProps {
   onSheetSnapChange?: (snap: SheetSnap) => void;
 }
 
+/**
+ * Reinforcement placement: the most repeated action in the game.
+ *
+ * It used to be a single-step −/n/+ counter plus a Place button, so putting
+ * four units on one territory cost five taps and every placement started back
+ * at 1. These place on the first tap instead, with Undo (server-backed,
+ * `game:draft_undo`) as the safety net rather than a pre-commit counter.
+ */
+function QuickPlace({
+  pool,
+  size = 'md',
+  onPlace,
+  onUndo,
+  canUndo,
+}: {
+  pool: number;
+  size?: 'md' | 'lg';
+  onPlace: (units: number) => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
+}) {
+  const big = size === 'lg';
+  const btn = clsx(
+    'rounded-lg border border-bf-border bg-bf-dark text-bf-text font-semibold',
+    'hover:bg-bf-border transition-colors touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed',
+    big ? 'min-h-[48px] px-3 text-base' : 'min-h-[44px] px-3 text-sm',
+  );
+  // +5 is pointless below 5 (Max already covers it) and misleading — it would
+  // silently place fewer than it says.
+  const steps: number[] = pool >= 5 ? [1, 5] : [1];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {steps.map((n) => (
+        <button
+          key={n}
+          type="button"
+          className={btn}
+          data-testid={`draft-place-${n}`}
+          onClick={() => onPlace(Math.min(n, pool))}
+        >
+          +{n}
+        </button>
+      ))}
+      <button
+        type="button"
+        className={clsx(btn, 'btn-primary flex-1')}
+        data-testid="draft-place-max"
+        onClick={() => onPlace(pool)}
+      >
+        Place all {pool}
+      </button>
+      {onUndo && (
+        <button
+          type="button"
+          className={btn}
+          disabled={!canUndo}
+          data-testid="draft-undo"
+          onClick={onUndo}
+        >
+          Undo
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function TerritoryPanel({
   mapTerritories,
   mapRegions,
   onAttack,
   onBlitzAttack,
   onDraft,
+  onDraftUndo,
+  canDraftUndo,
   onBuild,
   onNavalMove,
   onNavalAttack,
@@ -104,7 +176,6 @@ export default function TerritoryPanel({
     setNavalSource,
   } = useUiStore();
   const { user } = useAuthStore();
-  const [draftAmount, setDraftAmount] = React.useState(1);
   const [fortifyAmount, setFortifyAmount] = React.useState(1);
   const [navalMoveCount, setNavalMoveCount] = React.useState(1);
 
@@ -117,10 +188,6 @@ export default function TerritoryPanel({
         resolvedViewerPlayerId ?? null,
       )
     : 0;
-  React.useEffect(() => {
-    setDraftAmount((a) => (draftPool <= 0 ? 1 : Math.min(draftPool, Math.max(1, a))));
-  }, [draftPool]);
-
   if (!selectedTerritory || !gameState) return null;
 
   const tState = gameState.territories[selectedTerritory];
@@ -339,32 +406,13 @@ export default function TerritoryPanel({
           </div>
           <div>
             <label className="label text-xs">Place reinforcements ({draftPool} remaining)</label>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-bf-dark border border-bf-border text-bf-text text-lg font-bold hover:bg-bf-border transition-colors touch-manipulation shrink-0"
-                  onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
-                >
-                  −
-                </button>
-                <span className="w-10 text-center font-mono text-lg text-bf-text">{draftAmount}</span>
-                <button
-                  type="button"
-                  className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-lg bg-bf-dark border border-bf-border text-bf-text text-lg font-bold hover:bg-bf-border transition-colors touch-manipulation shrink-0"
-                  onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
-                >
-                  +
-                </button>
-              </div>
-              <button
-                type="button"
-                className="btn-primary w-full min-h-[48px] py-3 text-base touch-manipulation font-semibold"
-                onClick={() => onDraft(selectedTerritory, draftAmount)}
-              >
-                Place {draftAmount} {draftAmount === 1 ? 'unit' : 'units'}
-              </button>
-            </div>
+            <QuickPlace
+              pool={draftPool}
+              size="lg"
+              onPlace={(n) => onDraft(selectedTerritory, n)}
+              onUndo={onDraftUndo}
+              canUndo={canDraftUndo}
+            />
           </div>
         </div>
       )}
@@ -576,26 +624,12 @@ export default function TerritoryPanel({
           {isMine && gameState.phase === 'draft' && draftPool > 0 && !isMobileDraftPlacementMode && (
             <div>
               <label className="label text-xs">Place Reinforcements ({draftPool} remaining)</label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
-                  onClick={() => setDraftAmount((a) => Math.max(1, a - 1))}
-                >−</button>
-                <span className="w-8 text-center font-mono text-bf-text">{draftAmount}</span>
-                <button
-                  type="button"
-                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
-                  onClick={() => setDraftAmount((a) => Math.min(draftPool, a + 1))}
-                >+</button>
-                <button
-                  type="button"
-                  className="btn-primary text-sm py-1.5 px-4 flex-1 touch-manipulation min-h-[44px]"
-                  onClick={() => onDraft(selectedTerritory, draftAmount)}
-                >
-                  Place
-                </button>
-              </div>
+              <QuickPlace
+                pool={draftPool}
+                onPlace={(n) => onDraft(selectedTerritory, n)}
+                onUndo={onDraftUndo}
+                canUndo={canDraftUndo}
+              />
             </div>
           )}
 
@@ -1109,7 +1143,7 @@ export default function TerritoryPanel({
         const STANDARD = new Set([
           'production_1', 'production_2', 'production_3', 'production_4',
           'defense_1', 'defense_2', 'defense_3',
-          'tech_gen_1', 'tech_gen_2', 'special_a', 'special_b',
+          'tech_gen_1', 'tech_gen_2',
           'port', 'naval_base', 'coastal_battery',
         ]);
         const unlockedTechs = new Set(myPlayer?.unlocked_techs ?? []);

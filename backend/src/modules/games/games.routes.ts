@@ -11,6 +11,7 @@ import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
+import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
@@ -18,6 +19,12 @@ import { featureFlags } from '../../config/featureFlags';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
 import { COMBINED_TUTORIAL_SCENARIO } from '../../game-engine/tutorial/combinedTutorialScenario';
+import {
+  CORE_TUTORIAL_GRANT_GOLD,
+  CORE_TUTORIAL_GRANT_TECH_POINTS,
+  ERA_LESSON_GRANT_GOLD,
+  ERA_LESSON_GRANT_TECH_POINTS,
+} from '../../game-engine/tutorial/tutorialGrants';
 import {
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
@@ -50,6 +57,8 @@ export const CreateGameSchema = z.object({
       turn_timer_seconds: z.number().int().min(0).default(300),
       initial_unit_count: z.number().int().min(1).max(10).default(3),
       card_set_escalating: z.boolean().default(true),
+      /** 0 = uncapped (the classic unbounded schedule). */
+      card_set_bonus_cap: z.number().int().min(0).max(1000).optional(),
       diplomacy_enabled: z.boolean().default(true),
       factions_enabled: z.boolean().optional(),
       economy_enabled: z.boolean().optional(),
@@ -177,6 +186,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         {
           ...rawSettings,
           allowed_victory_conditions: mergedList,
+          // New-game rule defaults, baked HERE rather than as normalizer
+          // fallbacks: normalizeGameSettings re-runs on every room load
+          // (repairLegacyGameState → gameRoomManager.repairRoom) and re-persists,
+          // so a default changed there would silently re-rule matches already in
+          // progress. At the create boundary an in-flight game keeps the rules it
+          // started under, and an explicit client value still wins.
+          combat_dice_cap_enabled: rawSettings.combat_dice_cap_enabled ?? true,
+          card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
         },
         {
@@ -314,18 +331,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send(formatZodError(parsed.error));
     }
     const lessonModule = parsed.data.lesson_module ?? 'core';
-    // Most tutorial modules use the WW2 globe for a consistent surface. Era
+    // The deep-dive modules use the WW2 globe for a consistent surface. Era
     // Advancement is the exception: it must start in the Ancient era (the spine's
     // first step), so it runs on the Ancient map.
     const isEraAdvancement = lessonModule === 'era_advancement';
-    // The combined core lesson is one continuous first game: the three phases AND
-    // the era climb that makes Borderfall not-Risk, instead of ending in preview
-    // modals for systems this match doesn't have. It runs on Tutorial Island —
-    // 6 territories, locked rotation, authored globe framing — which is Ancient
-    // and small enough that the whole board is legible at a glance. Flag off
-    // returns new tutorials to the WW2 core lesson; games already created keep
-    // whatever shape they started with (`tutorial_combined` is snapshotted).
-    const isCombinedCore = lessonModule === 'core' && featureFlags.combinedTutorialEnabled;
+    // The core lesson is one continuous first game: the three phases AND the era
+    // climb that makes Borderfall not-Risk, instead of ending in preview modals
+    // for systems this match doesn't have. It runs on Tutorial Island — 6
+    // territories, locked rotation, authored globe framing — which is Ancient and
+    // small enough that the whole board is legible at a glance.
+    const isCombinedCore = lessonModule === 'core';
     const mapId = isCombinedCore ? 'tutorial' : isEraAdvancement ? 'era_ancient' : 'era_ww2';
     const eraId = isCombinedCore || isEraAdvancement ? 'ancient' : 'ww2';
 
@@ -354,21 +369,44 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (isEraAdvancement || isCombinedCore) {
       // The short 2-era PoC spine (Skirmish preset) with a tech-only gate so the
       // lesson stays focused on research → advance. Stability and the building
-      // requirement are dropped, and we grant generous research points + gold so
-      // the player reaches the advancement in a couple of turns, not by grinding.
+      // requirement are dropped.
       tutorialSettings.economy_enabled = true;
       tutorialSettings.tech_trees_enabled = true;
       tutorialSettings.stability_enabled = false;
       tutorialSettings.era_advancement_enabled = true;
       tutorialSettings.era_advancement_preset = 'skirmish';
       tutorialSettings.era_advancement_min_buildings = 0;
-      tutorialSettings.tutorial_grant_tech_points = 24;
       // NOT economy_tech_starting_gold: initializeGameState skips the
       // economy/tech bootstrap for tutorials on purpose, so that key is inert
       // here. The grant seam is what actually funds the advance.
-      tutorialSettings.tutorial_grant_gold = 60;
+      //
+      // The Era Advancement deep dive keeps the full milestone gate — its
+      // `ea_gate` card is explicitly about researching a tier-1 parent to unlock
+      // its tier-2 child — and is funded for it.
+      tutorialSettings.tutorial_grant_tech_points = ERA_LESSON_GRANT_TECH_POINTS;
+      tutorialSettings.tutorial_grant_gold = ERA_LESSON_GRANT_GOLD;
     }
     if (isCombinedCore) {
+      // The core tutorial's gate is two tier-1 technologies and the gold, and
+      // the grants are sized to be *exactly* that — not a pile the player never
+      // counts.
+      //
+      // The tier-2 requirement comes off because it is a prerequisite chain:
+      // the player has to notice a tier-2 node is locked, find its parent,
+      // research the parent, then come back. That is a good second lesson (it is
+      // the Era Advancement deep dive) and a bad first one — it is what stalled
+      // first sessions short of the advance, which is the one beat this tutorial
+      // exists to deliver. The wrap-up card says out loud that a real game's
+      // gate wants more research plus buildings, so the softer gate is stated
+      // rather than implied.
+      tutorialSettings.era_advancement_min_tier2_techs = 0;
+      // Ancient tier-1 nodes cost 3/4/4/4 (eras/ancient.ts), so the research
+      // grant buys any two of them and nothing more — the choice is real and
+      // the budget is legible. Base tech income adds ~1/turn on a 6-territory
+      // island. The gold grant covers the advance cost with a little slack;
+      // `tutorialGrants.test.ts` holds both to the gate they are sized against.
+      tutorialSettings.tutorial_grant_tech_points = CORE_TUTORIAL_GRANT_TECH_POINTS;
+      tutorialSettings.tutorial_grant_gold = CORE_TUTORIAL_GRANT_GOLD;
       tutorialSettings.tutorial_combined = true;
       tutorialSettings.authored_scenario = COMBINED_TUTORIAL_SCENARIO;
     }

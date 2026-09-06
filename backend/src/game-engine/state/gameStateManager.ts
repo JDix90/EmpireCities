@@ -1152,7 +1152,7 @@ export function redeemCardSet(
   player.cards = player.cards.filter((c) => !cardIds.includes(c.card_id));
   (state.discard_pile ??= []).push(...cards);
 
-  const bonus = getCardSetBonus(state.card_set_redemption_count);
+  const bonus = getCardSetBonus(state.card_set_redemption_count, state.settings.card_set_bonus_cap);
   state.card_set_redemption_count++;
   // Per-player redemption tracking — used by post-game stats and by the
   // `card_shark` achievement. Centralised here so AI redemptions are counted

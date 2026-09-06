@@ -38,8 +38,6 @@ const BUILDING_META: Record<string, { label: string; effect: string; color: stri
   production_4: { label: 'Trade Hub',       effect: '+7 units reinforced/turn',   color: 'text-amber-300'  },
   tech_gen_1:   { label: 'Library',         effect: '+2 tech points/turn',        color: 'text-purple-300' },
   tech_gen_2:   { label: 'University',      effect: '+4 tech points/turn',        color: 'text-purple-300' },
-  special_a:    { label: 'Workshop',        effect: 'Special production project', color: 'text-emerald-300'},
-  special_b:    { label: 'Special Project', effect: 'Unique era project',         color: 'text-emerald-300'},
   port:         { label: 'Port',            effect: 'Enables fleet deployment',   color: 'text-cyan-300'   },
   naval_base:   { label: 'Naval Base',      effect: '+2 fleet capacity',          color: 'text-cyan-300'   },
   coastal_battery: { label: 'Coastal Battery', effect: '+1 defender die vs sea attacks only', color: 'text-cyan-300' },

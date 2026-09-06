@@ -511,9 +511,13 @@ export default function LobbyPage() {
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
   const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
-  // Anti-fortress combat dice cap (experimental, off by default). See
-  // backend/scripts/COMBAT-FAIRNESS-AUDIT.md.
-  const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(false);
+  // Anti-fortress combat dice cap — ON by default for new games. Without it a
+  // stacked defender can accumulate ~13 dice from buildings, techs, factions,
+  // wonders and era gap, at which point the territory is mathematically
+  // untakeable. See backend/scripts/COMBAT-FAIRNESS-AUDIT.md.
+  const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(true);
+  // Classic unbounded card-set escalation, opt-in. Off = the default ceiling.
+  const [uncappedCardSets, setUncappedCardSets] = useState(false);
   const [lanesContestableEnabled, setLanesContestableEnabled] = useState(false);
   const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
   const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
@@ -570,8 +574,11 @@ export default function LobbyPage() {
   useEffect(() => {
     if (!isGalacticAge) setLanesContestableEnabled(false);
   }, [isGalacticAge]);
+  // Symmetric: the old one-way reset left the box unchecked forever once any
+  // render had no dice-granting system on, so re-enabling Economy afterwards
+  // silently dropped the default.
   useEffect(() => {
-    if (!combatDiceCapApplicable) setCombatDiceCapEnabled(false);
+    setCombatDiceCapEnabled(combatDiceCapApplicable);
   }, [combatDiceCapApplicable]);
 
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
@@ -591,12 +598,39 @@ export default function LobbyPage() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [completedModules, setCompletedModules] = useState<string[]>([]);
 
+  /**
+   * Has this account already been through the tutorial? Server truth, merged
+   * with the local module store so a guest (who cannot sync module completions
+   * — the sync route rejects guests) is still remembered on their own device.
+   */
+  const tutorialAlreadyDone =
+    !!user?.has_completed_tutorial
+    || !!user?.tutorial_modules_completed?.includes('core')
+    || completedModules.includes('core');
+
   useEffect(() => {
     setCompletedModules(getCompletedTutorialModules());
-    if (user && (user.xp ?? 0) === 0 && !hasSeenWelcome()) {
-      setShowWelcomeModal(true);
-    }
   }, [user?.user_id]);
+
+  /**
+   * The welcome modal exists to pitch the tutorial to a brand-new player. Two
+   * things decide "brand-new" and only one used to be consulted:
+   * `bf-lobby-welcomed` is per-device localStorage, while finishing the tutorial
+   * is recorded against the account. A player who came in through /tutorial
+   * (the onboarding-tutorial-first path never passes through the lobby), played
+   * it, and landed here was told "New here? We recommend starting with the
+   * interactive tutorial" about the thing they had just finished.
+   *
+   * It also has to be able to retract: /api/users/me resolves after first paint,
+   * so the modal can already be on screen when the answer arrives.
+   */
+  useEffect(() => {
+    if (!user || (user.xp ?? 0) !== 0 || tutorialAlreadyDone) {
+      setShowWelcomeModal(false);
+      return;
+    }
+    if (!hasSeenWelcome()) setShowWelcomeModal(true);
+  }, [user?.user_id, user?.xp, tutorialAlreadyDone]);
 
   const mapImmersion = React.useMemo(
     () => (isCommunityTheaterMap(selectedTheaterMapId) ? getCustomMapImmersion(selectedTheaterMapId) : null),
@@ -1033,7 +1067,11 @@ export default function LobbyPage() {
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
-        combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
+        // Explicit boolean: the server defaults this ON for new games, so
+        // sending `undefined` when unchecked would silently re-enable it and
+        // make the checkbox one-way.
+        combat_dice_cap_enabled: combatDiceCapEnabled,
+        card_set_bonus_cap: uncappedCardSets ? 0 : undefined,
         lanes_contestable_enabled: lanesContestableEnabled || undefined,
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
@@ -1302,13 +1340,19 @@ export default function LobbyPage() {
         // Classic eras pass through unchanged.
         settings: withRequiredEraSystems(era, {
           turn_timer_seconds: 300,
-          allowed_victory_conditions: ['domination'],
+          // Threshold alongside domination so there is a reachable WIN rather
+          // than only a cap: Space Age is 1 of 7 eras in the rotation and
+          // cannot be won by domination at all (the Moon is orbit-gated), so
+          // domination-only guaranteed it ended on the turn limit.
+          allowed_victory_conditions: ['domination', 'threshold'],
+          victory_threshold: 65,
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: true,
-          // Stalemate guard: most territories wins at the cap, so a solo
-          // match can't grind on for hundreds of turns.
-          max_turns: 150,
+          // Backstop, not the intended ending: the dice cap and the card-set
+          // ceiling are what make a decisive result reachable. Measured before
+          // those landed, 3 of 3 matches ran to the cap with 400+ unit stacks.
+          max_turns: 60,
         }),
       });
       navigate(`/game/${res.data.game_id}`);
@@ -2510,7 +2554,7 @@ export default function LobbyPage() {
                         )}
                         {combatDiceCapApplicable && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Experimental: cap the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. Off = classic rules." />
+                            <FeatureTooltip text="Caps the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. On by default; turn it off for classic rules." />
                             <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
                               <input
                                 id="create-game-combat-dice-cap"
@@ -2519,7 +2563,7 @@ export default function LobbyPage() {
                                 onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
                                 className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                               />
-                              <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress · experimental)</span></span>
+                              <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress)</span></span>
                             </label>
                             {combatDiceCapEnabled && (
                               <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -2554,6 +2598,19 @@ export default function LobbyPage() {
                             )}
                           </div>
                         )}
+                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                          <FeatureTooltip text="Territory card sets pay an escalating bonus on a schedule shared by every player (4, 6, 8, 10, 12, 15, then +5 per set). New games cap that bonus at 30 units; turn this on for the classic unbounded schedule, where late redemptions can be worth more than a player's whole board." />
+                          <label htmlFor="create-game-uncapped-card-sets" className="contents cursor-pointer">
+                            <input
+                              id="create-game-uncapped-card-sets"
+                              type="checkbox"
+                              checked={uncappedCardSets}
+                              onChange={(e) => setUncappedCardSets(e.target.checked)}
+                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                            />
+                            <span className="leading-snug min-w-0 select-none">Uncapped card sets <span className="text-xs text-bf-muted">(classic escalation)</span></span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                     )}

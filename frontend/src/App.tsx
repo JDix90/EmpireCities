@@ -47,6 +47,8 @@ const LiveGamesPage = lazyWithChunkRetry(() => import('./pages/LiveGamesPage'));
 const SpectatorPage = lazyWithChunkRetry(() => import('./pages/SpectatorPage'));
 const ModalLabPage = lazyWithChunkRetry(() => import('./pages/ModalLabPage'));
 const MapVisualLabPage = lazyWithChunkRetry(() => import('./pages/MapVisualLabPage'));
+/** Build-time gate for the QA harness routes below. Never set in production. */
+const LAB_ROUTES_ENABLED = import.meta.env.VITE_LAB_ROUTES === '1';
 const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
 const UpgradePage = lazyWithChunkRetry(() => import('./pages/UpgradePage'));
 const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
@@ -320,8 +322,17 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/__modal-lab" element={<ModalLabPage />} />
-        <Route path="/__map-visual-lab" element={<MapVisualLabPage />} />
+        {/*
+          QA harnesses for the Playwright modal/map-visual specs. They shipped
+          unauthenticated and ungated on production, above even /privacy, with
+          only the `__` prefix for obscurity. Gated behind a build-time flag that
+          CI sets for the frontend build the e2e specs preview
+          (.github/workflows/ci.yml) and the production image never passes
+          (docker/Dockerfile.frontend). To run these specs locally, build with
+          VITE_LAB_ROUTES=1.
+        */}
+        {LAB_ROUTES_ENABLED && <Route path="/__modal-lab" element={<ModalLabPage />} />}
+        {LAB_ROUTES_ENABLED && <Route path="/__map-visual-lab" element={<MapVisualLabPage />} />}
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />

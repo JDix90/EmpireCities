@@ -98,7 +98,13 @@ jobs:
       - name: Frontend unit tests
         run: pnpm run test:frontend
 
+      # VITE_LAB_ROUTES exposes the /__modal-lab and /__map-visual-lab QA
+      # harnesses that the map-visual and modal specs drive. It is set ONLY here
+      # — the production image (docker/Dockerfile.frontend) never passes it, so
+      # those routes do not exist in a shipped build.
       - name: Frontend build
+        env:
+          VITE_LAB_ROUTES: '1'
         run: pnpm -C frontend run build
 
       - name: Install Playwright (Chromium)

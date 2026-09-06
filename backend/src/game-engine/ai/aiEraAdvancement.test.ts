@@ -91,8 +91,11 @@ const map: GameMap = {
 
 describe('aiEraAdvancement helpers', () => {
   it('counts border threat from adjacent enemy units', () => {
-    // t3 (3 units) borders both t1 and t2 — exposure counted per border edge.
-    expect(countBorderThreat(baseState(), map, 'ai1')).toBe(6);
+    // t3 (3 units) borders BOTH t1 and t2, but is counted once: the ratio this
+    // feeds divides by countBorderStrength, which counts each of our own border
+    // tiles once. Counting the enemy per edge instead inflated a contiguous
+    // front by its degree and tripped the veto near true force parity.
+    expect(countBorderThreat(baseState(), map, 'ai1')).toBe(3);
   });
 
   it('reads max opponent era index', () => {
@@ -142,14 +145,25 @@ describe('evaluateAiEraAdvancement', () => {
     expect(result.shouldAdvance).toBe(true);
   });
 
-  it('stays when border threat is high', () => {
+  it('stays when border threat is high and it is not behind', () => {
+    // Level opponent: the vulnerability window is the bigger risk, so hold.
+    // (A TRAILING bot under the same pressure must advance anyway — see the
+    // catch-up test below.)
     const state = baseState({
+      players: [
+        basePlayer(),
+        basePlayer({ player_id: 'human', player_index: 1, is_ai: false, username: 'Human', current_era_index: 0 }),
+      ],
       territories: {
-        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5 },
+        // Carries a building so the milestone gate still opens: a level
+        // opponent gets no catch-up relaxation, and a closed gate would make
+        // this pass without ever exercising the threat veto.
+        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5, buildings: ['production_1'] },
         t3: { territory_id: 't3', owner_id: 'human', unit_count: 20, unit_type: 'infantry', stability: 70, population: 3 },
       },
     });
     const result = evaluateAiEraAdvancement(state, map, 'ai1', 'medium');
+    expect(result.gatePassed).toBe(true);
     expect(result.shouldAdvance).toBe(false);
   });
 
@@ -169,8 +183,12 @@ describe('evaluateAiEraAdvancement', () => {
 
   it('hard-blocks advancing while a heavy enemy force sits on the border (even expert)', () => {
     const state = baseState({
+      players: [
+        basePlayer(),
+        basePlayer({ player_id: 'human', player_index: 1, is_ai: false, username: 'Human', current_era_index: 0 }),
+      ],
       territories: {
-        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5 },
+        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5, buildings: ['production_1'] },
         t3: { territory_id: 't3', owner_id: 'human', unit_count: 16, unit_type: 'infantry', stability: 70, population: 3 },
       },
     });
@@ -178,6 +196,23 @@ describe('evaluateAiEraAdvancement', () => {
     expect(result.gatePassed).toBe(true);
     expect(result.shouldAdvance).toBe(false);
     expect(result.score).toBe(0);
+  });
+
+  it('still advances a TRAILING bot under heavy border threat (catch-up beats the window)', () => {
+    // Same board as the hard-block case, but the opponent is an era ahead. The
+    // threat veto must not fire here: it returns long before the catch-up
+    // rubber band, so blocking would hard-lock a losing bot out of the only
+    // mechanism that lets it close the gap — and the lock self-reinforces,
+    // because every territory it loses raises the very ratio that latched it.
+    const state = baseState({
+      territories: {
+        t1: { territory_id: 't1', owner_id: 'ai1', unit_count: 5, unit_type: 'infantry', stability: 80, population: 5 },
+        t3: { territory_id: 't3', owner_id: 'human', unit_count: 16, unit_type: 'infantry', stability: 70, population: 3 },
+      },
+    });
+    const result = evaluateAiEraAdvancement(state, map, 'ai1', 'expert');
+    expect(result.gatePassed).toBe(true);
+    expect(result.shouldAdvance).toBe(true);
   });
 
   it('scales catch-up urgency with the era gap', () => {

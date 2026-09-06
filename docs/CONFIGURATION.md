@@ -72,7 +72,6 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 |---|---|---|---|
 | `analyticsEventsEnabled` | `ANALYTICS_EVENTS_ENABLED` | **on** (off under test) | Funnel/retention events → `analytics_events` + JSON log lines. Cohorts only accrue while this is live |
 | `metricsEndpointEnabled` | `METRICS_ENDPOINT_ENABLED` | **on in dev, off in prod** | `GET /metrics/json` (room count, lock/persistence failure counters, memory) |
-| `socketDebug` | `SOCKET_DEBUG` | off (dev-only) | Verbose Socket.io logging |
 | `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | **on** | Map Editor UI + custom-map publishing (draft → review → approve pipeline; kill switch in Admin → Config) |
 | `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
@@ -82,7 +81,6 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |
 | `rankedEraAdvancementEnabled` | `RANKED_ERA_ADVANCEMENT_ENABLED` | off | Ranked matchmaking creates Era Advancement games (pending balance review) |
 | `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | **on** | One-time guest → create-account nudge after a finished game |
-| `combinedTutorialEnabled` | `COMBINED_TUTORIAL_ENABLED` | **on** | Core tutorial runs as one continuous match on Tutorial Island with economy/tech/era advancement on — the player researches and advances an era instead of reading preview cards. Off returns *new* tutorials to the WW2 core lesson; in-flight games keep the shape they started with (`tutorial_combined` is snapshotted at creation) |
 | `aiAttackGrindEnabled` | `AI_ATTACK_GRIND_ENABLED` | **on** | AI spends its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls (off, a 3+ unit garrison is uncapturable by the AI). Turn length is unchanged |
 | `aiCaptureOddsEnabled` | `AI_CAPTURE_ODDS_ENABLED` | **on** | AI ranks attack candidates by exact capture probability fed with the real dice modifiers, instead of the legacy dice differential. Changes target choice only, never combat resolution |
 | `aiDecidedGamePressEnabled` | `AI_DECIDED_GAME_PRESS_ENABLED` | **on** | An AI past 70% heuristic win probability doubles its exchange budget and attack cap to finish a decided game (never Easy/tutorial). Kill switch if the endgame press plays badly |

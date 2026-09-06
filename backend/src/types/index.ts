@@ -296,6 +296,14 @@ export interface GameSettings {
   turn_timer_seconds: number;    // 0 = no timer
   initial_unit_count: number;
   card_set_escalating: boolean;
+  /**
+   * Ceiling on a territory-card set bonus, in units. The escalating schedule
+   * (4, 6, 8, 10, 12, 15, then +5 per set, shared across all players) is
+   * otherwise unbounded and reaches ~95 units per redemption by turn 40, which
+   * is what turns the late game into stack-vs-stack. Absent or 0 = uncapped,
+   * so games created before the cap existed keep the rules they started under.
+   */
+  card_set_bonus_cap?: number;
   diplomacy_enabled: boolean;
   tutorial?: boolean;
   tutorial_step?: number;
@@ -357,8 +365,6 @@ export interface GameSettings {
   /** Which spine from the registry governs this game (default 'poc'). */
   era_advancement_spine_id?: string;
   era_advancement_conversion_ratio?: number;
-  era_advancement_strength_step?: number;
-  era_advancement_cost_step?: number;
   era_advancement_cost_mult?: number;
   era_advancement_cost_escalation?: number;
   /** Cap on the escalation term (`min(escalation^index, cap)`) so late advances stay reachable. */
@@ -524,7 +530,6 @@ export type BuildingType =
   | 'production_1' | 'production_2' | 'production_3' | 'production_4'
   | 'defense_1' | 'defense_2' | 'defense_3'
   | 'tech_gen_1' | 'tech_gen_2'
-  | 'special_a' | 'special_b'
   | 'port' | 'naval_base' | 'coastal_battery'
   | 'wonder_colosseum'   // ancient
   | 'wonder_cathedral'   // medieval

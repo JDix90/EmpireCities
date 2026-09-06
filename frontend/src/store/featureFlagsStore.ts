@@ -10,7 +10,6 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
-  combined_tutorial_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
@@ -37,8 +36,6 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
-  // The core tutorial is the combined island match with the era climb.
-  combined_tutorial_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,
@@ -98,10 +95,6 @@ export function useOnboardingTutorialFirstEnabled(): boolean {
 
 export function useHeroSingleCtaEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.hero_single_cta_enabled);
-}
-
-export function useEraAdvancePayoffEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.era_advance_payoff_enabled);
 }
 
 export function useSignupNudgeEnabled(): boolean {

@@ -34,6 +34,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     ? raw.initial_unit_count
     : defaults.initial_unit_count;
   const cardEsc = typeof raw.card_set_escalating === 'boolean' ? raw.card_set_escalating : true;
+  // Absent stays absent (= uncapped). This normalizer re-runs on every room load
+  // via repairLegacyGameState and re-persists, so defaulting a value here would
+  // retroactively re-rule games already in progress; the new-game default is
+  // baked at the create boundary in modules/games/games.routes.ts instead.
+  const cardBonusCap = typeof raw.card_set_bonus_cap === 'number' && Number.isFinite(raw.card_set_bonus_cap)
+    ? Math.max(0, Math.floor(raw.card_set_bonus_cap))
+    : undefined;
   const dip = typeof raw.diplomacy_enabled === 'boolean' ? raw.diplomacy_enabled : true;
   const factionsEnabled = typeof raw.factions_enabled === 'boolean' ? raw.factions_enabled : false;
   const economyEnabled = typeof raw.economy_enabled === 'boolean' ? raw.economy_enabled : false;
@@ -122,6 +129,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     turn_timer_seconds: turnTimer,
     initial_unit_count: initialUnits,
     card_set_escalating: cardEsc,
+    card_set_bonus_cap: cardBonusCap,
     diplomacy_enabled: dip,
     tutorial: typeof raw.tutorial === 'boolean' ? raw.tutorial : undefined,
     tutorial_step: typeof raw.tutorial_step === 'number' ? raw.tutorial_step : undefined,
@@ -175,12 +183,6 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       eraAdvancementEnabled && raw.era_advancement_board_transform === true ? true : undefined,
     era_advancement_conversion_ratio: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_conversion_ratio, eraDefaults.era_advancement_conversion_ratio)
-      : undefined,
-    era_advancement_strength_step: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_strength_step, eraDefaults.era_advancement_strength_step)
-      : undefined,
-    era_advancement_cost_step: eraAdvancementEnabled
-      ? numSetting(raw.era_advancement_cost_step, eraDefaults.era_advancement_cost_step)
       : undefined,
     era_advancement_cost_mult: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_cost_mult, eraDefaults.era_advancement_cost_mult)

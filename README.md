@@ -71,7 +71,7 @@ Two community maps (14 Nations and Strait of Hormuz) are also included. Addition
 | **Authentication** | Custom JWT (access + refresh token rotation) |
 | **Relational DB** | PostgreSQL 16 (Drizzle ORM) — users, games, snapshots, **maps (JSONB)** |
 | **Cache / Leaderboards** | Redis 7 |
-| **AI Bots** | Server-side heuristic Minimax with Alpha-Beta Pruning, timeout-guarded worker |
+| **AI Bots** | Server-side single-ply greedy planner over an exact combat-odds table, timeout-guarded worker |
 | **Ratings** | Glicko-style μ (skill) + φ (uncertainty), per rating type; σ tracked at the schema level for forward compatibility |
 | **Dev Environment** | Docker Compose + VS Code |
 

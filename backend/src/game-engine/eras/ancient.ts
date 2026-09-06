@@ -59,12 +59,10 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'carthage',
     lineage_id: 'maritime',
     name: 'Carthaginian Republic',
-    description: 'Naval supremacy allows sea-lane fortify moves at no extra cost and +1 defense on coastal territories.',
+    description: 'A maritime trading power anchored in North Africa, reaching across the sea lanes.',
     lore: 'Merchant princes and admirals make Carthage rich, turning harbors and trade routes into weapons that reach across the sea.',
     flavor_quote: 'Gold on the docks is power on the battlefield.',
     home_region_ids: ['africa'],
-    ability_id: 'naval_supremacy_ancient',
-    ability_description: 'Naval Supremacy: move units along sea connections without restriction during fortify phase.',
     color: '#2980b9',
   },
   {
