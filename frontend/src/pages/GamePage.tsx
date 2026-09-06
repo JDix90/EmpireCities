@@ -1,7 +1,24 @@
 import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Menu, X, CreditCard, RotateCcw, Users, Play, UserPlus, MessageSquare, Link2, Copy, Maximize2, Keyboard, Map as MapIcon, Globe as GlobeIcon, Orbit } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  CreditCard,
+  Globe as GlobeIcon,
+  Keyboard,
+  Link2,
+  Map as MapIcon,
+  Maximize2,
+  Menu,
+  MessageSquare,
+  Orbit,
+  Play,
+  RotateCcw,
+  UserPlus,
+  Users,
+  X,
+} from 'lucide-react';
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -4429,9 +4446,12 @@ export default function GamePage() {
             )
           : 0;
         return (
-          <div className="flex dlayout:hidden items-center gap-3 px-4 shrink-0 bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]">
-            {/* Player + phase info */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex dlayout:hidden items-center gap-2 px-3 shrink-0 bg-bf-surface border-t border-bf-border pb-safe min-h-[56px]">
+            {/* Player + phase info. The floor matters: this is the only
+                shrinkable child, so without one it collapsed to nothing at
+                360px and the player lost "Reinforcement · 3 units / Your turn"
+                entirely while the Menu button still overhung the screen. */}
+            <div className="flex items-center gap-2 flex-1 min-w-[3.5rem] xs:min-w-[5rem]">
               {cp && (
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cp.color }} />
               )}
@@ -4524,7 +4544,7 @@ export default function GamePage() {
                 }
               }}
               className={clsx(
-                'relative flex items-center gap-1.5 px-2.5 h-10 rounded-lg border shrink-0 transition-colors',
+                'relative flex items-center justify-center gap-1.5 w-10 xs:w-auto xs:px-2.5 h-10 rounded-lg border shrink-0 transition-colors',
                 pulseMobileMenu
                   ? 'bg-bf-gold/20 border-bf-gold/60 text-bf-gold animate-pulse'
                   : 'bg-bf-dark border-bf-border text-bf-muted hover:text-bf-text',
@@ -4532,7 +4552,11 @@ export default function GamePage() {
               aria-label="Open game menu (Status, Players, Log)"
             >
               <Menu className="w-5 h-5" />
-              <span className="text-xs font-medium">Menu</span>
+              {/* Word drops below xs: at 320-430 the row cannot hold it and the
+                  button itself was overhanging the screen. The aria-label on the
+                  button still says "Open game menu (Status, Players, Log)", and
+                  the first-visit pulse still points at it. */}
+              <span className="text-xs font-medium hidden xs:inline">Menu</span>
             </button>
           </div>
         );
@@ -4643,67 +4667,79 @@ export default function GamePage() {
               }}
               denseMap={mapDensityMetrics?.isDense ?? false}
             />
-            <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-2">
-              <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-2">Map View</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={switchToGlobeView}
-                  className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
-                >
-                  Globe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMapView('2d'); persistMapView('2d'); }}
-                  className={`flex-1 py-2 text-xs rounded border ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
-                >
-                  2D Map
-                </button>
+            {/* Display settings, collapsed. These are duplicated in Settings and
+                are not turn actions, but as two always-open blocks they took
+                227px of a 664px screen — enough that GameHUD's scroll region
+                collapsed to zero height and its pinned action button painted
+                over them. */}
+            <details className="border-t border-bf-border shrink-0 group">
+              <summary className="px-4 py-3 min-h-[44px] flex items-center justify-between cursor-pointer text-xs text-bf-muted hover:text-bf-text select-none">
+                <span className="uppercase tracking-wider">Display &amp; map</span>
+                <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-2">
+                <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-2">Map View</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={switchToGlobeView}
+                    className={`flex-1 py-2 text-xs rounded border ${mapView === 'globe' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
+                  >
+                    Globe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMapView('2d'); persistMapView('2d'); }}
+                    className={`flex-1 py-2 text-xs rounded border ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/40' : 'border-bf-border text-bf-muted'}`}
+                  >
+                    2D Map
+                  </button>
+                </div>
+                {mapView === 'globe' && (
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={globeSpinEnabled}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setGlobeSpinEnabled(next);
+                        persistGlobeSpinPreference(next);
+                      }}
+                      className="w-4 h-4 accent-bf-gold"
+                    />
+                    <span className="text-sm text-bf-muted">Auto-spin globe</span>
+                  </label>
+                )}
               </div>
-              {mapView === 'globe' && (
+              {/* Lite-mode toggle — visible only in the mobile drawer */}
+              <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-3">
+                <ConnectionHintsSetting
+                  value={connectionHintPreference}
+                  onChange={(next) => {
+                    setConnectionHintPreference(next);
+                    persistConnectionHintPreference(next);
+                  }}
+                  denseMap={mapDensityMetrics?.isDense ?? false}
+                  compact
+                />
                 <label className="flex items-center gap-3 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={globeSpinEnabled}
+                    checked={liteModeEnabled}
                     onChange={(e) => {
                       const next = e.target.checked;
-                      setGlobeSpinEnabled(next);
-                      persistGlobeSpinPreference(next);
+                      setLiteModeEnabled(next);
+                      persistLiteMode(next);
                     }}
                     className="w-4 h-4 accent-bf-gold"
                   />
-                  <span className="text-sm text-bf-muted">Auto-spin globe</span>
+                  <span className="text-sm text-bf-muted">
+                    Lite mode <span className="text-xs">(skip combat &amp; map animations)</span>
+                  </span>
                 </label>
-              )}
-            </div>
-            {/* Lite-mode toggle — visible only in the mobile drawer */}
-            <div className="px-4 py-3 border-t border-bf-border shrink-0 space-y-3">
-              <ConnectionHintsSetting
-                value={connectionHintPreference}
-                onChange={(next) => {
-                  setConnectionHintPreference(next);
-                  persistConnectionHintPreference(next);
-                }}
-                denseMap={mapDensityMetrics?.isDense ?? false}
-                compact
-              />
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={liteModeEnabled}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    setLiteModeEnabled(next);
-                    persistLiteMode(next);
-                  }}
-                  className="w-4 h-4 accent-bf-gold"
-                />
-                <span className="text-sm text-bf-muted">
-                  Lite mode <span className="text-xs">(skip combat &amp; map animations)</span>
-                </span>
-              </label>
-            </div>
+              </div>
+            </details>
+
           </div>
         </div>
       )}

@@ -242,6 +242,10 @@ export default function GameHUD({
       // below it had nowhere to go — the overflow painted over the chat and the
       // pinned action button.
       'flex flex-col min-h-0 bg-bf-surface',
+      // On mobile the whole HUD is one scroll region inside the drawer; on
+      // desktop the tab content below scrolls and the rest stays pinned.
+      // Nesting a second scroller inside the mobile one collapses it to zero
+      // height as soon as the drawer's own chrome grows.
       mobile
         ? 'flex-1 overflow-y-auto'
         : 'flex flex-1 min-h-0',

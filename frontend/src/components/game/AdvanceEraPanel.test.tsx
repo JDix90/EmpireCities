@@ -183,3 +183,38 @@ describe('AdvanceEraPanel — the summary counts only what it lists', () => {
     expect(screen.queryByText(/Buildings built/)).toBeNull();
   });
 });
+
+describe('AdvanceEraPanel — compact pill in the phone action bar', () => {
+  function compact(extra: Partial<GameState['settings']> = {}) {
+    return render(
+      <AdvanceEraPanel
+        variant="compact"
+        gameState={state(extra)}
+        myPlayer={player({ special_resource: 16 })}
+        isMyTurn
+        onAdvanceEra={() => {}}
+      />,
+    );
+  }
+
+  it('always shows the cost — that is what makes it a decision', () => {
+    compact();
+    expect(screen.getByRole('button').textContent).toMatch(/10g/);
+  });
+
+  it('gates the era name behind xs so it can leave a narrow bar', () => {
+    // At 149px wide this pill pushed the Menu button off a 360px screen. The
+    // name is redundant with the header and the Game Info sheet; the class is
+    // what removes it below 480px, so pin it rather than the rendered width
+    // (jsdom applies no media queries).
+    compact();
+    const name = screen.getByText(/Medieval/);
+    expect(name.className).toContain('hidden');
+    expect(name.className).toContain('xs:inline');
+  });
+
+  it('keeps the whole pill from shrinking under its own icon', () => {
+    compact();
+    expect(screen.getByRole('button').className).toContain('shrink-0');
+  });
+});

@@ -3,6 +3,14 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // The width at which the in-game action bar fits every label. Measured,
+        // not guessed: with the era name and the "Menu" word the row needs
+        // 456px, so every portrait phone (320-430) drops them and a landscape
+        // phone (844) keeps them. Deliberately below Tailwind's `sm` (640px),
+        // which is a tablet breakpoint and would hide them on every phone.
+        xs: '480px',
+      },
       colors: {
         // Borderfall brand palette
         'bf-gold':    '#c9a84c',
