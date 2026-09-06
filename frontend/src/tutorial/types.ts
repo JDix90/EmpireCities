@@ -34,6 +34,18 @@ export interface TutorialStep {
   hint?: string;
   requireAction?: TutorialRequireAction;
   variant?: TutorialStepVariant;
+  /**
+   * Where the coaching card sits on desktop.
+   *
+   * `auto` (default) is bottom-centre, which is centred on the VIEWPORT rather
+   * than on the map area — so on a 1400×900 window it lands at x 492–940 / y
+   * 462–820, squarely over the middle and southern territories of the tutorial
+   * island. A step whose copy names one of those must set `aside`, which docks
+   * the card into the top-left gutter clear of both the board's east half and
+   * the territory panel. Measured: with `auto`, elementFromPoint on the target's
+   * unit badge returns the card, not the canvas.
+   */
+  cardPosition?: 'auto' | 'aside';
   /** Opens tech tree modal when player taps secondary action */
   actionOpenTechTree?: boolean;
   /** Opens bonuses modal */
@@ -61,16 +73,12 @@ export interface TutorialModuleMeta {
 export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
   {
     id: 'core',
-    // Describes the combined core tutorial, which is what `combined_tutorial_enabled`
-    // (on by default) ships. With the flag off this module is the classic WW2
-    // lesson instead — shorter, and about cards rather than the era climb.
     title: 'Core Tutorial',
     description: 'Draft, attack, fortify, and your first era advance.',
-    // ~4 min of reading across 15 cards (817 words) plus 8 interactive beats:
-    // three turns of the loop, an opponent turn, three techs and the advance.
-    // Provisional until real `game_finished.duration_ms` medians exist — but
-    // measured, not the 6 min this claimed when it was a different lesson.
-    estimatedMinutes: 9,
+    // ~2 min of reading across 8 cards plus 5 interactive beats: two turns of
+    // the loop, an opponent turn, two techs and the advance. Provisional until
+    // real `game_finished.duration_ms` medians exist.
+    estimatedMinutes: 5,
   },
   {
     id: 'advanced_settings',

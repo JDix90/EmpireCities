@@ -3,14 +3,17 @@ import {
   COMBINED_CORE_TUTORIAL_STEPS,
   COMBINED_CORE_STEP_IDS,
 } from './modules/combinedCoreSteps';
-import { CORE_TUTORIAL_STEPS } from './modules/coreSteps';
 import { getTutorialSteps, isActionOnlyRequireAction, isTutorialStepCentered } from './progression';
+import { phaseAdvanceLabel } from '../constants/phaseLabels';
 
-describe('combined core tutorial', () => {
-  it('borrows every step it means to', () => {
-    // `borrow` silently drops a step whose source id no longer exists, so the
-    // renamed step would just vanish from a first-time player's tutorial. This
-    // assertion is what turns that into a CI failure.
+describe('core tutorial', () => {
+  const byId = (id: string) => COMBINED_CORE_TUTORIAL_STEPS.find((s) => s.id === id);
+  const text = (id: string) => {
+    const step = byId(id);
+    return `${step?.message ?? ''} ${step?.detail ?? ''} ${step?.hint ?? ''}`;
+  };
+
+  it('ships the step list it means to, in order', () => {
     expect(COMBINED_CORE_TUTORIAL_STEPS.map((s) => s.id)).toEqual([...COMBINED_CORE_STEP_IDS]);
   });
 
@@ -19,10 +22,14 @@ describe('combined core tutorial', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('is selected only when the game was created as the combined tutorial', () => {
-    expect(getTutorialSteps('core', { combined: true })).toBe(COMBINED_CORE_TUTORIAL_STEPS);
-    expect(getTutorialSteps('core')).toBe(CORE_TUTORIAL_STEPS);
-    expect(getTutorialSteps('core', { combined: false })).toBe(CORE_TUTORIAL_STEPS);
+  it('is what the core module resolves to', () => {
+    expect(getTutorialSteps('core')).toBe(COMBINED_CORE_TUTORIAL_STEPS);
+  });
+
+  it('fits a first session — eight cards, not fifteen', () => {
+    // The point of the rewrite. A regression here means preview cards crept
+    // back in; add them to a deep-dive module instead.
+    expect(COMBINED_CORE_TUTORIAL_STEPS.length).toBeLessThanOrEqual(8);
   });
 
   it('only uses gates the game actually advances on', () => {
@@ -38,9 +45,63 @@ describe('combined core tutorial', () => {
     expect(gates).toContain('era_advanced');
     // The preview cards this list exists to replace.
     const ids = COMBINED_CORE_TUTORIAL_STEPS.map((s) => s.id);
-    for (const dropped of ['advanced_settings_primer', 'ability_primer', 'tech_primer', 'settings_overview']) {
+    for (const dropped of [
+      'advanced_settings_primer',
+      'ability_primer',
+      'tech_primer',
+      'settings_overview',
+      'cards_explain',
+    ]) {
       expect(ids).not.toContain(dropped);
     }
+  });
+
+  it('leaves the draft card holding the phase transition, not the pool', () => {
+    // `draft` is satisfied the moment the pool empties, which would leave the
+    // NEXT card waiting on a phase change the player then makes without having
+    // attacked — the attack card would be eaten by the draft→attack transition.
+    expect(byId('draft_do')?.requireAction).toBe('end_phase');
+    expect(text('draft_do')).toContain(phaseAdvanceLabel('draft'));
+  });
+
+  it('references the shared phase-advance labels', () => {
+    // Drift guard: desktop and mobile previously used different labels
+    // ("Begin Attack Phase →" vs "End Draft") and the tutorial named only the
+    // desktop one, stranding phone players hunting for a button that wasn't
+    // on their screen.
+    expect(text('choose_front')).toContain(phaseAdvanceLabel('attack'));
+    expect(text('turn_ends')).toContain(phaseAdvanceLabel('fortify'));
+  });
+
+  it('never references a sidebar location as the only guidance', () => {
+    for (const step of COMBINED_CORE_TUTORIAL_STEPS) {
+      const t = `${step.message} ${step.hint ?? ''}`;
+      expect(t).not.toMatch(/right-hand sidebar/);
+      expect(t).not.toMatch(/sidebar on the right/);
+    }
+  });
+
+  it('tells the draft step which color is the player', () => {
+    expect(text('draft_do')).toContain('{playerColor}');
+  });
+
+  it('poses the first attack as a choice between two named fronts', () => {
+    // Each western territory borders exactly one eastern one
+    // (tutorialScript.ts), so a target named without its source is only
+    // actionable from one place. Naming both fronts turns that constraint into
+    // the lesson instead of a hint that reads wrong from two of three clicks.
+    const t = text('choose_front');
+    expect(t).toContain('Western Plains');
+    expect(t).toContain('Eastern Forest');
+    expect(t).toContain('Northern Hills');
+    expect(t).toContain('Desert Outpost');
+  });
+
+  it('docks the attack card clear of the board it is pointing at', () => {
+    // Bottom-centre lands on the middle and southern eastern territories this
+    // card tells the player to click. See `cardPosition` in ./types.
+    expect(byId('choose_front')?.cardPosition).toBe('aside');
+    expect(isTutorialStepCentered(byId('choose_front'))).toBe(false);
   });
 
   it('ends on a wrapup card that still explains how to win', () => {
@@ -48,6 +109,17 @@ describe('combined core tutorial', () => {
     expect(last.variant).toBe('wrapup');
     // `victory_explain` is dropped as its own card; its content must survive.
     expect(last.message.toLowerCase()).toContain('domination');
+  });
+
+  it('names what the island left out rather than previewing it card by card', () => {
+    const last = COMBINED_CORE_TUTORIAL_STEPS[COMBINED_CORE_TUTORIAL_STEPS.length - 1];
+    const detail = (last.detail ?? '').toLowerCase();
+    for (const omitted of ['cards', 'factions', 'fog of war']) {
+      expect(detail).toContain(omitted);
+    }
+    // The tutorial gate is softer than a real game's; say so instead of letting
+    // the player infer that two tier-1 techs is the whole system.
+    expect(detail).toContain('buildings');
   });
 
   it('has honest wrap-up copy for the skip path', () => {
@@ -60,17 +132,6 @@ describe('combined core tutorial', () => {
     expect(skipped).not.toMatch(/you ran|you climbed|climbed an era/);
     expect(skipped).toContain('domination'); // still explains how to win
     expect(skipped).toMatch(/reinforcements|blue territory/); // and what to do right now
-  });
-
-  it('names the source territory in the first attack hint, not just the target', () => {
-    // Each western territory borders exactly one eastern one (tutorialScript.ts),
-    // so "attack the Eastern Forest" is actionable only from Western Plains.
-    // Two of three first clicks otherwise land on the 5-unit Desert Outpost and
-    // the hint reads as wrong.
-    const attack = COMBINED_CORE_TUTORIAL_STEPS.find((s) => s.id === 'attack_do');
-    expect(attack).toBeDefined();
-    expect(attack!.message).toContain('Western Plains');
-    expect(attack!.message).toContain('Eastern Forest');
   });
 
   it('lays out its read-heavy cards centered', () => {

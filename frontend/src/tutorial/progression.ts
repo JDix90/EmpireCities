@@ -1,5 +1,4 @@
 import { ADVANCED_SETTINGS_STEPS } from './modules/advancedSettingsSteps';
-import { CORE_TUTORIAL_STEPS } from './modules/coreSteps';
 import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
@@ -10,26 +9,7 @@ import { api } from '../services/api';
 
 const STORAGE_KEY = 'borderfall_tutorial_modules_completed_v2';
 
-export interface TutorialStepsOptions {
-  /**
-   * This game was created as the combined core tutorial (Tutorial Island with
-   * era systems on). Read from `settings.tutorial_combined`, which the server
-   * snapshots at creation — so flipping `combined_tutorial_enabled` never
-   * changes the step list under a game already in progress.
-   *
-   * A variant rather than a sixth lesson module id: the module id is a key in
-   * six synced registries (the `TutorialLessonModule` union, `TUTORIAL_MODULES`,
-   * two validator arrays below, the backend zod enum, completion tracking), and
-   * "same module, different step list" is the precedent `TUTORIAL_V2_ENABLED`
-   * already set.
-   */
-  combined?: boolean;
-}
-
-export function getTutorialSteps(
-  module: TutorialLessonModule,
-  options: TutorialStepsOptions = {},
-): TutorialStep[] {
+export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
   switch (module) {
     case 'advanced_settings':
       return ADVANCED_SETTINGS_STEPS;
@@ -40,13 +20,8 @@ export function getTutorialSteps(
     case 'era_advancement':
       return ERA_ADVANCEMENT_STEPS;
     case 'core':
-    default: {
-      if (options.combined) return COMBINED_CORE_TUTORIAL_STEPS;
-      if (TUTORIAL_V2_ENABLED) return CORE_TUTORIAL_STEPS;
-      return CORE_TUTORIAL_STEPS.filter(
-        (s) => !['advanced_settings_primer', 'ability_primer', 'tech_primer'].includes(s.id),
-      );
-    }
+    default:
+      return COMBINED_CORE_TUTORIAL_STEPS;
   }
 }
 
@@ -107,20 +82,17 @@ export function getRecommendedTutorialModule(): TutorialLessonModule | null {
   return null;
 }
 
-/** Step IDs that use centered overlay layout (read-heavy cards). */
+/**
+ * Step IDs that use centered overlay layout (read-heavy cards). Ids are listed
+ * across every lesson module, so this set is intentionally larger than any one
+ * module's step list.
+ */
 export function isTutorialStepCentered(step: TutorialStep | undefined): boolean {
   if (!step) return false;
   if (step.variant === 'wrapup' || step.variant === 'module_complete') return true;
   const centeredIds = new Set([
     'welcome',
-    'draft_explain',
     'economy_intro',
-    'cards_explain',
-    'victory_explain',
-    'settings_overview',
-    'advanced_settings_primer',
-    'ability_primer',
-    'tech_primer',
     'as_welcome',
     'as_timers',
     'as_fog',
@@ -144,28 +116,6 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'ea_complete',
   ]);
   return centeredIds.has(step.id);
-}
-
-/**
- * Previously auto-advanced game phases to match tutorial steps.
- * The core tutorial now teaches players to click the HUD phase buttons themselves
- * via the `advance_draft` step (end_phase) and `attack_do` / `fortify_explain`
- * steps (end_phase). This function is kept for call-site compatibility but
- * always returns false.
- * @deprecated No longer used — all phase transitions are player-driven.
- */
-export function tutorialStepNeedsPhaseAssist(_stepId: string | undefined): {
-  advanceDraftToAttack: boolean;
-  advanceAttackToFortify: boolean;
-  autoEndFortify: boolean;
-  autoAdvanceAttackAfterCombat: boolean;
-} {
-  return {
-    advanceDraftToAttack: false,
-    advanceAttackToFortify: false,
-    autoEndFortify: false,
-    autoAdvanceAttackAfterCombat: false,
-  };
 }
 
 /**
@@ -223,23 +173,6 @@ export function shouldAdvanceTutorialOnState(args: {
   }
 
   return false;
-}
-
-/**
- * Has the board already moved past what this step is asking for?
- *
- * `advance_draft` teaches "use the gold button to leave the draft phase". A
- * player who ends reinforcement through the confirm dialog instead ("you still
- * have N to place — they'll be placed for you") lands in the attack phase in
- * the same tick that satisfies the previous step, so this card arrives naming a
- * button that has already changed label. The lesson is done; skip it rather
- * than show an instruction the screen contradicts.
- */
-export function isTutorialStepAlreadySatisfiedByPhase(
-  step: TutorialStep | undefined,
-  phase: string,
-): boolean {
-  return step?.id === 'advance_draft' && phase !== 'draft';
 }
 
 export function isActionOnlyRequireAction(action: TutorialRequireAction | undefined): boolean {

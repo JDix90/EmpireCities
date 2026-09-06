@@ -35,6 +35,9 @@ interface Props {
   eraLabel?: string;
   onResearch: (techId: string) => void;
   onClose: () => void;
+  /** Forwarded to the gate rail so a ready player can advance without hunting for the sidebar panel. */
+  onAdvanceEra?: () => void;
+  canAdvanceNow?: boolean;
 }
 
 function NodeBonusTags({ node }: { node: TechNode }) {
@@ -82,7 +85,7 @@ function UnlockChainTags({ node, allTechs }: { node: TechNode; allTechs: TechNod
   );
 }
 
-export default function TechTreeModal({ gameState, currentPlayerId, techTree, eraLabel, onResearch, onClose }: Props) {
+export default function TechTreeModal({ gameState, currentPlayerId, techTree, eraLabel, onResearch, onClose, onAdvanceEra, canAdvanceNow }: Props) {
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   const unlocked = useMemo(() => new Set(player?.unlocked_techs ?? []), [player]);
   const techPoints = player?.tech_points ?? 0;
@@ -117,7 +120,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
         </div>
 
         {/* Era advancement continuity: gate progress + carried-forward echo */}
-        <TechTreeEraProgress gameState={gameState} player={player} />
+        <TechTreeEraProgress gameState={gameState} player={player} onAdvanceEra={onAdvanceEra} canAdvanceNow={canAdvanceNow} />
 
         {/* Info banner */}
         <div className="px-4 pt-4 pb-2">

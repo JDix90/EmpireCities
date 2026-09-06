@@ -51,7 +51,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
-  combined_tutorial_enabled: () => envOptOut('COMBINED_TUTORIAL_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
@@ -230,18 +229,6 @@ export const featureFlags = {
     return overrideBool('signup_nudge_enabled');
   },
 
-  /**
-   * When true, the core tutorial is the combined first game: one continuous
-   * match on Tutorial Island that teaches draft/attack/fortify AND carries the
-   * player through researching a tech and advancing an era, instead of ending
-   * in preview modals for features the match doesn't have. Default ON — this is
-   * the first-session path, and era advancement is the thing that makes
-   * Borderfall not-Risk. Switching it off returns new tutorials to the WW2
-   * core lesson; games already in flight keep the shape they started with.
-   */
-  get combinedTutorialEnabled(): boolean {
-    return overrideBool('combined_tutorial_enabled');
-  },
 
   /**
    * When true, the AI's per-turn attack budget counts dice exchanges instead of
@@ -402,7 +389,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
-    combined_tutorial_enabled: featureFlags.combinedTutorialEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,

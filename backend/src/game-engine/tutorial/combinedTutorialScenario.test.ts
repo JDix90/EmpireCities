@@ -34,25 +34,35 @@ describe('combined tutorial scenario', () => {
     expect(map.regions.find((r) => r.region_id === 'tut_west')?.bonus).toBeGreaterThan(0);
   });
 
-  it('puts the big stack on the hub bordering the enemy, so `attack_do` always has a strong source', () => {
+  it('offers two live fronts, priced differently', () => {
     const borders = (a: string, b: string) =>
       map.connections.some((c) => (c.from === a && c.to === b) || (c.from === b && c.to === a));
+    // The `choose_front` card names both of these by name. Each western
+    // territory borders exactly one eastern one, so a renamed connection turns
+    // the card's copy into an instruction the board cannot satisfy.
     expect(borders('tut_a1', 'tut_b1')).toBe(true);
+    expect(borders('tut_a3', 'tut_b3')).toBe(true);
 
-    const humanUnits = Object.entries(board).filter(([, s]) => s.owner === 'human');
-    const strongest = humanUnits.sort(([, a], [, b]) => b.unit_count - a.unit_count)[0]?.[0];
-    expect(strongest).toBe('tut_a1');
-    // Attacker rolls with (units − 1); the first attack a new player ever makes
-    // should be lopsided in their favour.
+    // Cheap opening: attacker rolls with (units − 1), and the first attack a new
+    // player ever makes should be lopsided in their favour.
     expect(board.tut_a1.unit_count - 1).toBeGreaterThanOrEqual(2 * board.tut_b1.unit_count);
+    // Slower flank: still favourable, but it costs more than the hub — that
+    // difference is the whole decision the card is asking the player to make.
+    expect(board.tut_a3.unit_count).toBeGreaterThan(board.tut_b3.unit_count);
+    expect(board.tut_b3.unit_count).toBeGreaterThan(board.tut_b1.unit_count);
   });
 
-  it('leaves the rest of the East thick enough that the board cannot be conquered before the era steps', () => {
+  it('leaves the third front obviously wrong, so the other two read as a choice', () => {
+    expect(board.tut_a2.unit_count).toBeLessThan(board.tut_b2.unit_count);
+  });
+
+  it('keeps Mountain Pass out of reach, so the board cannot be conquered before the era steps', () => {
     // A domination win on turn 2 would end the tutorial immediately before the
     // part that makes Borderfall not-Risk.
-    for (const id of ['tut_b2', 'tut_b3']) {
-      expect(board[id].unit_count).toBeGreaterThan(board.tut_b1.unit_count * 2);
-    }
+    const strongestHuman = Math.max(
+      ...Object.values(board).filter((s) => s.owner === 'human').map((s) => s.unit_count),
+    );
+    expect(board.tut_b2.unit_count).toBeGreaterThan(strongestHuman);
   });
 
   it('pays a visible realm bonus at the 2 players this map is played with', () => {

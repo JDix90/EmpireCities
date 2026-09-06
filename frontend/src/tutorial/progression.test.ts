@@ -1,7 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   getTutorialSteps,
-  isTutorialStepAlreadySatisfiedByPhase,
   shouldAdvanceTutorialOnState,
   isTutorialStepCentered,
   markTutorialModuleComplete,
@@ -29,7 +28,7 @@ describe('tutorial progression', () => {
     expect(getCompletedTutorialModules()).toContain('advanced_settings');
   });
 
-  it('advances on draft completion', () => {
+  it('advances the draft card when the player leaves the draft phase', () => {
     const step = getTutorialSteps('core').find((s) => s.id === 'draft_do');
     expect(
       shouldAdvanceTutorialOnState({
@@ -48,11 +47,11 @@ describe('tutorial progression', () => {
   });
 
   it('satisfies the my_turn gate whenever it is the viewer\'s turn', () => {
-    // Not just on the transition into it. Steps 4–7 each wait on a phase change
-    // and there are only three per turn, so `opponent_turn` routinely becomes
-    // current after the transition has already fired — it used to sit there
-    // telling the player to watch an opponent who was not playing.
-    const step = getTutorialSteps('core').find((s) => s.id === 'opponent_turn');
+    // Not just on the transition into it. Cards wait on phase changes and there
+    // are only three per turn, so a my_turn card routinely becomes current after
+    // the transition has already fired — it used to sit there telling the player
+    // to watch an opponent who was not playing.
+    const step = getTutorialSteps('core').find((s) => s.id === 'turn_ends');
     const base = {
       step,
       prevPhase: 'draft',
@@ -69,7 +68,7 @@ describe('tutorial progression', () => {
   });
 
   it('does not satisfy my_turn while the opponent is playing', () => {
-    const step = getTutorialSteps('core').find((s) => s.id === 'opponent_turn');
+    const step = getTutorialSteps('core').find((s) => s.id === 'turn_ends');
     expect(
       shouldAdvanceTutorialOnState({
         step,
@@ -86,22 +85,8 @@ describe('tutorial progression', () => {
     ).toBe(false);
   });
 
-  it('skips the phase-advance card once the board has left the draft phase', () => {
-    const step = getTutorialSteps('core').find((s) => s.id === 'advance_draft');
-    expect(isTutorialStepAlreadySatisfiedByPhase(step, 'attack')).toBe(true);
-    expect(isTutorialStepAlreadySatisfiedByPhase(step, 'draft')).toBe(false);
-  });
-
-  it('never skips a step that is not about leaving the draft phase', () => {
-    for (const id of ['draft_do', 'attack_do', 'opponent_turn', 'wrapup']) {
-      const step = getTutorialSteps('core').find((s) => s.id === id);
-      expect(isTutorialStepAlreadySatisfiedByPhase(step, 'attack')).toBe(false);
-    }
-    expect(isTutorialStepAlreadySatisfiedByPhase(undefined, 'attack')).toBe(false);
-  });
-
-  it('marks primer steps as centered', () => {
-    const step = getTutorialSteps('core').find((s) => s.id === 'ability_primer');
+  it('marks read-heavy cards as centered', () => {
+    const step = getTutorialSteps('core').find((s) => s.id === 'economy_intro');
     expect(isTutorialStepCentered(step)).toBe(true);
   });
 });

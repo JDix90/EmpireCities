@@ -162,24 +162,32 @@ export default function AdvanceEraPanel({
               )}
               {gameState.settings.tech_trees_enabled && status.gateMode === 'milestone' && (
                 <>
-                  <GateRow
-                    ok={status.tier1Met}
-                    label={`Tier-1 technologies: ${status.tier1Current}/${status.tier1Required}`}
-                  />
-                  <GateRow
-                    ok={status.tier2Met}
-                    label={`Tier-2 technologies: ${status.tier2Current}/${status.tier2Required}`}
-                  />
+                  {/* A requirement of 0 is not a requirement: "0/0" reads as
+                      something still to do. Tier-3 was already hidden this way. */}
+                  {status.tier1Required > 0 && (
+                    <GateRow
+                      ok={status.tier1Met}
+                      label={`Tier-1 technologies: ${status.tier1Current}/${status.tier1Required}`}
+                    />
+                  )}
+                  {status.tier2Required > 0 && (
+                    <GateRow
+                      ok={status.tier2Met}
+                      label={`Tier-2 technologies: ${status.tier2Current}/${status.tier2Required}`}
+                    />
+                  )}
                   {status.tier3Required > 0 && (
                     <GateRow
                       ok={status.tier3Met}
                       label={`Tier-3 technologies: ${status.tier3Current}/${status.tier3Required}`}
                     />
                   )}
-                  <GateRow
-                    ok={status.buildingsMet}
-                    label={`Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`}
-                  />
+                  {status.buildingsRequired > 0 && (
+                    <GateRow
+                      ok={status.buildingsMet}
+                      label={`Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`}
+                    />
+                  )}
                 </>
               )}
               {status.stabilityGate != null && (

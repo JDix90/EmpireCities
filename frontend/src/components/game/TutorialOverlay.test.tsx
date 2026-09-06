@@ -110,4 +110,62 @@ describe('TutorialOverlay', () => {
     expect(screen.getByText('Complete the action to continue…')).toBeInTheDocument();
     expect(document.body.textContent).not.toContain('Use the panel below');
   });
+
+  describe('folding a docked card', () => {
+    // `cardPosition: 'aside'` docks the card into the left gutter, which is
+    // also where the territory panel opens — and the panel can run 500px tall.
+    // Uncapped they overlapped and the card sat on the panel's Attack button.
+    const asideStep = {
+      id: 'choose_front',
+      title: 'Pick Your Front',
+      message: 'Attack something.',
+      requireAction: 'end_phase',
+      cardPosition: 'aside',
+    } as TutorialStep;
+
+    it('folds to a title strip while a territory panel is open', () => {
+      overlay([asideStep], { territorySelected: true });
+      expect(screen.getByTestId('tutorial-card-unfold')).toHaveTextContent('Pick Your Front');
+      expect(screen.queryByText('Attack something.')).toBeNull();
+    });
+
+    it('unfolds again when the player taps the strip, and stays unfolded', () => {
+      overlay([asideStep], { territorySelected: true });
+      fireEvent.click(screen.getByTestId('tutorial-card-unfold'));
+      expect(screen.getByText('Attack something.')).toBeInTheDocument();
+    });
+
+    it('can be folded by hand even with no panel open', () => {
+      overlay([asideStep]);
+      expect(screen.getByText('Attack something.')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('tutorial-card-fold'));
+      expect(screen.queryByText('Attack something.')).toBeNull();
+    });
+
+    it('offers no fold control on an undocked card — nothing is competing for the space', () => {
+      overlay([{ id: 'draft_do', title: 'D', message: 'm', requireAction: 'draft' } as TutorialStep]);
+      expect(screen.queryByTestId('tutorial-card-fold')).toBeNull();
+    });
+
+    it('re-folds on the next step rather than carrying the choice forward', () => {
+      const { rerender } = overlay([asideStep, { ...asideStep, id: 'later', message: 'Later copy.' }], {
+        territorySelected: true,
+      });
+      fireEvent.click(screen.getByTestId('tutorial-card-unfold'));
+      expect(screen.getByText('Attack something.')).toBeInTheDocument();
+      rerender(
+        <TutorialOverlay
+          steps={[asideStep, { ...asideStep, id: 'later', message: 'Later copy.' } as TutorialStep]}
+          stepIndex={1}
+          lessonModule="core"
+          onAdvance={noop}
+          onContinuePlaying={noop}
+          onReturnToLobby={noop}
+          territorySelected
+        />,
+      );
+      expect(screen.getByTestId('tutorial-card-unfold')).toBeInTheDocument();
+      expect(screen.queryByText('Later copy.')).toBeNull();
+    });
+  });
 });

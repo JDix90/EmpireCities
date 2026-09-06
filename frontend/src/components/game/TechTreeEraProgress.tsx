@@ -8,6 +8,16 @@ import { getAdvanceEraClientStatus } from '../../utils/eraAdvancement';
 interface Props {
   gameState: GameState;
   player?: PlayerState | null;
+  /**
+   * Advance the era. When supplied and the gate is ready, the rail offers the
+   * button inline. The only other Advance control lives in a sidebar panel that
+   * is collapsed by default and sits *behind* this modal's backdrop, so a
+   * player told "the gate is ready" had to guess that they must first close the
+   * tree, find the panel and expand it.
+   */
+  onAdvanceEra?: () => void;
+  /** Advancing is a draft-phase action on your own turn. */
+  canAdvanceNow?: boolean;
 }
 
 const ECHO_LABELS: Array<[string, string]> = [
@@ -58,7 +68,7 @@ function GateChip({ ok, label }: { ok: boolean; label: string }) {
  * advancement gate progress (so research choices map to the gate while you
  * browse) and the bonuses echoed forward from past eras.
  */
-export default function TechTreeEraProgress({ gameState, player }: Props) {
+export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, canAdvanceNow }: Props) {
   if (!gameState.settings.era_advancement_enabled || !player) return null;
   const status = getAdvanceEraClientStatus(gameState, player);
   if (!status) return null;
@@ -86,12 +96,20 @@ export default function TechTreeEraProgress({ gameState, player }: Props) {
             <div className="flex flex-wrap gap-1" data-testid="techtree-gate-chips">
               {gameState.settings.tech_trees_enabled && status.gateMode === 'milestone' && (
                 <>
-                  <GateChip ok={status.tier1Met} label={`T1 ${status.tier1Current}/${status.tier1Required}`} />
-                  <GateChip ok={status.tier2Met} label={`T2 ${status.tier2Current}/${status.tier2Required}`} />
+                  {/* A requirement of 0 is not a requirement: "T2 0/0" reads as
+                      something still to do. T3 was already hidden this way. */}
+                  {status.tier1Required > 0 && (
+                    <GateChip ok={status.tier1Met} label={`T1 ${status.tier1Current}/${status.tier1Required}`} />
+                  )}
+                  {status.tier2Required > 0 && (
+                    <GateChip ok={status.tier2Met} label={`T2 ${status.tier2Current}/${status.tier2Required}`} />
+                  )}
                   {status.tier3Required > 0 && (
                     <GateChip ok={status.tier3Met} label={`T3 ${status.tier3Current}/${status.tier3Required}`} />
                   )}
-                  <GateChip ok={status.buildingsMet} label={`Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`} />
+                  {status.buildingsRequired > 0 && (
+                    <GateChip ok={status.buildingsMet} label={`Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`} />
+                  )}
                 </>
               )}
               {gameState.settings.tech_trees_enabled && status.gateMode === 'percent' && (
@@ -107,6 +125,19 @@ export default function TechTreeEraProgress({ gameState, player }: Props) {
                 <Sparkles className="w-3 h-3 shrink-0 mt-0.5" />
                 <span><span className="font-medium">{status.nextSignatureName}</span> on arrival</span>
               </p>
+            )}
+            {status.ready && onAdvanceEra && (
+              <button
+                type="button"
+                onClick={onAdvanceEra}
+                disabled={!canAdvanceNow}
+                data-testid="techtree-advance-era"
+                className="btn-primary w-full text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {canAdvanceNow
+                  ? `Advance to ${ERA_LABELS[status.nextEraId] ?? status.nextEraId}`
+                  : 'Advance Era (wait for your turn)'}
+              </button>
             )}
           </>
         )}
