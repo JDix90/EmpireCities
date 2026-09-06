@@ -27,7 +27,7 @@ function Chip({ label }: { label: string }) {
 export default function FactionLoreModal({ faction, onClose }: { faction: FactionLoreInfo; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-3 py-4 pt-safe pb-safe sm:px-4 flex items-start justify-center sm:items-center"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 px-3 pt-safe-4 pb-safe-4 sm:px-4 flex items-start justify-center sm:items-center"
       onClick={onClose}
     >
       <div

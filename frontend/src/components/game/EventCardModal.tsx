@@ -100,7 +100,7 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
   }, [hasChoices, onDismiss]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm animate-fade-in px-3 py-4 pt-safe pb-safe sm:px-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-sm animate-fade-in px-3 pt-safe-4 pb-safe-4 sm:px-4">
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div className={clsx(
           'border rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] overflow-y-auto overscroll-contain',

@@ -35,7 +35,7 @@ export default function FeatureExplainerModal({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto animate-modal-backdrop px-3 py-4 pt-safe pb-safe sm:px-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto animate-modal-backdrop px-3 pt-safe-4 pb-safe-4 sm:px-4">
       <div className="absolute inset-0 bg-black/60" onClick={dismiss} />
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div

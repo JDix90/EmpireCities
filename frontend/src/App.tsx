@@ -56,7 +56,7 @@ const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
   return (
-    <div className="min-h-screen bg-bf-dark px-4 py-6 pt-safe pb-safe">
+    <div className="min-h-screen bg-bf-dark px-4 pt-safe-6 pb-safe-6">
       {/* Nav skeleton */}
       <div className="h-12 bg-bf-surface border-b border-bf-border mb-6 rounded-none -mx-4 px-4 flex items-center gap-3">
         <div className="h-4 w-32 bg-bf-border/60 rounded animate-pulse" />

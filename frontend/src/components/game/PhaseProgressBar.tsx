@@ -67,7 +67,11 @@ export function PhaseProgressBar({
   return (
     <ol
       className={clsx(
-        'flex items-center gap-1 text-[11px] font-medium select-none',
+        // Wraps rather than overflowing: the desktop sidebar is a fixed w-72,
+        // and four labelled steps plus separators do not fit it at any screen
+        // width — "End Turn" used to be clipped mid-word at 1280, 1440 and 1920
+        // alike. The mount site picks `compact` there; this is the backstop.
+        'flex flex-wrap items-center gap-1 text-[11px] font-medium select-none',
         !isMyTurn && 'opacity-60',
         className,
       )}

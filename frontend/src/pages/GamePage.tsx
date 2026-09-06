@@ -3850,7 +3850,7 @@ export default function GamePage() {
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
       {/* Top Bar */}
-      <div className="min-h-10 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
+      <div className="min-h-10 pt-safe-1 pb-1 bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0">
         <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-bf-muted text-xs">·</span>
         {/*
@@ -4599,7 +4599,7 @@ export default function GamePage() {
           {/* Drawer panel */}
           <div className="fixed inset-y-0 right-0 w-80 max-w-[85vw] z-50 flex flex-col bg-bf-surface">
             {/* Drawer header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-bf-border pt-safe shrink-0">
+            <div className="flex items-center justify-between px-4 pt-safe-3 pb-3 border-b border-bf-border shrink-0">
               <span className="font-display text-sm text-bf-gold">Game Info</span>
               <button
                 type="button"

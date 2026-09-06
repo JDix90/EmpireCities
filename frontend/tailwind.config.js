@@ -60,6 +60,32 @@ export default {
     },
   },
   plugins: [
+    /**
+     * Additive safe-area padding: `pt-safe-4` is `calc(1rem + env(safe-area-inset-top))`.
+     *
+     * The bare `.pt-safe` / `.pb-safe` / `.px-safe` utilities in index.css SET
+     * padding rather than adding to it, and they are emitted after Tailwind's
+     * own padding classes at equal specificity — so `py-4 pt-safe` resolved to
+     * `padding-top: env(safe-area-inset-top, 0px)`, which is 0px on every
+     * Android, every desktop and every non-notched iPhone. The base padding was
+     * silently deleted. Those bare utilities remain for the handful of places
+     * that genuinely want inset-only padding (the bottom nav and action bars);
+     * everywhere a base value is intended, use these instead.
+     */
+    function ({ matchUtilities, theme }) {
+      const spacing = theme('spacing');
+      matchUtilities(
+        {
+          'pt-safe': (value) => ({ paddingTop: `calc(${value} + env(safe-area-inset-top, 0px))` }),
+          'pb-safe': (value) => ({ paddingBottom: `calc(${value} + env(safe-area-inset-bottom, 0px))` }),
+          'px-safe': (value) => ({
+            paddingLeft: `calc(${value} + env(safe-area-inset-left, 0px))`,
+            paddingRight: `calc(${value} + env(safe-area-inset-right, 0px))`,
+          }),
+        },
+        { values: spacing },
+      );
+    },
     // Layout variants driven by a `data-mobile-layout` ancestor attribute (set on
     // the GamePage root from the isPhoneLayout() state), so phones keep the mobile
     // layout in landscape instead of flipping to desktop at the 768px width

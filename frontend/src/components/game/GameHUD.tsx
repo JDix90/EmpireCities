@@ -274,7 +274,11 @@ export default function GameHUD({
           <PhaseProgressBar
             phase={gameState.phase}
             isMyTurn={isMyTurn}
-            variant={mobile ? 'compact' : 'full'}
+            // Compact on both: the desktop sidebar is 288px wide, which fits
+            // the icons plus one label, not four. The current step keeps its
+            // word — that is the one a player reads — and every step carries
+            // its status in sr-only text either way.
+            variant="compact"
             className="mb-2"
           />
         )}

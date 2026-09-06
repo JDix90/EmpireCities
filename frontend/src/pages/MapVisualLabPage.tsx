@@ -145,7 +145,7 @@ export default function MapVisualLabPage() {
 
   return (
     <div className="min-h-screen bg-bf-dark text-bf-text flex flex-col">
-      <header className="border-b border-bf-border px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3 pt-safe px-safe">
+      <header className="border-b border-bf-border px-safe-4 sm:px-safe-6 pb-4 flex flex-wrap items-center gap-3 pt-safe-4">
         <Link to="/lobby" className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text text-sm transition-colors">
           ← Lobby
         </Link>

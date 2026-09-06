@@ -350,20 +350,30 @@ export default function MapHubPage() {
       maxWidth="6xl"
       headerLeft={<BrandWordmark to="/lobby" className="text-xl" />}
       headerRight={mapEditorEnabled ? (
-        <Link to="/editor" className="btn-primary text-sm flex items-center gap-2 py-1.5">
-          <Plus className="w-4 h-4" aria-hidden /> Create Map
+        <Link
+          to="/editor"
+          className="btn-primary text-sm flex items-center gap-2 py-1.5 px-3 sm:px-6"
+          aria-label="Create Map"
+        >
+          <Plus className="w-4 h-4" aria-hidden />
+          {/* Label drops below sm: with it, the header button plus the wordmark
+              and title overran a 390px screen. */}
+          <span className="hidden sm:inline">Create Map</span>
         </Link>
       ) : undefined}
     >
       {/* ── Sticky nav: category tabs + search ───────────────────────────── */}
       <div className="sticky top-0 z-10 -mx-1 px-1 py-3 mb-6 bg-bf-dark/90 backdrop-blur border-b border-bf-border/60">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 rounded-lg border border-bf-border bg-bf-dark/60 p-1">
+          {/* Scrolls rather than overflowing: five tabs exceed a 390px phone,
+              and with no scroll container the whole page panned sideways. */}
+          <div className="flex items-center gap-1 rounded-lg border border-bf-border bg-bf-dark/60 p-1
+                          max-w-full overflow-x-auto flex-nowrap scrollbar-none">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   tab === t.id ? 'bg-bf-gold text-bf-dark' : 'text-bf-muted hover:text-bf-text'
                 }`}
               >

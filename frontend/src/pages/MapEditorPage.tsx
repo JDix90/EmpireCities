@@ -465,7 +465,7 @@ export default function MapEditorPage() {
       )}
 
       {/* Top Bar */}
-      <div className="min-h-12 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
+      <div className="min-h-12 pt-safe-1 pb-1 bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0">
         <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-bf-border">|</span>
         <input

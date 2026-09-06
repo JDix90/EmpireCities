@@ -2040,7 +2040,7 @@ export default function ActionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop p-4 pt-safe pb-safe px-safe"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop pt-safe-4 pb-safe-4 px-safe-4"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)' }}
       onClick={allowBackdropDismiss ? onDismiss : undefined}
     >

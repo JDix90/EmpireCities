@@ -43,7 +43,7 @@ export default function SubpageShell({
 }: SubpageShellProps) {
   return (
     <div className={clsx('min-h-screen bg-bf-dark text-bf-text', className)}>
-      <nav className="border-b border-bf-border px-4 sm:px-6 py-4 flex items-center justify-between pt-safe px-safe gap-3">
+      <nav className="border-b border-bf-border px-safe-4 sm:px-safe-6 pb-4 flex items-center justify-between pt-safe-4 gap-3">
         <div className="shrink-0 min-w-[4.5rem] sm:min-w-[5.5rem]">
           {headerLeft ?? (
             <Link
