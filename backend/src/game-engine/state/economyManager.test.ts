@@ -4,6 +4,7 @@ import {
   getSeaDefenseBonus,
   validateBuild,
   applyBuild,
+  collectProduction,
   COASTAL_BATTERY_SEA_DEFENSE_BONUS,
 } from './economyManager';
 import type { GameState, PlayerState, TerritoryState, GameSettings, BuildingType } from '../../types';
@@ -186,5 +187,63 @@ describe('applyBuild(coastal_battery)', () => {
     applyBuild(state, 'p1', 'T1', 'coastal_battery');
     expect(state.territories.T1.buildings).toEqual(expect.arrayContaining(['port', 'coastal_battery']));
     expect(state.players[0].special_resource).toBe(6); // 10 - 4
+  });
+});
+
+/**
+ * Building yields used to be floored per building, which meant a building on a
+ * stressed territory paid nothing at all: production_1 yields 1, and at 80%
+ * stability with population 5 that is floor(1 x 0.8 x 1.0) = 0. An empire of
+ * ten such buildings earned exactly as much as an empire with none. They now
+ * accumulate fractionally across the empire and floor once, matching how the
+ * per-world bonus in the same function has always worked.
+ */
+describe('collectProduction — building yields', () => {
+  const stressed = (id: string, buildings: BuildingType[]) =>
+    makeTerritory(id, 'p1', buildings, { stability: 80, population: 5 });
+
+  function stressedState(count: number, building: BuildingType) {
+    const territories: Record<string, TerritoryState> = {};
+    for (let i = 0; i < count; i++) territories[`t${i}`] = stressed(`t${i}`, [building]);
+    return makeState({
+      settings: { economy_enabled: true, tech_trees_enabled: true, stability_enabled: true },
+      players: [makePlayer('p1', { special_resource: 0, tech_points: 0 })],
+      territories,
+    });
+  }
+
+  it('pays out buildings that individually round below 1', () => {
+    // production_1 yields 1, scaled by stability 0.8 and population 5 (0.944)
+    // = 0.756 each. Ten of them is 7.56 -> 7 of building income, plus the base
+    // floor(10/3) = 3. Flooring per building instead gave 0 + 3 = 3: ten
+    // buildings earned exactly what none would have.
+    const state = stressedState(10, 'production_1');
+    const { productionEarned } = collectProduction(state, 'p1');
+    expect(productionEarned).toBe(10);
+  });
+
+  it('paid nothing for them before, which is the bug — one building still rounds to zero', () => {
+    // The fix is about the empire total, not about rounding a single sub-1
+    // yield up: one 0.8 building on its own still floors to 0 building income,
+    // leaving only the base 1 per 3 territories.
+    const state = stressedState(1, 'production_1');
+    expect(collectProduction(state, 'p1').productionEarned).toBe(1);
+  });
+
+  it('accumulates tech income the same way', () => {
+    // 3 x tech_gen_1 (2 TP each) x 0.8 x 0.944 = 4.53 -> 4, plus the base
+    // max(1, floor(3/5)) = 1.
+    const state = stressedState(3, 'tech_gen_1');
+    expect(collectProduction(state, 'p1').techPointsEarned).toBe(5);
+  });
+
+  it('is unchanged when nothing is stressed', () => {
+    const state = makeState({
+      settings: { economy_enabled: true, tech_trees_enabled: true, stability_enabled: false },
+      players: [makePlayer('p1', { special_resource: 0 })],
+      territories: { t0: makeTerritory('t0', 'p1', ['production_2']) },
+    });
+    // production_2 yields 2, plus the base 1 per 3 territories (min 1).
+    expect(collectProduction(state, 'p1').productionEarned).toBe(3);
   });
 });

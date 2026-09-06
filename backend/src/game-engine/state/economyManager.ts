@@ -296,6 +296,14 @@ export function collectProduction(
   let ownedCount = 0;
   let worldProdAccum = 0;
   let worldTechAccum = 0;
+  // Building yields accumulate fractionally and are floored ONCE, the same way
+  // the world bonus below is. Flooring per building instead rounded every
+  // stressed building down to nothing: a Camp (production 1) on a territory at
+  // 80% stability and 72% population paid floor(1 × 0.80 × 0.722) = 0, so an
+  // empire of ten such Camps earned exactly as much as an empire with none —
+  // and the era advance, whose cost is priced off income, stayed out of reach.
+  let buildingProdAccum = 0;
+  let buildingTechAccum = 0;
 
   for (const territory of Object.values(state.territories)) {
     if (territory.owner_id !== playerId) continue;
@@ -310,10 +318,12 @@ export function collectProduction(
       ? getPopulationMultiplier(territory.population)
       : 1;
     for (const building of territory.buildings ?? []) {
-      productionEarned += Math.floor((resolveProductionIncome(state)[building] ?? 0) * stabilityScale * popScale);
-      techPointsEarned += Math.floor((BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale);
+      buildingProdAccum += (resolveProductionIncome(state)[building] ?? 0) * stabilityScale * popScale;
+      buildingTechAccum += (BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale;
     }
   }
+  productionEarned += Math.floor(buildingProdAccum);
+  techPointsEarned += Math.floor(buildingTechAccum);
 
   // Base income: 1 resource per 3 territories (min 1), so players can bootstrap
   productionEarned += Math.max(1, Math.floor(ownedCount / 3));
