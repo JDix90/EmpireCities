@@ -6,6 +6,7 @@ import { Shield, Sword, X, Anchor, Flag, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { canOfferBlitz } from '../../utils/blitzEligibility';
+import { plural } from '../../utils/plural';
 import { useAttackBlitzEnabled } from '../../store/featureFlagsStore';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
@@ -22,7 +23,14 @@ import {
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
 import NeighborTerritoryPicker from './NeighborTerritoryPicker';
-import { listNeighborTargets, type MapConnection } from '../../utils/mapAdjacencyTargets';
+import {
+  listNeighborTargets,
+  listDirectAttackSources,
+  canAttackFrom,
+  listBorderingOwned,
+  MIN_ATTACK_UNITS,
+  type MapConnection,
+} from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
 
@@ -275,8 +283,10 @@ export default function TerritoryPanel({
   const attackNeighborSourceId = attackSource ?? (isMine && gameState.phase === 'attack' ? selectedTerritory : null);
   const attackNeighbors = React.useMemo(() => {
     if (!isMyTurn || gameState.phase !== 'attack' || !attackNeighborSourceId || !myPlayerId) return [];
-    const sourceOwner = gameState.territories[attackNeighborSourceId]?.owner_id;
-    if (sourceOwner !== myPlayerId) return [];
+    // Ownership AND the one-must-stay-behind minimum. Adjacency alone would list
+    // neighbours for a drained stack, and now that the rows fire the attack
+    // rather than merely navigating, every one would be a guaranteed error toast.
+    if (!canAttackFrom(gameState, attackNeighborSourceId, myPlayerId)) return [];
     return listNeighborTargets(gameState, mapConnections, attackNeighborSourceId, territoryNameById, {
       attackSource: attackNeighborSourceId,
       worldNameOf: (id) => worldNameByTerritoryId.get(id),
@@ -301,6 +311,46 @@ export default function TerritoryPanel({
     [attackNeighbors, selectedTerritory],
   );
 
+  /**
+   * Which of my territories could strike the enemy I'm currently looking at, so
+   * landing on an enemy panel with nothing armed offers the attack instead of
+   * dead-ending. `attackSource` set means an attacker is already chosen and the
+   * regular attack button below covers it.
+   */
+  const directAttackSources = React.useMemo(
+    () =>
+      isMyTurn && (isEnemy || isUnowned) && !attackSource
+        ? listDirectAttackSources(gameState, mapConnections, selectedTerritory, myPlayerId, territoryNameById, {
+            worldNameOf: (id) => worldNameByTerritoryId.get(id),
+          })
+        : [],
+    [
+      isMyTurn,
+      gameState,
+      isEnemy,
+      isUnowned,
+      myPlayerId,
+      attackSource,
+      selectedTerritory,
+      mapConnections,
+      territoryNameById,
+      worldNameByTerritoryId,
+    ],
+  );
+
+  /**
+   * My territories touching this one, however thin. Only used to explain why no
+   * attack is on offer — "nothing borders it" and "what borders it is too thin"
+   * need different advice, and an empty Combat section gives neither.
+   */
+  const borderingOwned = React.useMemo(
+    () =>
+      gameState.phase === 'attack'
+        ? listBorderingOwned(gameState, mapConnections, selectedTerritory, myPlayerId)
+        : [],
+    [gameState, mapConnections, selectedTerritory, myPlayerId],
+  );
+
   // "Blitz until captured": same legality as the single attack, minus the
   // cases the server refuses to auto-repeat (sea lanes, truces, dailies).
   const attackConnectionType = attackSource
@@ -321,6 +371,20 @@ export default function TerritoryPanel({
         gameState.settings.daily_challenge_date.length > 0,
     });
   const blitzIsPrimary = blitzOffered && getFastCombatPreference();
+
+  /** Does at least one direct-attack source support blitz? Drives column alignment. */
+  const blitzOfferedForAnySource =
+    !!onBlitzAttack &&
+    directAttackSources.some((src) =>
+      canOfferBlitz({
+        flagEnabled: attackBlitzFlag,
+        hasActiveTruce,
+        connectionType: src.connectionType,
+        isDailyChallenge:
+          typeof gameState.settings?.daily_challenge_date === 'string' &&
+          gameState.settings.daily_challenge_date.length > 0,
+      }),
+    );
 
   const fortifyNeighborSourceId =
     gameState.phase === 'fortify' && attackSource && gameState.territories[attackSource]?.owner_id === myPlayerId
@@ -552,7 +616,8 @@ export default function TerritoryPanel({
           <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
             <Shield className="w-5 h-5 text-bf-muted" />
             <span className="text-2xl font-bold text-bf-text">{tState.unit_count === -1 ? '?' : tState.unit_count}</span>
-            <span className="text-bf-muted text-sm">units</span>
+            {/* "1 units" under fog-free view read as a bug. `?` keeps the plural. */}
+            <span className="text-bf-muted text-sm">{tState.unit_count === 1 ? 'unit' : 'units'}</span>
           </div>
 
           {/* Fleet Count (naval warfare) — hidden under fog of war */}
@@ -560,7 +625,7 @@ export default function TerritoryPanel({
             <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
               <Anchor className="w-5 h-5 text-blue-400" />
               <span className="text-2xl font-bold text-bf-text">{tState.naval_units}</span>
-              <span className="text-bf-muted text-sm">fleets</span>
+              <span className="text-bf-muted text-sm">{tState.naval_units === 1 ? 'fleet' : 'fleets'}</span>
             </div>
           )}
 
@@ -654,13 +719,109 @@ export default function TerritoryPanel({
           {gameState.phase === 'attack' && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">⚔ Combat</div>
-              {isMine && tState.unit_count >= 2 && !attackSource && (
+              {/*
+                Arming a stack is now an alternative route, not the way in. The
+                picker above already offers every legal strike from this
+                territory in one click, so a full-width `btn-primary` here read
+                as the thing to press and sent players down the long path. It
+                stays for people who'd rather find the target on the map — and
+                only when this stack has somewhere to strike, since arming a
+                cornered one leads nowhere.
+              */}
+              {isMine && tState.unit_count >= 2 && !attackSource && attackNeighbors.length > 0 && (
                 <button
-                  className="btn-primary w-full text-sm flex items-center justify-center gap-2"
+                  className="btn-secondary w-full text-xs flex items-center justify-center gap-2"
                   onClick={() => setAttackSource(selectedTerritory)}
+                  title="Arm this stack, then click a bordering enemy on the map"
                 >
-                  <Sword className="w-4 h-4" /> Select as Attacker
+                  <Sword className="w-3.5 h-3.5" /> Or pick the target on the map
                 </button>
+              )}
+              {/* Nothing to offer: say why instead of leaving the section
+                  blank, which reads as the UI having failed. */}
+              {!attackSource && (isMine || isEnemy) &&
+               (isMine ? attackNeighbors.length === 0 : directAttackSources.length === 0) && (
+                <p className="text-xs text-bf-muted/80">
+                  {isMine
+                    ? tState.unit_count >= MIN_ATTACK_UNITS
+                      ? 'No enemy borders this territory. Attack from one that does.'
+                      : `Needs at least ${MIN_ATTACK_UNITS} units to attack — one has to hold the territory.`
+                    : /* Enemy ground: if anything of mine bordered it with enough
+                         units, it would be listed above — so these two are the
+                         only reasons left. */
+                      borderingOwned.length > 0
+                        ? `Your territories next to this one are too thin — an attack needs ${MIN_ATTACK_UNITS} units.`
+                        : 'None of your territories border this one.'}
+                </p>
+              )}
+              {/*
+                Viewing an enemy with nothing armed: offer the strike from here.
+                One row per eligible neighbour of mine, strongest first — so the
+                common case (a single bordering stack) is a single click, and the
+                multi-source case is still one click once you've picked which
+                stack to spend. `Select as Attacker` stays available on my own
+                territories for repeat attacks; it is no longer the toll for a
+                first one.
+              */}
+              {directAttackSources.length > 0 && (
+                <div className="space-y-1.5">
+                  {directAttackSources.length > 1 && (
+                    <p className="text-[11px] text-bf-muted/90 leading-snug">
+                      {directAttackSources.length} of your territories border this one.
+                    </p>
+                  )}
+                  {directAttackSources.map((src, _i, rows) => {
+                    const canBlitz =
+                      !!onBlitzAttack &&
+                      canOfferBlitz({
+                        flagEnabled: attackBlitzFlag,
+                        hasActiveTruce,
+                        connectionType: src.connectionType,
+                        isDailyChallenge:
+                          typeof gameState.settings?.daily_challenge_date === 'string' &&
+                          gameState.settings.daily_challenge_date.length > 0,
+                      });
+                    return (
+                      <div key={src.territoryId} className="flex items-stretch gap-1.5">
+                        <button
+                          className={clsx(
+                            'flex-1 text-sm text-left flex items-center gap-2',
+                            hasActiveTruce ? 'btn-warning' : 'btn-danger',
+                          )}
+                          onClick={() => onAttack(src.territoryId, selectedTerritory)}
+                        >
+                          {hasActiveTruce ? <span aria-hidden>⚠</span> : <Sword className="w-4 h-4 shrink-0" />}
+                          {/* Name and strength on separate lines: centred with a
+                              "· N" suffix, a long territory name wrapped and left
+                              the count orphaned on its own line. */}
+                          <span className="min-w-0">
+                            <span className="block truncate">
+                              {hasActiveTruce ? 'Break truce — attack' : 'Attack'} from {src.name}
+                            </span>
+                            <span className="block text-[11px] opacity-75">
+                              {plural(src.unitCount, 'unit')}
+                            </span>
+                          </span>
+                        </button>
+                        {canBlitz ? (
+                          <button
+                            className="min-w-[44px] rounded-lg bg-bf-gold/15 hover:bg-bf-gold/25
+                                       border border-bf-gold/40 text-bf-gold font-medium transition-all"
+                            onClick={() => onBlitzAttack!(src.territoryId, selectedTerritory)}
+                            aria-label={`Blitz ${selectedTerritory} from ${src.name} until captured`}
+                            title="Attack repeatedly until the territory falls or you can no longer attack"
+                          >
+                            ⚡
+                          </button>
+                        ) : rows.length > 1 && blitzOfferedForAnySource ? (
+                          // Hold the column so a source that can't blitz (a sea
+                          // crossing, say) doesn't leave the list looking ragged.
+                          <span className="min-w-[44px]" aria-hidden />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
               {/* Re-pick the attacker without cancelling first: viewing a
                   different own territory while an attacker is already locked. */}

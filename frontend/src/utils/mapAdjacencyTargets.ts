@@ -257,3 +257,103 @@ export function listNeighborTargets(
 
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/**
+ * The attacker must leave one unit behind to hold the ground, so a stack of 1
+ * can't attack at all — the server rejects `unit_count < 2` outright
+ * (gameSocket's attack handler, executeLandAttack, executeBlitzAttack).
+ */
+export const MIN_ATTACK_UNITS = 2;
+
+/** Can this territory legally launch an attack for `viewerId` right now? */
+export function canAttackFrom(
+  gameState: GameState,
+  territoryId: string,
+  viewerId: string | null | undefined,
+): boolean {
+  if (!gameState || !viewerId) return false;
+  const t = gameState.territories[territoryId];
+  return t?.owner_id === viewerId && (t.unit_count ?? 0) >= MIN_ATTACK_UNITS;
+}
+
+export interface DirectAttackSourceRow {
+  territoryId: string;
+  name: string;
+  unitCount: number;
+  /** Connection linking this source to the target — blitz eligibility reads it. */
+  connectionType?: string;
+}
+
+/**
+ * The viewer's territories that border `territoryId`, whatever their strength.
+ *
+ * Distinguishes "you have nothing next to this" from "what you have next to it
+ * is too thin to attack with" — two very different pieces of advice, and the
+ * panel says which rather than leaving an empty Combat section.
+ */
+export function listBorderingOwned(
+  gameState: GameState,
+  connections: MapConnection[],
+  territoryId: string,
+  viewerId: string | null | undefined,
+): string[] {
+  if (!gameState || !viewerId) return [];
+  const owned = new Set<string>();
+  for (const conn of connections) {
+    const other = conn.from === territoryId ? conn.to : conn.to === territoryId ? conn.from : null;
+    if (!other) continue;
+    if (gameState.territories[other]?.owner_id === viewerId) owned.add(other);
+  }
+  return [...owned];
+}
+
+/**
+ * Which of the viewer's territories could strike `targetTerritoryId` right now,
+ * strongest stack first.
+ *
+ * This is the "click theirs, then pick who swings" half of the attack flow.
+ * Without it, opening an enemy's panel with no attacker armed was a dead end —
+ * the panel's own attack button needs an armed source and "Select as Attacker"
+ * needs the territory to be yours, so neither rendered and the only way forward
+ * was to navigate back to one of your own territories first.
+ *
+ * Legality is delegated to `listNeighborTargets`, the same helper the neighbour
+ * picker runs on, so this can never offer an attack the server would reject.
+ * Returns [] when it isn't the viewer's attack phase or the target isn't an
+ * enemy — callers don't have to re-check.
+ */
+export function listDirectAttackSources(
+  gameState: GameState,
+  connections: MapConnection[],
+  targetTerritoryId: string,
+  viewerId: string | null | undefined,
+  territoryNames: Map<string, string>,
+  options: { worldNameOf?: (territoryId: string) => string | undefined } = {},
+): DirectAttackSourceRow[] {
+  if (!gameState || !viewerId || gameState.phase !== 'attack') return [];
+  const targetOwner = gameState.territories[targetTerritoryId]?.owner_id;
+  // Enemy-held or a capturable neutral; never your own territory.
+  if (targetOwner === viewerId) return [];
+
+  return listBorderingOwned(gameState, connections, targetTerritoryId, viewerId)
+    .filter((sourceId) => canAttackFrom(gameState, sourceId, viewerId))
+    .filter((sourceId) =>
+      listNeighborTargets(gameState, connections, sourceId, territoryNames, {
+        attackSource: sourceId,
+        worldNameOf: options.worldNameOf,
+      }).some((n) => n.territoryId === targetTerritoryId),
+    )
+    .map((sourceId) => ({
+      territoryId: sourceId,
+      name: territoryNames.get(sourceId) ?? sourceId,
+      unitCount: gameState.territories[sourceId]?.unit_count ?? 0,
+      connectionType: connections.find(
+        (c) =>
+          (c.from === sourceId && c.to === targetTerritoryId) ||
+          (c.from === targetTerritoryId && c.to === sourceId),
+      )?.type,
+    }))
+    // Strongest first: the stack most likely to win leads. Name breaks ties so
+    // the order is stable across renders.
+    .sort((a, b) => b.unitCount - a.unitCount || a.name.localeCompare(b.name));
+}
