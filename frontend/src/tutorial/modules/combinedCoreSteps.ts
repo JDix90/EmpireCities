@@ -7,12 +7,20 @@ import type { TutorialStep } from '../types';
  * three phases AND carries the player through researching a technology and
  * advancing an era — the thing that makes Borderfall not a Risk clone.
  *
- * Eight cards, not fifteen. The list this replaces borrowed its steps from two
+ * Nine cards, not fifteen. The list this replaces borrowed its steps from two
  * other modules and spent a third of a first session on preview cards for
  * systems the match did not have switched on (cards, factions, advanced
  * settings). Every card here is attached to something the player does on the
  * board in front of them; anything the island leaves out is named once, in the
  * wrap-up, instead of getting a card of its own.
+ *
+ * The economy beats (`economy_intro` → `ea_research` → `ea_advance`) sit on the
+ * player's SECOND turn, in its reinforcement phase. That is deliberate: era
+ * advancement is only legal in reinforcement or fortify (`isEraAdvancePhase`),
+ * and reinforcement is the better of the two — advance there and the new era's
+ * tier applies to that same turn's attacks, whereas advancing in fortify pays
+ * the identical vulnerability window for a benefit that starts a turn later.
+ * Teaching the climb from the top of a turn teaches the habit worth having.
  *
  * Gates, and why they are the ones they are (see `shouldAdvanceTutorialOnState`
  * — exactly one step advances per server state update, which the ordering here
@@ -23,11 +31,13 @@ import type { TutorialStep } from '../types';
  *     phase change the player then makes without having attacked — so the
  *     attack card would be consumed by the draft→attack transition. One card
  *     covering "place them, then press the gold button" removes the seam.
- *   - `choose_front` waits on the attack→fortify transition, and
- *     `turn_ends` on `my_turn`. `my_turn` is true while the player is still in
- *     their own fortify phase, but it is only re-evaluated on the *next* state
- *     update — by which time the turn has passed to the opponent — so the card
- *     survives to be read during the opponent's turn, which is what it is about.
+ *   - `choose_front` waits on the attack→fortify transition and `fortify_do` on
+ *     the fortify→opponent one, so `turn_ends` only becomes current once the
+ *     turn has actually passed. `my_turn` is a STATE check, not an edge: it is
+ *     true throughout the player's own fortify phase, so a single card covering
+ *     "fortify, then watch" was satisfied by the player's own fortify MOVE —
+ *     the very thing it invited them to make — and dealt the whole economy run
+ *     during fortify. Splitting the card is what keeps `my_turn` honest.
  */
 export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
@@ -65,16 +75,23 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     requireAction: 'end_phase',
   },
   {
+    id: 'fortify_do',
+    title: 'Fortify, Then End Your Turn',
+    message: `Fortify moves units once between connected territories — shore up the border you just made, or skip it. Either way, the gold **${phaseAdvanceLabel('fortify')}** button hands the turn over.`,
+    detail: 'One move per turn, and only between territories you own that are joined by a chain of your own ground.',
+    requireAction: 'end_phase',
+  },
+  {
     id: 'turn_ends',
-    title: 'Fortify, Then Watch',
-    message: `Fortify moves units once between connected territories — shore up the border you just made, or skip it. Either way, the gold **${phaseAdvanceLabel('fortify')}** button ends your turn.`,
-    detail: 'Then the opponent plays: you\'ll see their dice, their captures, and the active player highlighted in the sidebar in real time.',
+    title: 'Now Watch the Opponent',
+    message: 'Their turn runs the same three phases. You\'ll see their dice, their captures, and the active player highlighted in the sidebar in real time.',
+    detail: 'Nothing to do here — the next card arrives when the turn comes back to you.',
     requireAction: 'my_turn',
   },
   {
     id: 'economy_intro',
     title: 'Your Empire Is Also an Economy',
-    message: 'Territory is only half the game. Your empire holds a **treasury** and a **research programme**, and both grow every turn you hold ground.',
+    message: 'Your turn again — and this time, before you attack. Territory is only half the game: your empire holds a **treasury** and a **research programme**, and both grew while you held ground.',
     detail: 'The Era panel in your sidebar shows the timeline of eras, where you sit on it, and the gate you must clear to advance. Your opponent climbs at their own pace.',
     whyItMatters: 'Conquest is how you win a map. Advancing an era is how you outgrow the opponent holding it — stronger units, a fresh tech tree, and a one-time signature reward.',
   },
@@ -91,7 +108,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Advance to Medieval',
     message: 'One more technology and every gate chip turns green. Then hit **Advance Era** — the button appears right there in the tech tree\'s gate rail.',
     detail: 'Your units carry forward at reduced strength for one turn — the vulnerability window — and your research resets to a fresh, stronger Medieval tree. You keep an echo of your old bonuses and gain the era\'s signature reward.',
-    hint: 'Short on a chip? The rail names what\'s missing, and the Advance button lights up the moment nothing is.',
+    hint: 'Climbing in your reinforcement phase means the new era\'s strength applies to the attacks you make this turn. Short on a chip? The rail names what\'s missing, and the Advance button lights up the moment nothing is.',
     requireAction: 'era_advanced',
   },
   {
@@ -113,6 +130,7 @@ export const COMBINED_CORE_STEP_IDS = [
   'welcome',
   'draft_do',
   'choose_front',
+  'fortify_do',
   'turn_ends',
   'economy_intro',
   'ea_research',
