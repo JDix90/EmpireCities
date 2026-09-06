@@ -8,6 +8,7 @@ import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
 import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
+import { buildingDisplayName } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
@@ -51,7 +52,15 @@ export const BUILDING_PREREQUISITES: Partial<Record<BuildingType, BuildingType>>
   naval_base: 'port',
 };
 
-/** Extra reinforcement units produced per territory per turn from production buildings. */
+/**
+ * Production points earned per turn from each production building.
+ *
+ * NOT reinforcement units, which this comment used to claim and the UI copy
+ * used to repeat. These credit `PlayerState.special_resource` — the PP pool
+ * spent on constructing buildings and on advancing an era. Draft units come
+ * from territory count, region bonuses, factions and tech; no building adds to
+ * them (see `getPlayerReinforceBonus`).
+ */
 const DEFAULT_BUILDING_PRODUCTION_INCOME: Partial<Record<BuildingType, number>> = {
   production_1: 1,
   production_2: 2,
@@ -182,7 +191,12 @@ export function validateBuild(
       if (existingBuildings.includes(prereq)) {
         // OK to upgrade
       } else {
-        return { valid: false, error: `Must build ${prereq} before ${buildingType}` };
+        // Names, not raw ids: this read "Must build production_1 before
+        // production_2", naming two things the player cannot find in any panel.
+        return {
+          valid: false,
+          error: `Must build a ${BUILDING_LABEL(prereq)} before a ${BUILDING_LABEL(buildingType)}`,
+        };
       }
     } else {
       // Not an upgrade: block if any building of this category exists
@@ -217,27 +231,15 @@ export function validateBuild(
   return { valid: true };
 }
 
-// Human-readable label for a building type. Lifted out of validateBuild so the
-// helper isn't redeclared on every call (it was previously a nested function
-// declaration whose hoisting masked the fact that a duplicate prevTier check
-// after the early `return { valid: true }` was permanently dead code).
+// Human-readable label for a building type, from the one shared table the build
+// panel and Bonuses modal also read (@borderfall/shared BUILDING_DISPLAY). It
+// used to be a local switch that had drifted from both — this function said
+// "Arsenal" where the Bonuses modal said "War Factory", so a rejected build
+// named a building the player could not find in the UI.
 function BUILDING_LABEL(buildingType: string): string {
-  switch (buildingType) {
-    case 'production_1': return 'Camp';
-    case 'production_2': return 'Barracks';
-    case 'production_3': return 'Arsenal';
-    case 'production_4': return 'Trade Hub';
-    case 'defense_1': return 'Palisade';
-    case 'defense_2': return 'Fortress';
-    case 'defense_3': return 'Citadel';
-    case 'tech_gen_1': return 'Laboratory';
-    case 'tech_gen_2': return 'Research Center';
-    case 'port': return 'Port';
-    case 'naval_base': return 'Naval Base';
-    case 'coastal_battery': return 'Coastal Battery';
-    default: return buildingType;
-  }
+  return buildingDisplayName(buildingType, false);
 }
+
 
 /**
  * Apply a successful build: deduct cost and add (or upgrade) building.

@@ -5,6 +5,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { Hammer, Shield, Zap, Star, Anchor, Rocket } from 'lucide-react';
+import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 
 /** Wonder display name by building id — lets a built wonder from ANY era render
@@ -14,102 +15,41 @@ const WONDER_NAME_BY_ID: Record<string, string> = Object.values(ERA_WONDERS).red
   {} as Record<string, string>,
 );
 
+/**
+ * Icon, cost and category per building. The NAME and EFFECT come from
+ * `BUILDING_DISPLAY` in @borderfall/shared, which this panel, the Bonuses modal
+ * and the backend's validation messages all read — they used to keep three
+ * independent tables that had drifted apart on both.
+ */
+const BUILD_CHROME: Record<string, { cost: number; icon: React.ReactNode; category: string }> = {
+  production_1: { cost: 3, icon: <Hammer className="w-3 h-3" />, category: 'production' },
+  production_2: { cost: 6, icon: <Hammer className="w-3 h-3" />, category: 'production' },
+  production_3: { cost: 10, icon: <Hammer className="w-3 h-3" />, category: 'production' },
+  production_4: { cost: 15, icon: <Hammer className="w-3 h-3" />, category: 'production' },
+  defense_1: { cost: 3, icon: <Shield className="w-3 h-3" />, category: 'defense' },
+  defense_2: { cost: 6, icon: <Shield className="w-3 h-3" />, category: 'defense' },
+  defense_3: { cost: 10, icon: <Shield className="w-3 h-3" />, category: 'defense' },
+  tech_gen_1: { cost: 4, icon: <Zap className="w-3 h-3" />, category: 'tech' },
+  tech_gen_2: { cost: 8, icon: <Zap className="w-3 h-3" />, category: 'tech' },
+  port: { cost: 5, icon: <Anchor className="w-3 h-3" />, category: 'naval' },
+  naval_base: { cost: 10, icon: <Anchor className="w-3 h-3" />, category: 'naval' },
+  coastal_battery: { cost: 4, icon: <Shield className="w-3 h-3" />, category: 'coastal_defense' },
+  launch_pad: { cost: 8, icon: <Rocket className="w-3 h-3" />, category: 'launch' },
+};
+
 export const BUILDING_META: Record<
   string,
   { label: string; description: string; cost: number; icon: React.ReactNode; category: string }
-> = {
-  production_1: {
-    label: 'Camp (I)',
-    description: '+1 unit per turn',
-    cost: 3,
-    icon: <Hammer className="w-3 h-3" />,
-    category: 'production',
-  },
-  production_2: {
-    label: 'Barracks (II)',
-    description: '+2 units per turn',
-    cost: 6,
-    icon: <Hammer className="w-3 h-3" />,
-    category: 'production',
-  },
-  production_3: {
-    label: 'Arsenal (III)',
-    description: '+4 units per turn',
-    cost: 10,
-    icon: <Hammer className="w-3 h-3" />,
-    category: 'production',
-  },
-  production_4: {
-    label: 'Trade Hub (IV)',
-    description: '+7 units per turn',
-    cost: 15,
-    icon: <Hammer className="w-3 h-3" />,
-    category: 'production',
-  },
-  defense_1: {
-    label: 'Palisade (I)',
-    description: '+1 defense die',
-    cost: 3,
-    icon: <Shield className="w-3 h-3" />,
-    category: 'defense',
-  },
-  defense_2: {
-    label: 'Fortress (II)',
-    description: '+2 defense dice',
-    cost: 6,
-    icon: <Shield className="w-3 h-3" />,
-    category: 'defense',
-  },
-  defense_3: {
-    label: 'Citadel (III)',
-    description: '+3 defense dice',
-    cost: 10,
-    icon: <Shield className="w-3 h-3" />,
-    category: 'defense',
-  },
-  tech_gen_1: {
-    label: 'Laboratory (I)',
-    description: '+2 TP/turn',
-    cost: 4,
-    icon: <Zap className="w-3 h-3" />,
-    category: 'tech',
-  },
-  tech_gen_2: {
-    label: 'Research Center (II)',
-    description: '+4 TP/turn',
-    cost: 8,
-    icon: <Zap className="w-3 h-3" />,
-    category: 'tech',
-  },
-  port: {
-    label: 'Port',
-    description: '+1 fleet/turn',
-    cost: 5,
-    icon: <Anchor className="w-3 h-3" />,
-    category: 'naval',
-  },
-  naval_base: {
-    label: 'Naval Base',
-    description: '+2 fleets/turn',
-    cost: 10,
-    icon: <Anchor className="w-3 h-3" />,
-    category: 'naval',
-  },
-  coastal_battery: {
-    label: 'Coastal Battery',
-    description: 'Fortify the Coast: +1 defense die vs sea attacks',
-    cost: 4,
-    icon: <Shield className="w-3 h-3" />,
-    category: 'coastal_defense',
-  },
-  launch_pad: {
-    label: 'Launch Pad',
-    description: 'Orbital launch infrastructure — enables Launch Space Station',
-    cost: 8,
-    icon: <Rocket className="w-3 h-3" />,
-    category: 'launch',
-  },
-};
+> = Object.fromEntries(
+  Object.keys(BUILD_CHROME).map((id) => [
+    id,
+    {
+      label: buildingDisplayName(id),
+      description: buildingEffect(id),
+      ...BUILD_CHROME[id],
+    },
+  ]),
+);
 
 const UPGRADES: Record<string, string> = {
   production_1: 'production_2',

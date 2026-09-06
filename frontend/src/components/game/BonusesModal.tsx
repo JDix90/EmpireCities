@@ -8,6 +8,7 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -28,20 +29,35 @@ const MOD_TYPE_LABELS: Record<string, string> = {
   production_bonus: 'Production Bonus',
 };
 
-const BUILDING_META: Record<string, { label: string; effect: string; color: string }> = {
-  defense_1:    { label: 'Palisade',        effect: '+1 defender die',            color: 'text-blue-300'   },
-  defense_2:    { label: 'Fortification',   effect: '+2 defender dice',           color: 'text-blue-300'   },
-  defense_3:    { label: 'Citadel',         effect: '+3 defender dice',           color: 'text-blue-300'   },
-  production_1: { label: 'Camp',            effect: '+1 unit reinforced/turn',    color: 'text-amber-300'  },
-  production_2: { label: 'Barracks',        effect: '+2 units reinforced/turn',   color: 'text-amber-300'  },
-  production_3: { label: 'War Factory',     effect: '+4 units reinforced/turn',   color: 'text-amber-300'  },
-  production_4: { label: 'Trade Hub',       effect: '+7 units reinforced/turn',   color: 'text-amber-300'  },
-  tech_gen_1:   { label: 'Library',         effect: '+2 tech points/turn',        color: 'text-purple-300' },
-  tech_gen_2:   { label: 'University',      effect: '+4 tech points/turn',        color: 'text-purple-300' },
-  port:         { label: 'Port',            effect: 'Enables fleet deployment',   color: 'text-cyan-300'   },
-  naval_base:   { label: 'Naval Base',      effect: '+2 fleet capacity',          color: 'text-cyan-300'   },
-  coastal_battery: { label: 'Coastal Battery', effect: '+1 defender die vs sea attacks only', color: 'text-cyan-300' },
+/**
+ * Colour per building category. The NAME and EFFECT come from
+ * `BUILDING_DISPLAY` in @borderfall/shared — this modal used to keep its own
+ * table, which had drifted from the build panel's ("War Factory" vs "Arsenal",
+ * "Library" vs "Laboratory", "Fortification" vs "Fortress") and carried the
+ * same wrong claim that production buildings reinforce units.
+ */
+const BUILDING_COLOR: Record<string, string> = {
+  defense_1: 'text-blue-300',
+  defense_2: 'text-blue-300',
+  defense_3: 'text-blue-300',
+  production_1: 'text-amber-300',
+  production_2: 'text-amber-300',
+  production_3: 'text-amber-300',
+  production_4: 'text-amber-300',
+  tech_gen_1: 'text-purple-300',
+  tech_gen_2: 'text-purple-300',
+  port: 'text-cyan-300',
+  naval_base: 'text-cyan-300',
+  coastal_battery: 'text-cyan-300',
 };
+
+const BUILDING_META: Record<string, { label: string; effect: string; color: string }> =
+  Object.fromEntries(
+    Object.entries(BUILDING_COLOR).map(([id, color]) => [
+      id,
+      { label: buildingDisplayName(id, false), effect: buildingEffect(id), color },
+    ]),
+  );
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 

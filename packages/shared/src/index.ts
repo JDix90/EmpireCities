@@ -166,3 +166,76 @@ export function dailyLoginRewardForStreak(loginStreak: number): number {
  */
 export const STREAK_FREEZE_PRICE_GOLD = 50;
 export const STREAK_FREEZE_MAX_HELD = 2;
+
+// ── Building display names & effects ──────────────────────────────────────
+
+/**
+ * The ONE table of building names and one-line effects.
+ *
+ * Shared for the same reason `AI_DISPLAY_NAMES` is. Three tables used to carry
+ * these independently — the build panel, the Bonuses modal, and the backend's
+ * validation error messages — and they had drifted apart: `production_3` was
+ * "Arsenal" in one and "War Factory" in another, `tech_gen_1` was "Laboratory"
+ * and "Library", `defense_2` was "Fortress" and "Fortification". A player who
+ * built a thing in one panel and read about it in another saw two names for it.
+ *
+ * The production chain was also mis-described. It does NOT produce units:
+ * `collectProduction` credits the player's production-point pool — the ⚙ PP
+ * chip — which is spent on constructing buildings and on advancing an era, and
+ * nothing anywhere converts it to reinforcements. Draft units come from
+ * territory count, region bonuses, factions and tech, never from a building.
+ * The old names made that worse by being military ones (Camp, Barracks,
+ * Arsenal), so "+1 unit per turn" read as troops appearing on the territory.
+ * The chain is now named for what it actually is — industry — and its effects
+ * use the same PP/TP tokens as the HUD resource chips, so the building's claim
+ * and the number it moves are recognisably the same thing.
+ *
+ * Names are era-neutral by necessity: one label serves Ancient through Galaxy
+ * Age, since building ids are not era-scoped.
+ */
+export interface BuildingDisplay {
+  /** Name without the tier suffix. */
+  name: string;
+  /** Roman numeral for a tiered chain; absent for standalone buildings. */
+  tier?: string;
+  /** One-line effect, in the same vocabulary as the HUD resource chips. */
+  effect: string;
+}
+
+export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
+  // Industry — produces PP, the currency for buildings and era advancement.
+  production_1: { name: 'Workshop', tier: 'I', effect: '+1 PP/turn' },
+  production_2: { name: 'Foundry', tier: 'II', effect: '+2 PP/turn' },
+  production_3: { name: 'Manufactory', tier: 'III', effect: '+4 PP/turn' },
+  production_4: { name: 'Industrial Complex', tier: 'IV', effect: '+7 PP/turn' },
+
+  defense_1: { name: 'Palisade', tier: 'I', effect: '+1 defense die' },
+  defense_2: { name: 'Fortress', tier: 'II', effect: '+2 defense dice' },
+  defense_3: { name: 'Citadel', tier: 'III', effect: '+3 defense dice' },
+
+  tech_gen_1: { name: 'Laboratory', tier: 'I', effect: '+2 TP/turn' },
+  tech_gen_2: { name: 'Research Center', tier: 'II', effect: '+4 TP/turn' },
+
+  port: { name: 'Port', effect: '+1 fleet/turn' },
+  naval_base: { name: 'Naval Base', effect: '+2 fleets/turn' },
+  coastal_battery: {
+    name: 'Coastal Battery',
+    effect: '+1 defense die vs sea attacks',
+  },
+  launch_pad: {
+    name: 'Launch Pad',
+    effect: 'Orbital launch infrastructure — enables Launch Space Station',
+  },
+};
+
+/** Display name for a building id, with its tier suffix by default. */
+export function buildingDisplayName(buildingId: string, withTier = true): string {
+  const entry = BUILDING_DISPLAY[buildingId];
+  if (!entry) return buildingId;
+  return withTier && entry.tier ? `${entry.name} (${entry.tier})` : entry.name;
+}
+
+/** One-line effect for a building id, or an empty string for an unknown id. */
+export function buildingEffect(buildingId: string): string {
+  return BUILDING_DISPLAY[buildingId]?.effect ?? '';
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import BuildingPanel from './BuildingPanel';
+import BuildingPanel, { BUILDING_META } from './BuildingPanel';
+import { BUILDING_DISPLAY, buildingDisplayName, buildingEffect } from '@borderfall/shared';
 
 const baseProps = {
   territoryId: 't1',
@@ -55,3 +56,50 @@ describe('BuildingPanel — era-aware buildings (#8)', () => {
     expect(onBuild).toHaveBeenCalledWith('wonder_space_elevator');
   });
 });
+
+/**
+ * Building names and effects used to live in three independent tables — this
+ * panel, the Bonuses modal, and the backend's validation messages — and had
+ * drifted apart on both. They now all read `BUILDING_DISPLAY` from
+ * @borderfall/shared; these tests are what stop a fourth local table appearing.
+ */
+describe('building names and effects come from the shared table', () => {
+  it('renders every building with the shared name and effect', () => {
+    for (const [id, meta] of Object.entries(BUILDING_META)) {
+      expect(meta.label).toBe(buildingDisplayName(id));
+      expect(meta.description).toBe(buildingEffect(id));
+    }
+  });
+
+  it('has a shared entry for every building it can render', () => {
+    // A missing entry falls back to the raw id, so a player would see
+    // "production_1" on a build button.
+    for (const id of Object.keys(BUILDING_META)) {
+      expect(BUILDING_DISPLAY[id]).toBeDefined();
+      expect(meaningful(BUILDING_META[id].label)).toBe(true);
+      expect(meaningful(BUILDING_META[id].description)).toBe(true);
+    }
+  });
+
+  it('describes production buildings as production points, never as units', () => {
+    // The bug this table exists to prevent: the chain was called Camp /
+    // Barracks / Arsenal and advertised "+N units per turn", but it credits the
+    // PP pool and nothing converts PP to reinforcements.
+    for (const id of ['production_1', 'production_2', 'production_3', 'production_4']) {
+      const { label, description } = BUILDING_META[id];
+      expect(description).toMatch(/PP\/turn$/);
+      expect(description).not.toMatch(/unit/i);
+      expect(label).not.toMatch(/camp|barracks|arsenal/i);
+    }
+  });
+
+  it('names the production chain as one escalating industry, tiered I-IV', () => {
+    const tiers = ['production_1', 'production_2', 'production_3', 'production_4']
+      .map((id) => BUILDING_DISPLAY[id]?.tier);
+    expect(tiers).toEqual(['I', 'II', 'III', 'IV']);
+  });
+});
+
+function meaningful(text: string): boolean {
+  return text.length > 0 && !/^[a-z_]+[0-9]?$/.test(text);
+}
