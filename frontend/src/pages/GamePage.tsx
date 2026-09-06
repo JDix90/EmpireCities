@@ -4724,7 +4724,7 @@ export default function GamePage() {
           }
           canAdvanceNow={
             !!gameState
-            && gameState.phase === 'draft'
+            && (gameState.phase === 'draft' || gameState.phase === 'fortify')
             && gameState.players[gameState.current_player_index]?.player_id === user.user_id
           }
         />

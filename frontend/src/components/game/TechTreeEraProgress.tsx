@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { Sparkles } from 'lucide-react';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
-import { getAdvanceEraClientStatus } from '../../utils/eraAdvancement';
+import { getAdvanceEraClientStatus, listEraGateRows } from '../../utils/eraAdvancement';
 
 interface Props {
   gameState: GameState;
@@ -16,7 +16,7 @@ interface Props {
    * tree, find the panel and expand it.
    */
   onAdvanceEra?: () => void;
-  /** Advancing is a draft-phase action on your own turn. */
+  /** Advancing is a reinforcement- or fortify-phase action on your own turn. */
   canAdvanceNow?: boolean;
 }
 
@@ -73,6 +73,9 @@ export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, c
   const status = getAdvanceEraClientStatus(gameState, player);
   if (!status) return null;
 
+  const gateRows = listEraGateRows(gameState, status);
+  const unmet = gateRows.filter((r) => !r.ok);
+
   const echo = summarizeEcho(player.era_advancement_tech_echo);
   const echoTags = ECHO_LABELS
     .filter(([stat]) => echo[stat])
@@ -90,36 +93,23 @@ export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, c
                 Advancement gate → {ERA_LABELS[status.nextEraId] ?? status.nextEraId}
               </p>
               <span className={clsx('text-[11px]', status.ready ? 'text-green-400 font-semibold' : 'text-bf-muted')}>
-                {status.ready ? 'Ready' : `${status.blockers.length} to go`}
+                {status.ready ? 'Ready' : `${unmet.length} to go`}
               </span>
             </div>
             <div className="flex flex-wrap gap-1" data-testid="techtree-gate-chips">
-              {gameState.settings.tech_trees_enabled && status.gateMode === 'milestone' && (
-                <>
-                  {/* A requirement of 0 is not a requirement: "T2 0/0" reads as
-                      something still to do. T3 was already hidden this way. */}
-                  {status.tier1Required > 0 && (
-                    <GateChip ok={status.tier1Met} label={`T1 ${status.tier1Current}/${status.tier1Required}`} />
-                  )}
-                  {status.tier2Required > 0 && (
-                    <GateChip ok={status.tier2Met} label={`T2 ${status.tier2Current}/${status.tier2Required}`} />
-                  )}
-                  {status.tier3Required > 0 && (
-                    <GateChip ok={status.tier3Met} label={`T3 ${status.tier3Current}/${status.tier3Required}`} />
-                  )}
-                  {status.buildingsRequired > 0 && (
-                    <GateChip ok={status.buildingsMet} label={`Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`} />
-                  )}
-                </>
-              )}
-              {gameState.settings.tech_trees_enabled && status.gateMode === 'percent' && (
-                <GateChip ok={status.techMet} label={`Tech ${status.techUnlocked}/${status.techRequired}`} />
-              )}
-              {status.stabilityGate != null && (
-                <GateChip ok={status.stabilityMet} label={`Stab ${Math.round(status.stability ?? 0)}/${status.stabilityGate}%`} />
-              )}
-              <GateChip ok={status.goldMet} label={status.cost > 0 ? `Gold ${status.gold}/${status.cost}` : 'Gold pending'} />
+              {gateRows.map((row) => (
+                <GateChip key={row.key} ok={row.ok} label={row.chip} />
+              ))}
             </div>
+            {/* Name the thing that is missing. The chips alone could all read
+                green while the summary said "1 to go" — the phase requirement
+                had no chip of its own — which left the player counting a
+                blocker they could not see. */}
+            {!status.ready && unmet.length > 0 && (
+              <p className="text-[11px] text-amber-200/80" data-testid="techtree-gate-blockers">
+                Still needed: {unmet.map((r) => r.label).join(' · ')}
+              </p>
+            )}
             {status.nextSignatureName && (
               <p className="flex items-start gap-1 text-[11px] text-bf-gold/90">
                 <Sparkles className="w-3 h-3 shrink-0 mt-0.5" />

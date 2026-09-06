@@ -82,7 +82,9 @@ export function getAdvanceEraClientStatus(
   if (!preview) return null;
 
   const atMaxEra = preview.current_era_index >= preview.max_era_index;
-  const canPhase = gameState.phase === 'draft' || gameState.phase === 'attack';
+  // Mirrors the server's rule (gameSocket `game:advance_era`): advancing is
+  // allowed either side of combat, never during it.
+  const canPhase = gameState.phase === 'draft' || gameState.phase === 'fortify';
   const cost = preview.cost;
   const gold = player.special_resource ?? 0;
   const gateMode = preview.gate_mode;
@@ -112,7 +114,7 @@ export function getAdvanceEraClientStatus(
 
   const blockers: string[] = [];
   if (atMaxEra) blockers.push('Already at maximum era');
-  if (!canPhase) blockers.push('Available during Reinforcement or Attack phase');
+  if (!canPhase) blockers.push('Available during Reinforcement or Fortify phase');
   if (readiness && !readiness.met) {
     if (gateMode === 'percent') {
       blockers.push(`Research ${techRequired} technologies (${techUnlocked}/${techRequired})`);
@@ -174,4 +176,108 @@ export function getAdvanceEraClientStatus(
     nextSignatureName: preview.next_signature?.name,
     nextSignatureDescription: preview.next_signature?.description,
   };
+}
+
+export interface EraGateRow {
+  key: string;
+  /** Is this requirement satisfied? */
+  ok: boolean;
+  /** Compact form for the tech-tree rail's chip row. */
+  chip: string;
+  /** Sentence form for the sidebar panel's list. */
+  label: string;
+}
+
+/**
+ * Every advancement requirement worth showing, in one place.
+ *
+ * Both surfaces — the tech-tree gate rail and the sidebar panel — used to
+ * hand-roll their own row lists while summarising progress as
+ * `blockers.length`. The two drifted: `blockers` counts the phase requirement
+ * and neither surface drew it, so opening the tree outside Reinforcement or
+ * Attack showed every chip green above the words "1 to go" with nothing
+ * naming the one thing left. Deriving both the rows and the count from this
+ * list means the number can never exceed what the player can see.
+ *
+ * The phase row appears only while it blocks; a satisfied one would be noise
+ * on the surface players actually read (the gold and tech rows are the ones
+ * they plan against). Callers handle `atMaxEra` before reaching here.
+ */
+export function listEraGateRows(
+  gameState: GameState,
+  status: AdvanceEraClientStatus,
+): EraGateRow[] {
+  const rows: EraGateRow[] = [];
+  const techTrees = gameState.settings.tech_trees_enabled;
+
+  if (techTrees && status.gateMode === 'percent') {
+    rows.push({
+      key: 'tech',
+      ok: status.techMet,
+      chip: `Tech ${status.techUnlocked}/${status.techRequired}`,
+      label: `Technologies researched: ${status.techUnlocked}/${status.techRequired}`,
+    });
+  }
+
+  if (techTrees && status.gateMode === 'milestone') {
+    // A requirement of 0 is not a requirement: "T2 0/0" reads as something
+    // still to do, and counting it would inflate the summary invisibly.
+    const tiers: Array<[string, boolean, number, number, number]> = [
+      ['tier1', status.tier1Met, status.tier1Current, status.tier1Required, 1],
+      ['tier2', status.tier2Met, status.tier2Current, status.tier2Required, 2],
+      ['tier3', status.tier3Met, status.tier3Current, status.tier3Required, 3],
+    ];
+    for (const [key, met, current, required, tier] of tiers) {
+      if (required > 0) {
+        rows.push({
+          key,
+          ok: met,
+          chip: `T${tier} ${current}/${required}`,
+          label: `Tier-${tier} technologies: ${current}/${required}`,
+        });
+      }
+    }
+    if (status.buildingsRequired > 0) {
+      rows.push({
+        key: 'buildings',
+        ok: status.buildingsMet,
+        chip: `Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`,
+        label: `Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`,
+      });
+    }
+  }
+
+  if (status.stabilityGate != null) {
+    rows.push({
+      key: 'stability',
+      ok: status.stabilityMet,
+      chip: `Stab ${Math.round(status.stability ?? 0)}/${status.stabilityGate}%`,
+      label: `Empire stability: ${Math.round(status.stability ?? 0)}% (need ${status.stabilityGate}%)`,
+    });
+  }
+
+  rows.push({
+    key: 'gold',
+    ok: status.goldMet,
+    chip: status.cost > 0 ? `Gold ${status.gold}/${status.cost}` : 'Gold pending',
+    label: status.cost > 0
+      ? `Gold: ${status.gold} / ${status.cost} required`
+      : 'Production income: pending (starts after your first economy tick)',
+  });
+
+  if (!status.canPhase) {
+    rows.push({
+      key: 'phase',
+      ok: false,
+      chip: 'Reinforce/Fortify phase',
+      label: 'Advance during your Reinforcement or Fortify phase — not mid-attack',
+    });
+  }
+
+  return rows;
+}
+
+/** How many requirements are still unmet — always equal to the rows shown. */
+export function countEraGateBlockers(gameState: GameState, status: AdvanceEraClientStatus): number {
+  return listEraGateRows(gameState, status).filter((r) => !r.ok).length;
 }

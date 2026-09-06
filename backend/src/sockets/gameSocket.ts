@@ -41,7 +41,7 @@ import {
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
-import { buildAdvanceEraClientPreview, executeAdvanceEra } from '../game-engine/eraAdvancement/advanceEra';
+import { buildAdvanceEraClientPreview, executeAdvanceEra, isEraAdvancePhase } from '../game-engine/eraAdvancement/advanceEra';
 import { projectMapToEraFloor, unlockTerritoriesForFloor, seedsFullBoardAtStart, maxUnlockEra } from '../game-engine/eraAdvancement/territoryUnlock';
 import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
 import { createSeededRng } from '../game-engine/victory/missions';
@@ -2605,8 +2605,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) {
         return socket.emit('error', { message: 'Not your turn' });
       }
-      if (state.phase !== 'draft' && state.phase !== 'attack') {
-        return socket.emit('error', { message: 'Era advancement is only available during draft or attack phase' });
+      if (!isEraAdvancePhase(state.phase)) {
+        return socket.emit('error', { message: 'Era advancement is only available during the reinforcement or fortify phase' });
       }
 
       const result = executeAdvanceEra(state, userId);

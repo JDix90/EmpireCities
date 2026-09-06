@@ -26,10 +26,12 @@ describe('core tutorial', () => {
     expect(getTutorialSteps('core')).toBe(COMBINED_CORE_TUTORIAL_STEPS);
   });
 
-  it('fits a first session — eight cards, not fifteen', () => {
+  it('fits a first session — nine cards, not fifteen', () => {
     // The point of the rewrite. A regression here means preview cards crept
-    // back in; add them to a deep-dive module instead.
-    expect(COMBINED_CORE_TUTORIAL_STEPS.length).toBeLessThanOrEqual(8);
+    // back in; add them to a deep-dive module instead. The ninth card is the
+    // fortify/end-turn split, which buys a correct `my_turn` gate — see the
+    // module doc — not a preview.
+    expect(COMBINED_CORE_TUTORIAL_STEPS.length).toBeLessThanOrEqual(9);
   });
 
   it('only uses gates the game actually advances on', () => {
@@ -70,7 +72,7 @@ describe('core tutorial', () => {
     // desktop one, stranding phone players hunting for a button that wasn't
     // on their screen.
     expect(text('choose_front')).toContain(phaseAdvanceLabel('attack'));
-    expect(text('turn_ends')).toContain(phaseAdvanceLabel('fortify'));
+    expect(text('fortify_do')).toContain(phaseAdvanceLabel('fortify'));
   });
 
   it('never references a sidebar location as the only guidance', () => {
@@ -138,6 +140,31 @@ describe('core tutorial', () => {
     const centered = COMBINED_CORE_TUTORIAL_STEPS.filter((s) => isTutorialStepCentered(s)).map((s) => s.id);
     expect(centered).toContain('economy_intro');
     expect(centered).toContain('welcome');
+  });
+
+  it('makes the player end their turn before waiting on it to come back', () => {
+    // The bug this ordering fixes: one card covering "fortify, then watch" was
+    // gated on `my_turn`, which is a STATE check and so is true throughout the
+    // player's own fortify phase. Their fortify move — the thing the card asked
+    // for — satisfied it, and the economy cards were dealt during fortify. The
+    // end-turn card must therefore sit BEFORE the my_turn card and hold the
+    // phase transition itself.
+    const ids = COMBINED_CORE_TUTORIAL_STEPS.map((s) => s.id);
+    expect(ids.indexOf('fortify_do')).toBeLessThan(ids.indexOf('turn_ends'));
+    expect(byId('fortify_do')?.requireAction).toBe('end_phase');
+    expect(byId('turn_ends')?.requireAction).toBe('my_turn');
+  });
+
+  it('runs the economy beats after the turn has come back around', () => {
+    // Advancement is legal in reinforcement or fortify only, and reinforcement
+    // is the better habit: the new era's tier then applies to that same turn's
+    // attacks. Teaching it from the top of a turn depends on every economy card
+    // sitting after the my_turn gate.
+    const ids = COMBINED_CORE_TUTORIAL_STEPS.map((s) => s.id);
+    const backToMe = ids.indexOf('turn_ends');
+    for (const beat of ['economy_intro', 'ea_research', 'ea_advance']) {
+      expect(ids.indexOf(beat)).toBeGreaterThan(backToMe);
+    }
   });
 
   it('keeps every action step ahead of the wrapup', () => {

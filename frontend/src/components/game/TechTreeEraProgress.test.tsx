@@ -169,3 +169,101 @@ describe('TechTreeEraProgress', () => {
     expect(screen.getByText(/Final era reached/)).toBeInTheDocument();
   });
 });
+
+/**
+ * Reported from the tutorial: every gate chip green, "1 to go" beside them, no
+ * Advance button, and nothing on the rail saying what the one thing was. The
+ * missing requirement was the phase — `blockers` counted it and the chip row
+ * never drew it.
+ */
+describe('TechTreeEraProgress — the count must match what is shown', () => {
+  const allGatesMet = preview({
+    cost: 13,
+    can_advance: true,
+    readiness: {
+      met: true,
+      mode: 'milestone',
+      tier1: { met: true, current: 2, required: 2, label: 'tier-1 technologies' },
+      tier2: { met: true, current: 0, required: 0, label: 'tier-2 technologies' },
+      buildings: { met: true, current: 0, required: 0, label: 'buildings' },
+    },
+  });
+
+  it('names the phase requirement instead of counting an invisible one', () => {
+    render(
+      <TechTreeEraProgress
+        gameState={gameState(allGatesMet, {})}
+        player={player({ special_resource: 16 })}
+      />,
+    );
+    // Reproduce the report: gold and tier-1 both satisfied.
+    const chips = screen.getByTestId('techtree-gate-chips');
+    expect(chips).toHaveTextContent('T1 2/2');
+    expect(chips).toHaveTextContent('Gold 16/13');
+    // In a phase that allows advancing, nothing is outstanding.
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.queryByTestId('techtree-gate-blockers')).toBeNull();
+  });
+
+  it('shows the phase blocker mid-attack, where the gate silently failed', () => {
+    const attacking = { ...gameState(allGatesMet), phase: 'attack' } as unknown as GameState;
+    render(<TechTreeEraProgress gameState={attacking} player={player({ special_resource: 16 })} />);
+
+    expect(screen.getByText('1 to go')).toBeInTheDocument();
+    expect(screen.getByTestId('techtree-gate-blockers')).toHaveTextContent(
+      'Advance during your Reinforcement or Fortify phase',
+    );
+    // And it earns a chip of its own, so the row is not all-green above "1 to go".
+    expect(screen.getByTestId('techtree-gate-chips')).toHaveTextContent('Reinforce/Fortify phase');
+  });
+
+  it('is ready in fortify — the phase the tutorial actually lands players in', () => {
+    const fortifying = { ...gameState(allGatesMet), phase: 'fortify' } as unknown as GameState;
+    render(
+      <TechTreeEraProgress
+        gameState={fortifying}
+        player={player({ special_resource: 16 })}
+        onAdvanceEra={vi.fn()}
+        canAdvanceNow
+      />,
+    );
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.getByTestId('techtree-advance-era')).toBeEnabled();
+    expect(screen.queryByTestId('techtree-gate-blockers')).toBeNull();
+  });
+
+  it('counts exactly as many outstanding items as it lists', () => {
+    const twoShort = preview({
+      cost: 20,
+      readiness: {
+        met: false,
+        mode: 'milestone',
+        tier1: { met: false, current: 1, required: 3, label: 't1' },
+        tier2: { met: true, current: 0, required: 0, label: 't2' },
+        buildings: { met: true, current: 0, required: 0, label: 'b' },
+      },
+    });
+    render(<TechTreeEraProgress gameState={gameState(twoShort)} player={player({ special_resource: 5 })} />);
+    // Tier-1 and gold are short; tier-2 and buildings require nothing and are
+    // neither drawn nor counted.
+    expect(screen.getByText('2 to go')).toBeInTheDocument();
+    const blockers = screen.getByTestId('techtree-gate-blockers');
+    expect(blockers).toHaveTextContent('Tier-1 technologies: 1/3');
+    expect(blockers).toHaveTextContent('Gold: 5 / 20 required');
+    expect(blockers).not.toHaveTextContent('Tier-2');
+    expect(screen.getByTestId('techtree-gate-chips')).not.toHaveTextContent('T2');
+  });
+
+  it('does not offer the Advance button while the phase blocks it', () => {
+    const attacking = { ...gameState(allGatesMet), phase: 'attack' } as unknown as GameState;
+    render(
+      <TechTreeEraProgress
+        gameState={attacking}
+        player={player({ special_resource: 16 })}
+        onAdvanceEra={vi.fn()}
+        canAdvanceNow
+      />,
+    );
+    expect(screen.queryByTestId('techtree-advance-era')).toBeNull();
+  });
+});

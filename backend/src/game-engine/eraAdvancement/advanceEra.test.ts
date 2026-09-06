@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState, PlayerState } from '../../types';
-import { buildAdvanceEraClientPreview, canAdvanceEra, computeAdvanceCost, executeAdvanceEra } from './advanceEra';
+import {
+  buildAdvanceEraClientPreview,
+  canAdvanceEra,
+  computeAdvanceCost,
+  executeAdvanceEra,
+  isEraAdvancePhase,
+} from './advanceEra';
 import { consumeSignatureAttackBonus } from './signatures';
 
 const MILESTONE_TECHS = [
@@ -298,10 +304,27 @@ describe('executeAdvanceEra', () => {
     expect(Object.keys(player.era_advancement_tech_echo ?? {}).length).toBeGreaterThan(0);
   });
 
-  it('sets era_advanced_this_turn when advancing during attack phase', () => {
+  // Defensive only — the socket handler refuses an advance during attack, so
+  // this path should be unreachable in play. The invariant it guards is that
+  // advancing mid-combat never leaves you free to keep attacking.
+  it('sets era_advanced_this_turn if an advance ever lands during attack phase', () => {
     const state = baseState({ phase: 'attack' });
     executeAdvanceEra(state, 'human');
     expect(state.players[0]!.era_advanced_this_turn).toBe(true);
+  });
+
+  describe('isEraAdvancePhase', () => {
+    it('brackets combat: reinforcement and fortify yes, attack no', () => {
+      expect(isEraAdvancePhase('draft')).toBe(true);
+      expect(isEraAdvancePhase('fortify')).toBe(true);
+      expect(isEraAdvancePhase('attack')).toBe(false);
+    });
+
+    it('refuses phases where a turn is not being played', () => {
+      for (const phase of ['game_over', 'lobby', 'end_turn'] as Array<GameState['phase']>) {
+        expect(isEraAdvancePhase(phase)).toBe(false);
+      }
+    });
   });
 
   it('consumes the signature charge on first bonus attack only (socket parity)', () => {
