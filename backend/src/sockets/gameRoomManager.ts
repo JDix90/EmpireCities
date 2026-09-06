@@ -179,13 +179,28 @@ export async function loadGameRoomFromRedis(gameId: string): Promise<ActiveGameR
   return setCachedRoom(gameId, state, map);
 }
 
+/**
+ * Which map document describes a saved state.
+ *
+ * The state's own `map_id` wins over the caller's. Board transforms
+ * (`era_advancement_board_transform`) rewrite the board to the next era's map
+ * and set `state.map_id` accordingly, but the `games.map_id` column that every
+ * Postgres-recovery caller reads from is written once at creation. Trusting the
+ * caller meant recovering a Medieval board's territories against the Ancient
+ * map — the server reporting 36 territories while the client rendered 6.
+ */
+export function mapIdForSavedState(state: GameState | undefined, fallbackMapId: string): string {
+  const fromState = state?.map_id;
+  return typeof fromState === 'string' && fromState.length > 0 ? fromState : fallbackMapId;
+}
+
 export async function loadGameRoomFromPostgres(gameId: string, mapId: string): Promise<ActiveGameRoom | null> {
   const saved = await queryOne<{ state_json: GameState }>(
     `SELECT state_json FROM game_states WHERE game_id = $1 ORDER BY turn_number DESC, saved_at DESC LIMIT 1`,
     [gameId],
   );
   if (!saved) return null;
-  const gameMap = await resolveMap(mapId);
+  const gameMap = await resolveMap(mapIdForSavedState(saved.state_json, mapId));
   if (!gameMap) return null;
   repairRoom(saved.state_json, gameMap);
   const room = setCachedRoom(gameId, saved.state_json, gameMap);

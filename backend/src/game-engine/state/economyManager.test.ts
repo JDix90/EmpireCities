@@ -247,3 +247,34 @@ describe('collectProduction — building yields', () => {
     expect(collectProduction(state, 'p1').productionEarned).toBe(3);
   });
 });
+
+/**
+ * Validation errors are player-facing. They used to be built from a local
+ * switch that had drifted from the UI's names (this file said "Arsenal" where
+ * the Bonuses modal said "War Factory"), and the prerequisite error printed raw
+ * ids — so a rejected build named buildings the player could not find anywhere.
+ * Both now resolve through @borderfall/shared's BUILDING_DISPLAY.
+ */
+describe('validateBuild — player-facing names', () => {
+  const state = () => makeState({
+    settings: { economy_enabled: true },
+    players: [makePlayer('p1', { special_resource: 100 })],
+    territories: { t1: makeTerritory('t1', 'p1', []) },
+  });
+
+  it('names the prerequisite and the target, not their ids', () => {
+    const res = validateBuild(state(), 'p1', 't1', 'production_2');
+    expect(res.valid).toBe(false);
+    expect(res.error).toBe('Must build a Workshop before a Foundry');
+    expect(res.error).not.toMatch(/production_[12]/);
+  });
+
+  it('names an already-built tier the way the build panel does', () => {
+    const s = makeState({
+      settings: { economy_enabled: true },
+      players: [makePlayer('p1', { special_resource: 100 })],
+      territories: { t1: makeTerritory('t1', 'p1', ['production_1', 'production_2']) },
+    });
+    expect(validateBuild(s, 'p1', 't1', 'production_2').error).toBe('Territory already has a Foundry');
+  });
+});

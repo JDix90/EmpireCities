@@ -4027,6 +4027,19 @@ async function applyEraBoardChange(
     const outcome = await transformBoardOnAdvance(state, currentMap, resolveMap, createSeededRng(seed));
     if (outcome) {
       setCachedRoom(gameId, state, outcome.map);
+      /**
+       * Persist the arriving board, do not just cache it. `setCachedRoom` is
+       * this process's memory: another Socket.io instance, or this one after an
+       * eviction, reloads the map from Redis — which still held the departing
+       * era's. The state had already been rewritten to the new board, so the two
+       * disagreed about which territories exist (server 36, client 6). The
+       * `games.map_id` column backs the Postgres recovery path and is written
+       * once at creation, so it needs the same update; `mapIdForSavedState`
+       * prefers the state's own id if this ever fails.
+       */
+      await saveGameMapAuthoritative(gameId, outcome.map);
+      await query('UPDATE games SET map_id = $1 WHERE game_id = $2', [state.map_id, gameId])
+        .catch((err) => console.error('[Room] board-transform map_id update failed', gameId, err));
       io.to(gameId).emit('game:map', { mapId: state.map_id, map: outcome.map });
       const last = outcome.summaries[outcome.summaries.length - 1];
       io.to(gameId).emit('game:board_transformed', {

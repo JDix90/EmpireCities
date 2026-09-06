@@ -141,9 +141,10 @@ Your currency is **Production Points** (shown as 💰 in the UI). You spend Prod
 | Source | Income |
 |--------|--------|
 | **Base territory income** | 1 per 3 territories you own (minimum 1) |
-| **Camp (production_1)** | +1 per turn |
-| **Barracks (production_2)** | +2 per turn |
-| **Arsenal (production_3)** | +4 per turn |
+| **Workshop (production_1)** | +1 per turn |
+| **Foundry (production_2)** | +2 per turn |
+| **Manufactory (production_3)** | +4 per turn |
+| **Industrial Complex (production_4)** | +7 per turn |
 
 > Your base income is automatic — even with no buildings, holding territories generates a small trickle of Production Points every turn.
 
@@ -153,9 +154,10 @@ Buildings are constructed during the **Draft** or **Fortify** phase. Click a ter
 
 | Building | Cost | Effect | Prerequisite |
 |----------|------|--------|--------------|
-| **Camp (I)** | 3💰 | +1 unit income/turn | — |
-| **Barracks (II)** | 6💰 | +2 units income/turn | Camp |
-| **Arsenal (III)** | 10💰 | +4 units income/turn | Barracks |
+| **Workshop (I)** | 3💰 | +1 PP/turn | — |
+| **Foundry (II)** | 6💰 | +2 PP/turn | Workshop |
+| **Manufactory (III)** | 10💰 | +4 PP/turn | Foundry |
+| **Industrial Complex (IV)** | 15💰 | +7 PP/turn | Manufactory |
 | **Palisade (I)** | 3💰 | +1 defender die | — |
 | **Fortress (II)** | 6💰 | +2 defender dice | Palisade |
 | **Citadel (III)** | 10💰 | +3 defender dice | Fortress |
@@ -168,15 +170,16 @@ Buildings are constructed during the **Draft** or **Fortify** phase. Click a ter
 
 **Rules:**
 - Each territory can have **one building per category** (one production tier, one defense tier, one tech tier, one naval tier, etc.).
-- Upgrading (e.g., Camp → Barracks) replaces the previous tier; you pay only the upgrade cost, not the original.
+- Upgrading (e.g., Workshop → Foundry) replaces the previous tier; you pay only the upgrade cost, not the original.
+- Production buildings pay **Production Points**, the ⚙ PP currency you spend on further buildings and on advancing an era. They do **not** add units to the territory — reinforcements come from territory count, region bonuses, factions and tech.
 - **Buildings are razed when a territory is captured** by an enemy.
 
 ### Getting Started with Economy
 
 1. Your first turns generate ~1 Production Point from base income.
-2. After 3 turns, build a **Camp** (3💰) on a safe interior territory.
-3. The Camp produces +1/turn — now you earn ~2/turn total.
-4. Save up for a **Barracks** upgrade (6💰) or a **Palisade** on a front-line territory.
+2. After 3 turns, build a **Workshop** (3💰) on a safe interior territory.
+3. The Workshop produces +1 PP/turn — now you earn ~2 PP/turn total.
+4. Save up for a **Foundry** upgrade (6💰) or a **Palisade** on a front-line territory.
 5. Prioritize defense buildings on border territories and production buildings deep in your empire.
 
 ---
@@ -220,10 +223,10 @@ Tech nodes can grant any combination of:
 | **+N Defense dice** | — |
 | **+N Reinforcements/turn** | Roman Roads (+1 unit/turn) |
 | **+N Tech Points/turn** | Trade Routes (+3 TP/turn) |
-| **Unlocks a building type** | Granaries → unlocks Camp; Stone Walls → unlocks Palisade |
+| **Unlocks a building type** | Granaries → unlocks Workshop; Stone Walls → unlocks Palisade |
 | **Unlocks a special ability** | Siege Engines → siege attack ability |
 
-> **Important:** When Tech Trees is enabled alongside Economy, some buildings (like Camp, Palisade, Laboratory) may require you to research the corresponding tech first. Check the tech tree for `unlocks_building` nodes.
+> **Important:** When Tech Trees is enabled alongside Economy, some buildings (like Workshop, Palisade, Laboratory) may require you to research the corresponding tech first. Check the tech tree for `unlocks_building` nodes.
 
 ### Getting Started with Tech Trees
 
@@ -399,7 +402,7 @@ These features were designed to be mixed and matched. Here are the key interacti
 
 | Combination | Interaction |
 |------------|-------------|
-| **Economy + Tech Trees** | Some buildings (Camp, Palisade, Lab) require researching the corresponding tech node first. Tech buildings (Laboratory) generate Tech Points. |
+| **Economy + Tech Trees** | Some buildings (Workshop, Palisade, Lab) require researching the corresponding tech node first. Tech buildings (Laboratory) generate Tech Points. |
 | **Economy + Naval Warfare** | Ports and Naval Bases are economy buildings that generate fleets. You need Economy enabled to build fleet-generating structures. |
 | **Economy + Stability** | Low stability reduces building income. New conquests produce very little until stability recovers. |
 | **Tech Trees + Economy** | Tech Point income partly comes from tech_gen buildings (Lab, Research Center). Base TP income helps bootstrap. |
@@ -421,7 +424,7 @@ These features were designed to be mixed and matched. Here are the key interacti
 ### Economy
 
 **Q: I have 0 Production Points and no buildings. How do I get started?**
-A: You earn a base income of 1 Production Point per 3 territories you own (minimum 1) at the start of each turn. After a few turns you'll have enough to build your first Camp (costs 3💰).
+A: You earn a base income of 1 Production Point per 3 territories you own (minimum 1) at the start of each turn. After a few turns you'll have enough to build your first Workshop (costs 3💰).
 
 **Q: What happens to buildings when I lose a territory?**
 A: All buildings on a captured territory are **razed** (destroyed). The conqueror starts fresh.
@@ -438,7 +441,7 @@ A: One building per category. A single territory can have one production buildin
 A: You earn a base income of 1 TP per 5 territories (minimum 1) each turn, even without any buildings or researched techs.
 
 **Q: Do I need to research before I can build anything?**
-A: Only when **both** Economy and Tech Trees are enabled. In that case, buildings like Camp require the "Granaries" tech, and Palisade requires "Stone Walls." If only Economy is on (no Tech Trees), all buildings are available immediately.
+A: Only when **both** Economy and Tech Trees are enabled. In that case, buildings like Workshop require the "Granaries" tech, and Palisade requires "Stone Walls." If only Economy is on (no Tech Trees), all buildings are available immediately.
 
 **Q: Are tech trees the same for every era?**
 A: No. Each era (Ancient, Medieval, Discovery, WW2, etc.) has a unique tech tree with era-appropriate technologies.

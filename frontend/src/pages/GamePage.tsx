@@ -929,6 +929,8 @@ export default function GamePage() {
   // Guards ending the reinforcement phase with unplaced units (the server would
   // auto-place them). Only armed when the turn-clarity flag is on.
   const [endDraftConfirm, setEndDraftConfirm] = useState<number | null>(null);
+  /** Blocking dialogs the tutorial card must drop behind — see its use below. */
+  const tutorialCardBehindModal = !!modalQueue[0] || endDraftConfirm !== null;
 
   const [wonderNotif, setWonderNotif] = useState<{
     wonderId: string;
@@ -4337,6 +4339,7 @@ export default function GamePage() {
                   : undefined
               }
               techTree={techTree}
+              onOpenTechTree={() => setShowTechTree(true)}
               orbitAccessHint={orbitAccessHint}
               orbitAccessAllowed={orbitAccess.allowed}
               orbitAccessReason={orbitTravelBlockedReason}
@@ -5060,6 +5063,14 @@ export default function GamePage() {
       )}
 
       {/* Tutorial Overlay */}
+      {/*
+        `endDraftConfirm` is local state rather than a modalQueue entry, but it
+        is still a blocking dialog at the same z-50 as the tutorial overlay —
+        and the overlay renders after it, so the bottom-centre card sat squarely
+        on its two buttons. That dialog has no escape handler, so a tutorial
+        player who pressed the phase button with units still to place was stuck
+        until they reloaded.
+      */}
       {isTutorial && tutorialStep < tutorialSteps.length && (
         <TutorialOverlay
           steps={tutorialSteps}
@@ -5083,7 +5094,7 @@ export default function GamePage() {
             gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
           )}
           centered={tutorialCardIsCentered}
-          behindModal={!!modalQueue[0]}
+          behindModal={tutorialCardBehindModal}
           panelOpen={showTechTree || showBonuses || showSettingsLab}
           territorySelected={!!selectedTerritory}
         />

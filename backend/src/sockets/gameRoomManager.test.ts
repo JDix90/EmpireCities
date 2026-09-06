@@ -30,6 +30,8 @@ import { resolveMap } from './mapResolver';
 import { getGameState, getGameMap, setGameState } from './redisGameStore';
 import {
   loadAuthoritativeRoom,
+  loadGameRoomFromPostgres,
+  mapIdForSavedState,
   persistGameStateAfterMutation,
   flushGameState,
   setCachedRoom,
@@ -162,5 +164,45 @@ describe('flushGameState', () => {
     const state = makeState('game-flush-1');
     await flushGameState('game-flush-1', state);
     expect(setGameState).toHaveBeenCalledWith('game-flush-1', state);
+  });
+});
+
+/**
+ * Board transforms (`era_advancement_board_transform`) rewrite the board to the
+ * next era's map and set `state.map_id` to it. The `games.map_id` column that
+ * every Postgres-recovery caller passes here is written once at creation, so a
+ * recovered game used to load a transformed board's territories against the
+ * departing era's map — the server reporting one territory count and the client
+ * rendering another.
+ */
+describe('recovering a board that has transformed era', () => {
+  beforeEach(() => {
+    deleteCachedRoom('game-transformed');
+    vi.mocked(queryOne).mockReset();
+    vi.mocked(resolveMap).mockReset();
+  });
+
+  it('prefers the state\'s own map id over the caller\'s stale one', () => {
+    const transformed = { ...makeState('g'), map_id: 'era_medieval' };
+    expect(mapIdForSavedState(transformed, 'era_ancient')).toBe('era_medieval');
+  });
+
+  it('falls back to the caller when the state carries no map id', () => {
+    const legacy = { ...makeState('g'), map_id: undefined } as unknown as GameState;
+    expect(mapIdForSavedState(legacy, 'era_ancient')).toBe('era_ancient');
+    expect(mapIdForSavedState(undefined, 'era_ancient')).toBe('era_ancient');
+  });
+
+  it('resolves the arrived era map, not the one games.map_id still records', async () => {
+    const transformed = { ...makeState('game-transformed'), map_id: 'era_medieval' };
+    const medieval: GameMap = { ...makeMap(), map_id: 'era_medieval' };
+    vi.mocked(queryOne).mockResolvedValue({ state_json: transformed });
+    vi.mocked(resolveMap).mockResolvedValue(medieval);
+
+    // The caller passes the stale column value, as every recovery path does.
+    const room = await loadGameRoomFromPostgres('game-transformed', 'era_ancient');
+
+    expect(resolveMap).toHaveBeenCalledWith('era_medieval');
+    expect(room?.map.map_id).toBe('era_medieval');
   });
 });
