@@ -3,7 +3,7 @@ import { Sparkles, AlertTriangle, Check, X, ChevronDown, ChevronUp } from 'lucid
 import clsx from 'clsx';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
-import { getAdvanceEraClientStatus } from '../../utils/eraAdvancement';
+import { getAdvanceEraClientStatus, listEraGateRows } from '../../utils/eraAdvancement';
 
 interface AdvanceEraPanelProps {
   gameState: GameState;
@@ -84,11 +84,16 @@ export default function AdvanceEraPanel({
 
   // Terse on purpose: this shares one sidebar row with the section label,
   // and a long phrase truncates the label into "ERA A…".
+  // Counted from the rows below, never from `status.blockers`: the blocker list
+  // includes requirements this panel doesn't draw (the phase gate), so counting
+  // it produced a total the player could not account for.
+  const gateRows = listEraGateRows(gameState, status);
+  const unmetRows = gateRows.filter((r) => !r.ok);
   const summaryStatus = status.atMaxEra
     ? 'Max era'
     : status.ready
       ? 'Ready!'
-      : `${status.blockers.length} to go`;
+      : `${unmetRows.length} to go`;
 
   return (
     <div className="border-b border-bf-gold/30 bg-bf-gold/5">
@@ -154,54 +159,9 @@ export default function AdvanceEraPanel({
               </p>
             )}
             <ul className="space-y-1 rounded-lg border border-bf-border bg-bf-dark/50 p-2">
-              {gameState.settings.tech_trees_enabled && status.gateMode === 'percent' && (
-                <GateRow
-                  ok={status.techMet}
-                  label={`Technologies researched: ${status.techUnlocked}/${status.techRequired}`}
-                />
-              )}
-              {gameState.settings.tech_trees_enabled && status.gateMode === 'milestone' && (
-                <>
-                  {/* A requirement of 0 is not a requirement: "0/0" reads as
-                      something still to do. Tier-3 was already hidden this way. */}
-                  {status.tier1Required > 0 && (
-                    <GateRow
-                      ok={status.tier1Met}
-                      label={`Tier-1 technologies: ${status.tier1Current}/${status.tier1Required}`}
-                    />
-                  )}
-                  {status.tier2Required > 0 && (
-                    <GateRow
-                      ok={status.tier2Met}
-                      label={`Tier-2 technologies: ${status.tier2Current}/${status.tier2Required}`}
-                    />
-                  )}
-                  {status.tier3Required > 0 && (
-                    <GateRow
-                      ok={status.tier3Met}
-                      label={`Tier-3 technologies: ${status.tier3Current}/${status.tier3Required}`}
-                    />
-                  )}
-                  {status.buildingsRequired > 0 && (
-                    <GateRow
-                      ok={status.buildingsMet}
-                      label={`Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`}
-                    />
-                  )}
-                </>
-              )}
-              {status.stabilityGate != null && (
-                <GateRow
-                  ok={status.stabilityMet}
-                  label={`Empire stability: ${Math.round(status.stability ?? 0)}% (need ${status.stabilityGate}%)`}
-                />
-              )}
-              <GateRow
-                ok={status.goldMet}
-                label={status.cost > 0
-                  ? `Gold: ${status.gold} / ${status.cost} required`
-                  : 'Production income: pending (starts after your first economy tick)'}
-              />
+              {gateRows.map((row) => (
+                <GateRow key={row.key} ok={row.ok} label={row.label} />
+              ))}
             </ul>
             {status.catchupGap > 0 && status.catchupDiscountPct > 0 && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-400 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">

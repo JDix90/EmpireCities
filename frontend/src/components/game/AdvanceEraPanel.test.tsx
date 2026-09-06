@@ -117,3 +117,69 @@ describe('AdvanceEraPanel (sidebar)', () => {
     expect(screen.getByRole('button')).toBeInTheDocument();
   });
 });
+
+describe('AdvanceEraPanel — the summary counts only what it lists', () => {
+  /** All gate requirements satisfied, so only the phase can stand in the way. */
+  function readyState(phase: string): GameState {
+    const s = state();
+    return {
+      ...s,
+      phase,
+      era_advancement_preview: {
+        ...s.era_advancement_preview!,
+        cost: 13,
+        can_advance: true,
+        readiness: {
+          met: true,
+          mode: 'milestone',
+          tier1: { met: true, current: 2, required: 2, label: 'tier-1 technologies' },
+          tier2: { met: true, current: 0, required: 0, label: 'tier-2 technologies' },
+          buildings: { met: true, current: 0, required: 0, label: 'buildings' },
+        },
+      },
+    } as unknown as GameState;
+  }
+
+  it('lists the phase requirement it counts, rather than an all-green list over "1 to go"', () => {
+    render(
+      <AdvanceEraPanel
+        gameState={readyState('fortify')}
+        myPlayer={player({ special_resource: 16 })}
+        isMyTurn
+        onAdvanceEra={() => {}}
+      />,
+    );
+    expect(screen.getByText('1 to go')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Era Advancement/ }));
+    expect(screen.getByText(/Advance during your Reinforcement or Attack phase/)).toBeInTheDocument();
+  });
+
+  // A ready gate auto-expands the panel on mount, so these two need no click.
+  it('reads Ready! in a phase that allows advancing', () => {
+    render(
+      <AdvanceEraPanel
+        gameState={readyState('draft')}
+        myPlayer={player({ special_resource: 16 })}
+        isMyTurn
+        onAdvanceEra={() => {}}
+      />,
+    );
+    expect(screen.getByText('Ready!')).toBeInTheDocument();
+    expect(screen.queryByText(/Advance during your Reinforcement or Attack phase/)).toBeNull();
+  });
+
+  it('omits requirements the gate does not have from the list', () => {
+    render(
+      <AdvanceEraPanel
+        gameState={readyState('draft')}
+        myPlayer={player({ special_resource: 16 })}
+        isMyTurn
+        onAdvanceEra={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Era Advancement/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/Tier-1 technologies: 2\/2/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tier-2 technologies/)).toBeNull();
+    expect(screen.queryByText(/Buildings built/)).toBeNull();
+  });
+});

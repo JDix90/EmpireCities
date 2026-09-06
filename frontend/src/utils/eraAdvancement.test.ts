@@ -4,6 +4,8 @@ import {
   getAdvanceEraClientStatus,
   getEraIdForAdvancementIndex,
   resolvePlayerTechEraId,
+  listEraGateRows,
+  countEraGateBlockers,
 } from './eraAdvancement';
 
 function basePreview(overrides: Partial<AdvanceEraClientPreview> = {}): AdvanceEraClientPreview {
@@ -185,5 +187,85 @@ describe('getAdvanceEraClientStatus', () => {
     const status = getAdvanceEraClientStatus(s, player());
     expect(status?.nextSignatureName).toBe('Levy of Knights');
     expect(status?.nextSignatureDescription).toContain('attack die');
+  });
+});
+
+describe('listEraGateRows / countEraGateBlockers', () => {
+  function rowsFor(state: GameState, p = player()) {
+    const status = getAdvanceEraClientStatus(state, p)!;
+    return { rows: listEraGateRows(state, status), status };
+  }
+
+  it('drops requirements the gate does not have, so "0/0" is never counted', () => {
+    const state = baseState({
+      era_advancement_preview: basePreview({
+        readiness: {
+          met: true,
+          mode: 'milestone',
+          tier1: { met: true, current: 2, required: 2, label: 't1' },
+          tier2: { met: true, current: 0, required: 0, label: 't2' },
+          buildings: { met: true, current: 0, required: 0, label: 'b' },
+        },
+      }),
+    });
+    const { rows } = rowsFor(state);
+    expect(rows.map((r) => r.key)).toEqual(['tier1', 'stability', 'gold']);
+  });
+
+  it('adds the phase requirement only while it blocks', () => {
+    const draft = rowsFor(baseState());
+    expect(draft.rows.some((r) => r.key === 'phase')).toBe(false);
+
+    const fortify = rowsFor(baseState({ phase: 'fortify' } as Partial<GameState>));
+    const phaseRow = fortify.rows.find((r) => r.key === 'phase');
+    expect(phaseRow).toMatchObject({
+      ok: false,
+      label: 'Advance during your Reinforcement or Attack phase',
+    });
+  });
+
+  it('counts the phase requirement that the chips used to omit', () => {
+    // The reported bug: every visible gate satisfied, yet "1 to go".
+    const state = baseState({ phase: 'fortify' } as Partial<GameState>);
+    const status = getAdvanceEraClientStatus(state, player())!;
+    expect(status.blockers).toHaveLength(1);
+    expect(countEraGateBlockers(state, status)).toBe(1);
+    // ...and now that one is a row the player can actually read.
+    const unmet = listEraGateRows(state, status).filter((r) => !r.ok);
+    expect(unmet.map((r) => r.key)).toEqual(['phase']);
+  });
+
+  it('never reports more outstanding items than it lists', () => {
+    const cases: GameState[] = [
+      baseState(),
+      baseState({ phase: 'fortify' } as Partial<GameState>),
+      baseState({ phase: 'attack' } as Partial<GameState>),
+      baseState({
+        era_advancement_preview: basePreview({
+          readiness: {
+            met: false,
+            mode: 'milestone',
+            tier1: { met: false, current: 1, required: 3, label: 't1' },
+            tier2: { met: true, current: 0, required: 0, label: 't2' },
+            buildings: { met: false, current: 0, required: 2, label: 'b' },
+          },
+        }),
+      }),
+      baseState({ era_advancement_preview: basePreview({ cost: 0 }) }),
+      baseState({ era_advancement_preview: basePreview({ gate_mode: 'percent', readiness: { met: false, mode: 'percent', percent: { unlocked: 1, required: 4 } } }) }),
+    ];
+    for (const state of cases) {
+      const status = getAdvanceEraClientStatus(state, player({ special_resource: 5 }))!;
+      const unmet = listEraGateRows(state, status).filter((r) => !r.ok);
+      expect(countEraGateBlockers(state, status)).toBe(unmet.length);
+    }
+  });
+
+  it('keeps the gold row honest before any income has landed', () => {
+    const state = baseState({ era_advancement_preview: basePreview({ cost: 0 }) });
+    const { rows } = rowsFor(state);
+    const gold = rows.find((r) => r.key === 'gold')!;
+    expect(gold.ok).toBe(false);
+    expect(gold.chip).toBe('Gold pending');
   });
 });
