@@ -1397,6 +1397,23 @@ export default function LobbyPage() {
           events_enabled: true,
           era_advancement_enabled: true,
           era_advancement_preset: 'standard',
+          /**
+           * Anti-steamroll guardrail: nobody may advance more than two eras
+           * ahead of the trailing living player. The plumbing has existed since
+           * era advancement shipped, but no lobby path ever sent the key, so
+           * `canAdvanceEra`'s clause was dead.
+           *
+           * 2, not 1. Over 120 seeded 4p medium games (60 turns, cards and
+           * events on, an expert bot standing in for the human) the natural
+           * peak era spread is 1.65, so 2 never fires — it costs nothing today
+           * and still catches a genuine three-era runaway. 1 fires ~4.6 times a
+           * game, every time on a turn where the player had legitimately
+           * cleared the gate, and changed nothing about who won (55.8% -> 57.5%
+           * human wins, inside the noise at that sample). There is no runaway
+           * left to cap: since the AI advancement fix the best bot finishes
+           * AHEAD of an optimizing human (4.75 vs 4.48 eras), not behind.
+           */
+          era_advancement_max_lead: 2,
           max_turns: 150,
         },
       });
