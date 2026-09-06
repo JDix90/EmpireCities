@@ -3851,8 +3851,19 @@ export default function GamePage() {
       <div className="min-h-10 pt-safe bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0 py-1">
         <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-bf-muted text-xs">·</span>
-        <span className="text-bf-muted text-xs capitalize">
-          {formatEraLabel(gameState.era)}
+        {/*
+          Your civilization's era, not the map's. With era advancement on, the
+          board theme, globe texture, tech tree and sidebar all key off
+          `playerTechEra` — the header was the one place still showing the map's
+          fixed era, so it read "Ancient World" seconds after the arrival modal
+          announced Medieval. Falls back to the map era for spectators and for
+          games without era advancement.
+        */}
+        <span
+          className="text-bf-muted text-xs capitalize"
+          title={gameState.settings.era_advancement_enabled ? 'Your civilization\u2019s current era' : undefined}
+        >
+          {formatEraLabel(playerTechEra ?? gameState.era)}
         </span>
         <span className="text-bf-muted text-xs">·</span>
         <span className="text-bf-muted text-xs">Turn {gameState.turn_number}</span>

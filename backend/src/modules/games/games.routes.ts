@@ -72,6 +72,11 @@ export const CreateGameSchema = z.object({
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
       era_advancement_preset: z.enum(['skirmish', 'standard', 'epic', 'custom']).optional(),
+      /** Anti-steamroll cap: max eras any player may lead the trailing living
+       * player by. Without this entry zod strips it, so `canAdvanceEra`'s cap
+       * could never fire no matter what a caller sent — the same silent-strip
+       * failure `max_turns` below carries a warning about. */
+      era_advancement_max_lead: z.number().int().min(1).max(10).optional(),
       /** Board-transform model: advancing eras swaps the whole board to the next
        * era's map and lets a game start on any ascension-line era map. */
       era_advancement_board_transform: z.boolean().optional(),
