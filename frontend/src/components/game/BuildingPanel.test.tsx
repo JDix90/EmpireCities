@@ -100,6 +100,54 @@ describe('building names and effects come from the shared table', () => {
   });
 });
 
+describe('buildings gated behind an unresearched tech', () => {
+  // The server refuses these with "You must research the required technology
+  // first" — a rejection that names neither the building nor the tech, after
+  // the player has already spent the click. The panel now says so up front.
+  const locked = { production_1: 'Granaries' };
+
+  it('lists the locked building rather than hiding it, and names the research', () => {
+    render(<BuildingPanel {...baseProps} techLocks={locked} />);
+    const row = screen.getByRole('button', { name: /Workshop/ });
+    expect(row).toHaveTextContent('Granaries');
+    expect(row).not.toHaveTextContent('💰');
+  });
+
+  it('routes a click to the tech tree instead of attempting the build', () => {
+    const onBuild = vi.fn();
+    const onOpenTechTree = vi.fn();
+    render(
+      <BuildingPanel {...baseProps} onBuild={onBuild} techLocks={locked} onOpenTechTree={onOpenTechTree} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Workshop/ }));
+    expect(onOpenTechTree).toHaveBeenCalledTimes(1);
+    expect(onBuild).not.toHaveBeenCalled();
+  });
+
+  it('is inert rather than misleading when there is no tech tree to open', () => {
+    const onBuild = vi.fn();
+    render(<BuildingPanel {...baseProps} onBuild={onBuild} techLocks={locked} />);
+    const row = screen.getByRole('button', { name: /Workshop/ });
+    expect(row).toBeDisabled();
+    fireEvent.click(row);
+    expect(onBuild).not.toHaveBeenCalled();
+  });
+
+  it('builds normally once the tech is researched', () => {
+    const onBuild = vi.fn();
+    render(<BuildingPanel {...baseProps} onBuild={onBuild} techLocks={{}} />);
+    fireEvent.click(screen.getByRole('button', { name: /Workshop/ }));
+    expect(onBuild).toHaveBeenCalledWith('production_1');
+  });
+
+  it('shows the tech lock ahead of the price — saving up cannot open it', () => {
+    render(<BuildingPanel {...baseProps} playerResources={0} techLocks={locked} onOpenTechTree={() => {}} />);
+    const row = screen.getByRole('button', { name: /Workshop/ });
+    expect(row).toHaveTextContent('Granaries');
+    expect(row).not.toHaveTextContent(/more resources/);
+  });
+});
+
 function meaningful(text: string): boolean {
   return text.length > 0 && !/^[a-z_]+[0-9]?$/.test(text);
 }

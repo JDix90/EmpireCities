@@ -4339,6 +4339,7 @@ export default function GamePage() {
                   : undefined
               }
               techTree={techTree}
+              onOpenTechTree={() => setShowTechTree(true)}
               orbitAccessHint={orbitAccessHint}
               orbitAccessAllowed={orbitAccess.allowed}
               orbitAccessReason={orbitTravelBlockedReason}

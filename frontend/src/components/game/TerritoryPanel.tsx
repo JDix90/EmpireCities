@@ -49,7 +49,9 @@ interface TerritoryPanelProps {
   onInfluence?: (targetId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
-  techTree?: Array<{ tech_id: string; unlocks_ability?: string; unlocks_building?: string }>;
+  techTree?: Array<{ tech_id: string; name?: string; unlocks_ability?: string; unlocks_building?: string }>;
+  /** Open the tech tree — a building locked behind an unresearched tech links to it. */
+  onOpenTechTree?: () => void;
   /**
    * Optional copy shown when the selected territory is offworld (Moon / non-Sol
    * galaxy world) and the active player has not yet satisfied the orbit-access
@@ -152,6 +154,7 @@ export default function TerritoryPanel({
   onProposeTruce,
   onUseAbility,
   techTree = [],
+  onOpenTechTree,
   orbitAccessHint,
   orbitAccessAllowed = true,
   orbitAccessReason,
@@ -1147,12 +1150,29 @@ export default function TerritoryPanel({
           'port', 'naval_base', 'coastal_battery',
         ]);
         const unlockedTechs = new Set(myPlayer?.unlocked_techs ?? []);
+        const buildingUnlocks = techTree.filter(
+          (n) => n.unlocks_building && !n.unlocks_building.startsWith('wonder_'),
+        );
+        /**
+         * Buildings the server will refuse until their tech is researched, and
+         * the tech that opens each. The build panel used to offer these as live
+         * buttons and let `game:build` reject them with "You must research the
+         * required technology first" — a rejection that named neither the
+         * building nor the tech, after the player had already spent the click.
+         */
+        const techLocks: Record<string, string> = {};
+        for (const n of buildingUnlocks) {
+          if (unlockedTechs.has(n.tech_id)) continue;
+          const building = n.unlocks_building as string;
+          // Cheapest wording when two nodes unlock the same building: first wins.
+          if (!(building in techLocks)) techLocks[building] = n.name ?? n.tech_id;
+        }
+        // Era-special buildings (e.g. the Space Age launch_pad). Locked ones are
+        // listed too, so the panel shows what this era HAS rather than hiding it
+        // until the research happens to land.
         const extraBuildOptions = Array.from(new Set(
-          techTree
-            .filter((n) => n.unlocks_building
-              && unlockedTechs.has(n.tech_id)
-              && !STANDARD.has(n.unlocks_building)
-              && !n.unlocks_building.startsWith('wonder_'))
+          buildingUnlocks
+            .filter((n) => !STANDARD.has(n.unlocks_building as string))
             .map((n) => n.unlocks_building as string),
         ));
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
@@ -1191,6 +1211,8 @@ export default function TerritoryPanel({
             isCoastal={!fogHidden && tState.naval_units != null}
             eraWonder={eraWonderProp}
             extraBuildOptions={extraBuildOptions}
+            techLocks={techLocks}
+            onOpenTechTree={onOpenTechTree}
           />
         );
       })()}

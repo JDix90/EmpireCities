@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import clsx from 'clsx';
-import { Hammer, Shield, Zap, Star, Anchor, Rocket } from 'lucide-react';
+import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock } from 'lucide-react';
 import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 
@@ -87,6 +87,14 @@ interface Props {
    * tech/naval set. Offered in addition to the standard options.
    */
   extraBuildOptions?: string[];
+  /**
+   * Buildings gated behind an unresearched tech, mapped to the tech that opens
+   * each. They stay listed — hiding them makes an era look emptier than it is —
+   * but render locked, naming the research instead of a price.
+   */
+  techLocks?: Record<string, string>;
+  /** Open the tech tree, so a locked row is a route rather than a dead end. */
+  onOpenTechTree?: () => void;
 }
 
 function BuildingPanel({
@@ -99,6 +107,8 @@ function BuildingPanel({
   isCoastal,
   eraWonder,
   extraBuildOptions = [],
+  techLocks = {},
+  onOpenTechTree,
 }: Props) {
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
 
@@ -205,27 +215,52 @@ function BuildingPanel({
           {filteredOptions.map((b) => {
             const meta = BUILDING_META[b];
             if (!meta) return null;
+            const lockedBy = techLocks[b];
             const affordable = playerResources >= meta.cost;
+            // A tech lock outranks the price: no amount of saving opens it, so
+            // the row shows the research it needs instead of what it costs.
+            const enabled = lockedBy ? !!onOpenTechTree : affordable;
             return (
               <button
                 key={b}
-                onClick={() => affordable && onBuild(b)}
-                disabled={!affordable}
-                title={affordable ? undefined : `Need ${meta.cost - playerResources} more resources`}
+                onClick={() => {
+                  if (lockedBy) onOpenTechTree?.();
+                  else if (affordable) onBuild(b);
+                }}
+                disabled={!enabled}
+                title={
+                  lockedBy
+                    ? `Locked until you research ${lockedBy}${onOpenTechTree ? ' — open the Tech Tree' : ''}`
+                    : affordable ? undefined : `Need ${meta.cost - playerResources} more resources`
+                }
                 className={clsx(
-                  'w-full flex items-center justify-between px-2 py-1 rounded text-xs',
-                  'border transition-colors',
-                  affordable
-                    ? 'border-amber-700/60 bg-amber-900/30 text-amber-200 hover:bg-amber-800/40'
-                    : 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60'
+                  'w-full px-2 py-1 rounded text-xs border transition-colors text-left',
+                  lockedBy
+                    ? 'border-blue-800/50 bg-blue-950/30 text-blue-300/80 hover:bg-blue-900/30'
+                    : affordable
+                      ? 'border-amber-700/60 bg-amber-900/30 text-amber-200 hover:bg-amber-800/40'
+                      : 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60',
+                  lockedBy && !onOpenTechTree && 'cursor-not-allowed opacity-70',
                 )}
               >
-                <span className="flex items-center gap-1.5">
-                  {meta.icon}
-                  <span>{meta.label}</span>
-                  <span className="text-gray-400">— {meta.description}</span>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    {lockedBy ? <Lock className="w-3 h-3 shrink-0" /> : meta.icon}
+                    <span className="whitespace-nowrap">{meta.label}</span>
+                    <span className="text-gray-400 truncate">— {meta.description}</span>
+                  </span>
+                  {!lockedBy && <span className="ml-1 font-mono shrink-0">{meta.cost}💰</span>}
                 </span>
-                <span className="ml-2 font-mono">{meta.cost}💰</span>
+                {/* Second line, not a right-hand column: at this panel's 288px a
+                    "Needs <tech>" chip beside the name squeezed the effect text
+                    down to "— +1 P…" and wrapped the name onto two lines. */}
+                {lockedBy && (
+                  <span className="mt-0.5 flex items-center gap-1 text-blue-300">
+                    <span className="opacity-70">Research</span>
+                    <span className="font-medium">{lockedBy}</span>
+                    {onOpenTechTree && <span className="opacity-70">to unlock →</span>}
+                  </span>
+                )}
               </button>
             );
           })}
