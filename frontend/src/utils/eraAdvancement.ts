@@ -82,7 +82,9 @@ export function getAdvanceEraClientStatus(
   if (!preview) return null;
 
   const atMaxEra = preview.current_era_index >= preview.max_era_index;
-  const canPhase = gameState.phase === 'draft' || gameState.phase === 'attack';
+  // Mirrors the server's rule (gameSocket `game:advance_era`): advancing is
+  // allowed either side of combat, never during it.
+  const canPhase = gameState.phase === 'draft' || gameState.phase === 'fortify';
   const cost = preview.cost;
   const gold = player.special_resource ?? 0;
   const gateMode = preview.gate_mode;
@@ -112,7 +114,7 @@ export function getAdvanceEraClientStatus(
 
   const blockers: string[] = [];
   if (atMaxEra) blockers.push('Already at maximum era');
-  if (!canPhase) blockers.push('Available during Reinforcement or Attack phase');
+  if (!canPhase) blockers.push('Available during Reinforcement or Fortify phase');
   if (readiness && !readiness.met) {
     if (gateMode === 'percent') {
       blockers.push(`Research ${techRequired} technologies (${techUnlocked}/${techRequired})`);
@@ -267,8 +269,8 @@ export function listEraGateRows(
     rows.push({
       key: 'phase',
       ok: false,
-      chip: 'Reinforce/Attack phase',
-      label: 'Advance during your Reinforcement or Attack phase',
+      chip: 'Reinforce/Fortify phase',
+      label: 'Advance during your Reinforcement or Fortify phase — not mid-attack',
     });
   }
 

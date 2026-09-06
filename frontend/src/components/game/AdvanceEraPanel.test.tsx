@@ -143,7 +143,7 @@ describe('AdvanceEraPanel — the summary counts only what it lists', () => {
   it('lists the phase requirement it counts, rather than an all-green list over "1 to go"', () => {
     render(
       <AdvanceEraPanel
-        gameState={readyState('fortify')}
+        gameState={readyState('attack')}
         myPlayer={player({ special_resource: 16 })}
         isMyTurn
         onAdvanceEra={() => {}}
@@ -151,21 +151,21 @@ describe('AdvanceEraPanel — the summary counts only what it lists', () => {
     );
     expect(screen.getByText('1 to go')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Era Advancement/ }));
-    expect(screen.getByText(/Advance during your Reinforcement or Attack phase/)).toBeInTheDocument();
+    expect(screen.getByText(/Advance during your Reinforcement or Fortify phase/)).toBeInTheDocument();
   });
 
   // A ready gate auto-expands the panel on mount, so these two need no click.
-  it('reads Ready! in a phase that allows advancing', () => {
+  it.each(['draft', 'fortify'])('reads Ready! in the %s phase, which allows advancing', (phase) => {
     render(
       <AdvanceEraPanel
-        gameState={readyState('draft')}
+        gameState={readyState(phase)}
         myPlayer={player({ special_resource: 16 })}
         isMyTurn
         onAdvanceEra={() => {}}
       />,
     );
     expect(screen.getByText('Ready!')).toBeInTheDocument();
-    expect(screen.queryByText(/Advance during your Reinforcement or Attack phase/)).toBeNull();
+    expect(screen.queryByText(/Advance during your Reinforcement or Fortify phase/)).toBeNull();
   });
 
   it('omits requirements the gate does not have from the list', () => {

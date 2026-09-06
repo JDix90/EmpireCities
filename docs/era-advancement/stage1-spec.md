@@ -153,7 +153,7 @@ When `tech_trees_enabled` is off: gate **skipped**.
 
 | Scenario | Rule |
 |----------|------|
-| Advance during own turn | **Allowed** in draft or attack phase only (not fortify — you're consolidating). Costs the action for that phase (cannot attack same turn after advancing in attack phase). |
+| Advance during own turn | **Allowed** in the reinforcement or fortify phase only — the phases that bracket combat, matching when buildings and research are allowed. Not during attack: advancing mid-combat let a player see their rolls and then swap armies underneath the fight. |
 | Advance while under attack | **Allowed** if gates pass. Vulnerability window applies immediately; opponent can attack on their next turn. |
 | Advance mid-async deadline | **Allowed.** Async deadline is per-turn, not per-phase. Vulnerability lasts through the advancing player's current turn and clears at their next turn start. |
 | Two players advance same turn | Independent; order irrelevant (no shared world state). |

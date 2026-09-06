@@ -74,6 +74,21 @@ function distributeConvertedUnits(
   }
 }
 
+/**
+ * Phases in which a player may advance an era.
+ *
+ * Advancing brackets combat rather than happening inside it. Mid-attack it let
+ * a player watch their rolls and then swap armies underneath the fight; from
+ * fortify the attacking is already done, so the converted (weaker) stacks can
+ * be consolidated before the vulnerability window opens. Reinforcement stays
+ * the natural start-of-turn moment, and is where AI bots advance.
+ */
+export const ERA_ADVANCE_PHASES = ['draft', 'fortify'] as const;
+
+export function isEraAdvancePhase(phase: GameState['phase']): boolean {
+  return (ERA_ADVANCE_PHASES as readonly string[]).includes(phase);
+}
+
 export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGateResult {
   if (!state.settings.era_advancement_enabled) {
     return { canAdvance: false, error: 'Era advancement is not enabled for this game' };
@@ -188,6 +203,10 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
   // Remap the player's faction along its lineage into the arriving era.
   applyLineageOnAdvance(state, player, departingEraId, arrivingEraId);
 
+  // Defensive: the socket handler refuses an advance outside
+  // ERA_ADVANCE_PHASES, so this should be unreachable in normal play. It stays
+  // because the invariant it protects still holds — advancing mid-combat must
+  // never leave you free to keep attacking with the new era's army.
   if (state.phase === 'attack') {
     player.era_advanced_this_turn = true;
   }

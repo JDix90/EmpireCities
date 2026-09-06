@@ -136,9 +136,17 @@ describe('getAdvanceEraClientStatus', () => {
   });
 
   it('flags phase and max-era blockers client-side', () => {
-    const fortify = baseState({ phase: 'fortify' } as Partial<GameState>);
-    expect(getAdvanceEraClientStatus(fortify, player())?.blockers)
-      .toContain('Available during Reinforcement or Attack phase');
+    // Advancing brackets combat: allowed in reinforcement and fortify, never
+    // mid-attack (swapping armies after seeing your rolls).
+    const attacking = baseState({ phase: 'attack' } as Partial<GameState>);
+    expect(getAdvanceEraClientStatus(attacking, player())?.blockers)
+      .toContain('Available during Reinforcement or Fortify phase');
+
+    for (const phase of ['draft', 'fortify']) {
+      const allowed = baseState({ phase } as Partial<GameState>);
+      expect(getAdvanceEraClientStatus(allowed, player())?.canPhase).toBe(true);
+      expect(getAdvanceEraClientStatus(allowed, player())?.blockers).toEqual([]);
+    }
 
     const maxed = baseState({
       era_advancement_preview: basePreview({ current_era_index: 1, current_era_id: 'medieval', next_era_id: 'medieval' }),
@@ -213,20 +221,22 @@ describe('listEraGateRows / countEraGateBlockers', () => {
   });
 
   it('adds the phase requirement only while it blocks', () => {
-    const draft = rowsFor(baseState());
-    expect(draft.rows.some((r) => r.key === 'phase')).toBe(false);
+    for (const phase of ['draft', 'fortify']) {
+      const allowed = rowsFor(baseState({ phase } as Partial<GameState>));
+      expect(allowed.rows.some((r) => r.key === 'phase')).toBe(false);
+    }
 
-    const fortify = rowsFor(baseState({ phase: 'fortify' } as Partial<GameState>));
-    const phaseRow = fortify.rows.find((r) => r.key === 'phase');
+    const attacking = rowsFor(baseState({ phase: 'attack' } as Partial<GameState>));
+    const phaseRow = attacking.rows.find((r) => r.key === 'phase');
     expect(phaseRow).toMatchObject({
       ok: false,
-      label: 'Advance during your Reinforcement or Attack phase',
+      label: 'Advance during your Reinforcement or Fortify phase — not mid-attack',
     });
   });
 
   it('counts the phase requirement that the chips used to omit', () => {
     // The reported bug: every visible gate satisfied, yet "1 to go".
-    const state = baseState({ phase: 'fortify' } as Partial<GameState>);
+    const state = baseState({ phase: 'attack' } as Partial<GameState>);
     const status = getAdvanceEraClientStatus(state, player())!;
     expect(status.blockers).toHaveLength(1);
     expect(countEraGateBlockers(state, status)).toBe(1);
@@ -240,6 +250,7 @@ describe('listEraGateRows / countEraGateBlockers', () => {
       baseState(),
       baseState({ phase: 'fortify' } as Partial<GameState>),
       baseState({ phase: 'attack' } as Partial<GameState>),
+      baseState({ phase: 'draft' } as Partial<GameState>),
       baseState({
         era_advancement_preview: basePreview({
           readiness: {

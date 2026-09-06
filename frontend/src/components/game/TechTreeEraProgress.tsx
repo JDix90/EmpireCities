@@ -16,7 +16,7 @@ interface Props {
    * tree, find the panel and expand it.
    */
   onAdvanceEra?: () => void;
-  /** Advancing is a draft-phase action on your own turn. */
+  /** Advancing is a reinforcement- or fortify-phase action on your own turn. */
   canAdvanceNow?: boolean;
 }
 

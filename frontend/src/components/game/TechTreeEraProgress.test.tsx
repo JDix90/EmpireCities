@@ -205,16 +205,31 @@ describe('TechTreeEraProgress — the count must match what is shown', () => {
     expect(screen.queryByTestId('techtree-gate-blockers')).toBeNull();
   });
 
-  it('shows the phase blocker in fortify, where the gate silently failed', () => {
-    const fortifying = { ...gameState(allGatesMet), phase: 'fortify' } as unknown as GameState;
-    render(<TechTreeEraProgress gameState={fortifying} player={player({ special_resource: 16 })} />);
+  it('shows the phase blocker mid-attack, where the gate silently failed', () => {
+    const attacking = { ...gameState(allGatesMet), phase: 'attack' } as unknown as GameState;
+    render(<TechTreeEraProgress gameState={attacking} player={player({ special_resource: 16 })} />);
 
     expect(screen.getByText('1 to go')).toBeInTheDocument();
     expect(screen.getByTestId('techtree-gate-blockers')).toHaveTextContent(
-      'Advance during your Reinforcement or Attack phase',
+      'Advance during your Reinforcement or Fortify phase',
     );
     // And it earns a chip of its own, so the row is not all-green above "1 to go".
-    expect(screen.getByTestId('techtree-gate-chips')).toHaveTextContent('Reinforce/Attack phase');
+    expect(screen.getByTestId('techtree-gate-chips')).toHaveTextContent('Reinforce/Fortify phase');
+  });
+
+  it('is ready in fortify — the phase the tutorial actually lands players in', () => {
+    const fortifying = { ...gameState(allGatesMet), phase: 'fortify' } as unknown as GameState;
+    render(
+      <TechTreeEraProgress
+        gameState={fortifying}
+        player={player({ special_resource: 16 })}
+        onAdvanceEra={vi.fn()}
+        canAdvanceNow
+      />,
+    );
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.getByTestId('techtree-advance-era')).toBeEnabled();
+    expect(screen.queryByTestId('techtree-gate-blockers')).toBeNull();
   });
 
   it('counts exactly as many outstanding items as it lists', () => {
@@ -240,10 +255,10 @@ describe('TechTreeEraProgress — the count must match what is shown', () => {
   });
 
   it('does not offer the Advance button while the phase blocks it', () => {
-    const fortifying = { ...gameState(allGatesMet), phase: 'fortify' } as unknown as GameState;
+    const attacking = { ...gameState(allGatesMet), phase: 'attack' } as unknown as GameState;
     render(
       <TechTreeEraProgress
-        gameState={fortifying}
+        gameState={attacking}
         player={player({ special_resource: 16 })}
         onAdvanceEra={vi.fn()}
         canAdvanceNow
