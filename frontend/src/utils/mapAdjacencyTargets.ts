@@ -257,3 +257,71 @@ export function listNeighborTargets(
 
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
+
+export interface DirectAttackSourceRow {
+  territoryId: string;
+  name: string;
+  unitCount: number;
+  /** Connection linking this source to the target — blitz eligibility reads it. */
+  connectionType?: string;
+}
+
+/**
+ * Which of the viewer's territories could strike `targetTerritoryId` right now,
+ * strongest stack first.
+ *
+ * This is the "click theirs, then pick who swings" half of the attack flow.
+ * Without it, opening an enemy's panel with no attacker armed was a dead end —
+ * the panel's own attack button needs an armed source and "Select as Attacker"
+ * needs the territory to be yours, so neither rendered and the only way forward
+ * was to navigate back to one of your own territories first.
+ *
+ * Legality is delegated to `listNeighborTargets`, the same helper the neighbour
+ * picker runs on, so this can never offer an attack the server would reject.
+ * Returns [] when it isn't the viewer's attack phase or the target isn't an
+ * enemy — callers don't have to re-check.
+ */
+export function listDirectAttackSources(
+  gameState: GameState,
+  connections: MapConnection[],
+  targetTerritoryId: string,
+  viewerId: string | null | undefined,
+  territoryNames: Map<string, string>,
+  options: { worldNameOf?: (territoryId: string) => string | undefined } = {},
+): DirectAttackSourceRow[] {
+  if (!gameState || !viewerId || gameState.phase !== 'attack') return [];
+  const targetOwner = gameState.territories[targetTerritoryId]?.owner_id;
+  // Enemy-held or a capturable neutral; never your own territory.
+  if (targetOwner === viewerId) return [];
+
+  const adjacentMine = new Set<string>();
+  for (const conn of connections) {
+    const other =
+      conn.from === targetTerritoryId ? conn.to : conn.to === targetTerritoryId ? conn.from : null;
+    if (!other) continue;
+    const t = gameState.territories[other];
+    // ≥2 units: one must stay behind to hold the source.
+    if (t?.owner_id === viewerId && (t.unit_count ?? 0) >= 2) adjacentMine.add(other);
+  }
+
+  return [...adjacentMine]
+    .filter((sourceId) =>
+      listNeighborTargets(gameState, connections, sourceId, territoryNames, {
+        attackSource: sourceId,
+        worldNameOf: options.worldNameOf,
+      }).some((n) => n.territoryId === targetTerritoryId),
+    )
+    .map((sourceId) => ({
+      territoryId: sourceId,
+      name: territoryNames.get(sourceId) ?? sourceId,
+      unitCount: gameState.territories[sourceId]?.unit_count ?? 0,
+      connectionType: connections.find(
+        (c) =>
+          (c.from === sourceId && c.to === targetTerritoryId) ||
+          (c.from === targetTerritoryId && c.to === sourceId),
+      )?.type,
+    }))
+    // Strongest first: the stack most likely to win leads. Name breaks ties so
+    // the order is stable across renders.
+    .sort((a, b) => b.unitCount - a.unitCount || a.name.localeCompare(b.name));
+}

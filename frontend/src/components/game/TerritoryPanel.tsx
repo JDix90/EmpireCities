@@ -6,6 +6,7 @@ import { Shield, Sword, X, Anchor, Flag, ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { canOfferBlitz } from '../../utils/blitzEligibility';
+import { plural } from '../../utils/plural';
 import { useAttackBlitzEnabled } from '../../store/featureFlagsStore';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
@@ -22,7 +23,7 @@ import {
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
 import NeighborTerritoryPicker from './NeighborTerritoryPicker';
-import { listNeighborTargets, type MapConnection } from '../../utils/mapAdjacencyTargets';
+import { listNeighborTargets, listDirectAttackSources, type MapConnection } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
 
@@ -301,6 +302,32 @@ export default function TerritoryPanel({
     [attackNeighbors, selectedTerritory],
   );
 
+  /**
+   * Which of my territories could strike the enemy I'm currently looking at, so
+   * landing on an enemy panel with nothing armed offers the attack instead of
+   * dead-ending. `attackSource` set means an attacker is already chosen and the
+   * regular attack button below covers it.
+   */
+  const directAttackSources = React.useMemo(
+    () =>
+      isMyTurn && isEnemy && !attackSource
+        ? listDirectAttackSources(gameState, mapConnections, selectedTerritory, myPlayerId, territoryNameById, {
+            worldNameOf: (id) => worldNameByTerritoryId.get(id),
+          })
+        : [],
+    [
+      isMyTurn,
+      gameState,
+      isEnemy,
+      myPlayerId,
+      attackSource,
+      selectedTerritory,
+      mapConnections,
+      territoryNameById,
+      worldNameByTerritoryId,
+    ],
+  );
+
   // "Blitz until captured": same legality as the single attack, minus the
   // cases the server refuses to auto-repeat (sea lanes, truces, dailies).
   const attackConnectionType = attackSource
@@ -321,6 +348,20 @@ export default function TerritoryPanel({
         gameState.settings.daily_challenge_date.length > 0,
     });
   const blitzIsPrimary = blitzOffered && getFastCombatPreference();
+
+  /** Does at least one direct-attack source support blitz? Drives column alignment. */
+  const blitzOfferedForAnySource =
+    !!onBlitzAttack &&
+    directAttackSources.some((src) =>
+      canOfferBlitz({
+        flagEnabled: attackBlitzFlag,
+        hasActiveTruce,
+        connectionType: src.connectionType,
+        isDailyChallenge:
+          typeof gameState.settings?.daily_challenge_date === 'string' &&
+          gameState.settings.daily_challenge_date.length > 0,
+      }),
+    );
 
   const fortifyNeighborSourceId =
     gameState.phase === 'fortify' && attackSource && gameState.territories[attackSource]?.owner_id === myPlayerId
@@ -661,6 +702,75 @@ export default function TerritoryPanel({
                 >
                   <Sword className="w-4 h-4" /> Select as Attacker
                 </button>
+              )}
+              {/*
+                Viewing an enemy with nothing armed: offer the strike from here.
+                One row per eligible neighbour of mine, strongest first — so the
+                common case (a single bordering stack) is a single click, and the
+                multi-source case is still one click once you've picked which
+                stack to spend. `Select as Attacker` stays available on my own
+                territories for repeat attacks; it is no longer the toll for a
+                first one.
+              */}
+              {directAttackSources.length > 0 && (
+                <div className="space-y-1.5">
+                  {directAttackSources.length > 1 && (
+                    <p className="text-[11px] text-bf-muted/90 leading-snug">
+                      {directAttackSources.length} of your territories border this one.
+                    </p>
+                  )}
+                  {directAttackSources.map((src, _i, rows) => {
+                    const canBlitz =
+                      !!onBlitzAttack &&
+                      canOfferBlitz({
+                        flagEnabled: attackBlitzFlag,
+                        hasActiveTruce,
+                        connectionType: src.connectionType,
+                        isDailyChallenge:
+                          typeof gameState.settings?.daily_challenge_date === 'string' &&
+                          gameState.settings.daily_challenge_date.length > 0,
+                      });
+                    return (
+                      <div key={src.territoryId} className="flex items-stretch gap-1.5">
+                        <button
+                          className={clsx(
+                            'flex-1 text-sm text-left flex items-center gap-2',
+                            hasActiveTruce ? 'btn-warning' : 'btn-danger',
+                          )}
+                          onClick={() => onAttack(src.territoryId, selectedTerritory)}
+                        >
+                          {hasActiveTruce ? <span aria-hidden>⚠</span> : <Sword className="w-4 h-4 shrink-0" />}
+                          {/* Name and strength on separate lines: centred with a
+                              "· N" suffix, a long territory name wrapped and left
+                              the count orphaned on its own line. */}
+                          <span className="min-w-0">
+                            <span className="block truncate">
+                              {hasActiveTruce ? 'Break truce — attack' : 'Attack'} from {src.name}
+                            </span>
+                            <span className="block text-[11px] opacity-75">
+                              {plural(src.unitCount, 'unit')}
+                            </span>
+                          </span>
+                        </button>
+                        {canBlitz ? (
+                          <button
+                            className="min-w-[44px] rounded-lg bg-bf-gold/15 hover:bg-bf-gold/25
+                                       border border-bf-gold/40 text-bf-gold font-medium transition-all"
+                            onClick={() => onBlitzAttack!(src.territoryId, selectedTerritory)}
+                            aria-label={`Blitz ${selectedTerritory} from ${src.name} until captured`}
+                            title="Attack repeatedly until the territory falls or you can no longer attack"
+                          >
+                            ⚡
+                          </button>
+                        ) : rows.length > 1 && blitzOfferedForAnySource ? (
+                          // Hold the column so a source that can't blitz (a sea
+                          // crossing, say) doesn't leave the list looking ragged.
+                          <span className="min-w-[44px]" aria-hidden />
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
               {/* Re-pick the attacker without cancelling first: viewing a
                   different own territory while an attacker is already locked. */}

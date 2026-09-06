@@ -1,6 +1,7 @@
 import clsx from 'clsx';
-import { Anchor, Sword, Rocket, Lock } from 'lucide-react';
+import { Anchor, Sword, Rocket, Lock, Info } from 'lucide-react';
 import type { NeighborTargetRow } from '../../utils/mapAdjacencyTargets';
+import { plural } from '../../utils/plural';
 
 interface NeighborTerritoryPickerProps {
   phase: 'attack' | 'fortify';
@@ -49,7 +50,7 @@ export default function NeighborTerritoryPicker({
       {!compact && (
         <p className="text-[11px] text-bf-muted/90 leading-snug">
           {phase === 'attack'
-            ? 'Choose a neighboring territory to attack. These buttons work even when map lines overlap.'
+            ? 'Tap a neighbour to attack it, or ⓘ to size it up first. These work even when map lines overlap.'
             : 'Choose a neighboring friendly territory to move troops into.'}
         </p>
       )}
@@ -71,54 +72,69 @@ export default function NeighborTerritoryPicker({
             : phase === 'attack'
               ? 'border-red-700/50 bg-red-950/35 text-red-100 hover:border-red-500/70 hover:bg-red-900/40'
               : 'border-emerald-700/45 bg-emerald-950/30 text-emerald-100 hover:border-emerald-500/60 hover:bg-emerald-900/35';
+          const isAttack = phase === 'attack' && !!onAttack;
           return (
             <div key={neighbor.territoryId} className={clsx('flex items-stretch gap-1', compact && 'shrink-0')}>
+              {/*
+                In the attack phase the WIDE button is the attack and the narrow
+                one inspects. It used to be the other way round: the ~10rem row
+                only navigated to the territory, and the actual attack was a
+                36-40px sword beside it. Players (and a scripted playthrough)
+                read the row as "attack this", got moved to the target's panel
+                instead, and found nothing to press there — which is what pushed
+                them into the four-click Select-as-Attacker route.
+              */}
               <button
                 type="button"
                 disabled={locked}
                 title={locked ? orbitLockReason : undefined}
                 className={clsx(
-                  'rounded-md border text-left text-xs transition-colors touch-manipulation',
+                  'flex-1 rounded-md border text-left text-xs transition-colors touch-manipulation',
                   compact ? 'min-h-[32px] px-2 py-1' : 'min-h-[36px] px-2.5 py-1.5',
                   accent,
                   locked && 'opacity-50 cursor-not-allowed',
                 )}
-                onClick={() => { if (!locked) onSelect(neighbor.territoryId); }}
+                aria-label={
+                  locked
+                    ? `${neighbor.name} locked — ${orbitLockReason ?? 'hyperspace travel required'}`
+                    : isAttack
+                      ? isOrbit
+                        ? `Hyperspace assault on ${neighbor.targetWorldName ?? neighbor.name}`
+                        : `Attack ${neighbor.name}`
+                      : `Select ${neighbor.name}`
+                }
+                onClick={() => {
+                  if (locked) return;
+                  if (isAttack) onAttack!(neighbor.territoryId);
+                  else onSelect(neighbor.territoryId);
+                }}
               >
                 <span className={clsx('font-medium flex items-center gap-1', compact ? 'max-w-[8rem]' : 'max-w-[10rem]')}>
-                  {isOrbit && <Rocket className="w-3 h-3 shrink-0" aria-hidden="true" />}
+                  {isAttack
+                    ? <Sword className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    : isOrbit && <Rocket className="w-3 h-3 shrink-0" aria-hidden="true" />}
                   <span className="truncate min-w-0">{neighbor.name}</span>
                   {locked && <Lock className="w-3 h-3 shrink-0 ml-0.5 opacity-80" aria-hidden="true" />}
                 </span>
                 <span className="text-[10px] opacity-75 block whitespace-nowrap">
-                  {neighbor.unitCount === -1 ? '? units' : `${neighbor.unitCount} units`}
+                  {neighbor.unitCount === -1 ? '? units' : plural(neighbor.unitCount, 'unit')}
                   {neighbor.isSea ? ' · sea' : ''}
                   {isOrbit ? ` · ${neighbor.targetWorldName ?? 'hyperspace'}` : ''}
                 </span>
               </button>
-              {phase === 'attack' && onAttack && (
+              {isAttack && (
                 <button
                   type="button"
-                  disabled={locked}
-                  title={locked ? orbitLockReason : undefined}
                   className={clsx(
-                    'rounded-md border touch-manipulation',
-                    isOrbit
-                      ? 'border-violet-500/60 bg-violet-900/50 text-violet-100 hover:bg-violet-800/60'
-                      : 'border-red-600/60 bg-red-900/50 text-red-100 hover:bg-red-800/60',
-                    compact ? 'min-w-[36px] min-h-[32px] px-1.5' : 'min-w-[40px] min-h-[36px] px-2',
-                    locked && 'opacity-50 cursor-not-allowed',
+                    'rounded-md border touch-manipulation border-bf-border/70 bg-bf-dark/60',
+                    'text-bf-muted hover:text-bf-text hover:border-bf-border',
+                    compact ? 'min-w-[32px] min-h-[32px] px-1' : 'min-w-[36px] min-h-[36px] px-1.5',
                   )}
-                  aria-label={
-                    locked
-                      ? `${neighbor.name} locked — ${orbitLockReason ?? 'hyperspace travel required'}`
-                      : isOrbit
-                        ? `Hyperspace assault on ${neighbor.targetWorldName ?? neighbor.name}`
-                        : `Attack ${neighbor.name}`
-                  }
-                  onClick={() => { if (!locked) onAttack(neighbor.territoryId); }}
+                  aria-label={`Inspect ${neighbor.name} before attacking`}
+                  title={`Inspect ${neighbor.name}`}
+                  onClick={() => onSelect(neighbor.territoryId)}
                 >
-                  {locked ? <Lock className="w-3.5 h-3.5 mx-auto" /> : <Sword className="w-3.5 h-3.5 mx-auto" />}
+                  <Info className="w-3.5 h-3.5 mx-auto" />
                 </button>
               )}
               {phase === 'fortify' && neighbor.isSea && (

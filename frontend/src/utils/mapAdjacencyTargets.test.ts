@@ -4,6 +4,7 @@ import {
   listNeighborTargets,
   computeValidSources,
   computeFortifyReachable,
+  listDirectAttackSources,
 } from './mapAdjacencyTargets';
 import type { GameState } from '../store/gameStore';
 
@@ -224,5 +225,87 @@ describe('listNeighborTargets — hyperspace (orbit) targets', () => {
     expect(orbitRow?.targetWorldName).toBe('Verdan Reach');
     expect(landRow?.isOrbit).toBe(false);
     expect(landRow?.targetWorldName).toBeUndefined();
+  });
+});
+
+describe('listDirectAttackSources', () => {
+  const names = new Map([
+    ['rome', 'Rome'],
+    ['milan', 'Milan'],
+    ['turin', 'Turin'],
+    ['genoa', 'Genoa'],
+  ]);
+
+  /** p1 holds rome/turin/genoa; p2 holds milan. Every link touches milan. */
+  function siegeState(overrides: Record<string, { owner_id: string | null; unit_count: number }> = {}): GameState {
+    return {
+      phase: 'attack',
+      territories: {
+        rome: { territory_id: 'rome', owner_id: 'p1', unit_count: 5 },
+        turin: { territory_id: 'turin', owner_id: 'p1', unit_count: 9 },
+        genoa: { territory_id: 'genoa', owner_id: 'p1', unit_count: 1 },
+        milan: { territory_id: 'milan', owner_id: 'p2', unit_count: 3 },
+        ...overrides,
+      },
+      players: [
+        { player_id: 'p1', username: 'Human', color: '#f00', player_index: 0, is_ai: false },
+        { player_id: 'p2', username: 'AI', color: '#00f', player_index: 1, is_ai: true },
+      ],
+    } as unknown as GameState;
+  }
+
+  const siegeConnections = [
+    { from: 'rome', to: 'milan', type: 'land' as const },
+    { from: 'milan', to: 'turin', type: 'sea' as const },
+    { from: 'genoa', to: 'milan', type: 'land' as const },
+  ];
+
+  it('lists every bordering territory of mine that could strike, strongest first', () => {
+    const rows = listDirectAttackSources(siegeState(), siegeConnections, 'milan', 'p1', names);
+    // genoa is excluded: 1 unit can't attack (one must stay behind).
+    expect(rows.map((r) => r.territoryId)).toEqual(['turin', 'rome']);
+    expect(rows[0]).toMatchObject({ name: 'Turin', unitCount: 9, connectionType: 'sea' });
+    expect(rows[1]).toMatchObject({ name: 'Rome', unitCount: 5, connectionType: 'land' });
+  });
+
+  it('reports the connection type in either direction (blitz eligibility reads it)', () => {
+    // rome→milan is stored from-rome; milan→turin is stored from-milan. Both resolve.
+    const rows = listDirectAttackSources(siegeState(), siegeConnections, 'milan', 'p1', names);
+    expect(rows.find((r) => r.territoryId === 'rome')?.connectionType).toBe('land');
+    expect(rows.find((r) => r.territoryId === 'turin')?.connectionType).toBe('sea');
+  });
+
+  it('offers nothing for a territory I already own', () => {
+    expect(listDirectAttackSources(siegeState(), siegeConnections, 'rome', 'p1', names)).toEqual([]);
+  });
+
+  it('offers nothing outside the attack phase', () => {
+    const fortifying = { ...siegeState(), phase: 'fortify' } as unknown as GameState;
+    expect(listDirectAttackSources(fortifying, siegeConnections, 'milan', 'p1', names)).toEqual([]);
+  });
+
+  it('offers nothing without a viewer', () => {
+    expect(listDirectAttackSources(siegeState(), siegeConnections, 'milan', null, names)).toEqual([]);
+  });
+
+  it('offers a capturable neutral frontier the same way, when the rules allow it', () => {
+    const neutral = {
+      ...siegeState({ milan: { owner_id: null, unit_count: 2 } }),
+      settings: { era_advancement_enabled: true },
+    } as unknown as GameState;
+    const rows = listDirectAttackSources(neutral, siegeConnections, 'milan', 'p1', names);
+    expect(rows.map((r) => r.territoryId)).toEqual(['turin', 'rome']);
+  });
+
+  it('does not offer a neutral the rules make untakeable', () => {
+    // Same board, era advancement off and no orbit lane: computePhaseAdjacencyTargets
+    // refuses the neutral, so this must too rather than offering a doomed click.
+    const neutral = siegeState({ milan: { owner_id: null, unit_count: 2 } });
+    expect(listDirectAttackSources(neutral, siegeConnections, 'milan', 'p1', names)).toEqual([]);
+  });
+
+  it('falls back to the territory id when no display name is known', () => {
+    const rows = listDirectAttackSources(siegeState(), siegeConnections, 'milan', 'p1', new Map());
+    expect(rows.map((r) => r.name)).toEqual(['turin', 'rome']);
   });
 });
