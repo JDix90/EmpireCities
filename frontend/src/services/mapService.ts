@@ -26,6 +26,8 @@ export interface Connection {
   from: string;
   to: string;
   type: 'land' | 'sea' | 'orbit';
+  /** Engine-added orbit lane opened by a Launch Pad; never in authored maps. */
+  source?: 'launch_pad';
 }
 
 export interface Region {

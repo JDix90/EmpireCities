@@ -3,7 +3,7 @@
 // ============================================================
 
 import { inferWorldId } from '@borderfall/shared';
-import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode } from '../../types';
+import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
 
 export interface MoonAccessState {
   hasTech: boolean;
@@ -178,6 +178,149 @@ export function getOrbitAccessResult(
   const hasTech = player.unlocked_techs?.includes('ga_hyperspace_chart') ?? false;
   if (hasTech) return { allowed: true, missing: [], mode };
   return { allowed: false, missing: ['Hyperspace Chart tech'], mode };
+}
+
+// ============================================================
+// Launch Pad lanes — a pad opens an orbit lane to the nearest landing zone
+// ============================================================
+
+/**
+ * The authored Space Age map has exactly three orbit lanes, so a player who
+ * finished the whole Space Program without holding Cape Canaveral, Kourou or
+ * Gobi had no edge to cross (measured: 0 Moon captures for such players across
+ * 480 simulated seats). A Launch Pad now opens its own lane from the pad's
+ * territory to the nearest authored landing zone, so the building is the
+ * route and the authored spaceports are free shortcuts rather than a hard
+ * geographic requirement. Access across the lane is still decided by
+ * getOrbitAccessResult; the lane only exists.
+ */
+export const LAUNCH_PAD_LANE_SOURCE = 'launch_pad' as const;
+
+export interface LandingZone {
+  /** Earth endpoint of the authored orbit lane the pad is closest to. */
+  earthAnchor: string;
+  /** Moon endpoint of that lane — where the pad's lane lands. */
+  moonTarget: string;
+}
+
+function isAuthoredOrbitLane(c: MapConnection): boolean {
+  return c.type === 'orbit' && c.source !== LAUNCH_PAD_LANE_SOURCE;
+}
+
+/**
+ * Authored orbit lanes as (Earth anchor, Moon target) pairs, in authored order
+ * so hop-distance ties resolve deterministically.
+ */
+function authoredLandingZones(map: GameMap): LandingZone[] {
+  const byId = new Map(map.territories.map((t) => [t.territory_id, t]));
+  const zones: LandingZone[] = [];
+  for (const c of map.connections) {
+    if (!isAuthoredOrbitLane(c)) continue;
+    const from = byId.get(c.from);
+    const to = byId.get(c.to);
+    if (!from || !to) continue;
+    const fromWorld = inferWorldId(from);
+    const toWorld = inferWorldId(to);
+    if (fromWorld === 'earth' && toWorld !== 'earth') zones.push({ earthAnchor: c.from, moonTarget: c.to });
+    else if (toWorld === 'earth' && fromWorld !== 'earth') zones.push({ earthAnchor: c.to, moonTarget: c.from });
+  }
+  return zones;
+}
+
+/**
+ * The landing zone a Launch Pad on `territoryId` would open a lane to: the
+ * authored anchor with the fewest hops from the pad over the map's current
+ * connections (any type). Null when the territory is off Earth, unknown, or
+ * the map has no authored orbit lane (nothing to be "nearest" to).
+ */
+export function nearestLandingZoneFor(map: GameMap, territoryId: string): LandingZone | null {
+  const origin = map.territories.find((t) => t.territory_id === territoryId);
+  if (!origin || inferWorldId(origin) !== 'earth') return null;
+  const zones = authoredLandingZones(map);
+  if (zones.length === 0) return null;
+
+  const adj = new Map<string, string[]>();
+  for (const c of map.connections) {
+    (adj.get(c.from) ?? adj.set(c.from, []).get(c.from)!).push(c.to);
+    (adj.get(c.to) ?? adj.set(c.to, []).get(c.to)!).push(c.from);
+  }
+  const visited = new Set<string>([territoryId]);
+  let frontier = [territoryId];
+  while (frontier.length > 0) {
+    // Scan a whole BFS layer before choosing, so equal-distance anchors tie
+    // break on authored order rather than on traversal order.
+    const hit = zones.find((z) => frontier.includes(z.earthAnchor));
+    if (hit) return hit;
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const n of adj.get(id) ?? []) {
+        if (visited.has(n)) continue;
+        visited.add(n);
+        next.push(n);
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+/** Territories on Earth whose buildings include a Launch Pad. */
+function launchPadTerritoryIds(map: GameMap, state: GameState): string[] {
+  const byId = new Map(map.territories.map((t) => [t.territory_id, t]));
+  return Object.values(state.territories)
+    .filter((t) => t.buildings?.includes('launch_pad') ?? false)
+    .map((t) => t.territory_id)
+    .filter((id) => {
+      const t = byId.get(id);
+      return !!t && inferWorldId(t) === 'earth';
+    })
+    .sort();
+}
+
+/**
+ * The orbit lanes every current Launch Pad should have. A pad next to an
+ * authored anchor that is already connected to the same Moon tile adds nothing.
+ */
+export function launchPadLaneConnections(map: GameMap, state: GameState): MapConnection[] {
+  const lanes: MapConnection[] = [];
+  for (const padId of launchPadTerritoryIds(map, state)) {
+    const zone = nearestLandingZoneFor(map, padId);
+    if (!zone) continue;
+    const alreadyLinked = map.connections.some(
+      (c) => c.source !== LAUNCH_PAD_LANE_SOURCE
+        && ((c.from === padId && c.to === zone.moonTarget) || (c.from === zone.moonTarget && c.to === padId)),
+    );
+    if (alreadyLinked) continue;
+    lanes.push({ from: padId, to: zone.moonTarget, type: 'orbit', source: LAUNCH_PAD_LANE_SOURCE });
+  }
+  return lanes;
+}
+
+/**
+ * Bring the game's map copy in line with its Launch Pads: add lanes for new
+ * pads, drop lanes whose pad is gone (an atom bomb clears buildings). Runs on
+ * room load as well as after each build, so a room rehydrated from the
+ * authored map regains its lanes. Returns true when the map changed.
+ */
+export function syncLaunchPadLanes(map: GameMap, state: GameState): boolean {
+  const wanted = launchPadLaneConnections(map, state);
+  const wantedKeys = new Set(wanted.map((c) => orbitLaneId(c.from, c.to)));
+  const existing = map.connections.filter((c) => c.source === LAUNCH_PAD_LANE_SOURCE);
+  const existingKeys = new Set(existing.map((c) => orbitLaneId(c.from, c.to)));
+  const stale = existing.filter((c) => !wantedKeys.has(orbitLaneId(c.from, c.to)));
+  const missing = wanted.filter((c) => !existingKeys.has(orbitLaneId(c.from, c.to)));
+  if (stale.length === 0 && missing.length === 0) return false;
+  const staleKeys = new Set(stale.map((c) => orbitLaneId(c.from, c.to)));
+  // Replace the array rather than mutating it: consumers cache adjacency keyed
+  // on `map.connections` identity, so an in-place push leaves them reading a
+  // graph without the new lane (the AI planner did exactly that).
+  map.connections = [
+    ...map.connections.filter(
+      (c) => c.source !== LAUNCH_PAD_LANE_SOURCE || !staleKeys.has(orbitLaneId(c.from, c.to)),
+    ),
+    ...missing,
+  ];
+  return true;
 }
 
 /**

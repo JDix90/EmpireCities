@@ -68,6 +68,8 @@ import {
   canSealLane,
   tickLaneBlockades,
   GALAXY_LANE_SEAL_DURATION,
+  syncLaunchPadLanes,
+  nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -2446,6 +2448,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         buildProbBefore,
       );
       socket.emit('game:build_result', { territoryId, buildingType, success: true });
+      if (buildingType === 'launch_pad') {
+        await announceLaunchPadLane(io, gameId, room, currentPlayer, territoryId);
+      }
       // Quest check: first building
       checkOnboardingQuests(userId, 'build').catch(() => {});
       // Announce wonder construction to the whole room
@@ -4046,6 +4051,48 @@ async function applyEraBoardChange(
   return currentMap;
 }
 
+/**
+ * A new Launch Pad opens an orbit lane in the game's map copy. The lane has to
+ * reach every consumer of `map.connections` — adjacency checks, the AI planner,
+ * the client's target picker and both map renderers — so the map is persisted
+ * and re-sent rather than each of them learning about virtual edges. Only fires
+ * when the pad actually added a lane (a pad on the Moon, or one beside an
+ * authored spaceport already linked to the same landing zone, adds nothing).
+ */
+async function announceLaunchPadLane(
+  io: Server,
+  gameId: string,
+  room: ActiveGameRoom,
+  builder: PlayerState,
+  territoryId: string,
+): Promise<void> {
+  const { state, map } = room;
+  if (!state.territories[territoryId]?.buildings?.includes('launch_pad')) return;
+  if (!syncLaunchPadLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] launch pad lane persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+  const zone = nearestLandingZoneFor(map, territoryId);
+  const lane = map.connections.find(
+    (c) => c.source === 'launch_pad' && (c.from === territoryId || c.to === territoryId),
+  );
+  const moonTargetId = lane ? (lane.from === territoryId ? lane.to : lane.from) : zone?.moonTarget;
+  if (!moonTargetId) return;
+  const payload = {
+    playerId: builder.player_id,
+    playerName: builder.username,
+    playerColor: builder.color,
+    territoryId,
+    moonTargetId,
+  };
+  io.to(gameId).emit('game:orbit_lane_opened', payload);
+  queueSpectatorEvent(gameId, 'game:orbit_lane_opened', payload);
+}
+
 function broadcastState(io: Server, gameId: string, state: GameState): void {
     // Runtime tripwire: no owned territory should ever have 0 units. If this
     // ever fires, a game-engine path wrote an illegal state (leave-1 rule
@@ -5068,6 +5115,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       const buildDecision = selectAiBuildingPlacement(state, map, currentPlayer.player_id, difficulty);
       if (buildDecision) {
         applyBuild(state, currentPlayer.player_id, buildDecision.territoryId, buildDecision.buildingType);
+        if (buildDecision.buildingType === 'launch_pad') {
+          await announceLaunchPadLane(io, gameId, room, currentPlayer, buildDecision.territoryId);
+        }
       }
     }
     if (state.settings.tech_trees_enabled) {

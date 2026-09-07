@@ -989,6 +989,13 @@ export interface MapConnection {
   from: string;
   to: string;
   type: ConnectionType;
+  /**
+   * Set on connections the engine adds to a game's map copy rather than the
+   * authored file: a Launch Pad opens an orbit lane from its territory to the
+   * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`).
+   * Authored maps never carry this field.
+   */
+  source?: 'launch_pad';
 }
 
 export interface MapRegion {

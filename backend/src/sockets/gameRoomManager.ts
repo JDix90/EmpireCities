@@ -10,6 +10,7 @@ import {
 } from '../game-engine/state/gameStateManager';
 import type { GameState, GameMap } from '../types';
 import { ERA_GROWTH_MAP_IDS, mapHasEraGrowth, repairEraTerritoryGrowth } from '../game-engine/eraAdvancement/territoryUnlock';
+import { syncLaunchPadLanes } from '../game-engine/state/moonAccess';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
 import {
@@ -140,6 +141,9 @@ function repairRoom(state: GameState, map: GameMap): void {
   // Backfill territory growth for games that predate the map's growth content
   // (idempotent; no-op for non-growth maps / non-era-advancement games).
   repairEraTerritoryGrowth(state, map);
+  // Launch Pad orbit lanes live only in the game's map copy; a room rebuilt
+  // from the authored map (Postgres recovery) must regain them from state.
+  syncLaunchPadLanes(map, state);
 }
 
 /**

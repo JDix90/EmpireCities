@@ -17,6 +17,7 @@ import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import { getEffectiveTechCost } from '../state/techManager';
 import {
   connectionRequiresMoonAccess,
+  nearestLandingZoneFor,
   getOrbitAccessResult,
   isLaneSealedForPlayer,
 } from '../state/moonAccess';
@@ -693,10 +694,16 @@ function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): 
 // map_id: a Map<string, …> here would grow without bound as community maps
 // arrive, and — worse — would serve stale adjacency for an edited map that
 // keeps its id. A WeakMap lives exactly as long as the loaded map object.
-const adjacencyCache = new WeakMap<GameMap, Record<string, string[]>>();
+/**
+ * Keyed on the connections array, not the map: a game's map is mutated in place
+ * when a Launch Pad opens an orbit lane, and a map-keyed cache then served the
+ * planner a graph without that lane for the rest of the game. Every writer
+ * replaces `map.connections` wholesale, so array identity tracks the graph.
+ */
+const adjacencyCache = new WeakMap<GameMap['connections'], Record<string, string[]>>();
 
 function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
-  const cached = adjacencyCache.get(map);
+  const cached = adjacencyCache.get(map.connections);
   if (cached) return cached;
   const adj: Record<string, string[]> = {};
   for (const t of map.territories) {
@@ -706,7 +713,7 @@ function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
     adj[conn.from]?.push(conn.to);
     adj[conn.to]?.push(conn.from);
   }
-  adjacencyCache.set(map, adj);
+  adjacencyCache.set(map.connections, adj);
   return adj;
 }
 
@@ -861,10 +868,14 @@ export function selectAiBuildingPlacement(
     state.era === 'space_age'
     && !owned.some((tid) => state.territories[tid].buildings?.includes('launch_pad'))
   ) {
-    const byUnits = [...owned].sort(
-      (a, b) => state.territories[b].unit_count - state.territories[a].unit_count,
-    );
-    const result = tryBuild('launch_pad', byUnits);
+    // The pad opens an orbit lane from its own territory, so the site matters:
+    // a pad already beside an authored spaceport gets no new lane, and one deep
+    // inland lands on whichever landing zone is closest. Prefer the strongest
+    // garrison among Earth tiles that would actually open a lane.
+    const ranked = [...owned]
+      .filter((tid) => nearestLandingZoneFor(map, tid) !== null)
+      .sort((a, b) => state.territories[b].unit_count - state.territories[a].unit_count);
+    const result = tryBuild('launch_pad', ranked);
     if (result) return result;
   }
 
