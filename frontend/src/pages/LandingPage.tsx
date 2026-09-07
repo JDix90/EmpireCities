@@ -350,7 +350,7 @@ function GetStartedModal({
       >
         <p id="get-started-title" className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
         <p className="text-bf-muted text-sm text-center mb-6">
-          Jump straight in as a guest — no signup needed. Or create a free account to save your progress and climb the leaderboards.
+          Jump straight in as a guest — no signup needed. A guest account stays in the browser you made it in; create a free account when you want your progress to follow you and to climb the leaderboards.
         </p>
 
         <div className="flex flex-col gap-3">

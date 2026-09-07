@@ -7,6 +7,7 @@ import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, Ch
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
+import { bankedGoldNote } from '../../utils/signupNudge';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
@@ -1406,18 +1407,25 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         />
       )}
 
-      {/* Guest conversion: progression is the part guests keep — make the
-          claim explicit at the exact moment it was just earned. Skipped in
-          tutorial games, which run their own account prompt. */}
+      {/* Guest conversion at the moment progression was just earned. Names
+          what is actually at stake rather than "make them permanent": a guest
+          row has no email or password the player can sign in with, so this
+          browser's cookie is the only route back to it. Skipped in tutorial
+          games, which run their own account prompt. */}
       {user?.is_guest && onUpgradeAccount && !data.rematchConfig?.settings?.tutorial && (
         <div className={clsx(
           'mb-6 p-4 rounded-xl bg-bf-gold/10 border border-bf-gold/30 transition-all duration-500 delay-450',
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
           <p className="text-sm text-bf-text mb-3">
-            Your XP, level, and streaks are saved to this guest session —{' '}
-            <span className="text-bf-gold font-medium">create a free account to make them permanent.</span>
+            Your XP, level and streaks are on a guest account — no email, no password, this browser only.{' '}
+            <span className="text-bf-gold font-medium">Create a free account to keep them on any device.</span>
           </p>
+          {bankedGoldNote(user?.gold) && (
+            <p className="text-sm text-bf-gold/90 mb-3" data-testid="gameover-banked-gold">
+              {bankedGoldNote(user?.gold)}
+            </p>
+          )}
           <button
             type="button"
             onClick={onUpgradeAccount}
