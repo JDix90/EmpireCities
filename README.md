@@ -376,8 +376,17 @@ Twelve sequential migrations build the full schema:
 
 | Key Pattern | Purpose |
 |---|---|
-| `leaderboard:{era}` | Sorted set of MMR scores per era |
-| `session:{userId}` | Active session metadata |
+| `game:{gameId}:state` | Authoritative live game state (7-day TTL, refreshed on activity) |
+| `game:{gameId}:map` | The game's map document |
+| `game:{gameId}:connected` | Connected-player presence set |
+| `game:{gameId}:psockets:{playerId}` | Per-player socket ids |
+| `game:{gameId}:ai-flight` | In-flight AI-turn guard |
+| `game:{gameId}:lock` | Per-game redlock |
+| BullMQ queues | `game-turn-timer`, `async-deadlines`, retention notifications |
+
+Leaderboards are Postgres `user_ratings` (`modules/leaderboard/`), with Redis used
+only as a plain JSON cache. Sessions are Postgres `refresh_tokens` — neither has a
+dedicated Redis key family.
 
 ### Migrating from legacy database names
 
