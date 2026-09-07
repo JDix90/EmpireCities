@@ -50,11 +50,11 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'draft_do',
     title: 'Place Your Reinforcements',
-    // Describes the real interaction, which is two clicks per placement: the
-    // territory opens a panel, and the units only land when Place is pressed.
-    // "Click a territory to place reinforcements" read as one click, so players
-    // clicked repeatedly and nothing moved.
-    message: `Click one of your territories — shown in **{playerColor}** — then use **+1**, **+5** or **Place all**. When every unit is down, click the gold **${phaseAdvanceLabel('draft')}** button.`,
+    // Describes the real interaction: the territory opens a panel, the stepper
+    // sets how many, and the units only land when Place is pressed. "Click a
+    // territory to place reinforcements" read as one click, so players clicked
+    // repeatedly and nothing moved.
+    message: `Click one of your territories — shown in **{playerColor}** — then dial how many with **−/+** (or **All**) and press **Place**. When every unit is down, click the gold **${phaseAdvanceLabel('draft')}** button.`,
     hint: 'Where you stack them decides which front you can open next. The gold button is in the sidebar on desktop, in the bottom bar on phones.',
     requireAction: 'end_phase',
   },

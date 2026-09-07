@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
@@ -89,7 +89,22 @@ interface TerritoryPanelProps {
  * at 1. These place on the first tap instead, with Undo (server-backed,
  * `game:draft_undo`) as the safety net rather than a pre-commit counter.
  */
-function QuickPlace({
+/**
+ * Reinforcement placement: dial an amount, place it once.
+ *
+ * This used to be +1 / +5 / Place all, where every button committed
+ * immediately — so putting three units somewhere meant three clicks and three
+ * server round trips, each one re-rendering the panel under the player's
+ * cursor. Any amount that wasn't 1, 5 or the whole pool was pure repetition,
+ * which is most of them.
+ *
+ * The stepper holds a pending amount instead and `onPlace` fires once. One
+ * unit is still a single press of the primary button (the amount starts at 1),
+ * "All" is two, and everything in between is finally reachable without
+ * hammering +1. Undo is unchanged — it reverts the last committed placement,
+ * not the dial.
+ */
+export function QuickPlace({
   pool,
   size = 'md',
   onPlace,
@@ -102,47 +117,105 @@ function QuickPlace({
   onUndo?: () => void;
   canUndo?: boolean;
 }) {
+  const [amount, setAmount] = useState(1);
+  const clamp = (n: number) => Math.min(Math.max(1, n), Math.max(1, pool));
+  // The pool shrinks as placements land and changes with the selected
+  // territory; never leave the dial showing more than the player still holds.
+  useEffect(() => {
+    setAmount((a) => Math.min(a, Math.max(1, pool)));
+  }, [pool]);
+
   const big = size === 'lg';
   const btn = clsx(
     'rounded-lg border border-bf-border bg-bf-dark text-bf-text font-semibold',
     'hover:bg-bf-border transition-colors touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed',
     big ? 'min-h-[48px] px-3 text-base' : 'min-h-[44px] px-3 text-sm',
   );
-  // +5 is pointless below 5 (Max already covers it) and misleading — it would
-  // silently place fewer than it says.
-  const steps: number[] = pool >= 5 ? [1, 5] : [1];
+  const stepBtn = clsx(btn, big ? 'min-w-[48px]' : 'min-w-[44px]');
+  const shown = clamp(amount);
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {steps.map((n) => (
-        <button
-          key={n}
-          type="button"
-          className={btn}
-          data-testid={`draft-place-${n}`}
-          onClick={() => onPlace(Math.min(n, pool))}
-        >
-          +{n}
-        </button>
-      ))}
-      <button
-        type="button"
-        className={clsx(btn, 'btn-primary flex-1')}
-        data-testid="draft-place-max"
-        onClick={() => onPlace(pool)}
-      >
-        Place all {pool}
-      </button>
-      {onUndo && (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className={btn}
-          disabled={!canUndo}
-          data-testid="draft-undo"
-          onClick={onUndo}
+          className={stepBtn}
+          data-testid="draft-amount-dec"
+          aria-label="One fewer unit"
+          disabled={shown <= 1}
+          onClick={() => setAmount((a) => clamp(a - 1))}
         >
-          Undo
+          −
         </button>
-      )}
+        <span
+          className={clsx(
+            'tabular-nums text-center font-bold text-bf-gold',
+            big ? 'min-w-[3rem] text-2xl' : 'min-w-[2.5rem] text-xl',
+          )}
+          data-testid="draft-amount"
+          aria-live="polite"
+          aria-label={`${shown} of ${pool} units selected`}
+        >
+          {shown}
+        </span>
+        <button
+          type="button"
+          className={stepBtn}
+          data-testid="draft-amount-inc"
+          aria-label="One more unit"
+          disabled={shown >= pool}
+          onClick={() => setAmount((a) => clamp(a + 1))}
+        >
+          +
+        </button>
+        {/* A long dial is its own kind of tedium: skip five at a time when
+            there are at least that many left to place. */}
+        {pool >= 5 && (
+          <button
+            type="button"
+            className={btn}
+            data-testid="draft-amount-plus5"
+            aria-label="Five more units"
+            disabled={shown >= pool}
+            onClick={() => setAmount((a) => clamp(a + 5))}
+          >
+            +5
+          </button>
+        )}
+        <button
+          type="button"
+          className={btn}
+          data-testid="draft-amount-all"
+          disabled={shown >= pool}
+          onClick={() => setAmount(pool)}
+        >
+          All {pool}
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className={clsx(btn, 'btn-primary flex-1')}
+          data-testid="draft-place"
+          onClick={() => {
+            onPlace(shown);
+            setAmount(1);
+          }}
+        >
+          Place {shown}
+        </button>
+        {onUndo && (
+          <button
+            type="button"
+            className={btn}
+            disabled={!canUndo}
+            data-testid="draft-undo"
+            onClick={onUndo}
+          >
+            Undo
+          </button>
+        )}
+      </div>
     </div>
   );
 }
