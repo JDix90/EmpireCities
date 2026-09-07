@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import { bankedGoldNote } from '../../utils/signupNudge';
+import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { api } from '../../services/api';
@@ -1112,7 +1113,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   data: GameOverModalData;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
-  onWatchReplay?: (gameId: string) => void;
+  onWatchReplay?: (gameId: string, opts?: { withChronicle?: boolean }) => void;
   /** Deep-links into the replay's auto-generated share clip (clip=auto). */
   onShareClip?: (gameId: string) => void;
   onChallengeFriend?: () => void;
@@ -1120,7 +1121,12 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
 }) {
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
-  const [statsTab, setStatsTab] = useState<'result' | 'stats'>('result');
+  const [statsTab, setStatsTab] = useState<'result' | 'stats' | 'chronicle'>('result');
+  // The match read back as a dated history. Fetched with the modal rather than
+  // on tab click, so the tab can be hidden outright when there is no chronicle
+  // to show — a game too short to have beats, or one this viewer didn't play.
+  const { entries: chronicle } = useChronicle(data.gameId ?? undefined);
+  const hasChronicle = (chronicle?.length ?? 0) > 0;
 
   const { user } = useAuthStore();
   const [shareOpen, setShareOpen] = useState(false);
@@ -1479,7 +1485,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         'mb-4 flex border-b border-white/10 transition-all duration-500 delay-500',
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        {(['result', 'stats'] as const).map((tab) => (
+        {(hasChronicle ? (['result', 'stats', 'chronicle'] as const) : (['result', 'stats'] as const)).map((tab) => (
           <button
             key={tab}
             onClick={() => setStatsTab(tab)}
@@ -1490,12 +1496,33 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                 : 'text-white/30 hover:text-white/50',
             )}
           >
-            {tab === 'result' ? 'Results' : 'Match Stats'}
+            {tab === 'result' ? 'Results' : tab === 'stats' ? 'Match Stats' : 'Chronicle'}
           </button>
         ))}
       </div>
 
-      {statsTab === 'stats' ? (
+      {statsTab === 'chronicle' && hasChronicle ? (
+        /* ── Chronicle Tab ───────────────────────────────────────────────── */
+        /* The story the numbers on the other two tabs are a summary of. */
+        <div className={clsx(
+          'mb-6 transition-all duration-500 delay-500',
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+        )}>
+          <div className="rounded-xl border border-white/10 overflow-hidden" data-testid="gameover-chronicle">
+            <ChronicleList entries={chronicle!} />
+          </div>
+          {onWatchReplay && data.gameId && (
+            <button
+              type="button"
+              onClick={() => onWatchReplay(data.gameId!, { withChronicle: true })}
+              className="mt-3 w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10
+                         text-white/70 hover:text-white text-sm font-medium transition-all"
+            >
+              Watch it play out →
+            </button>
+          )}
+        </div>
+      ) : statsTab === 'stats' ? (
         /* ── Match Stats Tab ─────────────────────────────────────────────── */
         <div className={clsx(
           'mb-6 transition-all duration-500 delay-500',
@@ -1943,7 +1970,7 @@ interface ActionModalProps {
   onBlitzCombat?: (fromId: string, toId: string) => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
-  onWatchReplay?: (gameId: string) => void;
+  onWatchReplay?: (gameId: string, opts?: { withChronicle?: boolean }) => void;
   /** Deep-link into the replay's auto-generated share clip (rendered as a CTA on GameOverView). */
   onShareClip?: (gameId: string) => void;
   /** Open the "Challenge a friend" flow (rendered as a CTA on GameOverView). */
