@@ -2,8 +2,8 @@
  * Back-compat gate for the era advancement spine refactor.
  *
  * `__fixtures__/pre-spine-refactor-state.json` is a frozen game state produced
- * by the PRE-refactor code (generated once via
- * `scripts/captureEraAdvancementFixture.ts` — do not regenerate). It contains
+ * by the PRE-refactor code (generated once by a capture script that has since
+ * been removed — do not regenerate). It contains
  * the legacy shapes: `medieval_signature_charges`, a flat
  * `era_advancement_tech_echo` (stat -> number), and no `era_spine` snapshot.
  *
