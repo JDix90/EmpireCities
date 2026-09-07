@@ -126,7 +126,11 @@ export default function ProfilePage() {
       isOwnProfile ? api.get('/users/me') : api.get(`/users/${targetId}`),
       isOwnProfile ? api.get('/users/me/games') : Promise.resolve({ data: [] }),
       isOwnProfile ? api.get('/users/me/stats') : Promise.resolve({ data: null }),
-      isOwnProfile ? api.get('/users/me/achievements') : Promise.resolve({ data: [] }),
+      // Guest accounts are rejected from this endpoint (403). It is one panel of
+      // the page, not the page — swallow it like its sibling below, so a guest
+      // gets the profile (and the "create a free account" prompt on it) instead
+      // of an error card. Promise.all is all-or-nothing; one 403 took the lot.
+      isOwnProfile ? api.get('/users/me/achievements').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
       api.get('/users/achievements').catch(() => ({ data: [] })),
       isOwnProfile ? api.get('/users/me/achievements/progress').catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
     ]).then(([profileRes, gamesRes, statsRes, achRes, allAchRes, progressRes]) => {

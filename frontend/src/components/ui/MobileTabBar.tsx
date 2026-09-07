@@ -61,7 +61,10 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
                 <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               )}
               {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
-              {!isGuest && <MoreLink to="/settings" icon={Settings} label="Settings" onClick={() => setMoreOpen(false)} />}
+              {/* Settings is guest-aware (it hides the account-only rows), and it
+                  holds map view, lite mode and audio. Hiding it left a guest on a
+                  phone with no way to reach any display preference at all. */}
+              <MoreLink to="/settings" icon={Settings} label="Settings" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/terms" icon={FileText} label="Terms" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />
