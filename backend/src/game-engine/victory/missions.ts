@@ -1,5 +1,6 @@
 import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
+import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
 
 /**
@@ -52,14 +53,33 @@ export function assignSecretMissions(
   map: GameMap,
   rng: () => number,
 ): void {
-  // Orbit-gated territories (the Space Age Moon, locked galaxy worlds) are
-  // excluded from mission targets: reaching them first requires a deep tech
-  // ladder, so a capture/control mission there would be wildly unfair against
-  // a rival whose mission is two ordinary tiles. Counting regions over the
-  // reachable set also drops all-gated regions (e.g. lunar_surface) from
-  // control_regions via the existing empty-region filter below.
+  // Two classes of authored tile are excluded from mission targets:
+  //
+  // 1. Orbit-gated territories (the Space Age Moon, locked galaxy worlds):
+  //    reaching them first requires a deep tech ladder, so a capture/control
+  //    mission there would be wildly unfair against a rival whose mission is
+  //    two ordinary tiles.
+  // 2. Era-locked frontiers (`unlock_era_index` above the state's era floor):
+  //    `initializeGameState` holds these out of `state.territories` entirely,
+  //    and mission completion reads `state.territories[id]?.owner_id`, so a
+  //    mission naming one is not merely unfair but permanently unwinnable.
+  //    Missions are assigned at init, before any player has advanced, so the
+  //    floor recorded on the state is the whole story: `map_era_floor` is the
+  //    max unlock era when the standalone Space Age board is fully seeded
+  //    (`space_age_frontiers_enabled`) and 0 otherwise. In era-advancement
+  //    games frontiers DO enter play later via `globalEraFloor`, but a tile
+  //    that only exists after someone climbs several eras is still the wrong
+  //    target for a day-one objective, so we deliberately do not look past
+  //    the init-time floor.
+  //
+  // Counting regions over the reachable set also drops all-gated regions
+  // (e.g. lunar_surface, or the 2100 frontier regions) from control_regions
+  // via the existing empty-region filter below.
+  const eraFloor = state.map_era_floor ?? 0;
   const reachable = map.territories.filter(
-    (t) => !territoryRequiresOrbitAccessForClaim(map, t.territory_id),
+    (t) =>
+      !territoryRequiresOrbitAccessForClaim(map, t.territory_id) &&
+      territoryUnlockEra(t) <= eraFloor,
   );
   const territoryIds = reachable.map((t) => t.territory_id);
   const territoriesPerRegion = new Map<string, number>();

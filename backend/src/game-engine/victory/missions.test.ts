@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { assignSecretMissions, isMissionComplete } from './missions';
-import { checkVictory } from '../state/gameStateManager';
+import { checkVictory, initializeGameState } from '../state/gameStateManager';
 import type { GameMap, GameState, PlayerState } from '../../types';
 
 function mkPlayer(id: string, overrides: Partial<PlayerState> = {}): PlayerState {
@@ -161,6 +163,113 @@ describe('assignSecretMissions — orbit-gated targets excluded', () => {
         }
       }
     }
+  });
+});
+
+describe('assignSecretMissions — era-locked frontier targets (real era_space_age map)', () => {
+  // era_space_age.json authors 8 tiles with `unlock_era_index` 1..5, and five
+  // regions consist ONLY of them. With `space_age_frontiers_enabled` off those
+  // tiles are never placed in `state.territories`, and mission completion reads
+  // `state.territories[id]?.owner_id` — so a mission naming one of them (or one
+  // of the frontier-only regions) was permanently unwinnable. Measured before
+  // the fix: ~37% of capture_territories and ~48% of control_regions missions.
+  const realMap = JSON.parse(
+    readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
+  ) as GameMap;
+  const frontierIds = new Set(
+    realMap.territories.filter((t) => (t.unlock_era_index ?? 0) > 0).map((t) => t.territory_id),
+  );
+  const frontierOnlyRegions = [
+    'pacific_frontier_2100',
+    'polar_frontier_2100',
+    'antarctic_2100',
+    'atlantic_frontier_2100',
+    'orbital_gateway_2100',
+  ];
+
+  function initSpaceAge(gameId: string, frontiersEnabled: boolean): GameState {
+    return initializeGameState(
+      gameId,
+      'space_age',
+      realMap,
+      [0, 1, 2, 3].map((i) => ({
+        player_id: `p${i + 1}`,
+        player_index: i,
+        username: `P${i + 1}`,
+        color: '#abc',
+        is_ai: i > 0,
+        is_eliminated: false,
+        mmr: 1000,
+      })),
+      {
+        fog_of_war: false,
+        victory_type: 'domination',
+        allowed_victory_conditions: ['domination', 'secret_mission'],
+        turn_timer_seconds: 0,
+        initial_unit_count: 3,
+        card_set_escalating: true,
+        diplomacy_enabled: false,
+        economy_enabled: true,
+        tech_enabled: true,
+        factions_enabled: false,
+        space_age_frontiers_enabled: frontiersEnabled,
+      },
+    );
+  }
+
+  it('pins the map shape the regression depends on', () => {
+    expect(frontierIds.size).toBe(8);
+    for (const rid of frontierOnlyRegions) {
+      const tiles = realMap.territories.filter((t) => t.region_id === rid);
+      expect(tiles.length).toBeGreaterThan(0);
+      expect(tiles.every((t) => frontierIds.has(t.territory_id))).toBe(true);
+    }
+  });
+
+  it('flag off: every mission target exists on the live board (50 seeded games)', () => {
+    let captureMissions = 0;
+    let regionMissions = 0;
+    for (let i = 0; i < 50; i++) {
+      const state = initSpaceAge(`space-age-missions-${i}`, false);
+      for (const tid of frontierIds) expect(state.territories[tid]).toBeUndefined();
+      for (const p of state.players) {
+        const m = p.secret_mission;
+        if (!m) continue;
+        if (m.kind === 'capture_territories') {
+          captureMissions++;
+          for (const tid of m.territory_ids) expect(state.territories[tid]).toBeDefined();
+        }
+        if (m.kind === 'control_regions') {
+          regionMissions++;
+          for (const rid of m.region_ids) expect(frontierOnlyRegions).not.toContain(rid);
+        }
+      }
+    }
+    // Guard against a vacuous pass if the RNG branch mix ever changes.
+    expect(captureMissions).toBeGreaterThan(0);
+    expect(regionMissions).toBeGreaterThan(0);
+  });
+
+  it('flag on: the full 63-tile board is seeded and frontier targets are allowed', () => {
+    let sawFrontierTarget = false;
+    for (let i = 0; i < 50; i++) {
+      const state = initSpaceAge(`space-age-frontiers-${i}`, true);
+      expect(Object.keys(state.territories).length).toBe(realMap.territories.length);
+      expect(state.map_era_floor).toBe(5);
+      for (const p of state.players) {
+        const m = p.secret_mission;
+        if (!m) continue;
+        if (m.kind === 'capture_territories') {
+          for (const tid of m.territory_ids) expect(state.territories[tid]).toBeDefined();
+          if (m.territory_ids.some((tid) => frontierIds.has(tid))) sawFrontierTarget = true;
+        }
+        if (m.kind === 'control_regions' && m.region_ids.some((r) => frontierOnlyRegions.includes(r))) {
+          sawFrontierTarget = true;
+        }
+      }
+    }
+    // Frontiers are now on the board, so they are legitimate targets again.
+    expect(sawFrontierTarget).toBe(true);
   });
 });
 
