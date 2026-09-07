@@ -134,6 +134,7 @@ import {
   writeTutorialProgress,
   clearTutorialProgress,
 } from '../utils/userPreferences';
+import { incomingAttackCardMode, ownAttackCardMode } from '../utils/combatPresentation';
 import {
   resolveConnectionHintMode,
   type ConnectionHintPreference,
@@ -479,9 +480,6 @@ export default function GamePage() {
     }
     return null;
   }, [navalSource, attackSource, gameState]);
-
-  /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
-  const globeDefaultAppliedRef = useRef(false);
 
   useEffect(() => subscribeUserPreferences(() => {
     setGlobeSpinEnabled(getGlobeSpinPreference());
@@ -1043,25 +1041,18 @@ export default function GamePage() {
   }, [gameStarted, gameState]);
 
   useEffect(() => {
-    globeDefaultAppliedRef.current = false;
     draftSummaryShownRef.current = false;
     pendingDraftSummaryRef.current = null;
   }, [gameId]);
 
-  /**
-   * Open every game on the globe. Deliberately does NOT write the stored
-   * preference: this is the product's default, not a choice the player made, and
-   * persisting it overwrote the 2D preference of anyone who had explicitly
-   * picked 2D — so their next game reset to globe and their setting was gone.
-   * Only the view toggles (`switchToGlobeView` and the 2D buttons) persist.
+  /*
+   * There is deliberately no "open every game on the globe" effect here.
+   * `getInitialMapView()` already answers globe unless the player picked 2D,
+   * so forcing it again on game start did nothing except override that choice:
+   * Settings → "Default map view: 2D" was saved, then silently reverted on
+   * screen every time a game loaded. The globe chunks are still prefetched —
+   * see the `mapView === 'globe'` effect above.
    */
-  useEffect(() => {
-    if (!gameStarted || !gameState) return;
-    if (globeDefaultAppliedRef.current) return;
-    globeDefaultAppliedRef.current = true;
-    setMapView('globe');
-    preloadGlobeChunks();
-  }, [gameStarted, gameState]);
 
   // Global keyboard shortcuts while in-game
   useEffect(() => {
@@ -1512,23 +1503,23 @@ export default function GamePage() {
           state.settings.daily_challenge_date.length > 0,
       });
 
-      // Lite mode = "skip animations": combat already resolved server-side, so
-      // suppress the dice-theater modal/queue (the combat log still records it).
-      // Read fresh from the persisted pref so a mid-game toggle takes effect.
+      // Lite mode = "skip combat & map ANIMATIONS", not "skip the dice". See
+      // `combatPresentation` for what it used to do instead. Read fresh from
+      // the persisted pref so a mid-game toggle takes effect.
       const liteMode = isLiteMode();
 
       if (isMyAttack) {
-        if (!liteMode) {
-          setModalQueue(q => [
-            ...q,
-            {
-              type: 'combat' as const,
-              result: enriched,
-              perspective: 'attacker' as const,
-              ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId, blitzEligible: repeatBlitzEligible } } : {}),
-            },
-          ]);
-        }
+        const card = ownAttackCardMode({ liteMode, canRepeatAttack });
+        setModalQueue(q => [
+          ...q,
+          {
+            type: 'combat' as const,
+            result: enriched,
+            perspective: 'attacker' as const,
+            ...(card.autoAdvance ? { autoAdvance: true } : {}),
+            ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId, blitzEligible: repeatBlitzEligible } } : {}),
+          },
+        ]);
         ownTurnCombatsRef.current.push(enriched);
       } else if (isMyDefense) {
         // Incoming attacks play as a live, auto-advancing dice theater during
@@ -1543,7 +1534,9 @@ export default function GamePage() {
             result: { ...enriched, capitalLost: true },
             perspective: 'defender' as const,
           }]);
-        } else if (!liteMode) {
+        } else if (incomingAttackCardMode({ liteMode }).show) {
+          // Already an auto-advancing theater — lite mode makes it quicker via
+          // the same `hurry` fast path, it does not need to hide it.
           setDefenderTheaterQueue(q => [...q, enriched]);
         }
         otherTurnCombatsRef.current.push(enriched);
@@ -1623,7 +1616,7 @@ export default function GamePage() {
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
-      victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation';
+      victory_condition?: GameOverModalData['victory_condition'];
       progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
       combat_stats?: Record<string, {
@@ -2914,6 +2907,27 @@ export default function GamePage() {
 
   const handleResignConfirm = () => {
     getSocket().emit('game:resign', { gameId });
+  };
+
+  /**
+   * "Leave" on the elimination modal. It used to be wired to the same dismiss
+   * as "Spectate", so the player stayed in the game — and with the turn-actions
+   * block hidden for eliminated players, Save & Leave went with it and there
+   * was no way out short of the browser back button.
+   *
+   * The one case where it does not leave: the elimination that ended the match
+   * queues the recap right behind this card, and dropping the player into the
+   * lobby a frame before their result screen is the same complaint from the
+   * other side. Show the recap; it has its own way back to the lobby.
+   */
+  const handleEliminatedLeave = () => {
+    if (modalQueue.some((m) => m.type === 'game_over')) {
+      dismissModal();
+      return;
+    }
+    dismissModal();
+    getSocket().emit('game:leave', { gameId });
+    navigate('/lobby');
   };
 
   const handleSaveAndLeave = () => {
@@ -4391,6 +4405,7 @@ export default function GamePage() {
               onRedeemCards={handleRedeemCards}
               onResign={isTutorial ? undefined : handleResignRequest}
               onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+              onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
               isTutorial={isTutorial}
               onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
@@ -4641,6 +4656,7 @@ export default function GamePage() {
               onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
               onResign={isTutorial ? undefined : handleResignRequest}
               onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+              onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
               isTutorial={isTutorial}
               onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
@@ -4943,6 +4959,7 @@ export default function GamePage() {
         data={modalQueue[0] ?? null}
         onDismiss={modalQueue[0]?.type === 'game_over' ? handleGameOverDismiss : dismissModal}
         onResignConfirm={handleResignConfirm}
+        onLeaveGame={handleEliminatedLeave}
         onRepeatCombat={handleAttack}
         onBlitzCombat={handleBlitzAttack}
         onRematch={handleRematch}

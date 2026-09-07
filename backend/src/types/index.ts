@@ -25,7 +25,9 @@ export type VictoryConditionKey =
   | 'abandoned'
   | 'turn_limit'
   /** The last human conceded past the grace window; the leading AI is credited. */
-  | 'resignation';
+  | 'resignation'
+  /** Every human was eliminated; the leading AI is credited and the bots stop. */
+  | 'humans_eliminated';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =

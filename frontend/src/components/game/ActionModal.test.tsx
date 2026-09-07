@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ActionModal, { type EraAdvanceModalData, type GameOverModalData } from './ActionModal';
+import ActionModal, {
+  type EliminationModalData,
+  type EraAdvanceModalData,
+  type GameOverModalData,
+} from './ActionModal';
 
 function eraAdvance(overrides: Partial<EraAdvanceModalData> = {}): EraAdvanceModalData {
   return {
@@ -102,5 +106,54 @@ describe('ActionModal — game-over Clip CTA', () => {
       />,
     );
     expect(screen.queryByText('Clip')).toBeNull();
+  });
+});
+
+function elimination(overrides: Partial<EliminationModalData> = {}): EliminationModalData {
+  return {
+    type: 'elimination',
+    eliminatedName: 'You',
+    eliminatorName: 'Carthage',
+    isSelf: true,
+    ...overrides,
+  };
+}
+
+describe('ActionModal — elimination exit', () => {
+  it('leaves the game for real, rather than only closing the card', () => {
+    // The bug: "Leave" was wired to the same `onDismiss` as "Spectate", so the
+    // player pressed it, stayed in the match, and then had no exit at all —
+    // Save & Leave lives in the turn-actions block, which is hidden once you
+    // are eliminated.
+    const onDismiss = vi.fn();
+    const onLeaveGame = vi.fn();
+    render(<ActionModal data={elimination()} onDismiss={onDismiss} onLeaveGame={onLeaveGame} />);
+    fireEvent.click(screen.getByText('Leave'));
+    expect(onLeaveGame).toHaveBeenCalledTimes(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('still keeps Spectate as a dismiss', () => {
+    const onDismiss = vi.fn();
+    const onLeaveGame = vi.fn();
+    render(<ActionModal data={elimination()} onDismiss={onDismiss} onLeaveGame={onLeaveGame} />);
+    fireEvent.click(screen.getByText('Spectate'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onLeaveGame).not.toHaveBeenCalled();
+  });
+
+  it('does not hijack the Continue button when someone else was eliminated', () => {
+    const onDismiss = vi.fn();
+    const onLeaveGame = vi.fn();
+    render(
+      <ActionModal
+        data={elimination({ isSelf: false, eliminatedName: 'Gaul' })}
+        onDismiss={onDismiss}
+        onLeaveGame={onLeaveGame}
+      />,
+    );
+    fireEvent.click(screen.getByText('Continue'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onLeaveGame).not.toHaveBeenCalled();
   });
 });

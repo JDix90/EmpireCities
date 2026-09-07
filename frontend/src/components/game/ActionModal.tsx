@@ -28,6 +28,12 @@ export interface CombatModalData {
   perspective?: 'attacker' | 'defender';
   /** Same attack can be rolled again (not captured, enough attackers left) */
   repeatAttack?: { fromId: string; toId: string; blitzEligible?: boolean };
+  /**
+   * Show the dice, then move on without waiting for a click. Lite mode sets
+   * this: "skip combat animations" should mean the roll doesn't play out, not
+   * that the player never learns what was rolled.
+   */
+  autoAdvance?: boolean;
 }
 
 export interface TurnSummaryModalData {
@@ -77,7 +83,7 @@ export interface GameOverModalData {
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
@@ -1211,6 +1217,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'abandoned':       return 'Game ended — no human players remained';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
       case 'resignation':     return 'Resignation — the last commander conceded the field';
+      case 'humans_eliminated': return 'No Commanders Remain — every human player was eliminated';
       default:                return null;
     }
   };
@@ -1768,11 +1775,14 @@ function formatMission(
 function EliminationView({
   data,
   onDismiss,
+  onLeaveGame,
   mapNameLookup,
   players,
 }: {
   data: EliminationModalData;
   onDismiss: () => void;
+  /** Leave for real — quit the room and return to the lobby. */
+  onLeaveGame?: () => void;
   mapNameLookup?: MapNameLookup | null;
   players?: Array<{ player_id: string; username: string }>;
 }) {
@@ -1803,8 +1813,12 @@ function EliminationView({
             <Eye className="w-4 h-4" /> Spectate
           </button>
         )}
+        {/* "Leave" used to call the same dismiss as "Spectate", so the player
+            pressed it, stayed in the game, and then had no way out at all — the
+            turn-actions block that holds Save & Leave is hidden once you are
+            eliminated. */}
         <button
-          onClick={onDismiss}
+          onClick={data.isSelf && onLeaveGame ? onLeaveGame : onDismiss}
           className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10
                      text-white font-medium transition-all flex items-center justify-center gap-2"
         >
@@ -1914,6 +1928,8 @@ interface ActionModalProps {
   data: ModalData | null;
   onDismiss: () => void;
   onResignConfirm?: () => void;
+  /** Eliminated player pressing "Leave" — quit the room, not just the modal. */
+  onLeaveGame?: () => void;
   /** Re-roll the same attack after a failed capture (attacker still has 2+ on source) */
   onRepeatCombat?: (fromId: string, toId: string) => void;
   onBlitzCombat?: (fromId: string, toId: string) => void;
@@ -2005,6 +2021,7 @@ export default function ActionModal({
   data,
   onDismiss,
   onResignConfirm,
+  onLeaveGame,
   onRepeatCombat,
   onBlitzCombat,
   onRematch,
@@ -2056,6 +2073,8 @@ export default function ActionModal({
             result={data.result}
             perspective={data.perspective}
             onDismiss={onDismiss}
+            autoAdvance={data.autoAdvance}
+            hurry={data.autoAdvance}
             repeatAttack={data.repeatAttack}
             onRepeatAttack={
               data.repeatAttack && onRepeatCombat
@@ -2091,6 +2110,7 @@ export default function ActionModal({
           <EliminationView
             data={data}
             onDismiss={onDismiss}
+            onLeaveGame={onLeaveGame}
             mapNameLookup={mapNameLookup}
             players={players}
           />

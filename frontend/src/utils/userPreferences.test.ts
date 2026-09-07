@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  getInitialMapView,
+  setMapViewPreference,
+  persistLiteMode,
   getFastCombatPreference,
   getSfxVolume,
   isColorblindMode,
@@ -101,6 +104,39 @@ describe('userPreferences', () => {
       writeTutorialProgress('game-1', 4, false);
       clearTutorialProgress();
       expect(readTutorialProgress('game-1')).toBeNull();
+    });
+  });
+
+  describe('default map view', () => {
+    it('opens on the globe until the player says otherwise', () => {
+      expect(getInitialMapView()).toBe('globe');
+    });
+
+    it('remembers an explicit choice, in both directions', () => {
+      setMapViewPreference('2d');
+      expect(getInitialMapView()).toBe('2d');
+      setMapViewPreference('globe');
+      expect(getInitialMapView()).toBe('globe');
+    });
+
+    it('is not answered by lite mode', () => {
+      // Lite mode used to return '2d' from this getter no matter what was
+      // stored. Because writing a preference notifies every subscriber, and
+      // Settings re-reads this function on notify, picking "3D Globe" wrote
+      // 'globe' and then immediately displayed '2d' again — the control could
+      // not be changed at all while lite mode was on.
+      persistLiteMode(true);
+      expect(getInitialMapView()).toBe('globe');
+      setMapViewPreference('2d');
+      expect(getInitialMapView()).toBe('2d');
+      setMapViewPreference('globe');
+      expect(getInitialMapView()).toBe('globe');
+      persistLiteMode(false);
+    });
+
+    it('ignores a junk stored value rather than opening on nothing', () => {
+      localStorage.setItem('cc-preferred-map-view', 'isometric');
+      expect(getInitialMapView()).toBe('globe');
     });
   });
 });

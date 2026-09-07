@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -31,7 +32,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
   } as GameState;
 }
 
-function renderHud() {
+function renderHud(props: Partial<React.ComponentProps<typeof GameHUD>> = {}) {
   return render(
     <MemoryRouter>
       <GameHUD
@@ -42,6 +43,7 @@ function renderHud() {
         onOpenTechTree={() => {}}
         onOpenBonuses={() => {}}
         lastCombatLog={[]}
+        {...props}
       />
     </MemoryRouter>,
   );
@@ -110,5 +112,47 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     renderHud();
     // Players tab restored from localStorage → roster visible immediately.
     expect(screen.getByText('Rival')).toBeInTheDocument();
+  });
+});
+
+describe('GameHUD — the eliminated player\'s way out', () => {
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+  });
+
+  it('offers an exit once you are out of the game', () => {
+    // Turn actions — and with them Save & Leave, inside Tools & options — are
+    // hidden for an eliminated player. Without a dedicated exit, a player who
+    // chose "Spectate" (or pressed the old, broken "Leave") was stuck in the
+    // match with no control that would take them out of it.
+    const onLeaveGame = vi.fn();
+    useGameStore.setState({
+      gameState: makeState({
+        players: [player('me', 0, { is_eliminated: true, territory_count: 0 }), player('rival', 1, { username: 'Rival' })],
+        current_player_index: 1,
+      }),
+      draftUnitsRemaining: 0,
+      lastCombatResult: null,
+    } as never);
+    renderHud({ onLeaveGame });
+    const exit = screen.getByRole('button', { name: /Leave game/ });
+    fireEvent.click(exit);
+    expect(onLeaveGame).toHaveBeenCalledTimes(1);
+    // The turn-action block really is gone — this is the only way out.
+    expect(screen.queryByRole('button', { name: /Begin Fortify/ })).toBeNull();
+  });
+
+  it('stays out of the way while you are still playing', () => {
+    useGameStore.setState({ gameState: makeState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ onLeaveGame: () => {} });
+    expect(screen.queryByRole('button', { name: /Leave game/ })).toBeNull();
+    // Save & Leave (which promises a resumable game) is still the live path.
+    fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
+    expect(screen.getByRole('button', { name: /Save & Leave/ })).toBeInTheDocument();
   });
 });

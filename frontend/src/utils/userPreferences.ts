@@ -139,9 +139,19 @@ export function setLiteMode(enabled: boolean): void {
 
 // ── Default map view ────────────────────────────────────────────────────────
 
+/**
+ * Which view a game opens on. The 3D globe is the product default; only an
+ * explicit choice by the player moves it.
+ *
+ * Lite mode used to answer '2d' here regardless of what was stored, which made
+ * the Settings control unusable: picking "3D Globe" wrote 'globe', the write
+ * notified subscribers, every subscriber re-read this function, it said '2d'
+ * again — so the select snapped back and the stored value was never visible.
+ * Lite mode governs animation (see `combatPresentation` and `mapAmbientEnabled`);
+ * it does not get to answer this question on the player's behalf.
+ */
 export function getInitialMapView(): MapViewPreference {
   if (typeof window === 'undefined') return 'globe';
-  if (isLiteMode()) return '2d';
   return readString(MAP_VIEW_KEY, ['2d', 'globe'] as const, 'globe');
 }
 
