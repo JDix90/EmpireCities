@@ -151,8 +151,10 @@ export default function ReplayPage() {
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [activeTip, setActiveTip] = useState<ReplayInsight | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
-  // The chronicle rides the same participant gate as the coaching tips.
-  const [chronicleOpen, setChronicleOpen] = useState(false);
+  // The chronicle rides the same participant gate as the coaching tips. It
+  // opens on arrival when the game-over modal's "Watch it play out" sent the
+  // viewer here from its Chronicle tab.
+  const [chronicleOpen, setChronicleOpen] = useState(() => searchParams.get('chronicle') === '1');
   const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
   const [focusedWorldId, setFocusedWorldId] = useState('earth');
   const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{

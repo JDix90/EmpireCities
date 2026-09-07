@@ -3020,8 +3020,10 @@ export default function GamePage() {
    * challenge's globe + 4x time-lapse.
    */
   const handleWatchReplay = useCallback(
-    (id: string) => {
-      navigate(`/replay/${id}?source=match`);
+    // `withChronicle` carries the game-over Chronicle tab into the replay, so
+    // "Watch it play out" lands on the same history rather than a bare board.
+    (id: string, opts?: { withChronicle?: boolean }) => {
+      navigate(`/replay/${id}?source=match${opts?.withChronicle ? '&chronicle=1' : ''}`);
     },
     [navigate],
   );
