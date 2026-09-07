@@ -1914,11 +1914,6 @@ export default function LobbyPage() {
                         ? `${dailySummary.attempts_today} commander${dailySummary.attempts_today === 1 ? '' : 's'} attempted today.`
                         : 'A new puzzle every day.'}
                     </p>
-                    {/* Playing one needs an account (rejectGuest on POST /daily/start) — say so
-                        here rather than letting the click dead-end. */}
-                    {user?.is_guest && (
-                      <p className="text-bf-gold/70 text-[11px] mt-1.5">Free account required</p>
-                    )}
                   </button>
                 </div>
               </div>

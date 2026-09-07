@@ -84,7 +84,8 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
         </p>
       )}
 
-      {!data.is_guest && !data.daily_challenge_done_today && (
+      {/* Guests can play the daily too; this nudge is the funnel, not a perk. */}
+      {!data.daily_challenge_done_today && (
         <p className="text-sm text-white/80 flex items-start gap-2">
           <Swords size={15} className="text-sky-300 mt-0.5 shrink-0" />
           <span>

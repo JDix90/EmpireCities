@@ -49,7 +49,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
                 the sheet is where a stuck first-timer looks. */}
             <nav className="px-4 pb-4 grid grid-cols-3 gap-2">
               <MoreLink to="/how-to-play" icon={HelpCircle} label="How to Play" onClick={() => setMoreOpen(false)} />
-              {!isGuest && <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />}
+              <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/maps" icon={Map} label="Maps" onClick={() => setMoreOpen(false)} />
               {!isGuest && mapEditorEnabled && (
                 <MoreLink to="/editor" icon={PenSquare} label="Editor" onClick={() => setMoreOpen(false)} />

@@ -33,7 +33,7 @@ type NavItem = {
 const navGroups: NavItem[][] = [
   // Ways to play.
   [
-    { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily Challenge', hideForGuest: true },
+    { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily Challenge' },
     { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
   ],
   // Where to play.
