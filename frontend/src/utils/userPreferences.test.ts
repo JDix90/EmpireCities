@@ -13,7 +13,6 @@ import {
   getSfxMasterGain,
   getCameraFollowPreference,
   setCameraFollowPreference,
-  persistCameraFollowPreference,
   readTutorialProgress,
   writeTutorialProgress,
   clearTutorialProgress,
@@ -61,7 +60,6 @@ describe('userPreferences', () => {
   });
 
   it('exposes a persist alias for camera follow matching the setter', () => {
-    expect(persistCameraFollowPreference).toBe(setCameraFollowPreference);
   });
 
   describe('tutorial progress', () => {

@@ -163,7 +163,3 @@ export function getPlayerPixiColor(hex: string): number {
   }
   return ACCESSIBLE_PLAYER_PIXI[mapped] ?? 0x888888;
 }
-
-export function getPlayerHexColor(hex: string): string {
-  return mapPlayerHex(hex);
-}

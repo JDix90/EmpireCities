@@ -59,7 +59,6 @@ export function maskHiddenTerritories(
         unit_count: -1,
         naval_units: undefined,
         buildings: [],
-        production_bonus: undefined,
         stability: undefined,
         population: undefined,
       };

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import { getLeaderboard, removeFromAllLeaderboards } from '../../db/redis';
+import { removeFromAllLeaderboards } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
@@ -137,20 +137,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       parseInt(tutorialRow?.cnt ?? '0', 10) > 0 || tutorial_modules_completed.includes('core');
 
     return reply.send({ ...user, ratings, has_completed_tutorial, tutorial_modules_completed });
-  });
-
-  // ── GET /api/users/me/tutorial-modules ──────────────────────────────────
-  fastify.get('/me/tutorial-modules', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    let rows: { module_id: string; completed_at: string }[] = [];
-    try {
-      rows = await query<{ module_id: string; completed_at: string }>(
-        `SELECT module_id, completed_at FROM user_tutorial_modules WHERE user_id = $1 ORDER BY completed_at`,
-        [request.userId],
-      );
-    } catch {
-      /* degrade gracefully if migration not yet run */
-    }
-    return reply.send({ completed: rows });
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
@@ -467,37 +453,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(503).send({ error: 'Cosmetic equip requires database migration (equipped_frame columns).' });
     }
     return reply.send({ ok: true });
-  });
-
-  // ── GET /api/users/leaderboard/:era ─────────────────────────────────────
-  fastify.get<{ Params: { era: string } }>('/leaderboard/:era', async (request, reply) => {
-    const { era } = request.params;
-        const validEras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'custom', 'global'];
-    if (!validEras.includes(era)) {
-      return reply.status(400).send({ error: 'Invalid era' });
-    }
-
-    const leaderboard = await getLeaderboard(era, 100);
-    if (leaderboard.length === 0) {
-      const rows = await query<{ user_id: string; username: string; mmr: number; level: number }>(
-        'SELECT user_id, username, mmr, level FROM users ORDER BY mmr DESC LIMIT 100',
-      );
-      return reply.send(rows);
-    }
-
-    const userIds = leaderboard.map((e) => e.userId);
-    const users = await query<{ user_id: string; username: string; level: number }>(
-      `SELECT user_id, username, level FROM users WHERE user_id = ANY($1)`,
-      [userIds],
-    );
-    const userMap = Object.fromEntries(users.map((u) => [u.user_id, u]));
-    const enriched = leaderboard.map((e, i) => ({
-      rank: i + 1,
-      ...userMap[e.userId],
-      mmr: e.mmr,
-    }));
-
-    return reply.send(enriched);
   });
 
   const FriendUsernameSchema = z.object({

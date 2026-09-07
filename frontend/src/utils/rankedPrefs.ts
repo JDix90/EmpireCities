@@ -10,7 +10,6 @@
  */
 
 export const RANKED_MIN_OPPONENTS = 1;
-export const RANKED_MAX_OPPONENTS = 5;
 
 export interface RankedEraSize {
   default: number;

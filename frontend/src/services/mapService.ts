@@ -276,52 +276,7 @@ export async function fetchMapById(mapId: string): Promise<GameMap> {
 }
 
 
-/**
- * Submit a rating for a map.
- */
-export async function rateMap(mapId: string, rating: number): Promise<void> {
-  await api.post(`/maps/${mapId}/rate`, { rating });
-}
-
 // ─── Client-side map utilities ────────────────────────────────────────────────
-
-/**
- * Build an adjacency graph from a map's connections list.
- */
-export function buildAdjacencyGraph(map: GameMap): Map<string, Set<string>> {
-  const graph = new Map<string, Set<string>>();
-  for (const t of map.territories) {
-    graph.set(t.territory_id, new Set());
-  }
-  for (const c of map.connections) {
-    graph.get(c.from)?.add(c.to);
-    graph.get(c.to)?.add(c.from);
-  }
-  return graph;
-}
-
-/**
- * Get the territory object by ID.
- */
-export function getTerritoryById(map: GameMap, id: string): Territory | undefined {
-  return map.territories.find(t => t.territory_id === id);
-}
-
-/**
- * Get all territories in a region.
- */
-export function getTerritoriesInRegion(map: GameMap, regionId: string): Territory[] {
-  return map.territories.filter(t => t.region_id === regionId);
-}
-
-/**
- * Check if two territories are adjacent.
- */
-export function areAdjacent(map: GameMap, fromId: string, toId: string): boolean {
-  return map.connections.some(
-    c => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
-  );
-}
 
 /**
  * Scale polygon coordinates from map canvas to screen dimensions.
@@ -338,24 +293,4 @@ export function scalePolygon(
   const offsetX = (screenWidth  - canvasWidth  * scale) / 2;
   const offsetY = (screenHeight - canvasHeight * scale) / 2;
   return polygon.map(([x, y]) => [x * scale + offsetX, y * scale + offsetY]);
-}
-
-/**
- * Scale a single point from map canvas to screen dimensions.
- * Uses uniform scaling (scale-to-fit) to preserve aspect ratio.
- */
-export function scalePoint(
-  point: [number, number],
-  canvasWidth: number,
-  canvasHeight: number,
-  screenWidth: number,
-  screenHeight: number
-): [number, number] {
-  const scale = Math.min(screenWidth / canvasWidth, screenHeight / canvasHeight);
-  const offsetX = (screenWidth  - canvasWidth  * scale) / 2;
-  const offsetY = (screenHeight - canvasHeight * scale) / 2;
-  return [
-    point[0] * scale + offsetX,
-    point[1] * scale + offsetY,
-  ];
 }

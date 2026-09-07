@@ -85,8 +85,6 @@ export interface TerritoryState {
   unit_type: string;
   /** Buildings constructed on this territory (economy feature). */
   buildings?: BuildingType[];
-  /** Cached production income from buildings (refreshed each turn start). */
-  production_bonus?: number;
   /** Fleet count stationed in this territory (naval warfare feature). */
   naval_units?: number;
   /** Stability rating 0-100 (population/stability feature). */
@@ -308,7 +306,6 @@ export interface GameSettings {
   card_set_bonus_cap?: number;
   diplomacy_enabled: boolean;
   tutorial?: boolean;
-  tutorial_step?: number;
   /** Active lesson pack when `tutorial` is true (core, advanced_settings, faction_ability, tech_tree). */
   tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
@@ -493,19 +490,6 @@ export interface GameSettings {
   max_players?: number;
 }
 
-// ── User Preferences / Push Tokens ────────────────────────────────────────────
-export interface UserPreferences {
-  push_enabled: boolean;
-  email_notifications: boolean;
-}
-
-export interface PushToken {
-  token_id: string;
-  user_id: string;
-  token: string;
-  platform: 'web' | 'ios' | 'android';
-}
-
 /** Optional per-era combat / economy tweaks. */
 export interface EraModifiers {
   // Ancient
@@ -524,7 +508,6 @@ export interface EraModifiers {
   // Risorgimento
   carbonari_network?: boolean;
   // Space Age
-  space_program?: boolean;
 }
 
 /** Building tiers: production (income), defense (dice/fortify), tech generation, era specials, and era wonders. */
@@ -799,8 +782,6 @@ export interface GameState {
   active_event_result?: EventEffectResult;
   /** Seasonal event cards injected at game start — merged into era deck when drawing. */
   seasonal_event_cards?: EventCard[];
-  /** Transient: territory IDs that rebelled last tick (cleared after broadcast). */
-  last_rebellion_territories?: string[];
   /** Daily puzzle: deterministic d6 stream for combat (Tier B). */
   puzzle_dice_queue?: number[];
   puzzle_dice_index?: number;

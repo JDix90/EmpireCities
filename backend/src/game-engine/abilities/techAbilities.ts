@@ -1,7 +1,6 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
-import type { TechNode } from '../eras/types';
 import { isTerritoryReachableWithinHops, getAdjacentTerritoryIds } from '../state/influenceManager';
 
 /** Abilities consumed once per game (not per turn). */
@@ -319,8 +318,4 @@ export function expandFogVisibilityFromRecon(
       if (frontier.length === 0) break;
     }
   }
-}
-
-export function findTechNodeForAbility(tree: TechNode[], abilityId: string): TechNode | undefined {
-  return tree.find((n) => n.unlocks_ability === abilityId);
 }

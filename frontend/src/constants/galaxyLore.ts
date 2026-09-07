@@ -24,11 +24,6 @@ export interface GalaxyTerritoryLoreDetail {
   frontier: string;
 }
 
-/**
- * Galaxy storyline shown in lobby / codex tooltips.
- */
-export const GALAXY_STORYLINE = `Year 4423 GE. A thousand years after the Diaspora, humanity's descendants squabble over the bones of the Pathfinder Civilization — a vanished species whose abandoned hyperspace lanes are humanity's only road between stars. Each successor faction begins on a single home world; to strike at a rival, a lord must first chart a way through the lanes.`;
-
 export const GALAXY_WORLD_LORE: Record<string, GalaxyWorldLore> = {
   sol: {
     display_name: 'Sol III',
@@ -194,14 +189,6 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
   },
 };
 
-/** @deprecated Prefer `GALAXY_TERRITORY_LORE_DETAIL` — kept for external string lookups. */
-export const GALAXY_TERRITORY_LORE: Record<string, string> = Object.fromEntries(
-  Object.entries(GALAXY_TERRITORY_LORE_DETAIL).map(([id, d]) => [
-    id,
-    `${d.frontier} ${d.hold}`,
-  ]),
-);
-
 export function getGalaxyWorldLore(worldId: string | undefined | null): GalaxyWorldLore | null {
   if (!worldId) return null;
   return GALAXY_WORLD_LORE[worldId] ?? null;
@@ -212,10 +199,4 @@ export function getGalaxyTerritoryLoreDetail(
 ): GalaxyTerritoryLoreDetail | null {
   if (!territoryId) return null;
   return GALAXY_TERRITORY_LORE_DETAIL[territoryId] ?? null;
-}
-
-/** Combined paragraph for callers that want a single block (Codex, tooltips). */
-export function getGalaxyTerritoryLore(territoryId: string | undefined | null): string | null {
-  const d = getGalaxyTerritoryLoreDetail(territoryId);
-  return d ? `${d.frontier} ${d.hold}` : null;
 }

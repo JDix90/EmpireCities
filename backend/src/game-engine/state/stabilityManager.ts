@@ -39,7 +39,6 @@ const CAPTURE_POPULATION_FLOOR = 1;      // population after capture
 const DEPLOY_CAP_CRITICAL = 1;      // stability < 30
 const DEPLOY_CAP_LOW = 3;           // stability 30-49
 // stability ≥ 50 → no cap
-const DEPLOY_CAP_ERA_BONUS_MAX = 3;
 const DEPLOY_CAP_TURN_BONUS_MAX = 10;
 const DEPLOY_CAP_ECONOMY_BONUS_MAX = 2;
 const DEPLOY_CAP_TURN_STEP = 7;
@@ -292,29 +291,6 @@ function getFactionStabilityBonus(state: GameState, playerId: string): number {
 }
 
 // ── Exported constants (for tests and UI) ──────────────────────────────
-
-export const STABILITY_CONSTANTS = {
-  BASE_STABILITY_RECOVERY,
-  GARRISON_THRESHOLD,
-  GARRISON_RECOVERY_BONUS,
-  INITIAL_STABILITY,
-  CAPTURE_STABILITY,
-  INFLUENCE_PENALTY,
-  REBELLION_THRESHOLD,
-  REBELLION_CHANCE,
-  INITIAL_POPULATION,
-  MAX_POPULATION,
-  POPULATION_GROWTH_STABILITY,
-  POPULATION_GROWTH_INTERVAL,
-  CAPTURE_POPULATION_FLOOR,
-  DEPLOY_CAP_CRITICAL,
-  DEPLOY_CAP_LOW,
-  DEPLOY_CAP_ERA_BONUS_MAX,
-  DEPLOY_CAP_TURN_BONUS_MAX,
-  DEPLOY_CAP_ECONOMY_BONUS_MAX,
-  DEPLOY_CAP_TURN_STEP,
-  DEPLOY_CAP_TURN_STEP_BONUS,
-} as const;
 
 /**
  * Population-weighted average stability across all territories owned by a player.

@@ -23,7 +23,6 @@ export default defineConfig({
   resolve: {
     dedupe: ['three'],
     alias: {
-      '@': path.resolve(__dirname, './src'),
       '@borderfall/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),
     },
   },
@@ -61,7 +60,7 @@ export default defineConfig({
             if (id.includes('/three/')) {
               return 'three-vendor';
             }
-            if (id.includes('three-conic-polygon-geometry') || id.includes('/d3-') || id.includes('/topojson-')) {
+            if (id.includes('three-conic-polygon-geometry') || id.includes('/d3-')) {
               return 'geo-vendor';
             }
           }

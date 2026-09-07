@@ -26,12 +26,3 @@ export async function rateLimit(
     return true;
   }
 }
-
-/** Reset a rate-limit bucket — primarily for tests. */
-export async function resetRateLimit(key: string): Promise<void> {
-  try {
-    await redis.del(`rl:${key}`);
-  } catch {
-    /* ignore */
-  }
-}

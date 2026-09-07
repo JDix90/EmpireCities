@@ -12,10 +12,8 @@ import { resolvePlayerEraId } from '../eraAdvancement/constants';
  * change the rules you play by; `state.era_modifiers` remains the answer for
  * every game with advancement switched off.
  *
- * `space_age.space_program` has no consumer anywhere in the engine — it is
- * declared and read by nothing. Left in place rather than cut silently, since
- * the Space Age signature is elsewhere (orbit gating); flagging it so the next
- * reader does not assume it does something.
+ * The Space Age has no era modifier: its signature is orbit gating
+ * (state/moonAccess.ts), not a doctrine flag.
  */
 export const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   ancient:      { legion_reroll: true },
@@ -26,7 +24,7 @@ export const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
   modern:       { precision_strike: true },
   acw:          { rifle_doctrine: true },
   risorgimento: { carbonari_network: true, influence_range: 1 },
-  space_age:    { space_program: true },
+  space_age:    {},
   galaxy_age:   {},
 };
 

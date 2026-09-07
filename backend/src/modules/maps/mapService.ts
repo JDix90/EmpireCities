@@ -10,7 +10,7 @@ import {
   listEraMapRows,
   rowToSummary,
 } from '../../db/postgres/mapsRepository';
-import type { GameMap, MapSummary, Territory } from './mapTypes';
+import type { GameMap, MapSummary } from './mapTypes';
 
 export type { Connection, GameMap, MapSummary, Region, Territory } from './mapTypes';
 
@@ -54,42 +54,6 @@ export async function getEraMapSummaries(): Promise<MapSummary[]> {
   return rows.map(rowToSummary);
 }
 
-export function buildAdjacencyGraph(map: GameMap): Map<string, Set<string>> {
-  const graph = new Map<string, Set<string>>();
-  for (const t of map.territories) {
-    graph.set(t.territory_id, new Set());
-  }
-  for (const c of map.connections) {
-    graph.get(c.from)?.add(c.to);
-    graph.get(c.to)?.add(c.from);
-  }
-  return graph;
-}
-
-export function getTerritoriesByRegion(map: GameMap): Map<string, Territory[]> {
-  const regionMap = new Map<string, Territory[]>();
-  for (const r of map.regions) {
-    regionMap.set(r.region_id, []);
-  }
-  for (const t of map.territories) {
-    regionMap.get(t.region_id)?.push(t);
-  }
-  return regionMap;
-}
-
-export function calculateRegionBonuses(map: GameMap, ownedTerritories: Set<string>): number {
-  const regionMap = getTerritoriesByRegion(map);
-  let totalBonus = 0;
-  for (const region of map.regions) {
-    const regionTerritories = regionMap.get(region.region_id) || [];
-    const ownsAll = regionTerritories.every((t) => ownedTerritories.has(t.territory_id));
-    if (ownsAll && regionTerritories.length > 0) {
-      totalBonus += region.bonus;
-    }
-  }
-  return totalBonus;
-}
-
 export async function incrementPlayCount(mapId: string): Promise<void> {
   await incrementMapPlayCount(mapId);
   await invalidateMapCache(mapId);
@@ -106,5 +70,4 @@ export {
   submitMapForModeration,
   updateOwnedMap,
   upsertMapRating,
-  upsertSeedMap,
 } from '../../db/postgres/mapsRepository';

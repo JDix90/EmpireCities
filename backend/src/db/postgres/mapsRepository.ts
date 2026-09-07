@@ -169,58 +169,6 @@ export async function createMap(input: CreateMapInput): Promise<void> {
   );
 }
 
-export async function upsertSeedMap(input: CreateMapInput): Promise<'inserted' | 'updated'> {
-  const existing = await getMapRowById(input.map_id);
-  if (!existing) {
-    await createMap(input);
-    return 'inserted';
-  }
-
-  await query(
-    `UPDATE maps SET
-      name = $2,
-      description = $3,
-      era_theme = $4,
-      canvas_width = $5,
-      canvas_height = $6,
-      projection_bounds = $7::jsonb,
-      globe_view = $8::jsonb,
-      map_kind = $9,
-      worlds = $10::jsonb,
-      orbit_access = $11,
-      rts_terrain = $12::jsonb,
-      territories = $13::jsonb,
-      connections = $14::jsonb,
-      regions = $15::jsonb,
-      is_public = $16,
-      is_moderated = $17,
-      moderation_status = $18,
-      updated_at = NOW()
-    WHERE map_id = $1`,
-    [
-      input.map_id,
-      input.name,
-      input.description ?? '',
-      input.era_theme ?? null,
-      input.canvas_width ?? 1200,
-      input.canvas_height ?? 700,
-      input.projection_bounds ? JSON.stringify(input.projection_bounds) : null,
-      input.globe_view ? JSON.stringify(input.globe_view) : null,
-      input.map_kind ?? null,
-      input.worlds ? JSON.stringify(input.worlds) : null,
-      input.orbit_access ?? null,
-      input.rts_terrain ? JSON.stringify(input.rts_terrain) : null,
-      JSON.stringify(input.territories),
-      JSON.stringify(input.connections),
-      JSON.stringify(input.regions),
-      input.is_public ?? true,
-      input.is_moderated ?? true,
-      input.moderation_status ?? 'approved',
-    ],
-  );
-  return 'updated';
-}
-
 export async function listEraMapRows(): Promise<MapRow[]> {
   return query<MapRow>(
     `SELECT ${MAP_SELECT} FROM maps

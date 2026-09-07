@@ -685,12 +685,6 @@ function remember(day: ScheduledDay): ScheduledDay {
   return day;
 }
 
-/** Test seam: forget memoized days and the cursors. */
-export function resetDailyScheduleMemo(): void {
-  memo.clear();
-  cursorMemo.clear();
-}
-
 /**
  * The puzzle for a date (YYYY-MM-DD, UTC). Pure in the date apart from map
  * loading; memoized per process because the read path calls it on every

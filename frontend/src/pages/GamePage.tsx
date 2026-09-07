@@ -2223,26 +2223,6 @@ export default function GamePage() {
 
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
 
-    // Legacy event — kept so older server builds still trigger visuals during rollout
-    socket.on('game:atom_bomb', ({ attackerName, attackerColor, territoryId, attackerId, targetOwnerId, targetOwnerName }: {
-      attackerId?: string;
-      attackerName: string;
-      attackerColor: string;
-      territoryId: string;
-      targetOwnerId?: string | null;
-      targetOwnerName?: string | null;
-    }) => {
-      handleStrikeAnimationEvent({
-        abilityId: 'atom_bomb',
-        attackerId: attackerId ?? '',
-        attackerName,
-        attackerColor,
-        territoryId,
-        targetOwnerId: targetOwnerId ?? null,
-        targetOwnerName: targetOwnerName ?? null,
-      });
-    });
-
     socket.on('game:campaign_advanced', ({ campaign_id, next_era }: {
       campaign_id: string;
       next_era: string;
@@ -2294,7 +2274,6 @@ export default function GamePage() {
       socket.off('error');
       socket.off('game:wonder_built');
       socket.off('game:strike_animation');
-      socket.off('game:atom_bomb');
       socket.off('game:map_visual');
       socket.off('game:space_station_launched');
       socket.off('game:puzzle_feedback');

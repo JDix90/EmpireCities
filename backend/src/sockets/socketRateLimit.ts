@@ -72,8 +72,6 @@ const EVENT_BUCKETS: Record<string, Bucket> = {
   'game:start': JOIN,
   'game:spectate_join': JOIN,
   'game:spectate_leave': JOIN,
-  'matchmaking:join': JOIN,
-  'matchmaking:leave': JOIN,
 };
 
 /** Emit a throttle notice at most this often, so blocked floods don't amplify. */

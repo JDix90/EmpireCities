@@ -97,7 +97,7 @@ If the SPA is on a different origin than the API:
 
 ## Database names (rebrand)
 
-Default Postgres DB is `borderfall`. If you already run production on `erasofempire` or `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `pg_restore` as described in [README.md — Migrating from legacy database names](README.md#migrating-from-legacy-database-names). Maps that lived in MongoDB must be copied once with `pnpm run migrate:maps-from-mongo` before decommissioning the old Mongo container.
+Default Postgres DB is `borderfall`. If you already run production on `erasofempire` or `chronoconquest` names, either keep those values in env (no data move) or migrate with `pg_dump` / `pg_restore` as described in [README.md — Migrating from legacy database names](README.md#migrating-from-legacy-database-names).
 
 ## Troubleshooting
 

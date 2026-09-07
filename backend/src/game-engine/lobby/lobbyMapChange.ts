@@ -106,14 +106,6 @@ export function parseLobbyMapChangeValue(value: unknown): LobbyMapChangeValue | 
   return { era_id, map_id };
 }
 
-export function isBuiltinEraMapPair(eraId: string, mapId: string): boolean {
-  return LOBBY_ERA_MAP_IDS[eraId] === mapId;
-}
-
-export function isCuratedCommunityMap(mapId: string): boolean {
-  return CURATED_COMMUNITY_MAP_IDS.has(mapId);
-}
-
 export interface LobbyMapChangeContext {
   era_id: string;
   map_id: string;

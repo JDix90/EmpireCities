@@ -22,7 +22,6 @@
 
 import type {
   CoachingTip,
-  CoachingTipCategory,
   GameMap,
   GameState,
   PlayerState,
@@ -290,12 +289,3 @@ export function evaluateCoachingTip(state: GameState, map: GameMap): CoachingTip
   }
   return null;
 }
-
-/** Test helper: list all category ids in priority order. */
-export const DETECTOR_PRIORITY: CoachingTipCategory[] = [
-  'resign_suggestion',
-  'probability_drop',
-  'opponent_region_threat',
-  'region_opportunity',
-  'thin_border',
-];

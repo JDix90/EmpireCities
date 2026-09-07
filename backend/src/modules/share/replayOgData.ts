@@ -64,8 +64,3 @@ export async function buildReplayPreviewData(gameId: string): Promise<ReplayPrev
     playerColors: players.map((p) => p.player_color ?? '#888888'),
   };
 }
-
-/** OG-image subset (used by the og-image.png route). */
-export async function buildReplayOgOptions(gameId: string): Promise<ReplayOgOptions | null> {
-  return buildReplayPreviewData(gameId);
-}

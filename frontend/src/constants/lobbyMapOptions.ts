@@ -3,7 +3,6 @@
  * Keep in sync with backend `lobbyMapChange.ts`.
  */
 
-import { getCustomMapImmersion } from '../data/customMapImmersion';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from './galacticAgeAccess';
 
 export const LOBBY_ERAS = [
@@ -91,21 +90,6 @@ export function isLobbyMapChangeAllowed(settings: Record<string, unknown> | null
     return false;
   }
   return true;
-}
-
-export function buildBuiltinMapSelection(eraId: string): LobbyMapChangeSelection {
-  return {
-    era_id: eraId,
-    map_id: LOBBY_ERA_MAP_IDS[eraId] ?? eraId,
-  };
-}
-
-export function buildCommunityMapSelection(mapId: string): LobbyMapChangeSelection {
-  const immersion = getCustomMapImmersion(mapId);
-  return {
-    era_id: immersion?.recommended_rules_era ?? 'ancient',
-    map_id: mapId,
-  };
 }
 
 export function isCommunityTheaterMap(mapId: string): boolean {

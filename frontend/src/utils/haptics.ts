@@ -11,8 +11,4 @@ export function hapticNotification(type: NotificationType = NotificationType.Suc
   if (isNative) Haptics.notification({ type }).catch(() => {});
 }
 
-export function hapticSelection() {
-  if (isNative) Haptics.selectionStart().catch(() => {});
-}
-
 export { ImpactStyle, NotificationType };

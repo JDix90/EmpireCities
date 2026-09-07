@@ -315,7 +315,6 @@ export function clearTutorialProgress(): void {
 // ── Backward-compatible aliases (device.ts consumers) ─────────────────────────
 
 export const persistGlobeSpinPreference = setGlobeSpinPreference;
-export const persistCameraFollowPreference = setCameraFollowPreference;
 export const persistLiteMode = setLiteMode;
 export const persistMapView = setMapViewPreference;
 export const persistConnectionHintPreference = setConnectionHintPreference;

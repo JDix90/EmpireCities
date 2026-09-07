@@ -189,27 +189,6 @@ async function createNextSeason(): Promise<void> {
 
 // ── Season history query ────────────────────────────────────────────────
 
-export async function getSeasonHistory(userId: string): Promise<Array<{
-  season_id: string;
-  name: string;
-  highest_tier: string;
-  final_mu: number | null;
-  games_played: number;
-  reward_cosmetic_id: string | null;
-  started_at: string;
-  ended_at: string;
-}>> {
-  return query(
-    `SELECT s.season_id, s.name, sr.highest_tier, sr.final_mu, sr.games_played,
-            sr.reward_cosmetic_id, s.started_at, s.ended_at
-     FROM season_rewards sr
-     JOIN seasons s ON s.season_id = sr.season_id
-     WHERE sr.user_id = $1
-     ORDER BY s.started_at DESC`,
-    [userId],
-  );
-}
-
 // ── Cron sweep ─────────────────────────────────────────────────────────
 
 let seasonInterval: ReturnType<typeof setInterval> | null = null;

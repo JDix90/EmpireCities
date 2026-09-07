@@ -22,45 +22,10 @@ export async function connectRedis(): Promise<void> {
   console.log('[Redis] Connected successfully');
 }
 
-// ── Session helpers ──────────────────────────────────────────────────────────
-
-export async function setSession(key: string, value: string, ttlSeconds: number): Promise<void> {
-  await redis.set(key, value, 'EX', ttlSeconds);
-}
-
-export async function getSession(key: string): Promise<string | null> {
-  return redis.get(key);
-}
-
-export async function deleteSession(key: string): Promise<void> {
-  await redis.del(key);
-}
-
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
-
-export async function updateLeaderboard(era: string, userId: string, mmr: number): Promise<void> {
-  await redis.zadd(`leaderboard:${era}`, mmr, userId);
-}
 
 /** Remove a user from every era leaderboard — called on account deletion. */
 export async function removeFromAllLeaderboards(userId: string): Promise<void> {
   const eras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age'];
   await Promise.all(eras.map((era) => redis.zrem(`leaderboard:${era}`, userId)));
-}
-
-export async function getLeaderboard(era: string, top = 100): Promise<{ userId: string; mmr: number }[]> {
-  const results = await redis.zrevrangebyscore(
-    `leaderboard:${era}`,
-    '+inf',
-    '-inf',
-    'WITHSCORES',
-    'LIMIT',
-    0,
-    top
-  );
-  const leaderboard: { userId: string; mmr: number }[] = [];
-  for (let i = 0; i < results.length; i += 2) {
-    leaderboard.push({ userId: results[i], mmr: parseFloat(results[i + 1]) });
-  }
-  return leaderboard;
 }

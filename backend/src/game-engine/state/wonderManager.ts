@@ -138,20 +138,3 @@ export function applyWonderProductionIncome(
   }
   return { extraTechPoints: 0 };
 }
-
-/**
- * Wonder map for frontend lookup. Returns { wonder_id, name, owner_player_id | null, territory_id | null }
- * or null if this era has no wonder.
- */
-export function getWonderStatus(
-  state: GameState,
-): { wonder_id: BuildingType; name: string; owner_player_id: string | null; territory_id: string | null } | null {
-  const wonder = getEraWonder(state.era);
-  if (!wonder) return null;
-  return {
-    wonder_id: wonder.wonder_id,
-    name: wonder.name,
-    owner_player_id: getWonderOwner(state),
-    territory_id: getWonderTerritory(state),
-  };
-}

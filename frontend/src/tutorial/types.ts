@@ -1,6 +1,3 @@
-/** Tutorial system v2 — modular lessons with shared step model. */
-export const TUTORIAL_VERSION = 2 as const;
-
 /** Set `VITE_TUTORIAL_V2=0` to hide optional deep-dive modules (core primers stay on). */
 export const TUTORIAL_V2_ENABLED =
   typeof import.meta.env.VITE_TUTORIAL_V2 === 'undefined' ||

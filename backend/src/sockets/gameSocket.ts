@@ -3316,11 +3316,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
     //     have no in-memory state but still need the socket removed from
     //     the Socket.IO room so the client stops receiving broadcasts.
     socket.on('game:leave', async ({ gameId }: { gameId: string }) => {
-      // Always detach from the room and acknowledge — even when there is no
-      // in-memory state — so the client stops receiving room broadcasts and
-      // any waiting `game:left` listener resolves.
+      // Always detach from the room — even when there is no in-memory state —
+      // so the client stops receiving room broadcasts.
       socket.leave(gameId);
-      socket.emit('game:left', { gameId });
 
       // Decrement presence FIRST — before any other await. A leave emitted by
       // a transient remount is chased by a rejoin within milliseconds; if our
@@ -3433,7 +3431,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         if (!state.lane_blockades) state.lane_blockades = {};
         state.lane_blockades[check.laneId] = { owner_id: userId, turns_remaining: GALAXY_LANE_SEAL_DURATION };
-        socket.emit('game:lane_sealed', { laneId: check.laneId, fromId, toId, turns: GALAXY_LANE_SEAL_DURATION });
         await persistGameStateAfterMutation(gameId, state);
         broadcastState(io, gameId, state);
       });
@@ -3651,22 +3648,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
     });
 
-    // ── Matchmaking socket shortcuts ────────────────────────────────────────
-    socket.on('matchmaking:join', async ({ era_id, bucket }: { era_id: string; bucket: string }) => {
-      try {
-        await query(
-          `UPDATE ranked_queue SET socket_id = $1 WHERE user_id = $2`,
-          [socket.id, userId],
-        );
-      } catch { /* queue row may not exist yet */ }
-    });
-
-    socket.on('matchmaking:leave', async () => {
-      try {
-        await query('DELETE FROM ranked_queue WHERE user_id = $1', [userId]);
-      } catch { /* ignore */ }
-    });
-
     // ── Disconnect ──────────────────────────────────────────────────────────
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${userId} (${socket.id})`);
@@ -3677,8 +3658,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         void removeSpectatorSocket(io, socket, spectatingGameId).catch(() => {});
       }
 
-      // Clean up matchmaking queue on disconnect
-      query('DELETE FROM ranked_queue WHERE socket_id = $1', [socket.id]).catch(() => {});
       forEachConnectedGame((gameId, sockets) => {
         if (!sockets.has(socket.id)) return;
         const departedPlayerId = sockets.get(socket.id)!;

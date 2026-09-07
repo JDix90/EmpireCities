@@ -1,13 +1,7 @@
-import {
-  CONNECTION_HINT_LABELS,
-  getConnectionHintPreference,
-  setConnectionHintPreference,
-  type ConnectionHintPreference,
-} from './userPreferences';
+import { CONNECTION_HINT_LABELS, type ConnectionHintPreference } from './userPreferences';
 
 export type { ConnectionHintPreference };
-export { CONNECTION_HINT_LABELS, getConnectionHintPreference };
-export const persistConnectionHintPreference = setConnectionHintPreference;
+export { CONNECTION_HINT_LABELS };
 
 /** Effective rendering mode after applying user preference and map context. */
 export type ResolvedConnectionHintMode = 'full' | 'borders' | 'off';

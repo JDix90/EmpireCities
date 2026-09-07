@@ -246,10 +246,11 @@ async function attemptMatch(eraId: string, bucket: string, preferredOpponents = 
  * in_progress game; if the start fails we log and fall back to the waiting
  * room's host-start flow — same degradation the casual auto-start accepts.
  *
- * Note delivery: sockets never populate ranked_queue.socket_id from the web
- * client (the matchmaking:join socket event has no frontend emitter), so
- * emitting to socket_id alone reached nobody. Every authenticated socket joins
- * its `user:<id>` room on connect — emit there, plus socket_id when present.
+ * Note delivery: nothing populates ranked_queue.socket_id. The socket handler
+ * that used to write it was deleted as dead — the web client queues over REST —
+ * so the column is always NULL and the socket_id emit below never fires. Every
+ * authenticated socket joins its `user:<id>` room on connect, and that room is
+ * the delivery path that works. The socket_id line stays until the column does.
  */
 async function finalizeRankedGame(gameId: string, players: QueueCandidate[], eraId: string): Promise<void> {
   // Auto-start + socket notify need the io server; push does not (it exists

@@ -299,16 +299,6 @@ async function awardChallengeRewards(userId: string, challenge: Challenge): Prom
 
 // ── Claim completed challenge (explicit claim action) ──────────────────
 
-export async function claimChallenge(userId: string, challengeId: string): Promise<boolean> {
-  const row = await queryOne<{ completed_at: string | null; progress: number }>(
-    `SELECT completed_at, progress FROM user_challenge_progress
-     WHERE user_id = $1 AND challenge_id = $2`,
-    [userId, challengeId],
-  );
-  // Already completed = rewards already given inline
-  return row?.completed_at != null;
-}
-
 // ── Automated monthly challenge generation ─────────────────────────────
 
 const MONTH_ABBREVS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];

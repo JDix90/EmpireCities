@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpCircle, Medal, Share2, Swords, Star, Zap } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatEraLabel, humanizeMapId } from '../../utils/mapDisplayNames';
-// import { fetchMapById, getTerritoryById, getTerritoriesInRegion } from '../../services/mapService';
 
 interface ActivityEvent {
   id: string;
