@@ -148,7 +148,9 @@ export default function UpgradePage() {
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
-          <p className="text-bf-muted mt-2">Save your progress with a free account</p>
+          <p className="text-bf-muted mt-2">
+            Your guest account has no email or password — it lives in this browser alone. This keeps it, on any device.
+          </p>
         </div>
 
         <div className="card">

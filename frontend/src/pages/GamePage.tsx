@@ -2964,7 +2964,7 @@ export default function GamePage() {
       if (user?.is_guest) {
         maybePromptTutorialAccount(
           () => navigate('/lobby'),
-          'Great work, Commander. Lock in your hard-earned XP by creating a free account.',
+          'Great work, Commander. That XP is on a guest account tied to this browser — a free account keeps it wherever you play.',
         );
       } else {
         setPostTutorialPrompt(true);
@@ -3180,7 +3180,7 @@ export default function GamePage() {
     };
     maybePromptTutorialAccount(
       continueInTutorial,
-      'Save your progress before you keep playing — create a free account so the next match counts.',
+      'Your progress lives in this browser alone — create a free account so it follows you, and the next match counts.',
     );
   }, [tutorialSkipped, maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
 
@@ -5085,6 +5085,7 @@ export default function GamePage() {
       {signupNudge && (
         <GuestSignupNudgeModal
           isWinner={signupNudge.isWinner}
+          gold={user?.gold}
           onCreateAccount={() => {
             // /upgrade converts the guest row in place (keeps the XP just
             // earned). We intentionally skip onContinue's lobby nav so it

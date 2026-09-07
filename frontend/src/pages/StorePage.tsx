@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import GuestGate from '../components/GuestGate';
 import Modal from '../components/ui/Modal';
 import { RARITY_COLORS } from '@borderfall/shared';
 import type { CosmeticRarity } from '@borderfall/shared';
@@ -64,6 +65,12 @@ const FILTER_CHIPS: { key: FilterType | 'all'; label: string }[] = [
 
 export default function StorePage() {
   const { user, setUser } = useAuthStore();
+  // Buying and equipping are both `rejectGuest` server-side. The nav link that
+  // reaches this page is hidden for guests, but the route itself is only
+  // `PrivateRoute` — so a guest arriving by URL used to browse the catalogue
+  // and get the middleware's developer-facing 403 on the first Buy. They also
+  // have a real gold balance the rest of the app never shows them; say so.
+  const isGuest = Boolean(user?.is_guest);
   const [tab, setTab] = useState<'catalog' | 'loadout'>('catalog');
   const [catalog, setCatalog] = useState<CosmeticItem[]>([]);
   const [owned, setOwned] = useState<OwnedItem[]>([]);
@@ -135,6 +142,13 @@ export default function StorePage() {
   /** Paid items go through a confirm step; free items collect immediately. */
   const requestBuy = (item: CosmeticItem) => {
     if (buyingId) return;
+    // Answer before the confirm dialog, so a guest isn't walked through a
+    // purchase flow that ends in a refusal. `handleBuy` keeps the same guard as
+    // a backstop for the free-item path and any future caller.
+    if (isGuest) {
+      toast('Spending gold needs a free account — your balance carries over.', { icon: '🪙' });
+      return;
+    }
     if (item.price_gems > 0) {
       setConfirmItem(item);
       return;
@@ -144,6 +158,11 @@ export default function StorePage() {
 
   const handleBuy = async (item: CosmeticItem) => {
     if (buyingId) return;
+    if (isGuest) {
+      setConfirmItem(null);
+      toast('Spending gold needs a free account — your balance carries over.', { icon: '🪙' });
+      return;
+    }
     setConfirmItem(null);
     setBuyingId(item.cosmetic_id);
     try {
@@ -192,6 +211,10 @@ export default function StorePage() {
 
   const handleEquip = async (item: OwnedItem) => {
     if (equippingId) return;
+    if (isGuest) {
+      toast('Equipping needs a free account — your unlocks carry over.', { icon: '🪙' });
+      return;
+    }
     const isFrame = item.type === 'profile_frame' || item.type === 'profile_banner';
     const isMarker = item.type === 'map_marker';
     const isDice = item.type === 'dice_skin';
@@ -246,6 +269,19 @@ export default function StorePage() {
         </div>
       )}
     >
+        {isGuest && (
+          <GuestGate
+            className="mb-6"
+            icon={Coins}
+            title={
+              (user?.gold ?? 0) > 0
+                ? `You have ${(user?.gold ?? 0).toLocaleString()} gold banked`
+                : 'Gold you earn is being saved'
+            }
+            description="Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."
+          />
+        )}
+
         {/* Tab bar */}
         <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit border border-bf-border">
           {(['catalog', 'loadout'] as const).map((t) => (
