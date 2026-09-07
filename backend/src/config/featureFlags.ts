@@ -51,6 +51,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
@@ -229,6 +230,18 @@ export const featureFlags = {
     return overrideBool('signup_nudge_enabled');
   },
 
+  /**
+   * When true, guest accounts may start the Daily Challenge. They play the same
+   * puzzle and get the same score, but only registered players are ranked on
+   * the board (`GET /daily/today` filters `is_guest`). The switch exists because
+   * a guest identity is one unauthenticated POST away: if guest game creation
+   * ever becomes a load or abuse problem, close the door without a deploy.
+   * Default ON.
+   */
+  get dailyGuestPlayEnabled(): boolean {
+    return overrideBool('daily_guest_play_enabled');
+  },
+
 
   /**
    * When true, the AI's per-turn attack budget counts dice exchanges instead of
@@ -389,6 +402,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,

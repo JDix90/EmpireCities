@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticate } from '../../middleware/authenticate';
-import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from '../../game-engine/daily/dailySettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
+import { featureFlags } from '../../config/featureFlags';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
@@ -94,15 +94,50 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       : null;
 
     // Honest "shared event" signal: how many commanders have attempted today's
-    // challenge. Real count, interesting even when small.
+    // challenge. Real count, interesting even when small. Same population as
+    // the board — registered only — so "12 attempted" and a 10-row board never
+    // disagree about who counts, and guest churn can't inflate it.
     const attemptsRow = await queryOne<{ attempts: string }>(
       `SELECT COUNT(*)::int AS attempts
-       FROM daily_challenge_entries
-       WHERE challenge_date = $1`,
+       FROM daily_challenge_entries dce
+       JOIN users u ON u.user_id = dce.user_id
+       WHERE dce.challenge_date = $1
+         AND u.is_guest = false`,
       [row.challenge_date],
     );
 
-    // Top 10 leaderboard for today
+    // Where the viewer stands among registered commanders. For a registered
+    // player that is their rank today; for a guest it is the place they WOULD
+    // hold — the viewer's own row is admitted whatever their status, every
+    // other guest row is excluded, exactly as the board does. Same ORDER BY as
+    // the board so the number matches what they see.
+    const rankRow = myEntry
+      ? await queryOne<{ rank: number }>(
+          `SELECT r.rank::int AS rank
+           FROM (
+             SELECT dce.user_id,
+                    RANK() OVER (
+                      ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST,
+                               dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
+                    ) AS rank
+             FROM daily_challenge_entries dce
+             JOIN users u ON u.user_id = dce.user_id
+             WHERE dce.challenge_date = $1
+               AND (u.is_guest = false OR dce.user_id = $2)
+           ) r
+           WHERE r.user_id = $2`,
+          [row.challenge_date, request.userId],
+        )
+      : null;
+
+    // Top 10 leaderboard for today — registered commanders only, like every
+    // other board in the repo. Guests can PLAY the daily (see /start) but a
+    // guest identity is one unauthenticated POST away, so a board that admitted
+    // them would be farmable by anyone willing to clear their storage. A guest
+    // sees this board with their own would-be place named beside their result
+    // (`my_rank`), which is the account pitch in one number — and because
+    // upgrading keeps the same user_id, their entry appears here the moment
+    // they do.
     // puzzle_score is the primary metric among winners: it is what the move
     // grading actually measures (1000 minus mistake penalties). Turn count
     // breaks ties, so domination days — where every winner scores 1000 —
@@ -119,6 +154,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
        WHERE dce.challenge_date = $1
+         AND u.is_guest = false
        ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST, dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
        LIMIT 10`,
       [row.challenge_date],
@@ -130,12 +166,23 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       active_game_id: activeGame?.game_id ?? null,
       completed_game_id: completedGame?.game_id ?? null,
       attempts_today: attemptsRow?.attempts ? Number(attemptsRow.attempts) : 0,
+      my_rank: rankRow?.rank ?? null,
       leaderboard,
     });
   });
 
   // ── POST /api/daily/start ─────────────────────────────────────────────────
-  fastify.post('/start', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  // Open to guests. The Daily is the most distinctive thing in the product and
+  // this was the one door closed at exactly the moment intent is highest. What
+  // stays registered-only is the BOARD (see /today): a guest plays the same
+  // puzzle, gets the same score, and is told the place they would hold.
+  fastify.post('/start', { preHandler: [authenticate], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+    // Operator kill switch (Admin → Config). The message is player-facing: this
+    // is the one door a guest may find closed, and the middleware's own 403
+    // body is written for developers.
+    if (request.isGuest && !featureFlags.dailyGuestPlayEnabled) {
+      return reply.status(403).send({ error: 'Create a free account to play the Daily Challenge' });
+    }
     const row = await ensureDailyChallengeForToday();
     const userId = request.userId;
 

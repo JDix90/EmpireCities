@@ -7,6 +7,7 @@ import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react'
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
+import { useDailyGuestPlayEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 
 interface DailyPuzzleSpecPublic {
@@ -62,6 +63,12 @@ interface DailyResponse {
   completed_game_id?: string | null;
   /** Real count of commanders who have attempted today's challenge. */
   attempts_today?: number;
+  /**
+   * The viewer's place among registered commanders today, once they have an
+   * entry. For a guest this is the place they WOULD hold — guests play the
+   * daily but do not appear on the board.
+   */
+  my_rank?: number | null;
   leaderboard: LeaderboardRow[];
 }
 
@@ -118,11 +125,25 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
+/** 1 → "1st", 2 → "2nd", 11 → "11th", 22 → "22nd". */
+export function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
 export default function DailyChallengePage() {
   useRnParamTracker();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isGuest = useAuthStore((s) => !!s.user?.is_guest);
+  // Operator kill switch; when off, guests get the account offer where Play would be.
+  const guestPlayClosed = isGuest && !useDailyGuestPlayEnabled();
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -163,7 +184,7 @@ export default function DailyChallengePage() {
 
   const handlePlay = async () => {
     if (starting || !data) return;
-    if (isGuest) {
+    if (guestPlayClosed) {
       navigate('/upgrade');
       return;
     }
@@ -176,11 +197,11 @@ export default function DailyChallengePage() {
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { status?: number; data?: { error?: string } } }).response
           : null;
-      // rejectGuest's 403 body is developer-facing ("Guest accounts cannot access
-      // this resource"); never show it to a player.
+      // Guests can start a daily, so a 403 here is no longer "make an account" —
+      // it is a genuine denial (ban, closed day). Say so plainly; never surface
+      // the middleware's developer-facing body.
       if (response?.status === 403) {
-        toast.error('Create a free account to play the Daily Challenge');
-        navigate('/upgrade');
+        toast.error('You can\'t start today\'s challenge right now');
         return;
       }
       toast.error(response?.data?.error ?? 'Could not start challenge');
@@ -212,7 +233,7 @@ export default function DailyChallengePage() {
     );
   }
 
-  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today } = data;
+  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today, my_rank } = data;
   const alreadyPlayed = my_entry !== null;
   const canWatchReplay = !!my_entry?.won && !!completed_game_id;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;
@@ -262,6 +283,37 @@ export default function DailyChallengePage() {
             )}
           </div>
 
+          {/* Where today's run stands. Guests can play the daily but are not on
+              the board (a guest identity is one unauthenticated POST away, so a
+              board that admitted them would be farmable). Naming the place they
+              WOULD hold turns that gap into the reason to create the account —
+              and upgrading keeps the same user_id, so the entry appears on the
+              board the moment they do. */}
+          {alreadyPlayed && typeof my_rank === 'number' && (
+            isGuest ? (
+              <div
+                className="rounded-lg border border-bf-gold/40 bg-bf-gold/10 p-4 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                data-testid="daily-guest-rank"
+              >
+                <p className="text-sm text-bf-text">
+                  That run would place you{' '}
+                  <span className="text-bf-gold font-semibold">{ordinal(my_rank)}</span> on today&apos;s board.
+                  <span className="text-bf-muted"> Guest runs aren&apos;t ranked — create a free account and this one is.</span>
+                </p>
+                <Link
+                  to="/upgrade"
+                  className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5 shrink-0"
+                >
+                  Claim {ordinal(my_rank)} place
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm text-bf-muted mb-3" data-testid="daily-rank">
+                You&apos;re <span className="text-bf-gold font-semibold">{ordinal(my_rank)}</span> today.
+              </p>
+            )
+          )}
+
           {/* User result summary */}
           {alreadyPlayed && (
             <div className="rounded-lg bg-bf-dark/60 border border-bf-border p-4 mb-4 grid grid-cols-3 gap-4 text-center">
@@ -301,13 +353,10 @@ export default function DailyChallengePage() {
             ) : (
               <p className="text-center text-bf-muted text-sm">Come back tomorrow for a new challenge!</p>
             )
-          ) : isGuest ? (
-            // Starting a daily is registered-only (rejectGuest on POST /daily/start).
-            // Guests still see the challenge and the board — they just get the offer
-            // instead of a button that would 403.
+          ) : guestPlayClosed ? (
             <GuestGate
               title="Play today's challenge"
-              description="The Daily Challenge is a free-account feature — one puzzle a day, the same map for everyone, with your runs on the leaderboard. Your guest progress carries over."
+              description="The Daily Challenge needs a free account right now — one puzzle a day, the same map for everyone. Your guest progress carries over."
               ctaLabel="Create free account"
             />
           ) : active_game_id ? (

@@ -43,6 +43,12 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
+    key: 'daily_guest_play_enabled',
+    label: 'Daily Challenge for guests',
+    description:
+      'Let guest accounts start the Daily Challenge. Only registered players are ranked on its board either way. Off closes the door with a "create a free account" prompt — use it if guest game creation becomes a load or abuse problem. On by default.',
+  },
+  {
     key: 'first_turn_coach_enabled',
     label: 'First-turn coaching',
     description:
