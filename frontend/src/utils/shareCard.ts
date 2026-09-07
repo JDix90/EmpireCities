@@ -20,6 +20,7 @@ export interface ShareCardOptions {
 const VICTORY_LABELS: Record<string, string> = {
   domination: 'Domination Victory',
   last_standing: 'Last Standing',
+  humans_eliminated: 'All Commanders Fell',
   threshold: 'Threshold Victory',
   capital: 'Capital Capture',
   secret_mission: 'Secret Mission',

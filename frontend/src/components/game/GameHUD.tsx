@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, Sword, ArrowRight, Clock, Users, CreditCard, Flag, Save, Zap, ScrollText, ChevronDown, ChevronUp, Undo2 } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
@@ -39,6 +39,12 @@ interface GameHUDProps {
   onRedeemCards: (cardIds: string[]) => void;
   onResign?: () => void;
   onSaveAndLeave?: () => void;
+  /**
+   * Exit for a player who is already out. Distinct from `onSaveAndLeave`,
+   * which promises the game can be resumed later — an eliminated player has
+   * nothing to come back to.
+   */
+  onLeaveGame?: () => void;
   onExitTutorial?: () => void;
   isTutorial?: boolean;
   onOpenTechTree?: () => void;
@@ -91,6 +97,7 @@ export default function GameHUD({
   onRedeemCards,
   onResign,
   onSaveAndLeave,
+  onLeaveGame,
   onExitTutorial,
   isTutorial,
   onOpenTechTree,
@@ -710,6 +717,23 @@ export default function GameHUD({
       )}
 
       {/* Turn actions + collapsible tools */}
+      {/* Eliminated, but the game runs on: keep one way out. The turn-actions
+          block below is hidden once you are eliminated, and it is what holds
+          Save & Leave — so without this a spectating player had no exit at all
+          short of the browser back button. */}
+      {gameState.phase !== 'game_over' && myPlayer?.is_eliminated && onLeaveGame && (
+        <div className="shrink-0 px-4 pb-3">
+          <button
+            onClick={onLeaveGame}
+            className="w-full min-h-[44px] py-2 text-sm rounded-lg border border-bf-border
+                       text-bf-muted hover:text-bf-text hover:bg-bf-border/40 transition-colors
+                       flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-4 h-4" aria-hidden /> Leave game
+          </button>
+        </div>
+      )}
+
       {gameState.phase !== 'game_over' && myPlayer && !myPlayer.is_eliminated && (
         <div className="shrink-0 px-4 pb-3 flex flex-col gap-1.5">
           {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff).

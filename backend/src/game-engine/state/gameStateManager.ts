@@ -1001,6 +1001,22 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
   const activePlayers = state.players.filter((p) => !p.is_eliminated);
   if (activePlayers.length === 1) return { winnerIds: [activePlayers[0].player_id], condition: 'last_standing' };
 
+  // Every human is out. Without this the surviving bots grind on against each
+  // other for the rest of the turn limit with nobody watching, and the human
+  // who was just eliminated never gets a result screen. Credit the leading AI
+  // (most territories, then most units) so the defeat reads as a real outcome.
+  // Guarded on the game having had a human in it at all, so an all-AI match
+  // — simulation, or a seeded fixture — is unaffected.
+  const hasHumanSeat = state.players.some((p) => !p.is_ai);
+  if (hasHumanSeat && activePlayers.length > 0 && !activePlayers.some((p) => !p.is_ai)) {
+    const unitsOf = (playerId: string) => Object.values(state.territories)
+      .reduce((sum, t) => (t.owner_id === playerId ? sum + (t.unit_count ?? 0) : sum), 0);
+    const leader = [...activePlayers].sort(
+      (a, b) => b.territory_count - a.territory_count || unitsOf(b.player_id) - unitsOf(a.player_id),
+    )[0]!;
+    return { winnerIds: [leader.player_id], condition: 'humans_eliminated' };
+  }
+
   const settings = normalizeGameSettings(state.settings);
   const allowed = getAllowedVictoryConditions(settings);
   const totalTerritories = Object.keys(state.territories).length;
