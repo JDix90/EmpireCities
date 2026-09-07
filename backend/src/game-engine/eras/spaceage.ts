@@ -13,6 +13,8 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     flavor_quote: 'Transparency is the sharpest weapon of the free.',
     home_region_ids: ['north_america_2100', 'europe_2100'],
     passive_attack_bonus: 1,
+    ability_id: 'satellite_uplink',
+    ability_description: 'Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.',
     color: '#3498db',
     stability_recovery_bonus: 2,
   },
@@ -66,6 +68,8 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     flavor_quote: 'The sun no longer rises in the East; it is owned there.',
     home_region_ids: ['middle_east_2100', 'central_asia_2100'],
     reinforce_bonus: 1,
+    ability_id: 'solar_surge',
+    ability_description: 'Solar Surge: once per turn, place 1 unit on an owned territory and gain 2 production.',
     color: '#f39c12',
   },
   {

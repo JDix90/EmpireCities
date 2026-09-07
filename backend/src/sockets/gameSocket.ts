@@ -168,6 +168,7 @@ import {
   getInfluenceUnitCost,
   getPrecisionStrikeMinUnits,
   getUnderdefendedAttackDiceBonus,
+  isOwnedTerritoryAdjacentToEnemy,
   playerHasUnlockedAbility,
   TERRITORY_ABILITY_DEFS,
 } from '../game-engine/abilities/techAbilities';
@@ -5147,11 +5148,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       const needsTarget = !!factionDef?.ownPlacement;
       const requiresMoon = factionDef?.ownPlacement?.requiresMoon ?? false;
       const requiresProduction = factionDef?.ownPlacement?.requiresProductionBuilding ?? false;
+      const requiresEnemyAdjacent = factionDef?.ownPlacement?.requiresEnemyAdjacent ?? false;
       const target = needsTarget
         ? Object.values(state.territories)
             .filter((t) => t.owner_id === currentPlayer.player_id
               && (!requiresMoon || t.world_id === 'moon' || t.globe_id === 'moon')
-              && (!requiresProduction || (t.buildings ?? []).some((b) => b.startsWith('production'))))
+              && (!requiresProduction || (t.buildings ?? []).some((b) => b.startsWith('production')))
+              && (!requiresEnemyAdjacent
+                || isOwnedTerritoryAdjacentToEnemy(state, map, currentPlayer.player_id, t.territory_id)))
             .sort((a, b) => b.unit_count - a.unit_count)[0]
         : undefined;
       if (!needsTarget || target) {

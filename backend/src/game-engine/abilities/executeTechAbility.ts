@@ -8,6 +8,7 @@ import {
   GAME_SCOPED_ABILITIES,
   TERRITORY_ABILITY_DEFS,
   isEnemyTerritoryReachableForAbility,
+  isOwnedTerritoryAdjacentToEnemy,
   playerHasUnlockedAbility,
 } from './techAbilities';
 
@@ -192,6 +193,10 @@ export function executeTechAbility(params: {
       && !(t.buildings ?? []).some((b) => b.startsWith('production'))) {
       return { success: false, error: 'Must target a territory with a production building' };
     }
+    if (def.ownPlacement.requiresEnemyAdjacent
+      && !isOwnedTerritoryAdjacentToEnemy(state, map, playerId, territoryId)) {
+      return { success: false, error: 'Must target an owned territory next to an enemy' };
+    }
     const cost = def.techCost ?? 0;
     if (cost > 0 && (currentPlayer.tech_points ?? 0) < cost) {
       return { success: false, error: `Not enough tech points (need ${cost})` };
@@ -200,6 +205,9 @@ export function executeTechAbility(params: {
     t.unit_count += def.ownPlacement.units;
     if (def.ownPlacement.restoreStability && t.stability != null) {
       t.stability = 100;
+    }
+    if (def.ownPlacement.grantsProduction && state.settings.economy_enabled) {
+      currentPlayer.special_resource = (currentPlayer.special_resource ?? 0) + def.ownPlacement.grantsProduction;
     }
     syncTerritoryCounts(state);
     return { success: true, effect: 'faction_units_placed', territoryId };

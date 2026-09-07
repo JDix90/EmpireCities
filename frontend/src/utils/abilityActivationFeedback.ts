@@ -22,6 +22,8 @@ const ACTIVATION_BY_ID: Record<string, string> = {
   royal_decree: '👑 Royal Decree — +2 free units placed',
   launch_space_station: '🚀 Space Station launched',
   mass_mobilization: '🪖 Mass Mobilization — +5 units placed',
+  satellite_uplink: '🛰️ Satellite Uplink — +2 units placed',
+  solar_surge: '☀️ Solar Surge — +1 unit placed, +2 production',
 };
 
 const ACTIVATION_BY_EFFECT: Record<string, string> = {
