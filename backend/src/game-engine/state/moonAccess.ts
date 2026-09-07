@@ -133,21 +133,20 @@ export function selectionExemptTerritoryIds(map: GameMap): Set<string> {
 }
 
 /**
- * Fortify / access checks: Space Age still treats any Moon endpoint as gated;
- * galaxy maps only gate explicit orbit edges (interior offworld moves are free).
+ * Fortify gating matches attack gating: only crossing an orbit edge needs
+ * access, on every map and era. Space Age used to gate any move with a Moon
+ * endpoint, which froze troop movement BETWEEN a player's own Moon tiles the
+ * moment they lost their last Launch Pad — while attacking and reinforcing
+ * those same tiles stayed legal, so the rule read as a bug rather than a cost.
+ * Crossing back to Earth still requires access, because that crosses a lane.
  */
 export function fortifyEndpointsRequireOrbitAccess(
   map: GameMap,
-  era: EraId,
+  _era: EraId,
   fromId: string,
   toId: string,
 ): boolean {
-  if (connectionRequiresMoonAccess(map, fromId, toId)) return true;
-  if (era !== 'space_age') return false;
-  const fromT = map.territories.find((t) => t.territory_id === fromId);
-  const toT = map.territories.find((t) => t.territory_id === toId);
-  if (!fromT || !toT) return false;
-  return inferWorldId(fromT) === 'moon' || inferWorldId(toT) === 'moon';
+  return connectionRequiresMoonAccess(map, fromId, toId);
 }
 
 /** Unified orbit gate for claims + fortify + orbit attacks. */

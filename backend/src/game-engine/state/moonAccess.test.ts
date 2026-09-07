@@ -155,6 +155,43 @@ describe('orbit access (galaxy_age)', () => {
   });
 });
 
+describe('space age fortify gating', () => {
+  const map: GameMap = {
+    map_id: 'era_space_age_mini',
+    name: 'Mini Space Age',
+    territories: [
+      { territory_id: 'na_launch_base', name: 'Cape', polygon: [], center_point: [0, 0], region_id: 'na' },
+      { territory_id: 'na_east', name: 'East', polygon: [], center_point: [0, 0], region_id: 'na' },
+      { territory_id: 'moon_a', name: 'Moon A', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+      { territory_id: 'moon_b', name: 'Moon B', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+    ],
+    connections: [
+      { from: 'na_launch_base', to: 'na_east', type: 'land' },
+      { from: 'na_launch_base', to: 'moon_a', type: 'orbit' },
+      { from: 'moon_a', to: 'moon_b', type: 'land' },
+    ],
+    regions: [
+      { region_id: 'na', name: 'North America', bonus: 3 },
+      { region_id: 'lunar_surface', name: 'Lunar Surface', bonus: 6 },
+    ],
+  } as GameMap;
+
+  it('gates crossing an orbit lane in both directions', () => {
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'na_launch_base', 'moon_a')).toBe(true);
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'moon_a', 'na_launch_base')).toBe(true);
+  });
+
+  it('leaves a move between two Moon tiles ungated', () => {
+    // A player who lost their last Launch Pad keeps their Moon holdings and can
+    // still shuffle troops between them; only crossing back to Earth is blocked.
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'moon_a', 'moon_b')).toBe(false);
+  });
+
+  it('leaves an ordinary Earth move ungated', () => {
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'na_launch_base', 'na_east')).toBe(false);
+  });
+});
+
 describe('formatOrbitAccessError copy', () => {
   const spaceAgeMap: GameMap = {
     map_id: 'era_space_age_mini',
