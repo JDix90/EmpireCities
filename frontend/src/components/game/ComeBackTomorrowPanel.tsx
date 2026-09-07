@@ -57,7 +57,7 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
               </>
             )}
             {data.is_guest && (
-              <span className="text-bf-muted"> Create a free account to protect it.</span>
+              <span className="text-bf-muted"> A guest streak lives in this browser only — a free account keeps it.</span>
             )}
           </span>
         </p>

@@ -1530,7 +1530,7 @@ export default function LobbyPage() {
             <div className="flex items-center gap-2 mt-1">
               {user?.is_guest ? (
                 <p className="text-bf-muted text-sm">
-                  Level {user?.level} · {user?.xp} XP · Guest{' '}
+                  Level {user?.level} · {user?.xp} XP · Guest, this browser only{' '}
                   <Link to="/upgrade" className="text-bf-gold hover:underline">— create an account to keep it</Link>
                 </p>
               ) : (

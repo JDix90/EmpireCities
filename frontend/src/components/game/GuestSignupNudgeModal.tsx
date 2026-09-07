@@ -5,6 +5,8 @@ import { signupNudgeCopy } from '../../utils/signupNudge';
 interface GuestSignupNudgeModalProps {
   /** Whether the guest just won — drives outcome-aware copy + icon. */
   isWinner: boolean;
+  /** Gold banked on the guest row; surfaced because nothing else ever shows it. */
+  gold?: number;
   /** Opt to create a full account (routes to /upgrade — upgrades in place). */
   onCreateAccount: () => void;
   /** Dismiss without creating an account (continues to the lobby). */
@@ -19,6 +21,7 @@ interface GuestSignupNudgeModalProps {
  */
 export default function GuestSignupNudgeModal({
   isWinner,
+  gold,
   onCreateAccount,
   onSkip,
 }: GuestSignupNudgeModalProps) {
@@ -39,7 +42,7 @@ export default function GuestSignupNudgeModal({
     };
   }, [onSkip]);
 
-  const copy = signupNudgeCopy(isWinner);
+  const copy = signupNudgeCopy(isWinner, gold);
   const Icon = isWinner ? Crown : Save;
 
   return (
@@ -58,6 +61,11 @@ export default function GuestSignupNudgeModal({
             {copy.title}
           </p>
           <p className="text-bf-muted text-sm leading-relaxed">{copy.body}</p>
+          {copy.bankedGold && (
+            <p className="text-bf-gold text-sm leading-relaxed mt-2" data-testid="nudge-banked-gold">
+              {copy.bankedGold}
+            </p>
+          )}
         </div>
 
         <ul className="text-sm text-bf-muted space-y-2 mb-6 px-1">
