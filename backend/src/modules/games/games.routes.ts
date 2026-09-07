@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { z } from 'zod';
-import type { VictoryType } from '../../types';
+import type { GameState, VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
@@ -18,6 +18,7 @@ import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
+import { buildChronicle } from '../../game-engine/chronicle/buildChronicle';
 import { COMBINED_TUTORIAL_SCENARIO } from '../../game-engine/tutorial/combinedTutorialScenario';
 import {
   CORE_TUTORIAL_GRANT_GOLD,
@@ -843,6 +844,62 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       return reply.send({ ok: true });
+    },
+  );
+
+  // ── GET /api/games/:gameId/chronicle ─────────────────────────────────────
+  /**
+   * The finished match, read back as a history: who broke first, who took a
+   * whole region, whose capital fell, who reached the next age ahead of the
+   * field, and the turn it stopped being in doubt.
+   *
+   * Derived on demand from the same per-turn snapshots the replay serves, so
+   * it needs no new table, no work during play, and it works retroactively on
+   * every game already in the database. Same gate as the replay: a finished
+   * (or abandoned) game, and only for someone who played it.
+   */
+  fastify.get<{ Params: { gameId: string } }>(
+    '/:gameId/chronicle',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const { gameId } = request.params;
+
+      const game = await queryOne<{ status: string; map_id: string }>(
+        'SELECT status, map_id FROM games WHERE game_id = $1',
+        [gameId],
+      );
+      if (!game) return reply.status(404).send({ error: 'Game not found' });
+      if (game.status !== 'completed' && game.status !== 'abandoned') {
+        return reply.status(409).send({ error: 'Chronicle not available for this game status' });
+      }
+
+      const participant = await queryOne<{ c: number }>(
+        'SELECT 1 AS c FROM game_players WHERE game_id = $1 AND user_id = $2',
+        [gameId, request.userId],
+      );
+      if (!participant) return reply.status(403).send({ error: 'Not a participant in this game' });
+
+      // The same 300-snapshot ceiling the post-match analysis uses: long enough
+      // for any real match, bounded so one request can't read an unbounded set.
+      const rows = await query<{ turn_number: number; state_json: unknown }>(
+        `SELECT turn_number, state_json FROM game_states
+         WHERE game_id = $1 ORDER BY turn_number ASC, saved_at ASC LIMIT 300`,
+        [gameId],
+      );
+      if (rows.length === 0) return reply.send({ entries: [], turnCount: 0, finalEraId: null });
+
+      const snapshots = rows.map((row) => ({
+        turn_number: row.turn_number,
+        state: (typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json) as GameState,
+      }));
+
+      // The board a transformed game ends on is the one its final state names,
+      // not the column written at creation (see `mapIdForSavedState`).
+      const finalState = snapshots[snapshots.length - 1].state;
+      const gameMap = await resolveMap(finalState.map_id ?? game.map_id);
+      if (!gameMap) return reply.status(404).send({ error: 'Map not found' });
+
+      return reply.send(buildChronicle(snapshots, gameMap));
     },
   );
 
