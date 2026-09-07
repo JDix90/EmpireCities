@@ -2178,6 +2178,27 @@ export default function GamePage() {
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
     });
 
+    socket.on('game:orbit_lane_opened', ({ playerName, territoryId, moonTargetId }: {
+      playerId: string;
+      playerName: string;
+      playerColor: string;
+      territoryId: string;
+      moonTargetId: string;
+    }) => {
+      const nameOf = (id: string) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id;
+      const isMe = playerName === user?.username;
+      toast(
+        isMe
+          ? `🛰 Your Launch Pad at ${nameOf(territoryId)} opens an orbit lane to ${nameOf(moonTargetId)}.`
+          : `🛰 ${playerName} built a Launch Pad at ${nameOf(territoryId)}: orbit lane to ${nameOf(moonTargetId)}.`,
+        {
+          duration: 6000,
+          style: { background: '#0a0d1f', border: '1px solid #8E9AF2', color: '#c7ceff' },
+        },
+      );
+      setCombatLog((prev) => [...prev, `🛰 ${playerName}'s Launch Pad at ${nameOf(territoryId)} opened a lane to ${nameOf(moonTargetId)}`]);
+    });
+
     const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
       if (!isMapStrikeAbility(event.abilityId)) return;
 
@@ -2276,6 +2297,7 @@ export default function GamePage() {
       socket.off('game:strike_animation');
       socket.off('game:map_visual');
       socket.off('game:space_station_launched');
+      socket.off('game:orbit_lane_opened');
       socket.off('game:puzzle_feedback');
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);

@@ -37,7 +37,56 @@ export interface FrontendMapData {
   worlds?: FrontendMapWorld[];
   orbit_access?: OrbitAccessMode;
   territories: FrontendMapTerritory[];
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: 'launch_pad' }>;
+}
+
+/**
+ * The Moon tile a Launch Pad on `territoryId` opens (or has opened) a lane to.
+ * Mirrors `nearestLandingZoneFor` on the backend: fewest hops over the map's
+ * connections from the pad to an authored orbit lane's Earth end. Advisory
+ * only — the server adds the real lane when the pad is built.
+ */
+export function launchPadLaneTarget(
+  mapData: FrontendMapData | null | undefined,
+  territoryId: string,
+): string | null {
+  if (!mapData) return null;
+  const existing = mapData.connections.find(
+    (c) => c.source === 'launch_pad' && (c.from === territoryId || c.to === territoryId),
+  );
+  if (existing) return existing.from === territoryId ? existing.to : existing.from;
+  const byId = new Map(mapData.territories.map((t) => [t.territory_id, t]));
+  const origin = byId.get(territoryId);
+  if (!origin || inferWorldId(origin) !== 'earth') return null;
+  const zones: Array<{ earthAnchor: string; moonTarget: string }> = [];
+  for (const c of mapData.connections) {
+    if (c.type !== 'orbit' || c.source === 'launch_pad') continue;
+    const from = byId.get(c.from);
+    const to = byId.get(c.to);
+    if (!from || !to) continue;
+    if (inferWorldId(from) === 'earth' && inferWorldId(to) !== 'earth') zones.push({ earthAnchor: c.from, moonTarget: c.to });
+    else if (inferWorldId(to) === 'earth' && inferWorldId(from) !== 'earth') zones.push({ earthAnchor: c.to, moonTarget: c.from });
+  }
+  if (zones.length === 0) return null;
+  const adj = new Map<string, string[]>();
+  for (const c of mapData.connections) {
+    (adj.get(c.from) ?? adj.set(c.from, []).get(c.from)!).push(c.to);
+    (adj.get(c.to) ?? adj.set(c.to, []).get(c.to)!).push(c.from);
+  }
+  const visited = new Set([territoryId]);
+  let frontier = [territoryId];
+  while (frontier.length > 0) {
+    const hit = zones.find((z) => frontier.includes(z.earthAnchor));
+    if (hit) return hit.moonTarget;
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const n of adj.get(id) ?? []) {
+        if (!visited.has(n)) { visited.add(n); next.push(n); }
+      }
+    }
+    frontier = next;
+  }
+  return null;
 }
 
 export function resolveOrbitAccessMode(

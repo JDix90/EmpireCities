@@ -57,6 +57,7 @@ import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
   getOrbitAccessResult,
+  syncLaunchPadLanes,
 } from '../src/game-engine/state/moonAccess';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 
@@ -182,6 +183,7 @@ function playAiTurn(
   const build = selectAiBuildingPlacement(state, map, pid, difficulty);
   if (build) {
     applyBuild(state, pid, build.territoryId, build.buildingType); // validates internally (returns void)
+    if (build.buildingType === 'launch_pad') syncLaunchPadLanes(map, state); // the pad's orbit lane, as the socket does
     if (
       build.buildingType === 'launch_pad'
       && ps.launchPadTurn == null
@@ -314,7 +316,9 @@ function strictMaxKey(m: Map<string, number>): string | null {
   return tie ? null : best;
 }
 
-function runGame(map: GameMap, moonTileIds: string[], frontierIds: string[], gameIndex: number): GameStat {
+function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[], gameIndex: number): GameStat {
+  // Launch Pad lanes are written into the game's map copy, so each game needs its own.
+  const map = JSON.parse(JSON.stringify(baseMap)) as GameMap;
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   const players = Array.from({ length: PLAYERS }, (_, i) => ({

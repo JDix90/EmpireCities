@@ -10,6 +10,8 @@ export interface MapConnectionEdge {
   from: string;
   to: string;
   type?: ConnectionType;
+  /** Engine-added lane (a Launch Pad's orbit lane); never present in authored maps. */
+  source?: 'launch_pad';
 }
 
 export {
