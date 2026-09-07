@@ -30,7 +30,11 @@ export interface Faction {
   description: string;
   lore?: string;
   flavor_quote?: string;
-  /** region_id or territory_id values that form the home region for initial placement. */
+  /**
+   * region_id values that form the home region for initial placement.
+   * `distributeTerritoriesGeographic` matches these against `territory.region_id`
+   * only — a territory_id listed here is silently ignored.
+   */
   home_region_ids: string[];
   /** Passive combat modifier applied to this faction's attacks (+dice / re-roll). */
   passive_attack_bonus?: number;

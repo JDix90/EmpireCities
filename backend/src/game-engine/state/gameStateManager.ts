@@ -167,8 +167,9 @@ export function initializeGameState(
   // Worlds explicitly flagged `initial_neutral_garrison: true` — and Space Age's
   // legacy moon — start NEUTRAL with a small garrison instead of being distributed.
   // For Space Age this preserves the original "tech up to claim the moon" race;
-  // even Lunar Pioneers must conquer their home (their advantage is turn-1 orbit
-  // access via `space_station_launched: true` and a passive lunar defense bonus).
+  // even Lunar Pioneers must conquer the Moon (their Earth home is Oceania; their
+  // advantage is turn-1 orbit access via `space_station_launched: true` plus the
+  // `offworld_defense_bonus` dice on any Moon tile they hold).
   // Galaxy era worlds intentionally do NOT set this flag so factions spawn on
   // their lore home; the orbit-access gate then forces hyperspace tech before
   // factions can engage across worlds.

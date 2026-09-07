@@ -39,7 +39,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     description: 'Terraforming doctrine — +4 stability recovery per turn; population grows twice as fast; Terraform ability.',
     lore: 'Born from the flooded coastlines and dust belts of the late 21st century, the Alliance treats ecological repair as a strategic weapon.',
     flavor_quote: 'We build the future in soil, not steel.',
-    home_region_ids: ['sub_saharan_africa_2100', 'oceania_2100'],
+    home_region_ids: ['sub_saharan_africa_2100'],
     population_growth_multiplier: 2,
     ability_id: 'terraform',
     ability_description: 'Terraform: once per turn, restore stability to 100 in an owned territory and gain 1 free unit there.',
@@ -79,7 +79,10 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     description: 'Moon-native colonists — Moon access from turn one; +2 defense dice on Moon territories; Lunar Supply Drop ability.',
     lore: 'Descendants of the first permanent lunar settlers, the Pioneers see Earth as a gravity well they are no longer obligated to return to.',
     flavor_quote: 'We do not look up at the stars. We live among them.',
-    home_region_ids: ['lunar_surface'],
+    // The Moon starts neutral (see initializeGameState), so a lunar home region
+    // dealt the Pioneers only leftover Earth scraps. Oceania is their Earth
+    // staging ground; the Moon is still theirs to take via turn-1 orbit access.
+    home_region_ids: ['oceania_2100'],
     offworld_defense_bonus: 2,
     ability_id: 'lunar_supply_drop',
     ability_description: 'Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.',
