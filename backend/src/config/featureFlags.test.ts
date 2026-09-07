@@ -74,6 +74,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(false);
   });
 
+  it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
+    expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
+    expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { daily_guest_play_enabled: false } });
+    expect(featureFlags.dailyGuestPlayEnabled).toBe(false);
+    expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(false);
+  });
+
   it('turn_clarity_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.turnClarityEnabled).toBe(true);
     setAdminConfigCacheForTests({ feature_flags: { turn_clarity_enabled: false } });

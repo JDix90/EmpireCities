@@ -5,7 +5,9 @@ import { ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import toast from 'react-hot-toast';
 import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
+import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
+import { useDailyGuestPlayEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 
 interface DailyPuzzleSpecPublic {
@@ -140,6 +142,8 @@ export default function DailyChallengePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isGuest = useAuthStore((s) => !!s.user?.is_guest);
+  // Operator kill switch; when off, guests get the account offer where Play would be.
+  const guestPlayClosed = isGuest && !useDailyGuestPlayEnabled();
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -180,6 +184,10 @@ export default function DailyChallengePage() {
 
   const handlePlay = async () => {
     if (starting || !data) return;
+    if (guestPlayClosed) {
+      navigate('/upgrade');
+      return;
+    }
     setStarting(true);
     try {
       const res = await api.post<{ game_id: string }>('/daily/start');
@@ -345,6 +353,12 @@ export default function DailyChallengePage() {
             ) : (
               <p className="text-center text-bf-muted text-sm">Come back tomorrow for a new challenge!</p>
             )
+          ) : guestPlayClosed ? (
+            <GuestGate
+              title="Play today's challenge"
+              description="The Daily Challenge needs a free account right now — one puzzle a day, the same map for everyone. Your guest progress carries over."
+              ctaLabel="Create free account"
+            />
           ) : active_game_id ? (
             <button
               type="button"

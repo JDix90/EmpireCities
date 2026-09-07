@@ -10,6 +10,7 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
+  daily_guest_play_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
@@ -36,6 +37,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
+  // Guests may play the Daily (registered players are the only ones ranked).
+  daily_guest_play_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,
@@ -99,6 +102,10 @@ export function useHeroSingleCtaEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
+}
+
+export function useDailyGuestPlayEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.daily_guest_play_enabled);
 }
 
 export function useStreakFreezesEnabled(): boolean {

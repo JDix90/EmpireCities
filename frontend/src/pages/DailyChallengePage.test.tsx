@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DailyChallengePage, { ordinal } from './DailyChallengePage';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const getMock = vi.fn();
 vi.mock('../services/api', () => ({
@@ -49,6 +50,18 @@ function renderPage() {
 describe('DailyChallengePage — guests play, registered rank', () => {
   beforeEach(() => {
     getMock.mockReset();
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: true } });
+  });
+
+  it('closes the door again when the operator flips the kill switch', async () => {
+    setGuest(true);
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: false } });
+    mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 3, my_rank: null, leaderboard: [] });
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('link', { name: /Create free account/ })).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Play Today's Challenge/ })).toBeNull();
   });
 
   it('offers a guest the Play button, not an account wall', async () => {

@@ -59,7 +59,7 @@ Layered so no single failure ejects a player or kills other games:
 - **Guests** (`POST /api/auth/guest`): real `users` rows (`is_guest=true`, `<uuid>@guest.local`), same refresh-cookie session as registered users, swept after 48h only if they never joined a game.
 - **In-place upgrade** (`POST /api/auth/upgrade`): converts the guest's existing row (username/email/password, `is_guest=false`) — same `user_id`, so XP/level/streaks/ratings/achievements carry over with zero migration.
 - **Guest rating redaction**: Glicko ratings are computed and stored for guests but redacted from `game:over` payloads and `/users/me` (`redactGuestRatings` in [statsManager.ts](../backend/src/game-engine/state/statsManager.ts)) — competitive numbers are a registered-account feature; they surface at upgrade.
-- The `guest` JWT claim gates ~34 routes via `rejectGuest` middleware; refresh rotation re-reads `is_guest` from the DB so upgrades take effect without re-login.
+- The `guest` JWT claim gates 47 routes via `rejectGuest` middleware (ranked, campaign, friends, store, map creation, progression); refresh rotation re-reads `is_guest` from the DB so upgrades take effect without re-login. The Daily Challenge is the deliberate exception: guests may `POST /daily/start` and play, but the board and attempts count in `GET /daily/today` rank registered players only, and a guest is told the place they would hold (`my_rank`).
 
 ## Background work
 

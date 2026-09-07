@@ -6,6 +6,7 @@ import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzl
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from '../../game-engine/daily/dailySettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
+import { featureFlags } from '../../config/featureFlags';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
@@ -175,7 +176,13 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
   // this was the one door closed at exactly the moment intent is highest. What
   // stays registered-only is the BOARD (see /today): a guest plays the same
   // puzzle, gets the same score, and is told the place they would hold.
-  fastify.post('/start', { preHandler: [authenticate] }, async (request, reply) => {
+  fastify.post('/start', { preHandler: [authenticate], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+    // Operator kill switch (Admin → Config). The message is player-facing: this
+    // is the one door a guest may find closed, and the middleware's own 403
+    // body is written for developers.
+    if (request.isGuest && !featureFlags.dailyGuestPlayEnabled) {
+      return reply.status(403).send({ error: 'Create a free account to play the Daily Challenge' });
+    }
     const row = await ensureDailyChallengeForToday();
     const userId = request.userId;
 
