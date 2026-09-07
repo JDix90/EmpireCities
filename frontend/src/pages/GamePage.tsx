@@ -481,9 +481,6 @@ export default function GamePage() {
     return null;
   }, [navalSource, attackSource, gameState]);
 
-  /** Once per game session: default globe, overriding any stale 2D localStorage preference. */
-  const globeDefaultAppliedRef = useRef(false);
-
   useEffect(() => subscribeUserPreferences(() => {
     setGlobeSpinEnabled(getGlobeSpinPreference());
     setCameraFollowEnabled(getCameraFollowPreference());
@@ -1044,25 +1041,18 @@ export default function GamePage() {
   }, [gameStarted, gameState]);
 
   useEffect(() => {
-    globeDefaultAppliedRef.current = false;
     draftSummaryShownRef.current = false;
     pendingDraftSummaryRef.current = null;
   }, [gameId]);
 
-  /**
-   * Open every game on the globe. Deliberately does NOT write the stored
-   * preference: this is the product's default, not a choice the player made, and
-   * persisting it overwrote the 2D preference of anyone who had explicitly
-   * picked 2D — so their next game reset to globe and their setting was gone.
-   * Only the view toggles (`switchToGlobeView` and the 2D buttons) persist.
+  /*
+   * There is deliberately no "open every game on the globe" effect here.
+   * `getInitialMapView()` already answers globe unless the player picked 2D,
+   * so forcing it again on game start did nothing except override that choice:
+   * Settings → "Default map view: 2D" was saved, then silently reverted on
+   * screen every time a game loaded. The globe chunks are still prefetched —
+   * see the `mapView === 'globe'` effect above.
    */
-  useEffect(() => {
-    if (!gameStarted || !gameState) return;
-    if (globeDefaultAppliedRef.current) return;
-    globeDefaultAppliedRef.current = true;
-    setMapView('globe');
-    preloadGlobeChunks();
-  }, [gameStarted, gameState]);
 
   // Global keyboard shortcuts while in-game
   useEffect(() => {
