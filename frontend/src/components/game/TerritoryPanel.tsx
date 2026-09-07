@@ -785,7 +785,12 @@ export default function TerritoryPanel({
                       <div key={src.territoryId} className="flex items-stretch gap-1.5">
                         <button
                           className={clsx(
-                            'flex-1 text-sm text-left flex items-center gap-2',
+                            // min-w-0 matters here: a flex ITEM defaults to
+                            // min-width:auto, which floors at its content width,
+                            // so `truncate` inside could never take effect and a
+                            // long label ("Break truce — attack from Sarmatia")
+                            // pushed the button out past the panel's edge.
+                            'flex-1 min-w-0 text-sm text-left flex items-center gap-2',
                             hasActiveTruce ? 'btn-warning' : 'btn-danger',
                           )}
                           onClick={() => onAttack(src.territoryId, selectedTerritory)}
