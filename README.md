@@ -385,12 +385,11 @@ Greenfield defaults use PostgreSQL `borderfall` (users, games, snapshots, and **
 
 | Legacy | Notes |
 |--------|--------|
-| `chronoconquest` / `chronoconquest_maps` | Original project databases (maps were in Mongo `chronoconquest_maps`) |
-| `erasofempire` / `erasofempire_maps` | Intermediate rebrand defaults (maps were in Mongo `erasofempire_maps`) |
+| `chronoconquest` / `chronoconquest_maps` | Original project databases |
+| `erasofempire` / `erasofempire_maps` | Intermediate rebrand defaults |
 
 - **Keep existing Postgres data without moving files:** In `backend/.env`, `.env.production`, and Docker env, set `POSTGRES_DB` to your existing database name so the app connects without a dump/restore.
 - **Move to Borderfall defaults:** Use `pg_dump` / `pg_restore` into `borderfall`, then update env vars. Docker-only: you can also start fresh volumes with the new names (loses old data unless you dump first).
-- **Maps from legacy Mongo:** Apply migration `028_maps_postgres.sql`, then run `pnpm run migrate:maps-from-mongo` while Mongo still has your map data (set `MONGO_URI` in `backend/.env`). Greenfield installs skip this and use `pnpm run seed:maps` instead.
 - **Container renames:** Compose `container_name` values use the `borderfall_*` prefix; data stays in named volumes. After changing env, run `docker compose down` / `up` as needed.
 
 ### Borderfall rebrand — post-merge checklist
@@ -405,7 +404,7 @@ After pulling the Borderfall rebrand, run these on each environment:
 
    Confirms `026_rebrand_borderfall.sql` applied (check `_migrations` table).
 
-2. **Environment** — Greenfield dev uses Postgres `borderfall` only. Existing prod can keep `erasofempire` or older Postgres names in `.env` until you dump/restore (see table above). Legacy Mongo map data: `pnpm run migrate:maps-from-mongo` once after `028_maps_postgres.sql`.
+2. **Environment** — Greenfield dev uses Postgres `borderfall` only. Existing prod can keep `erasofempire` or older Postgres names in `.env` until you dump/restore (see table above).
 
 3. **Mobile** — New store bundle `com.borderfall.app` (not an in-place rename of `com.chronoconquest.app`):
 
