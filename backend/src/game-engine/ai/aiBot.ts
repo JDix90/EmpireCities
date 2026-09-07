@@ -8,6 +8,7 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getEffectiveMilestoneGate, getMaxEraIndex } from '../eraAdvancement/spines';
 import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
 import { countUnlockedTechsByTier } from '../eraAdvancement/eraAdvancementReadiness';
@@ -140,7 +141,7 @@ export function computeAiTurn(
   // Use influence ability if era supports it (medium+ difficulty)
   if (
     difficulty !== 'easy' &&
-    (state.era_modifiers?.influence_spread || state.era_modifiers?.carbonari_network) &&
+    (() => { const m = getPlayerEraModifiers(state, playerId); return !!(m.influence_spread || m.carbonari_network); })() &&
     !(state.influence_cooldown_remaining ?? 0)
   ) {
     const influenceTarget = selectInfluenceTarget(state, map, playerId);
@@ -370,6 +371,9 @@ function selectAttacks(
       : baseMaxAttacks;
 
   const aiPlayer = state.players.find((p) => p.player_id === playerId);
+  // The doctrine THIS bot fights under — its own era once advancement is on,
+  // so a bot that has climbed plans with the dice its era actually gives it.
+  const eraModifiers = getPlayerEraModifiers(state, playerId);
 
   // Compute orbit/hyperspace access once per turn — orbit-typed edges that the
   // server would reject (Space Age moon, Galactic Age hyperspace) should never
@@ -443,8 +447,8 @@ function selectAttacks(
         if (fleetsAvailable - alreadyPlanned <= 0) continue;
       }
 
-      const isSeaLane = state.era_modifiers?.sea_lanes && isSeaConn;
-      const isPrecision = state.era_modifiers?.precision_strike && tState.unit_count >= 4;
+      const isSeaLane = eraModifiers.sea_lanes && isSeaConn;
+      const isPrecision = eraModifiers.precision_strike && tState.unit_count >= 4;
       const attackDice = isPrecision ? 3 : isSeaLane ? Math.min(attackUnits, 2) : Math.min(attackUnits, 3);
       const defDice = Math.min(nState.unit_count, 2);
 
@@ -490,7 +494,7 @@ function selectAttacks(
           defenderDiceMult: vulnActive
             ? state.settings.era_advancement_vuln_defense_mult ?? 0.75
             : undefined,
-          legionReroll: !!state.era_modifiers?.legion_reroll,
+          legionReroll: !!eraModifiers.legion_reroll,
         });
         favorability = 3 * pCapture - 1;
       } else {
@@ -554,7 +558,7 @@ function selectInfluenceTarget(
   map: GameMap,
   playerId: string
 ): string | null {
-  const hopLimit = state.era_modifiers?.influence_range ?? 1;
+  const hopLimit = getPlayerEraModifiers(state, playerId).influence_range ?? 1;
   const adjacency: Record<string, string[]> = {};
   for (const conn of map.connections) {
     if (!adjacency[conn.from]) adjacency[conn.from] = [];

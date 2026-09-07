@@ -46,6 +46,7 @@ import { projectMapToEraFloor, unlockTerritoriesForFloor, seedsFullBoardAtStart,
 import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
 import { createSeededRng } from '../game-engine/victory/missions';
 import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/constants';
+import { getPlayerEraModifiers } from '../game-engine/state/eraModifiers';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { executeBlitzAttack } from '../game-engine/combat/executeBlitzAttack';
 import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from '../game-engine/ai/aiAttackGrind';
@@ -2892,8 +2893,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Influence can only be used in the attack phase' });
 
-      const modifiers = state.era_modifiers;
-      const canInfluence = modifiers?.influence_spread || modifiers?.carbonari_network;
+      const modifiers = getPlayerEraModifiers(state, currentPlayer.player_id);
+      const canInfluence = modifiers.influence_spread || modifiers.carbonari_network;
       if (!canInfluence) return socket.emit('error', { message: 'Influence ability not available this era' });
 
       const INFLUENCE_COOLDOWN_TURNS = 3;
@@ -2955,7 +2956,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         && playerHasUnlockedAbility(state, userId, 'detente_protocol');
 
       const isGaribaldiUse =
-        !!modifiers?.carbonari_network &&
+        !!modifiers.carbonari_network &&
         currentPlayer.unlocked_techs?.includes('riso_garibaldi') &&
         target.owner_id === null;
 
@@ -4176,8 +4177,14 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
   // hides from them.
   const attachEraPreview = (s: GameState): GameState => {
     if (!playerId || !state.settings.era_advancement_enabled) return s;
+    // Also scope `era_modifiers` to this viewer. Every client read of it asks
+    // "which rules apply to me" — the fortify limit, whether Influence is
+    // offered, which badge to show — and the authoritative field holds the
+    // GAME's starting era, so a player who had climbed was shown the doctrine
+    // of the era they left. Transport-only, like the preview beside it.
+    const withModifiers: GameState = { ...s, era_modifiers: getPlayerEraModifiers(state, playerId) };
     const preview = buildAdvanceEraClientPreview(state, playerId);
-    return preview ? { ...s, era_advancement_preview: preview } : s;
+    return preview ? { ...withModifiers, era_advancement_preview: preview } : withModifiers;
   };
 
   const actingPlayerId = state.players[state.current_player_index]?.player_id;
@@ -5384,8 +5391,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     // ── AI influence action (sentinel from === '__influence__') ──
     if (action.from === '__influence__') {
       if ((state.influence_cooldown_remaining ?? 0) > 0) continue;
-      const modifiers = state.era_modifiers;
-      const canInfluence = modifiers?.influence_spread || modifiers?.carbonari_network;
+      const modifiers = getPlayerEraModifiers(state, currentPlayer.player_id);
+      const canInfluence = modifiers.influence_spread || modifiers.carbonari_network;
       if (!canInfluence) continue;
 
       const target = state.territories[action.to];

@@ -1,8 +1,27 @@
 /**
  * Era board TRANSFORM (Phase 2 core).
  *
- * When a game advances into the next era, the shared board recomposes onto that
- * era's map. Per the locked design ("successors go neutral"):
+ * PARKED — do not build on this, and do not switch it on.
+ *
+ * The "successors go neutral" rule below was reviewed against play and
+ * rejected: it returns everything a player conquered to the wild at every era
+ * change, so the empire you spent twenty minutes building becomes one seed on a
+ * board of neutrals. Measured in two games — 7 territories to 1 for the human,
+ * the AI likewise, on a board of 34 neutrals. That reads as erasure, not as
+ * payoff, and it is the opposite of the fantasy the feature exists to sell
+ * ("my empire survived history").
+ *
+ * The transform's persistence bugs ARE fixed (the arriving map is saved
+ * authoritatively and recovery resolves it from the state's own map_id), so
+ * what remains is a design decision, not a defect. Any revival needs an
+ * inheritance model first — carry-over strongholds scaled by prior strength,
+ * capitals surviving as legacy hubs, held regions as preferential claims,
+ * treasury and research carrying through — not this.
+ *
+ * `era_advancement_board_transform` is accepted by the create schema but no
+ * lobby path sets it, so nothing a player can reach runs this code.
+ *
+ * The rule as implemented, for the reader who needs to know what it does:
  *   • Every territory of the arriving era's board spawns NEUTRAL + garrisoned —
  *     the new world is up for grabs (reusing the era-growth frontier mechanic).
  *   • EXCEPT a single SEED per surviving player, so no one is wiped to zero

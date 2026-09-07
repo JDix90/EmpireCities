@@ -3,6 +3,7 @@ import { syncTerritoryCounts } from '../state/gameStateManager';
 import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../state/influenceManager';
 import { getWonderInfluenceRange } from '../state/wonderManager';
+import { getPlayerEraModifiers } from '../state/eraModifiers';
 import {
   GAME_SCOPED_ABILITIES,
   TERRITORY_ABILITY_DEFS,
@@ -135,7 +136,7 @@ export function executeTechAbility(params: {
       .filter(([, t]) => t.owner_id === playerId)
       .map(([id]) => id);
     const hopLimit = getInfluenceHopLimit({
-      baseHopLimit: state.era_modifiers?.influence_range ?? 1,
+      baseHopLimit: getPlayerEraModifiers(state, playerId).influence_range ?? 1,
       unlockedTechs: currentPlayer.unlocked_techs ?? [],
       techTree: state.settings.tech_trees_enabled ? getEraTechTreeForPlayer(state, playerId) : [],
       wonderRangeBonus: state.settings.economy_enabled ? getWonderInfluenceRange(state, playerId) : 0,

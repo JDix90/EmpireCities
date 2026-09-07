@@ -1,5 +1,6 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { getEraTechTreeForPlayer } from '../state/techManager';
+import { getPlayerEraModifiers } from '../state/eraModifiers';
 import type { TechNode } from '../eras/types';
 import { isTerritoryReachableWithinHops, getAdjacentTerritoryIds } from '../state/influenceManager';
 
@@ -175,11 +176,12 @@ export function getFortifyMoveLimit(state: GameState, playerId: string): number 
   // Armored Push (faction ability) grants +1 fortify move for the turn; applies
   // even when tech trees are off, so it is folded into every return path.
   const fortifyBonus = player?.bonus_fortify_moves ?? 0;
-  let limit = state.era_modifiers?.wartime_logistics ? 2 : 1;
+  const eraModifiers = getPlayerEraModifiers(state, playerId);
+  let limit = eraModifiers.wartime_logistics ? 2 : 1;
   if (!state.settings.tech_trees_enabled) return limit + fortifyBonus;
 
   const abilities = getUnlockedAbilityIds(state, player!);
-  if (abilities.has('motorized_logistics') && state.era_modifiers?.wartime_logistics) {
+  if (abilities.has('motorized_logistics') && eraModifiers.wartime_logistics) {
     limit = 3;
   } else if (abilities.has('cavalry_march') || abilities.has('galleon_transport')) {
     limit = Math.max(limit, 2);
@@ -193,7 +195,7 @@ export function getFortifyMoveLimit(state: GameState, playerId: string): number 
 }
 
 export function getPrecisionStrikeMinUnits(state: GameState, playerId: string): number {
-  if (!state.era_modifiers?.precision_strike) return Infinity;
+  if (!getPlayerEraModifiers(state, playerId).precision_strike) return Infinity;
   if (state.settings.tech_trees_enabled && playerHasUnlockedAbility(state, playerId, 'special_ops')) {
     return 2;
   }
