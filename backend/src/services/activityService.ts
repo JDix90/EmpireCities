@@ -47,23 +47,3 @@ export async function getFriendActivity(
     [userId, limit, offset],
   );
 }
-
-export async function getOwnActivity(
-  userId: string,
-  limit = 20,
-  offset = 0,
-): Promise<Array<{
-  id: string;
-  event_type: string;
-  event_data: Record<string, unknown>;
-  created_at: string;
-}>> {
-  return query(
-    `SELECT id, event_type, event_data, created_at
-     FROM user_activity_feed
-     WHERE user_id = $1
-     ORDER BY created_at DESC
-     LIMIT $2 OFFSET $3`,
-    [userId, limit, offset],
-  );
-}

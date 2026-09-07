@@ -687,39 +687,6 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send(rows);
   });
 
-  fastify.get<{ Params: { userId: string } }>('/users/:userId', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
-    const user = await queryOne(
-      `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
-              COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
-              (SELECT COUNT(*)::int FROM game_players gp WHERE gp.user_id = u.user_id) AS games_played
-       FROM users u WHERE u.user_id = $1`,
-      [request.params.userId],
-    );
-    if (!user) return reply.status(404).send({ error: 'User not found' });
-
-    const [recentGames, goldTransactions] = await Promise.all([
-      query(
-        `SELECT g.game_id, g.era_id, g.status, g.created_at, g.ended_at, gp.final_rank, gp.xp_earned, gp.mmr_change
-         FROM game_players gp
-         JOIN games g ON g.game_id = gp.game_id
-         WHERE gp.user_id = $1
-         ORDER BY g.created_at DESC
-         LIMIT 20`,
-        [request.params.userId],
-      ),
-      query(
-        `SELECT amount, reason, created_at
-         FROM gold_transactions
-         WHERE user_id = $1
-         ORDER BY created_at DESC
-         LIMIT 20`,
-        [request.params.userId],
-      ),
-    ]);
-
-    return reply.send({ user, recent_games: recentGames, gold_transactions: goldTransactions });
-  });
-
   /**
    * Permanently delete a user (cascades per migration 003; Redis leaderboard
    * entries purged separately). Guard rails: admins cannot be deleted through

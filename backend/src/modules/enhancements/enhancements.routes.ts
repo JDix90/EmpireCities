@@ -12,13 +12,6 @@ import {
 import { formatZodError } from '../../utils/formatZodError';
 import { recordServerEvent } from '../../services/analyticsEvents';
 
-const QolSettingsSchema = z.object({
-  animation_speed_multiplier: z.number().min(0.5).max(3).optional(),
-  quick_combat_enabled: z.boolean().optional(),
-  confirm_end_turn: z.boolean().optional(),
-  undo_window_seconds: z.number().int().min(0).max(30).optional(),
-});
-
 // NOTE: score/efficiency/duration are CLIENT-REPORTED. The seeded weekly run is
 // not yet recorded or recomputed server-side, so the score itself cannot be
 // trusted — the real fix is to replay the run server-side (tracked follow-up),
@@ -65,114 +58,6 @@ export async function enhancementsRoutes(fastify: FastifyInstance): Promise<void
       highlights = await getReplayHighlights(gameId);
     }
     return reply.send({ highlights });
-  });
-
-  fastify.get('/players/me/learning-path', { preHandler: authenticate }, async (request) => {
-    const profileRow = await queryOne<{ profile_json: Record<string, unknown> }>(
-      'SELECT profile_json FROM player_skill_profiles WHERE user_id = $1',
-      [request.userId],
-    );
-    const profile = profileRow?.profile_json ?? {};
-    const weaknesses = Array.isArray(profile.weaknesses) ? profile.weaknesses : [];
-    const recs = weaknesses.slice(0, 3).map((w, idx) => ({
-      challenge_id: `adaptive_${idx + 1}`,
-      focus: w,
-      difficulty: idx === 0 ? 'medium' : 'easy',
-      rationale: `Recommended because your recent games show lower performance in ${String(w)}.`,
-    }));
-    return { profile, recommendations: recs };
-  });
-
-  fastify.get('/players/me/qol-settings', { preHandler: authenticate }, async (request) => {
-    const row = await queryOne<{
-      animation_speed_multiplier: number;
-      quick_combat_enabled: boolean;
-      confirm_end_turn: boolean;
-      undo_window_seconds: number;
-    }>(
-      `SELECT animation_speed_multiplier, quick_combat_enabled, confirm_end_turn, undo_window_seconds
-       FROM player_qol_settings WHERE user_id = $1`,
-      [request.userId],
-    );
-    return row ?? {
-      animation_speed_multiplier: 1,
-      quick_combat_enabled: false,
-      confirm_end_turn: true,
-      undo_window_seconds: 5,
-    };
-  });
-
-  fastify.put('/players/me/qol-settings', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    const parsed = QolSettingsSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.code(400).send(formatZodError(parsed.error, 'Invalid settings'));
-
-    const incoming = parsed.data;
-    const current = await queryOne<{
-      animation_speed_multiplier: number;
-      quick_combat_enabled: boolean;
-      confirm_end_turn: boolean;
-      undo_window_seconds: number;
-    }>(
-      `SELECT animation_speed_multiplier, quick_combat_enabled, confirm_end_turn, undo_window_seconds
-       FROM player_qol_settings WHERE user_id = $1`,
-      [request.userId],
-    );
-
-    const next = {
-      animation_speed_multiplier: incoming.animation_speed_multiplier ?? current?.animation_speed_multiplier ?? 1,
-      quick_combat_enabled: incoming.quick_combat_enabled ?? current?.quick_combat_enabled ?? false,
-      confirm_end_turn: incoming.confirm_end_turn ?? current?.confirm_end_turn ?? true,
-      undo_window_seconds: incoming.undo_window_seconds ?? current?.undo_window_seconds ?? 5,
-    };
-
-    await query(
-      `INSERT INTO player_qol_settings (
-         user_id, animation_speed_multiplier, quick_combat_enabled, confirm_end_turn, undo_window_seconds, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, NOW())
-       ON CONFLICT (user_id) DO UPDATE
-       SET animation_speed_multiplier = EXCLUDED.animation_speed_multiplier,
-           quick_combat_enabled = EXCLUDED.quick_combat_enabled,
-           confirm_end_turn = EXCLUDED.confirm_end_turn,
-           undo_window_seconds = EXCLUDED.undo_window_seconds,
-           updated_at = NOW()`,
-      [
-        request.userId,
-        next.animation_speed_multiplier,
-        next.quick_combat_enabled,
-        next.confirm_end_turn,
-        next.undo_window_seconds,
-      ],
-    );
-
-    return reply.send(next);
-  });
-
-  fastify.get('/ranked/me/profile', { preHandler: authenticate }, async (request) => {
-    const rating = await queryOne<{ mu: number; phi: number }>(
-      `SELECT mu, phi FROM user_ratings WHERE user_id = $1 AND rating_type = 'ranked'`,
-      [request.userId],
-    );
-    const placement = await queryOne<{
-      season_id: string;
-      placement_matches_played: number;
-      provisional: boolean;
-      smurf_risk_score: number;
-      stall_penalties: number;
-    }>(
-      `SELECT season_id, placement_matches_played, provisional, smurf_risk_score, stall_penalties
-       FROM ranked_placement_progress WHERE user_id = $1`,
-      [request.userId],
-    );
-    return {
-      rating: rating ?? { mu: 1500, phi: 350 },
-      placement: placement ?? {
-        season_id: '2026_Q2',
-        placement_matches_played: 0,
-        provisional: true,
-        smurf_risk_score: 0,
-        stall_penalties: 0,
-      },
-    };
   });
 
   fastify.get('/weekly/current', { preHandler: authenticate }, async () => {

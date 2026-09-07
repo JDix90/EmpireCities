@@ -29,20 +29,3 @@ export async function removeFromAllLeaderboards(userId: string): Promise<void> {
   const eras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age'];
   await Promise.all(eras.map((era) => redis.zrem(`leaderboard:${era}`, userId)));
 }
-
-export async function getLeaderboard(era: string, top = 100): Promise<{ userId: string; mmr: number }[]> {
-  const results = await redis.zrevrangebyscore(
-    `leaderboard:${era}`,
-    '+inf',
-    '-inf',
-    'WITHSCORES',
-    'LIMIT',
-    0,
-    top
-  );
-  const leaderboard: { userId: string; mmr: number }[] = [];
-  for (let i = 0; i < results.length; i += 2) {
-    leaderboard.push({ userId: results[i], mmr: parseFloat(results[i + 1]) });
-  }
-  return leaderboard;
-}
