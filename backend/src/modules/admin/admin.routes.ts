@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { requireAdmin } from '../../middleware/requireAdmin';
 import { query, queryOne, withTransaction } from '../../db/postgres';
-import { removeFromAllLeaderboards } from '../../db/redis';
 import { getInitialRatings } from '../../game-engine/rating/ratingService';
 import {
   applyFeatureFlagPatch,
@@ -709,12 +708,6 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     await query('DELETE FROM users WHERE user_id = $1', [userId]);
-
-    // Non-critical cleanup: orphaned Redis leaderboard entries would otherwise
-    // show the deleted user until manually purged (same pattern as self-delete).
-    removeFromAllLeaderboards(userId).catch((err) => {
-      console.error('[Admin] Failed to purge leaderboard entries on user delete:', err);
-    });
 
     await writeAuditLog(request.userId!, 'user_delete', {
       user_id: target.user_id,

@@ -21,11 +21,3 @@ export async function connectRedis(): Promise<void> {
   await redis.connect();
   console.log('[Redis] Connected successfully');
 }
-
-// ── Leaderboard helpers ──────────────────────────────────────────────────────
-
-/** Remove a user from every era leaderboard — called on account deletion. */
-export async function removeFromAllLeaderboards(userId: string): Promise<void> {
-  const eras = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento', 'space_age', 'galaxy_age'];
-  await Promise.all(eras.map((era) => redis.zrem(`leaderboard:${era}`, userId)));
-}

@@ -94,7 +94,7 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 ## Data model overview
 
 - **Postgres** (32 migrations in [database/migrations/](../database/migrations)): `users` (identity + progression columns: xp/level/gold/streaks/`is_guest`), `games`/`game_players` (lobby + results), `game_states` (state backups), `user_ratings` (Glicko-2 `mu/phi/sigma` per `solo|ranked`), `refresh_tokens` (rotation), `maps`/`map_ratings` (**map documents as JSONB** — migrated from MongoDB), achievements/cosmetics/quests/seasons, `admin_config` (feature-flag overrides).
-- **Redis key families**: `game:<id>:{state,map,connected,ai-flight,lock}`, BullMQ queues, sessions, `leaderboard:<era>` sorted sets.
+- **Redis key families**: `game:<id>:{state,map,connected,psockets:<playerId>,ai-flight,lock}` and BullMQ queues. Leaderboards are Postgres `user_ratings` (see `modules/leaderboard/`), with Redis used only as a plain JSON cache — there are no `leaderboard:<era>` sorted sets.
 - **Maps vs games**: map *documents* (territories, connections, geo data) live in Postgres JSONB and are seeded by `pnpm run seed:maps`; game *state* references a `map_id`. Map authoring: [database/maps/MAP_CREATION.md](../database/maps/MAP_CREATION.md).
 - Glicko ratings: display = `round(mu)`, provisional while `phi > 150`. Solo games rate against synthetic AI opponents (wins only — losses can't farm AI padding).
 

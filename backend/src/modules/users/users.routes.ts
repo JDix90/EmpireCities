@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
-import { removeFromAllLeaderboards } from '../../db/redis';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
@@ -174,16 +173,6 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     if (!ok) return reply.status(401).send({ error: 'Incorrect password' });
 
     await query('DELETE FROM users WHERE user_id = $1', [request.userId]);
-
-    // Non-critical cleanup — Redis leaderboard entries orphaned after the
-    // Postgres row is deleted would persist until the sorted set is manually
-    // cleared, causing deleted users to appear on leaderboards. Purge
-    // asynchronously so a Redis hiccup doesn't fail the account-delete
-    // response; the Postgres row is already gone so the account is effectively
-    // deleted regardless.
-    removeFromAllLeaderboards(request.userId).catch((err) => {
-      console.error('[Users] Failed to purge leaderboard entries on account delete:', err);
-    });
 
     reply.clearCookie('refreshToken', { path: '/api/auth' });
     return reply.send({ message: 'Account deleted' });
