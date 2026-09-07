@@ -8,7 +8,6 @@ export interface TerritoryState {
   unit_count: number;
   unit_type: string;
   buildings?: string[];
-  production_bonus?: number;
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -146,7 +145,6 @@ export interface GameState {
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;
-    tutorial_step?: number;
     tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
     tutorial_grant_tech_points?: number;
     /** This tutorial was created as the combined first game (island + era climb). */

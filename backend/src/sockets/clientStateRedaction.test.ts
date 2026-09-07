@@ -59,7 +59,6 @@ function territory(overrides: Partial<TerritoryState>): TerritoryState {
     unit_count: 7,
     naval_units: 2,
     buildings: ['fort'],
-    production_bonus: 3,
     stability: 5,
     population: 9,
     ...overrides,

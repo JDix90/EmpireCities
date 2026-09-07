@@ -38,7 +38,7 @@ These are applied on top of faction passives when the era is active:
 | `modern` | `precision_strike: true` | Precision airstrike-style actions when thresholds met. |
 | `acw` | `rifle_doctrine: true` | Rifled combat: tied dice re-roll behavior for period firefights. |
 | `risorgimento` | `carbonari_network: true`, `influence_range: 1` | Secret-society influence network on the Italian peninsula. |
-| `space_age` | `space_program: true` | Orbital / lunar program gates and Moon-facing play. |
+| `space_age` | *(none — the Space Age signature is orbit gating in `moonAccess.ts`, not an era modifier)* | Orbital / lunar program gates and Moon-facing play. |
 
 `custom` is not a gameplay ruleset; it is a lobby label for user-uploaded or non-era-tagged maps.
 

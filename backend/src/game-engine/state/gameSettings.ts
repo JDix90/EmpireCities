@@ -132,7 +132,6 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     card_set_bonus_cap: cardBonusCap,
     diplomacy_enabled: dip,
     tutorial: typeof raw.tutorial === 'boolean' ? raw.tutorial : undefined,
-    tutorial_step: typeof raw.tutorial_step === 'number' ? raw.tutorial_step : undefined,
     tutorial_lesson_module: isTutorialLessonModule(raw.tutorial_lesson_module)
       ? raw.tutorial_lesson_module
       : undefined,

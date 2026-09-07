@@ -757,12 +757,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
 
   // Apply stability recovery tick
   if (state.settings.stability_enabled) {
-    const rebellions = applyStabilityTick(state, nextPlayer.player_id);
-    if (rebellions.length > 0) {
-      state.last_rebellion_territories = rebellions;
-    } else {
-      state.last_rebellion_territories = undefined;
-    }
+    applyStabilityTick(state, nextPlayer.player_id);
   }
 
   // Tick temporary modifiers from event cards

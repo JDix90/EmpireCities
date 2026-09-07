@@ -360,7 +360,6 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       card_set_escalating: false,
       diplomacy_enabled: false,
       tutorial: true,
-      tutorial_step: 0,
       tutorial_lesson_module: lessonModule,
       max_players: 2,
     };

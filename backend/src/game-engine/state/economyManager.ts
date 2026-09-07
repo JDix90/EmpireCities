@@ -424,7 +424,6 @@ export function onTerritoryCapture(state: GameState, territoryId: string): void 
   if (state.settings.economy_enabled) {
     // Preserve wonders — raze everything else
     territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));
-    territory.production_bonus = 0;
   }
   // Raze fleet on capture regardless of economy toggle — port is destroyed
   if (territory.naval_units != null) {
