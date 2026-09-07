@@ -1185,7 +1185,12 @@ function GlobeMap({
     const isViewerTurn =
       gameState.players?.[gameState.current_player_index]?.player_id === selfPlayerId;
     if (!isViewerTurn) return;
-    const key = `${gameState.current_player_index}:${gameState.phase}`;
+    // Keyed on the TURN, not the phase. Keyed on phase this re-framed the
+    // camera three times per turn — at draft, attack and fortify — yanking the
+    // player away from whatever they had just panned to mid-turn. Framing once
+    // when the turn comes back to them is the whole intent of "follow the
+    // action"; re-framing inside the turn fights the player's own camera.
+    const key = `${gameState.turn_number}:${gameState.current_player_index}`;
     if (lastFramedKeyRef.current === key) return;
     if (!shouldAutoFollow()) return;
     lastFramedKeyRef.current = key;
