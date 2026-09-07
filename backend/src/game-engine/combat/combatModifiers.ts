@@ -134,7 +134,13 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
         return dp ? getPlayerFaction(state, dp) : undefined;
       })()
     : undefined;
-  const factionDefenseBonus = defenderFaction?.passive_defense_bonus ?? 0;
+  // Off-Earth tiles only (Lunar Pioneers): folded into the `faction` breakdown
+  // line so the battle report shows it without a new key.
+  const defenderWorldId = state.territories[toId]?.world_id;
+  const offworldDefenseBonus = defenderWorldId && defenderWorldId !== 'earth'
+    ? defenderFaction?.offworld_defense_bonus ?? 0
+    : 0;
+  const factionDefenseBonus = (defenderFaction?.passive_defense_bonus ?? 0) + offworldDefenseBonus;
   const eventDefenseBonus = state.settings.events_enabled && defenderId
     ? getTemporaryModifierValue(state, defenderId, 'defense_modifier')
     : 0;

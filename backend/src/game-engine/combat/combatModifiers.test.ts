@@ -421,3 +421,38 @@ describe('era advancement combat modifiers', () => {
     expect(mods.defenderBonusBreakdown.vulnerability).toBe(-1);
   });
 });
+
+describe('offworld_defense_bonus (Lunar Pioneers)', () => {
+  function pioneerState(factionsEnabled: boolean, worldId: string | undefined): GameState {
+    return baseState({
+      era: 'space_age',
+      players: [basePlayer(), basePlayer({ player_id: 'p2', player_index: 1, faction_id: 'lunar_pioneers' })],
+      territories: {
+        b: { territory_id: 'b', owner_id: 'p2', unit_count: 3, world_id: worldId },
+      },
+      settings: { ...baseState().settings, factions_enabled: factionsEnabled },
+    } as Partial<GameState>);
+  }
+  const params = { fromId: 'a', toId: 'b', attackerId: 'p1', defenderId: 'p2', attackingUnits: 3, defendingUnits: 3 };
+
+  it('adds the bonus to the faction defense line on a Moon tile', () => {
+    const mods = computeLandCombatModifiers({ state: pioneerState(true, 'moon'), ...params });
+    expect(mods.defenderBonusBreakdown.faction).toBe(2);
+    expect(mods.defenderDiceOverride).toBe(4);
+  });
+
+  it('grants nothing on an Earth tile', () => {
+    const mods = computeLandCombatModifiers({ state: pioneerState(true, 'earth'), ...params });
+    expect(mods.defenderBonusBreakdown.faction).toBe(0);
+  });
+
+  it('grants nothing when the tile has no world_id', () => {
+    const mods = computeLandCombatModifiers({ state: pioneerState(true, undefined), ...params });
+    expect(mods.defenderBonusBreakdown.faction).toBe(0);
+  });
+
+  it('grants nothing on a Moon tile when factions are disabled', () => {
+    const mods = computeLandCombatModifiers({ state: pioneerState(false, 'moon'), ...params });
+    expect(mods.defenderBonusBreakdown.faction).toBe(0);
+  });
+});

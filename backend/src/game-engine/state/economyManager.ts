@@ -8,6 +8,7 @@ import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
 import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
+import { getPlayerFaction } from '../eras/factionLineage';
 import { buildingDisplayName } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
@@ -307,6 +308,10 @@ export function collectProduction(
   let buildingProdAccum = 0;
   let buildingTechAccum = 0;
 
+  const player = state.players.find((p) => p.player_id === playerId);
+  const faction = state.settings.factions_enabled && player ? getPlayerFaction(state, player) : undefined;
+  const factionTechBuildingProd = faction?.production_per_tech_building ?? 0;
+
   for (const territory of Object.values(state.territories)) {
     if (territory.owner_id !== playerId) continue;
     ownedCount++;
@@ -322,6 +327,9 @@ export function collectProduction(
     for (const building of territory.buildings ?? []) {
       buildingProdAccum += (resolveProductionIncome(state)[building] ?? 0) * stabilityScale * popScale;
       buildingTechAccum += (BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale;
+      if (factionTechBuildingProd > 0 && building.startsWith('tech_gen')) {
+        buildingProdAccum += factionTechBuildingProd * stabilityScale * popScale;
+      }
     }
   }
   productionEarned += Math.floor(buildingProdAccum);
@@ -347,7 +355,6 @@ export function collectProduction(
     productionEarned = Math.max(0, productionEarned + productionModifier);
   }
 
-  const player = state.players.find((p) => p.player_id === playerId);
   if (player) {
     player.special_resource = (player.special_resource ?? 0) + productionEarned;
     if (state.settings.era_advancement_enabled) {

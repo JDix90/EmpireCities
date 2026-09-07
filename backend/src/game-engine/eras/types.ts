@@ -53,6 +53,32 @@ export interface Faction {
   /** Extra stability recovery per turn for this faction's territories. */
   stability_recovery_bonus?: number;
   /**
+   * Flat tech points added to the player's per-turn tech income. Unlike
+   * `tech_cost_discount` this compounds every turn, so keep it small — it is the
+   * whole identity of a research-first faction (Corporate Enclave), not a perk.
+   */
+  tech_point_income?: number;
+  /**
+   * Extra production per owned `tech_gen_*` building each turn, scaled by the
+   * same stability/population multipliers as the building's own yield. Rewards
+   * a faction for building the research economy it needs for its ability
+   * (Sino-Pacific Hegemony's AI Surge) rather than handing it production flat.
+   */
+  production_per_tech_building?: number;
+  /**
+   * Multiplier on the per-tick population growth chance (default 1). Population
+   * feeds production yield, so this is a slow-burn economic identity that only
+   * pays out on territories held stably for many turns (Climate Alliance).
+   */
+  population_growth_multiplier?: number;
+  /**
+   * Defense dice added only when the defended territory sits off Earth
+   * (`world_id` present and not 'earth'). Deliberately NOT `passive_defense_bonus`:
+   * an always-on defensive die makes a faction impregnable from turn one, whereas
+   * this only matters once the holder has raced to the Moon (Lunar Pioneers).
+   */
+  offworld_defense_bonus?: number;
+  /**
    * Lineage archetype this faction belongs to. When era advancement + factions
    * are both on, advancing remaps the player to the next era's faction sharing
    * this lineage_id (e.g. imperial: rome → hre → spain → ...). Every classic-spine
