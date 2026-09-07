@@ -30,24 +30,3 @@ export function clipToBbox(
   const rewound = rewind(resultFeature, { reverse: true }) as GeoJSON.Feature<GeoJSON.Polygon>;
   return rewound.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon;
 }
-
-/**
- * Clip multiple geometries to a bbox and merge into one MultiPolygon.
- */
-export function clipAndMerge(
-  geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[],
-  bbox: ClipBbox
-): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
-  const parts: number[][][][] = [];
-  for (const geom of geometries) {
-    const clipped = clipToBbox(geom, bbox);
-    if (!clipped) continue;
-    const coords = clipped.type === 'Polygon' ? [clipped.coordinates] : clipped.coordinates;
-    for (const poly of coords) {
-      if (poly && poly[0] && poly[0].length >= 4) parts.push(poly as number[][][]);
-    }
-  }
-  if (parts.length === 0) return null;
-  if (parts.length === 1) return { type: 'Polygon', coordinates: parts[0] };
-  return { type: 'MultiPolygon', coordinates: parts };
-}

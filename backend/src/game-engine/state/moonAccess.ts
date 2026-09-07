@@ -56,10 +56,6 @@ export function getMoonAccessState(state: GameState, player: PlayerState): MoonA
   return { hasTech, hasLaunchPad, hasLaunchedStation, hasSpaceElevator, isLunarPioneer, allowed, missing };
 }
 
-export function playerHasMoonAccess(state: GameState, player: PlayerState): boolean {
-  return getMoonAccessState(state, player).allowed;
-}
-
 export function connectionRequiresMoonAccess(
   map: GameMap,
   fromId: string,
@@ -198,17 +194,6 @@ export function formatOrbitAccessError(access: OrbitAccessResult): string {
     return `Moon access requires: ${access.missing.join(' + ')}`;
   }
   return `Hyperspace travel requires: ${access.missing.join(' + ')}`;
-}
-
-export function formatMoonAccessError(access: MoonAccessState): string {
-  if (access.allowed) return '';
-  return `Moon access requires: ${access.missing.join(' + ')}`;
-}
-
-/** @deprecated Use territoryRequiresOrbitAccessForClaim + inferWorldId === 'moon' at call sites. */
-export function territoryIsLunar(map: GameMap, territoryId: string): boolean {
-  const t = map.territories.find((tt) => tt.territory_id === territoryId);
-  return inferWorldId(t ?? { territory_id: '', region_id: '' }) === 'moon';
 }
 
 // ============================================================

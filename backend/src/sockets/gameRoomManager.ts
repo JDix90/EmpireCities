@@ -74,10 +74,6 @@ export function getCachedRoom(gameId: string): ActiveGameRoom | undefined {
   };
 }
 
-export function hasCachedRoom(gameId: string): boolean {
-  return roomCache.has(gameId);
-}
-
 export function setCachedRoom(gameId: string, state: GameState, map: GameMap): ActiveGameRoom {
   roomCache.set(gameId, { state, map });
   return getCachedRoom(gameId)!;
@@ -209,17 +205,6 @@ export async function loadGameRoomFromPostgres(gameId: string, mapId: string): P
     setGameMap(gameId, gameMap),
   ]).catch((err) => console.error('[Redis] Warm failed', gameId, err));
   return room;
-}
-
-/** Redis-first load with Postgres fallback. Populates the hot cache. */
-export async function ensureGameRoom(gameId: string, mapId: string): Promise<ActiveGameRoom | null> {
-  const cached = getCachedRoom(gameId);
-  if (cached) return cached;
-
-  const fromRedis = await loadGameRoomFromRedis(gameId);
-  if (fromRedis) return fromRedis;
-
-  return loadGameRoomFromPostgres(gameId, mapId);
 }
 
 /**
@@ -367,11 +352,6 @@ export async function flushAllPendingPostgresSaves(): Promise<void> {
   await Promise.allSettled(flushes);
 }
 
-/** @deprecated Use flushGameState or persistGameStateAfterMutation. */
-export async function saveGameStateAuthoritative(gameId: string, state: GameState): Promise<void> {
-  return flushGameState(gameId, state);
-}
-
 export async function saveGameMapAuthoritative(gameId: string, map: GameMap): Promise<void> {
   await setGameMap(gameId, map);
   const cached = roomCache.get(gameId);
@@ -395,16 +375,6 @@ export async function releaseAiTurn(gameId: string): Promise<void> {
 
 export async function isAiTurnInFlight(gameId: string): Promise<boolean> {
   return isAiInFlightRedis(gameId);
-}
-
-/** Iterate cached game ids (for disconnect cleanup). */
-export function forEachCachedRoom(
-  fn: (gameId: string, room: ActiveGameRoom) => void,
-): void {
-  for (const gameId of roomCache.keys()) {
-    const room = getCachedRoom(gameId);
-    if (room) fn(gameId, room);
-  }
 }
 
 /** Local-only iteration including rooms with only connected sockets. */

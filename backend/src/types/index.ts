@@ -493,19 +493,6 @@ export interface GameSettings {
   max_players?: number;
 }
 
-// ── User Preferences / Push Tokens ────────────────────────────────────────────
-export interface UserPreferences {
-  push_enabled: boolean;
-  email_notifications: boolean;
-}
-
-export interface PushToken {
-  token_id: string;
-  user_id: string;
-  token: string;
-  platform: 'web' | 'ios' | 'android';
-}
-
 /** Optional per-era combat / economy tweaks. */
 export interface EraModifiers {
   // Ancient

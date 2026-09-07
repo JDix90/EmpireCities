@@ -69,8 +69,3 @@ export function clearActionIdempotency(gameId: string): void {
     if (k.startsWith(prefix)) seen.delete(k);
   }
 }
-
-/** Test/ops helper. */
-export function _resetActionIdempotency(): void {
-  seen.clear();
-}

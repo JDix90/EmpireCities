@@ -64,11 +64,6 @@ const EVENT_SCALE_TURNS_PER_LEVEL = 12;
 const EVENT_SCALE_PER_LEVEL = 0.5;
 const EVENT_SCALE_MAX = 3.0;
 
-/** True when this effect type's magnitude scales with progression. */
-export function isScalableEventEffect(type: EventEffectType): boolean {
-  return SCALABLE_EVENT_EFFECTS.has(type);
-}
-
 /**
  * Progression "level" driving event scaling: the further along, the bigger.
  * Era index (the world's most-advanced living player) leads in Era Advancement;

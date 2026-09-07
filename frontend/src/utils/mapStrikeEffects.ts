@@ -178,10 +178,6 @@ export function isFullScreenStrikeAbility(abilityId: string): boolean {
   return STRIKE_MAP_STYLES[abilityId].fullScreen;
 }
 
-export function isMapOnlyStrikeAbility(abilityId: string): boolean {
-  return isMapStrikeAbility(abilityId) && !STRIKE_MAP_STYLES[abilityId].fullScreen;
-}
-
 export function getStrikeToastStyle(abilityId: MapStrikeAbilityId): {
   background: string;
   border: string;

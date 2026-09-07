@@ -118,17 +118,6 @@ export async function updateDailyStreak(
   return { streak: newStreak, milestone: milestone ? newStreak : null, freeze_used: freezeUsed };
 }
 
-// ── Gold award on game win ──────────────────────────────────────────────
-
-const GOLD_PER_WIN = 20;
-
-export async function awardWinGold(
-  client: PoolClient,
-  userId: string,
-): Promise<void> {
-  await awardGold(client, userId, GOLD_PER_WIN, 'Game win');
-}
-
 // ── Season tier tracking ────────────────────────────────────────────────
 
 export async function updateSeasonTier(

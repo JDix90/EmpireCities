@@ -1,4 +1,4 @@
-import { query, queryOne } from '../db/postgres';
+import { query } from '../db/postgres';
 import type { BuildingType, GameSettings } from '../types';
 import { redis } from '../db/redis';
 
@@ -284,12 +284,4 @@ export async function stopAdminConfigSubscriber(): Promise<void> {
     /* best-effort on shutdown */
   }
   configSub = null;
-}
-
-export async function getAdminConfigRow(configKey: keyof AdminConfigState): Promise<unknown | null> {
-  const row = await queryOne<{ value: unknown }>(
-    `SELECT value FROM admin_config WHERE config_key = $1`,
-    [CONFIG_KEYS[configKey]],
-  );
-  return row?.value ?? null;
 }

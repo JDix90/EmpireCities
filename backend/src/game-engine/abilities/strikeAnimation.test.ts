@@ -3,22 +3,20 @@ import {
   shouldEmitAbilityStrikeVisuals,
   shouldEmitFullScreenStrike,
   shouldEmitMapOnlyStrike,
-  shouldEmitStrikeAnimation,
 } from './strikeAnimation';
 
 describe('strikeAnimation', () => {
   it('emits for atom bomb detonation', () => {
-    expect(shouldEmitStrikeAnimation('atom_bomb', 'atom_bomb_detonated')).toBe(true);
     expect(shouldEmitFullScreenStrike('atom_bomb', 'atom_bomb_detonated')).toBe(true);
   });
 
   it('emits for nuclear strike unit reduction', () => {
-    expect(shouldEmitStrikeAnimation('nuclear_strike', 'unit_reduction')).toBe(true);
+    expect(shouldEmitFullScreenStrike('nuclear_strike', 'unit_reduction')).toBe(true);
   });
 
   it('emits for modern-era orbital and hypersonic strikes', () => {
-    expect(shouldEmitStrikeAnimation('orbital_strike', 'unit_reduction')).toBe(true);
-    expect(shouldEmitStrikeAnimation('hypersonic_strike', 'unit_reduction')).toBe(true);
+    expect(shouldEmitFullScreenStrike('orbital_strike', 'unit_reduction')).toBe(true);
+    expect(shouldEmitFullScreenStrike('hypersonic_strike', 'unit_reduction')).toBe(true);
   });
 
   it('emits full-screen for swarm and dyson beam', () => {

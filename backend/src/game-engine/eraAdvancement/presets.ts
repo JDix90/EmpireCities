@@ -34,7 +34,6 @@ const PRESET_BUNDLES: Record<'skirmish' | 'standard' | 'epic', Partial<GameSetti
 };
 
 export const ERA_ADVANCEMENT_PRESET_IDS: EraAdvancementPreset[] = ['skirmish', 'standard', 'epic', 'custom'];
-export const DEFAULT_ERA_ADVANCEMENT_PRESET: EraAdvancementPreset = 'standard';
 
 export function isEraAdvancementPreset(value: unknown): value is EraAdvancementPreset {
   return typeof value === 'string' && (ERA_ADVANCEMENT_PRESET_IDS as string[]).includes(value);

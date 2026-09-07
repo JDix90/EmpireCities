@@ -22,25 +22,7 @@ export async function connectRedis(): Promise<void> {
   console.log('[Redis] Connected successfully');
 }
 
-// ── Session helpers ──────────────────────────────────────────────────────────
-
-export async function setSession(key: string, value: string, ttlSeconds: number): Promise<void> {
-  await redis.set(key, value, 'EX', ttlSeconds);
-}
-
-export async function getSession(key: string): Promise<string | null> {
-  return redis.get(key);
-}
-
-export async function deleteSession(key: string): Promise<void> {
-  await redis.del(key);
-}
-
 // ── Leaderboard helpers ──────────────────────────────────────────────────────
-
-export async function updateLeaderboard(era: string, userId: string, mmr: number): Promise<void> {
-  await redis.zadd(`leaderboard:${era}`, mmr, userId);
-}
 
 /** Remove a user from every era leaderboard — called on account deletion. */
 export async function removeFromAllLeaderboards(userId: string): Promise<void> {

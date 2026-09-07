@@ -7,9 +7,6 @@ export const APP_NAME_NAV_SHORT = 'BF';
 export const TAGLINE_PRIMARY = 'Every border is temporary.';
 export const TAGLINE_CINEMATIC = 'When borders break, ages fall.';
 
-export const META_DESCRIPTION =
-  'Borderfall — free turn-based strategy where one game spans the ancient world to a galactic age.';
-
 export const STORE_DESCRIPTION =
   'Borderfall is a turn-based strategy game where you conquer territory across nine eras, from ancient legions to a galactic frontier. Free to play in your browser.';
 

@@ -58,11 +58,6 @@ export function loadEraLineage(): EraLineageData {
   return cache;
 }
 
-/** Test-only: drop the memoized data so a test can reload after editing the file. */
-export function __resetEraLineageCache(): void {
-  cache = null;
-}
-
 /** The transition that fires when a game advances OUT of `fromEraId` (null at the end of the line). */
 export function getEraTransition(fromEraId: EraId): EraTransition | null {
   const data = loadEraLineage();

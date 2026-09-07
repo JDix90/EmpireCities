@@ -23,9 +23,6 @@ export const MAP_ONLY_STRIKE_ABILITIES = new Set([
   'river_blockade',
 ]);
 
-/** @deprecated Use FULL_SCREEN_STRIKE_ABILITIES */
-export const STRIKE_ANIMATION_ABILITIES = FULL_SCREEN_STRIKE_ABILITIES;
-
 export interface StrikeAnimationPayload {
   abilityId: string;
   attackerId: string;
@@ -35,10 +32,6 @@ export interface StrikeAnimationPayload {
   targetOwnerId: string | null;
   targetOwnerName: string | null;
   unitReduction?: number;
-}
-
-export function shouldEmitStrikeAnimation(abilityId: string, effect?: string): boolean {
-  return shouldEmitFullScreenStrike(abilityId, effect);
 }
 
 export function shouldEmitFullScreenStrike(abilityId: string, effect?: string): boolean {
@@ -151,13 +144,4 @@ export function emitAbilityStrikeVisuals(
     unitReduction,
     fromTerritoryId,
   }));
-}
-
-/** @deprecated Prefer emitAbilityStrikeVisuals */
-export function emitStrikeAnimation(
-  io: Server,
-  gameId: string,
-  payload: StrikeAnimationPayload,
-): void {
-  emitAbilityStrikeVisuals(io, gameId, payload);
 }
