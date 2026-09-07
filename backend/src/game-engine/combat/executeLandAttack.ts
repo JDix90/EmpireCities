@@ -2,6 +2,7 @@ import type { CombatResult, GameState, MapConnection } from '../../types';
 import { consumeAttackBuffs } from '../abilities/executeTechAbility';
 import { consumeSignatureAttackBonus } from '../eraAdvancement/signatures';
 import { onTerritoryCapture } from '../state/economyManager';
+import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { onCaptureStabilityPenalty } from '../state/stabilityManager';
 import { computeLandCombatModifiers } from './combatModifiers';
 import { resolveCombat } from './combatResolver';
@@ -154,7 +155,10 @@ export function executeLandAttack(
     finalAttackerDiceOverride,
     defenderDiceOverride,
     opts.dieRoll,
-    state.era_modifiers,
+    // The attacker's era, not the game's starting era: legion_reroll and
+    // rifle_doctrine both re-roll attacker dice, so the doctrine that applies
+    // is the one the attacking player has climbed to.
+    getPlayerEraModifiers(state, from.owner_id),
   );
   // Mirror the socket: surface the dice-bonus breakdowns for client display.
   result.attacker_bonus_breakdown = attackerBonusBreakdown;

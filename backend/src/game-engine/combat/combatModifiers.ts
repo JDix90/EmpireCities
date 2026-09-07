@@ -16,6 +16,7 @@
  */
 import type { GameState, MapConnection, PlayerState } from '../../types';
 import { getPlayerEraIndex } from '../eraAdvancement/constants';
+import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getBuildingDefenseBonus, getSeaDefenseBonus } from '../state/economyManager';
 import { getPlayerAttackBonus, getPlayerDefenseBonus } from '../state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice } from '../state/wonderManager';
@@ -204,9 +205,10 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     : undefined;
 
   // Structural override: Modern precision strike (3 dice) or Discovery sea-lane cap.
+  const attackerEraModifiers = getPlayerEraModifiers(state, attackerId);
   const precisionMinUnits = getPrecisionStrikeMinUnits(state, attackerId);
   const precisionDiceOverride =
-    state.era_modifiers?.precision_strike && attackingUnits >= precisionMinUnits
+    attackerEraModifiers.precision_strike && attackingUnits >= precisionMinUnits
       ? 3
       : undefined;
   const wonderSeaDice = state.settings.economy_enabled && isSea
@@ -217,7 +219,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const baseSeaCap = wonderSeaDice > 0 ? wonderSeaDice : 2;
   const seaCap = attackerFaction?.ability_id === 'naval_charts' ? Math.max(baseSeaCap, 3) : baseSeaCap;
   const seaLanesOverride =
-    state.era_modifiers?.sea_lanes && isSea
+    attackerEraModifiers.sea_lanes && isSea
       ? Math.min(attackingUnits - 1, seaCap)
       : undefined;
   const structuralAttackerDiceOverride = precisionDiceOverride ?? seaLanesOverride;

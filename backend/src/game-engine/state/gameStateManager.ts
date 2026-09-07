@@ -3,7 +3,7 @@ import { randomBytes, randomInt } from 'crypto';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
   GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
-  EraModifiers, VictoryConditionKey,
+  VictoryConditionKey,
 } from '../../types';
 import { getEraFactions } from '../eras';
 import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolver';
@@ -29,19 +29,7 @@ import { buildAscensionSpineFromEra, getMaxEraIndex, getSpineById } from '../era
 import { territoryUnlockEra, seedsFullBoardAtStart, seedStandaloneFrontierTerritories } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
-
-const ERA_DEFAULTS: Partial<Record<EraId, EraModifiers>> = {
-  ancient:      { legion_reroll: true },
-  medieval:     {},
-  discovery:    { sea_lanes: true },
-  ww2:          { wartime_logistics: true },
-  coldwar:      { influence_spread: true, influence_range: 1 },
-  modern:       { precision_strike: true },
-  acw:          { rifle_doctrine: true },
-  risorgimento: { carbonari_network: true, influence_range: 1 },
-  space_age:    { space_program: true },
-  galaxy_age:   {},
-};
+import { eraModifiersFor } from './eraModifiers';
 
 /** True when first-player seat should be randomized (normal multiplayer/solo/ranked). */
 export function shouldRandomizeStartingPlayer(settings: GameSettings): boolean {
@@ -377,7 +365,7 @@ export function initializeGameState(
     turn_started_at: Date.now(),
     win_probability_history: [],
     era_spine: eraSpineSteps,
-    era_modifiers: { ...(ERA_DEFAULTS[era] ?? {}) },
+    era_modifiers: eraModifiersFor(era),
     fortify_moves_used: 0,
     influence_cooldown_remaining: 0,
     blitzkrieg_attacked: false,
@@ -498,7 +486,7 @@ export function repairLegacyGameState(state: GameState, map?: GameMap): void {
   if (state.blitzkrieg_attacked === undefined) state.blitzkrieg_attacked = false;
   // Patch era_modifiers to ensure new eras have defaults applied
   if (!state.era_modifiers && state.era) {
-    state.era_modifiers = { ...(ERA_DEFAULTS[state.era] ?? {}) };
+    state.era_modifiers = eraModifiersFor(state.era);
   }
   // Era advancement: synthesize the spine snapshot for pre-spine saves and
   // migrate the legacy medieval charge field into the generalized store.
