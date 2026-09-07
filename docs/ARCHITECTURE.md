@@ -102,7 +102,7 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 
 > Source of truth: each workspace's `package.json`. Versions below are the heavy hitters only.
 
-**frontend** — React 18 / react-router 6 / Zustand 4 (UI & state) · PixiJS 7 + @pixi/react (2D map) · three + react-globe.gl 2.x (3D globe) · @turf/* + polyclip-ts (geo math) · socket.io-client 4 / axios (network) · firebase 12 + @capacitor/* (push & native) · @sentry/react · recharts, lucide-react, react-hot-toast, emoji-mart (UI bits).
+**frontend** — React 18 / react-router 6 / Zustand 4 (UI & state) · PixiJS 7 (2D map) · three + react-globe.gl 2.x (3D globe) · @turf/* + polyclip-ts (geo math) · socket.io-client 4 / axios (network) · firebase 12 + @capacitor/* (push & native) · @sentry/react · recharts, lucide-react, react-hot-toast, emoji-mart (UI bits).
 
 **backend** — fastify 4 + @fastify/{cors,cookie,helmet,rate-limit} · socket.io 4 + @socket.io/redis-adapter · pg 8 (Postgres) · ioredis 5 · bullmq 5 (queues) · redlock (per-game locks) · jsonwebtoken / bcryptjs / zod / zxcvbn (auth & validation) · nodemailer + firebase-admin (email & push) · @sentry/node · pino.
 

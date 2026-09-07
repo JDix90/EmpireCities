@@ -22,7 +22,6 @@ const IGNORE_PATHS = new Set([
   'turn_started_at',
   'win_probability_history',
   'active_event_result',
-  'last_rebellion_territories',
 ]);
 
 function collectDiffs(a: unknown, b: unknown, path = ''): string[] {
