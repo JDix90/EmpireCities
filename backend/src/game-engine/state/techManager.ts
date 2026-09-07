@@ -193,7 +193,10 @@ export function getPlayerTechPointIncome(state: GameState, playerId: string): nu
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.tech_point_income ?? 0);
   }, 0);
-  return fromTech + getTechEchoBonus(state, player, 'tech_point_income');
+  const fromFaction = state.settings.factions_enabled
+    ? getPlayerFaction(state, player)?.tech_point_income ?? 0
+    : 0;
+  return fromTech + fromFaction + getTechEchoBonus(state, player, 'tech_point_income');
 }
 
 /**

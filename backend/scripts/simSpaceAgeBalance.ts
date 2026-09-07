@@ -14,6 +14,13 @@
  *
  * Ruleset: economy + tech + stability ON; naval / events / factions / cards /
  * era-advancement OFF (deterministic, isolates the Moon race — noted in output).
+ * SIM_FACTIONS=1 turns factions ON: each seat gets one of the six Space Age
+ * factions round-robin (offset by game index so every faction sees every seat),
+ * the AI fires its faction draft ability through the same executor the socket
+ * uses, and a per-faction table (win / eliminated / reached-Moon / avg Moon
+ * tiles / avg territories) is printed at the end — the faction-balance audit.
+ * SIM_FACTION_ABILITIES=0 keeps the passives but silences the AI's ability use,
+ * to separate what the passives do from what eager ability spending does.
  * Victory: domination (+ implicit last_standing). NOTE: 'domination' requires
  * EVERY territory including the 9 neutral Moon tiles, so most decisive games end
  * via last_standing. With space_age_frontiers_enabled ON (default here), the 8
@@ -38,6 +45,7 @@
  *     SIM_SEED=borderfall SIM_CSV=/tmp/sim_space_age.csv \
  *     pnpm exec tsx scripts/simSpaceAgeBalance.ts
  *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # prod repro
+ *   SIM_FACTIONS=1 SIM_GAMES=120 SIM_PLAYERS=6 pnpm exec tsx scripts/simSpaceAgeBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -50,7 +58,10 @@ import {
 } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
-import { executeTechAbility } from '../src/game-engine/abilities/executeTechAbility';
+import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
+import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
+import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
+import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import {
@@ -73,6 +84,11 @@ const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'att
 const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 /** When set (1–99), adds threshold victory at that % — mirrors the live orbit-gated create default (60). */
 const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
+/** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
+const FACTIONS = process.env.SIM_FACTIONS === '1';
+const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
+/** SIM_FACTION_ABILITIES=0 keeps passives but stops the AI firing draft abilities — isolates ability vs passive impact. */
+const FACTION_ABILITIES = process.env.SIM_FACTION_ABILITIES !== '0';
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 const LADDER = [
@@ -96,7 +112,7 @@ function simSettings(): GameSettings {
     initial_unit_count: 3,
     card_set_escalating: false,
     diplomacy_enabled: false,
-    factions_enabled: false, // no Lunar Pioneers shortcut — everyone must climb the ladder
+    factions_enabled: FACTIONS, // default off: no Lunar Pioneers shortcut — everyone must climb the ladder
     naval_enabled: false, // determinism: no fleet RNG (sea-lane land attacks still allowed)
     events_enabled: false, // determinism: no event deck
     economy_enabled: true,
@@ -219,6 +235,7 @@ function playAiTurn(
   };
   if (LAUNCH_PHASE === 'draft') tryLaunch();
 
+  useFactionDraftAbility(state, map, pid);
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
@@ -253,8 +270,53 @@ function playAiTurn(
   }
 }
 
+/**
+ * AI parity for draft-phase faction abilities — the same eager rule as the
+ * socket block in gameSocket.processAiTurn (any ownPlacement / draftReinforcements
+ * def, target = best-garrisoned owned tile passing the def's target filters).
+ */
+function useFactionDraftAbility(state: GameState, map: GameMap, pid: string): void {
+  if (!state.settings.factions_enabled || !FACTION_ABILITIES) return;
+  const player = state.players.find((p) => p.player_id === pid);
+  if (!player?.faction_id) return;
+  const abilityId = getPlayerFaction(state, player)?.ability_id;
+  const def = abilityId ? TERRITORY_ABILITY_DEFS[abilityId] : undefined;
+  if (!abilityId || !def || def.phase !== 'draft' || (!def.ownPlacement && !def.draftReinforcements)) return;
+  const gameScoped = isGameScopedAbility(abilityId);
+  const alreadyUsed = gameScoped
+    ? (player.used_game_abilities ?? []).includes(abilityId)
+    : !!(player.ability_uses ?? {})[abilityId];
+  if (alreadyUsed) return;
+  const cost = def.techCost ?? 0;
+  if (cost > 0 && (player.tech_points ?? 0) < cost) return;
+  const op = def.ownPlacement;
+  const target = op
+    ? Object.values(state.territories)
+        .filter((t) => t.owner_id === pid
+          && (!op.requiresMoon || t.world_id === 'moon' || t.globe_id === 'moon')
+          && (!op.requiresProductionBuilding || (t.buildings ?? []).some((b) => b.startsWith('production')))
+          && (!op.requiresEnemyAdjacent || isOwnedTerritoryAdjacentToEnemy(state, map, pid, t.territory_id)))
+        .sort((a, b) => b.unit_count - a.unit_count)[0]
+    : undefined;
+  if (op && !target) return;
+  const res = executeTechAbility({ state, map, playerId: pid, abilityId, territoryId: target?.territory_id });
+  if (res.success && !gameScoped) {
+    player.ability_uses = { ...(player.ability_uses ?? {}), [abilityId]: 1 };
+  }
+}
+
+interface SeatStat {
+  faction: string | null;
+  won: boolean;
+  eliminated: boolean;
+  reachedMoon: boolean; // captured at least one Moon tile at some point
+  moonTilesEnd: number;
+  territoriesEnd: number;
+}
+
 interface GameStat {
   game: number;
+  seats: SeatStat[];
   seed: number;
   turns: number;
   winner: string | null;
@@ -329,6 +391,8 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     is_ai: true,
     is_eliminated: false,
     mmr: 1000,
+    // Offset by game index so each faction rotates through every seat / turn order.
+    ...(FACTIONS ? { faction_id: FACTION_ORDER[(i + gameIndex) % FACTION_ORDER.length] } : {}),
   }));
 
   const state = initializeGameState(`sasim_${gameIndex}`, 'space_age', map, players, simSettings(), {
@@ -403,6 +467,14 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
 
   return {
     game: gameIndex,
+    seats: players.map((p) => ({
+      faction: p.faction_id ?? null,
+      won: winner === p.player_id,
+      eliminated: !!state.players.find((sp) => sp.player_id === p.player_id)?.is_eliminated,
+      reachedMoon: sims.get(p.player_id)!.firstMoonCaptureTurn != null,
+      moonTilesEnd: moonEnd.get(p.player_id) ?? 0,
+      territoriesEnd: Object.values(state.territories).filter((t) => t.owner_id === p.player_id).length,
+    })),
     seed,
     turns: state.turn_number,
     winner,
@@ -489,7 +561,7 @@ function main(): void {
   console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · launchPhase=${LAUNCH_PHASE} · frontiers=${FRONTIERS ? 'on' : 'off'}`);
   console.log(`Map: ${map.territories.length} territories in file · ${inPlay} in play (${baseInPlay - moonTileIds.length} Earth${FRONTIERS ? ` + ${frontierCount} frontier` : ''} + ${moonTileIds.length} neutral Moon${FRONTIERS ? '' : '; era-locked frontiers never spawn'})`);
   console.log(`Seed "${MASTER_SEED}" · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)`);
-  console.log(`Ruleset: economy+tech+stability ON · naval/events/factions/era-advancement OFF · domination(+last_standing)\n`);
+  console.log(`Ruleset: economy+tech+stability ON · factions ${FACTIONS ? `ON (round-robin Space Age factions; AI abilities ${FACTION_ABILITIES ? 'on' : 'off'})` : 'OFF'} · naval/events/era-advancement OFF · domination(+last_standing)\n`);
 
   console.log(`— Moon tech ladder (${LADDER.join(' → ')}) —`);
   console.log(`Games where any player completed the ladder: ${pct(stats.filter((s) => s.maxLadderDepth >= 5).length, GAMES)}`);
@@ -527,6 +599,25 @@ function main(): void {
   if (FRONTIERS && frontierIds.length > 0) {
     // Confirms seeded frontiers get conquered rather than sitting decorative.
     console.log(`Frontier tiles (${frontierIds.length}): avg still-neutral at end:  ${fmt(avg(stats.map((s) => s.frontierNeutralEnd)))} (0 = all conquered)`);
+  }
+
+  if (FACTIONS) {
+    console.log(`\n— Faction balance (baseline win ${pct(1, PLAYERS)}) —`);
+    console.log('faction              games   win%   elim%  moon%  avgMoon  avgTerr');
+    for (const fid of FACTION_ORDER) {
+      const seats = stats.flatMap((s) => s.seats.filter((seat) => seat.faction === fid));
+      if (!seats.length) continue;
+      const name = SPACE_AGE_FACTIONS.find((f) => f.faction_id === fid)?.name ?? fid;
+      console.log([
+        name.padEnd(20),
+        String(seats.length).padStart(5),
+        pct(seats.filter((x) => x.won).length, seats.length).padStart(7),
+        pct(seats.filter((x) => x.eliminated).length, seats.length).padStart(7),
+        pct(seats.filter((x) => x.reachedMoon).length, seats.length).padStart(6),
+        fmt(avg(seats.map((x) => x.moonTilesEnd)), 2).padStart(8),
+        fmt(avg(seats.map((x) => x.territoriesEnd)), 1).padStart(8),
+      ].join(' '));
+    }
   }
 
   if (CSV_PATH) {

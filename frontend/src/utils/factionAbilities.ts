@@ -108,8 +108,18 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
   },
   mercenary_contract: {
     label: 'Mercenary Contract', emoji: '💰', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 5,
-    hint: 'Spend 5 tech points: place 4 units on a production territory.',
+    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 6,
+    hint: 'Spend 6 tech points: place 4 units on a production territory.',
+  },
+  satellite_uplink: {
+    label: 'Satellite Uplink', emoji: '🛰️', scope: 'turn', phase: 'draft',
+    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 4,
+    hint: 'Spend 4 tech points: place 2 units on an owned territory bordering an enemy.',
+  },
+  solar_surge: {
+    label: 'Solar Surge', emoji: '☀️', scope: 'turn', phase: 'draft',
+    enemyTarget: false, style: 'success',
+    hint: 'Place 1 free unit on an owned territory and gain 2 production.',
   },
   spice_trade: {
     label: 'Spice Trade', emoji: '🌶️', scope: 'turn', phase: 'draft',
@@ -236,7 +246,9 @@ export function getAvailableFactionAbilityId(
     emerging_power:    'economic_boom',
     petro_state:       'oil_wealth',
     corpo_enclave:     'mercenary_contract',
+    terran_federation: 'satellite_uplink',
     mughal:            'spice_trade',
+    solar_caliphate:   'solar_surge',
     // Group C — reinforcement / economy boosts (draft)
     union:        'total_war',
     china_cw:     'peoples_war',

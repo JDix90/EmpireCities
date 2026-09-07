@@ -47,6 +47,10 @@ export interface TerritoryAbilityDef {
     restoreStability?: boolean;
     /** Target must have a production building (mercenary_contract). */
     requiresProductionBuilding?: boolean;
+    /** Target must border (any connection type) a territory owned by another player (satellite_uplink). */
+    requiresEnemyAdjacent?: boolean;
+    /** Production granted to the user on placement, if economy is on (solar_surge). */
+    grantsProduction?: number;
   };
   /** Tech points consumed when the ability is used (Group B economy abilities). */
   techCost?: number;
@@ -93,7 +97,9 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   ai_surge: { label: 'AI Surge', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 3 } },
   economic_boom: { label: 'Economic Boom', scope: 'turn', phase: 'draft', techCost: 3, ownPlacement: { units: 2 } },
   oil_wealth: { label: 'Oil Wealth', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 3 } },
-  mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 4, requiresProductionBuilding: true } },
+  mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 4, requiresProductionBuilding: true } },
+  satellite_uplink: { label: 'Satellite Uplink', scope: 'turn', phase: 'draft', techCost: 4, ownPlacement: { units: 2, requiresEnemyAdjacent: true } },
+  solar_surge: { label: 'Solar Surge', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, grantsProduction: 2 } },
   spice_trade: { label: 'Spice Trade', scope: 'turn', phase: 'draft', techCost: 5, draftReinforcements: 2 },
 
   // ── Faction abilities: reinforcement / economy boosts (Group C, draft) ──────
@@ -228,6 +234,25 @@ export function hasPassiveAdjacentRecon(state: GameState, playerId: string): boo
   if (!state.settings.tech_trees_enabled) return false;
   const abilities = getUnlockedAbilityIds(state, state.players.find((p) => p.player_id === playerId)!);
   return abilities.has('drone_recon') || abilities.has('orbital_recon');
+}
+
+/**
+ * Whether an owned territory borders (over any connection type) a territory
+ * held by another player. Neutral neighbours don't count — the point of a
+ * frontline-only placement (satellite_uplink) is that it can't fortify the rear.
+ */
+export function isOwnedTerritoryAdjacentToEnemy(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  territoryId: string,
+): boolean {
+  return (map.connections ?? []).some((c) => {
+    const otherId = c.from === territoryId ? c.to : c.to === territoryId ? c.from : null;
+    if (!otherId) return false;
+    const owner = state.territories[otherId]?.owner_id;
+    return owner != null && owner !== playerId;
+  });
 }
 
 export function isEnemyTerritoryReachableForAbility(

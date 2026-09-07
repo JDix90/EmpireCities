@@ -52,3 +52,61 @@ describe('getDeployCap', () => {
     expect(cap).toBe(9);
   });
 });
+
+import { getPopulationGrowthChance } from './stabilityManager';
+import type { GameState } from '../../types';
+
+function factionState(factionsEnabled: boolean, factionId: string): GameState {
+  return {
+    game_id: 'g1',
+    era: 'space_age',
+    map_id: 'era_space_age',
+    phase: 'draft',
+    turn_number: 1,
+    current_player_index: 0,
+    players: [{
+      player_id: 'p1',
+      player_index: 0,
+      username: 'P1',
+      color: '#fff',
+      is_ai: false,
+      is_eliminated: false,
+      territory_count: 1,
+      cards: [],
+      mmr: 1000,
+      capital_territory_id: null,
+      secret_mission: null,
+      faction_id: factionId,
+    }],
+    territories: {},
+    settings: {
+      fog_of_war: false,
+      turn_timer_seconds: 0,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      stability_enabled: true,
+      factions_enabled: factionsEnabled,
+    },
+  } as GameState;
+}
+
+describe('getPopulationGrowthChance', () => {
+  const BASE = 1 / 4; // 1 / POPULATION_GROWTH_INTERVAL
+
+  it('doubles the growth chance for a population_growth_multiplier faction', () => {
+    expect(getPopulationGrowthChance(factionState(true, 'climate_alliance'), 'p1')).toBeCloseTo(BASE * 2);
+  });
+
+  it('uses the base chance when factions are disabled', () => {
+    expect(getPopulationGrowthChance(factionState(false, 'climate_alliance'), 'p1')).toBeCloseTo(BASE);
+  });
+
+  it('uses the base chance for a faction without a multiplier', () => {
+    expect(getPopulationGrowthChance(factionState(true, 'terran_federation'), 'p1')).toBeCloseTo(BASE);
+  });
+
+  it('uses the base chance for an unknown player', () => {
+    expect(getPopulationGrowthChance(factionState(true, 'climate_alliance'), 'nobody')).toBeCloseTo(BASE);
+  });
+});

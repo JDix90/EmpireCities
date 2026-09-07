@@ -72,6 +72,7 @@ export function applyStabilityTick(
 ): string[] {
   const rebellions: string[] = [];
   const factionBonus = getFactionStabilityBonus(state, playerId);
+  const growthChance = getPopulationGrowthChance(state, playerId);
 
   for (const [tid, t] of Object.entries(state.territories)) {
     if (t.owner_id !== playerId || t.stability == null) continue;
@@ -125,7 +126,7 @@ export function applyStabilityTick(
     if (t.stability >= POPULATION_GROWTH_STABILITY && t.population < MAX_POPULATION) {
       // Population grows +1 every POPULATION_GROWTH_INTERVAL turns of sustained stability.
       // We use a simple probabilistic approach: 1/INTERVAL chance per tick.
-      if (cryptoFraction() < 1 / POPULATION_GROWTH_INTERVAL) {
+      if (cryptoFraction() < growthChance) {
         t.population = Math.min(MAX_POPULATION, t.population + 1);
       }
     }
@@ -288,6 +289,22 @@ function getFactionStabilityBonus(state: GameState, playerId: string): number {
   if (!player) return 0;
   const faction = getPlayerFaction(state, player);
   return faction?.stability_recovery_bonus ?? 0;
+}
+
+function getFactionPopulationGrowthMultiplier(state: GameState, playerId: string): number {
+  if (!state.settings.factions_enabled) return 1;
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return 1;
+  return getPlayerFaction(state, player)?.population_growth_multiplier ?? 1;
+}
+
+/**
+ * Per-tick chance that an eligible territory (stable, below max population)
+ * gains +1 population: 1/INTERVAL, scaled by the owner's faction multiplier.
+ * Exported so the multiplier can be asserted without mocking the CSPRNG.
+ */
+export function getPopulationGrowthChance(state: GameState, playerId: string): number {
+  return Math.min(1, getFactionPopulationGrowthMultiplier(state, playerId) / POPULATION_GROWTH_INTERVAL);
 }
 
 // ── Exported constants (for tests and UI) ──────────────────────────────

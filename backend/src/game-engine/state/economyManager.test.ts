@@ -278,3 +278,54 @@ describe('validateBuild — player-facing names', () => {
     expect(validateBuild(s, 'p1', 't1', 'production_2').error).toBe('Territory already has a Foundry');
   });
 });
+
+// ── collectProduction: faction production per tech building ──────────────────
+
+describe('collectProduction faction production_per_tech_building', () => {
+  function spaceAgeState(factionsEnabled: boolean, buildings: BuildingType[]): GameState {
+    const state = makeState({
+      settings: { factions_enabled: factionsEnabled, stability_enabled: false },
+      players: [makePlayer('p1', { faction_id: 'sino_hegemony', special_resource: 0 })],
+      territories: { T1: makeTerritory('T1', 'p1', buildings) },
+    });
+    state.era = 'space_age';
+    return state;
+  }
+
+  it('adds +1 production per tech_gen building when factions are enabled', () => {
+    const withFaction = collectProduction(spaceAgeState(true, ['tech_gen_1', 'tech_gen_2']), 'p1');
+    const without = collectProduction(spaceAgeState(false, ['tech_gen_1', 'tech_gen_2']), 'p1');
+    expect(withFaction.productionEarned - without.productionEarned).toBe(2);
+  });
+
+  it('adds nothing when factions are disabled', () => {
+    const on = spaceAgeState(false, ['tech_gen_1']);
+    const off = spaceAgeState(false, []);
+    // A tech_gen_1 with no faction bonus yields exactly what the plain building table says.
+    expect(collectProduction(on, 'p1').productionEarned).toBe(collectProduction(off, 'p1').productionEarned);
+  });
+
+  it('does not boost non-tech buildings', () => {
+    const withFaction = collectProduction(spaceAgeState(true, ['production_1']), 'p1');
+    const without = collectProduction(spaceAgeState(false, ['production_1']), 'p1');
+    expect(withFaction.productionEarned).toBe(without.productionEarned);
+  });
+
+  it('scales the faction yield by stability like the building yield', () => {
+    const state = makeState({
+      settings: { factions_enabled: true, stability_enabled: true },
+      players: [makePlayer('p1', { faction_id: 'sino_hegemony', special_resource: 0 })],
+      territories: {
+        T1: makeTerritory('T1', 'p1', ['tech_gen_1'], { stability: 100, population: 10 }),
+        T2: makeTerritory('T2', 'p1', ['tech_gen_1'], { stability: 100, population: 10 }),
+      },
+    });
+    state.era = 'space_age';
+    const healthy = collectProduction(state, 'p1').productionEarned;
+    state.territories.T1!.stability = 0;
+    state.territories.T2!.stability = 0;
+    state.players[0]!.special_resource = 0;
+    const stressed = collectProduction(state, 'p1').productionEarned;
+    expect(stressed).toBeLessThan(healthy);
+  });
+});

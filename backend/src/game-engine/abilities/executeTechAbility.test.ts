@@ -354,3 +354,103 @@ describe('executeTechAbility', () => {
     expect(state.players[0]!.tech_points).toBe(1);
   });
 });
+
+describe('satellite_uplink (Terran Federation)', () => {
+  function uplinkState(): GameState {
+    const state = baseState();
+    state.era = 'space_age';
+    state.phase = 'draft';
+    state.settings.factions_enabled = true;
+    state.players[0]!.faction_id = 'terran_federation';
+    state.players[0]!.tech_points = 10;
+    // t3: owned but only bordering another owned tile (t1) — no enemy contact.
+    state.territories.t3 = { territory_id: 't3', owner_id: 'p1', unit_count: 2, buildings: [], naval_units: 0 };
+    return state;
+  }
+  const uplinkMap = { ...map, connections: [...map.connections, { from: 't1', to: 't3', type: 'land' as const }] };
+
+  it('places 2 units on an owned territory bordering an enemy and spends 4 tech points', () => {
+    const state = uplinkState();
+    const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't1' });
+    expect(result.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(7);
+    expect(state.players[0]!.tech_points).toBe(6);
+  });
+
+  it('rejects an owned territory with no enemy neighbour', () => {
+    const state = uplinkState();
+    const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't3' });
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Must target an owned territory next to an enemy');
+    expect(state.territories.t3!.unit_count).toBe(2);
+    expect(state.players[0]!.tech_points).toBe(10);
+  });
+
+  it('treats a neutral neighbour as no enemy contact', () => {
+    const state = uplinkState();
+    state.territories.t2!.owner_id = null;
+    const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't1' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects when the player cannot afford the tech cost', () => {
+    const state = uplinkState();
+    state.players[0]!.tech_points = 3;
+    const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't1' });
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Not enough tech points (need 4)');
+    expect(state.territories.t1!.unit_count).toBe(5);
+  });
+});
+
+describe('solar_surge (Solar Caliphate)', () => {
+  function surgeState(economyEnabled: boolean): GameState {
+    const state = baseState();
+    state.era = 'space_age';
+    state.phase = 'draft';
+    state.settings.factions_enabled = true;
+    state.settings.economy_enabled = economyEnabled;
+    state.players[0]!.faction_id = 'solar_caliphate';
+    state.players[0]!.special_resource = 5;
+    return state;
+  }
+
+  it('places 1 unit and grants 2 production when economy is on', () => {
+    const state = surgeState(true);
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'solar_surge', territoryId: 't1' });
+    expect(result.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(6);
+    expect(state.players[0]!.special_resource).toBe(7);
+  });
+
+  it('still places the unit but grants no production when economy is off', () => {
+    const state = surgeState(false);
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'solar_surge', territoryId: 't1' });
+    expect(result.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(6);
+    expect(state.players[0]!.special_resource).toBe(5);
+  });
+
+  it('rejects a territory the player does not own', () => {
+    const state = surgeState(true);
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'solar_surge', territoryId: 't2' });
+    expect(result.success).toBe(false);
+    expect(state.players[0]!.special_resource).toBe(5);
+  });
+});
+
+describe('mercenary_contract tech cost', () => {
+  it('costs 6 tech points, matching the published faction copy', () => {
+    const state = baseState();
+    state.phase = 'draft';
+    state.players[0]!.tech_points = 5;
+    state.territories.t1!.buildings = ['production_1'];
+    const short = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
+    expect(short.success).toBe(false);
+    expect(short.error).toBe('Not enough tech points (need 6)');
+    state.players[0]!.tech_points = 6;
+    const ok = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
+    expect(ok.success).toBe(true);
+    expect(state.players[0]!.tech_points).toBe(0);
+  });
+});

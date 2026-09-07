@@ -761,6 +761,36 @@ describe('initializeGameState faction distribution', () => {
       expect(earthOwned).toBe(Object.keys(state.territories).length - moonIds.length);
     });
 
+    it('deals the Lunar Pioneers their Oceania home on the real era_space_age map', () => {
+      // The Moon is neutral at init, so a lunar home region left the Pioneers
+      // with only leftover Earth scraps; Oceania is now their Earth home and no
+      // other Space Age faction claims it.
+      const realMap = JSON.parse(
+        readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf8'),
+      ) as GameMap;
+      const factionIds = [
+        'terran_federation', 'sino_hegemony', 'climate_alliance',
+        'corpo_enclave', 'solar_caliphate', 'lunar_pioneers',
+      ];
+      const state = initializeGameState(
+        'space-age-pioneer-home',
+        'space_age',
+        realMap,
+        factionIds.map((faction_id, i) => makePlayer(`p${i + 1}`, i, { is_ai: i > 0, faction_id })),
+        makeSettings({ factions_enabled: true }),
+      );
+
+      const pioneer = state.players.find((p) => p.faction_id === 'lunar_pioneers')!;
+      const oceaniaIds = realMap.territories
+        .filter((t) => t.region_id === 'oceania_2100')
+        .map((t) => t.territory_id);
+      expect(oceaniaIds.length).toBeGreaterThan(0);
+      const pioneerOceania = oceaniaIds.filter((tid) => state.territories[tid]?.owner_id === pioneer.player_id);
+      expect(pioneerOceania.length).toBeGreaterThan(0);
+      // Turn-1 orbit access is untouched by the home-region move.
+      expect(pioneer.space_station_launched).toBe(true);
+    });
+
     it('initializes the real era_modern map — offworld tile that is ALSO era-gated (live crash repro)', () => {
       // era_modern's `lunar_outpost_mod` is both offworld (its id contains
       // "lunar", so inferWorldId returns 'moon' and it joins lunarTerritoryIds)
