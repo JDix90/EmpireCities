@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMe
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
+import ChroniclePanel from '../components/game/ChroniclePanel';
 import GameMap from '../components/game/GameMap';
 import toast from 'react-hot-toast';
 import {
@@ -22,6 +23,7 @@ import {
   Lock,
   LogIn,
   Clapperboard,
+  ScrollText,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
@@ -149,6 +151,8 @@ export default function ReplayPage() {
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [activeTip, setActiveTip] = useState<ReplayInsight | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
+  // The chronicle rides the same participant gate as the coaching tips.
+  const [chronicleOpen, setChronicleOpen] = useState(false);
   const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
   const [focusedWorldId, setFocusedWorldId] = useState('earth');
   const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{
@@ -836,6 +840,17 @@ export default function ReplayPage() {
             )}
           </button>
         )}
+        {!loadedPublic && (
+          <button
+            type="button"
+            onClick={() => setChronicleOpen((v) => !v)}
+            title="Read this match as a dated history"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            {chronicleOpen ? 'Hide Chronicle' : 'Chronicle'}
+          </button>
+        )}
         {/* Export a short, branded highlight clip (video/GIF) for socials. */}
         <button
           type="button"
@@ -1030,6 +1045,17 @@ export default function ReplayPage() {
                 lastToastedTurnRef.current = tip.turn;
                 setActiveTip(tip);
               }}
+            />
+          </div>
+        )}
+
+        {/* Chronicle — the match as a dated history; each entry scrubs playback. */}
+        {chronicleOpen && gameId && (
+          <div className="absolute top-16 left-3 z-30 w-[min(24rem,calc(100%-1.5rem))] max-h-[70%] overflow-y-auto">
+            <ChroniclePanel
+              gameId={gameId}
+              currentTurn={currentTurn}
+              onJumpToTurn={handleJumpToTurn}
             />
           </div>
         )}
