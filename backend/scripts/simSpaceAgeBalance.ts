@@ -70,6 +70,7 @@ import {
   getOrbitAccessResult,
   syncLaunchPadLanes,
 } from '../src/game-engine/state/moonAccess';
+import { shouldSpendTechPointsOnAbility } from '../src/game-engine/ai/aiTechBudget';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 
 const GAMES = Number(process.env.SIM_GAMES ?? 60);
@@ -235,7 +236,7 @@ function playAiTurn(
   };
   if (LAUNCH_PHASE === 'draft') tryLaunch();
 
-  useFactionDraftAbility(state, map, pid);
+  useFactionDraftAbility(state, map, pid, difficulty);
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
@@ -271,11 +272,18 @@ function playAiTurn(
 }
 
 /**
- * AI parity for draft-phase faction abilities — the same eager rule as the
- * socket block in gameSocket.processAiTurn (any ownPlacement / draftReinforcements
- * def, target = best-garrisoned owned tile passing the def's target filters).
+ * AI parity for draft-phase faction abilities — the same rule as the socket
+ * block in gameSocket.processAiTurn (any ownPlacement / draftReinforcements
+ * def, target = best-garrisoned owned tile passing the def's target filters),
+ * including the tech-point budget guard that keeps back the bot's next
+ * research. Keep the two in sync.
  */
-function useFactionDraftAbility(state: GameState, map: GameMap, pid: string): void {
+function useFactionDraftAbility(
+  state: GameState,
+  map: GameMap,
+  pid: string,
+  difficulty: AiDifficulty,
+): void {
   if (!state.settings.factions_enabled || !FACTION_ABILITIES) return;
   const player = state.players.find((p) => p.player_id === pid);
   if (!player?.faction_id) return;
@@ -287,8 +295,7 @@ function useFactionDraftAbility(state: GameState, map: GameMap, pid: string): vo
     ? (player.used_game_abilities ?? []).includes(abilityId)
     : !!(player.ability_uses ?? {})[abilityId];
   if (alreadyUsed) return;
-  const cost = def.techCost ?? 0;
-  if (cost > 0 && (player.tech_points ?? 0) < cost) return;
+  if (!shouldSpendTechPointsOnAbility(state, pid, difficulty, def.techCost ?? 0)) return;
   const op = def.ownPlacement;
   const target = op
     ? Object.values(state.territories)

@@ -72,6 +72,7 @@ import {
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
 import type { BuildingType } from '../types';
+import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
 import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
@@ -5178,7 +5179,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // units, Group B tech-gated placement, Group C reinforcement/economy boosts).
   // Activated BEFORE placement so draft-pool boosters (spice_trade, total_war,
   // imperial_diet) get placed this turn. Reuses executeTechAbility for exact
-  // human/bot parity; these effects only ever help, so eager use is safe.
+  // human/bot parity. Free abilities are used eagerly — they only ever help —
+  // but tech-costed ones go through shouldSpendTechPointsOnAbility, which keeps
+  // back the price of the bot's next research (see aiTechBudget.ts).
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
     const aiFaction = getPlayerFaction(state, currentPlayer);
     const factionAbilityId = aiFaction?.ability_id;
@@ -5193,7 +5196,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       ? (currentPlayer.used_game_abilities ?? []).includes(factionAbilityId)
       : !!(currentPlayer.ability_uses ?? {})[factionAbilityId]);
     const techCost = factionDef?.techCost ?? 0;
-    const affordable = techCost === 0 || (currentPlayer.tech_points ?? 0) >= techCost;
+    const affordable = shouldSpendTechPointsOnAbility(
+      state, currentPlayer.player_id, difficulty, techCost,
+    );
     if (factionAbilityId && isDraftAbility && !alreadyUsed && affordable) {
       const needsTarget = !!factionDef?.ownPlacement;
       const requiresMoon = factionDef?.ownPlacement?.requiresMoon ?? false;
