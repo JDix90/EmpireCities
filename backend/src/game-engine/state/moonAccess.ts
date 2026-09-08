@@ -133,12 +133,26 @@ export function selectionExemptTerritoryIds(map: GameMap): Set<string> {
 }
 
 /**
- * Fortify gating matches attack gating: only crossing an orbit edge needs
- * access, on every map and era. Space Age used to gate any move with a Moon
- * endpoint, which froze troop movement BETWEEN a player's own Moon tiles the
- * moment they lost their last Launch Pad — while attacking and reinforcing
- * those same tiles stayed legal, so the rule read as a bug rather than a cost.
- * Crossing back to Earth still requires access, because that crosses a lane.
+ * Fortify gating matches attack gating: crossing between worlds needs access,
+ * on every map and era. Space Age used to gate any move with a Moon endpoint,
+ * which froze troop movement BETWEEN a player's own Moon tiles the moment they
+ * lost their last Launch Pad — while attacking and reinforcing those same tiles
+ * stayed legal, so the rule read as a bug rather than a cost. Interior movement
+ * on one world is therefore free.
+ *
+ * The endpoints are gated on TWO grounds, not one. An orbit edge is the obvious
+ * case. But fortify validates reachability with a BFS over the player's own
+ * territories, and a multi-hop path may route through an orbit lane while
+ * NEITHER endpoint sits on one: measured, a player holding
+ * na_eastern_corridor → na_launch_base → moon_near_side_north → moon_mare_imbrium
+ * with no Launch Pad at all moved 5 units from Earth to the Moon, because the
+ * edge-only test saw a plain land-to-land pair and waved it through. Comparing
+ * worlds closes that, and is the only check the AI path has — AI fortify moves
+ * are not path-validated at all, so an arbitrary owned pair reaches here.
+ *
+ * This is a backstop, not the whole rule: it cannot see a Moon→Moon fortify
+ * that routes through Earth across two lanes. `fortifyTraversalFilter` handles
+ * the path itself.
  */
 export function fortifyEndpointsRequireOrbitAccess(
   map: GameMap,
@@ -146,7 +160,36 @@ export function fortifyEndpointsRequireOrbitAccess(
   fromId: string,
   toId: string,
 ): boolean {
-  return connectionRequiresMoonAccess(map, fromId, toId);
+  if (connectionRequiresMoonAccess(map, fromId, toId)) return true;
+  const from = map.territories.find((t) => t.territory_id === fromId);
+  const to = map.territories.find((t) => t.territory_id === toId);
+  if (!from || !to) return false;
+  return inferWorldId(from) !== inferWorldId(to);
+}
+
+/**
+ * Edge predicate for the fortify reachability BFS: may this player move troops
+ * across this connection right now?
+ *
+ * Only orbit lanes are ever refused, and for the same two reasons crossing one
+ * directly is refused — no orbit access, or the lane is sealed against them.
+ * Everything else is freely traversable, so interior movement on either world
+ * is untouched.
+ *
+ * Access is resolved once, here, rather than per edge inside the BFS.
+ */
+export function fortifyTraversalFilter(
+  state: GameState,
+  player: PlayerState,
+  map: GameMap,
+  era: EraId,
+): (conn: MapConnection) => boolean {
+  const access = getOrbitAccessResult(state, player, map, era);
+  return (conn) => {
+    if (conn.type !== 'orbit') return true;
+    if (!access.allowed) return false;
+    return !isLaneSealedForPlayer(state, conn.from, conn.to, player.player_id);
+  };
 }
 
 /** Unified orbit gate for claims + fortify + orbit attacks. */

@@ -153,7 +153,8 @@ function applyFortify(state: GameState, map: GameMap, pid: string, from: string,
   const f = state.territories[from];
   const t = state.territories[to];
   if (!f || !t || f.owner_id !== pid || t.owner_id !== pid) return;
-  // Orbit parity with the socket fortify handler: any Moon endpoint requires access.
+  // Orbit parity with the socket fortify handler: crossing between worlds
+  // requires access, whether or not the named endpoints are the lane itself.
   if (fortifyEndpointsRequireOrbitAccess(map, state.era, from, to)) {
     const player = state.players.find((p) => p.player_id === pid);
     if (!player || !getOrbitAccessResult(state, player, map, state.era).allowed) return;

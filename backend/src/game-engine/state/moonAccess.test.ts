@@ -5,6 +5,7 @@ import {
   getOrbitAccessResult,
   formatOrbitAccessError,
   fortifyEndpointsRequireOrbitAccess,
+  fortifyTraversalFilter,
   territoryRequiresOrbitAccessForClaim,
   offworldTerritoryIdsForInitialNeutral,
   selectionExemptTerritoryIds,
@@ -189,6 +190,109 @@ describe('space age fortify gating', () => {
 
   it('leaves an ordinary Earth move ungated', () => {
     expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'na_launch_base', 'na_east')).toBe(false);
+  });
+
+  it('gates endpoints on different worlds even when neither sits on a lane', () => {
+    // Regression: gating only the direct from→to edge let a player holding
+    // na_east → na_launch_base → moon_a → moon_b fortify straight to the Moon
+    // with the orbit gate shut, because na_east→moon_b is not itself a lane.
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'na_east', 'moon_b')).toBe(true);
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'moon_b', 'na_east')).toBe(true);
+  });
+
+  it('does not gate a move whose endpoint is not on the map', () => {
+    expect(fortifyEndpointsRequireOrbitAccess(map, 'space_age', 'na_east', 'nowhere')).toBe(false);
+  });
+});
+
+describe('fortifyTraversalFilter', () => {
+  const map: GameMap = {
+    map_id: 'era_space_age_mini',
+    name: 'Mini Space Age',
+    territories: [
+      { territory_id: 'na_launch_base', name: 'Cape', polygon: [], center_point: [0, 0], region_id: 'na' },
+      { territory_id: 'na_east', name: 'East', polygon: [], center_point: [0, 0], region_id: 'na' },
+      { territory_id: 'moon_a', name: 'Moon A', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+      { territory_id: 'moon_b', name: 'Moon B', polygon: [], center_point: [0, 0], region_id: 'lunar_surface', globe_id: 'moon' },
+    ],
+    connections: [
+      { from: 'na_launch_base', to: 'na_east', type: 'land' },
+      { from: 'na_launch_base', to: 'moon_a', type: 'orbit' },
+      { from: 'moon_a', to: 'moon_b', type: 'land' },
+    ],
+    regions: [
+      { region_id: 'na', name: 'North America', bonus: 3 },
+      { region_id: 'lunar_surface', name: 'Lunar Surface', bonus: 6 },
+    ],
+  } as GameMap;
+
+  const lane = map.connections[1];
+  const land = map.connections[0];
+  const moonLand = map.connections[2];
+
+  function mkState(over: Partial<GameState> = {}): GameState {
+    return {
+      era: 'space_age',
+      settings: { lanes_contestable_enabled: false },
+      territories: {
+        na_launch_base: { territory_id: 'na_launch_base', owner_id: 'p1', unit_count: 5, buildings: ['launch_pad'] },
+        na_east: { territory_id: 'na_east', owner_id: 'p1', unit_count: 5, buildings: [] },
+        moon_a: { territory_id: 'moon_a', owner_id: 'p1', unit_count: 5, buildings: [] },
+        moon_b: { territory_id: 'moon_b', owner_id: 'p1', unit_count: 5, buildings: [] },
+      },
+      ...over,
+    } as unknown as GameState;
+  }
+
+  const gated = { player_id: 'p1', unlocked_techs: [] } as unknown as PlayerState;
+  const cleared = {
+    player_id: 'p1',
+    unlocked_techs: ['sa_lunar_expansion'],
+    space_station_launched: true,
+  } as unknown as PlayerState;
+
+  it('refuses orbit lanes to a player without access', () => {
+    const canTraverse = fortifyTraversalFilter(mkState(), gated, map, 'space_age');
+    expect(canTraverse(lane)).toBe(false);
+  });
+
+  it('never refuses a land connection, on either world', () => {
+    // Interior movement stays free even with the gate shut — that was the whole
+    // point of narrowing the rule away from "any Moon endpoint".
+    const canTraverse = fortifyTraversalFilter(mkState(), gated, map, 'space_age');
+    expect(canTraverse(land)).toBe(true);
+    expect(canTraverse(moonLand)).toBe(true);
+  });
+
+  it('allows the lane once the ladder is finished', () => {
+    const canTraverse = fortifyTraversalFilter(mkState(), cleared, map, 'space_age');
+    expect(canTraverse(lane)).toBe(true);
+  });
+
+  it('refuses a lane sealed against the player, and allows it for the sealer', () => {
+    // Both players have finished the ladder and hold a pad, so the seal is the
+    // only thing that can separate their two results.
+    const sealed = mkState({
+      settings: { lanes_contestable_enabled: true },
+      lane_blockades: { 'moon_a::na_launch_base': { owner_id: 'p2', turns_remaining: 2 } },
+      territories: {
+        na_launch_base: { territory_id: 'na_launch_base', owner_id: 'p1', unit_count: 5, buildings: ['launch_pad'] },
+        na_east: { territory_id: 'na_east', owner_id: 'p2', unit_count: 5, buildings: ['launch_pad'] },
+        moon_a: { territory_id: 'moon_a', owner_id: 'p1', unit_count: 5, buildings: [] },
+        moon_b: { territory_id: 'moon_b', owner_id: 'p2', unit_count: 5, buildings: [] },
+      },
+    } as unknown as Partial<GameState>);
+    const sealer = { ...cleared, player_id: 'p2' } as PlayerState;
+    expect(getOrbitAccessResult(sealed, cleared, map, 'space_age').allowed).toBe(true);
+    expect(getOrbitAccessResult(sealed, sealer, map, 'space_age').allowed).toBe(true);
+
+    expect(fortifyTraversalFilter(sealed, cleared, map, 'space_age')(lane)).toBe(false);
+    expect(fortifyTraversalFilter(sealed, sealer, map, 'space_age')(lane)).toBe(true);
+  });
+
+  it('lets everything through when the map has no orbit gate at all', () => {
+    const canTraverse = fortifyTraversalFilter(mkState({ era: 'modern' } as Partial<GameState>), gated, map, 'modern');
+    expect(canTraverse(lane)).toBe(true);
   });
 });
 
