@@ -15,6 +15,7 @@ import { countUnlockedTechsByTier } from '../eraAdvancement/eraAdvancementReadin
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import { getEffectiveTechCost } from '../state/techManager';
+import { aiResearchesTech } from './aiTechBudget';
 import {
   connectionRequiresMoonAccess,
   nearestLandingZoneFor,
@@ -1028,17 +1029,13 @@ export function selectAiTechResearch(
   playerId: string,
   difficulty: AiDifficulty,
 ): string | null {
-  if (difficulty === 'tutorial') return null;
-  if (!state.settings.tech_trees_enabled) return null;
   // Easy stays passive in normal games, but must research in era-advancement
   // games or it can never pass the gate (steamroll bug). Galactic Age is the
   // other exception: it has no era advancement, so a non-Helion easy bot that
   // never researches can never unlock hyperspace lanes and is permanently
   // locked to its home world. Easy falls through to the galaxy hook below,
   // which lets it buy the Hyperspace Chart and nothing else.
-  if (difficulty === 'easy' && !state.settings.era_advancement_enabled && state.era !== 'galaxy_age') {
-    return null;
-  }
+  if (!aiResearchesTech(state, difficulty)) return null;
 
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
