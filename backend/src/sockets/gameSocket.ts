@@ -2871,12 +2871,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (execResult.effect === 'space_station_launched' && execResult.territoryId) {
         recordAbility('Launched Space Station');
-        io.to(gameId).emit('game:space_station_launched', {
+        const launchPayload = {
           playerId: userId,
           playerName: currentPlayer.username,
           playerColor: currentPlayer.color,
           launchTerritoryId: execResult.territoryId,
-        });
+        };
+        io.to(gameId).emit('game:space_station_launched', launchPayload);
+        queueSpectatorEvent(gameId, 'game:space_station_launched', launchPayload);
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
@@ -5363,12 +5365,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       abilityId: 'launch_space_station',
     });
     if (res.success && res.effect === 'space_station_launched' && res.territoryId) {
-      io.to(gameId).emit('game:space_station_launched', {
+      const launchPayload = {
         playerId: currentPlayer.player_id,
         playerName: currentPlayer.username,
         playerColor: currentPlayer.color,
         launchTerritoryId: res.territoryId,
-      });
+      };
+      io.to(gameId).emit('game:space_station_launched', launchPayload);
+      queueSpectatorEvent(gameId, 'game:space_station_launched', launchPayload);
     }
   }
 
