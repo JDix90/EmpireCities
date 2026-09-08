@@ -249,14 +249,16 @@ Projected 2100 Earth with lunar territories — research Lunar Expansion, build 
 
 **Factions** (`SPACE_AGE_FACTIONS`)
 
-| Faction | Lore (summary) | Flavor quote |
-|---------|------------------|--------------|
-| Terran Federation | Orbital infrastructure + open data. | “Transparency is the sharpest weapon of the free.” |
-| Sino-Pacific Hegemony | AI planners + automated industry. | “The machine does not sleep; neither does the empire.” |
-| Climate Alliance | Ecological repair as strategy. | “We build the future in soil, not steel.” |
-| Corporate Enclave | Post-state coastal cities; shareholder loyalty. | “Loyalty is a line item, not a virtue.” |
-| Solar Caliphate | Desert solar + hydrogen economy. | “The sun no longer rises in the East; it is owned there.” |
-| Lunar Pioneers | Moon-native colonists; Earth as gravity well. | “We do not look up at the stars. We live among them.” |
+| Faction | Lore (summary) | Flavor quote | Signature notes |
+|---------|------------------|--------------|-------------------|
+| Terran Federation | North Atlantic + European megastates bound together by shared orbital infrastructure and open data networks. | “Transparency is the sharpest weapon of the free.” | +1 attack die on every attack; +2 stability recovery/turn; Satellite Uplink (4 TP → 2 units on an owned territory bordering an enemy). |
+| Sino-Pacific Hegemony | Tightly integrated Asia-Pacific bloc where AI planners schedule factory output, logistics and troop rotations. | “The machine does not sleep; neither does the empire.” | +2 reinforcements/turn; +1 production per tech building each turn; AI Surge (5 TP → 3 units on any owned territory). |
+| Climate Alliance | Born from the flooded coastlines and dust belts of the late 21st century; ecological repair as a strategic weapon. | “We build the future in soil, not steel.” | +4 stability recovery/turn; population grows twice as fast; Terraform (restore a territory to 100 stability + 1 free unit). |
+| Corporate Enclave | Post-state megacorporations ruling sovereign coastal cities; shareholders and citizens blur together. | “Loyalty is a line item, not a virtue.” | +4 tech points/turn; Mercenary Contract (6 TP → 4 units on an owned territory with a production building). |
+| Solar Caliphate | Post-petroleum Gulf and Central Asian coalition that turned its deserts into the energy heart of the 22nd century. | “The sun no longer rises in the East; it is owned there.” | +1 reinforcement/turn; Solar Surge (1 unit on an owned territory + 2 production). |
+| Lunar Pioneers | Descendants of the first permanent lunar settlers; Earth is a gravity well they are no longer obliged to return to. | “We do not look up at the stars. We live among them.” | Moon access from turn one (no Space Program needed); +2 defense dice on Moon territories; Lunar Supply Drop (2 units into an owned Moon territory). |
+
+> The Moon starts **neutral and garrisoned** for everyone — the Pioneers' Earth home is Oceania (`oceania_2100`), and their edge is turn-one orbit access plus lunar defence dice, not a free lunar province.
 
 **Wonder — Space Elevator** (`SPACE_AGE_WONDER`)  
 *Tethered orbital ribbon — Moon access requires only Lunar Expansion tech + Launch Pad (skips Space Station launch).*
@@ -277,7 +279,7 @@ These are the **system** maps shipped under `database/maps/era_*.json` and surfa
 | `era_modern` | The Modern Day — contemporary multipolar struggle. |
 | `era_acw` | American Civil War — two nations, interior lines. |
 | `era_risorgimento` | Italian Unification — peninsula provinces as gameplay regions. |
-| `era_space_age` | Space Age — Earth 2100 plus **Moon** territories (`globe_id`), launch pad / station / lunar expansion tech branch. |
+| `era_space_age` | Space Age — Earth 2100 plus 9 **Moon** territories (region `lunar_surface`), reached over `type: "orbit"` connections via the launch pad / station / lunar expansion tech branch. |
 
 **Tutorial** (not in Map Hub list but present in app)  
 - Map id `tutorial` and WW2 tutorial variant are defined in `backend/src/game-engine/tutorial/tutorialScript.ts` — scripted teaching flow rather than sandbox lore catalog.
@@ -474,12 +476,12 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `space_age`
 
-- **Terran Federation** — *Satellite-backed democracies — +1 attack die from surveillance dominance; precision doctrine always active.* — Ability: *Orbital Surveillance: once per turn, reveal all units in an adjacent enemy territory and gain +1 attack die against it this turn.*
-- **Sino-Pacific Hegemony** — *Automated industry + AI command — +2 reinforcements per turn; additional production from every tech_gen building.* — Ability: *AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory.*
-- **Climate Alliance** — *Terraforming doctrine — +2 stability recovery per turn; territories recover population faster.* — Ability: *Terraform: once per turn, restore stability to 100 in an owned territory and gain 1 free unit there.*
-- **Corporate Enclave** — *Private militaries and techno-capitalism — +4 tech points per turn; can purchase mercenaries.* — Ability: *Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building.*
-- **Solar Caliphate** — *Vast solar arrays + hydrogen economy — +3 tech points per turn; extra reinforcement for every 3 owned resource territories.* — Ability: *Power Projection: once per turn, pay 4 tech points to attack any territory within 2 hops.*
-- **Lunar Pioneers** — *Moon-native colonists — start with Moon access unlocked; +2 defense dice on all lunar territories.* — Ability: *Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.*
+- **Terran Federation** — *Satellite-backed democracies — +1 attack die on every attack; +2 stability recovery per turn; Satellite Uplink ability.* — Ability: *Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.*
+- **Sino-Pacific Hegemony** — *Automated industry + AI command — +2 reinforcements per turn; +1 production per tech building each turn; AI Surge ability.* — Ability: *AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory.*
+- **Climate Alliance** — *Terraforming doctrine — +4 stability recovery per turn; population grows twice as fast; Terraform ability.* — Ability: *Terraform: once per turn, restore stability to 100 in an owned territory and gain 1 free unit there.*
+- **Corporate Enclave** — *Private militaries and techno-capitalism — +4 tech points per turn; Mercenary Contract ability (6 tech points).* — Ability: *Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building.*
+- **Solar Caliphate** — *Energy hegemony of the post-petroleum age — +1 reinforcement per turn; Solar Surge ability.* — Ability: *Solar Surge: once per turn, place 1 unit on an owned territory and gain 2 production.*
+- **Lunar Pioneers** — *Moon-native colonists — Moon access from turn one; +2 defense dice on Moon territories; Lunar Supply Drop ability.* — Ability: *Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.*
 
 ---
 
