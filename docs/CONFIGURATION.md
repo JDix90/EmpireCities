@@ -90,7 +90,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `todayPanelEnabled` | `TODAY_PANEL_ENABLED` | off | Lobby right column swaps to the unified Today panel |
 | `asyncOnboardingEnabled` | `ASYNC_ONBOARDING_ENABLED` | off | Multi-day async nudges: post-tutorial "challenge a friend", Today-panel async row |
 | `spectateEnabled` | `SPECTATE_ENABLED` | off | Watch/Spectate surface: Live nav + lobby Watch entries, `GET /api/games/live`, spectator socket joins. Off while player counts are low (an empty/stale live list reads worse than none) |
-| `spaceAgeFrontiersEnabled` | `SPACE_AGE_FRONTIERS_ENABLED` | off | Standalone Space Age seeds the 8 authored frontier tiles (63-tile board instead of 55) |
+| `spaceAgeFrontiersEnabled` | `SPACE_AGE_FRONTIERS_ENABLED` | on | Standalone Space Age seeds the 8 authored frontier tiles (63-tile board instead of 55) |
 | `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
 | `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
 

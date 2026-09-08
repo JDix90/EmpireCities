@@ -123,7 +123,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'space_age_frontiers_enabled',
     label: 'Space Age frontiers (standalone)',
     description:
-      'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation. Off by default (dark-launch) until the enlarged board is balance-checked.',
+      'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation, so switching this off only affects games created afterwards. On by default; switch off to fall back to the 55-tile board.',
   },
   {
     key: 'today_panel_enabled',
