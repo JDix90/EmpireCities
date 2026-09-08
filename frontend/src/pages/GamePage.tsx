@@ -40,6 +40,7 @@ const TUTORIAL_MIN_DWELL_MS = 4000;
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
+import MoonInsetFrame from '../components/game/MoonInsetFrame';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import { useGalaxyMapVisualPulse } from '../hooks/useGalaxyMapVisualPulse';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
@@ -4247,10 +4248,7 @@ export default function GamePage() {
                         }
                       />
                       {hasMoonTerritories && (
-                        <div className="absolute bottom-3 right-3 z-20 w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px] rounded-xl border border-bf-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden">
-                          <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-gold pointer-events-none">
-                            Moon
-                          </div>
+                        <MoonInsetFrame className="w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px]">
                           <GlobeMapLazy
                             mapData={mapData}
                             onTerritoryClick={handleTerritoryClick}
@@ -4265,7 +4263,7 @@ export default function GamePage() {
                             showAtmosphere={false}
                             backgroundColor="rgb(20, 22, 32)"
                           />
-                        </div>
+                        </MoonInsetFrame>
                       )}
                     </>
                   )}

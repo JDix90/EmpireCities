@@ -16,6 +16,7 @@ const COLORBLIND_MODE_KEY = 'cc-colorblind-mode';
 const HIGH_CONTRAST_KEY = 'cc-high-contrast';
 const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
 const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
+const MOON_INSET_COLLAPSED_KEY = 'cc-moon-inset-collapsed';
 
 const listeners = new Set<() => void>();
 
@@ -110,6 +111,20 @@ export function hasSeenMobileMenuHint(): boolean {
 
 export function markMobileMenuHintSeen(): void {
   writeBool(MOBILE_MENU_HINT_SEEN_KEY, true);
+}
+
+// ── Moon inset ────────────────────────────────────────────────────────────────
+// The Space Age board is two worlds, so the Earth map carries a Moon inset. On a
+// phone that inset costs real screen area from turn one, long before a player has
+// the Space Program tech to go there. Minimizing it leaves a small pill in the
+// same corner, and the choice sticks across games so it only has to be made once.
+
+export function getMoonInsetCollapsed(): boolean {
+  return readBool(MOON_INSET_COLLAPSED_KEY, false);
+}
+
+export function setMoonInsetCollapsed(collapsed: boolean): void {
+  writeBool(MOON_INSET_COLLAPSED_KEY, collapsed);
 }
 
 // ── Camera follow ─────────────────────────────────────────────────────────────

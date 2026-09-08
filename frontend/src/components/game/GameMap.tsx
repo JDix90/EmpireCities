@@ -30,6 +30,7 @@ import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
 import { usePageVisible, isDocumentVisible } from '../../utils/usePageVisible';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
+import MoonInsetFrame from './MoonInsetFrame';
 import {
   shouldEmphasizeAdjacencyBorders,
   shouldRenderConnectionArcs,
@@ -1213,30 +1214,24 @@ export default function GameMap({
 
   if (!showsMoonInset) return canvas;
 
+  // The canvas size below is clamped to exactly these bounds: Pixi sizes a real
+  // canvas element, so a mismatch clips the far side of the Moon.
+  const insetWidth = Math.min(INSET_MAX_W, Math.max(INSET_MIN_W, Math.floor(width * INSET_FRACTION)));
+  const insetHeight = Math.min(INSET_MAX_H, Math.max(INSET_MIN_H, Math.floor(height * INSET_FRACTION)));
+
   // Mirrors the globe view's Moon inset so both renderers present the board the
   // same way. Rendered here rather than at each call site so the game, replay
   // and spectator views cannot drift apart.
   return (
     <div className="relative w-full h-full" data-testid="map-with-moon-inset">
       {canvas}
-      {/* The canvas size below is clamped to exactly these bounds: Pixi sizes a
-          real canvas element, so a mismatch clips the far side of the Moon. */}
-      <div
-        className="absolute bottom-3 right-3 z-20 rounded-xl border border-bf-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden"
-        style={{
-          width: Math.min(INSET_MAX_W, Math.max(INSET_MIN_W, Math.floor(width * INSET_FRACTION))),
-          height: Math.min(INSET_MAX_H, Math.max(INSET_MIN_H, Math.floor(height * INSET_FRACTION))),
-        }}
-      >
-        <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-gold pointer-events-none">
-          Moon
-        </div>
+      <MoonInsetFrame style={{ width: insetWidth, height: insetHeight }}>
         <GameMap
           mapData={rawMapData}
           activeWorldId="moon"
           onTerritoryClick={onTerritoryClick}
-          width={Math.min(INSET_MAX_W, Math.max(INSET_MIN_W, Math.floor(width * INSET_FRACTION)))}
-          height={Math.min(INSET_MAX_H, Math.max(INSET_MIN_H, Math.floor(height * INSET_FRACTION)))}
+          width={insetWidth}
+          height={insetHeight}
           highlightTerritoryId={highlightTerritoryId}
           reducedEffects
           ambientEnabled={false}
@@ -1245,7 +1240,7 @@ export default function GameMap({
           turnHolderColor={turnHolderColor}
           connectionHintMode={connectionHintMode}
         />
-      </div>
+      </MoonInsetFrame>
     </div>
   );
 }
