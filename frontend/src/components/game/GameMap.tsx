@@ -3,6 +3,12 @@ import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
+import { inferWorldId } from '@borderfall/shared';
+import {
+  filterMapToWorld,
+  orbitStubsForWorld,
+  type WorldPartitionMap,
+} from '../../utils/mapWorldPartition';
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import { buildTerritoryGlobeGeometries, type GlobeMapDataForGeometry } from '../../utils/globeTerritoryGeometry';
 import { buildGeoLayout2d, type GeoLayout2d } from '../../utils/map2dProjection';
@@ -87,6 +93,13 @@ interface GameMapProps {
    * source is selected so target highlighting takes over.
    */
   validSourceOwnerId?: string | null;
+  /**
+   * Which world to draw. The Moon renders in its own inset rather than on the
+   * Earth canvas; orbit lanes to other worlds are drawn as stubs.
+   */
+  activeWorldId?: string;
+  /** Render the Moon in an inset beside this map (Earth canvas only). */
+  moonInset?: boolean;
 }
 
 function hexToPixi(hex: string): number {
@@ -104,8 +117,16 @@ function shadePixi(color: number, factor: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+// Moon inset geometry, shared by the box and the canvas drawn inside it.
+const INSET_FRACTION = 0.34;
+const INSET_MIN_W = 200;
+const INSET_MIN_H = 160;
+const INSET_MAX_W = 400;
+const INSET_MAX_H = 320;
+
 export default function GameMap({
-  mapData,
+  mapData: rawMapData,
+  activeWorldId = 'earth',
   onTerritoryClick,
   width = 900,
   height = 600,
@@ -121,7 +142,24 @@ export default function GameMap({
   turnHolderColor,
   contestedBorders = [],
   connectionHintMode = 'full',
+  moonInset = false,
 }: GameMapProps) {
+  // Render one world at a time. The Space Age map authors its lunar tiles in
+  // the same canvas space as Earth, so without this the Moon is painted on top
+  // of the Atlantic. Shadowing the prop keeps every use below on the filtered
+  // document rather than leaving one stray reference to the whole map.
+  const mapData = useMemo(
+    () => filterMapToWorld(rawMapData as unknown as WorldPartitionMap, activeWorldId) as unknown as GameMapData,
+    [rawMapData, activeWorldId],
+  );
+  const orbitStubs = useMemo(
+    () => orbitStubsForWorld(rawMapData as unknown as WorldPartitionMap, activeWorldId),
+    [rawMapData, activeWorldId],
+  );
+  // Only the Earth canvas hosts the inset, so the nested render cannot recurse.
+  const showsMoonInset = moonInset
+    && activeWorldId === 'earth'
+    && (rawMapData as unknown as WorldPartitionMap).territories.some((t) => inferWorldId(t) === 'moon');
   const [, setPrefsRevision] = useState(0);
   useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
 
@@ -397,6 +435,33 @@ export default function GameMap({
       connectionGraphics.lineStyle(1, conn.type === 'sea' ? 0x2e7d9e : 0x2d3448, 0.5);
       connectionGraphics.moveTo(fx, fy);
       connectionGraphics.lineTo(tx, ty);
+    }
+
+    // Orbit lanes leave this world entirely, so there is no second endpoint to
+    // draw to. Each becomes a dashed violet stub pointing off the top of the
+    // canvas (or the bottom, looking back from the Moon) with a label naming
+    // the world it reaches — drawn last so it sits above the land borders.
+    for (const stub of orbitStubs) {
+      const origin = mapData.territories.find((t) => t.territory_id === stub.fromId);
+      if (!origin) continue;
+      const [ox, oy] = scalePolygon([territoryCenter(origin)], canvasW, canvasH, width, height)[0];
+      const dir = activeWorldId === 'earth' ? -1 : 1;
+      const length = Math.max(18, Math.min(46, height * 0.06));
+      connectionGraphics.lineStyle(1.5, 0x8e9af2, 0.85);
+      const dash = 5;
+      for (let travelled = 0; travelled < length; travelled += dash * 2) {
+        const y0 = oy + dir * travelled;
+        const y1 = oy + dir * Math.min(travelled + dash, length);
+        connectionGraphics.moveTo(ox, y0);
+        connectionGraphics.lineTo(ox, y1);
+      }
+      const label = new PIXI.Text(
+        `→ ${stub.toWorldId === 'earth' ? 'Earth' : stub.toWorldId.charAt(0).toUpperCase() + stub.toWorldId.slice(1)}`,
+        { fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9, fill: 0xc7ceff },
+      );
+      label.anchor.set(0.5, dir === -1 ? 1 : 0);
+      label.position.set(ox, oy + dir * (length + 2));
+      labelContainer.addChild(label);
     }
 
     // Collected during the territory loop, decluttered after it: on dense
@@ -1134,7 +1199,7 @@ export default function GameMap({
     playNext();
   }, [mapVisualEvents, territoryCentroids, reducedEffects]);
 
-  return (
+  const canvas = (
     <div
       ref={canvasRef}
       className="w-full h-full overflow-hidden rounded-lg border border-bf-border"
@@ -1144,6 +1209,44 @@ export default function GameMap({
       data-last-kind={mapVisualDebug.kind}
       data-map-strike-flash-active={strikeFlash ? 'true' : undefined}
     />
+  );
+
+  if (!showsMoonInset) return canvas;
+
+  // Mirrors the globe view's Moon inset so both renderers present the board the
+  // same way. Rendered here rather than at each call site so the game, replay
+  // and spectator views cannot drift apart.
+  return (
+    <div className="relative w-full h-full" data-testid="map-with-moon-inset">
+      {canvas}
+      {/* The canvas size below is clamped to exactly these bounds: Pixi sizes a
+          real canvas element, so a mismatch clips the far side of the Moon. */}
+      <div
+        className="absolute bottom-3 right-3 z-20 rounded-xl border border-bf-border bg-[rgb(20,22,32)] shadow-2xl overflow-hidden"
+        style={{
+          width: Math.min(INSET_MAX_W, Math.max(INSET_MIN_W, Math.floor(width * INSET_FRACTION))),
+          height: Math.min(INSET_MAX_H, Math.max(INSET_MIN_H, Math.floor(height * INSET_FRACTION))),
+        }}
+      >
+        <div className="absolute top-2 left-2 z-10 text-[11px] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-gold pointer-events-none">
+          Moon
+        </div>
+        <GameMap
+          mapData={rawMapData}
+          activeWorldId="moon"
+          onTerritoryClick={onTerritoryClick}
+          width={Math.min(INSET_MAX_W, Math.max(INSET_MIN_W, Math.floor(width * INSET_FRACTION)))}
+          height={Math.min(INSET_MAX_H, Math.max(INSET_MIN_H, Math.floor(height * INSET_FRACTION)))}
+          highlightTerritoryId={highlightTerritoryId}
+          reducedEffects
+          ambientEnabled={false}
+          turnHolderPlayerId={turnHolderPlayerId}
+          validSourceOwnerId={validSourceOwnerId}
+          turnHolderColor={turnHolderColor}
+          connectionHintMode={connectionHintMode}
+        />
+      </div>
+    </div>
   );
 }
 

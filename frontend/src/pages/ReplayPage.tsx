@@ -991,6 +991,7 @@ export default function ReplayPage() {
           </Suspense>
         ) : (
           <GameMap
+            moonInset
             mapData={mapData}
             onTerritoryClick={() => {}}
             width={mapCanvasSize.w}
