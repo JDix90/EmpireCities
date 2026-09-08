@@ -469,7 +469,7 @@ Rebuild a Launch Pad anywhere on Earth and access comes straight back; your stat
 
 Lunar territories are ordinary territories where victory is concerned:
 
-- **Domination** needs *every* territory on the board — the 9 lunar ones included. You cannot win by domination while the Moon sits neutral.
+- **Domination** by conquest needs *every* territory on the board — the 9 lunar ones included — so nobody takes that route while the Moon sits neutral. (Being the last player standing is scored separately and is unaffected by neutral tiles.)
 - **Threshold** measures your share of every territory in play, so the Moon raises the bar for everyone whether or not anyone goes up there.
 - **Secret missions** are the exception: orbit-gated territories and whole lunar regions are deliberately excluded from mission targets, because a capture objective behind a 63-TP tech ladder would not be a fair race.
 
