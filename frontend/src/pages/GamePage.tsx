@@ -4274,6 +4274,7 @@ export default function GamePage() {
             ) : (
               <GameMap
                 mapData={mapData}
+                moonInset
                 onTerritoryClick={handleTerritoryClick}
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}

@@ -580,6 +580,7 @@ export default function SpectatorPage() {
             </Suspense>
           ) : (
             <GameMap
+              moonInset
               mapData={mapData}
               onTerritoryClick={() => {}}
               width={mapCanvasSize.w}
