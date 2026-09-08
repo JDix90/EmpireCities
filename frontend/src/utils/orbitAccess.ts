@@ -24,6 +24,8 @@ export interface FrontendMapTerritory {
   region_id: string;
   world_id?: string;
   globe_id?: string;
+  /** Present on real map documents; the orbit helpers only use it for copy. */
+  name?: string;
 }
 
 export interface FrontendMapWorld {
@@ -103,6 +105,101 @@ export function resolveOrbitAccessMode(
 export interface OrbitAccessResult {
   allowed: boolean;
   missing: string[];
+}
+
+/** One step of the Space Age Moon ladder, as the player has to perform it. */
+export interface SpaceProgramRung {
+  key: string;
+  label: string;
+  done: boolean;
+  /** Shown under the label once it matters (the lane a built pad opened). */
+  detail?: string;
+}
+
+export interface SpaceProgramProgress {
+  /** False outside the Space Age Moon gate — nothing to show. */
+  applicable: boolean;
+  isLunarPioneer: boolean;
+  allowed: boolean;
+  rungs: SpaceProgramRung[];
+  /**
+   * Access was earned and then lost with the last Launch Pad. Worth calling out
+   * separately: the player keeps their Moon holdings and can still fight and
+   * reinforce there, but cannot cross a lane until they rebuild.
+   */
+  strandedWithoutPad: boolean;
+}
+
+/**
+ * The Moon ladder as five things the player does, rather than the three the
+ * server gates on: Spaceport Infrastructure and Orbital Station Program are
+ * prerequisites the player must buy but that the gate never names, so a
+ * tracker built only from `missing` would tell them to launch a Space Station
+ * without saying how to unlock the launch.
+ */
+export function getSpaceProgramProgress(
+  mapData: FrontendMapData | null | undefined,
+  gameState: GameState | null,
+  playerId: string | null | undefined,
+  era: string,
+): SpaceProgramProgress {
+  const empty: SpaceProgramProgress = {
+    applicable: false, isLunarPioneer: false, allowed: true, rungs: [], strandedWithoutPad: false,
+  };
+  if (resolveOrbitAccessMode(mapData, era) !== 'space_age_moon') return empty;
+  if (!gameState || !playerId) return empty;
+  const player = gameState.players.find((p) => p.player_id === playerId);
+  if (!player) return empty;
+
+  const isLunarPioneer = player.faction_id === 'lunar_pioneers';
+  const techs = player.unlocked_techs ?? [];
+  const owned = Object.values(gameState.territories).filter((t) => t.owner_id === playerId);
+  const padTerritory = owned.find((t) => t.buildings?.includes('launch_pad') ?? false);
+  const hasElevator = owned.some((t) => t.buildings?.includes('wonder_space_elevator') ?? false);
+  const hasLaunchedStation = player.space_station_launched === true;
+  const hasTech = techs.includes('sa_lunar_expansion');
+
+  const padDetail = padTerritory
+    ? (() => {
+        const moonId = launchPadLaneTarget(mapData, padTerritory.territory_id);
+        const moonName = moonId
+          ? mapData?.territories.find((t) => t.territory_id === moonId)?.name ?? moonId
+          : null;
+        const padName = mapData?.territories.find((t) => t.territory_id === padTerritory.territory_id)?.name
+          ?? padTerritory.territory_id;
+        return moonName ? `${padName} → ${moonName}` : padName;
+      })()
+    : undefined;
+
+  const rungs: SpaceProgramRung[] = [
+    { key: 'sa_launch_pad_tech', label: 'Research Spaceport Infrastructure', done: techs.includes('sa_launch_pad_tech') },
+    { key: 'launch_pad', label: 'Build a Launch Pad', done: !!padTerritory, detail: padDetail },
+    { key: 'sa_space_station', label: 'Research Orbital Station Program', done: techs.includes('sa_space_station') },
+    {
+      key: 'launch',
+      label: hasElevator ? 'Space Elevator built' : 'Launch the Space Station',
+      done: hasLaunchedStation || hasElevator,
+      // The launch button is hidden outside draft/fortify and rejected without
+      // a pad, in both cases silently. Say so here, where the player is already
+      // looking for what to do next.
+      detail: hasLaunchedStation || hasElevator
+        ? undefined
+        : techs.includes('sa_space_station')
+          ? (padTerritory
+              ? 'Ready — use the Launch Space Station button during draft or fortify'
+              : 'Needs a Launch Pad first')
+          : undefined,
+    },
+    { key: 'sa_lunar_expansion', label: 'Research Lunar Expansion', done: hasTech },
+  ];
+
+  return {
+    applicable: true,
+    isLunarPioneer,
+    allowed: isLunarPioneer || (hasTech && !!padTerritory && (hasLaunchedStation || hasElevator)),
+    rungs,
+    strandedWithoutPad: !isLunarPioneer && hasTech && (hasLaunchedStation || hasElevator) && !padTerritory,
+  };
 }
 
 export function getOrbitAccessResult(

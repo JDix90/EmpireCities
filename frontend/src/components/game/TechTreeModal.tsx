@@ -203,7 +203,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                         {/* Prerequisites hint */}
                         {!isUnlocked && !prereqsMet && node.prerequisite && (
                           <p className="text-xs text-gray-500 mt-1">
-                            Requires: {node.prerequisite}
+                            Requires: {techTree.find((n) => n.tech_id === node.prerequisite)?.name ?? node.prerequisite}
                           </p>
                         )}
                       </div>

@@ -124,7 +124,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_orbital_recon',
     name: 'Orbital Reconnaissance',
-    description: 'Low-Earth-orbit satellite constellation — reveal adjacent enemy territories each turn.',
+    description: 'Low-Earth-orbit satellite constellation — reveal adjacent enemy territories each turn. First step of the Space Program that reaches the Moon.',
     tier: 1,
     prerequisite: 'sa_digital_warfare',
     cost: 6,
@@ -155,7 +155,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_launch_pad_tech',
     name: 'Spaceport Infrastructure',
-    description: 'Heavy-lift launch facilities — unlocks Launch Pad building in any owned territory (required to reach the Moon).',
+    description: 'Heavy-lift launch facilities — unlocks the Launch Pad, which opens an orbit lane to the Moon from any owned territory (required to reach the Moon).',
     tier: 2,
     prerequisite: 'sa_orbital_recon',
     cost: 12,

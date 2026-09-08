@@ -9,6 +9,7 @@ import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
+import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -125,10 +126,12 @@ interface FactionInfo {
 export interface BonusesModalProps {
   /** Tech tree nodes already loaded (may be empty — modal will show note to open Tech Tree). */
   techTree: TechNode[];
+  /** Full map document — drives the Space Age Moon-ladder section. */
+  mapData?: FrontendMapData | null;
   onClose: () => void;
 }
 
-export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
+export default function BonusesModal({ techTree, mapData, onClose }: BonusesModalProps) {
   useEscapeClose(onClose);
   const { gameState } = useGameStore();
   const { user } = useAuthStore();
@@ -156,6 +159,17 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
   }, [factionEraId, myPlayer?.faction_id, gameState?.settings.factions_enabled]);
 
   if (!gameState || !myPlayer) return null;
+
+  // ── Space Age Moon ladder ───────────────────────────────────────────────────
+  // The Space Age has no era-modifier flag (its signature is the orbit gate),
+  // so without this the "what rules am I playing under" screen said nothing at
+  // all about the era's defining mechanic.
+  const spaceProgram = getSpaceProgramProgress(
+    mapData,
+    gameState,
+    myPlayer?.player_id,
+    gameState?.era ?? '',
+  );
 
   // ── Active era modifiers ────────────────────────────────────────────────────
   const activeEraRules = MODIFIER_INFO.filter(
@@ -225,6 +239,33 @@ export default function BonusesModal({ techTree, onClose }: BonusesModalProps) {
             <p className="text-bf-muted text-sm text-center py-10">
               No active bonuses yet. Research techs, build structures, or wait for an event card.
             </p>
+          )}
+
+          {/* ── Space Program (Space Age orbit gate) ───────────────── */}
+          {spaceProgram.applicable && (
+            <section>
+              <SectionHeader icon="🚀" title="Space Program (Moon access)" />
+              <BonusTable
+                rows={spaceProgram.isLunarPioneer
+                  ? [{
+                      icon: '🌕',
+                      label: 'Lunar Pioneers',
+                      value: 'Unlocked',
+                      description: 'You begin with Moon access; no Space Program needed.',
+                      valueColor: 'text-emerald-400',
+                    }]
+                  : spaceProgram.rungs.map((rung) => ({
+                      icon: rung.done ? '✅' : '⬜',
+                      label: rung.label,
+                      value: rung.done ? 'Done' : 'To do',
+                      description: rung.detail
+                        ?? (rung.key === 'launch_pad'
+                          ? 'A Launch Pad opens an orbit lane from its own territory. Cape Canaveral, Kourou and Gobi already have one.'
+                          : ''),
+                      valueColor: rung.done ? 'text-emerald-400' : 'text-bf-muted',
+                    }))}
+              />
+            </section>
           )}
 
           {/* ── Era Rules ──────────────────────────────────────────── */}

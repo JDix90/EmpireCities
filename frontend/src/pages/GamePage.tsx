@@ -2655,13 +2655,17 @@ export default function GamePage() {
   }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
 
   /**
-   * Player-level reason hyperspace lanes are locked (independent of which
-   * territory is selected). Drives the lock badge on cross-world attack/fortify
-   * targets in the action list so the gate is explained at the point of action.
+   * Player-level reason orbit lanes are locked (independent of which territory
+   * is selected). Drives the lock badge on cross-world attack/fortify targets
+   * in the action list so the gate is explained at the point of action. This
+   * was galaxy-only, which left Space Age players staring at a greyed-out Moon
+   * target with no tooltip and a screen-reader label about hyperspace.
    */
   const orbitTravelBlockedReason = useMemo(() => {
-    if (!mapData || mapData.map_kind !== 'galaxy' || orbitAccess.allowed) return null;
-    return formatOrbitAccessError(orbitAccess, resolveOrbitAccessMode(mapData, gameState?.era ?? ''));
+    if (!mapData || orbitAccess.allowed) return null;
+    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    if (mode === 'none') return null;
+    return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, orbitAccess, gameState?.era]);
 
   const handleClaimTerritory = (territoryId: string) => {
@@ -4428,6 +4432,7 @@ export default function GamePage() {
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
               mapNameLookup={mapData}
+              mapData={mapData}
               connectionHintPreference={connectionHintPreference}
               onConnectionHintPreferenceChange={(next) => {
                 setConnectionHintPreference(next);
@@ -4679,6 +4684,7 @@ export default function GamePage() {
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
               mapNameLookup={mapData}
+              mapData={mapData}
               connectionHintPreference={connectionHintPreference}
               onConnectionHintPreferenceChange={(next) => {
                 setConnectionHintPreference(next);
@@ -4788,6 +4794,7 @@ export default function GamePage() {
       {showBonuses && (
         <BonusesModal
           techTree={techTree}
+          mapData={mapData}
           onClose={() => setShowBonuses(false)}
         />
       )}

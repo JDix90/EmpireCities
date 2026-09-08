@@ -226,7 +226,7 @@ export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
   },
   launch_pad: {
     name: 'Launch Pad',
-    effect: 'Orbital launch infrastructure — enables Launch Space Station',
+    effect: 'Enables Launch Space Station, and opens an orbit lane to the Moon from this territory',
   },
 };
 
