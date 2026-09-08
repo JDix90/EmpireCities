@@ -385,6 +385,92 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(e.code).toBe('NOT_YOUR_TURN');
   });
 
+  // ── Neutral Moon attacks (orbit access denial copy) ─────────────────────────
+
+  /**
+   * Space Age board where p1 already holds one Moon tile (m1) next to the
+   * neutral garrison on m2 — connected by a LAND edge, as the authored lunar
+   * surface is. `connectionRequiresMoonAccess` only fires on `orbit` edges, so
+   * this attack skips the orbit-edge gate entirely and used to die inside
+   * executeLandAttack, surfacing as the generic 'Invalid attack'.
+   */
+  function moonState(gameId: string, dice: number[], p1Extras: Partial<PlayerState> = {}): GameState {
+    return buildState(gameId, dice, {
+      era: 'space_age',
+      players: [
+        player('p1', 0, { territory_count: 2, ...p1Extras }),
+        player('p2', 1, { territory_count: 1 }),
+        player('p3', 2, { territory_count: 1 }),
+      ],
+      territories: {
+        a: terr('a', 'p1', 3, { world_id: 'earth' }),
+        b: terr('b', 'p2', 1, { world_id: 'earth' }),
+        c: terr('c', 'p3', 5, { world_id: 'earth' }),
+        m1: terr('m1', 'p1', 5, { world_id: 'moon' }),
+        m2: terr('m2', null, 1, { world_id: 'moon' }),
+      },
+    });
+  }
+
+  function moonMap(gameId: string): GameMap {
+    const base = buildMap(gameId);
+    return {
+      ...base,
+      era: 'space_age',
+      territories: [
+        ...base.territories,
+        { territory_id: 'm1', name: 'M1', polygon: [], center_point: [3, 0], region_id: 'lunar_surface', world_id: 'moon' },
+        { territory_id: 'm2', name: 'M2', polygon: [], center_point: [4, 0], region_id: 'lunar_surface', world_id: 'moon' },
+      ],
+      connections: [...base.connections, { from: 'm1', to: 'm2', type: 'land' }],
+      regions: [...base.regions, { region_id: 'lunar_surface', name: 'Lunar Surface', bonus: 0 }],
+    } as GameMap;
+  }
+
+  it('explains WHY a neutral Moon tile is off limits instead of "Invalid attack"', async () => {
+    const gameId = 'itest-moon-denied';
+    await seed(gameId, moonState(gameId, [6, 6, 6, 1]), moonMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
+    client.emit('game:attack', { gameId, fromId: 'm1', toId: 'm2' });
+
+    const e = await err;
+    expect(e.code).toBe('ACCESS_DENIED');
+    expect(e.message).toBe('Moon access requires: Lunar Expansion tech + Launch Pad building + launched Space Station');
+    expect(e.message).not.toMatch(/invalid attack/i);
+  });
+
+  it('gives the blitz handler the same Moon-access message', async () => {
+    const gameId = 'itest-moon-denied-blitz';
+    await seed(gameId, moonState(gameId, [6, 6, 6, 1]), moonMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
+    client.emit('game:attack_blitz', { gameId, fromId: 'm1', toId: 'm2' });
+
+    const e = await err;
+    expect(e.code).toBe('ACCESS_DENIED');
+    expect(e.message).toMatch(/^Moon access requires: /);
+  });
+
+  it('still lets a player WITH orbit access take the neutral Moon tile', async () => {
+    const gameId = 'itest-moon-allowed';
+    // Lunar Pioneers hold orbit access from turn one — the guard must not block them.
+    await seed(gameId, moonState(gameId, [6, 6, 6, 1], { faction_id: 'lunar_pioneers' }), moonMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const combat = waitFor<CombatPayload>(client, 'game:combat_result');
+    const stateEvt = waitFor<GameState>(client, 'game:state');
+    client.emit('game:attack', { gameId, fromId: 'm1', toId: 'm2' });
+
+    expect((await combat).result.territory_captured).toBe(true);
+    expect((await stateEvt).territories.m2.owner_id).toBe('p1');
+  });
+
   // ── Fortify confirmation (no double-toast bug) ──────────────────────────────
 
   it('confirms a successful fortify with game:fortify_result', async () => {
