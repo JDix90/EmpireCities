@@ -147,6 +147,27 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().spectate_enabled).toBe(true);
   });
 
+  it('space_age_frontiers_enabled defaults to on (the 8 authored frontiers are seeded)', () => {
+    expect(featureFlags.spaceAgeFrontiersEnabled).toBe(true);
+    expect(getFeatureFlagStates().space_age_frontiers_enabled.code_default).toBe(true);
+  });
+
+  it('admin override can force the Space Age frontiers off (the kill switch)', () => {
+    setAdminConfigCacheForTests({ feature_flags: { space_age_frontiers_enabled: false } });
+    expect(featureFlags.spaceAgeFrontiersEnabled).toBe(false);
+    expect(getFeatureFlagStates().space_age_frontiers_enabled).toEqual({
+      code_default: true,
+      overridden: true,
+      effective: false,
+    });
+  });
+
+  // Backend-only: baked into each game's settings at create, never shipped to
+  // the browser, so promoting it to ON must not leak it into the public payload.
+  it('space_age_frontiers_enabled stays out of the client payload', () => {
+    expect('space_age_frontiers_enabled' in getClientFeatureFlags()).toBe(false);
+  });
+
   it('ranked_multi_size_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.rankedMultiSizeEnabled).toBe(false);
     expect(getClientFeatureFlags().ranked_multi_size_enabled).toBe(false);

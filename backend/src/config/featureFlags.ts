@@ -62,7 +62,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
-  space_age_frontiers_enabled: () => envOptIn('SPACE_AGE_FRONTIERS_ENABLED'),
+  space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -345,10 +345,13 @@ export const featureFlags = {
    * authored `unlock_era_index` frontier tiles (the 2100 expansion) as neutral
    * garrisons at start — the full authored 63-tile board instead of the 55-tile
    * base. Without it those tiles are dead content standalone (the growth machinery
-   * only runs under era advancement). Default OFF — dark-launch so the enlarged
-   * board can be balance-checked before flipping on via `SPACE_AGE_FRONTIERS_ENABLED=true`
-   * or the `space_age_frontiers_enabled` admin override. Baked into game settings
-   * at create; the engine reads the setting (stays pure).
+   * only runs under era advancement). Default ON — promoted after the balance
+   * harness (`scripts/simSpaceAgeBalance.ts`) showed the enlarged board plays out
+   * rather than sitting decorative (avg 0.1 of the 8 frontiers still neutral at
+   * end). Kill switch: `SPACE_AGE_FRONTIERS_ENABLED=false` or the
+   * `space_age_frontiers_enabled` admin override. Baked into game settings
+   * at create; the engine reads the setting (stays pure), so a flip never
+   * re-rules a match already in progress.
    */
   get spaceAgeFrontiersEnabled(): boolean {
     return overrideBool('space_age_frontiers_enabled');
