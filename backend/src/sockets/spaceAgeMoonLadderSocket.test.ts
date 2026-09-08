@@ -199,7 +199,14 @@ describe.runIf(redisTestEnabled)('Space Age Moon ladder — human socket path', 
     // loop would trip the per-user gameplay rate limit (30 actions / 10s).
     const target = nearestLandingZoneFor(map, INLAND_TILE)!.moonTarget;
     state.territories[target].unit_count = 1;
-    state.puzzle_dice_queue = [6, 6, 6, 1];
+    // Three 6s for the attacker's opening roll, then nothing but 1s. A short
+    // queue is worse than none: `createPuzzleDieRoll` falls back to
+    // crypto.randomInt once it runs dry, so an exact-fit queue makes the
+    // outcome a coin flip on the first unplanned draw. This one cannot run dry
+    // during the exchange, and every die past the attacker's three is the
+    // lowest face, so the defender cannot win a comparison however many it
+    // draws.
+    state.puzzle_dice_queue = [6, 6, 6, ...Array(24).fill(1)];
     await seed(gameId, state, map);
 
     const client = await connect(P1);
