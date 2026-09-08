@@ -163,6 +163,25 @@ export function applyOrbitGatedVictoryDefaults<
   return out;
 }
 
+/**
+ * Contestable hyperspace lanes are a Galactic Age mechanic, but nothing below
+ * the create boundary enforces that: `canSealLane` only requires an orbit-typed
+ * connection and the Space Age map authors three, so a hand-crafted
+ * POST /api/games could arm lane sealing in a Space Age game — with
+ * "hyperspace lane" wording and no UI on either side (the lobby only offers the
+ * toggle for the Galactic Age, and the seal action is wired into
+ * GalaxyStrategicView only). Reject it here instead. Exported for tests.
+ */
+export const LANES_CONTESTABLE_NON_GALAXY_ERROR =
+  'Contestable hyperspace lanes are only available in Galactic Age games';
+export function lanesContestableRejection(opts: {
+  lanesContestableEnabled?: boolean;
+  isGalacticAge: boolean;
+}): string | null {
+  if (!opts.lanesContestableEnabled || opts.isGalacticAge) return null;
+  return LANES_CONTESTABLE_NON_GALAXY_ERROR;
+}
+
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/games ──────────────────────────────────────────────────────
   fastify.post('/', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -175,6 +194,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const isGalacticAge = era_id === 'galaxy_age' || map_id === 'era_galaxy';
     if (isGalacticAge && !request.isAdmin) {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
+    }
+
+    const lanesRejection = lanesContestableRejection({
+      lanesContestableEnabled: rawSettings.lanes_contestable_enabled,
+      isGalacticAge,
+    });
+    if (lanesRejection) {
+      return reply.status(400).send({ error: lanesRejection });
     }
 
     const mergedList: VictoryType[] =
