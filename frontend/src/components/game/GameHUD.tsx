@@ -5,6 +5,7 @@ import { ArrowRight, ChevronDown, ChevronUp, Clock, CreditCard, Flag, LogOut, Sa
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
+import SpaceProgramTracker from './SpaceProgramTracker';
 import AdvanceEraPanel from './AdvanceEraPanel';
 import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -16,6 +17,7 @@ import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
+import type { FrontendMapData } from '../../utils/orbitAccess';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -64,6 +66,8 @@ interface GameHUDProps {
   tutorialActiveSettings?: string[];
   /** Labels for capital / secret-mission objectives (from loaded map JSON). */
   mapNameLookup?: MapNameLookup | null;
+  /** Full map document — drives the Space Age Moon-ladder tracker. */
+  mapData?: FrontendMapData | null;
   connectionHintPreference?: ConnectionHintPreference;
   onConnectionHintPreferenceChange?: (value: ConnectionHintPreference) => void;
   denseMap?: boolean;
@@ -112,6 +116,7 @@ export default function GameHUD({
   resolvedViewerPlayerId,
   tutorialActiveSettings,
   mapNameLookup,
+  mapData,
   connectionHintPreference,
   onConnectionHintPreferenceChange,
   denseMap = false,
@@ -350,6 +355,12 @@ export default function GameHUD({
         })()}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
+        <SpaceProgramTracker
+          gameState={gameState}
+          mapData={mapData}
+          playerId={myPlayer?.player_id}
+          className="mt-2"
+        />
         {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && (
           <div className="mt-3 -mx-1 rounded-lg overflow-hidden border border-bf-border/60">
             <EraTimelineStrip gameState={gameState} myPlayer={myPlayer} />

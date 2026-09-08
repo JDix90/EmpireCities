@@ -197,6 +197,30 @@ describe('GameStartModal', () => {
     expect(screen.getByText('Eliminate AI Bot 2')).toBeInTheDocument();
   });
 
+  it('tells a Space Age player the Moon counts and how to reach it', () => {
+    // "How to win" listed domination and threshold without ever mentioning that
+    // 9 of the board's territories sit behind an orbit gate, so a stalled
+    // domination bar read as a bug rather than as the era's mechanic.
+    const state = makeState({ era: 'space_age' });
+    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
+    expect(screen.getByText(/The Moon counts too/)).toBeInTheDocument();
+    expect(screen.getByText(/Spaceport Infrastructure, a Launch Pad/)).toBeInTheDocument();
+  });
+
+  it('gives Lunar Pioneers the short version', () => {
+    const withFaction = players.map((p) =>
+      p.player_id === 'me' ? { ...p, faction_id: 'lunar_pioneers' } : p,
+    ) as PlayerState[];
+    const state = makeState({ era: 'space_age', players: withFaction });
+    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
+    expect(screen.getByText(/you start with access to it/)).toBeInTheDocument();
+  });
+
+  it('says nothing about the Moon outside the Space Age', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={makeState()} viewerPlayerId="me" />);
+    expect(screen.queryByText(/The Moon counts too/)).not.toBeInTheDocument();
+  });
+
   it("fetches and shows the viewer's faction ability when factions are enabled", async () => {
     const withFaction = players.map((p) =>
       p.player_id === 'me' ? { ...p, faction_id: 'rome' } : p,

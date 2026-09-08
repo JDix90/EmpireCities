@@ -102,7 +102,7 @@ export default function NeighborTerritoryPicker({
                 )}
                 aria-label={
                   locked
-                    ? `${neighbor.name} locked — ${orbitLockReason ?? 'hyperspace travel required'}`
+                    ? `${neighbor.name} locked — ${orbitLockReason ?? 'orbit access required'}`
                     : isAttack
                       ? isOrbit
                         ? `Hyperspace assault on ${neighbor.targetWorldName ?? neighbor.name}`

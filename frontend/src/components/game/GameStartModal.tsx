@@ -103,6 +103,14 @@ export default function GameStartModal({
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
   const { conditions, turnCap } = describeWinConditions(gameState.settings);
+  // The Moon's territories count toward every condition above, so a player who
+  // is never told the era has an orbit gate reads a stalled domination bar as
+  // a bug. Lunar Pioneers get the shorter version — they start with access.
+  const moonNote = gameState.era === 'space_age'
+    ? viewer?.faction_id === 'lunar_pioneers'
+      ? 'The Moon counts too — you start with access to it.'
+      : 'The Moon counts too. Reach it with the Space Program: Spaceport Infrastructure, a Launch Pad, then the Space Station and Lunar Expansion.'
+    : null;
 
   // Faction name + ability come from the era endpoint (same source the
   // in-game Bonuses modal uses). Best-effort: the section simply doesn't
@@ -176,8 +184,10 @@ export default function GameStartModal({
           </li>
         ))}
       </ul>
-      {turnCap && <p className="text-xs text-bf-muted mb-4 pl-[22px]">{turnCap}.</p>}
-      {!turnCap && <div className="mb-4" />}
+      {turnCap && <p className="text-xs text-bf-muted mb-1.5 pl-[22px]">{turnCap}.</p>}
+      {moonNote && <p className="text-xs text-violet-300/90 mb-4 pl-[22px]">{moonNote}</p>}
+      {!turnCap && !moonNote && <div className="mb-4" />}
+      {(turnCap || moonNote) && <div className="mb-2.5" />}
 
       {viewer?.secret_mission && (
         <>
