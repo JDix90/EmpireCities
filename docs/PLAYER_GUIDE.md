@@ -20,8 +20,9 @@ All advanced features are **opt-in** — the host toggles them individually when
 6. [Event Cards (Historical Events)](#event-cards)
 7. [Asymmetric Factions](#asymmetric-factions)
 8. [Population & Stability](#population--stability)
-9. [How Features Interact](#how-features-interact)
-10. [FAQ](#faq)
+9. [Space Age: Reaching the Moon](#space-age-reaching-the-moon)
+10. [How Features Interact](#how-features-interact)
+11. [FAQ](#faq)
 
 ---
 
@@ -115,7 +116,7 @@ When creating a game, the host can configure:
 
 | Setting | Options |
 |---------|---------|
-| **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, Space Age, Custom, or community maps |
+| **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, Space Age, Custom, or community maps. **Galactic Age** is an admin preview: its map and factions ship with the game and you can browse them in the **Codex** (badged *Coming soon*), but the server refuses to create a game on it unless your account is an administrator |
 | **Players** | 2–8 (mix of human and AI) |
 | **AI Bots** | 0–7 bots at Easy / Medium / Hard / Expert difficulty |
 | **Turn Timer** | None, 3 min, 5 min, 10 min, or async (12h / 24h / 72h) |
@@ -164,7 +165,7 @@ Buildings are constructed during the **Draft** or **Fortify** phase. Click a ter
 | **Laboratory (I)** | 4💰 | +2 Tech Points/turn | — |
 | **Research Center (II)** | 8💰 | +4 Tech Points/turn | Laboratory |
 | **Capital Works** | 5💰 | Capital special project | — |
-| **Wonder** | 8💰 | Era wonder project | — |
+| **Wonder** | 18–25💰 (per era; Space Elevator is 25💰) | Era wonder project — only one per game, first builder keeps it | — |
 | **Port** | 5💰 | +1 fleet/turn (coastal only) | — |
 | **Naval Base** | 10💰 | +2 fleets/turn (coastal only) | Port |
 
@@ -393,6 +394,84 @@ When the era allows influence, valid targets must lie within **N hops** along ma
 - Avoid over-extending if Economy is also on — expanding too fast tanks your overall income.
 - Defensive play is rewarded: territories you've held for many turns tend toward high stability and maximum income.
 - Build production buildings on long-held interior territories for maximum value.
+
+---
+
+## Space Age: Reaching the Moon
+
+**No lobby toggle** — the orbit gate is always on in a Space Age game. Reaching the Moon does, however, need **Technology Trees** (the Space Program is a tech branch) and **Economy & Buildings** (the Launch Pad is a building).
+
+The Space Age board is two worlds: 54 Earth territories and **9 lunar ones**. The Moon starts **neutral and garrisoned for everybody** — 4 units on each of the three tiles that sit on an authored orbit lane, 6 on each interior tile. Nobody is dealt a lunar territory at setup, not even the Lunar Pioneers; the Moon is a prize you conquer.
+
+### The Space Program ladder
+
+| Step | What you do | Cost |
+|------|-------------|------|
+| 1 | Research **Digital Warfare** (Tier 1) | 5 TP |
+| 2 | Research **Orbital Reconnaissance** (Tier 1) | 6 TP |
+| 3 | Research **Spaceport Infrastructure** (Tier 2) — unlocks the Launch Pad | 12 TP |
+| 4 | Build a **Launch Pad** on a territory you own | 8 💰 |
+| 5 | Research **Orbital Station Program** (Tier 3) — unlocks the launch ability | 18 TP |
+| 6 | **Launch the Space Station** — once per game, during Draft or Fortify, requires a Launch Pad you own | free |
+| 7 | Research **Lunar Expansion** (Tier 4) | 22 TP |
+
+That is **63 Tech Points and 8 Production Points** end to end. The in-game tracker shows the last five steps (from Spaceport Infrastructure on) — the first two are ordinary tech prerequisites.
+
+The gate is re-checked on **every** action, and it asks for three things at that moment:
+
+1. **Lunar Expansion** researched, **and**
+2. a **Launch Pad** on a territory you currently own, **and**
+3. either a **launched Space Station** or the **Space Elevator** wonder.
+
+### A Launch Pad opens its own lane to the Moon
+
+This is the rule that decides where you play. Earth and the Moon are joined only by **orbit lanes**, and the map ships exactly three:
+
+| Earth spaceport | Lunar landing zone |
+|-----------------|--------------------|
+| Cape Canaveral Hub | Mare Frigoris |
+| Kourou Spaceport | Sea of Tranquility |
+| Gobi Cosmodrome | Ocean of Storms |
+
+You do **not** have to conquer one of those three. Building a Launch Pad anywhere on Earth **opens a brand-new orbit lane from that very territory** to the lunar end of whichever authored lane is fewest hops away. The lane is announced to the whole table and drawn on both the 2D map and the globe, so your route to the Moon is public the moment you build.
+
+- A pad built **on** one of the three spaceports adds nothing new — that territory already has a lane.
+- A lane is a **road, not a permit**: crossing it still needs all three gate conditions above.
+- If the pad goes away (the territory is captured, or its buildings are razed), its lane goes with it. The three authored lanes are permanent.
+
+### The Space Elevator shortcut
+
+The era wonder, **Space Elevator** (25 💰), replaces step 6 only: with it standing on a territory you own, Moon access needs just **Lunar Expansion + a Launch Pad**, and you never have to launch a station. It does **not** replace the Launch Pad. Like every era wonder it is unique — the first player to build it is the only one who gets it.
+
+### Lunar Pioneers
+
+The Lunar Pioneers skip the ladder entirely: they have **Moon access from turn one** — no tech, no Launch Pad, no launch. They still need a *lane*, though. Their Earth home is Oceania, so unless they take one of the three spaceports they will still want Spaceport Infrastructure and a Launch Pad to open a route. Once they are up there, they defend Moon territories with **+2 dice** and can drop 2 units into any Moon territory they own each turn (**Lunar Supply Drop**).
+
+### Losing your last Launch Pad
+
+Access is a live check, not a permanent unlock. Lose your last Launch Pad and it switches off — even with Lunar Expansion researched and the station long since launched.
+
+**What stops:**
+
+- Crossing an orbit lane in either direction — no attacking Earth → Moon or Moon → Earth across a lane, and no fortifying across one.
+- Taking any **neutral** lunar tile, even attacking it from a Moon territory you already hold.
+
+**What still works:**
+
+- You keep every Moon territory you own. Nothing is confiscated.
+- You can still **draft reinforcements** onto them.
+- You can still **attack enemy-held** Moon tiles from your own Moon tiles: lunar tiles are joined to each other by ordinary land connections, and those are not gated.
+- You can still **fortify between your own Moon territories**. Only orbit edges are gated — an earlier rule froze all movement on the Moon the moment the pad was lost, which read as a bug rather than a cost.
+
+Rebuild a Launch Pad anywhere on Earth and access comes straight back; your station launch is remembered for the rest of the game.
+
+### The Moon and victory
+
+Lunar territories are ordinary territories where victory is concerned:
+
+- **Domination** by conquest needs *every* territory on the board — the 9 lunar ones included — so nobody takes that route while the Moon sits neutral. (Being the last player standing is scored separately and is unaffected by neutral tiles.)
+- **Threshold** measures your share of every territory in play, so the Moon raises the bar for everyone whether or not anyone goes up there.
+- **Secret missions** are the exception: orbit-gated territories and whole lunar regions are deliberately excluded from mission targets, because a capture objective behind a 63-TP tech ladder would not be a fair race.
 
 ---
 
