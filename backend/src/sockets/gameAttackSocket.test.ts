@@ -97,9 +97,29 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
   }
 
   /**
+   * Trailing dice appended to every non-empty seeded queue.
+   *
+   * `createPuzzleDieRoll` answers an exhausted queue with `crypto.randomInt`,
+   * so a queue sized to exactly the dice a test expects stops being
+   * deterministic the moment anything draws one more — and it does: the
+   * vulnerability-window test below sets `current_era_index: 0`, which is the
+   * Ancient era, whose `legion_reroll` re-rolls the attacker's lowest die.
+   * That fifth draw was unseeded on every run.
+   *
+   * 1 is the safe filler. `legion_reroll` and `rifle_doctrine` both keep
+   * `Math.max(original, reroll)`, so a 1 is a guaranteed no-op, and a stray
+   * defender die of 1 loses every comparison it can lose. The tail therefore
+   * cannot change any outcome these tests assert — it only stops an unplanned
+   * draw from reaching the RNG.
+   */
+  const DICE_SAFETY_TAIL: number[] = Array(8).fill(1);
+
+  /**
    * 3-player domination game in the attack phase, p1 (current) on territory `a`
    * adjacent to p2's `b`; p3 holds `c` (so eliminating p2 never ends the game).
    * `dice` seeds the deterministic combat roll: all attacker dice, then defender.
+   * An empty array is passed through untouched, leaving combat on the real RNG
+   * for the tests that never fight.
    */
   function buildState(gameId: string, dice: number[], overrides: Partial<GameState> = {}): GameState {
     return {
@@ -136,8 +156,12 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
       },
       draft_units_remaining: 0,
       turn_started_at: 1_700_000_000_000,
-      era_modifiers: {}, // explicit: avoid the Ancient legion_reroll repair patch
-      puzzle_dice_queue: dice,
+      // NB: this does NOT disable legion_reroll — executeLandAttack reads the
+      // ATTACKER's era via getPlayerEraModifiers(state, from.owner_id), not this
+      // field. A test that pins current_era_index to 0 gets the Ancient re-roll
+      // whatever is set here; DICE_SAFETY_TAIL is what keeps that deterministic.
+      era_modifiers: {},
+      puzzle_dice_queue: dice.length ? [...dice, ...DICE_SAFETY_TAIL] : dice,
       ...overrides,
     } as GameState;
   }
