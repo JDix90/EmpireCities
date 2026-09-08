@@ -341,4 +341,77 @@ describe.runIf(redisTestEnabled)('Space Age Moon ladder — human socket path', 
 
     console.log('\n[stranded on the Moon]\n' + log.join('\n'));
   }, 45_000);
+
+  it('refuses a multi-hop fortify that would route troops across a lane it cannot cross', async () => {
+    // Regression. Fortify validates reachability with a BFS over every
+    // connection type, then gated only the direct from→to edge. A player
+    // holding a chain from Earth to the Moon could therefore name two ordinary
+    // land tiles as the endpoints and have the lane in the middle carry the
+    // troops: measured, 5 units crossed with no Launch Pad at all and the gate
+    // reporting "Moon access requires: Launch Pad building".
+    const gameId = 'itest-ladder-multihop';
+    const map = freshMap();
+    const state = freshState(gameId, map);
+    const chain = ['na_eastern_corridor', 'na_launch_base', 'moon_near_side_north', 'moon_mare_imbrium'];
+    for (const id of chain) {
+      state.territories[id].owner_id = P1;
+      state.territories[id].unit_count = 10;
+      state.territories[id].buildings = [];
+    }
+    // Researched, but no pad anywhere — access is denied at this instant.
+    state.players[0].unlocked_techs = ['sa_lunar_expansion'];
+    state.players[0].space_station_launched = true;
+    state.phase = 'fortify';
+    await seed(gameId, state, map);
+
+    const client = await connect(P1);
+    await joinRoom(P1, gameId);
+
+    const [earthEnd, , , moonEnd] = chain;
+    const r = await act(client, 'game:fortify',
+      { gameId, fromId: earthEnd, toId: moonEnd, units: 5 }, 'game:fortify_result');
+
+    expect(r.ok, r.ok ? 'multi-hop fortify crossed the lane with the gate shut' : '').toBe(false);
+    if (!r.ok) {
+      // Named as the gate it is, not as "no connected path" — the player owns
+      // every tile in between, so that would send them hunting the wrong fault.
+      expect(r.code).toBe('ACCESS_DENIED');
+      expect(r.error).toBe('Moon access requires: Launch Pad building');
+    }
+    // Nothing moved.
+    const after = await getGameState(gameId);
+    expect(after!.territories[moonEnd].unit_count).toBe(10);
+    expect(after!.territories[earthEnd].unit_count).toBe(10);
+  }, 45_000);
+
+  it('allows that same multi-hop fortify once the player holds a pad', async () => {
+    // The other half of the rule: the filter must not break legitimate movement
+    // for a player whose ladder is finished.
+    const gameId = 'itest-ladder-multihop-ok';
+    const map = freshMap();
+    const state = freshState(gameId, map);
+    const chain = ['na_eastern_corridor', 'na_launch_base', 'moon_near_side_north', 'moon_mare_imbrium'];
+    for (const id of chain) {
+      state.territories[id].owner_id = P1;
+      state.territories[id].unit_count = 10;
+      state.territories[id].buildings = [];
+    }
+    state.territories.na_eastern_corridor.buildings = ['launch_pad'];
+    state.players[0].unlocked_techs = ['sa_lunar_expansion'];
+    state.players[0].space_station_launched = true;
+    state.phase = 'fortify';
+    await seed(gameId, state, map);
+
+    const client = await connect(P1);
+    await joinRoom(P1, gameId);
+
+    const [earthEnd, , , moonEnd] = chain;
+    const r = await act(client, 'game:fortify',
+      { gameId, fromId: earthEnd, toId: moonEnd, units: 5 }, 'game:fortify_result');
+    expect(r.ok, r.ok ? '' : `fortify rejected: ${r.error}`).toBe(true);
+
+    const after = await waitForRedisState(gameId, (s) => s.territories[moonEnd].unit_count > 10);
+    expect(after.territories[moonEnd].unit_count).toBe(15);
+    expect(after.territories[earthEnd].unit_count).toBe(5);
+  }, 45_000);
 });

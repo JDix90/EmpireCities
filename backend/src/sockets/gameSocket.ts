@@ -60,6 +60,7 @@ import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWith
 import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
+  fortifyTraversalFilter,
   territoryRequiresOrbitAccessForClaim,
   selectionExemptTerritoryIds,
   getOrbitAccessResult,
@@ -94,7 +95,7 @@ import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { incrementPlayCount } from '../modules/maps/mapService';
-import type { GameState, GameMap, AiDifficulty, PlayerState, EraId } from '../types';
+import type { GameState, GameMap, AiDifficulty, PlayerState, EraId, MapConnection } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
@@ -2350,8 +2351,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Must leave at least 1 unit behind');
       }
 
-      // Verify path exists via BFS
-      if (!pathExists(fromId, toId, state, map, userId)) {
+      // Verify path exists via BFS, refusing orbit lanes this player cannot
+      // cross. Checking only the from/to edge let a longer route through a lane
+      // move troops between worlds with the orbit gate shut.
+      const canTraverse = fortifyTraversalFilter(state, currentPlayer, map, state.era);
+      if (!pathExists(fromId, toId, state, map, userId, canTraverse)) {
+        // Distinguish "you own nothing in between" from "your only route is a
+        // lane you cannot use" — the latter is the gate, and saying
+        // "not connected" would send the player looking for the wrong problem.
+        if (pathExists(fromId, toId, state, map, userId)) {
+          const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
+          if (!access.allowed) {
+            return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
+          }
+          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
+        }
         return emitGameError(socket, GameErrorCode.PATH_NOT_CONNECTED, 'No connected path between territories');
       }
 
@@ -5777,8 +5791,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     await delay();
     const from = state.territories[action.from];
     const to = state.territories[action.to];
-    // Orbit/Moon parity: don't let the AI fortify across an orbit endpoint it lacks
-    // access for (humans are blocked by fortifyEndpointsRequireOrbitAccess).
+    // Orbit/Moon parity: don't let the AI fortify across worlds without access.
+    // AI fortify moves are not path-validated, so an arbitrary owned pair lands
+    // here — the endpoint test is the only gate on this path, which is why it
+    // compares worlds and not just the direct edge.
     if (fortifyEndpointsRequireOrbitAccess(map, state.era, action.from, action.to)
       && !getOrbitAccessResult(state, currentPlayer, map, state.era).allowed) {
       continue;
@@ -5948,17 +5964,25 @@ function clearTurnTimer(gameId: string, state?: GameState): void {
   }
 }
 
+/**
+ * BFS over territories the player owns. `canTraverse` optionally rejects
+ * individual connections: fortify passes a filter that refuses orbit lanes the
+ * player cannot currently cross, so a multi-hop route cannot smuggle troops
+ * across a lane whose two endpoints are not the fortify's own endpoints.
+ */
 function pathExists(
   fromId: string,
   toId: string,
   state: GameState,
   map: GameMap,
-  ownerId: string
+  ownerId: string,
+  canTraverse?: (conn: MapConnection) => boolean
 ): boolean {
   const adj: Record<string, string[]> = {};
   for (const conn of map.connections) {
     if (!adj[conn.from]) adj[conn.from] = [];
     if (!adj[conn.to]) adj[conn.to] = [];
+    if (canTraverse && !canTraverse(conn)) continue;
     adj[conn.from].push(conn.to);
     adj[conn.to].push(conn.from);
   }
