@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   applyOrbitGatedVictoryDefaults,
   CreateGameSchema,
+  LANES_CONTESTABLE_NON_GALAXY_ERROR,
+  lanesContestableRejection,
   ORBIT_GATED_DEFAULT_MAX_TURNS,
   ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD,
 } from './games.routes';
@@ -89,6 +91,59 @@ describe('Galactic Age lobby payload', () => {
       settings: { ...galaxyPayload.settings, combat_max_attacker_dice: 2 },
     };
     expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('lanesContestableRejection', () => {
+  // canSealLane only requires an orbit-typed connection, and the Space Age map
+  // authors three — so without this guard a hand-crafted create could arm lane
+  // sealing outside the Galactic Age, where neither the lobby toggle nor the
+  // GalaxyStrategicView seal action exists.
+  it('rejects lanes_contestable_enabled outside the Galactic Age', () => {
+    expect(lanesContestableRejection({ lanesContestableEnabled: true, isGalacticAge: false })).toBe(
+      LANES_CONTESTABLE_NON_GALAXY_ERROR,
+    );
+  });
+
+  it('allows it on a galaxy create', () => {
+    expect(lanesContestableRejection({ lanesContestableEnabled: true, isGalacticAge: true })).toBeNull();
+  });
+
+  it('ignores creates that never asked for it', () => {
+    expect(lanesContestableRejection({ isGalacticAge: false })).toBeNull();
+    expect(lanesContestableRejection({ lanesContestableEnabled: false, isGalacticAge: false })).toBeNull();
+  });
+
+  it('matches how the route classifies a Galactic Age create (era_id or map_id)', () => {
+    const spaceAge = {
+      era_id: 'space_age',
+      map_id: 'era_space_age',
+      max_players: 4,
+      ai_count: 3,
+      ai_difficulty: 'medium',
+      settings: {
+        turn_timer_seconds: 0,
+        allowed_victory_conditions: ['domination'],
+        initial_unit_count: 3,
+        card_set_escalating: true,
+        diplomacy_enabled: true,
+        lanes_contestable_enabled: true,
+      },
+    };
+    // The schema still accepts the field (galaxy creates need it) — the route
+    // guard is what turns a Space Age create into a 400.
+    const parsed = CreateGameSchema.safeParse(spaceAge);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const isGalacticAge =
+        parsed.data.era_id === 'galaxy_age' || parsed.data.map_id === 'era_galaxy';
+      expect(
+        lanesContestableRejection({
+          lanesContestableEnabled: parsed.data.settings.lanes_contestable_enabled,
+          isGalacticAge,
+        }),
+      ).toBe(LANES_CONTESTABLE_NON_GALAXY_ERROR);
+    }
   });
 });
 

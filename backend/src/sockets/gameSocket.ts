@@ -1640,6 +1640,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
+      // Neutral off-world garrisons (the Moon, neutral galaxy worlds) need orbit
+      // access too — executeLandAttack refuses them without
+      // `neutralOffworldCaptureAllowed`, but a bare null outcome surfaces as the
+      // generic 'Invalid attack'. Attacks along a `land` edge between two Moon
+      // tiles never reach the orbit-edge gate above, so say why here instead.
+      if (!toTerritory.owner_id && !!toTerritory.world_id && toTerritory.world_id !== 'earth') {
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
+        if (!access.allowed) {
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
+        }
+      }
+
       // ── Truce enforcement + break-truce logic ────────────────────────────────
       // defenderPlayer is hoisted so the retaliation-bonus check below can also use it.
       const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
@@ -2007,6 +2019,18 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
           return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
+        }
+      }
+
+      // Neutral off-world garrisons (the Moon, neutral galaxy worlds) need orbit
+      // access too — executeLandAttack refuses them without
+      // `neutralOffworldCaptureAllowed`, but a bare null outcome surfaces as the
+      // generic 'Invalid attack'. Attacks along a `land` edge between two Moon
+      // tiles never reach the orbit-edge gate above, so say why here instead.
+      if (!toTerritory.owner_id && !!toTerritory.world_id && toTerritory.world_id !== 'earth') {
+        const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
+        if (!access.allowed) {
+          return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
       }
 
@@ -2847,12 +2871,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (execResult.effect === 'space_station_launched' && execResult.territoryId) {
         recordAbility('Launched Space Station');
-        io.to(gameId).emit('game:space_station_launched', {
+        const launchPayload = {
           playerId: userId,
           playerName: currentPlayer.username,
           playerColor: currentPlayer.color,
           launchTerritoryId: execResult.territoryId,
-        });
+        };
+        io.to(gameId).emit('game:space_station_launched', launchPayload);
+        queueSpectatorEvent(gameId, 'game:space_station_launched', launchPayload);
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
@@ -5339,12 +5365,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       abilityId: 'launch_space_station',
     });
     if (res.success && res.effect === 'space_station_launched' && res.territoryId) {
-      io.to(gameId).emit('game:space_station_launched', {
+      const launchPayload = {
         playerId: currentPlayer.player_id,
         playerName: currentPlayer.username,
         playerColor: currentPlayer.color,
         launchTerritoryId: res.territoryId,
-      });
+      };
+      io.to(gameId).emit('game:space_station_launched', launchPayload);
+      queueSpectatorEvent(gameId, 'game:space_station_launched', launchPayload);
     }
   }
 

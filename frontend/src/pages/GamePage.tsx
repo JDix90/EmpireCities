@@ -2158,7 +2158,7 @@ export default function GamePage() {
       wonderNotifTimerRef.current = setTimeout(() => setWonderNotif(null), 4000);
     });
 
-    socket.on('game:space_station_launched', ({ playerName, launchTerritoryId }: {
+    socket.on('game:space_station_launched', ({ playerName, playerColor, launchTerritoryId }: {
       playerId: string;
       playerName: string;
       playerColor: string;
@@ -2172,7 +2172,10 @@ export default function GamePage() {
           : `🚀 ${playerName} launched a Space Station from ${tName}.`,
         {
           duration: 6000,
-          style: { background: '#0a0d1f', border: '1px solid #8E9AF2', color: '#c7ceff' },
+          // Accent the toast with the launching player's colour — the server
+          // already sends it, and on a 6-player Space Age board the colour is
+          // what tells you whose rocket just left the pad.
+          style: { background: '#0a0d1f', border: `1px solid ${playerColor || '#8E9AF2'}`, color: '#c7ceff' },
         },
       );
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
