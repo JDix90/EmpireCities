@@ -51,7 +51,9 @@ Beyond live multiplayer, the game includes a ranked matchmaking queue with Glick
 | The Modern Day | Present | 43 | 94 | 8 |
 | American Civil War | 1861–1865 | 18 | 37 | 6 |
 | Italian Unification | 1859–1871 | 14 | 23 | 6 |
-| Space Age | 2100 AD | 55 | 93 | 10 |
+| Space Age | 2100 AD | 63 | 128 | 15 |
+
+> Territory and region counts are the **starting board**. Most era maps also author later-era frontier tiles (`unlock_era_index > 0`) that only enter play through Era Advancement, and those are not counted above. The Space Age is the exception: its 8 frontier tiles are seeded neutral from turn one whenever `space_age_frontiers_enabled` is on (the code default — see `backend/src/config/featureFlags.ts`), so its authored map and its live board are the same 63 territories, including the 9 lunar ones.
 
 Two community maps (14 Nations and Strait of Hormuz) are also included. Additional custom maps can be created with the built-in map editor and published to the community hub.
 
