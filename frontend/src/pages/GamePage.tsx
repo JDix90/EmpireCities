@@ -3337,6 +3337,19 @@ export default function GamePage() {
     }
   }, [mobileMyPlayer?.cards.length, mobileIsMyTurn, gameState?.phase]);
 
+  // Disarm a held source when the phase moves on. `attackSource` is shared by
+  // attack and fortify, and the local advance path clears it — but a phase that
+  // turns over server-side (the turn timer, another player ending theirs) does
+  // not, leaving a stale armed territory that the next phase would silently
+  // treat as chosen. Cheap to clear; confusing to leave.
+  const lastPhaseRef = useRef(gameState?.phase);
+  useEffect(() => {
+    if (gameState?.phase === lastPhaseRef.current) return;
+    lastPhaseRef.current = gameState?.phase;
+    setAttackSource(null);
+    setFortifyUnits(1);
+  }, [gameState?.phase, setAttackSource, setFortifyUnits]);
+
   // Auto-close mobile overlays when territory is selected (TerritoryPanel opens)
   useEffect(() => {
     if (selectedTerritory) {
