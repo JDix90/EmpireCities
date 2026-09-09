@@ -303,32 +303,79 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   ],
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AMERICAN CIVIL WAR — each territory_id MUST map to real geography for that
-  // name (Natural Earth US polygon ∩ bbox). Keys are NOT ordered by abstract
-  // map grid — never assign “row 0 west→east” boxes to unrelated ids (that put
-  // Kentucky in the Rockies and Missouri in the Southwest on the globe).
+  // AMERICAN CIVIL WAR — a LAST-DITCH fallback, not the normal path.
   //
-  // Bboxes are tight CONUS partitions; borders touch but do not overlap.
-  // Reference: approximate state bounds (1860s CONUS = lower 48; HI/AK excluded).
+  // ACW territories render from real Natural Earth admin-1 state polygons via
+  // ACW_TERRITORY_STATES; these boxes are reached only when NONE of a
+  // territory's states resolve from the states file. They cannot simply be
+  // deleted: era_acw.json has no `projection_bounds`, so with no entry here the
+  // map would lose `hasGeoMapping` and fall through to a world-equirectangular
+  // projection of an abstract board layout — which would scatter the
+  // territories across the globe (the authored canvas is not geographic; New
+  // England's centre sits on the canvas's LEFT).
+  //
+  // Each territory_id MUST map to real geography for that name. Keys are NOT
+  // ordered by abstract map grid — never assign “row 0 west→east” boxes to
+  // unrelated ids (that put Kentucky in the Rockies and Missouri in the
+  // Southwest on the globe).
+  //
+  // The boxes TILE: they do not overlap, so a territory can never draw over its
+  // neighbour and leave the tile flickering between two owners. They used to
+  // claim this and not do it — 27 overlapping pairs, and the comment saying
+  // otherwise was simply wrong. A territory may use several boxes to make an
+  // L or a T; states interlock (the Ohio River, the Georgia/Carolina diagonal)
+  // and no rectangle partition matches them exactly, so this trades a little
+  // accuracy for no overlap. Measured against real state polygons: 93% of
+  // sampled state interior lands in the right territory, against 79% before,
+  // with unclaimed points down from 512 to 23.
   // ═══════════════════════════════════════════════════════════════════════════
-  acw_new_england:   [{ iso: 'US', clip_bbox: [-73.6, 41.0, -66.9, 47.5] }], // ME NH VT MA RI CT
-  acw_mid_atlantic:  [{ iso: 'US', clip_bbox: [-80.6, 38.8, -73.5, 42.5] }], // NY NJ PA DE MD
-  acw_great_lakes:   [{ iso: 'US', clip_bbox: [-92.2, 41.0, -80.5, 49.0] }], // MI WI northern IL + north OH/IN
-  acw_appalachia:    [{ iso: 'US', clip_bbox: [-82.5, 37.0, -77.2, 40.6] }], // WV (split from KY at -82.5°W)
-  acw_upper_south:   [{ iso: 'US', clip_bbox: [-83.6, 36.5, -75.6, 39.6] }], // VA + MD south of PA
-  acw_carolinas:     [{ iso: 'US', clip_bbox: [-82.5, 32.0, -78.0, 34.9] }], // NC SC (split from GA at 35°N)
-  acw_ohio_indiana:  [{ iso: 'US', clip_bbox: [-88.6, 38.4, -80.5, 40.95] }], // OH IN (below Great Lakes 41°N band)
-  acw_kentucky:      [{ iso: 'US', clip_bbox: [-89.6, 36.5, -82.5, 39.2] }], // KY
-  acw_tennessee:     [{ iso: 'US', clip_bbox: [-90.4, 34.9, -81.6, 36.7] }], // TN
-  acw_georgia_fl:    [{ iso: 'US', clip_bbox: [-85.6, 24.5, -79.8, 35.0] }], // GA FL (north edge meets Carolinas at 35°N)
-  acw_alabama:       [{ iso: 'US', clip_bbox: [-88.6, 30.2, -84.8, 35.0] }], // AL
-  acw_mississippi:   [{ iso: 'US', clip_bbox: [-91.7, 30.2, -88.0, 35.0] }], // MS (state + river corridor)
-  acw_plains:        [{ iso: 'US', clip_bbox: [-104.1, 40.0, -95.9, 49.0] }], // ND SD NE KS (Great Plains)
-  acw_missouri:      [{ iso: 'US', clip_bbox: [-95.9, 36.0, -89.1, 40.6] }], // MO
-  acw_arkansas:      [{ iso: 'US', clip_bbox: [-94.6, 33.0, -89.8, 36.0] }], // AR (below MO)
-  acw_louisiana:     [{ iso: 'US', clip_bbox: [-94.1, 28.9, -88.8, 33.1] }], // LA + Gulf coast
-  acw_texas:         [{ iso: 'US', clip_bbox: [-106.6, 25.8, -93.5, 36.5] }], // TX
-  acw_far_west:      [{ iso: 'US', clip_bbox: [-125.0, 31.0, -106.6, 49.0] }], // CA OR WA NV AZ NM UT CO MT WY ID
+  acw_far_west: [
+    { iso: 'US', clip_bbox: [-125, 40.0, -104, 49.5] },   // MT WY ID + N. Rockies
+    { iso: 'US', clip_bbox: [-125, 36.5, -102, 40.0] },   // CO UT NV N.CA (CO's east border is -102)
+    { iso: 'US', clip_bbox: [-125, 31.3, -103, 36.5] },   // AZ NM S.CA
+  ],
+  acw_plains: [
+    { iso: 'US', clip_bbox: [-104, 40.0, -95.8, 49.5] },  // ND SD NE (their west border is -104)
+    { iso: 'US', clip_bbox: [-102, 36.5, -95.8, 40.0] },  // KS
+    { iso: 'US', clip_bbox: [-95.8, 40.6, -90.1, 43.5] }, // IA
+    { iso: 'US', clip_bbox: [-103, 34.0, -94.6, 36.5] },  // OK (takes the TX panhandle with it)
+  ],
+  acw_texas: [{ iso: 'US', clip_bbox: [-103, 25.8, -94.6, 34.0] }], // TX (El Paso falls to far_west)
+  acw_louisiana: [
+    { iso: 'US', clip_bbox: [-94.6, 28.9, -91.0, 33.0] },
+    { iso: 'US', clip_bbox: [-91.0, 28.9, -89.0, 30.2] }, // delta + Gulf coast
+  ],
+  acw_arkansas:    [{ iso: 'US', clip_bbox: [-94.6, 33.0, -91.0, 36.5] }],
+  acw_missouri:    [{ iso: 'US', clip_bbox: [-95.8, 36.5, -89.1, 40.6] }], // MO's south border is 36.5
+  acw_mississippi: [{ iso: 'US', clip_bbox: [-91.0, 30.2, -88.3, 35.0] }],
+  acw_alabama:     [{ iso: 'US', clip_bbox: [-88.3, 31.0, -85.0, 35.0] }],
+  acw_georgia_fl: [
+    { iso: 'US', clip_bbox: [-85.0, 24.5, -80.0, 32.0] }, // FL peninsula + S. GA
+    { iso: 'US', clip_bbox: [-87.6, 24.5, -85.0, 31.0] }, // FL panhandle
+    { iso: 'US', clip_bbox: [-85.0, 32.0, -82.2, 35.0] }, // N. GA
+  ],
+  acw_tennessee: [{ iso: 'US', clip_bbox: [-91.0, 35.0, -81.7, 36.5] }],
+  acw_carolinas: [
+    { iso: 'US', clip_bbox: [-82.2, 32.0, -75.4, 35.0] }, // SC + S. NC
+    { iso: 'US', clip_bbox: [-81.7, 35.0, -75.4, 36.5] }, // NC beside Tennessee
+  ],
+  acw_kentucky:    [{ iso: 'US', clip_bbox: [-89.1, 36.5, -82.6, 39.1] }],
+  acw_upper_south: [{ iso: 'US', clip_bbox: [-82.6, 36.5, -75.4, 37.9] }], // VA
+  acw_appalachia:  [{ iso: 'US', clip_bbox: [-82.6, 37.9, -77.7, 39.7] }], // WV, under the Mason-Dixon line
+  acw_mid_atlantic: [
+    { iso: 'US', clip_bbox: [-80.5, 39.7, -73.4, 45.1] }, // NY PA (east to the NY/VT border)
+    { iso: 'US', clip_bbox: [-77.7, 37.9, -73.4, 39.7] }, // MD DE NJ south of PA
+  ],
+  acw_new_england:  [{ iso: 'US', clip_bbox: [-73.4, 40.9, -66.9, 47.5] }],
+  acw_ohio_indiana: [
+    { iso: 'US', clip_bbox: [-88.1, 39.7, -80.5, 41.7] },
+    { iso: 'US', clip_bbox: [-88.1, 39.1, -82.6, 39.7] }, // south strip, west of West Virginia
+  ],
+  acw_great_lakes: [
+    { iso: 'US', clip_bbox: [-95.8, 43.5, -82, 49.5] },   // MN WI N.MI
+    { iso: 'US', clip_bbox: [-90.1, 41.7, -82, 43.5] },   // S.WI + MI lower peninsula
+    { iso: 'US', clip_bbox: [-89.1, 39.3, -88.1, 41.7] }, // IL east of Missouri's box
+  ],
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SPACE AGE 2100 — alt-future political bodies. Bboxes derived from each

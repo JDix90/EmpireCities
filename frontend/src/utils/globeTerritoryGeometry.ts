@@ -929,7 +929,14 @@ export function buildTerritoryGlobeGeometries(
           const g = postalToGeom.get(code);
           if (g) geoms.push(g);
         }
-        if (geoms.length === acwStates.length) {
+        // Any real state beats the rectangle fallback below, so a territory
+        // that resolves some of its states draws those. This used to require
+        // ALL of them: one renamed or dropped postal code in the Natural Earth
+        // file turned a whole territory into a US-wide clip box, which is a
+        // far bigger error than the missing state — and, before those boxes
+        // were made to tile, one that overlapped its neighbours. States are
+        // disjoint, so a partial union can under-draw but never double-claim.
+        if (geoms.length > 0) {
           try {
             const merged = unionGeoJsonGeometries(geoms);
             if (merged) {
