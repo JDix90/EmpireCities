@@ -90,6 +90,99 @@ interface TerritoryPanelProps {
  * `game:draft_undo`) as the safety net rather than a pre-commit counter.
  */
 /**
+ * A −/value/+ dial with +5 and "all" shortcuts, clamped to `max`.
+ *
+ * Shared by draft placement and fortify so the two read the same and cannot
+ * drift. Draft keeps its original `draft-*` test ids through `testIdPrefix`.
+ * The caller owns the value, because fortify's amount has to survive the
+ * destination picker re-rendering beneath it.
+ */
+export function AmountDial({
+  max,
+  value,
+  onChange,
+  testIdPrefix,
+  size = 'md',
+  allLabel,
+}: {
+  max: number;
+  value: number;
+  onChange: (n: number) => void;
+  testIdPrefix: string;
+  size?: 'md' | 'lg';
+  allLabel: string;
+}) {
+  const clamp = (n: number) => Math.min(Math.max(1, n), Math.max(1, max));
+  const shown = clamp(value);
+  const big = size === 'lg';
+  const btn = clsx(
+    'rounded-lg border border-bf-border bg-bf-dark text-bf-text font-semibold',
+    'hover:bg-bf-border transition-colors touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed',
+    big ? 'min-h-[48px] px-3 text-base' : 'min-h-[44px] px-3 text-sm',
+  );
+  const stepBtn = clsx(btn, big ? 'min-w-[48px]' : 'min-w-[44px]');
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        className={stepBtn}
+        data-testid={`${testIdPrefix}-amount-dec`}
+        aria-label="One fewer unit"
+        disabled={shown <= 1}
+        onClick={() => onChange(clamp(shown - 1))}
+      >
+        −
+      </button>
+      <span
+        className={clsx(
+          'tabular-nums text-center font-bold text-bf-gold',
+          big ? 'min-w-[3rem] text-2xl' : 'min-w-[2.5rem] text-xl',
+        )}
+        data-testid={`${testIdPrefix}-amount`}
+        aria-live="polite"
+        aria-label={`${shown} of ${max} units selected`}
+      >
+        {shown}
+      </span>
+      <button
+        type="button"
+        className={stepBtn}
+        data-testid={`${testIdPrefix}-amount-inc`}
+        aria-label="One more unit"
+        disabled={shown >= max}
+        onClick={() => onChange(clamp(shown + 1))}
+      >
+        +
+      </button>
+      {/* A long dial is its own kind of tedium: skip five at a time when
+          there are at least that many to move. */}
+      {max >= 5 && (
+        <button
+          type="button"
+          className={btn}
+          data-testid={`${testIdPrefix}-amount-plus5`}
+          aria-label="Five more units"
+          disabled={shown >= max}
+          onClick={() => onChange(clamp(shown + 5))}
+        >
+          +5
+        </button>
+      )}
+      <button
+        type="button"
+        className={btn}
+        data-testid={`${testIdPrefix}-amount-all`}
+        disabled={shown >= max}
+        onClick={() => onChange(max)}
+      >
+        {allLabel}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Reinforcement placement: dial an amount, place it once.
  *
  * This used to be +1 / +5 / Place all, where every button committed
@@ -131,67 +224,18 @@ export function QuickPlace({
     'hover:bg-bf-border transition-colors touch-manipulation disabled:opacity-40 disabled:cursor-not-allowed',
     big ? 'min-h-[48px] px-3 text-base' : 'min-h-[44px] px-3 text-sm',
   );
-  const stepBtn = clsx(btn, big ? 'min-w-[48px]' : 'min-w-[44px]');
   const shown = clamp(amount);
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className={stepBtn}
-          data-testid="draft-amount-dec"
-          aria-label="One fewer unit"
-          disabled={shown <= 1}
-          onClick={() => setAmount((a) => clamp(a - 1))}
-        >
-          −
-        </button>
-        <span
-          className={clsx(
-            'tabular-nums text-center font-bold text-bf-gold',
-            big ? 'min-w-[3rem] text-2xl' : 'min-w-[2.5rem] text-xl',
-          )}
-          data-testid="draft-amount"
-          aria-live="polite"
-          aria-label={`${shown} of ${pool} units selected`}
-        >
-          {shown}
-        </span>
-        <button
-          type="button"
-          className={stepBtn}
-          data-testid="draft-amount-inc"
-          aria-label="One more unit"
-          disabled={shown >= pool}
-          onClick={() => setAmount((a) => clamp(a + 1))}
-        >
-          +
-        </button>
-        {/* A long dial is its own kind of tedium: skip five at a time when
-            there are at least that many left to place. */}
-        {pool >= 5 && (
-          <button
-            type="button"
-            className={btn}
-            data-testid="draft-amount-plus5"
-            aria-label="Five more units"
-            disabled={shown >= pool}
-            onClick={() => setAmount((a) => clamp(a + 5))}
-          >
-            +5
-          </button>
-        )}
-        <button
-          type="button"
-          className={btn}
-          data-testid="draft-amount-all"
-          disabled={shown >= pool}
-          onClick={() => setAmount(pool)}
-        >
-          All {pool}
-        </button>
-      </div>
+      <AmountDial
+        max={pool}
+        value={amount}
+        onChange={setAmount}
+        testIdPrefix="draft"
+        size={size}
+        allLabel={`All ${pool}`}
+      />
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -465,6 +509,21 @@ export default function TerritoryPanel({
       : gameState.phase === 'fortify' && isMine && (tState.unit_count > 1)
         ? selectedTerritory
         : null;
+  // Units the fortify source can spare — it must leave one behind. The picker's
+  // source is not always the selected territory, so both fortify controls size
+  // themselves from this rather than from tState.
+  const fortifyMax = Math.max(
+    1,
+    (fortifyNeighborSourceId
+      ? gameState.territories[fortifyNeighborSourceId]?.unit_count ?? 1
+      : tState.unit_count) - 1,
+  );
+  // Switching source mid-phase must not leave the dial promising more than the
+  // new source holds; GamePage clamps the emit too, but a stale number on
+  // screen is its own bug.
+  React.useEffect(() => {
+    setFortifyAmount((a) => Math.min(a, fortifyMax));
+  }, [fortifyMax]);
   const fortifyNeighbors = React.useMemo(() => {
     if (!isMyTurn || !fortifyNeighborSourceId || !myPlayerId) return [];
     return listNeighborTargets(gameState, mapConnections, fortifyNeighborSourceId, territoryNameById, {
@@ -780,10 +839,10 @@ export default function TerritoryPanel({
               phase="attack"
               sourceName={territoryNameById.get(attackNeighborSourceId) ?? attackNeighborSourceId}
               neighbors={attackNeighbors}
-              denseMap={denseMap}
-              compact={isMobileActionMode}
-              orbitLocked={!orbitAccessAllowed}
-              orbitLockReason={orbitAccessReason ?? undefined}
+                denseMap={denseMap}
+                compact={isMobileActionMode}
+                orbitLocked={!orbitAccessAllowed}
+                orbitLockReason={orbitAccessReason ?? undefined}
               onSelect={(territoryId) => setSelectedTerritory(territoryId)}
               onAttack={(toTerritoryId) => onAttack(attackNeighborSourceId, toTerritoryId)}
             />
@@ -1170,47 +1229,63 @@ export default function TerritoryPanel({
 
           {/* Fortify Section */}
           {gameState.phase === 'fortify' && fortifyNeighbors.length > 0 && fortifyNeighborSourceId && (
-            <NeighborTerritoryPicker
-              phase="fortify"
-              sourceName={territoryNameById.get(fortifyNeighborSourceId) ?? fortifyNeighborSourceId}
-              neighbors={fortifyNeighbors}
+            <div className="space-y-2">
+              {/* How many, before where. The picker commits the move the instant
+                  a destination is tapped, so without a dial here every fortify
+                  sent exactly one unit: the amount stepper below is hidden in
+                  mobile action mode, leaving `fortifyAmount` on its initial 1
+                  with nothing able to change it. Sized to the PICKER's source,
+                  which is not always the selected territory. */}
+              {isMobileActionMode && (
+                <AmountDial
+                  max={fortifyMax}
+                  value={fortifyAmount}
+                  onChange={setFortifyAmount}
+                  testIdPrefix="fortify"
+                  allLabel={`All ${fortifyMax}`}
+                />
+              )}
+              <NeighborTerritoryPicker
+                phase="fortify"
+                sourceName={territoryNameById.get(fortifyNeighborSourceId) ?? fortifyNeighborSourceId}
+                neighbors={fortifyNeighbors}
               denseMap={denseMap}
               compact={isMobileActionMode}
               orbitLocked={!orbitAccessAllowed}
               orbitLockReason={orbitAccessReason ?? undefined}
-              onSelect={(territoryId) => {
-                if (onFortifyTo) {
-                  setFortifyUnits(fortifyAmount);
-                  setAttackSource(fortifyNeighborSourceId);
-                  onFortifyTo(fortifyNeighborSourceId, territoryId);
-                } else {
-                  setSelectedTerritory(territoryId);
-                }
-              }}
-            />
+                onSelect={(territoryId) => {
+                  if (onFortifyTo) {
+                    setFortifyUnits(Math.min(fortifyAmount, fortifyMax));
+                    setAttackSource(fortifyNeighborSourceId);
+                    onFortifyTo(fortifyNeighborSourceId, territoryId);
+                  } else {
+                    setSelectedTerritory(territoryId);
+                  }
+                }}
+              />
+            </div>
           )}
 
           {isMine && gameState.phase === 'fortify' && tState.unit_count > 1
             && !(isMobileActionMode && fortifyNeighbors.length > 0) && (
             <div>
               <div className="text-xs font-bold text-bf-muted uppercase mb-2 tracking-wide">→ Fortify</div>
-              <label className="label text-xs">Move Units to Adjacent Territory</label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
-                  onClick={() => setFortifyAmount((a) => Math.max(1, a - 1))}
-                >−</button>
-                <span className="w-8 text-center font-mono text-bf-text">{fortifyAmount}</span>
-                <button
-                  type="button"
-                  className="w-11 h-11 rounded-lg bg-bf-dark border border-bf-border text-bf-text font-bold hover:bg-bf-border transition-colors shrink-0"
-                  onClick={() => setFortifyAmount((a) => Math.min(tState.unit_count - 1, a + 1))}
-                >+</button>
+              {/* Not "adjacent": the server walks any chain of territories you
+                  own, so the destination only has to be connected to this one
+                  through your own ground. */}
+              <label className="label text-xs">Move units to a connected territory</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <AmountDial
+                  max={fortifyMax}
+                  value={fortifyAmount}
+                  onChange={setFortifyAmount}
+                  testIdPrefix="fortify"
+                  allLabel={`All ${fortifyMax}`}
+                />
                 <button
                   className="btn-secondary text-sm py-1.5 px-3 flex-1"
                   onClick={() => {
-                    setFortifyUnits(fortifyAmount);
+                    setFortifyUnits(Math.min(fortifyAmount, fortifyMax));
                     setAttackSource(selectedTerritory);
                   }}
                 >
