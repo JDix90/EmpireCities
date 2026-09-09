@@ -49,9 +49,15 @@ function buildAdjacency(connections: MapConnection[]): Map<string, string[]> {
  * territory is a valid fortify SOURCE (can it move anywhere?) and, for the map,
  * which owned territories a selected source can reach beyond direct neighbors.
  *
- * Advisory only — the server stays authoritative. Like the backend BFS it walks
- * every connection type (land/sea/orbit); the optional `filter` scopes results
- * to the active world for galaxy maps.
+ * Advisory only — the server stays authoritative. The optional `filter` scopes
+ * results to the active world for galaxy maps; `canTraverse` mirrors the
+ * backend's per-edge fortify rule and is how orbit lanes get excluded.
+ *
+ * `canTraverse` is not optional in spirit. The backend BFS used to walk every
+ * connection type and gate the endpoints afterwards, so walking orbit lanes here
+ * matched it. It no longer does: the server refuses a lane the player cannot
+ * cross even when the fortify's own endpoints are ordinary land tiles. Callers
+ * that omit it get the old, now over-generous answer.
  */
 export function computeFortifyReachable(
   gameState: GameState,
@@ -59,10 +65,11 @@ export function computeFortifyReachable(
   sourceId: string,
   ownerId: string,
   filter: (territoryId: string) => boolean = () => true,
+  canTraverse: (conn: MapConnection) => boolean = () => true,
 ): Set<string> {
   const reachable = new Set<string>();
   if (!gameState) return reachable;
-  const adjacency = buildAdjacency(connections);
+  const adjacency = buildAdjacency(connections.filter(canTraverse));
   const visited = new Set<string>([sourceId]);
   const queue: string[] = [sourceId];
   while (queue.length > 0) {
@@ -90,16 +97,21 @@ export function computeFortifyReachable(
  *
  * Turn-level gates that aren't adjacency rules (era-advanced-this-turn lockout,
  * fortify-move-limit) are applied by the caller (see GamePage's validSourceOwnerId).
- * Orbit/moon access + sealed-lane gates are NOT mirrored here: on the globe the
- * caller's per-world territoryFilter drops cross-world endpoints, and on maps
- * without orbit lanes it never applies — a residual orbit false-positive just
- * yields the server's clear rejection toast.
+ * Orbit access and sealed lanes ARE mirrored, through `options.canTraverse` —
+ * see `fortifyTraversalFilter` in utils/orbitAccess. They used not to be, on the
+ * grounds that a stray orbit false-positive only cost the player a rejection
+ * toast. That reasoning expired when the server started refusing lanes inside
+ * the BFS rather than at the endpoints: a Space Age player with no Launch Pad
+ * would otherwise have every Moon tile counted as reachable.
  */
 export function computeValidSources(
   gameState: GameState,
   connections: MapConnection[],
   viewerId: string | null | undefined,
-  options: { territoryFilter?: (territoryId: string) => boolean } = {},
+  options: {
+    territoryFilter?: (territoryId: string) => boolean;
+    canTraverse?: (conn: MapConnection) => boolean;
+  } = {},
 ): Set<string> {
   const result = new Set<string>();
   if (!gameState || !viewerId) return result;
@@ -122,7 +134,9 @@ export function computeValidSources(
       });
       if (targets.size > 0) result.add(territoryId);
     } else {
-      const reachable = computeFortifyReachable(gameState, connections, territoryId, viewerId, filter);
+      const reachable = computeFortifyReachable(
+        gameState, connections, territoryId, viewerId, filter, options.canTraverse,
+      );
       if (reachable.size > 0) result.add(territoryId);
     }
   }

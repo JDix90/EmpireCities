@@ -381,3 +381,65 @@ describe('listBorderingOwned', () => {
     expect(listBorderingOwned(state, conns, 'milan', null)).toEqual([]);
   });
 });
+
+describe('computeFortifyReachable — orbit parity with the server', () => {
+  /**
+   * The server's fortify BFS refuses orbit lanes the player cannot cross, so a
+   * client BFS that still walks them reports Moon tiles as reachable to a
+   * player with no Launch Pad. Reachability drives the valid-source hint, and
+   * is the natural basis for any destination highlighting, so a false positive
+   * here is the UI promising a move the server will reject.
+   */
+  const spaceAge = {
+    era: 'space_age',
+    settings: { lanes_contestable_enabled: false },
+    territories: {
+      na_east: { territory_id: 'na_east', owner_id: 'p1', unit_count: 9, buildings: [] },
+      na_pad: { territory_id: 'na_pad', owner_id: 'p1', unit_count: 9, buildings: [] },
+      moon_a: { territory_id: 'moon_a', owner_id: 'p1', unit_count: 9, buildings: [] },
+      moon_b: { territory_id: 'moon_b', owner_id: 'p1', unit_count: 9, buildings: [] },
+    },
+    players: [{ player_id: 'p1', unlocked_techs: ['sa_lunar_expansion'], space_station_launched: true }],
+  } as unknown as GameState;
+
+  const conns = [
+    { from: 'na_east', to: 'na_pad', type: 'land' as const },
+    { from: 'na_pad', to: 'moon_a', type: 'orbit' as const },
+    { from: 'moon_a', to: 'moon_b', type: 'land' as const },
+  ];
+
+  const noOrbit = (conn: { type?: string }) => conn.type !== 'orbit';
+
+  it('walks the lane when the caller says the player may cross it', () => {
+    const r = computeFortifyReachable(spaceAge, conns, 'na_east', 'p1', () => true, () => true);
+    expect([...r].sort()).toEqual(['moon_a', 'moon_b', 'na_pad']);
+  });
+
+  it('stops at the lane when the player may not cross it', () => {
+    const r = computeFortifyReachable(spaceAge, conns, 'na_east', 'p1', () => true, noOrbit);
+    expect([...r]).toEqual(['na_pad']);
+  });
+
+  it('leaves interior movement on the far world alone', () => {
+    // Stranded on the Moon is not frozen on the Moon: land edges still walk.
+    const r = computeFortifyReachable(spaceAge, conns, 'moon_a', 'p1', () => true, noOrbit);
+    expect([...r]).toEqual(['moon_b']);
+  });
+
+  it('drops a source whose only destinations were across a lane it cannot use', () => {
+    const onlyLane = {
+      ...spaceAge,
+      phase: 'fortify',
+      territories: {
+        na_pad: { territory_id: 'na_pad', owner_id: 'p1', unit_count: 9, buildings: [] },
+        moon_a: { territory_id: 'moon_a', owner_id: 'p1', unit_count: 9, buildings: [] },
+      },
+    } as unknown as GameState;
+    const laneOnly = [{ from: 'na_pad', to: 'moon_a', type: 'orbit' as const }];
+
+    expect(computeValidSources(onlyLane, laneOnly, 'p1').has('na_pad')).toBe(true);
+    expect(
+      computeValidSources(onlyLane, laneOnly, 'p1', { canTraverse: noOrbit }).has('na_pad'),
+    ).toBe(false);
+  });
+});

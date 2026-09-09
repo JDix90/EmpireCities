@@ -30,6 +30,7 @@ import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
 import { usePageVisible, isDocumentVisible } from '../../utils/usePageVisible';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
+import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
 import MoonInsetFrame from './MoonInsetFrame';
 import {
   shouldEmphasizeAdjacencyBorders,
@@ -731,7 +732,13 @@ export default function GameMap({
   // is set (flag on, my attack/fortify turn, no source selected).
   const validSources = useMemo(() => {
     if (!gameState || !validSourceOwnerId) return new Set<string>();
-    return computeValidSources(gameState, mapData.connections, validSourceOwnerId);
+    return computeValidSources(gameState, mapData.connections, validSourceOwnerId, {
+      // Orbit parity with the server's fortify BFS: a lane this player cannot
+      // cross is not a route, so tiles behind it are not valid sources.
+      canTraverse: fortifyTraversalFilter(
+        rawMapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
+      ),
+    });
   }, [gameState, validSourceOwnerId, mapData.connections]);
 
   const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
