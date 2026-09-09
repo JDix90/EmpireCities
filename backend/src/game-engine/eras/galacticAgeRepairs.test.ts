@@ -197,15 +197,15 @@ describe('Nexus Station tech identity', () => {
     const custodianIncome = collectProduction(state, SEAT[3]);
     const mandateIncome = collectProduction(state, SEAT[0]);
 
-    // 16 × 0.125 = 2 tech points on top of the base 1-per-5-territories income.
+    // 16 × 0.0625 = 1 tech point on top of the base 1-per-5-territories income.
     // The pre-repair 0.05 floored to zero, so both seats earned the same.
-    expect(custodianIncome.techPointsEarned).toBe(mandateIncome.techPointsEarned + 2);
+    expect(custodianIncome.techPointsEarned).toBe(mandateIncome.techPointsEarned + 1);
   });
 
-  it('scales with how much of the world is held, and floors below a full eighth', () => {
+  it('scales with how much of the world is held, and floors below a full world', () => {
     const state = freshGalaxyState();
     const nexusTiles = Object.values(state.territories).filter((t) => t.world_id === 'nexus_station');
-    // Hand all but 7 tiles away: 7 × 0.125 = 0.875 → floors to 0.
+    // Hand all but 7 tiles away: 7 × 0.0625 = 0.4375 → floors to 0.
     for (const t of nexusTiles.slice(7)) t.owner_id = SEAT[0];
     const held = Object.values(state.territories).filter(
       (t) => t.owner_id === SEAT[3] && t.world_id === 'nexus_station',
@@ -215,5 +215,13 @@ describe('Nexus Station tech identity', () => {
     const income = collectProduction(state, SEAT[3]);
     const baseline = Math.max(1, Math.floor(held.length / 5));
     expect(income.techPointsEarned).toBe(baseline);
+  });
+});
+
+describe('Void Custodians kit', () => {
+  it('carries no flat reinforcement bonus — the trade that paid for the tech yield', () => {
+    const custodians = GALAXY_AGE_FACTIONS.find((f) => f.faction_id === 'void_custodians')!;
+    expect(custodians.reinforce_bonus).toBeUndefined();
+    expect(custodians.description).toMatch(/tech points/i);
   });
 });

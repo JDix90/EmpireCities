@@ -24,6 +24,13 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   20-35% (Sol 33.8 / Rust 22.2 / Verdan 22.3 / Nexus 21.9 avg).
 // - Ability IDs reuse legacy handlers so the abilities work end-to-end today;
 //   the user-facing labels and lore have been refreshed for galaxy flavor.
+// - Void Custodians traded their flat `reinforce_bonus: 1` for Nexus Station's
+//   tech yield, which used to floor to ZERO (16 tiles x 0.05 = 0.8) and so paid
+//   nothing at all. Making it pay is worth ~20 points of win rate on its own —
+//   measured 400g x 2 seeds (expert, threshold-60): the world modifier alone put
+//   the Custodians at 56%, and even the smallest paying value (1 TP/turn) left
+//   them at 38-40%. Dropping the spare reinforcement pays for the identity and
+//   lands them at 29.5 / 32.0 while Sol falls 47 -> 39.
 // ──────────────────────────────────────────────────────────────────────────
 
 export const GALAXY_AGE_FACTIONS: Faction[] = [
@@ -67,11 +74,10 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'void_custodians',
     name: 'Void Custodians',
-    description: 'Deep patrol fleets — +1 reinforcement per turn; stronger defense along station corridors.',
+    description: 'Station enginseers — Nexus Station yields tech points every turn; faster stability recovery along station corridors.',
     lore: 'They guard the silent rings and tether cities where vacuum is the only neighbor.',
     flavor_quote: 'We keep the dark from leaning in.',
     home_region_ids: ['nexus_gate_ring', 'nexus_vault_ward', 'nexus_spire_walk', 'nexus_berth_ring'],
-    reinforce_bonus: 1,
     ability_id: 'terraform',
     ability_description: 'Emergency Seal: once per turn, restore stability on an owned territory and gain 1 free unit there.',
     color: '#9b59b6',
