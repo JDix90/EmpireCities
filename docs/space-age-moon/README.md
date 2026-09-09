@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed.** Nothing in this document is implemented. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phase 0 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -66,25 +66,39 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 
 ## 2. Phase 0 — Prerequisites
 
-### 2.1 Fix the AI's Moon launch in production
+### 2.1 The AI's Moon launch — ✅ already fixed, now guarded
 
-`simSpaceAgeBalance.ts` documents it plainly: the AI's *Launch Space Station* step exists only in the socket layer (`gameSocket.ts` `processAiTurn`, ~line 5010), runs **after** `state.phase = 'attack'`, and `executeTechAbility` rejects `launch_space_station` outside the draft phase (`techAbilities.ts` declares it `phase: 'draft'`). So in production the AI launch appears to **always fail**, and bots never reach the Moon. The sim schedules it in draft as intended, which is why sim AIs reach the Moon and production AIs don't.
+**This section was wrong when written, and the correction matters.** It claimed the AI launch fails in production. It does not: the ordering was fixed in **ae02c66 (2026-07-13)**, and in `processAiTurn` the launch block runs at `gameSocket.ts:5379`, before the phase transition at `:5395`. The claim came from `simSpaceAgeBalance.ts`'s docstring, which still described the bug as live — it was written before the fix and never updated. Reading the harness comment instead of the socket code is how a stale comment became a design prerequisite.
 
-**Change:** move the AI launch step into the draft-phase block of `processAiTurn`. **Prove it** with a socket test that a medium AI with the ladder complete launches on its next draft phase, and with `SIM_LAUNCH_PHASE=attack` versus `draft` showing the gap closes.
+Measured, not assumed: in 60 games on the shipped ruleset, **100% of games see a station launched** (avg first launch turn 17.0) and **100% see a Moon tile captured** (avg first capture turn 24.1). Bots reach the Moon.
 
-This is not optional and not a follow-up. Everything below is designed on the assumption that bots contest the Moon.
+What was genuinely missing is a **guard**. The five existing socket tests all drive `game:use_ability` as a human, so none of them would notice the block moving back; the fix was protected by a comment. Phase 0 adds an AI-path test that drives a real AI turn end to end and asserts the launch happened. Verified by reintroducing the bug: the new test fails with *"the bot finished the ladder and held a pad but never launched"* while all five human tests still pass.
+
+The design's assumption — that bots contest the Moon — holds. It is now enforced rather than hoped for.
 
 ### 2.2 Measure the shipped ruleset
 
-Run `simSpaceAgeBalance.ts` three ways, 60 games each, `SIM_SEED` fixed:
+Run `simSpaceAgeBalance.ts` three ways, 60 games each, `SIM_SEED=phase0`, 4 players, medium.
 
-| Run | Knobs | Answers |
-|---|---|---|
-| Baseline | defaults (`SIM_MAX_TURNS=80`, no threshold) | reproduces ~93%? harness still behaves as documented |
-| **Shipped** | `SIM_THRESHOLD=60 SIM_MAX_TURNS=90` | did the threshold fix land? |
-| Shipped + factions | `SIM_FACTIONS=1` added | Lunar Pioneers' share under the real rules |
+**Results (2026-09-09, commit 0e344f9):**
 
-Report per run: condition split (`threshold` / `last_standing` / `turn_limit`), game-length histogram, median first-landing turn, and whether the `turn_limit` winner was already leading at turn 40 — which separates *the cap truncated a live contest* from *the cap rubber-stamped a decided game*.
+| Run | Knobs | Decisive | Condition split | Median length |
+|---|---|---|---|---|
+| A — baseline | defaults (`SIM_MAX_TURNS=80`, no threshold) | **1.7%** | `turn_limit` 59 · `last_standing` 1 | 81 |
+| B — **shipped** | `SIM_THRESHOLD=60 SIM_MAX_TURNS=90` | **23.3%** | `threshold` 14 · `turn_limit` 46 | 91 |
+| C — shipped + factions | B + `SIM_FACTIONS=1` | **28.3%** | `threshold` 17 · `turn_limit` 43 | 91 |
+
+**The threshold fix landed, and is not sufficient.** Decisive endings went from 1.7% to 23.3% — a real improvement, and the reason the default exists. But **77% of games still run to the 90-turn cap**. The era's ending is still mostly "whoever was ahead when the clock stopped".
+
+Run A also revises the number this era has been quoted against: at the pre-fix ruleset the cap rate is **98.3%**, not the ~93% recorded in `games.routes.ts`. That comment predates the frontier tiles being seeded by default (63 tiles rather than 55), which is the likely cause.
+
+Two further readings that shape the phases below:
+
+- **Moon presence already correlates with winning, weakly.** The end-game Moon-tile leader won 45.5% of run B against a 25% baseline — but that drops from 63.6% in run A, because a threshold win can be taken on Earth. The Moon is a good place to be, not a reason to win.
+- **Lunar Pioneers are not dominant.** Per-faction win rates in run C: Climate Alliance 35.0%, Solar Caliphate 30.0%, **Lunar Pioneers 27.5%**, Sino-Pacific 22.5%, Terran Federation 17.5%, Corporate Enclave 17.5% (baseline 25%). Pioneers sit +2.5 over baseline, well inside the ±8 band the Phase 1 gate allows. The outliers are Climate Alliance high and Terran/Corporate low — a faction-balance question, not a Moon one.
+- **Reaching the Moon is not the bottleneck; profiting from it is.** Corporate Enclave reaches the Moon in 95% of its games with the highest average holding (2.88 tiles) and wins 17.5%. That is the design thesis in one row.
+
+**Not yet measured:** whether a `turn_limit` winner was already leading at turn 40. The harness reports a turn-10 leader correlation but nothing at turn 40; adding it is a small change to the reporting block and is worth doing before Phase 3, whose gate is about whether the cap is truncating live contests.
 
 These numbers are the **control group** for every phase gate below.
 
@@ -363,7 +377,7 @@ Each phase is one PR off `main`, dark-launched, with its sim run and gate number
 | First-to-Moon-wins | Phase 3 gate: clock reset rate | the contest rule (§5.3); unsealable pad lanes (§6.3) |
 | Lunar Pioneers dominate | every gate's faction criterion | Pioneers clock offset (§5.4); their +2 def is the knob to touch next |
 | Drop collapses Earth geography | Phase 2 gate; player reports | 2a before 2b; telegraphed landing; cooldown; cost |
-| AI cannot contest the Moon | everywhere | Phase 0 §2.1 is a hard prerequisite |
+| AI cannot contest the Moon | everywhere | resolved: bots launch in 100% of games and capture Moon tiles in 100% (§2.1–2.2), and an AI-path socket test now guards the ordering |
 | Six flags, one feature | ops confusion | one lobby toggle; flags are kill switches only |
 | Moon fights invisible on phones | Phase 3 | HUD banner + inset badge specified as part of the phase, not a follow-up |
 
