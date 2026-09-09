@@ -156,7 +156,20 @@ describe('syncLaunchPadLanes', () => {
     const state = game(map, { tech_trees_enabled: false });
     const p1 = state.players[0];
     p1.special_resource = 50;
-    const mine = Object.values(state.territories).find((t) => t.owner_id === 'p1' && t.world_id === 'earth')!;
+    // Not just any Earth tile p1 happens to hold: the three authored spaceports
+    // (na_launch_base, euro_spaceport, asia_cosmodrome) already sit on an orbit
+    // lane, so a pad built there opens nothing NEW and syncLaunchPadLanes
+    // correctly reports false. initializeGameState shuffles the Earth deal with
+    // a CSPRNG, so which tile this lands on varies per run -- measured, p1's
+    // first Earth territory was an authored spaceport in 38/600 runs (6.3%),
+    // and this assertion failed on exactly those.
+    const authoredSpaceports = new Set(
+      map.connections.filter((c) => c.type === 'orbit').map((c) => c.from),
+    );
+    const mine = Object.values(state.territories).find(
+      (t) => t.owner_id === 'p1' && t.world_id === 'earth' && !authoredSpaceports.has(t.territory_id),
+    )!;
+    expect(mine, 'fixture expects p1 to hold an Earth tile without an authored lane').toBeDefined();
     applyBuild(state, 'p1', mine.territory_id, 'launch_pad');
     expect(syncLaunchPadLanes(map, state)).toBe(true);
     expect(map.connections.some((c) => c.source === LAUNCH_PAD_LANE_SOURCE && c.from === mine.territory_id)).toBe(true);
