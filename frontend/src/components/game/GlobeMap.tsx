@@ -54,6 +54,7 @@ import {
   type ResolvedConnectionHintMode,
 } from '../../utils/connectionHints';
 import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/mapAdjacencyTargets';
+import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -3194,6 +3195,12 @@ function GlobeMap({
         const terr = territoryById.get(territoryId);
         return !!terr && inferWorldId(terr) === activeWorldId;
       },
+      // Orbit parity with the server's fortify BFS. The per-world filter above
+      // already hides cross-world endpoints on the globe, but it says nothing
+      // about a lane traversed part-way along a route.
+      canTraverse: fortifyTraversalFilter(
+        mapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
+      ),
     });
     const out: RingDatum[] = [];
     for (const tid of sources) {

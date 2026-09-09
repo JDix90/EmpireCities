@@ -202,6 +202,50 @@ export function getSpaceProgramProgress(
   };
 }
 
+/** Lane id, matching the backend's `orbitLaneId` ordering. */
+function orbitLaneId(a: string, b: string): string {
+  return a < b ? `${a}::${b}` : `${b}::${a}`;
+}
+
+/**
+ * Client mirror of the backend `fortifyTraversalFilter`: may this player move
+ * troops across this connection right now?
+ *
+ * Only orbit lanes are ever refused, and for the two reasons the server refuses
+ * them — no orbit access, or the lane is sealed against the player. Everything
+ * else passes, so interior movement on either world is untouched.
+ *
+ * This exists because the fortify BFS stopped walking orbit lanes freely: the
+ * server now refuses a lane the player cannot cross even when the fortify's own
+ * endpoints are ordinary land tiles, so a client BFS that still walks them
+ * reports Moon tiles as reachable to a player who has no Launch Pad.
+ *
+ * Advisory, like everything else here — the server remains the authority.
+ */
+export function fortifyTraversalFilter(
+  mapData: FrontendMapData | null | undefined,
+  gameState: GameState | null,
+  playerId: string | null | undefined,
+  era: string,
+): (conn: { from: string; to: string; type?: string }) => boolean {
+  if (resolveOrbitAccessMode(mapData, era) === 'none' || !gameState || !playerId) {
+    return () => true;
+  }
+  const access = getOrbitAccessResult(mapData, gameState, playerId, era);
+  const sealsOn = gameState.settings?.lanes_contestable_enabled === true;
+  const blockades = gameState.lane_blockades ?? {};
+  return (conn) => {
+    if (conn.type !== 'orbit') return true;
+    if (!access.allowed) return false;
+    if (!sealsOn) return true;
+    // Mirrors isLaneSealedForPlayer: an expired or absent seal blocks nobody,
+    // and the player who set it can still cross their own.
+    const seal = blockades[orbitLaneId(conn.from, conn.to)];
+    const sealed = !!seal && seal.turns_remaining > 0 && seal.owner_id !== playerId;
+    return !sealed;
+  };
+}
+
 export function getOrbitAccessResult(
   mapData: FrontendMapData | null | undefined,
   gameState: GameState | null,
