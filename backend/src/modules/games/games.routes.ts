@@ -41,7 +41,7 @@ const TutorialStartSchema = z.object({
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence']);
+const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence', 'lunar_hegemony']);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -152,11 +152,19 @@ export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
 export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
 export function applyOrbitGatedVictoryDefaults<
   T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
->(settings: T, opts: { isOrbitGated: boolean; callerChoseVictory: boolean }): T {
+>(
+  settings: T,
+  opts: { isOrbitGated: boolean; callerChoseVictory: boolean; lunarHegemony?: boolean },
+): T {
   if (!opts.isOrbitGated) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
-    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), 'threshold' as VictoryType])];
+    const defaults: VictoryType[] = ['threshold'];
+    // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route, so
+    // a create that expressed no preference gets it alongside threshold. An
+    // explicit lobby choice still wins — this only fills a blank.
+    if (opts.lunarHegemony) defaults.push('lunar_hegemony');
+    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...defaults])];
     if (typeof out.victory_threshold !== 'number') out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
   }
   if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
@@ -230,11 +238,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
           space_age_moon_helium3_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHelium3Enabled : undefined,
           space_age_moon_gated_tier_enabled: isSpaceAge ? featureFlags.spaceAgeMoonGatedTierEnabled : undefined,
+          space_age_moon_hegemony_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHegemonyEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
+          lunarHegemony: isSpaceAge && featureFlags.spaceAgeMoonHegemonyEnabled,
         },
       ),
     );

@@ -11,6 +11,7 @@ import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettin
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
 import { applyHelium3Income } from './helium3';
+import { hasCompletedHegemony, tickLunarHegemony } from './lunarHegemony';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
@@ -664,6 +665,13 @@ export function calculateContinentBonuses(
  * Skips eliminated players and wraps around.
  */
 export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
+  // Lunar Hegemony (Phase 3): the outgoing player's turn is ending, which is
+  // exactly when "hold the whole Moon at the end of your turn" is judged.
+  // `checkVictory` reads the completed clock; the callers all run it right
+  // after this returns.
+  const outgoing = state.players[state.current_player_index]?.player_id ?? null;
+  tickLunarHegemony(state, outgoing);
+
   const total = state.players.length;
   let next = (state.current_player_index + 1) % total;
   let attempts = 0;
@@ -673,6 +681,12 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   }
   if (next <= state.current_player_index) {
     state.turn_number++;
+
+    // Round-end sweep for the Hegemony clock. The end-of-turn tick above only
+    // sees the board as the holder left it; an event card that flips a lunar
+    // tile between turns has to break the clock too, and this is the one place
+    // that runs after everybody has acted.
+    tickLunarHegemony(state, null);
 
     // Galaxy: lift expiring hyperspace-lane seals once per round.
     tickLaneBlockades(state);
@@ -1049,6 +1063,14 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
     ) {
       const need = Math.ceil(totalTerritories * (settings.victory_threshold / 100));
       if (player.territory_count >= need) condition = 'threshold';
+    }
+
+    // Lunar Hegemony (Space Age Moon Race, Phase 3): the clock is advanced at
+    // end of turn by `tickLunarHegemony`; this only reads whether it has run
+    // out. Placed with the other alternates — `last_standing` still pre-empts
+    // it, which is fine: a hegemon who also cleared Earth has won either way.
+    if (condition == null && allowed.includes('lunar_hegemony')) {
+      if (hasCompletedHegemony(state, player.player_id)) condition = 'lunar_hegemony';
     }
 
     if (condition == null && allowed.includes('capital')) {

@@ -85,7 +85,7 @@ export interface GameOverModalData {
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory. */
@@ -1222,6 +1222,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'secret_mission':  return 'Secret Mission completed';
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
       case 'abandoned':       return 'Game ended — no human players remained';
+      case 'lunar_hegemony':  return 'Lunar Hegemony — the whole Moon held, turn after turn';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
       case 'resignation':     return 'Resignation — the last commander conceded the field';
       case 'humans_eliminated': return 'No Commanders Remain — every human player was eliminated';

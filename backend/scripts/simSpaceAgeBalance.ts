@@ -74,6 +74,7 @@ import {
   shouldAiExportHelium3,
 } from '../src/game-engine/ai/aiMoonPowers';
 import { resolveDropAssaultsFor } from '../src/game-engine/abilities/dropAssault';
+import { HEGEMONY_TURNS } from '../src/game-engine/state/lunarHegemony';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -116,6 +117,15 @@ const MOON_TIER = process.env.SIM_MOON_TIER === '1';
  * separates them in a real game.
  */
 const DROP_ASSAULT = process.env.SIM_DROP_ASSAULT !== '0';
+/**
+ * Moon Race Phase 3: the Lunar Hegemony victory, its clock, and the contest
+ * rule. Independent of Phases 1 and 2 — it prices nothing in He-3 — so it can
+ * be measured alone or stacked on the tier.
+ */
+const MOON_HEGEMONY = process.env.SIM_MOON_HEGEMONY === '1';
+/** §9's clock-length sweep (4-8). Unset leaves the engine default of 6. */
+const HEGEMONY_TURNS_OVERRIDE = process.env.SIM_HEGEMONY_TURNS
+  ? Number(process.env.SIM_HEGEMONY_TURNS) : null;
 /** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
 const FACTIONS = process.env.SIM_FACTIONS === '1';
 const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
@@ -154,7 +164,14 @@ function simSettings(): GameSettings {
     space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
     space_age_moon_helium3_enabled: MOON_HELIUM3 || MOON_TIER,
     space_age_moon_gated_tier_enabled: MOON_TIER,
-    allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
+    space_age_moon_hegemony_enabled: MOON_HEGEMONY,
+    space_age_hegemony_turns: HEGEMONY_TURNS_OVERRIDE ?? undefined,
+    // Phase 3 adds a third decisive route, mirroring applyOrbitGatedVictoryDefaults.
+    allowed_victory_conditions: [
+      'domination',
+      ...(THRESHOLD != null ? ['threshold' as const] : []),
+      ...(MOON_HEGEMONY ? ['lunar_hegemony' as const] : []),
+    ],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
     max_turns: MAX_TURNS,
@@ -477,6 +494,11 @@ interface GameStat {
   anyThreeMoonTiles: boolean;
   /** The player who peaked highest on the Moon, and whether they won. */
   moonPeakLeaderWon: boolean;
+  /** Phase 3: Hegemony clocks started, and how many of them were broken. */
+  hegemonyClocksStarted: number;
+  hegemonyClocksReset: number;
+  /** Longest a clock ever ran in this game, in own-turns. */
+  hegemonyPeakTurns: number;
   winnerMoonTilesEnd: number;
   loserAvgMoonTilesEnd: number;
   moonLeader: string | null; // strict leader in moon tiles at end (>0)
@@ -578,6 +600,16 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
    */
   let everSharedMoon = false;
 
+  /**
+   * Phase 3's gate is about whether the clock is CONTESTED, so starts and
+   * breaks are counted as they happen. Read off the state around each turn
+   * boundary rather than returned from the engine, because the tick lives
+   * inside `advanceToNextPlayer` where the sim has no return value to read.
+   */
+  let hegemonyClocksStarted = 0;
+  let hegemonyClocksReset = 0;
+  let hegemonyPeakTurns = 0;
+
   let guard = 0;
   while (state.phase !== 'game_over' && guard < (MAX_TURNS + 2) * PLAYERS + 5) {
     guard++;
@@ -585,7 +617,19 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     if (!player.is_eliminated) {
       playAiTurn(state, map, sims.get(player.player_id)!, DIFFICULTY, dieRoll);
     }
+    const clockBefore = state.lunar_hegemony
+      ? { ...state.lunar_hegemony } : null;
     advanceToNextPlayer(state, map);
+    const clockAfter = state.lunar_hegemony;
+    if (!clockBefore && clockAfter) hegemonyClocksStarted++;
+    if (clockBefore && (!clockAfter
+      || clockAfter.owner_id !== clockBefore.owner_id
+      || clockAfter.turns_held < clockBefore.turns_held)) {
+      hegemonyClocksReset++;
+      // A takeover is both: the old clock broke and a new one started.
+      if (clockAfter && clockAfter.owner_id !== clockBefore.owner_id) hegemonyClocksStarted++;
+    }
+    if (clockAfter) hegemonyPeakTurns = Math.max(hegemonyPeakTurns, clockAfter.turns_held);
 
     if (!t10Captured && state.turn_number >= 10) {
       t10Captured = true;
@@ -674,6 +718,9 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     // The §4.5 denominator: a tier nobody could reach tells us nothing about
     // whether the tier is used, so usage is scored over these games only.
     anyThreeMoonTiles: simList.some((s) => s.peakMoonTiles >= 3),
+    hegemonyClocksStarted,
+    hegemonyClocksReset,
+    hegemonyPeakTurns,
     moonPeakLeaderWon: (() => {
       const peak = new Map(simList.map((s) => [s.pid, s.peakMoonTiles]));
       const leader = strictMaxKey(new Map([...peak].filter(([, v]) => v > 0)));
@@ -799,6 +846,17 @@ function main(): void {
     console.log(`Of those declared: landed ${pct(landed, declared)} · cancelled ${pct(stats.reduce((a, s) => a + s.dropAssaultsCancelled, 0), declared)}`);
     console.log(`Of those landed: took the tile ${pct(captured, landed)}`);
     console.log(`Cancelled because the declarer took it anyway: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledSelfTook, 0)} · lost the Moon: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledNoFoothold, 0)} · other: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledOther, 0)}`);
+  }
+
+  if (MOON_HEGEMONY) {
+    const started = stats.reduce((a, s) => a + s.hegemonyClocksStarted, 0);
+    const reset = stats.reduce((a, s) => a + s.hegemonyClocksReset, 0);
+    const won = stats.filter((s) => s.victory === 'lunar_hegemony').length;
+    console.log(`\n— Lunar Hegemony (Moon Race, Phase 3) —`);
+    console.log(`Games won by Hegemony:                       ${pct(won, GAMES)}  (gate: 10-35%)`);
+    console.log(`Games where a clock started:                 ${pct(stats.filter((s) => s.hegemonyClocksStarted > 0).length, GAMES)}`);
+    console.log(`Clocks started / broken:                     ${started} / ${reset}  (gate: >=50% broken)`);
+    console.log(`Avg longest clock per game (of ${HEGEMONY_TURNS_OVERRIDE ?? HEGEMONY_TURNS}):        ${fmt(avg(stats.map((s) => s.hegemonyPeakTurns)), 2)}`);
   }
 
   console.log(`\n— Does the Moon correlate with winning? —`);

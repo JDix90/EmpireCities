@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phases 0, 1, 2a and 2b done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phases 0, 1, 2a, 2b and 3 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -54,7 +54,7 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 | 1 ✅ | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` (dark) | `PlayerState.helium3`, income tick, one draft ability |
 | 2a ✅ | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** (reinforcement) | `space_age_moon_gated_tier_enabled` (dark) | `requiresMoonTiles` / `helium3Cost` on the ability descriptor |
 | 2b ✅ | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
-| 3 | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` | new `VictoryType`, clock state, `contest` access mode |
+| 3 ✅ | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` (dark) | new `VictoryType`, clock state, `contest` access mode |
 | 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
 | 5 | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` | two `SecretMission` kinds + generator branch |
 | knob | Tribute | Tech-point tithe on Earth-only players | `space_age_moon_tribute_enabled` (**default OFF**) | income-tick transfer |
@@ -355,9 +355,36 @@ Discovery cost stays four techs and two builds. Contest cost becomes two techs (
 
 Pursue Hegemony when holding ≥6 Moon tiles and the nearest rival Moon presence is ≤2 tiles. Hold: when the clock is running, weight Moon-tile defence above Earth expansion. Break: every other AI, when a rival's clock is ≤3, prioritises (in order) attacking a lane-adjacent Moon tile, building a Launch Pad if it lacks one, researching `sa_launch_pad_tech` if it lacks that.
 
-### 5.6 Gate to Phase 4
+### 5.6 Gate to Phase 4 — measured 2026-09-09
 
 Hegemony fires in **10–35%** of games (below 10 it is decorative; above 35 it dominates); **≥50% of started clocks are reset at least once** (it is being contested); decisive rate up versus Phase 0 control; `turn_limit` share down.
+
+**Measured on the FIXED harness** (see the correction box in §2.2), 5 replicates × 60 games per arm. §10.2 ships the whole Moon Race behind one toggle, so the arm that matters is Phase 3 stacked on the tier:
+
+| | tier only | **+ Hegemony, clock 6** | **clock 7** | **clock 8** |
+|---|---|---|---|---|
+| Games won by Hegemony | — | 15.0 [8–20] | **10.7** [5–17] | 9.7 [7–13] |
+| Clocks broken | — | 68% | **77%** | 76% |
+| Moon-tile leader won | 54.2 | 59.6 [52–**69**] | **51.6** [41–65] | 53.1 [50–58] |
+| Decisive endings | 65.0 | 71.7 | **78.3** [73–83] | 71.3 |
+| Games with 2+ on the Moon | 82.7 | 91.3 | 90.7 | 88.7 |
+| Game length | 67.6 | 63.7 | **62.2** | 65.6 |
+
+**Passes, and the clock ships at 7 rather than the 6 §5.1 specified.** Six put the Moon-holder win share at 59.6% against §4.5's own 60% ceiling, with a replicate at 69%. Seven pulls it to 51.6% — *below* the tier-only control — while making games more decisive (78.3%, the highest of any arm measured in this package) and shorter. The extra turn is one more chance for a rival to go and break the clock, and 77% of clocks are broken rather than run out.
+
+Three readings worth carrying forward:
+
+- **The contest rule is what makes this work, and it shows up in the numbers.** Games with two or more players on the Moon rise from 82.7% to 90.7%, because a rival needs only Launch Pad tech and a pad to join once anybody has landed. The Hegemony is not first-to-Moon-wins: it is a clock that everyone can see and reach.
+- **Adding a third decisive route made the era MORE decisive, not less.** 65.0% → 78.3%. A Moon victory that mostly fails still ends games, because breaking a clock means fighting on the Moon and losing tiles on Earth.
+- **Phase 3 alone is under-tuned at any clock this package ships.** Without the tier's Moon pressure it fires in 7.3% of games at clock 6 and 13.0% at clock 5 — so a Phase-3-only cohort wants `space_age_hegemony_turns: 5`. The flags are independent, so this is a real configuration, just not the one §10.2 describes.
+
+### 5.7 What Phase 3 actually shipped, versus this design
+
+- **Clock length is a per-game setting, not a constant.** §9 calls it a tunable and §5.4 asks for a Pioneers variant, so `space_age_hegemony_turns` rides in `GameSettings` (default 7). That is what let the sweep above happen at all, and it means a live cohort can be retuned without a deploy.
+- **The AI's break behaviour needed one new rule, not three.** §5.5 asks bots to break a clock by attacking a lunar tile, building a Launch Pad, and researching Launch Pad tech. The last two already existed — `selectAiBuildingPlacement` builds a pad on sight in the Space Age, and the lunar-ladder research hook buys the tech early — so only the attack weight was added, in `attackObjectiveBonus` beside the capital and secret-mission bonuses.
+- **That weight is conditional, deliberately.** Phase 1 measured a *standing* preference for lunar targets in this same function and it halved decisive endings (§3.6). This one fires only when a rival's clock is within three turns of completing, which is when the sideshow IS the game.
+- **`HEGEMONY_TURNS_PIONEERS` was not needed yet.** §5.4 makes the Pioneers variant conditional on them completing Hegemony at more than 1.5× the faction mean. The gate runs above are factions-off, so the measurement that would justify it has not been taken; the setting that would carry it now exists.
+
 
 ---
 
@@ -444,7 +471,7 @@ All initial values; every one is expected to move after the phase's sim run.
 | Orbital Drop He-3 cost (2a / 2b) | 8 / 10 | 2 | 6–14 |
 | Orbital Drop Moon tiles | 3 | 2 | 2–5 |
 | Drop Assault cooldown | 3 own-turns | 2 | 2–5 |
-| `HEGEMONY_TURNS` | 6 | 3 | 4–8 |
+| `HEGEMONY_TURNS` | **7** (was 6; §5.6 swept 5–8) | 3 | 4–8 |
 | `HEGEMONY_TURNS_PIONEERS` | +2 | 3 | +0 to +3 |
 | Seal He-3 cost | 3 | 4 | 2–5 |
 | `SPACE_AGE_LANE_SEAL_DURATION` | 2 | 4 | 1–3 |
