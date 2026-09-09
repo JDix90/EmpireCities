@@ -16,6 +16,6 @@ export const ERA_WONDERS: Record<string, EraWonderMeta> = {
   modern:       { wonder_id: 'wonder_cern',         name: 'CERN',               description: 'Tech upgrades cost half',                   cost: 22 },
   acw:          { wonder_id: 'wonder_arsenal',      name: 'The Great Arsenal',  description: '+3 flat units to reinforce per turn',       cost: 18 },
   risorgimento: { wonder_id: 'wonder_unification',  name: 'Unification Monument', description: 'Influence range +2',                    cost: 20 },
-  space_age:    { wonder_id: 'wonder_space_elevator', name: 'Space Elevator',     description: 'Grants Moon access without a Space Station launch', cost: 25 },
+  space_age:    { wonder_id: 'wonder_space_elevator', name: 'Space Elevator',     description: 'Skips the Space Station launch — still needs Lunar Expansion + a Launch Pad', cost: 25 },
   galaxy_age:   { wonder_id: 'wonder_hyperlane_anchor', name: 'Hyperlane Anchor', description: 'Skips Hyperspace Chart requirement for inter-world travel', cost: 22 },
 };

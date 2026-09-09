@@ -66,8 +66,11 @@ export default function SpaceProgramTracker({
 
         {progress.strandedWithoutPad && (
           <p className="mt-1.5 text-[11px] text-amber-300/90">
-            Your Launch Pad is gone. You keep your Moon territories and can still fight and
-            reinforce there, but you cannot cross a lane until you build another.
+            {progress.everHadPad
+              ? `Your Launch Pad is gone. You keep your Moon territories and can still fight and
+                 reinforce there, but you cannot cross a lane until you build another.`
+              : `The Space Elevator replaces the Space Station launch, not the Launch Pad —
+                 you still need a pad on a territory you own before you can cross a lane.`}
           </p>
         )}
 

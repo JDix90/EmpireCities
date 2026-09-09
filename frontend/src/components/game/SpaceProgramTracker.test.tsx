@@ -97,6 +97,37 @@ describe('SpaceProgramTracker', () => {
     expect(screen.getByText(/You keep your Moon territories/)).toBeInTheDocument();
   });
 
+  it('tells an Elevator builder with no pad that the wonder did not replace it', () => {
+    // A mobile tester built the Space Elevator, read its old description as
+    // "grants Moon access", and was still locked out. The wonder replaces the
+    // Space Station LAUNCH, not the Launch Pad — and the stranded banner used
+    // to say the pad was "gone", which is wrong for someone who never had one.
+    const s = state(
+      { unlocked_techs: ['sa_lunar_expansion'] },
+      { la_pampas: { territory_id: 'la_pampas', owner_id: 'p1', unit_count: 3, buildings: ['wonder_space_elevator'] } },
+    );
+    render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
+    expect(screen.getByText(/you still need a pad/)).toBeInTheDocument();
+    expect(screen.queryByText(/Launch Pad is gone/)).not.toBeInTheDocument();
+    // And the ladder still names the missing rung.
+    expect(screen.getByText('Build a Launch Pad')).toBeInTheDocument();
+  });
+
+  it('still says the pad is gone for someone who launched and then lost it', () => {
+    const s = state({ unlocked_techs: ['sa_lunar_expansion'], space_station_launched: true });
+    render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
+    expect(screen.getByText(/Launch Pad is gone/)).toBeInTheDocument();
+  });
+
+  it('unlocks with the Elevator once a pad is up, without any launch', () => {
+    const s = state(
+      { unlocked_techs: ['sa_lunar_expansion'] },
+      { la_pampas: { territory_id: 'la_pampas', owner_id: 'p1', unit_count: 3, buildings: ['wonder_space_elevator', 'launch_pad'] } },
+    );
+    render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
+    expect(screen.getByText(/Moon access unlocked/)).toBeInTheDocument();
+  });
+
   it('gives Lunar Pioneers their own line rather than a ladder', () => {
     const s = state({ faction_id: 'lunar_pioneers', space_station_launched: true });
     render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
