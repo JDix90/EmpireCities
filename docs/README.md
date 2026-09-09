@@ -38,6 +38,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [CODEBASE_STATUS.md](CODEBASE_STATUS.md) | Already-implemented-features checklist | point-in-time |
 | [AUDIT_BACKLOG.md](AUDIT_BACKLOG.md) | Security/code audit tracking | point-in-time |
 | [LAUNCH_PLAN_PHASES_1_2.md](LAUNCH_PLAN_PHASES_1_2.md) | Release phase planning | design-archive |
+| [space-age-moon/README.md](space-age-moon/README.md) | Space Age Moon Race: phased, flag-gated design package (He-3 economy, gated tier, Lunar Hegemony, blockade, missions) | design-archive |
 | [LAUNCH_QA_ROADMAP.md](LAUNCH_QA_ROADMAP.md) | QA automation roadmap | design-archive |
 | [MOBILE_UX_PLAN.md](MOBILE_UX_PLAN.md) / [MOBILE_UX_REQUIREMENTS.md](MOBILE_UX_REQUIREMENTS.md) | Mobile UX strategy/requirements | design-archive |
 | [BRAND_COMPETITIVE_ANALYSIS.md](BRAND_COMPETITIVE_ANALYSIS.md) | Positioning & market analysis | design-archive |
