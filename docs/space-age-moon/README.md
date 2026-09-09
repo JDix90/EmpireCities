@@ -1,0 +1,382 @@
+# Space Age — The Moon Race: Design Package
+
+**Status: design-archive → proposed.** Nothing in this document is implemented. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+
+Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
+
+---
+
+## 0. Why
+
+### 0.1 What the Moon is today
+
+| | |
+|---|---|
+| Tiles | 9, region `lunar_surface`, bonus **+6** |
+| Access | `sa_lunar_expansion` **+** a `launch_pad` **+** (`space_station_launched` **or** `wonder_space_elevator`) — or the Lunar Pioneers faction from turn one |
+| Ladder | `sa_orbital_recon → sa_launch_pad_tech → sa_space_station → sa_lunar_expansion`: four techs, two builds |
+| Lanes | three authored orbit lanes from Earth anchors (`na_launch_base`, `euro_spaceport`, `asia_cosmodrome`) plus a lane from every Launch Pad to its nearest landing zone |
+| Reward | the +6 region bonus, and nine tiles that threaten nobody |
+
+Meanwhile the era's most dramatic powers — `dyson_beam` (a global 4-unit strike), `swarm_strike`, `sa_singularity_war` — sit on the **Earth** side of the tree. A rational player ignores the Moon.
+
+### 0.2 What the sims already told us
+
+`games.routes.ts:146` records the measurement that led to the current defaults: *Space Age ~93% of medium games hit the 80-turn cap and domination never fired in 120 games.* The response was `applyOrbitGatedVictoryDefaults`: a **60% threshold** win plus a **90-turn** leader-wins backstop.
+
+Two corrections that matter for this design:
+
+- **"Domination never fired" is not a Moon finding.** `checkVictory` returns `last_standing` unconditionally at line 986 the moment one player remains, and elimination is immediate on losing a last tile (`executeLandAttack.ts:207`). Holding every tile implies every rival is already eliminated, so `domination` can never be the reported condition on *any* map. It was never diagnostic.
+- **The shipped configuration has not been measured.** `simSpaceAgeBalance.ts` defaults to `SIM_MAX_TURNS=80` with no threshold — the pre-fix ruleset. The 93% figure describes a game nobody plays any more. Phase 0 fixes that before anything is built on top of it.
+
+### 0.3 What is actually wrong
+
+The Moon is expensive to reach, contributes nothing to winning that Earth doesn't contribute better, and — the structural flaw — **the cost to contest it equals the cost to reach it**. Once one player lands, every rival still needs the full ladder to dislodge them. That is what makes any Moon-based reward risk becoming *first-to-Moon-wins*.
+
+### 0.4 Design principles
+
+Every phase below is held to these; where a rule exists only to satisfy one of them, it says so.
+
+1. **Contestable.** The cost to *contest* an occupied Moon must be lower than the cost to *discover* it.
+2. **Partial rewards.** The Moon must matter at 3 tiles, not only at 9. Two players on the Moon is a live state, not a failure state.
+3. **Cost the abstainers.** The strongest incentive is not a bigger prize for the winner; it is making it expensive to ignore. This is what Tribute is for, and why it is a knob rather than a default.
+4. **Legible.** Counters and countdowns on the HUD. The Moon inset (now minimizable, #266) should earn its screen space by mid-game.
+5. **The AI must be able to play it.** A Moon design shipped into a game where bots never contest the Moon hands every human Moon-rusher an uncontested win. See Phase 0.
+6. **One knob per PR, dark-launched.** Every phase is a flag in `FLAG_CODE_DEFAULTS`, baked into `GameSettings` at create so the engine stays pure and a flip never re-rules a match in progress — the `space_age_frontiers_enabled` pattern — with its kill switch visible in Admin → Config once promoted.
+
+---
+
+## 1. Package overview
+
+| Phase | Name | Delivers | Flag | New engine surface |
+|---|---|---|---|---|
+| 0 | Prerequisites | AI can reach the Moon in production; baseline measured on the shipped ruleset; sim knobs | — | none (bug fix + harness) |
+| 1 | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` | `PlayerState.helium3`, income tick, one draft ability |
+| 2 | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** | `space_age_moon_gated_tier_enabled` | ability gate + cost fields; drop resolution |
+| 3 | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` | new `VictoryType`, clock state, `contest` access mode |
+| 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
+| 5 | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` | two `SecretMission` kinds + generator branch |
+| knob | Tribute | Tech-point tithe on Earth-only players | `space_age_moon_tribute_enabled` (**default OFF**) | income-tick transfer |
+
+**Player-facing surface:** one lobby toggle, **Moon Race**, which enables whichever phases have shipped. The per-phase flags are operator kill switches, not player choices — six checkboxes in a lobby would be the wrong product.
+
+**Order is load-bearing.** Phase 1 without 2 is a resource with one sink; Phase 3 without 1 is a hold-the-Moon race with no reason to hold three tiles; Phase 4 without 3 is a defensive tool with nothing to defend. Phase 5 is independent and can land any time after 1.
+
+---
+
+## 2. Phase 0 — Prerequisites
+
+### 2.1 Fix the AI's Moon launch in production
+
+`simSpaceAgeBalance.ts` documents it plainly: the AI's *Launch Space Station* step exists only in the socket layer (`gameSocket.ts` `processAiTurn`, ~line 5010), runs **after** `state.phase = 'attack'`, and `executeTechAbility` rejects `launch_space_station` outside the draft phase (`techAbilities.ts` declares it `phase: 'draft'`). So in production the AI launch appears to **always fail**, and bots never reach the Moon. The sim schedules it in draft as intended, which is why sim AIs reach the Moon and production AIs don't.
+
+**Change:** move the AI launch step into the draft-phase block of `processAiTurn`. **Prove it** with a socket test that a medium AI with the ladder complete launches on its next draft phase, and with `SIM_LAUNCH_PHASE=attack` versus `draft` showing the gap closes.
+
+This is not optional and not a follow-up. Everything below is designed on the assumption that bots contest the Moon.
+
+### 2.2 Measure the shipped ruleset
+
+Run `simSpaceAgeBalance.ts` three ways, 60 games each, `SIM_SEED` fixed:
+
+| Run | Knobs | Answers |
+|---|---|---|
+| Baseline | defaults (`SIM_MAX_TURNS=80`, no threshold) | reproduces ~93%? harness still behaves as documented |
+| **Shipped** | `SIM_THRESHOLD=60 SIM_MAX_TURNS=90` | did the threshold fix land? |
+| Shipped + factions | `SIM_FACTIONS=1` added | Lunar Pioneers' share under the real rules |
+
+Report per run: condition split (`threshold` / `last_standing` / `turn_limit`), game-length histogram, median first-landing turn, and whether the `turn_limit` winner was already leading at turn 40 — which separates *the cap truncated a live contest* from *the cap rubber-stamped a decided game*.
+
+These numbers are the **control group** for every phase gate below.
+
+### 2.3 Harness
+
+Add to `simSpaceAgeBalance.ts`: `SIM_MOON_HELIUM3`, `SIM_MOON_TIER`, `SIM_MOON_HEGEMONY`, `SIM_MOON_BLOCKADE`, `SIM_MOON_MISSIONS`, `SIM_MOON_TRIBUTE` (each `=1` sets the corresponding game setting), `SIM_HEGEMONY_TURNS` (the clock length). Add to the report: He-3 income per player per game, games with ≥2 players holding Moon tiles, Hegemony clocks started / reset / completed, seals placed, drops fired. Extend the CSV.
+
+---
+
+## 3. Phase 1 — The Helium-3 economy
+
+### 3.1 The resource
+
+`PlayerState.helium3?: number`. A **new field**, not `special_resource` — that one is era-advancement gold (`advanceEra.ts:113`) and reusing it would let a Moon-holder buy era advances with lunar income.
+
+### 3.2 Income
+
+At the owner's income tick, each owned `lunar_surface` tile yields He-3:
+
+| Tile | He-3 / turn | Why |
+|---|---|---|
+| `moon_polar_north`, `moon_polar_south` | **2** | Polar ice — and they are the hubs: North Polar Basin touches three tiles. Making the poles the prize creates a natural fight inside the Moon rather than a sweep |
+| every other Moon tile | **1** | |
+
+Full Moon = **11 He-3/turn**. Stockpile cap **30** (a hoard past that is a runaway waiting to happen; the cap also bounds AI planning). Both numbers are tunables; see §9.
+
+### 3.3 The Phase 1 sink — Lunar Export
+
+Phase 1 must be worth something on its own or it is dead until Phase 2 ships. The cheapest sink using existing machinery:
+
+**`lunar_export`** — draft-phase ability (`techAbilities.ts` descriptor: `scope: 'turn', phase: 'draft'`), converts up to **5 He-3 → 5 tech points** per turn, 1:1. Requires ≥1 Moon tile. This makes three Moon tiles equal to a `sa_fusion_power` worth of tech income, which is the partial reward in one number.
+
+Once Phase 2 ships, players face a real choice — export for tech, or bank for the drop — which is the point.
+
+### 3.4 Region bonus
+
+`lunar_surface` keeps **+6** for full control. It is now the least interesting Moon reward, which is correct.
+
+### 3.5 Lunar Pioneers
+
+They start with Moon access and +2 defence dice there (`spaceage.ts:79`). He-3 makes their opening stronger. **Do not pre-nerf**; Phase 0's factions run gives the baseline, and Phase 1's gate (§3.7) has an explicit Pioneers criterion.
+
+### 3.6 AI
+
+`aiBot.ts` already runs the Moon ladder (`aiTechBudget`, `aiFrontierExpansion`). Add: score a Moon tile's He-3 yield as production-equivalent in territory valuation, weight the poles by their yield, and use `lunar_export` whenever He-3 ≥ 5 and no Phase 2 sink is affordable.
+
+### 3.7 UI
+
+HUD resource strip gains an **He-3** counter next to tech points, shown only in Space Age games with the flag on. Moon inset badge shows the player's Moon tile count. Territory panel on a Moon tile shows its yield.
+
+### 3.8 Gate to Phase 2
+
+Versus the Phase 0 control: median first-landing turn drops; **≥40% of games have ≥2 players holding Moon tiles at some point**; Lunar Pioneers' win share within **±8 points** of the faction mean; decisive rate not worse.
+
+---
+
+## 4. Phase 2 — The gated tier
+
+### 4.1 Move `dyson_beam` behind the Moon
+
+Today `sa_dyson_array` (tier 4, prereq `sa_quantum_grid`, cost 26) grants +8 TP/turn **and** unlocks `dyson_beam` — `{ scope: 'turn', phase: 'attack', unitReduction: 4, minTargetUnits: 1 }`, no adjacency, i.e. already a global strike.
+
+**Change (ability, not tech):** `sa_dyson_array` keeps its tech income; the ability descriptor gains two fields:
+
+```ts
+dyson_beam: { ..., requiresMoonTiles: 1, helium3Cost: 6 }
+```
+
+The tech ladder is untouched, so an Earth-only player still gets the +8 TP — but the beam itself needs a foothold on the Moon and lunar fuel. Rationale for gating the ability rather than re-parenting the tech under `sa_lunar_expansion`: it keeps `sa_dyson_array` a sensible Earth pick and puts the *dramatic* thing, not the *economic* thing, on the Moon.
+
+Rename in the strike copy: "Dyson Beam" → keep the name; the lore is that the collector is on the Moon.
+
+### 4.2 Orbital Drop
+
+The fantasy: land a force anywhere on Earth. The danger: it collapses Earth geography. Two variants, shipped in order.
+
+**2a — Orbital Reinforcement (ships first).** Draft-phase ability using the existing `ownPlacement` descriptor:
+
+```ts
+orbital_drop: { label: 'Orbital Drop', scope: 'turn', phase: 'draft',
+                requiresMoonTiles: 3, helium3Cost: 8, ownPlacement: { units: 3, anyOwned: true } }
+```
+
+Place 3 units on **any territory you already own**, anywhere. This is a teleport reinforcement — strong, geography-bending, but it cannot take a tile by itself. `ownPlacement` already supports `requiresMoon`; `anyOwned` is the one new option (today's placements are adjacency-bound by the caller).
+
+**2b — Drop Assault (the target).** Attack-phase; spend **10 He-3** to land 3 units on an **enemy or neutral Earth territory** and resolve a normal attack from a virtual origin. **Telegraphed:** the drop is declared during the player's draft phase and lands at the *start of their next turn*, with a visible marker on the target for every player in between. The defender's counterplay is to reinforce the marked tile. Cooldown: `scope: 'game'`-style cooldown of **3 own-turns** (a new `cooldownTurns` descriptor field). Requires **≥3 Moon tiles** at declaration *and* at landing; losing the foothold cancels the drop and refunds nothing.
+
+This is the only genuinely new engine piece in the package: `executeLandAttack` takes a `fromId`; the drop needs a virtual origin whose units are the dropped stack. Specify it as a wrapper that materialises a transient source, calls the existing resolver so dice, modifiers, elimination and card draw all behave, then discards survivors that did not capture (they are lost — a failed drop is a real loss).
+
+**Why 2a first:** it ships the He-3 sink and the "anywhere on Earth" feel with zero new resolution code, and the sims then tell us whether 2b's geography collapse is a problem before it is built.
+
+### 4.3 Threshold bookkeeping
+
+`requiresMoonTiles` is checked at use time against live ownership, so a player who loses tiles mid-turn loses the ability mid-turn. That is intended: the Moon is a *position*, not a *credential*.
+
+### 4.4 AI
+
+Bank He-3 for `dyson_beam` when an enemy stack ≥ 6 units borders an owned tile; use `orbital_drop` (2a) to reinforce the weakest owned tile under threat when He-3 ≥ 8 and export would be wasted. 2b: drop-assault a tile that would complete a region bonus, when the AI holds ≥5 Moon tiles.
+
+### 4.5 Gate to Phase 3
+
+Beam and drop usage both non-zero in ≥60% of games where any player holds ≥3 Moon tiles; the Moon-holder's win share rises versus Phase 1 but stays **below 60%** in 4-player games (above that, the tier is a win button and costs go up before Phase 3 starts); games with ≥2 players on the Moon do not fall.
+
+---
+
+## 5. Phase 3 — Lunar Hegemony
+
+### 5.1 The victory
+
+A new `VictoryType`: **`lunar_hegemony`**. Hold **all 9** `lunar_surface` tiles at the end of your turn for **6 consecutive own-turns** (`HEGEMONY_TURNS`, tunable). The check is the existing `control_regions` semantics against `lunar_surface`, run at end of turn.
+
+Placement in `checkVictory`: inside the per-player loop after `threshold`, before `capital` — same precedence as the other alternates. `last_standing` still pre-empts, which is fine: a player who also cleared Earth has won either way.
+
+`applyOrbitGatedVictoryDefaults` adds `lunar_hegemony` to the default list alongside `threshold` when the flag is on and the caller chose no conditions. Explicit lobby choices still win.
+
+### 5.2 The clock
+
+```ts
+state.lunar_hegemony?: { owner_id: string; turns_held: number; started_turn: number }
+```
+
+- Starts when a player ends a turn holding 9/9.
+- Increments at the end of each of that player's own turns while 9/9 holds.
+- **Resets to zero the moment any Moon tile leaves the holder** — checked on capture (`onCapture` in `executeLandAttack`) and at end of every round, so an event card that flips a tile also resets it.
+- Cleared if the holder is eliminated.
+
+**Legibility (principle 4):** a HUD banner for every player — *"⟨name⟩ holds the Moon · Hegemony in N turns"* — and a countdown badge on the Moon inset. The threat has to be readable by the people who need to answer it. `buildChronicle.ts` gains a `lunar_hegemony` case: *"They held the Moon long enough that Earth stopped mattering."*
+
+### 5.3 The contest rule — "the race is over, the war begins"
+
+This is the rule that exists to satisfy principle 1, and the package fails without it.
+
+`getOrbitAccessResult` gains a mode, **`contest`**: when the flag is on **and any player holds ≥1 Moon tile**, every other player's Moon access requirement drops to **`sa_launch_pad_tech` + an owned `launch_pad`**. No Space Station, no Lunar Expansion. Their Launch Pad lane already reaches the nearest landing zone (`launchPadLaneConnections`).
+
+Discovery cost stays four techs and two builds. Contest cost becomes two techs (`sa_orbital_recon → sa_launch_pad_tech`) and one build. The first lander earns a head start, not a fortress.
+
+`formatOrbitAccessError` gets the matching copy: *"The Moon is contested — you need Launch Pad tech and a Launch Pad to join the fight."*
+
+### 5.4 Interactions
+
+- **Threshold-60 and turn cap:** both remain. Hegemony is a *third* decisive route, which is the whole reason it exists — it decouples the end-game from the 54-tile Earth grind. Clock length 6 against a 90-turn cap leaves room for two full attempts.
+- **Lunar Pioneers:** Moon access from turn one makes them the natural Hegemon. Tunable: `HEGEMONY_TURNS_PIONEERS = HEGEMONY_TURNS + 2`. Apply only if Phase 3 sims show Pioneers completing Hegemony at more than **1.5×** the faction mean.
+- **Blockade (Phase 4):** a Hegemon will seal lanes; the contest rule's Launch Pad lanes are deliberately unsealable (§6.3), so the clock can always be attacked.
+
+### 5.5 AI
+
+Pursue Hegemony when holding ≥6 Moon tiles and the nearest rival Moon presence is ≤2 tiles. Hold: when the clock is running, weight Moon-tile defence above Earth expansion. Break: every other AI, when a rival's clock is ≤3, prioritises (in order) attacking a lane-adjacent Moon tile, building a Launch Pad if it lacks one, researching `sa_launch_pad_tech` if it lacks that.
+
+### 5.6 Gate to Phase 4
+
+Hegemony fires in **10–35%** of games (below 10 it is decorative; above 35 it dominates); **≥50% of started clocks are reset at least once** (it is being contested); decisive rate up versus Phase 0 control; `turn_limit` share down.
+
+---
+
+## 6. Phase 4 — Orbital Blockade
+
+### 6.1 Reuse
+
+Everything needed exists for the Galactic Age: `state.lane_blockades`, `canSealLane`, `isLaneSealedForPlayer`, `tickLaneBlockades`, `GALAXY_LANE_SEAL_DURATION = 3`, and the `lanes_contestable_enabled` setting. Space Age is deliberately blocked from it at the create boundary (`games.routes.ts:200`, keyed on `isGalacticAge`).
+
+### 6.2 Changes
+
+1. **Create boundary:** allow `lanes_contestable_enabled` for Space Age when `space_age_moon_blockade_enabled` is on. The Moon Race lobby toggle sets it.
+2. **Cost:** sealing costs **3 He-3** in Space Age (Galaxy stays free). Ties defence to the economy; a Hegemon spending on seals is a Hegemon not spending on beams.
+3. **Duration:** `SPACE_AGE_LANE_SEAL_DURATION = 2` (Galaxy's 3 is tuned for a bigger board).
+4. **Endpoint ownership** (already required by `canSealLane`): from the Moon end, hold the landing-zone tile; from Earth, hold the anchor. Both are existing "endpoints".
+5. **Seal drops when the owner loses both endpoints.** New check in `tickLaneBlockades`; today a seal outlives its owner's presence.
+
+### 6.3 Which lanes — the deliberate exclusion
+
+`syncLaunchPadLanes` writes Launch Pad lanes into `map.connections` with `type: 'orbit'` and `source: 'launch_pad'`, so `isOrbitLane` **would** let them be sealed. **They must not be.** Add to `canSealLane`: in Space Age, only lanes with `source !== LAUNCH_PAD_LANE_SOURCE` — the three authored anchor lanes — are sealable.
+
+This is principle 1 applied to Phase 4: the anchors are the *convenient* routes and can be denied; the Launch Pad lanes are the *contest* route and stay open. A Hegemon can make you build a pad; a Hegemon cannot lock you out.
+
+### 6.4 Earth consequences
+
+Sealing an anchor lane makes the anchor tile itself strategic — capture `euro_spaceport` and the seal's Earth endpoint changes hands, dropping it under §6.2(5). There are now Earth fights *about* the Moon, which is the second-order effect the package wants.
+
+### 6.5 Gate
+
+Seals used in ≥40% of games with a running Hegemony clock; **Hegemony completion rate does not rise by more than 5 points** versus Phase 3 (if seals make the clock uncontestable, the exclusion in §6.3 is not doing its job and the anchor lanes need a shorter duration).
+
+---
+
+## 7. Phase 5 — Lunar missions
+
+### 7.1 Reuse first
+
+Two of the four wanted missions need **no new kinds**:
+
+| Mission | Existing kind |
+|---|---|
+| Hold both polar basins | `{ kind: 'capture_territories', territory_ids: ['moon_polar_north', 'moon_polar_south'] }` |
+| Control the whole Moon | `{ kind: 'control_regions', region_ids: ['lunar_surface'] }` |
+
+### 7.2 Two new kinds
+
+```ts
+| { kind: 'lunar_foothold'; tiles: number }              // hold ≥ tiles Moon territories (3 or 5)
+| { kind: 'lunar_denial'; target_player_id: string }     // you hold ≥1 Moon tile and target holds 0
+```
+
+`isMissionComplete` gains both cases. `lunar_denial` is the asymmetric one: it gives a player a reason to go to the Moon *against someone*, which spreads the table's Moon interest across different targets instead of one race.
+
+### 7.3 Generator
+
+`assignSecretMissions` (`victory/missions.ts`) gains a branch guarded exactly like the era-advancement branch — *gated so the RNG stream for non-Space-Age games is unchanged*: when the map is Space Age and the flag is on, a `roll < 0.30` slot picks uniformly from the four lunar missions (denial only when a valid target exists). The existing PR that stopped missions targeting unseeded frontiers already guarantees Moon tiles are seeded neutral and valid targets.
+
+### 7.4 Gate
+
+Independent of the others; ship when `isMissionComplete` tests pass and a 60-game `SIM_MOON_MISSIONS=1` run shows lunar missions completing at a rate within ±10 points of the existing mission mean.
+
+---
+
+## 8. The knob — Tribute (default OFF)
+
+`space_age_moon_tribute_enabled`. A player holding **≥6** Moon tiles levies **1 tech point per turn from each player holding 0 Moon tiles**, transferred at the tithe-payer's income tick, visible as a line item.
+
+This is principle 3 — cost the abstainers — and it is the most direct incentive in the package. It is a knob and not a default because it is also the most resented mechanic here: a player who chose an Earth strategy is being taxed for it. **Turn it on only if** the Phase 3 gate shows games with ≥2 players on the Moon falling *below* the Phase 1 number — i.e. the table has learned to let one player have the Moon. If that never happens, this never ships.
+
+---
+
+## 9. Tunables
+
+All initial values; every one is expected to move after the phase's sim run.
+
+| Name | Initial | Phase | Bounds worth trying |
+|---|---|---|---|
+| He-3 per ordinary tile | 1 | 1 | 1–2 |
+| He-3 per polar basin | 2 | 1 | 2–3 |
+| He-3 stockpile cap | 30 | 1 | 20–40 |
+| Lunar Export per turn | 5 | 1 | 3–6 |
+| `dyson_beam` He-3 cost | 6 | 2 | 4–10 |
+| `dyson_beam` Moon tiles | 1 | 2 | 1–3 |
+| Orbital Drop He-3 cost (2a / 2b) | 8 / 10 | 2 | 6–14 |
+| Orbital Drop Moon tiles | 3 | 2 | 2–5 |
+| Drop Assault cooldown | 3 own-turns | 2 | 2–5 |
+| `HEGEMONY_TURNS` | 6 | 3 | 4–8 |
+| `HEGEMONY_TURNS_PIONEERS` | +2 | 3 | +0 to +3 |
+| Seal He-3 cost | 3 | 4 | 2–5 |
+| `SPACE_AGE_LANE_SEAL_DURATION` | 2 | 4 | 1–3 |
+| Lunar mission roll weight | 0.30 | 5 | 0.2–0.4 |
+| Tribute threshold / amount | 6 tiles / 1 TP | knob | 5–7 / 1–2 |
+
+---
+
+## 10. Flags, settings, and rollout
+
+### 10.1 Per phase
+
+Each phase adds, following the `space_age_frontiers_enabled` pattern:
+
+- an entry in `FLAG_CODE_DEFAULTS` (`backend/src/config/featureFlags.ts`), **`envOptIn` while dark**, promoted to `envOptOut` once the phase gate passes on staging;
+- a getter on the flags object;
+- **baked into `GameSettings` at create** (`games.routes.ts`), so the engine reads the setting and stays pure, and a flip never changes a match in progress;
+- an Admin → Config kill switch (`CLIENT_FEATURE_FLAGS` in `AdminPage.tsx`) — every flag that defaults ON needs it visible;
+- a sim knob (§2.3).
+
+Backend-only flags stay out of `getClientFeatureFlags()`; the client reads the baked game setting.
+
+### 10.2 The lobby
+
+One toggle, **Moon Race**, on Space Age era games. Sets every shipped phase's game setting. Off = today's game exactly. Ranked: off until Phase 3's gate has passed on production data, then on.
+
+### 10.3 One PR per phase
+
+Each phase is one PR off `main`, dark-launched, with its sim run and gate numbers in the PR body. Phase 2b (Drop Assault) is its own PR after 2a. Promotion to ON is a separate one-line PR once staging has been checked — leaving it OFF in code while prod runs on an override is how the repo starts lying about what players see.
+
+---
+
+## 11. Risks
+
+| Risk | Where it would show | Mitigation already in the design |
+|---|---|---|
+| He-3 compounding runaway | Phase 1 gate: Moon-holder win share | stockpile cap; Export is 1:1 not multiplicative; costs in §9 scale up |
+| First-to-Moon-wins | Phase 3 gate: clock reset rate | the contest rule (§5.3); unsealable pad lanes (§6.3) |
+| Lunar Pioneers dominate | every gate's faction criterion | Pioneers clock offset (§5.4); their +2 def is the knob to touch next |
+| Drop collapses Earth geography | Phase 2 gate; player reports | 2a before 2b; telegraphed landing; cooldown; cost |
+| AI cannot contest the Moon | everywhere | Phase 0 §2.1 is a hard prerequisite |
+| Six flags, one feature | ops confusion | one lobby toggle; flags are kill switches only |
+| Moon fights invisible on phones | Phase 3 | HUD banner + inset badge specified as part of the phase, not a follow-up |
+
+---
+
+## 12. What this document does not decide
+
+- Exact He-3 iconography, strike animation for a Moon-sourced beam, and the sound of a drop. Product/art.
+- Whether Hegemony should be available in **Galactic Age** on Sol III. The mechanics port; the question is whether the Galactic Age wants a second decisive route. Left to the Galactic Age review.
+- Whether `special_resource` should be renamed `gold` while a second resource is being added. Tempting; out of scope.
+
+---
+
+## 13. Measurement summary
+
+Every gate above compares against the **Phase 0 shipped-ruleset control** (§2.2), 60 games, fixed seed, `SIM_PLAYERS=4 SIM_DIFFICULTY=medium`, each phase run both with and without `SIM_FACTIONS=1`. A phase does not promote to ON without its gate numbers in the PR. If a gate fails, the tunables in §9 move first; the mechanic is cut only if two tuning passes fail.
