@@ -31,6 +31,10 @@ import { inferWorldId } from '@borderfall/shared';
 import { GALAXY_SOL_TERRITORY_GEO } from '../data/galaxySolGlobeGeo';
 import { GALAXY_EXO_VORONOI_GLOBE } from '../data/galaxyExoVoronoiGlobe';
 import { buildOrganicGalaxyCapRing } from './galaxyOrganicGlobeRing';
+import {
+  buildMaritimeFrontierRing,
+  MARITIME_FRONTIER_PROFILES,
+} from './maritimeFrontierRing';
 
 /** Minimal territory shape for geometry building (matches GameMap + GlobeMap props). */
 export interface GlobeTerritoryInput {
@@ -848,7 +852,22 @@ export function buildTerritoryGlobeGeometries(
       !eraConfigUsable &&
       !(mapData.map_id === 'era_galaxy' && galaxySolGeoConfig)
     ) {
-      const ring: [number, number][] = [...territory.geo_polygon];
+      /**
+       * Space Age open-ocean and polar tiles author their `geo_polygon` as a
+       * lat/lng rectangle. Every land territory beside them draws from real
+       * Natural Earth coastlines, so left as authored they read as cut-out
+       * squares sitting on a real map. Give them a sea outline instead —
+       * deterministic, and inscribed in the authored rectangle so the tile
+       * keeps its footprint and cannot grow into a neighbour.
+       */
+      const maritimeProfile = MARITIME_FRONTIER_PROFILES[territory.territory_id];
+      const ring: [number, number][] = maritimeProfile
+        ? buildMaritimeFrontierRing(
+            territory.geo_polygon,
+            territory.territory_id,
+            maritimeProfile,
+          )
+        : [...territory.geo_polygon];
       if (
         ring[0][0] !== ring[ring.length - 1][0] ||
         ring[0][1] !== ring[ring.length - 1][1]
