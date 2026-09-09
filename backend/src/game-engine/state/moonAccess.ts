@@ -508,16 +508,22 @@ export function canSealLane(
   toId: string,
   playerId: string,
   factionAbilityId: string | undefined,
+  options?: {
+    /** The player holds a Vault that grants the seal — any lane, not just Nexus's. */
+    vaultHolder?: boolean;
+  },
 ): SealLaneCheck {
-  if (factionAbilityId !== EMERGENCY_SEAL_ABILITY_ID) {
-    return { ok: false, error: 'Emergency Seal is a Void Custodians ability' };
+  const viaFaction = factionAbilityId === EMERGENCY_SEAL_ABILITY_ID;
+  const viaVault = options?.vaultHolder === true;
+  if (!viaFaction && !viaVault) {
+    return { ok: false, error: 'Emergency Seal is a Void Custodians ability, or the Vault holder\'s' };
   }
   if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
   const touchesNexus = [fromId, toId].some((id) => {
     const t = map.territories.find((tt) => tt.territory_id === id);
     return !!t && inferWorldId(t) === EMERGENCY_SEAL_WORLD_ID;
   });
-  if (!touchesNexus) return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
+  if (!viaVault && !touchesNexus) return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
   const id = orbitLaneId(fromId, toId);
   const blockades = state.lane_blockades ?? {};
   const existing = blockades[id];

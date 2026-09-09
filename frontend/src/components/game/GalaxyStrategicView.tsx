@@ -96,6 +96,8 @@ export interface GalaxyStrategicViewProps {
   sealedLaneIds?: Set<string>;
   /** Whether the viewer may fire an Emergency Seal (enables click-to-seal on Nexus lanes). */
   lanesContestableEnabled?: boolean;
+  /** The viewer holds the Vault: their seal closes ANY lane, not only Nexus's. */
+  sealAnyLane?: boolean;
   /** True when the active player owns the given territory. */
   ownsTerritory?: (territoryId: string) => boolean;
   /** Seal the orbit lane between two territories. */
@@ -192,6 +194,7 @@ export default function GalaxyStrategicView({
   viewerPlayerId: viewerPlayerIdProp,
   sealedLaneIds,
   lanesContestableEnabled = false,
+  sealAnyLane = false,
   ownsTerritory,
   onSealLane,
   pulseWorldId = null,
@@ -317,7 +320,7 @@ export default function GalaxyStrategicView({
         const fromOwner = ownerOf(from);
         const toOwner = ownerOf(to);
         const touchesSealWorld = worldOf(from) === EMERGENCY_SEAL_WORLD_ID || worldOf(to) === EMERGENCY_SEAL_WORLD_ID;
-        const canSeal = lanesContestableEnabled && !!onSealLane && !seal && touchesSealWorld;
+        const canSeal = lanesContestableEnabled && !!onSealLane && !seal && (sealAnyLane || touchesSealWorld);
 
         let stroke: string;
         let strokeWidth: number;
@@ -384,7 +387,7 @@ export default function GalaxyStrategicView({
   }, [
     worldLanes, placeById, sizing.donutR, sizing.donutWidth, gameState, viewerPlayerId, viewerColor,
     viewerLaneDice, sealFor, ownerOf, worldOf, playerInfo, territoryName, orbitAccessAllowed,
-    lanesContestableEnabled, onSealLane,
+    lanesContestableEnabled, sealAnyLane, onSealLane,
   ]);
 
   const legendPlayers = useMemo(() => {
@@ -795,7 +798,11 @@ export default function GalaxyStrategicView({
           <span className="ml-2 text-amber-300">· red lanes locked (need Lane Charts)</span>
         )}
         {lanesContestableEnabled && (
-          <span className="ml-2 text-orange-300">· click a lane touching Nexus Station to seal it for a round</span>
+          <span className="ml-2 text-orange-300">
+            {sealAnyLane
+              ? '· you hold the Vault: click any lane to seal it for a round'
+              : '· click a lane touching Nexus Station to seal it for a round'}
+          </span>
         )}
       </div>
     </div>

@@ -67,6 +67,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
+  // Galaxy worlds as characters. Default on; baked at create from the
+  // galaxy_world_rules_enabled flag; persisted only when explicitly off.
+  const worldRulesEnabled = typeof raw.world_rules_enabled === 'boolean' ? raw.world_rules_enabled : true;
   const eraDefaults = getDefaultEraAdvancementSettings();
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
@@ -263,6 +266,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
+    world_rules_enabled: worldRulesEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.
     combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
     combat_max_attacker_dice: combatDiceCapEnabled
@@ -305,6 +309,11 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     world_modifiers:
       worldModifiersEnabled && ext.world_modifiers && typeof ext.world_modifiers === 'object'
         ? ext.world_modifiers
+        : undefined,
+    // Same passthrough discipline for the world RULES snapshot.
+    world_rules:
+      worldRulesEnabled && ext.world_rules && typeof ext.world_rules === 'object'
+        ? (ext.world_rules as GameSettings['world_rules'])
         : undefined,
   };
 }

@@ -10,6 +10,7 @@
  *   • Helion Navigators' advertised active (`orbital_recon`) had no handler in
  *     any era; the faction's one advertised ability did nothing at all.
  *   • A fully held Nexus Station paid ZERO tech points: 16 × 0.05 floors to 0.
+ *     (That yield is now the Vault — see state/worldRules.test.ts.)
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -17,7 +18,6 @@ import { join } from 'path';
 import type { GameMap, GameSettings, GameState } from '../../types';
 import { GALAXY_AGE_FACTIONS } from './galaxyage';
 import { initializeGameState } from '../state/gameStateManager';
-import { collectProduction } from '../state/economyManager';
 import { executeTechAbility } from '../abilities/executeTechAbility';
 import {
   TERRITORY_ABILITY_DEFS,
@@ -187,41 +187,10 @@ describe("Helion Navigators' Long-Range Sensors", () => {
   });
 });
 
-describe('Nexus Station tech identity', () => {
-  it('pays tech points to a player who holds the whole world', () => {
-    const state = freshGalaxyState();
-    const nexusTiles = Object.values(state.territories).filter((t) => t.world_id === 'nexus_station');
-    expect(nexusTiles).toHaveLength(16);
-    expect(nexusTiles.every((t) => t.owner_id === SEAT[3])).toBe(true);
-
-    const custodianIncome = collectProduction(state, SEAT[3]);
-    const mandateIncome = collectProduction(state, SEAT[0]);
-
-    // 16 × 0.0625 = 1 tech point on top of the base 1-per-5-territories income.
-    // The pre-repair 0.05 floored to zero, so both seats earned the same.
-    expect(custodianIncome.techPointsEarned).toBe(mandateIncome.techPointsEarned + 1);
-  });
-
-  it('scales with how much of the world is held, and floors below a full world', () => {
-    const state = freshGalaxyState();
-    const nexusTiles = Object.values(state.territories).filter((t) => t.world_id === 'nexus_station');
-    // Hand all but 7 tiles away: 7 × 0.0625 = 0.4375 → floors to 0.
-    for (const t of nexusTiles.slice(7)) t.owner_id = SEAT[0];
-    const held = Object.values(state.territories).filter(
-      (t) => t.owner_id === SEAT[3] && t.world_id === 'nexus_station',
-    );
-    expect(held).toHaveLength(7);
-
-    const income = collectProduction(state, SEAT[3]);
-    const baseline = Math.max(1, Math.floor(held.length / 5));
-    expect(income.techPointsEarned).toBe(baseline);
-  });
-});
-
 describe('Void Custodians kit', () => {
-  it('carries no flat reinforcement bonus — the trade that paid for the tech yield', () => {
+  it('carries no flat reinforcement bonus — the trade that paid for the Vault', () => {
     const custodians = GALAXY_AGE_FACTIONS.find((f) => f.faction_id === 'void_custodians')!;
     expect(custodians.reinforce_bonus).toBeUndefined();
-    expect(custodians.description).toMatch(/tech points/i);
+    expect(custodians.description).toMatch(/Vault/);
   });
 });

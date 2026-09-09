@@ -9,6 +9,7 @@ import type {
   MapKind,
   OrbitAccessMode,
   MapWorldDefinition,
+  WorldRules,
   WorldModifiers,
 } from '@borderfall/shared';
 
@@ -428,6 +429,16 @@ export interface GameSettings {
   world_modifiers_enabled?: boolean;
   /** world_id → modifiers, snapshotted from map.worlds[] at init (see world_modifiers_enabled). */
   world_modifiers?: Record<string, WorldModifiers>;
+  /**
+   * Galaxy worlds as characters: when true (default), each world's `rules`
+   * apply — Sol's deploy cap and growth, Verdan's storms, Rust's forge dice,
+   * the Nexus Vault. Baked at create from the galaxy_world_rules_enabled flag
+   * and snapshotted from the map at init into `world_rules`. No-op on maps
+   * without rules.
+   */
+  world_rules_enabled?: boolean;
+  /** world_id → rules, snapshotted from map.worlds[] at init (see world_rules_enabled). */
+  world_rules?: Record<string, WorldRules>;
   /** Max attacker dice after bonuses (clamped to ≥3 base). Default 5 when capping. */
   combat_max_attacker_dice?: number;
   /** Max defender dice after bonuses (clamped to ≥2 base). Default 4 when capping. */

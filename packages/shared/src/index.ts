@@ -20,6 +20,8 @@ export {
   type MapTerritoryWorldLike,
   type MapWorldDefinition,
   type WorldModifiers,
+  type WorldRules,
+  type WorldVaultRule,
   inferWorldId,
 } from './worldId';
 

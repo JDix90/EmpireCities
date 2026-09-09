@@ -12,9 +12,12 @@ import { buildingDisplayName, buildingEffect, inferWorldId } from '@borderfall/s
 import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
 import {
   describeWorldModifiers,
+  describeWorldRules,
   gatewayTerritoryIds,
   laneAttackDiceCap,
   laneStateFor,
+  prettyRegionId,
+  vaultViews,
   worldDisplayName,
 } from '../../utils/galaxyLanes';
 
@@ -207,7 +210,10 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
         if (state === 'corridor') corridors += 1;
         else if (state === 'open') open += 1;
       }
-      const lines = describeWorldModifiers(gameState.settings.world_modifiers?.[worldId]);
+      const lines = [
+        ...describeWorldRules(gameState.settings.world_rules?.[worldId]),
+        ...describeWorldModifiers(gameState.settings.world_modifiers?.[worldId]),
+      ];
       if (worldGateways.length > 0) {
         lines.push(`Gateways: you hold ${gatewaysHeld} of ${worldGateways.length} · lanes: ${corridors} corridor, ${open} open`);
       }
@@ -217,6 +223,17 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
         value: `${held} / ${systems.length} systems`,
         description: lines.join('\n'),
         valueColor: held === systems.length ? 'text-emerald-400' : 'text-bf-gold',
+      });
+    }
+    for (const v of vaultViews(gameState, mapData.territories, me)) {
+      rows.push({
+        icon: '◈',
+        label: `The Vault — ${prettyRegionId(v.region_id)}`,
+        value: v.holder_id
+          ? (v.holder_id === me ? 'Held by you' : `Held by ${gameState.players.find((p) => p.player_id === v.holder_id)?.username ?? 'a rival'}`)
+          : `Unheld · ${v.viewer_held} / ${v.tiles}`,
+        description: `Hold every tile for +${v.tech_income} tech per turn${v.emergency_seal ? ' and one Emergency Seal per turn on any hyperspace lane' : ''}.`,
+        valueColor: v.holder_id === me ? 'text-emerald-400' : v.holder_id ? 'text-red-300' : 'text-bf-muted',
       });
     }
     const cap = laneAttackDiceCap(gameState, me);

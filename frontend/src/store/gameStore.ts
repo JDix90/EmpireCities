@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GamePhase, WorldModifiers } from '@borderfall/shared';
+import type { GamePhase, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 export interface TerritoryState {
@@ -148,6 +148,9 @@ export interface GameState {
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;
+    /** Galaxy worlds as characters: world_id → rules (Sol cradle, Verdan storms, Rust forge, the Nexus Vault). */
+    world_rules_enabled?: boolean;
+    world_rules?: Record<string, WorldRules>;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

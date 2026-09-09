@@ -8,6 +8,7 @@ import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
 import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
+import { vaultTechIncome, worldDefenseBuildingBonusDice } from './worldRules';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { buildingDisplayName } from '@borderfall/shared';
 
@@ -340,6 +341,8 @@ export function collectProduction(
   // Base tech income: 1 TP per 5 territories when tech trees are enabled
   if (state.settings.tech_trees_enabled) {
     techPointsEarned += Math.max(1, Math.floor(ownedCount / 5));
+    // Galaxy worlds as characters (Nexus): the Vault pays its holder.
+    techPointsEarned += vaultTechIncome(state, playerId);
   }
 
   // Galaxy per-world identity: production/tech bonus per owned territory on a world
@@ -395,6 +398,8 @@ export function getBuildingDefenseBonus(state: GameState, territoryId: string): 
   for (const building of territory.buildings ?? []) {
     bonus += BUILDING_DEFENSE_BONUS[building] ?? 0;
   }
+  // Galaxy worlds as characters (Rust): a defended tile here rolls extra dice.
+  if (bonus > 0) bonus += worldDefenseBuildingBonusDice(state, territory.world_id);
   return bonus;
 }
 

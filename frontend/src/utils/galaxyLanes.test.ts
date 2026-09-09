@@ -5,6 +5,7 @@ import {
   describeLaneSeal,
   describeLaneState,
   describeWorldModifiers,
+  describeWorldRules,
   gatewayLanesFor,
   gatewayTerritoryIds,
   isLaneSealedForPlayer,
@@ -13,6 +14,9 @@ import {
   laneStateFor,
   laneTouchesSealWorld,
   orbitLaneId,
+  prettyRegionId,
+  vaultViews,
+  viewerHoldsVaultSeal,
   worldDisplayName,
 } from './galaxyLanes';
 
@@ -131,5 +135,46 @@ describe('galaxyLanes', () => {
       'Buildings cost 20% less',
     ]);
     expect(describeWorldModifiers(undefined)).toEqual([]);
+  });
+
+  it('describes world rules in plain words', () => {
+    expect(describeWorldRules({ deploy_cap_bonus: 2, population_growth_mult: 2 })).toEqual([
+      'Cradle: place up to 2 more units per system each draft, even at low stability',
+      'Population grows 2× as fast',
+    ]);
+    expect(describeWorldRules({ storm_threshold: 12 })).toEqual([
+      'Storms: at round start any system above 12 units loses 1 to the weather',
+    ]);
+    expect(describeWorldRules({ defense_building_bonus_dice: 1 })).toEqual([
+      'Forge: a system with a defence building rolls +1 extra defence die',
+    ]);
+    expect(describeWorldRules({ vault: { region_id: 'nexus_gate_ring', neutral_garrison: 6, tech_income: 2, emergency_seal: true, home_unit_bonus: 1 } })).toEqual([
+      'The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane',
+      'Its home faction starts with +1 unit per system, paying for the ring it begins without',
+    ]);
+    expect(describeWorldRules(undefined)).toEqual([]);
+    expect(prettyRegionId('nexus_gate_ring')).toBe('Nexus Gate Ring');
+  });
+
+  it('reads the Vault holder from the map regions and the territory owners', () => {
+    const territories = [
+      { territory_id: 'ring_a', region_id: 'nexus_gate_ring', world_id: 'nexus_station' },
+      { territory_id: 'ring_b', region_id: 'nexus_gate_ring', world_id: 'nexus_station' },
+      { territory_id: 'nexus_x', region_id: 'nexus_vault_ward', world_id: 'nexus_station' },
+    ];
+    const rules = { nexus_station: { vault: { region_id: 'nexus_gate_ring', neutral_garrison: 6, tech_income: 2, emergency_seal: true } } };
+    const unheld = {
+      settings: { world_rules: rules },
+      territories: { ring_a: { owner_id: 'me' }, ring_b: { owner_id: null }, nexus_x: { owner_id: 'rival' } },
+    } as unknown as GameState;
+    expect(vaultViews(unheld, territories, 'me')).toEqual([
+      { world_id: 'nexus_station', region_id: 'nexus_gate_ring', holder_id: null, tiles: 2, viewer_held: 1, tech_income: 2, emergency_seal: true },
+    ]);
+    expect(viewerHoldsVaultSeal(unheld, territories, 'me')).toBe(false);
+    const held = { ...unheld, territories: { ...unheld.territories, ring_b: { owner_id: 'me' } } } as unknown as GameState;
+    expect(vaultViews(held, territories, 'me')[0].holder_id).toBe('me');
+    expect(viewerHoldsVaultSeal(held, territories, 'me')).toBe(true);
+    expect(viewerHoldsVaultSeal(held, territories, 'rival')).toBe(false);
+    expect(vaultViews({ settings: {}, territories: {} } as unknown as GameState, territories)).toEqual([]);
   });
 });

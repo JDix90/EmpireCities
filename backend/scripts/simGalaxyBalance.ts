@@ -28,6 +28,7 @@ import {
   checkVictory,
   initializeGameState,
 } from '../src/game-engine/state/gameStateManager';
+import { vaultStatuses } from '../src/game-engine/state/worldRules';
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import {
   aiAttackExchangeBudget,
@@ -35,6 +36,7 @@ import {
   shouldPressDecidedGame,
 } from '../src/game-engine/ai/aiAttackGrind';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
+import { getOrbitAccessResult } from '../src/game-engine/state/moonAccess';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
@@ -57,6 +59,12 @@ const GRIND = process.env.SIM_GRIND !== '0';
  * bypasses, so mirror the default here; `SIM_CORRIDORS=0` is the kill switch.
  */
 const CORRIDORS = process.env.SIM_CORRIDORS !== '0';
+/**
+ * Worlds as characters (`world_rules_enabled`, default on live): Sol's deploy
+ * cap and growth, Verdan's storms, Rust's forge dice, the Nexus Vault.
+ * `SIM_WORLD_RULES=0` is the kill switch, for before/after comparisons.
+ */
+const WORLD_RULES = process.env.SIM_WORLD_RULES !== '0';
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -71,7 +79,9 @@ const FACTION_WORLD: Record<string, string> = {
 const COLORS = ['#5dade2', '#e67e22', '#2ecc71', '#9b59b6'];
 
 function loadMap(): GameMap {
-  const raw = readFileSync(join(__dirname, '../../database/maps/era_galaxy.json'), 'utf-8');
+  // `SIM_MAP=/path/to/variant.json` runs a tuning variant without touching the
+  // authored map (knob sweeps for the world rules, garrison sizes, modifiers).
+  const raw = readFileSync(process.env.SIM_MAP ?? join(__dirname, '../../database/maps/era_galaxy.json'), 'utf-8');
   return JSON.parse(raw) as GameMap;
 }
 
@@ -107,6 +117,7 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: false, // galaxy is the terminal era
     galaxy_corridors_enabled: CORRIDORS,
+    world_rules_enabled: WORLD_RULES,
     allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
@@ -197,6 +208,12 @@ function playAiTurn(
       ? aiAttackExchangeBudget(difficulty, shouldPressDecidedGame(state, pid, difficulty))
       : Number.POSITIVE_INFINITY,
   };
+  // Neutral off-world garrisons (the Vault's Gate Ring) are capturable only when
+  // the caller says so, after the orbit-access check — the same rule the socket
+  // applies. Without it the sim's ring was untouchable: 0 tiles taken in 400
+  // games while live players could take it, and the Custodians read as dead.
+  const aiPlayer = state.players.find((p) => p.player_id === pid)!;
+  const neutralOffworldCaptureAllowed = getOrbitAccessResult(state, aiPlayer, map, state.era).allowed;
   for (const a of plan) {
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
     if (budget.left <= 0) break;
@@ -207,7 +224,7 @@ function playAiTurn(
     const connection = connectionsByKey.get(laneKey(a.from, a.to));
     for (;;) {
       const ownerBefore = state.territories[a.to]?.owner_id;
-      const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection });
+      const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection, neutralOffworldCaptureAllowed });
       budget.left -= 1;
       if (outcome) {
         if (crossesLane) {
@@ -246,6 +263,10 @@ interface SeatStat extends SeatTelemetry {
   faction: string;
   won: boolean;
   eliminated: boolean;
+  /** Held every tile of a Vault (the Nexus Gate Ring) at game end. */
+  holdsVault: boolean;
+  /** Vault-region tiles this seat held at game end (0..ring size). */
+  vaultTiles: number;
   finalTerritories: number;
   territoriesAtTurn: Record<number, number>;
 }
@@ -372,11 +393,16 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     worldTopShare[worldId] = Math.max(0, ...Object.values(byOwner));
   }
 
+  const vaultRegionSet = new Set(vaultStatuses(state).map((v) => v.region_id));
   const seats: SeatStat[] = state.players.map((p) => ({
     ...telemetry[p.player_id],
     faction: factionOf[p.player_id] ?? `seat${p.player_index}`,
     won: winner === p.player_id,
     eliminated: p.is_eliminated,
+    holdsVault: vaultStatuses(state).some((v) => v.holder_id === p.player_id),
+    vaultTiles: Object.values(state.territories).filter(
+      (t) => t.owner_id === p.player_id && vaultRegionSet.has(t.region_id ?? ''),
+    ).length,
     finalTerritories: ownedIds(state, p.player_id).length,
     territoriesAtTurn: snapshots[p.player_id],
   }));
@@ -423,7 +449,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
@@ -484,6 +510,20 @@ function main(): void {
       .map((w) => `${w} ${fixed(avg(stats.map((s) => s.worldTopShare[w] ?? 0)))}`)
       .join(' · ');
     console.log(`\nLargest single-owner share per world at game end: ${perWorld}`);
+  }
+
+  // The Vault: is the prize actually taken, and by whom? A ring nobody holds
+  // at game end is a garrison the bots walk past; one always held by its home
+  // faction is a homeworld with extra steps.
+  if (WORLD_RULES) {
+    const allSeats = stats.flatMap((s) => s.seats);
+    const held = allSeats.filter((s) => s.holdsVault);
+    const byFaction = FACTIONS.map((f) => `${f} ${pct(held.filter((s) => s.faction === f).length, GAMES)}`).join(' · ');
+    console.log(`Vault (Nexus Gate Ring) held at game end: ${pct(held.length, GAMES)} of games · ${byFaction}`);
+    const tilesByFaction = FACTIONS
+      .map((f) => `${f} ${fixed(avg(allSeats.filter((s) => s.faction === f).map((s) => s.vaultTiles)))}`)
+      .join(' · ');
+    console.log(`Vault tiles held at game end (avg of 4): ${tilesByFaction}`);
   }
 
   if (CSV_PATH) {

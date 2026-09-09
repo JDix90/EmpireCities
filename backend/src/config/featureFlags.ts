@@ -64,6 +64,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
+  galaxy_world_rules_enabled: () => envOptOut('GALAXY_WORLD_RULES_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -369,6 +370,19 @@ export const featureFlags = {
    */
   get galaxyCorridorsEnabled(): boolean {
     return overrideBool('galaxy_corridors_enabled');
+  },
+
+  /**
+   * Galactic Age worlds as characters: each world's authored `rules` apply —
+   * Sol drafts deeper and breeds faster, Verdan's storms shed units above 12,
+   * Rust's defence buildings roll an extra die, and the Nexus Gate Ring starts
+   * neutral as the Vault (+2 tech per turn and an Emergency Seal on any lane
+   * for whoever holds all four tiles). Default ON. Kill switch:
+   * `GALAXY_WORLD_RULES_ENABLED=false` or the `galaxy_world_rules_enabled`
+   * admin override. Baked into game settings at create, like corridors.
+   */
+  get galaxyWorldRulesEnabled(): boolean {
+    return overrideBool('galaxy_world_rules_enabled');
   },
 
   /**

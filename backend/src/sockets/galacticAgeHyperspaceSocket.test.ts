@@ -85,6 +85,10 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
       diplomacy_enabled: false, factions_enabled: true, naval_enabled: false, events_enabled: false,
       economy_enabled: true, tech_trees_enabled: true, stability_enabled: false,
       era_advancement_enabled: false, galaxy_corridors_enabled: true,
+      // Worlds-as-characters rules are off here: this suite exercises the
+      // corridors on the classic four-homeworld start. The Vault case below
+      // turns them on for itself.
+      world_rules_enabled: false,
       allowed_victory_conditions: ['domination', 'threshold'], victory_type: 'domination',
       victory_threshold: 60, max_turns: 90, ...extra,
     } as unknown as GameSettings;
@@ -237,6 +241,33 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     const r = await act<{ result: { territory_captured: boolean } }>(c, 'game:attack', { gameId, fromId: L1.verdan, toId: L1.sol }, 'game:combat_result');
     expect(r.ok, r.ok ? '' : r.error).toBe(true);
     if (r.ok) expect(r.data.result.territory_captured).toBe(true);
+  }, 30_000);
+
+  it('The Vault: the Gate Ring starts neutral, and whoever holds all four tiles may seal ANY lane', async () => {
+    const gameId = 'itest-ga-vault';
+    const map = freshMap();
+    const state = freshState(gameId, map, { world_rules_enabled: true } as unknown as Partial<GameSettings>);
+    const ring = map.territories.filter((t) => t.region_id === 'nexus_gate_ring').map((t) => t.territory_id);
+    expect(ring).toHaveLength(4);
+    for (const tid of ring) {
+      expect(state.territories[tid].owner_id).toBeNull();
+      expect(state.territories[tid].unit_count).toBe(6);
+    }
+    expect(Object.values(state.territories).filter((t) => t.owner_id === P[3])).toHaveLength(12);
+    // Hand the ring to the Mandate: the Vault is theirs now.
+    for (const tid of ring) { state.territories[tid].owner_id = P[0]; state.territories[tid].unit_count = 3; }
+    state.phase = 'attack'; state.current_player_index = 0;
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+
+    const seal = await act(c, 'game:seal_lane', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:state');
+    expect(seal.ok, seal.ok ? '' : seal.error).toBe(true);
+    const sealed = await waitForRedisState(gameId, (s) => !!s.lane_blockades?.[orbitLaneId(L1.sol, L1.verdan)]);
+    expect(sealed.lane_blockades![orbitLaneId(L1.sol, L1.verdan)]).toEqual({ owner_id: P[0], turns_remaining: 1 });
+    // One charge a turn, Vault or not.
+    const twice = await act(c, 'game:seal_lane', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:state');
+    expect(twice.ok).toBe(false);
+    if (!twice.ok) expect(twice.error).toMatch(/already used/);
   }, 30_000);
 
   it('Emergency Seal: Custodians close a Nexus lane; it blocks the rival on that lane only, once per turn, and lifts at their next turn', async () => {

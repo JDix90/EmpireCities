@@ -25,6 +25,7 @@ import {
   laneStateFor,
   orbitGatewayTerritoryIds,
 } from '../state/moonAccess';
+import { getWorldRules, vaultRegionIds } from '../state/worldRules';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -269,6 +270,11 @@ function attackObjectiveBonus(
     }
   }
 
+  // Galaxy worlds as characters: a vault's tiles (the Nexus Gate Ring) are the
+  // era's prize — weighted like a gateway so bots contest it. ⚠ balance
+  const targetRegion = state.territories[targetTerritoryId]?.region_id;
+  if (targetRegion && vaultRegionIds(state).has(targetRegion)) b += VAULT_OBJECTIVE_BONUS;
+
   if (allowed.includes('capital')) {
     for (const o of state.players) {
       if (o.player_id === attackerId || o.is_eliminated) continue;
@@ -324,6 +330,9 @@ function selectDraftTarget(
       (nid) => state.territories[nid]?.owner_id !== playerId
     );
     if (enemyNeighbors.length === 0) continue;
+    // Galaxy storms (Verdan): stacking past the threshold only feeds the weather.
+    const stormThreshold = getWorldRules(state, tState.world_id).storm_threshold;
+    if (stormThreshold != null && tState.unit_count >= stormThreshold) continue;
 
     let threatScore = enemyNeighbors.reduce(
       (s, nid) => s + (state.territories[nid]?.unit_count ?? 0), 0
@@ -407,6 +416,8 @@ export function chooseEmergencySealLane(
 const GATEWAY_OBJECTIVE_BONUS = 3;
 /** Corridors: draft-threat premium on a gateway whose lane is open to a rival. */
 const GATEWAY_DRAFT_PREMIUM = 4;
+/** Worlds as characters: attack-score premium on a vault tile (the Nexus Gate Ring). */
+const VAULT_OBJECTIVE_BONUS = 3;
 
 /**
  * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming

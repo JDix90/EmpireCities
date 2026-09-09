@@ -114,6 +114,14 @@ describe('canSealLane — Emergency Seal', () => {
       .toMatch(/touch Nexus Station/);
     expect(canSealLane(mkState({}), map, 'sol_a', 'sol_b', 'p4', EMERGENCY_SEAL_ABILITY_ID).ok).toBe(false);
   });
+  it('lets the Vault holder seal ANY lane, whatever their faction', () => {
+    const r = canSealLane(mkState({}), map, 'sol_a', 'verdan_a', 'p1', undefined, { vaultHolder: true });
+    expect(r.ok).toBe(true);
+    expect(r.laneId).toBe(orbitLaneId('sol_a', 'verdan_a'));
+    expect(canSealLane(mkState({}), map, 'sol_a', 'verdan_a', 'p1', undefined, { vaultHolder: false }).ok).toBe(false);
+    // A land edge is never a lane, Vault or not.
+    expect(canSealLane(mkState({}), map, 'sol_a', 'sol_b', 'p1', undefined, { vaultHolder: true }).ok).toBe(false);
+  });
   it('refuses a lane a rival already sealed', () => {
     const sealed = { [orbitLaneId('nexus_a', 'rust_a')]: { owner_id: 'p2', turns_remaining: 1 } };
     expect(canSealLane(mkState({ blockades: sealed }), map, 'nexus_a', 'rust_a', 'p4', EMERGENCY_SEAL_ABILITY_ID).ok)

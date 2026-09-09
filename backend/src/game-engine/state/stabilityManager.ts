@@ -6,6 +6,7 @@ import { randomInt } from 'crypto';
 import type { GameState } from '../../types';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { getWorldModifier } from './worldModifiers';
+import { worldPopulationGrowthMult } from './worldRules';
 
 /**
  * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
@@ -126,7 +127,8 @@ export function applyStabilityTick(
     if (t.stability >= POPULATION_GROWTH_STABILITY && t.population < MAX_POPULATION) {
       // Population grows +1 every POPULATION_GROWTH_INTERVAL turns of sustained stability.
       // We use a simple probabilistic approach: 1/INTERVAL chance per tick.
-      if (cryptoFraction() < growthChance) {
+      // Galaxy worlds as characters (Sol): the cradle breeds faster.
+      if (cryptoFraction() < Math.min(1, growthChance * worldPopulationGrowthMult(state, t.world_id))) {
         t.population = Math.min(MAX_POPULATION, t.population + 1);
       }
     }
@@ -183,6 +185,8 @@ export function getDeployCap(
     turnNumber?: number;
     economyEnabled?: boolean;
     playerSpecialResource?: number;
+    /** Galaxy worlds as characters (Sol): extra placements on this tile per draft. */
+    worldDeployCapBonus?: number;
   },
 ): number {
   if (stability == null) return Infinity;
@@ -201,7 +205,7 @@ export function getDeployCap(
     !!context?.economyEnabled,
     context?.playerSpecialResource ?? 0,
   );
-  return baseCap + eraBonus + turnBonus + economyBonus;
+  return baseCap + eraBonus + turnBonus + economyBonus + (context?.worldDeployCapBonus ?? 0);
 }
 
 function getEraDeployCapBonus(era: GameState['era'] | undefined): number {

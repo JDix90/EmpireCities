@@ -27,6 +27,10 @@
       "modifiers": {
         "production_bonus": 0.3,
         "stability_bonus": 1
+      },
+      "rules": {
+        "deploy_cap_bonus": 2,
+        "population_growth_mult": 2
       }
     },
     {
@@ -40,6 +44,10 @@
       "modifiers": {
         "stability_bonus": 3,
         "production_bonus": 0.2
+      },
+      "rules": {
+        "storm_threshold": 12,
+        "storm_attrition": 1
       }
     },
     {
@@ -52,7 +60,10 @@
       "requires_orbit_access": true,
       "modifiers": {
         "production_bonus": 0.4,
-        "build_cost_mult": 0.8
+        "build_cost_mult": 0.5
+      },
+      "rules": {
+        "defense_building_bonus_dice": 1
       }
     },
     {
@@ -66,6 +77,15 @@
       "modifiers": {
         "tech_bonus": 0.0625,
         "production_bonus": 0.25
+      },
+      "rules": {
+        "vault": {
+          "region_id": "nexus_gate_ring",
+          "neutral_garrison": 6,
+          "tech_income": 2,
+          "emergency_seal": true,
+          "home_unit_bonus": 1
+        }
       }
     }
   ],

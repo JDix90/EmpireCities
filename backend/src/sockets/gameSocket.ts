@@ -57,6 +57,7 @@ import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } f
 import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
+import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
@@ -1432,6 +1433,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           turnNumber: state.turn_number,
           economyEnabled: !!state.settings.economy_enabled,
           playerSpecialResource: currentPlayer.special_resource ?? 0,
+          worldDeployCapBonus: worldDeployCapBonus(state, territory.world_id),
         });
         const placements = state.draft_placements_this_turn ?? {};
         const alreadyPlaced = placements[territoryId] ?? 0;
@@ -3494,7 +3496,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const sealFaction = state.settings.factions_enabled && currentPlayer?.faction_id
           ? getPlayerFaction(state, currentPlayer)
           : undefined;
-        const check = canSealLane(state, map, fromId, toId, userId, sealFaction?.ability_id);
+        // The Vault holder (any faction) may seal ANY lane; the Custodians'
+        // faction charge is limited to lanes touching Nexus. One charge a turn.
+        const check = canSealLane(state, map, fromId, toId, userId, sealFaction?.ability_id, {
+          vaultHolder: playerHoldsVaultSeal(state, userId),
+        });
         if (!check.ok || !check.laneId) {
           return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
         }
@@ -5329,6 +5335,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         turnNumber: state.turn_number,
         economyEnabled: !!state.settings.economy_enabled,
         playerSpecialResource: currentPlayer.special_resource ?? 0,
+        worldDeployCapBonus: worldDeployCapBonus(state, t.world_id),
       });
       const placements = state.draft_placements_this_turn ?? {};
       const alreadyPlaced = placements[action.to] ?? 0;
@@ -5370,6 +5377,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
             turnNumber: state.turn_number,
             economyEnabled: !!state.settings.economy_enabled,
             playerSpecialResource: currentPlayer.special_resource ?? 0,
+            worldDeployCapBonus: worldDeployCapBonus(state, territory.world_id),
           });
           const placements = state.draft_placements_this_turn ?? {};
           const alreadyPlaced = placements[tid] ?? 0;
@@ -5442,15 +5450,22 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // Nexus lane whose far end holds the biggest rival stack, so the bot answers
   // a landing the way a human would. Reuses canSealLane and the same
   // ability_uses ledger as the human handler.
-  if (state.settings.factions_enabled && currentPlayer.faction_id) {
-    const sealFaction = getPlayerFaction(state, currentPlayer);
+  {
+    // Emergency Seal: the Custodians' faction charge, or the Vault holder's
+    // (any faction) — one charge a turn either way, any lane for the Vault.
+    const sealFaction = state.settings.factions_enabled && currentPlayer.faction_id
+      ? getPlayerFaction(state, currentPlayer)
+      : undefined;
+    const vaultSeal = playerHoldsVaultSeal(state, currentPlayer.player_id);
     if (
-      sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID
+      (sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID || vaultSeal)
       && !(currentPlayer.ability_uses ?? {})[EMERGENCY_SEAL_ABILITY_ID]
     ) {
       const best = chooseEmergencySealLane(state, map, currentPlayer.player_id);
       if (best) {
-        const check = canSealLane(state, map, best.from, best.to, currentPlayer.player_id, sealFaction.ability_id);
+        const check = canSealLane(state, map, best.from, best.to, currentPlayer.player_id, sealFaction?.ability_id, {
+          vaultHolder: vaultSeal,
+        });
         if (check.ok && check.laneId) {
           if (!state.lane_blockades) state.lane_blockades = {};
           state.lane_blockades[check.laneId] = {

@@ -143,6 +143,7 @@ import {
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId, aiPlayerName } from '@borderfall/shared';
+import { viewerHoldsVaultSeal } from '../utils/galaxyLanes';
 import {
   getOrbitAccessResult,
   resolveOrbitAccessMode,
@@ -2633,13 +2634,19 @@ export default function GamePage() {
     () => new Set(Object.keys(gameState?.lane_blockades ?? {})),
     [gameState?.lane_blockades],
   );
-  // Emergency Seal is the Void Custodians' faction charge; only they get the
-  // lane-click affordance on the chart. The server re-checks faction and use.
+  // Emergency Seal is the Void Custodians' faction charge (lanes touching
+  // Nexus), and the Vault holder's — any faction, any lane. Only they get the
+  // lane-click affordance; the server re-checks faction, Vault and use.
+  const viewerSealsAnyLane = useMemo(
+    () => !!gameState && !!mapData && viewerHoldsVaultSeal(gameState, mapData.territories, resolvedViewerPlayerId),
+    [gameState, mapData, resolvedViewerPlayerId],
+  );
   const viewerCanEmergencySeal = useMemo(() => {
+    if (viewerSealsAnyLane) return true;
     if (!gameState?.settings.factions_enabled) return false;
     const me = gameState.players.find((p) => p.player_id === resolvedViewerPlayerId);
     return me?.faction_id === 'void_custodians';
-  }, [gameState?.settings.factions_enabled, gameState?.players, resolvedViewerPlayerId]);
+  }, [viewerSealsAnyLane, gameState?.settings.factions_enabled, gameState?.players, resolvedViewerPlayerId]);
   const handleSealLane = useCallback(
     (fromId: string, toId: string) => {
       getSocket().emit('game:seal_lane', { gameId, fromId, toId, action_id: generateActionId() });
@@ -4184,6 +4191,7 @@ export default function GamePage() {
                       viewerPlayerId={resolvedViewerPlayerId}
                       sealedLaneIds={galaxySealedLaneIds}
                       lanesContestableEnabled={viewerCanEmergencySeal}
+                      sealAnyLane={viewerSealsAnyLane}
                       ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
                       onSealLane={handleSealLane}
                       pulseWorldId={galaxyPulse?.worldId ?? null}
@@ -4408,6 +4416,7 @@ export default function GamePage() {
               mapConnections={mapData.connections}
               mapWorlds={mapData.worlds}
               onSealLane={viewerCanEmergencySeal ? handleSealLane : undefined}
+              sealAnyLane={viewerSealsAnyLane}
               denseMap={mapDensityMetrics?.isDense ?? false}
               onFortifyTo={handleFortifyTo}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}

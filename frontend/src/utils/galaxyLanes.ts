@@ -16,7 +16,7 @@
  *               Anchor lifts the cap for its owner. Same-world attacks are untouched.
  */
 
-import { inferWorldId, type WorldModifiers } from '@borderfall/shared';
+import { inferWorldId, type WorldModifiers, type WorldRules } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 
@@ -226,4 +226,107 @@ export function describeWorldModifiers(mods: WorldModifiers | undefined | null):
     out.push(mods.build_cost_mult < 1 ? `Buildings cost ${pct}% less` : `Buildings cost ${pct}% more`);
   }
   return out;
+}
+
+/** "nexus_gate_ring" → "Nexus Gate Ring", for maps that carry no region names here. */
+export function prettyRegionId(regionId: string): string {
+  return regionId.split('_').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
+ * A world's rule(s) in words a player can act on. One line per rule; the copy
+ * names the decision the rule changes (where to stack, what to build, what to
+ * take), which is the point of a rule over a modifier.
+ */
+export function describeWorldRules(
+  rules: WorldRules | undefined | null,
+  regionName: (regionId: string) => string = prettyRegionId,
+): string[] {
+  if (!rules) return [];
+  const out: string[] = [];
+  if (rules.deploy_cap_bonus) {
+    out.push(`Cradle: place up to ${rules.deploy_cap_bonus} more units per system each draft, even at low stability`);
+  }
+  if (rules.population_growth_mult && rules.population_growth_mult !== 1) {
+    out.push(`Population grows ${fmtNum(rules.population_growth_mult)}× as fast`);
+  }
+  if (rules.storm_threshold != null) {
+    const lost = rules.storm_attrition ?? 1;
+    out.push(`Storms: at round start any system above ${rules.storm_threshold} units loses ${lost} to the weather`);
+  }
+  if (rules.defense_building_bonus_dice) {
+    out.push(`Forge: a system with a defence building rolls +${rules.defense_building_bonus_dice} extra defence die`);
+  }
+  if (rules.vault) {
+    const v = rules.vault;
+    out.push(
+      `The Vault: ${regionName(v.region_id)} starts neutral (garrison ${v.neutral_garrison}); hold all of it for +${v.tech_income} tech per turn`
+      + (v.emergency_seal ? ' and one Emergency Seal per turn on any lane' : ''),
+    );
+    if (v.home_unit_bonus) {
+      out.push(`Its home faction starts with +${v.home_unit_bonus} unit per system, paying for the ring it begins without`);
+    }
+  }
+  return out;
+}
+
+export interface VaultView {
+  world_id: string;
+  region_id: string;
+  /** Player holding EVERY tile of the region, else null. */
+  holder_id: string | null;
+  tiles: number;
+  /** Tiles the viewer holds (0 without a viewer). */
+  viewer_held: number;
+  tech_income: number;
+  emergency_seal: boolean;
+}
+
+/**
+ * Every vault in the game and who holds it — the client mirror of the
+ * backend's `vaultStatuses`. Region and world come from the map territories,
+ * because the client territory state carries neither.
+ */
+export function vaultViews(
+  gameState: Pick<GameState, 'settings' | 'territories'>,
+  mapTerritories: LaneMapTerritory[],
+  viewerId?: string | null,
+): VaultView[] {
+  const rules = gameState.settings?.world_rules;
+  if (!rules) return [];
+  const out: VaultView[] = [];
+  for (const [worldId, r] of Object.entries(rules)) {
+    const v = r.vault;
+    if (!v) continue;
+    const owners = new Set<string | null>();
+    let tiles = 0;
+    let viewerHeld = 0;
+    for (const t of mapTerritories) {
+      if (inferWorldId(t) !== worldId || t.region_id !== v.region_id) continue;
+      tiles += 1;
+      const owner = gameState.territories[t.territory_id]?.owner_id ?? null;
+      owners.add(owner);
+      if (viewerId && owner === viewerId) viewerHeld += 1;
+    }
+    out.push({
+      world_id: worldId,
+      region_id: v.region_id,
+      holder_id: tiles > 0 && owners.size === 1 ? [...owners][0] ?? null : null,
+      tiles,
+      viewer_held: viewerHeld,
+      tech_income: v.tech_income,
+      emergency_seal: v.emergency_seal === true,
+    });
+  }
+  return out;
+}
+
+/** True when the viewer holds a vault that grants an Emergency Seal on any lane. */
+export function viewerHoldsVaultSeal(
+  gameState: Pick<GameState, 'settings' | 'territories'>,
+  mapTerritories: LaneMapTerritory[],
+  viewerId: string | null | undefined,
+): boolean {
+  if (!viewerId) return false;
+  return vaultViews(gameState, mapTerritories, viewerId).some((v) => v.emergency_seal && v.holder_id === viewerId);
 }

@@ -263,6 +263,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // Galactic Age corridors: same bake-at-create discipline as the
           // frontier flag, so the engine reads a fixed setting and stays pure.
           galaxy_corridors_enabled: isGalacticAge ? featureFlags.galaxyCorridorsEnabled : undefined,
+          // Galactic Age worlds as characters — same discipline; the map's
+          // authored rules are snapshotted at init when this is on.
+          world_rules_enabled: isGalacticAge ? featureFlags.galaxyWorldRulesEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,

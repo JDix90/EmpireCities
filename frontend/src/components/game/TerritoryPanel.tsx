@@ -39,11 +39,13 @@ import {
   describeLaneSeal,
   describeLaneState,
   describeWorldModifiers,
+  describeWorldRules,
   gatewayLanesFor,
   laneAttackDiceCap,
   laneSealFor,
   laneStateFor,
   laneTouchesSealWorld,
+  vaultViews,
   worldDisplayName,
 } from '../../utils/galaxyLanes';
 
@@ -89,8 +91,10 @@ interface TerritoryPanelProps {
   mapConnections?: MapConnection[];
   /** Galaxy maps: authored world names, for the gateway badge's far-world label. */
   mapWorlds?: Array<{ world_id: string; display_name: string }>;
-  /** Galaxy: fire an Emergency Seal on a lane leaving this gateway (Void Custodians). */
+  /** Galaxy: fire an Emergency Seal on a lane leaving this gateway (Void Custodians, or the Vault holder). */
   onSealLane?: (fromId: string, toId: string) => void;
+  /** The viewer holds the Vault: their seal closes ANY lane, not only Nexus's. */
+  sealAnyLane?: boolean;
   denseMap?: boolean;
   onFortifyTo?: (fromId: string, toId: string) => void;
   onClose: () => void;
@@ -304,6 +308,7 @@ export default function TerritoryPanel({
   mapConnections = [],
   mapWorlds,
   onSealLane,
+  sealAnyLane = false,
   denseMap = false,
   onFortifyTo,
   onClose,
@@ -652,7 +657,16 @@ export default function TerritoryPanel({
         const worldMods = describeWorldModifiers(
           mapTerritory.world_id ? gameState.settings.world_modifiers?.[mapTerritory.world_id] : undefined,
         );
-        if (!territoryLore && !worldLore && worldMods.length === 0) return null;
+        const regionName = (rid: string) => mapRegions?.find((r) => r.region_id === rid)?.name ?? rid;
+        const worldRules = describeWorldRules(
+          mapTerritory.world_id ? gameState.settings.world_rules?.[mapTerritory.world_id] : undefined,
+          regionName,
+        );
+        const vaults = mapTerritory.world_id
+          ? vaultViews(gameState, mapTerritories, myPlayerId).filter((v) => v.world_id === mapTerritory.world_id)
+          : [];
+        const playerName = (pid: string) => gameState.players.find((p) => p.player_id === pid)?.username ?? 'a rival';
+        if (!territoryLore && !worldLore && worldMods.length === 0 && worldRules.length === 0) return null;
         return (
           <div className="mb-3 px-3 py-2 rounded-lg border border-bf-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
             {worldLore && (
@@ -665,6 +679,20 @@ export default function TerritoryPanel({
                   <p className="mt-1 text-[11px] text-bf-muted/90 leading-snug">{worldLore.stakes}</p>
                 )}
               </>
+            )}
+            {worldRules.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5" data-testid="world-rules">
+                {worldRules.map((line) => (
+                  <li key={line} className="text-[11px] text-amber-200/90 leading-snug">★ {line}</li>
+                ))}
+                {vaults.map((v) => (
+                  <li key={v.region_id} className="text-[11px] text-amber-100 leading-snug" data-testid="vault-status">
+                    ◈ Vault: {v.holder_id
+                      ? (v.holder_id === myPlayerId ? 'held by you' : `held by ${playerName(v.holder_id)}`)
+                      : `unheld · you hold ${v.viewer_held} of ${v.tiles}`}
+                  </li>
+                ))}
+              </ul>
             )}
             {worldMods.length > 0 && (
               <ul className="mt-1.5 space-y-0.5" data-testid="world-modifiers">
@@ -735,7 +763,7 @@ export default function TerritoryPanel({
                   ? farOwnerId === myPlayerId ? 'you' : playerName(farOwnerId)
                   : 'neutral';
                 const canSeal = !!onSealLane && isMyTurn && !seal
-                  && laneTouchesSealWorld(galaxyMap, lane.nearId, lane.farId);
+                  && (sealAnyLane || laneTouchesSealWorld(galaxyMap, lane.nearId, lane.farId));
                 const stateColor = seal
                   ? 'text-orange-300'
                   : state === 'corridor' ? 'text-bf-gold' : state === 'open' ? 'text-sky-300' : 'text-bf-muted';
