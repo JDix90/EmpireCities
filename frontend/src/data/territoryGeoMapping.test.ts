@@ -9,7 +9,6 @@ import {
   type GeoConfigItem,
 } from './territoryGeoMapping';
 import { GALAXY_SOL_TERRITORY_GEO } from './galaxySolGlobeGeo';
-import { ACW_TERRITORY_STATES } from './acwStateMap';
 
 /**
  * Guards the invariant stated at the top of territoryGeoMapping.ts: within one
@@ -54,13 +53,13 @@ function loadMap(mapId: string): { territories: MapTerritory[] } {
  * `geo_config`, then the Sol III merge table, then the preset config, then the
  * plain ISO list (which the territory's own `clip_bbox` narrows).
  *
- * Returns undefined for a territory that never reaches that path. American
- * Civil War territories are the era-map case: they render from real admin-1
- * state polygons via ACW_TERRITORY_STATES, so their `US` clip boxes in
- * TERRITORY_GEO_CONFIG are an unreached fallback and overlap harmlessly.
+ * American Civil War territories used to be skipped here. They normally render
+ * from real admin-1 state polygons, so their `US` boxes are only a fallback —
+ * but a fallback that overlapped was still a tile that could draw over its
+ * neighbour, and the exemption meant nothing caught it. The boxes tile now, so
+ * the sweep covers them like everything else.
  */
 function claimsFor(t: MapTerritory): GeoConfigItem[] | undefined {
-  if (ACW_TERRITORY_STATES[t.territory_id]) return undefined;
   if (t.geo_config?.length) return t.geo_config;
   const sol = GALAXY_SOL_TERRITORY_GEO[t.territory_id];
   if (sol?.length) return sol;
