@@ -421,4 +421,58 @@ describe.runIf(redisTestEnabled)('Space Age Moon ladder — human socket path', 
     expect(after.territories[moonEnd].unit_count).toBe(15);
     expect(after.territories[earthEnd].unit_count).toBe(5);
   }, 45_000);
+
+  /**
+   * The bug this file's header describes, from the AI's side.
+   *
+   * `processAiTurn` fires the once-per-game launch for a bot that has finished
+   * the ladder and built a pad. `executeTechAbility` refuses
+   * `launch_space_station` during the attack phase, so that block has to run
+   * BEFORE the turn moves on — it once ran after, every attempt failed silently,
+   * and bots never reached the Moon in 120 simulated games. The ordering was put
+   * right in ae02c66 and has been guarded by a comment ever since; the human
+   * tests above all drive `game:use_ability` themselves and would not notice it
+   * moving back.
+   *
+   * This drives a real AI turn end to end rather than calling the executor, so
+   * it fails if the launch is ever sequenced after `state.phase = 'attack'`.
+   */
+  it('launches the AI Space Station on its own turn, before the phase moves to attack', async () => {
+    const gameId = 'itest-ladder-ai-launch';
+    const map = freshMap();
+    const state = freshState(gameId, map);
+
+    const bot = state.players[1];
+    bot.is_ai = true;
+    bot.unlocked_techs = [...LADDER];
+    bot.space_station_launched = false;
+    bot.tech_points = 40;
+    bot.special_resource = 20;
+
+    // The bot needs a pad it owns: that is what the executor looks for.
+    const padTile = Object.values(state.territories).find((t) => t.owner_id === P2)!;
+    padTile.buildings = [...(padTile.buildings ?? []), 'launch_pad'];
+
+    // Hand the turn over with a single action — the human is already at the end
+    // of theirs, so one advance_phase passes play to the bot.
+    state.phase = 'fortify';
+    state.draft_units_remaining = 0;
+    state.current_player_index = 0;
+    await seed(gameId, state, map);
+
+    const client = await connect(P1);
+    await joinRoom(P1, gameId);
+    const handoff = await act(client, 'game:advance_phase', { gameId }, 'game:state');
+    expect(handoff.ok, handoff.ok ? '' : `advance rejected: ${handoff.error}`).toBe(true);
+
+    // The AI turn is scheduled 1.5s out and then plays a full turn, so this
+    // waits longer than the shared helper's 3s budget.
+    let launched = false;
+    for (let i = 0; i < 600 && !launched; i++) {
+      const s = await getGameState(gameId);
+      launched = s?.players[1]?.space_station_launched === true;
+      if (!launched) await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(launched, 'the bot finished the ladder and held a pad but never launched').toBe(true);
+  }, 45_000);
 });

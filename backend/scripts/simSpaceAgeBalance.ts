@@ -31,20 +31,24 @@
  * ENGINE-vs-SOCKET NOTE (production discrepancy, replicated honestly here):
  * The AI's "Launch Space Station" step exists ONLY in the socket layer
  * (gameSocket.ts processAiTurn, ~line 5010) — the pure engine (computeAiTurn /
- * selectAiTechResearch / selectAiBuildingPlacement) never fires it. Worse, that
- * socket block runs AFTER `state.phase = 'attack'` (gameSocket.ts:4962), and
- * executeTechAbility rejects launch_space_station during the attack phase
- * (executeTechAbility.ts:306-308) — so in production the AI launch appears to
- * ALWAYS fail. This sim replicates the socket sequence via the same executor
- * (executeTechAbility) but schedules it in the DRAFT phase as intended;
- * SIM_LAUNCH_PHASE=attack reproduces the production ordering to quantify the bug.
+ * selectAiTechResearch / selectAiBuildingPlacement) never fires it, so this sim
+ * has to schedule the launch itself, via the same executor, during the DRAFT
+ * phase — which is what production does.
+ *
+ * That socket block USED TO run after `state.phase = 'attack'`, and
+ * executeTechAbility refuses launch_space_station during the attack phase, so
+ * every AI launch failed silently and bots never reached the Moon. That was
+ * fixed in ae02c66 (2026-07-13); the block now precedes the phase transition and
+ * `spaceAgeMoonLadderSocket.test.ts` drives a real AI turn to keep it there.
+ * SIM_LAUNCH_PHASE=attack still reproduces the old ordering, now as a
+ * counterfactual — how much the Moon race is worth — rather than a prod repro.
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simSpaceAgeBalance.ts
  *   SIM_GAMES=60 SIM_PLAYERS=4 SIM_DIFFICULTY=expert SIM_MAX_TURNS=80 \
  *     SIM_SEED=borderfall SIM_CSV=/tmp/sim_space_age.csv \
  *     pnpm exec tsx scripts/simSpaceAgeBalance.ts
- *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # prod repro
+ *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # no-Moon counterfactual
  *   SIM_FACTIONS=1 SIM_GAMES=120 SIM_PLAYERS=6 pnpm exec tsx scripts/simSpaceAgeBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
