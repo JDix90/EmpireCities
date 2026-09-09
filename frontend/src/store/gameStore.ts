@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import type { GamePhase } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
+/**
+ * Space Age Moon Race, Phase 2b: a Drop Assault declared and not yet landed.
+ * Shared with every player on purpose — the telegraph is the counterplay.
+ */
+export interface DropAssault {
+  owner_id: string;
+  target_id: string;
+  declared_turn: number;
+  units: number;
+}
+
 export interface TerritoryState {
   territory_id: string;
   owner_id: string | null;
@@ -128,6 +139,8 @@ export interface GameState {
   turn_number: number;
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
+  /** Space Age Moon Race, Phase 2b: drops declared and not yet landed. */
+  drop_assaults?: DropAssault[];
   card_set_redemption_count: number;
   diplomacy?: Array<{
     player_index_a: number;

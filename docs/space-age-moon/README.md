@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phases 0, 1 and 2a done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phases 0, 1, 2a and 2b done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -53,7 +53,7 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 | 0 ✅ | Prerequisites | AI Moon launch guarded; shipped ruleset measured as the control | — | none (test + harness) |
 | 1 ✅ | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` (dark) | `PlayerState.helium3`, income tick, one draft ability |
 | 2a ✅ | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** (reinforcement) | `space_age_moon_gated_tier_enabled` (dark) | `requiresMoonTiles` / `helium3Cost` on the ability descriptor |
-| 2b | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
+| 2b ✅ | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
 | 3 | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` | new `VictoryType`, clock state, `contest` access mode |
 | 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
 | 5 | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` | two `SecretMission` kinds + generator branch |
@@ -89,7 +89,24 @@ Run `simSpaceAgeBalance.ts` three ways, 60 games each, `SIM_SEED=phase0`, 4 play
 | B — **shipped** | `SIM_THRESHOLD=60 SIM_MAX_TURNS=90` | **23.3%** | `threshold` 14 · `turn_limit` 46 | 91 |
 | C — shipped + factions | B + `SIM_FACTIONS=1` | **28.3%** | `threshold` 17 · `turn_limit` 43 | 91 |
 
-**The threshold fix landed, and is not sufficient.** Decisive endings went from 1.7% to 23.3% — a real improvement, and the reason the default exists. But **77% of games still run to the 90-turn cap**. The era's ending is still mostly "whoever was ahead when the clock stopped".
+> ### ⚠️ Correction (2026-09-09, Phase 2b): every figure above was measured on a harness that stalled conquest
+>
+> `executeLandAttack` moved in `min(from.unit_count - 1, 3)` units on a capture. Bonus dice let both sides lose a unit in one exchange, so a 2-unit attacker could take a tile and be left holding exactly one — moving in **zero**, and leaving an *owned* territory with no units. `to.unit_count < 1` is one of that same function's structural rejections, so those tiles became **permanently un-attackable**, and games that should have ended in conquest ran to the cap instead.
+>
+> The socket healed the state at broadcast (`[game-engine][INVARIANT] … auto-correcting to 1. This is a bug.`), so **live games were never this stalled** — but the simulator has no broadcast, kept the illegal board, and every phase gate in this document was measured on it. Fixed in Phase 2b, with a regression test.
+>
+> Re-measured on the fixed harness, 5 replicates × 60 games per arm (mean [range]):
+>
+> | Arm | Decisive | Game length | Moon-tile leader won |
+> |---|---|---|---|
+> | Shipped ruleset (all flags off) | **70.0%** [63–78] | 66.1 | 39.1% |
+> | Phase 1 | 66.7% [62–72] | 67.1 | 50.7% |
+> | Phase 2a | 69.3% [58–78] | 66.3 | 54.9% |
+> | Phase 2a + 2b | 65.0% [60–73] | 67.6 | 54.2% |
+>
+> **This weakens the premise of the whole package.** "The Space Age ends on the clock" was substantially a harness artefact: on the fixed simulator the shipped ruleset already ends decisively about 70% of the time, not 23%. The phase gates below all still pass — nothing regressed, and the Moon-holder correlation still rises the way §4 predicted — but Phase 3 was justified by a stall that is smaller than it looked, and **should be re-argued before it is built**, not assumed.
+
+**The threshold fix landed, and is not sufficient.** Decisive endings went from 1.7% to 23.3% — a real improvement, and the reason the default exists. But **77% of games still run to the 90-turn cap**. The era's ending is still mostly "whoever was ahead when the clock stopped". *(Both readings are pre-correction; see the box above.)*
 
 Run A also revises the number this era has been quoted against: at the pre-fix ruleset the cap rate is **98.3%**, not the ~93% recorded in `games.routes.ts`. That comment predates the frontier tiles being seeded by default (63 tiles rather than 55), which is the likely cause.
 
@@ -260,6 +277,30 @@ Four things the run taught us, all of which change how later phases should be me
 - **The Moon-holder correlation is mostly not caused by the tier.** It is already 37.6% with every flag off, because the player holding the Moon is usually just the strongest player. The tier adds ~8 points on top of that.
 - **Price is not the lever for it.** Raising the beam 6 → 10 and the drop 8 → 14 cut drops per game from 32.4 to 10.6 and moved the Moon-holder win share not at all (52.0 → 51.4, with peak-Moon *up* at 44.3). Same shape as Phase 1's export-ceiling result: §9's costs are not a useful dial for the win correlation, and the initial values stand. If the win share ever does need pulling down, the lever is who can hold the Moon, not what holding it costs.
 - **The tier ate Phase 1's sink.** He-3 exported per game falls 384.6 → 7.5, because a bot that can fire a power banks for it instead of converting. Phase 1 measured those ~385 tech points as changing nothing, so nothing measurable was lost — but Lunar Export is now close to vestigial for the AI, and §8's Tribute knob has correspondingly less to bite on.
+
+### 4.5b Phase 2b — measured 2026-09-09
+
+Same method: 5 replicates × 60 games per arm, 4p medium, threshold 60 / 90 turns, seeds shared across arms. The 2a control is this same commit with the declaration suppressed (`SIM_DROP_ASSAULT=0`), because both phases ship behind one flag and no setting separates them in a real game.
+
+| | 2a only | **2a + 2b** |
+|---|---|---|
+| Decisive endings | 69.3 [58–78] | 65.0 [60–73] |
+| Moon-tile leader won | 54.9 [52–59] | 54.2 [46–60] |
+| Games with 2+ on the Moon | 85.0 | 82.7 |
+| Game length (turns) | 66.3 | 67.6 |
+| Drop declared, of reachable games | — | **23.8%** [21–31] |
+| Declarations per game | — | 0.4 |
+| Of those declared: landed | — | 90.8% |
+| Of those landed: took the tile | — | 90.3% |
+
+**Geography did not collapse** — the risk §4.2 named. Decisive endings, game length and the Moon-holder correlation all sit inside the control's replicate range.
+
+**But usage is thin, and that is the design's own AI rule.** §4.4 says bots drop-assault "a tile that would complete a region bonus, when the AI holds ≥5 Moon tiles", and that conjunction is rare: a quarter of reachable games, 0.4 declarations each. For a human the drop is a real tool; for a bot it is close to decorative. Loosening the target rule (any weakly-held tile behind the front, say) is the obvious lever if Phase 3 wants bots using it, and it should be measured, not assumed.
+
+Two smaller readings:
+
+- **The telegraph almost never gets punished.** Only 5.6% of declarations were cancelled, and every single cancellation was "the declarer took the tile by land anyway" — not one was a declarer thrown off the Moon in flight. The foothold-at-landing rule is doing nothing at these usage levels; it is insurance, not a live cost. Those wasted declarations are also a small AI inefficiency worth fixing when the targeting rule is next touched: the bot already has its attack plan when it declares, so it could simply skip a tile it is about to take.
+- **90% of landings capture.** Three units against a tile chosen for being weakly held is a favourable fight, which is the point — the cost is 10 He-3 and a round of warning, not bad odds.
 
 ### 4.6 What 2a actually shipped, versus this design
 

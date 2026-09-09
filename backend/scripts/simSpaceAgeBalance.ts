@@ -65,12 +65,15 @@ import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
 import { countLunarTerritories } from '../src/game-engine/state/helium3';
 import {
+  canAiUseDropAssault,
   canAiUseDysonBeam,
   canAiUseOrbitalDrop,
+  selectAiDropAssaultTarget,
   selectAiDysonBeamTarget,
   selectAiOrbitalDropTarget,
   shouldAiExportHelium3,
 } from '../src/game-engine/ai/aiMoonPowers';
+import { resolveDropAssaultsFor } from '../src/game-engine/abilities/dropAssault';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -106,6 +109,13 @@ const MOON_HELIUM3 = process.env.SIM_MOON_HELIUM3 === '1';
  * dyson_beam rather than gate it (moonPowers.ts areMoonPowersEnabled).
  */
 const MOON_TIER = process.env.SIM_MOON_TIER === '1';
+/**
+ * Phase 2b's declaration, on by default with the tier. `SIM_DROP_ASSAULT=0`
+ * suppresses it so a Phase 2b run has a matched 2a-only control ON THE SAME
+ * COMMIT — both phases ship behind one flag, so there is no setting that
+ * separates them in a real game.
+ */
+const DROP_ASSAULT = process.env.SIM_DROP_ASSAULT !== '0';
 /** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
 const FACTIONS = process.env.SIM_FACTIONS === '1';
 const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
@@ -202,6 +212,14 @@ interface PlayerSim {
   /** Phase 2a: uses of each Moon-gated power across the game. */
   dysonBeams: number;
   orbitalDrops: number;
+  /** Phase 2b: drops declared, and how they ended. */
+  dropAssaultsDeclared: number;
+  dropAssaultsLanded: number;
+  dropAssaultsCaptured: number;
+  dropAssaultsCancelled: number;
+  dropAssaultsCancelledSelfTook: number;
+  dropAssaultsCancelledNoFoothold: number;
+  dropAssaultsCancelledOther: number;
   /** Most lunar tiles this player held at once — the §4.5 usage denominator. */
   peakMoonTiles: number;
 }
@@ -223,6 +241,24 @@ function playAiTurn(
   const pid = ps.pid;
   const player = state.players.find((p) => p.player_id === pid);
   if (!player) return;
+
+  // Phase 2b: a drop declared last turn lands as this turn begins, before the
+  // bot plans — the socket lands it in the same place, right after
+  // advanceToNextPlayer, so the plan is made against the post-landing board.
+  for (const res of resolveDropAssaultsFor(state, map, pid, { dieRoll })) {
+    if (res.status === 'cancelled') {
+      ps.dropAssaultsCancelled++;
+      if (res.cancelCode === 'already_held') ps.dropAssaultsCancelledSelfTook++;
+      if (res.cancelCode === 'lost_foothold') ps.dropAssaultsCancelledNoFoothold++;
+      if (res.cancelCode !== 'lost_foothold' && res.cancelCode !== 'already_held') {
+        ps.dropAssaultsCancelledOther++;
+      }
+    }
+    else {
+      ps.dropAssaultsLanded++;
+      if (res.captured) ps.dropAssaultsCaptured++;
+    }
+  }
 
   state.phase = 'draft';
   const plan = computeAiTurn(state, map, difficulty); // planned before economy, like the socket
@@ -283,6 +319,21 @@ function playAiTurn(
       if (res.success) {
         ps.orbitalDrops++;
         player.ability_uses = { ...(player.ability_uses ?? {}), orbital_drop: 1 };
+      }
+    }
+  }
+
+  // Drop Assault declaration (Phase 2b), before the export for the same reason
+  // the drop is: a bot that exported first would never hold the 10 He-3.
+  if (DROP_ASSAULT && canAiUseDropAssault(state, pid)) {
+    const assaultTarget = selectAiDropAssaultTarget(state, pid);
+    if (assaultTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'drop_assault', territoryId: assaultTarget,
+      });
+      if (res.success) {
+        ps.dropAssaultsDeclared++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), drop_assault: 1 };
       }
     }
   }
@@ -419,6 +470,10 @@ interface GameStat {
   /** Phase 2a usage, and whether anyone ever held enough Moon to unlock it. */
   dysonBeams: number;
   orbitalDrops: number;
+  dropAssaultsDeclared: number;
+  dropAssaultsLanded: number;
+  dropAssaultsCaptured: number;
+  dropAssaultsCancelled: number;
   anyThreeMoonTiles: boolean;
   /** The player who peaked highest on the Moon, and whether they won. */
   moonPeakLeaderWon: boolean;
@@ -500,6 +555,13 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     helium3Exported: 0,
     dysonBeams: 0,
     orbitalDrops: 0,
+    dropAssaultsDeclared: 0,
+    dropAssaultsLanded: 0,
+    dropAssaultsCaptured: 0,
+    dropAssaultsCancelled: 0,
+    dropAssaultsCancelledSelfTook: 0,
+    dropAssaultsCancelledNoFoothold: 0,
+    dropAssaultsCancelledOther: 0,
     peakMoonTiles: 0,
   }]));
 
@@ -602,6 +664,13 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     helium3Exported: simList.reduce((a, s) => a + s.helium3Exported, 0),
     dysonBeams: simList.reduce((a, s) => a + s.dysonBeams, 0),
     orbitalDrops: simList.reduce((a, s) => a + s.orbitalDrops, 0),
+    dropAssaultsDeclared: simList.reduce((a, s) => a + s.dropAssaultsDeclared, 0),
+    dropAssaultsLanded: simList.reduce((a, s) => a + s.dropAssaultsLanded, 0),
+    dropAssaultsCaptured: simList.reduce((a, s) => a + s.dropAssaultsCaptured, 0),
+    dropAssaultsCancelled: simList.reduce((a, s) => a + s.dropAssaultsCancelled, 0),
+    dropAssaultsCancelledSelfTook: simList.reduce((a, s) => a + s.dropAssaultsCancelledSelfTook, 0),
+    dropAssaultsCancelledNoFoothold: simList.reduce((a, s) => a + s.dropAssaultsCancelledNoFoothold, 0),
+    dropAssaultsCancelledOther: simList.reduce((a, s) => a + s.dropAssaultsCancelledOther, 0),
     // The §4.5 denominator: a tier nobody could reach tells us nothing about
     // whether the tier is used, so usage is scored over these games only.
     anyThreeMoonTiles: simList.some((s) => s.peakMoonTiles >= 3),
@@ -719,6 +788,17 @@ function main(): void {
     console.log(`Dyson Beam fired (of reachable games):       ${pct(reachedTier.filter((s) => s.dysonBeams > 0).length, reachedTier.length)}  (n=${reachedTier.length})`);
     console.log(`Orbital Drop used (of reachable games):      ${pct(reachedTier.filter((s) => s.orbitalDrops > 0).length, reachedTier.length)}`);
     console.log(`Avg beams per game:                          ${fmt(avg(stats.map((s) => s.dysonBeams)), 2)} · avg drops ${fmt(avg(stats.map((s) => s.orbitalDrops)), 2)}`);
+    const withAssault = stats.filter((s) => s.dropAssaultsDeclared > 0);
+    const declared = stats.reduce((a, s) => a + s.dropAssaultsDeclared, 0);
+    const landed = stats.reduce((a, s) => a + s.dropAssaultsLanded, 0);
+    const captured = stats.reduce((a, s) => a + s.dropAssaultsCaptured, 0);
+    console.log(`Drop Assault declared (of reachable games): ${pct(withAssault.length, reachedTier.length)}`);
+    console.log(`Avg declared per game:                       ${fmt(avg(stats.map((s) => s.dropAssaultsDeclared)), 2)}`);
+    // Cancelled-vs-landed is the telegraph working: a drop cancelled at landing
+    // is one whose declarer was thrown off the Moon in the round it was in flight.
+    console.log(`Of those declared: landed ${pct(landed, declared)} · cancelled ${pct(stats.reduce((a, s) => a + s.dropAssaultsCancelled, 0), declared)}`);
+    console.log(`Of those landed: took the tile ${pct(captured, landed)}`);
+    console.log(`Cancelled because the declarer took it anyway: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledSelfTook, 0)} · lost the Moon: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledNoFoothold, 0)} · other: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledOther, 0)}`);
   }
 
   console.log(`\n— Does the Moon correlate with winning? —`);

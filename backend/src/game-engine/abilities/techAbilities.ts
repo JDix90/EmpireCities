@@ -113,6 +113,16 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
    * assault variant that resolves combat from a virtual origin is Phase 2b.
    */
   orbital_drop: { label: 'Orbital Drop', scope: 'turn', phase: 'draft', requiresMoonTiles: 3, helium3Cost: 8, ownPlacement: { units: 3 } },
+  /**
+   * Phase 2b, the drop that can take a tile. Declared on your turn, lands at the
+   * start of your next one.
+   *
+   * `requiresMoonTiles` is the single source of truth for the threshold —
+   * dropAssault.ts reads it back rather than keeping its own copy. It carries
+   * NO `helium3Cost` on purpose: the drop charges its 10 He-3 at DECLARATION,
+   * inside its own rules, and a cost here would charge a second time.
+   */
+  drop_assault: { label: 'Drop Assault', scope: 'turn', phase: 'draft', requiresMoonTiles: 3 },
   royal_decree: { label: 'Royal Decree', scope: 'turn', phase: 'draft' },
   mass_mobilization: { label: 'Mass Mobilization', scope: 'game', phase: 'draft' },
   detente_protocol: { label: 'Détente Influence', scope: 'turn', phase: 'attack' },

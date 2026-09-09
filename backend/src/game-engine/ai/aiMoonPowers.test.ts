@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import {
+  AI_DROP_ASSAULT_MOON_TILES,
   AI_DYSON_BEAM_THREAT_UNITS,
+  canAiUseDropAssault,
+  selectAiDropAssaultTarget,
   aiHelium3Reserve,
   canAiUseDysonBeam,
   canAiUseOrbitalDrop,
@@ -227,5 +230,82 @@ describe('what the bot may fire', () => {
     const off = mkState(board, { settings: { space_age_moon_gated_tier_enabled: false } });
     expect(canAiUseDysonBeam(off, 'bot')).toBe(false);
     expect(canAiUseOrbitalDrop(off, 'bot')).toBe(false);
+  });
+});
+
+describe('choosing a Drop Assault target', () => {
+  // Region membership is what makes a target worth 10 He-3: a region bonus pays
+  // every turn afterwards, and the drop is the only way to reach a tile with no
+  // border to attack across.
+  const region = (id: string, owner: string | null, units = 3, region_id = 'euro_2100') =>
+    ({ id, owner, units, region_id });
+
+  function regionState(seeds: Array<{ id: string; owner: string | null; units?: number; region_id?: string }>, moonTiles = 9) {
+    const moon = Array.from({ length: moonTiles }, (_, i) => ({
+      id: `moon_${i}`, owner: 'bot', moon: true,
+    }));
+    const state = mkState([...moon] as never, { helium3: 30 });
+    for (const s2 of seeds) {
+      state.territories[s2.id] = {
+        territory_id: s2.id, owner_id: s2.owner, unit_count: s2.units ?? 3,
+        unit_type: 'infantry', buildings: [], region_id: s2.region_id ?? 'euro_2100',
+        globe_id: 'earth',
+      } as never;
+    }
+    state.turn_number = 20;
+    state.map_era_floor = 1;
+    return state;
+  }
+
+  it('takes the tile that completes a region', () => {
+    const state = regionState([
+      region('euro_west', 'bot'), region('euro_east', 'bot'),
+      region('euro_north', 'rival', 4),
+      region('asia_a', 'rival', 1, 'asia_2100'), region('asia_b', 'rival', 1, 'asia_2100'),
+    ]);
+    expect(selectAiDropAssaultTarget(state, 'bot')).toBe('euro_north');
+  });
+
+  it('prefers the weaker garrison when two regions are one tile short', () => {
+    const state = regionState([
+      region('euro_west', 'bot'), region('euro_north', 'rival', 8),
+      region('asia_a', 'bot', 3, 'asia_2100'), region('asia_b', 'rival', 2, 'asia_2100'),
+    ]);
+    expect(selectAiDropAssaultTarget(state, 'bot')).toBe('asia_b');
+  });
+
+  it('declines when no region is one tile from complete', () => {
+    const state = regionState([
+      region('euro_west', 'bot'), region('euro_north', 'rival'), region('euro_east', 'rival'),
+    ]);
+    expect(selectAiDropAssaultTarget(state, 'bot')).toBeNull();
+  });
+
+  it('never picks a Moon tile, however close the lunar region is to complete', () => {
+    // The Moon is reached by orbit lanes; a drop that could skip that would
+    // make the lanes decorative.
+    const state = regionState([region('euro_west', 'bot')], 8);
+    state.territories.moon_8 = {
+      territory_id: 'moon_8', owner_id: 'rival', unit_count: 1, unit_type: 'infantry',
+      buildings: [], region_id: 'lunar_surface', globe_id: 'moon',
+    } as never;
+    expect(selectAiDropAssaultTarget(state, 'bot')).toBeNull();
+  });
+
+  it('wants a bigger lunar holding than the rule itself demands', () => {
+    // Three tiles is enough to declare, but a bot on exactly three is the one
+    // most likely to be thrown off before the drop lands — and it pays anyway.
+    const state = regionState([region('euro_west', 'bot'), region('euro_north', 'rival')], 3);
+    expect(canAiUseDropAssault(state, 'bot')).toBe(false);
+    const stronger = regionState([region('euro_west', 'bot'), region('euro_north', 'rival')], AI_DROP_ASSAULT_MOON_TILES);
+    expect(canAiUseDropAssault(stronger, 'bot')).toBe(true);
+  });
+
+  it('banks toward the drop rather than exporting the fuel', () => {
+    const map = mkMap([['home', 'front']]);
+    const state = regionState([region('euro_west', 'bot'), region('euro_north', 'rival')], 9);
+    state.players[0].helium3 = 5;
+    expect(aiHelium3Reserve(state, map, 'bot')).toBeGreaterThanOrEqual(10);
+    expect(shouldAiExportHelium3(state, map, 'bot')).toBe(false);
   });
 });
