@@ -57,6 +57,12 @@ interface TerritoryPanelProps {
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
   onNavalAttack?: (fromId: string, toId: string) => void;
   onInfluence?: (targetId: string) => void;
+  /**
+   * Space Age Orbital Blockade (Moon Race, Phase 4). Absent = affordance hidden.
+   * The Galactic Age seals from its strategic view; the Space Age has no such
+   * view, so without this the blockade would be a mechanic only bots could use.
+   */
+  onSealLane?: (fromId: string, toId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
   techTree?: Array<{ tech_id: string; name?: string; unlocks_ability?: string; unlocks_building?: string }>;
@@ -287,6 +293,7 @@ export default function TerritoryPanel({
   orbitAccessReason,
   resolvedViewerPlayerId,
   mapConnections = [],
+  onSealLane,
   denseMap = false,
   onFortifyTo,
   onClose,
@@ -806,6 +813,32 @@ export default function TerritoryPanel({
           🌌 {orbitAccessHint}
         </div>
       )}
+
+      {/* Orbital Blockade: seal an authored orbit lane from an end you hold.
+          Launch Pad lanes are deliberately absent — the server refuses them, and
+          offering a button that always fails would teach the wrong rule. */}
+      {onSealLane && isMine && gameState.settings.space_age_moon_blockade_enabled
+        && (gameState.phase === 'attack' || gameState.phase === 'fortify')
+        && (() => {
+          const lane = mapConnections.find(
+            (c) => c.type === 'orbit' && c.source !== 'launch_pad'
+              && (c.from === selectedTerritory || c.to === selectedTerritory),
+          );
+          if (!lane) return null;
+          const otherEnd = lane.from === selectedTerritory ? lane.to : lane.from;
+          return (
+            <button
+              data-testid="seal-lane-btn"
+              onClick={() => onSealLane(lane.from, lane.to)}
+              className="mx-3 mb-2 w-[calc(100%-1.5rem)] py-2 px-3 rounded-lg text-sm transition-colors
+                         border border-cyan-600/70 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900/50
+                         flex flex-col items-center gap-0.5"
+            >
+              <span>🚧 Blockade the lane to {territoryNameById.get(otherEnd) ?? otherEnd}</span>
+              <span className="text-[10px] opacity-60">Shuts it to everyone else for 2 turns — 3 He-3</span>
+            </button>
+          );
+        })()}
 
       {/* Drop Assault marker. Shown to EVERY player, not just the defender: the
           telegraph is the counterplay, and a marker only the attacker can see

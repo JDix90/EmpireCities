@@ -23,6 +23,7 @@ import type { GameMap, GameState } from '../../types';
 import { countLunarTerritories, isHelium3Enabled, LUNAR_EXPORT_MAX } from '../state/helium3';
 import { TERRITORY_ABILITY_DEFS, playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { areMoonPowersEnabled } from '../abilities/moonPowers';
+import { SPACE_AGE_LANE_SEAL_HELIUM3_COST, canSealLane } from '../state/moonAccess';
 import {
   DROP_ASSAULT_HELIUM3_COST,
   dropAssaultBlockReason,
@@ -238,6 +239,36 @@ export function aiHelium3Reserve(state: GameState, map: GameMap, playerId: strin
     reserve += DROP_ASSAULT_HELIUM3_COST;
   }
   return reserve;
+}
+
+/**
+ * The authored anchor lane this bot should blockade, as an [earth, moon] pair,
+ * or null when there is nothing worth sealing (Moon Race, Phase 4).
+ *
+ * Only a player with something to defend seals: the bot must hold lunar ground
+ * AND a rival must be able to reach it, which is exactly when a lane is worth
+ * denying. Launch Pad lanes are excluded by `canSealLane` itself — the anchors
+ * are the convenient route and may be denied, the pad is the contest route and
+ * stays open.
+ */
+export function selectAiLaneSeal(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+): [string, string] | null {
+  if (!state.settings.space_age_moon_blockade_enabled) return null;
+  if (countLunarTerritories(state, playerId) === 0) return null;
+  // Seal from surplus only. A seal that costs the bot its beam is a bad trade:
+  // the beam answers the army coming for the Moon, the seal only delays it.
+  const surplus = helium3Of(state, playerId) - aiHelium3Reserve(state, map, playerId);
+  if (surplus < SPACE_AGE_LANE_SEAL_HELIUM3_COST) return null;
+
+  for (const conn of map.connections ?? []) {
+    if (conn.type !== 'orbit') continue;
+    const check = canSealLane(state, map, conn.from, conn.to, playerId);
+    if (check.ok) return [conn.from, conn.to];
+  }
+  return null;
 }
 
 /**

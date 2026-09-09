@@ -150,6 +150,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Adds four lunar objectives to the Space Age secret-mission deck — hold both polar basins, control the whole Moon, hold three or five lunar territories, or stand on the Moon while a named rival holds none of it — taking roughly 30% of assigned missions. Independent of the other phases, but a no-op unless the game also allows secret-mission victory. Baked at creation. Off by default (dark-launch).',
   },
   {
+    key: 'space_age_moon_blockade_enabled',
+    label: 'Moon Race · Orbital Blockade (Phase 4)',
+    description:
+      'Lets a Space Age player seal one of the three authored orbit lanes for 3 Helium-3, shutting it to everyone else for two turns, provided they hold an end of it. Launch Pad lanes can never be sealed, so a Moon holder can make a rival build a pad but can never lock them out. Turning this on also arms lane contesting for the game. Baked at creation. Off by default (dark-launch).',
+  },
+  {
     key: 'today_panel_enabled',
     label: 'Lobby "Today" panel',
     description:

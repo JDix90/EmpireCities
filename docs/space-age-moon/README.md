@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phases 0, 1, 2a, 2b, 3 and 5 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. All phases done (2026-09-09): 0, 1, 2a, 2b, 3, 4 and 5.** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -55,7 +55,7 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 | 2a ✅ | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** (reinforcement) | `space_age_moon_gated_tier_enabled` (dark) | `requiresMoonTiles` / `helium3Cost` on the ability descriptor |
 | 2b ✅ | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
 | 3 ✅ | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` (dark) | new `VictoryType`, clock state, `contest` access mode |
-| 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
+| 4 ✅ | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` (dark) | create-boundary change, seal cost, lane filter |
 | 5 ✅ | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` (dark) | two `SecretMission` kinds + generator branch |
 | knob | Tribute | Tech-point tithe on Earth-only players | `space_age_moon_tribute_enabled` (**default OFF**) | income-tick transfer |
 
@@ -412,9 +412,37 @@ This is principle 1 applied to Phase 4: the anchors are the *convenient* routes 
 
 Sealing an anchor lane makes the anchor tile itself strategic — capture `euro_spaceport` and the seal's Earth endpoint changes hands, dropping it under §6.2(5). There are now Earth fights *about* the Moon, which is the second-order effect the package wants.
 
-### 6.5 Gate
+### 6.5 Gate — measured 2026-09-09
 
 Seals used in ≥40% of games with a running Hegemony clock; **Hegemony completion rate does not rise by more than 5 points** versus Phase 3 (if seals make the clock uncontestable, the exclusion in §6.3 is not doing its job and the anchor lanes need a shorter duration).
+
+5 replicates × 60 games per arm, on top of the full tier + Hegemony, mean [range]:
+
+| | Phase 3 control | **blockade, 2 rounds** | blockade, 1 round |
+|---|---|---|---|
+| Seals used, of games with a clock | — | **48.1%** [29–79] | 40.0% [31–50] |
+| Games won by Hegemony | 12.3 [8–20] | **9.7** [7–13] | 10.7 [7–13] |
+| Clocks broken | 63% | **70%** | 63% |
+| Decisive endings | 80.3 [77–88] | **73.7** [70–77] | 78.0 [72–82] |
+| `turn_limit` share | 19.7% | 26.3% | 22.0% |
+| Games with 2+ on the Moon | 85.7 | 88.7 | 88.3 |
+
+**Both criteria pass at the designed 2 rounds.** Seals are used in 48.1% of the games they exist for, and Hegemony completion **fell** 2.6 points rather than rising — clocks are broken *more* often with the blockade in play (63% → 70%), not less. §6.3's Launch Pad exclusion is doing exactly its job: the pad route stays open, so a sealed anchor redirects the counter-attack rather than preventing it.
+
+**The honest cost is decisiveness.** Decisive endings fall 80.3 → 73.7 and the `turn_limit` share rises 19.7% → 26.3%. The mechanism is visible in the victory mix: sealing slows the Moon war, and Phase 3's finding was that the Moon war is what ends games. **The blockade gives back roughly half of Phase 3's decisiveness gain.**
+
+That is a design trade, not a defect, and the seal duration is the dial:
+
+- **2 rounds** (shipped, as designed): usage comfortable at 48.1%, decisiveness −6.6.
+- **1 round**: decisiveness −2.3 (essentially the control), but usage sits exactly on the 40% floor with a replicate at 31%.
+
+Shipped at 2 because both gate criteria clear on the mean there and a defensive tool used in two games out of five is barely a tool. Flip `SPACE_AGE_LANE_SEAL_DURATION` to 1 if protecting the decisiveness gain matters more than the blockade being reached for.
+
+### 6.6 What Phase 4 actually shipped, versus this design
+
+- **§6.2(5)'s fix applies to the Galactic Age too.** A seal outliving its owner's presence was never Space-Age-specific; `tickLaneBlockades` now drops any seal whose owner holds neither endpoint, in both eras. Holding an end is what raising a seal requires, so it is what keeping one requires.
+- **The blockade flag arms `lanes_contestable_enabled` itself.** §6.2(1) expects the Moon Race lobby toggle to set both, and that toggle does not exist yet (§10.2). Rather than ship a phase that silently does nothing without a second setting, the create boundary arms the underlying mechanic when the phase flag is on. An explicit client value still wins.
+- **The Space Age needed its own seal UI.** The Galactic Age seals from its strategic view, which Space Age games never render — so without this the blockade would have been a mechanic only bots could use, exactly the gap Phase 1 shipped with Lunar Export. The action now lives on the territory panel of any orbit-lane endpoint you hold, and Launch Pad lanes are deliberately not offered rather than offered-and-refused.
 
 ---
 

@@ -67,6 +67,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_moon_gated_tier_enabled: () => envOptIn('SPACE_AGE_MOON_GATED_TIER_ENABLED'),
   space_age_moon_hegemony_enabled: () => envOptIn('SPACE_AGE_MOON_HEGEMONY_ENABLED'),
   space_age_moon_missions_enabled: () => envOptIn('SPACE_AGE_MOON_MISSIONS_ENABLED'),
+  space_age_moon_blockade_enabled: () => envOptIn('SPACE_AGE_MOON_BLOCKADE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -424,6 +425,22 @@ export const featureFlags = {
    */
   get spaceAgeMoonMissionsEnabled(): boolean {
     return overrideBool('space_age_moon_missions_enabled');
+  },
+
+  /**
+   * Space Age Moon Race, Phase 4 — the Orbital Blockade. Reuses the Galactic
+   * lane-seal mechanic: hold either end of one of the three AUTHORED orbit
+   * lanes, pay 3 He-3, and it is shut to everyone else for two rounds.
+   *
+   * Launch Pad lanes are deliberately unsealable (canSealLane), which is what
+   * keeps the blockade from undoing Phase 3's contest rule: the anchors are the
+   * convenient route and may be denied, the pad is the contest route and stays
+   * open. DARK by default; §6.5 asks that seals are used in >=40% of games with
+   * a running Hegemony clock AND that Hegemony completion does not rise by more
+   * than 5 points — if it does, the exclusion is not doing its job.
+   */
+  get spaceAgeMoonBlockadeEnabled(): boolean {
+    return overrideBool('space_age_moon_blockade_enabled');
   },
 
   /**

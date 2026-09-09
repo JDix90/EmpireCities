@@ -4,6 +4,13 @@ export interface MapConnection {
   from: string;
   to: string;
   type?: 'land' | 'sea' | 'orbit' | string;
+  /**
+   * Set to 'launch_pad' on a lane a Launch Pad opened, rather than one the map
+   * authored. The Space Age Orbital Blockade may only seal authored lanes, so
+   * the client needs to tell them apart to avoid offering a button the server
+   * always refuses.
+   */
+  source?: string;
 }
 
 export interface AdjacencyTargetOptions {

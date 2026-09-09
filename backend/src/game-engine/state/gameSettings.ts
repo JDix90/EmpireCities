@@ -79,6 +79,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Space Age lunar secret missions (Moon Race, Phase 5). Off by default —
   // baked at create from the space_age_moon_missions_enabled feature flag.
   const spaceAgeMoonMissionsEnabled = typeof raw.space_age_moon_missions_enabled === 'boolean' ? raw.space_age_moon_missions_enabled : false;
+  // Space Age Orbital Blockade (Moon Race, Phase 4). Off by default — baked at
+  // create from the space_age_moon_blockade_enabled feature flag, which also
+  // turns on lanes_contestable_enabled for the game.
+  const spaceAgeMoonBlockadeEnabled = typeof raw.space_age_moon_blockade_enabled === 'boolean' ? raw.space_age_moon_blockade_enabled : false;
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
@@ -287,6 +291,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     space_age_hegemony_turns: spaceAgeHegemonyTurns,
     // Space Age lunar missions — persisted only when explicitly enabled.
     space_age_moon_missions_enabled: spaceAgeMoonMissionsEnabled || undefined,
+    // Space Age Orbital Blockade — persisted only when explicitly enabled.
+    space_age_moon_blockade_enabled: spaceAgeMoonBlockadeEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.

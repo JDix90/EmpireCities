@@ -76,6 +76,8 @@ import {
 import { resolveDropAssaultsFor } from '../src/game-engine/abilities/dropAssault';
 import { HEGEMONY_TURNS } from '../src/game-engine/state/lunarHegemony';
 import { isMissionComplete } from '../src/game-engine/victory/missions';
+import { selectAiLaneSeal } from '../src/game-engine/ai/aiMoonPowers';
+import { canSealLane, laneSealDuration, laneSealHelium3Cost } from '../src/game-engine/state/moonAccess';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -131,6 +133,11 @@ const MOON_HEGEMONY = process.env.SIM_MOON_HEGEMONY === '1';
  * the completion rate of the ordinary missions in the same games.
  */
 const MOON_MISSIONS = process.env.SIM_MOON_MISSIONS === '1';
+/** Moon Race Phase 4: the Orbital Blockade. Arms lane sealing for the Space Age. */
+const MOON_BLOCKADE = process.env.SIM_MOON_BLOCKADE === '1';
+/** §9's seal-duration sweep. Unset leaves the era default of 2. */
+const SEAL_DURATION_OVERRIDE = process.env.SIM_SEAL_DURATION
+  ? Number(process.env.SIM_SEAL_DURATION) : null;
 /**
  * Secret-mission victory on its own — the matched control for a lunar-missions
  * run. Without it the only comparison available would be against games that do
@@ -182,6 +189,8 @@ function simSettings(): GameSettings {
     space_age_moon_hegemony_enabled: MOON_HEGEMONY,
     space_age_hegemony_turns: HEGEMONY_TURNS_OVERRIDE ?? undefined,
     space_age_moon_missions_enabled: MOON_MISSIONS,
+    space_age_moon_blockade_enabled: MOON_BLOCKADE,
+    lanes_contestable_enabled: MOON_BLOCKADE,
     // Phase 3 adds a third decisive route, mirroring applyOrbitGatedVictoryDefaults.
     allowed_victory_conditions: [
       'domination',
@@ -246,6 +255,8 @@ interface PlayerSim {
   /** Phase 2a: uses of each Moon-gated power across the game. */
   dysonBeams: number;
   orbitalDrops: number;
+  /** Phase 4: lane seals this player raised. */
+  lanesSealed: number;
   /** Phase 2b: drops declared, and how they ended. */
   dropAssaultsDeclared: number;
   dropAssaultsLanded: number;
@@ -420,6 +431,24 @@ function playAiTurn(
     }
   }
 
+  // Orbital Blockade (Phase 4) — the socket seals in the attack phase, through
+  // the same canSealLane, so the Launch Pad exclusion applies identically.
+  {
+    const seal = selectAiLaneSeal(state, map, pid);
+    if (seal) {
+      const check = canSealLane(state, map, seal[0], seal[1], pid);
+      if (check.ok && check.laneId) {
+        player.helium3 = (player.helium3 ?? 0) - laneSealHelium3Cost(state);
+        if (!state.lane_blockades) state.lane_blockades = {};
+        state.lane_blockades[check.laneId] = {
+          owner_id: pid,
+          turns_remaining: SEAL_DURATION_OVERRIDE ?? laneSealDuration(state),
+        };
+        ps.lanesSealed++;
+      }
+    }
+  }
+
   state.phase = 'fortify';
   for (const a of plan) {
     if (a.type === 'fortify' && a.from && a.to) applyFortify(state, map, pid, a.from, a.to, a.units);
@@ -518,6 +547,8 @@ interface GameStat {
    * GAMES, so both are recorded per seat rather than as two separate runs.
    */
   missions: Array<{ kind: string; lunar: boolean; completed: boolean }>;
+  /** Phase 4: lane seals raised in this game. */
+  lanesSealed: number;
   /** Phase 3: Hegemony clocks started, and how many of them were broken. */
   hegemonyClocksStarted: number;
   hegemonyClocksReset: number;
@@ -601,6 +632,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     helium3Exported: 0,
     dysonBeams: 0,
     orbitalDrops: 0,
+    lanesSealed: 0,
     dropAssaultsDeclared: 0,
     dropAssaultsLanded: 0,
     dropAssaultsCaptured: 0,
@@ -630,6 +662,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
    * boundary rather than returned from the engine, because the tick lives
    * inside `advanceToNextPlayer` where the sim has no return value to read.
    */
+  let lanesSealed = 0;
   let hegemonyClocksStarted = 0;
   let hegemonyClocksReset = 0;
   let hegemonyPeakTurns = 0;
@@ -753,6 +786,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
       );
       return { kind, lunar, completed: !!m && isMissionComplete(state, map, p) };
     }),
+    lanesSealed: simList.reduce((a, s) => a + s.lanesSealed, 0),
     hegemonyClocksStarted,
     hegemonyClocksReset,
     hegemonyPeakTurns,
@@ -912,6 +946,18 @@ function main(): void {
     for (const [kind, e] of [...byKind].sort()) {
       console.log(`  ${kind.padEnd(22)} ${pct(e.done, e.n)}  (n=${e.n})`);
     }
+  }
+
+  if (MOON_BLOCKADE) {
+    // §6.5 scores seal usage over games where a Hegemony clock ran — a seal in
+    // a game nobody was defending says nothing about whether the tool works.
+    const withClock = stats.filter((s) => s.hegemonyClocksStarted > 0);
+    console.log(`\n— Orbital Blockade (Moon Race, Phase 4) —`);
+    console.log(`Games with any lane sealed:                  ${pct(stats.filter((s) => s.lanesSealed > 0).length, GAMES)}`);
+    if (withClock.length) {
+      console.log(`Of games with a Hegemony clock, sealed:      ${pct(withClock.filter((s) => s.lanesSealed > 0).length, withClock.length)}  (n=${withClock.length}; gate: >=40%)`);
+    }
+    console.log(`Avg seals per game:                          ${fmt(avg(stats.map((s) => s.lanesSealed)), 2)}`);
   }
 
   console.log(`\n— Does the Moon correlate with winning? —`);

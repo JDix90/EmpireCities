@@ -4386,6 +4386,9 @@ export default function GamePage() {
                   : undefined
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
+              onSealLane={
+                gameState?.settings.space_age_moon_blockade_enabled ? handleSealLane : undefined
+              }
               onUseAbility={
                 (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
                   ? handleUseAbility

@@ -487,6 +487,13 @@ export interface GameSettings {
    */
   space_age_moon_missions_enabled?: boolean;
   /**
+   * Space Age Moon Race, Phase 4: the Orbital Blockade. Turns on
+   * `lanes_contestable_enabled` for the game and applies the Space Age seal
+   * rules — 3 He-3, two rounds, authored anchor lanes only.
+   * See docs/space-age-moon/README.md §6.
+   */
+  space_age_moon_blockade_enabled?: boolean;
+  /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
    * the map at init into `world_modifiers` so per-turn calc sites don't need the
