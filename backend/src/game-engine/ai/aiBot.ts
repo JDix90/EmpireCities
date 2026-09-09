@@ -26,6 +26,7 @@ import {
   orbitGatewayTerritoryIds,
 } from '../state/moonAccess';
 import { getWorldRules, vaultRegionIds } from '../state/worldRules';
+import { corridorCompletionTargets, laneSovereigntyProgress } from '../victory/laneSovereignty';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -275,6 +276,18 @@ function attackObjectiveBonus(
   const targetRegion = state.territories[targetTerritoryId]?.region_id;
   if (targetRegion && vaultRegionIds(state).has(targetRegion)) b += VAULT_OBJECTIVE_BONUS;
 
+  // Lane Sovereignty: the far gateway of a lane the bot half-holds closes a
+  // corridor. Weighted hardest when it reaches the bar, because from there the
+  // bot only has to survive to its next turn start to win. It stacks with the
+  // gateway bonus above, which fires on the same tile — deliberately: with the
+  // condition in play that tile is worth two things at once.
+  if (allowed.includes('lane_sovereignty')) {
+    const progress = laneSovereigntyProgress(state, map, attackerId);
+    if (progress.applicable && corridorCompletionTargets(state, map, attackerId).has(targetTerritoryId)) {
+      b += progress.held + 1 >= progress.needed ? SOVEREIGNTY_CLOSING_BONUS : SOVEREIGNTY_OBJECTIVE_BONUS;
+    }
+  }
+
   if (allowed.includes('capital')) {
     for (const o of state.players) {
       if (o.player_id === attackerId || o.is_eliminated) continue;
@@ -418,6 +431,10 @@ const GATEWAY_OBJECTIVE_BONUS = 3;
 const GATEWAY_DRAFT_PREMIUM = 4;
 /** Worlds as characters: attack-score premium on a vault tile (the Nexus Gate Ring). */
 const VAULT_OBJECTIVE_BONUS = 3;
+/** Lane Sovereignty: premium on a tile that closes one more corridor. ⚠ balance */
+const SOVEREIGNTY_OBJECTIVE_BONUS = 1;
+/** …and on the one that would put the bot AT the corridor bar, one round from winning. */
+const SOVEREIGNTY_CLOSING_BONUS = 4;
 
 /**
  * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming

@@ -18,6 +18,7 @@ import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
 import type { FrontendMapData } from '../../utils/orbitAccess';
+import { laneSovereigntyProgress } from '../../utils/galaxyLanes';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -163,6 +164,9 @@ export default function GameHUD({
         (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
       );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
+  // Galactic Age Lane Sovereignty: corridors held now (computed here, since the
+  // viewer always sees their own tiles) beside the server-ticked round streak.
+  const sovereignty = laneSovereigntyProgress(gameState, mapData?.connections, myPlayer?.player_id ?? null);
   const turnClarityEnabled = useTurnClarityEnabled();
   const draftPool = computeDraftPool(
     gameState,
@@ -436,9 +440,37 @@ export default function GameHUD({
 
       {activeTab === 'status' && (
         <>
-          {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission) && (
+          {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission || sovereignty.applicable) && (
             <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
               <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Objectives</h3>
+              {sovereignty.applicable && (
+                <div className="mb-2" data-testid="lane-sovereignty-progress">
+                  <p className="text-xs text-bf-text">
+                    <span className="text-bf-muted">Lane Sovereignty: </span>
+                    <span className={sovereignty.held >= sovereignty.needed ? 'text-bf-gold font-medium' : ''}>
+                      corridors {sovereignty.held} of {sovereignty.needed}
+                    </span>
+                    <span className="text-bf-muted">
+                      {' · '}held {sovereignty.streak} of {sovereignty.roundsNeeded} {sovereignty.roundsNeeded === 1 ? 'round' : 'rounds'}
+                    </span>
+                  </p>
+                  <div className="mt-1 flex gap-0.5" aria-hidden>
+                    {Array.from({ length: sovereignty.needed }, (_, i) => (
+                      <span
+                        key={i}
+                        className={clsx(
+                          'h-1 flex-1 rounded-full',
+                          i < sovereignty.held ? 'bg-bf-gold' : 'bg-bf-border',
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-bf-muted/80 mt-0.5 leading-snug">
+                    Hold both gateways of a lane to make it your corridor. Win by holding
+                    {' '}{sovereignty.needed} at the start of {sovereignty.roundsNeeded} turns running.
+                  </p>
+                </div>
+              )}
               {myPlayer.capital_territory_id && (
                 <p className="text-xs text-bf-text">
                   <span className="text-bf-muted">Your capital: </span>
@@ -529,7 +561,7 @@ export default function GameHUD({
             </div>
           )}
 
-          {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission
+          {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission && !sovereignty.applicable
             && !(gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled)
             && !(myPlayer && myPlayer.cards.length > 0) && (
             <p className="px-4 py-6 text-xs text-bf-muted/70 text-center">No objectives, resources, or cards yet.</p>

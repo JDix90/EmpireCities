@@ -25,6 +25,7 @@ import {
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
+import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import {
   applyStormAttrition,
   buildWorldRuleSnapshot,
@@ -718,8 +719,11 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     }
   }
   state.current_player_index = next;
-  // Galaxy: the incoming player's own lane seals age as their turn begins.
+  // Galaxy: the incoming player's own lane seals age as their turn begins, and
+  // their Lane Sovereignty streak extends or breaks on the corridors they hold
+  // right now — both are "at the start of your turn" rules.
   tickLaneBlockades(state, state.players[next].player_id);
+  if (map) tickLaneSovereignty(state, map, state.players[next].player_id);
   state.phase = 'draft';
   state.draft_placements_this_turn = {};
   state.draft_deployments_this_turn = [];
@@ -1066,6 +1070,12 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
 
     if (condition == null && allowed.includes('capital')) {
       if (playerSatisfiesCapitalVictory(state, player.player_id)) condition = 'capital';
+    }
+
+    // Lane Sovereignty (galaxy): the streak is banked at the holder's own turn
+    // start, so this only reads it — see victory/laneSovereignty.ts.
+    if (condition == null && allowed.includes('lane_sovereignty')) {
+      if (hasLaneSovereignty(state, player.player_id)) condition = 'lane_sovereignty';
     }
 
     if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {

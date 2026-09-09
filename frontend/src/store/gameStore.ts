@@ -37,6 +37,11 @@ export interface PlayerState {
   mmr: number;
   capital_territory_id?: string | null;
   secret_mission?: SecretMissionPayload | null;
+  /**
+   * Galactic Age Lane Sovereignty: consecutive turn starts this player has held
+   * the corridor bar. Server-ticked; the HUD reads it beside its own live count.
+   */
+  lane_sovereignty_streak?: number;
   faction_id?: string | null;
   tech_points?: number;
   unlocked_techs?: string[];

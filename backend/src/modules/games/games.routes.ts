@@ -41,7 +41,7 @@ const TutorialStartSchema = z.object({
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence']);
+const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence', 'lane_sovereignty']);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -150,11 +150,16 @@ export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
 export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
 export function applyOrbitGatedVictoryDefaults<
   T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
->(settings: T, opts: { isOrbitGated: boolean; callerChoseVictory: boolean }): T {
+>(settings: T, opts: { isOrbitGated: boolean; callerChoseVictory: boolean; isGalacticAge?: boolean }): T {
   if (!opts.isOrbitGated) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
-    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), 'threshold' as VictoryType])];
+    const added: VictoryType[] = ['threshold'];
+    // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
+    // the tiles — and ships ON by default beside the headcount backstop. It is
+    // meaningless off a lane map, so it is never added elsewhere.
+    if (opts.isGalacticAge) added.push('lane_sovereignty');
+    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...added])];
     if (typeof out.victory_threshold !== 'number') out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
   }
   if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
@@ -269,6 +274,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
+          isGalacticAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
         },

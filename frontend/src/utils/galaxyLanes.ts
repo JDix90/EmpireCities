@@ -330,3 +330,58 @@ export function viewerHoldsVaultSeal(
   if (!viewerId) return false;
   return vaultViews(gameState, mapTerritories, viewerId).some((v) => v.emergency_seal && v.holder_id === viewerId);
 }
+
+// ── Lane Sovereignty ──────────────────────────────────────────────────────
+// Client mirror of `backend/src/game-engine/victory/laneSovereignty.ts`: hold
+// both gateways of five of the eight AUTHORED lanes at the start of your turn,
+// three turns running. Engine-added lanes (a Jump Gate, a Launch Pad — anything
+// carrying `source`) never count, so a player cannot build their own win.
+// Advisory, like everything else here: the streak itself comes from the server.
+
+export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
+export const LANE_SOVEREIGNTY_ROUNDS = 3;
+
+/** Authored orbit lanes — the board sovereignty is played on. */
+export function authoredOrbitLanes(
+  connections: Array<{ from: string; to: string; type?: string; source?: string }>,
+): Array<{ from: string; to: string }> {
+  return connections.filter((c) => c.type === 'orbit' && !c.source).map((c) => ({ from: c.from, to: c.to }));
+}
+
+export interface LaneSovereigntyProgress {
+  /** False when the condition is not in play, or the map has no authored lanes. */
+  applicable: boolean;
+  held: number;
+  needed: number;
+  streak: number;
+  roundsNeeded: number;
+}
+
+export function laneSovereigntyProgress(
+  gameState: Pick<GameState, 'settings' | 'territories' | 'players'> | null | undefined,
+  connections: Array<{ from: string; to: string; type?: string; source?: string }> | undefined,
+  playerId: string | null | undefined,
+): LaneSovereigntyProgress {
+  const lanes = authoredOrbitLanes(connections ?? []);
+  const needed = Math.min(LANE_SOVEREIGNTY_CORRIDORS_NEEDED, lanes.length);
+  const allowed = gameState?.settings?.allowed_victory_conditions ?? [];
+  const applicable = !!gameState && !!playerId && needed > 0 && allowed.includes('lane_sovereignty');
+  if (!applicable) {
+    return { applicable: false, held: 0, needed, streak: 0, roundsNeeded: LANE_SOVEREIGNTY_ROUNDS };
+  }
+  let held = 0;
+  for (const lane of lanes) {
+    if (
+      gameState.territories[lane.from]?.owner_id === playerId
+      && gameState.territories[lane.to]?.owner_id === playerId
+    ) held += 1;
+  }
+  const player = gameState.players.find((p) => p.player_id === playerId);
+  return {
+    applicable: true,
+    held,
+    needed,
+    streak: player?.lane_sovereignty_streak ?? 0,
+    roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
+  };
+}

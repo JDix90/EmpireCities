@@ -494,7 +494,7 @@ export default function LobbyPage() {
   const [fogOfWar, setFogOfWar] = useState(false);
   const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
   const [turnTimer, setTurnTimer] = useState(300);
-  type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission';
+  type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission' | 'lane_sovereignty';
   const [victoryModes, setVictoryModes] = useState<Set<VictoryMode>>(
     () => new Set<VictoryMode>(['domination']),
   );
@@ -719,7 +719,13 @@ export default function LobbyPage() {
   useEffect(() => {
     const isOrbitGated = selectedEra === GALACTIC_AGE_ERA_ID || selectedEra === 'space_age';
     if (isOrbitGated && !prevEraWasOrbitGated.current) {
-      setVictoryModes(new Set<VictoryMode>(['domination', 'threshold']));
+      // Mirror the server's create-time default (applyOrbitGatedVictoryDefaults):
+      // the galaxy also plays for Lane Sovereignty, its own way to win.
+      setVictoryModes(
+        selectedEra === GALACTIC_AGE_ERA_ID
+          ? new Set<VictoryMode>(['domination', 'threshold', 'lane_sovereignty'])
+          : new Set<VictoryMode>(['domination', 'threshold']),
+      );
       setVictoryThresholdPct(60);
     } else if (!isOrbitGated && prevEraWasOrbitGated.current) {
       setVictoryModes(new Set<VictoryMode>(['domination']));
@@ -2612,6 +2618,10 @@ export default function LobbyPage() {
                         ['threshold', 'Territory threshold', 'Win by controlling a set percentage of territories (configurable below). Rewards sustained expansion over total domination.'],
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
+                        // Galaxy-only: a victory about the network rather than the headcount.
+                        ...(selectedEra === GALACTIC_AGE_ERA_ID
+                          ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and you win — so rivals get two rounds to break one corridor and stop it.'] as const]
+                          : []),
                       ] as const).map(([id, label, tip]) => (
                         <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={tip} />

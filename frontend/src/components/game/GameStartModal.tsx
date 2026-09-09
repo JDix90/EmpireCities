@@ -59,6 +59,8 @@ export function describeWinConditions(settings: GameState['settings']): {
         return 'Hold your capital and capture every enemy capital';
       case 'secret_mission':
         return 'Complete your secret mission';
+      case 'lane_sovereignty':
+        return 'Hold both gateways of 5 hyperspace lanes for 3 turns running';
       default:
         return kind;
     }

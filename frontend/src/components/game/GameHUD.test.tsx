@@ -156,3 +156,45 @@ describe('GameHUD — the eliminated player\'s way out', () => {
     expect(screen.getByRole('button', { name: /Save & Leave/ })).toBeInTheDocument();
   });
 });
+
+describe('GameHUD — Lane Sovereignty tracker', () => {
+  const galaxyMap = {
+    map_kind: 'galaxy' as const,
+    territories: [],
+    connections: [
+      { from: 'g1', to: 'g2', type: 'orbit' as const },
+      { from: 'g3', to: 'g4', type: 'orbit' as const },
+      { from: 'g5', to: 'g6', type: 'orbit' as const },
+    ],
+  };
+  const galaxyState = () => makeState({
+    era: 'galaxy_age',
+    settings: {
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      allowed_victory_conditions: ['domination', 'threshold', 'lane_sovereignty'],
+    } as GameState['settings'],
+    players: [player('me', 0, { lane_sovereignty_streak: 1 }), player('rival', 1)],
+    territories: {
+      g1: { owner_id: 'me' }, g2: { owner_id: 'me' },
+      g3: { owner_id: 'me' }, g4: { owner_id: 'rival' },
+      g5: { owner_id: 'rival' }, g6: { owner_id: 'rival' },
+    } as unknown as GameState['territories'],
+  });
+
+  it('shows corridors held and the round streak when the condition is in play', () => {
+    useGameStore.setState({ gameState: galaxyState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    const panel = screen.getByTestId('lane-sovereignty-progress');
+    expect(panel.textContent).toContain('corridors 1 of 3');
+    expect(panel.textContent).toContain('held 1 of 3 rounds');
+  });
+
+  it('stays hidden when the game is not playing for it', () => {
+    const state = galaxyState();
+    state.settings.allowed_victory_conditions = ['domination', 'threshold'];
+    useGameStore.setState({ gameState: state, draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    expect(screen.queryByTestId('lane-sovereignty-progress')).toBeNull();
+  });
+});

@@ -44,7 +44,7 @@ export interface FrontendMapData {
   worlds?: FrontendMapWorld[];
   orbit_access?: OrbitAccessMode;
   territories: FrontendMapTerritory[];
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: 'launch_pad' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: string }>;
 }
 
 /**

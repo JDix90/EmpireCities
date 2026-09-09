@@ -17,7 +17,7 @@ export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccess
 
 export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
-export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence';
+export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence' | 'lane_sovereignty';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -188,6 +188,12 @@ export interface PlayerState {
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
   space_station_launched?: boolean;
+  /**
+   * Galactic Age Lane Sovereignty: consecutive turn STARTS this player has been
+   * at or above the corridor bar. Ticked in `advanceToNextPlayer`; reaching
+   * LANE_SOVEREIGNTY_ROUNDS wins the game (victory/laneSovereignty.ts).
+   */
+  lane_sovereignty_streak?: number;
   /** Bonus defender losses applied before the next land attack resolves (air_strike). */
   pending_pre_attack_damage?: number;
   /** +1 attack die on the next land attack (knights_charge, bersaglieri_charge). */

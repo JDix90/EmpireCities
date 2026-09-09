@@ -65,6 +65,12 @@ const CORRIDORS = process.env.SIM_CORRIDORS !== '0';
  * `SIM_WORLD_RULES=0` is the kill switch, for before/after comparisons.
  */
 const WORLD_RULES = process.env.SIM_WORLD_RULES !== '0';
+/**
+ * Lane Sovereignty (`lane_sovereignty`), the galaxy's own victory: on by
+ * default at create for this era, so on here too. `SIM_SOVEREIGNTY=0` measures
+ * the era without it.
+ */
+const SOVEREIGNTY = process.env.SIM_SOVEREIGNTY !== '0';
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -118,7 +124,11 @@ function simSettings(): GameSettings {
     era_advancement_enabled: false, // galaxy is the terminal era
     galaxy_corridors_enabled: CORRIDORS,
     world_rules_enabled: WORLD_RULES,
-    allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
+    allowed_victory_conditions: [
+      'domination',
+      ...(THRESHOLD != null ? ['threshold'] : []),
+      ...(SOVEREIGNTY ? ['lane_sovereignty'] : []),
+    ],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
     max_turns: MAX_TURNS,
@@ -449,7 +459,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();

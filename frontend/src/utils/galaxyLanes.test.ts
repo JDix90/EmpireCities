@@ -12,6 +12,7 @@ import {
   laneAttackDiceCap,
   laneSealFor,
   laneStateFor,
+  laneSovereigntyProgress,
   laneTouchesSealWorld,
   orbitLaneId,
   prettyRegionId,
@@ -176,5 +177,32 @@ describe('galaxyLanes', () => {
     expect(viewerHoldsVaultSeal(held, territories, 'me')).toBe(true);
     expect(viewerHoldsVaultSeal(held, territories, 'rival')).toBe(false);
     expect(vaultViews({ settings: {}, territories: {} } as unknown as GameState, territories)).toEqual([]);
+  });
+
+  it('tracks Lane Sovereignty from the authored lanes and the server streak', () => {
+    const connections = [
+      { from: 'a1', to: 'b1', type: 'orbit' },
+      { from: 'a2', to: 'b2', type: 'orbit' },
+      { from: 'a3', to: 'b3', type: 'orbit' },
+      // Engine-added: a player joining two tiles they already hold must not count.
+      { from: 'a4', to: 'b4', type: 'orbit', source: 'jump_gate' },
+      { from: 'a1', to: 'a2', type: 'land' },
+    ];
+    const mk = (owners: Record<string, string | null>, allowed: string[], streak = 0) => ({
+      settings: { allowed_victory_conditions: allowed },
+      players: [{ player_id: 'me', lane_sovereignty_streak: streak }],
+      territories: Object.fromEntries(Object.entries(owners).map(([k, v]) => [k, { owner_id: v }])),
+    }) as unknown as GameState;
+
+    const mine = { a1: 'me', b1: 'me', a2: 'me', b2: 'rival', a3: 'me', b3: 'me', a4: 'me', b4: 'me' };
+    const on = laneSovereigntyProgress(mk(mine, ['domination', 'lane_sovereignty'], 2), connections, 'me');
+    // Two authored corridors; the gate lane is ignored even though both ends are held.
+    expect(on).toEqual({ applicable: true, held: 2, needed: 3, streak: 2, roundsNeeded: 3 });
+
+    const off = laneSovereigntyProgress(mk(mine, ['domination'], 2), connections, 'me');
+    expect(off.applicable).toBe(false);
+    expect(off.held).toBe(0);
+    expect(laneSovereigntyProgress(null, connections, 'me').applicable).toBe(false);
+    expect(laneSovereigntyProgress(mk(mine, ['lane_sovereignty']), [], 'me').applicable).toBe(false);
   });
 });

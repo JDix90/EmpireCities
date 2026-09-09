@@ -110,6 +110,25 @@ describe('applyOrbitGatedVictoryDefaults', () => {
     expect(out.max_turns).toBe(ORBIT_GATED_DEFAULT_MAX_TURNS);
   });
 
+  it('adds Lane Sovereignty on a galaxy create, and only there', () => {
+    const galaxy = applyOrbitGatedVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const] },
+      { isOrbitGated: true, isGalacticAge: true, callerChoseVictory: false },
+    );
+    expect(galaxy.allowed_victory_conditions).toEqual(['domination', 'threshold', 'lane_sovereignty']);
+    const spaceAge = applyOrbitGatedVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const] },
+      { isOrbitGated: true, callerChoseVictory: false },
+    );
+    expect(spaceAge.allowed_victory_conditions).not.toContain('lane_sovereignty');
+    // An explicit victory choice still wins, galaxy or not.
+    const chosen = applyOrbitGatedVictoryDefaults(
+      { allowed_victory_conditions: ['domination' as const] },
+      { isOrbitGated: true, isGalacticAge: true, callerChoseVictory: true },
+    );
+    expect(chosen.allowed_victory_conditions).toEqual(['domination']);
+  });
+
   it('respects an explicit victory choice but still backstops max_turns', () => {
     const out = applyOrbitGatedVictoryDefaults(
       { allowed_victory_conditions: ['domination' as const] },

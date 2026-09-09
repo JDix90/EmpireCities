@@ -24,6 +24,7 @@ const VICTORY_LABELS: Record<string, string> = {
   threshold: 'Threshold Victory',
   capital: 'Capital Capture',
   secret_mission: 'Secret Mission',
+  lane_sovereignty: 'Lane Sovereignty',
   alliance_victory: 'Alliance Victory',
   turn_limit: 'Turn Limit Victory',
   resignation: 'Victory by Resignation',
