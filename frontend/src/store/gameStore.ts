@@ -146,6 +146,8 @@ export interface GameState {
     lanes_contestable_enabled?: boolean;
     /** Space Age Moon Race, Phase 1: Moon tiles pay Helium-3 each turn. */
     space_age_moon_helium3_enabled?: boolean;
+    /** Phase 2: the gated tier — Dyson Beam behind the Moon, Orbital Drop. */
+    space_age_moon_gated_tier_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

@@ -33,6 +33,7 @@ import {
 } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
+import { countOwnedLunarTerritories } from '../../utils/orbitAccess';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -1048,7 +1049,7 @@ export default function TerritoryPanel({
               isEnemy,
               isMine,
               isUnowned,
-            });
+            }, countOwnedLunarTerritories(mapTerritories, gameState, myPlayer.player_id));
             if (allAbilities.length === 0) return null;
             return allAbilities.map((abilityId) => {
               const def = getAbilityUiDef(abilityId);

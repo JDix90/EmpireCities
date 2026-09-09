@@ -431,6 +431,14 @@ export interface GameSettings {
    */
   space_age_moon_helium3_enabled?: boolean;
   /**
+   * Space Age Moon Race, Phase 2: the gated tier. `dyson_beam` needs a lunar
+   * foothold and He-3, and Orbital Drop exists at all. Baked at create from the
+   * `space_age_moon_gated_tier_enabled` feature flag, and inert without Phase 1 —
+   * gating a power on a resource the game does not produce would delete it
+   * rather than gate it. See docs/space-age-moon/README.md §4.
+   */
+  space_age_moon_gated_tier_enabled?: boolean;
+  /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
    * the map at init into `world_modifiers` so per-turn calc sites don't need the

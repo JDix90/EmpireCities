@@ -97,6 +97,50 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByTestId('hud-helium3')).toBeNull();
   });
 
+  describe('the Moon\'s own powers', () => {
+    // Phase 1 shipped Lunar Export as a socket handler with no way to reach it:
+    // abilities are surfaced by walking the tech tree for `unlocks_ability`, and
+    // it deliberately has none, so no button ever rendered and only bots used
+    // the sink. These pin the human path.
+    const moonMap = {
+      map_id: 'space_age', territories: [
+        { territory_id: 'moon_polar_north', region_id: 'lunar_surface', globe_id: 'moon', name: 'North Polar Basin' },
+        { territory_id: 'moon_mare_imbrium', region_id: 'lunar_surface', globe_id: 'moon', name: 'Mare Imbrium' },
+        { territory_id: 'na_launch_base', region_id: 'north_america_2100', globe_id: 'earth', name: 'Launch Base' },
+      ],
+      connections: [],
+    };
+    const lunarState = (ownedMoonTiles: string[]) => makeState({
+      phase: 'draft',
+      settings: {
+        economy_enabled: true, tech_trees_enabled: true, space_age_moon_helium3_enabled: true,
+      } as GameState['settings'],
+      territories: Object.fromEntries(
+        moonMap.territories.map((t) => [t.territory_id, {
+          territory_id: t.territory_id,
+          owner_id: ownedMoonTiles.includes(t.territory_id) ? 'me' : 'rival',
+          unit_count: 3, unit_type: 'infantry',
+        }]),
+      ) as GameState['territories'],
+    });
+
+    it('offers Lunar Export to a player holding lunar ground', () => {
+      useGameStore.setState({
+        gameState: lunarState(['moon_polar_north']), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud({ onUseAbility: () => {}, mapData: moonMap });
+      expect(screen.getByTestId('ability-btn-lunar_export')).toBeInTheDocument();
+    });
+
+    it('withholds it from a player with no Moon territory', () => {
+      useGameStore.setState({
+        gameState: lunarState([]), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud({ onUseAbility: () => {}, mapData: moonMap });
+      expect(screen.queryByTestId('ability-btn-lunar_export')).toBeNull();
+    });
+  });
+
   it('shows the roster only on the Players tab', () => {
     renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Players/ }));

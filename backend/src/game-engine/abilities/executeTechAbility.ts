@@ -12,6 +12,7 @@ import {
   isOwnedTerritoryAdjacentToEnemy,
   playerHasUnlockedAbility,
 } from './techAbilities';
+import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
 
 export interface AbilityExecutionResult {
   success: boolean;
@@ -22,6 +23,8 @@ export interface AbilityExecutionResult {
   previousUnits?: number;
   /** Scalar payload for abilities that convert rather than target (lunar_export). */
   amount?: number;
+  /** He-3 charged by a Moon-gated power (Phase 2), set only when non-zero. */
+  helium3Spent?: number;
 }
 
 function getCurrentPlayer(state: GameState, playerId: string): PlayerState | undefined {
@@ -57,13 +60,42 @@ export function validateAbilityPhase(abilityId: string, phase: GameState['phase'
   return null;
 }
 
-export function executeTechAbility(params: {
+export interface TechAbilityParams {
   state: GameState;
   map: GameMap;
   playerId: string;
   abilityId: string;
   territoryId?: string;
-}): AbilityExecutionResult {
+}
+
+/**
+ * Every ability use goes through here, human and bot alike.
+ *
+ * The Moon gate (Space Age Phase 2) wraps the effect rather than living inside
+ * it: the requirement is checked before anything mutates, and the He-3 cost is
+ * charged only once the effect has reported success, so a use rejected for a
+ * bad target or the wrong phase costs the player nothing. Doing it per-branch
+ * would mean getting that right in a dozen places instead of one.
+ */
+export function executeTechAbility(params: TechAbilityParams): AbilityExecutionResult {
+  const { state, playerId, abilityId } = params;
+
+  // Phase first, so a beam fired in the draft phase says so rather than
+  // reporting a Moon requirement the player may well already meet.
+  const gatePhaseError = validateAbilityPhase(abilityId, state.phase);
+  if (gatePhaseError) return { success: false, error: gatePhaseError };
+
+  const gateError = checkMoonPowerRequirement(state, playerId, abilityId);
+  if (gateError) return { success: false, error: gateError };
+
+  const result = executeAbilityEffect(params);
+  if (!result.success) return result;
+
+  const spent = spendMoonPowerCost(state, playerId, abilityId);
+  return spent > 0 ? { ...result, helium3Spent: spent } : result;
+}
+
+function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult {
   const { state, map, playerId, abilityId, territoryId } = params;
   const currentPlayer = getCurrentPlayer(state, playerId);
   if (!currentPlayer) return { success: false, error: 'Player not found' };

@@ -72,11 +72,6 @@ import {
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
-import {
-  isHelium3Enabled,
-  countLunarTerritories,
-  LUNAR_EXPORT_MAX,
-} from '../game-engine/state/helium3';
 import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -181,6 +176,17 @@ import {
   playerHasUnlockedAbility,
   TERRITORY_ABILITY_DEFS,
 } from '../game-engine/abilities/techAbilities';
+import {
+  areMoonPowersEnabled,
+  hasMoonGroundAccess,
+} from '../game-engine/abilities/moonPowers';
+import {
+  canAiUseDysonBeam,
+  canAiUseOrbitalDrop,
+  selectAiDysonBeamTarget,
+  selectAiOrbitalDropTarget,
+  shouldAiExportHelium3,
+} from '../game-engine/ai/aiMoonPowers';
 import {
   buildStrikeAnimationPayload,
   emitAbilityStrikeVisuals,
@@ -2771,16 +2777,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Atom Bomb) is usable even though its unlocking tech is gone.
       const hasLegacyCharge = (currentPlayer.legacy_ability_charges?.[abilityId] ?? 0) > 0;
 
-      // Lunar Export is not a tech unlock: holding lunar ground is the
-      // credential. Gating it on sa_lunar_expansion would lock the Lunar
-      // Pioneers — who reach the Moon from turn one without researching it —
-      // out of the Moon's own economy. See helium3.ts applyLunarExport.
-      const hasLunarExport =
-        abilityId === 'lunar_export'
-        && isHelium3Enabled(state)
-        && countLunarTerritories(state, currentPlayer.player_id) > 0;
+      // The Moon's own powers (Lunar Export, Orbital Drop) are not tech unlocks:
+      // holding lunar ground is the credential. Gating them on
+      // sa_lunar_expansion would lock the Lunar Pioneers — who reach the Moon
+      // from turn one without researching it — out of the Moon's own tier.
+      // See moonPowers.ts hasMoonGroundAccess.
+      const hasMoonGroundAbility = hasMoonGroundAccess(state, currentPlayer.player_id, abilityId);
 
-      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge && !hasLunarExport) {
+      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge && !hasMoonGroundAbility) {
         return socket.emit('error', { message: `Ability '${abilityId}' is not available to you` });
       }
 
@@ -5371,14 +5375,32 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // (AI build + research run at the top of the draft phase, before the advance check.)
 
+  // AI parity: Orbital Drop — Phase 2's draft-phase power. Runs BEFORE the
+  // export below, which only converts what the powers do not need: a bot that
+  // exported first would never hold the 8 He-3 this costs.
+  if (areMoonPowersEnabled(state) && canAiUseOrbitalDrop(state, currentPlayer.player_id)) {
+    const dropTarget = selectAiOrbitalDropTarget(state, map, currentPlayer.player_id);
+    if (dropTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'orbital_drop',
+        territoryId: dropTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), orbital_drop: 1 };
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
   // AI parity: Lunar Export — Phase 1's He-3 sink. Fires only on a full
   // conversion so the bot does not spend its one use per turn on a single
-  // point; the stockpile cap means hoarding past 30 is wasted anyway.
-  if (
-    isHelium3Enabled(state)
-    && (currentPlayer.helium3 ?? 0) >= LUNAR_EXPORT_MAX
-    && countLunarTerritories(state, currentPlayer.player_id) > 0
-  ) {
+  // point; the stockpile cap means hoarding past 30 is wasted anyway. Under
+  // Phase 2 it converts only the surplus over what the bot is saving for its
+  // powers (aiMoonPowers.ts); with Phase 2 off the rule is Phase 1's exactly.
+  if (shouldAiExportHelium3(state, map, currentPlayer.player_id)) {
     executeTechAbility({
       state,
       map,
@@ -5466,6 +5488,47 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         if (res.success) {
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [strikeId]: 1 };
         }
+      }
+    }
+  }
+
+  // AI parity: Dyson Beam — Phase 2's attack-phase power. The bot fires it at
+  // the largest enemy stack bordering its own ground, which is the one it is
+  // about to have to fight; the beam is global, but fuel spent on a stack the
+  // bot will never reach is fuel wasted (aiMoonPowers.ts).
+  //
+  // This is the first tech-unlocked strike ability the AI has ever used — the
+  // existing parity blocks cover FACTION abilities only, so an unlocked
+  // nuclear_strike or orbital_strike still sits idle in a bot's hands. Widening
+  // that is its own change; here it is scoped to the Moon tier so the Phase 2
+  // control run stays today's game exactly.
+  if (areMoonPowersEnabled(state) && canAiUseDysonBeam(state, currentPlayer.player_id)) {
+    const beamTarget = selectAiDysonBeamTarget(state, map, currentPlayer.player_id);
+    if (beamTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'dyson_beam',
+        territoryId: beamTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), dyson_beam: 1 };
+        const targetOwner = res.previousOwner
+          ? state.players.find((p) => p.player_id === res.previousOwner)
+          : undefined;
+        // Same visuals a human beam gets: a bot firing the era's loudest power
+        // should not be silent on everyone else's screen.
+        emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
+          abilityId: 'dyson_beam',
+          attackerId: currentPlayer.player_id,
+          attackerName: currentPlayer.username,
+          attackerColor: currentPlayer.color,
+          territoryId: beamTarget,
+          targetOwnerId: res.previousOwner ?? null,
+          targetOwnerName: targetOwner?.username ?? null,
+        }), { state, map });
+        broadcastState(io, gameId, state);
       }
     }
   }

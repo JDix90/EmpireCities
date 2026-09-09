@@ -63,11 +63,14 @@ import {
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
+import { countLunarTerritories } from '../src/game-engine/state/helium3';
 import {
-  LUNAR_EXPORT_MAX,
-  countLunarTerritories,
-  isHelium3Enabled,
-} from '../src/game-engine/state/helium3';
+  canAiUseDysonBeam,
+  canAiUseOrbitalDrop,
+  selectAiDysonBeamTarget,
+  selectAiOrbitalDropTarget,
+  shouldAiExportHelium3,
+} from '../src/game-engine/ai/aiMoonPowers';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -96,6 +99,13 @@ const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
 /** Moon Race Phase 1: lunar Helium-3 income + Lunar Export. */
 const MOON_HELIUM3 = process.env.SIM_MOON_HELIUM3 === '1';
+/**
+ * Moon Race Phase 2a: the gated tier — dyson_beam behind a lunar foothold plus
+ * 6 He-3, and Orbital Drop. Implies Phase 1, exactly as the engine does: the
+ * powers are priced in He-3, so without the economy this would delete
+ * dyson_beam rather than gate it (moonPowers.ts areMoonPowersEnabled).
+ */
+const MOON_TIER = process.env.SIM_MOON_TIER === '1';
 /** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
 const FACTIONS = process.env.SIM_FACTIONS === '1';
 const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
@@ -132,7 +142,8 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: false, // space_age is the start AND terminal era here
     space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
-    space_age_moon_helium3_enabled: MOON_HELIUM3,
+    space_age_moon_helium3_enabled: MOON_HELIUM3 || MOON_TIER,
+    space_age_moon_gated_tier_enabled: MOON_TIER,
     allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
@@ -188,6 +199,11 @@ interface PlayerSim {
   moonCaptureEvents: number;
   /** Moon Race Phase 1: He-3 converted to tech points across the game. */
   helium3Exported: number;
+  /** Phase 2a: uses of each Moon-gated power across the game. */
+  dysonBeams: number;
+  orbitalDrops: number;
+  /** Most lunar tiles this player held at once — the §4.5 usage denominator. */
+  peakMoonTiles: number;
 }
 
 function ladderDepth(ps: PlayerSim): number {
@@ -251,13 +267,30 @@ function playAiTurn(
   };
   if (LAUNCH_PHASE === 'draft') tryLaunch();
 
+  // Peak lunar holding, sampled every turn: the §4.5 gate is "usage in games
+  // where someone held three Moon tiles", and a holding that is taken and lost
+  // again would be invisible in an end-of-game reading.
+  ps.peakMoonTiles = Math.max(ps.peakMoonTiles, countLunarTerritories(state, pid));
+
+  // Orbital Drop (Phase 2a) — before the export, exactly as the socket orders
+  // them: a bot that exported first would never hold the 8 He-3 it costs.
+  if (canAiUseOrbitalDrop(state, pid)) {
+    const dropTarget = selectAiOrbitalDropTarget(state, map, pid);
+    if (dropTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'orbital_drop', territoryId: dropTarget,
+      });
+      if (res.success) {
+        ps.orbitalDrops++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), orbital_drop: 1 };
+      }
+    }
+  }
+
   // Lunar Export — mirrors the gameSocket AI-parity block: convert only on a
-  // full load so the one use per turn is not spent on a single point.
-  if (
-    isHelium3Enabled(state)
-    && (player.helium3 ?? 0) >= LUNAR_EXPORT_MAX
-    && countLunarTerritories(state, pid) > 0
-  ) {
+  // full load so the one use per turn is not spent on a single point, and under
+  // Phase 2 only the surplus over what the powers are saving for.
+  if (shouldAiExportHelium3(state, map, pid)) {
     const res = executeTechAbility({ state, map, playerId: pid, abilityId: 'lunar_export' });
     if (res.success) ps.helium3Exported += res.amount ?? 0;
   }
@@ -267,6 +300,21 @@ function playAiTurn(
 
   state.phase = 'attack';
   if (LAUNCH_PHASE === 'attack') tryLaunch(); // production ordering repro
+
+  // Dyson Beam (Phase 2a) — fired before the attack loop, as the socket does,
+  // so the softened stack is one the planned attacks can actually take.
+  if (canAiUseDysonBeam(state, pid)) {
+    const beamTarget = selectAiDysonBeamTarget(state, map, pid);
+    if (beamTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'dyson_beam', territoryId: beamTarget,
+      });
+      if (res.success) {
+        ps.dysonBeams++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), dyson_beam: 1 };
+      }
+    }
+  }
 
   for (const a of plan) {
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
@@ -368,6 +416,12 @@ interface GameStat {
   /** Two or more players held Moon tiles at the same time at some point. */
   everSharedMoon: boolean;
   helium3Exported: number;
+  /** Phase 2a usage, and whether anyone ever held enough Moon to unlock it. */
+  dysonBeams: number;
+  orbitalDrops: number;
+  anyThreeMoonTiles: boolean;
+  /** The player who peaked highest on the Moon, and whether they won. */
+  moonPeakLeaderWon: boolean;
   winnerMoonTilesEnd: number;
   loserAvgMoonTilesEnd: number;
   moonLeader: string | null; // strict leader in moon tiles at end (>0)
@@ -444,6 +498,9 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     firstMoonCaptureTurn: null,
     moonCaptureEvents: 0,
     helium3Exported: 0,
+    dysonBeams: 0,
+    orbitalDrops: 0,
+    peakMoonTiles: 0,
   }]));
 
   let t10Leader: string | null = null;
@@ -543,6 +600,16 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     moonTilesPlayerHeldEnd,
     everSharedMoon,
     helium3Exported: simList.reduce((a, s) => a + s.helium3Exported, 0),
+    dysonBeams: simList.reduce((a, s) => a + s.dysonBeams, 0),
+    orbitalDrops: simList.reduce((a, s) => a + s.orbitalDrops, 0),
+    // The §4.5 denominator: a tier nobody could reach tells us nothing about
+    // whether the tier is used, so usage is scored over these games only.
+    anyThreeMoonTiles: simList.some((s) => s.peakMoonTiles >= 3),
+    moonPeakLeaderWon: (() => {
+      const peak = new Map(simList.map((s) => [s.pid, s.peakMoonTiles]));
+      const leader = strictMaxKey(new Map([...peak].filter(([, v]) => v > 0)));
+      return !!leader && leader === winner;
+    })(),
     winnerMoonTilesEnd,
     loserAvgMoonTilesEnd: loserMoon.length ? loserMoon.reduce((a, b) => a + b, 0) / loserMoon.length : 0,
     moonLeader,
@@ -635,10 +702,23 @@ function main(): void {
   // Printed unconditionally: "is the Moon shared or swept?" is a property of
   // the board, so a He-3 run needs a He-3-off control for the same number.
   console.log(`Games with 2+ players on the Moon at once:   ${pct(stats.filter((s) => s.everSharedMoon).length, GAMES)}`);
-  if (MOON_HELIUM3) {
+  // Also printed unconditionally: it is the §4.5 denominator, so a control run
+  // has to report the same figure or the usage percentages cannot be compared.
+  const reachedTier = stats.filter((s) => s.anyThreeMoonTiles);
+  console.log(`Games where a player held 3+ Moon tiles:     ${pct(reachedTier.length, GAMES)}`);
+  console.log(`Peak-Moon leader won:                        ${pct(stats.filter((s) => s.moonPeakLeaderWon).length, GAMES)}  (baseline ${pct(1, PLAYERS)})`);
+  if (MOON_HELIUM3 || MOON_TIER) {
     console.log(`\n— Helium-3 economy (Moon Race, Phase 1) —`);
     console.log(`Avg He-3 exported to tech points per game:   ${fmt(avg(stats.map((s) => s.helium3Exported)), 1)}`);
     console.log(`Games where any He-3 was exported:           ${pct(stats.filter((s) => s.helium3Exported > 0).length, GAMES)}`);
+  }
+  if (MOON_TIER) {
+    console.log(`\n— The gated tier (Moon Race, Phase 2a) —`);
+    // Scored over games where the tier was reachable at all: a power nobody
+    // could unlock says nothing about whether the power is worth firing.
+    console.log(`Dyson Beam fired (of reachable games):       ${pct(reachedTier.filter((s) => s.dysonBeams > 0).length, reachedTier.length)}  (n=${reachedTier.length})`);
+    console.log(`Orbital Drop used (of reachable games):      ${pct(reachedTier.filter((s) => s.orbitalDrops > 0).length, reachedTier.length)}`);
+    console.log(`Avg beams per game:                          ${fmt(avg(stats.map((s) => s.dysonBeams)), 2)} · avg drops ${fmt(avg(stats.map((s) => s.orbitalDrops)), 2)}`);
   }
 
   console.log(`\n— Does the Moon correlate with winning? —`);

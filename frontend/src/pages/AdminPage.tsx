@@ -126,6 +126,18 @@ const CLIENT_FEATURE_FLAGS = [
       'Seed the 8 authored frontier tiles (the 2100 expansion) as neutral garrisons at start in a standalone (non-era-advancement) Space Age game — the full 63-tile board instead of 55. Baked into each game at creation, so switching this off only affects games created afterwards. On by default; switch off to fall back to the 55-tile board.',
   },
   {
+    key: 'space_age_moon_helium3_enabled',
+    label: 'Moon Race · Helium-3 economy (Phase 1)',
+    description:
+      'Owned Moon tiles pay Helium-3 each turn (polar basins 2, the rest 1, stockpile capped at 30), and Lunar Export converts up to 5 of it into tech points — so three Moon tiles is a real position rather than a down payment on nine. Baked into each game at creation, so switching it off only affects games created afterwards. Off by default (dark-launch).',
+  },
+  {
+    key: 'space_age_moon_gated_tier_enabled',
+    label: 'Moon Race · the gated tier (Phase 2)',
+    description:
+      'Dyson Beam needs a Moon territory plus 6 Helium-3 to fire (its tech keeps the +8 TP/turn either way), and Orbital Drop — 3 units onto any territory you own, anywhere — becomes available at 3 Moon tiles for 8 Helium-3. NOTE: has no effect unless Phase 1 above is also on, since both powers are priced in Helium-3. Baked at creation. Off by default (dark-launch).',
+  },
+  {
     key: 'today_panel_enabled',
     label: 'Lobby "Today" panel',
     description:
