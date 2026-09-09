@@ -488,7 +488,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   ],
   mena_persia: [
     { iso: 'IR' },
-    { iso: 'IQ', clip_bbox: [44, 25, 50, 38] }, // E Iraq (Persian Gulf side)
+    // E Iraq (Persian Gulf side). Starts at lng 45 where mena_levant's IQ slice
+    // ends — the authored canvas puts the Levantine Prefecture at lng 35-45 and
+    // the Persian Sun Belt at 45-60, so the seam sits exactly there.
+    { iso: 'IQ', clip_bbox: [45, 25, 50, 38] },
     // (Afghanistan is owned entirely by ca_indus to avoid double-claim.)
   ],
   mena_maghreb: [
@@ -536,7 +539,12 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'ET' },
     { iso: 'SO' },
     { iso: 'KE' },
-    { iso: 'YE', clip_bbox: [42, 12, 54, 18] }, // S Yemen / Aden
+    // Yemen belongs wholly to mena_arabia. This used to carry
+    // { iso: 'YE', clip_bbox: [42, 12, 54, 18] } while mena_arabia claimed YE
+    // unclipped, so both territories drew the same country and Yemen flickered
+    // between their two owner colours depending on draw order. The authored
+    // canvas agrees: Horn of Africa stops at lat 12.5, Arabian Photovoltaic
+    // starts at 15 — the peninsula was never meant to be split here.
   ],
   africa_congo_basin: [
     { iso: 'CD' },
@@ -584,7 +592,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'AF' }, // Entire Afghanistan
   ],
   ca_ganges: [
-    { iso: 'IN', clip_bbox: [72, 20, 92, 32] },
+    // Starts at lat 22 where ca_deccan's IN slice ends (was 20, which double-
+    // claimed the lat 20-22 band). Matches the authored canvas: Ganges
+    // Megaregion lat 22-32, Deccan Plateau lat 8-22.
+    { iso: 'IN', clip_bbox: [72, 22, 92, 32] },
     { iso: 'NP' },
     { iso: 'BT' },
     { iso: 'BD' },
@@ -594,8 +605,11 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'LK' },
   ],
 
-  // Asia — China is partitioned into 4 territories. The four CN clip_bboxes
-  // tile cleanly (no overlap, no gap) across CN's full extent.
+  // Asia — China is partitioned across 4 territories: asia_cosmodrome,
+  // asia_heartland, asia_coastal and megacity_pacific_rim (defined with the
+  // other megacities further down). Their CN clip boxes must tile — territories
+  // whose boxes intersect draw the same land twice and the tile flickers
+  // between their owners' colours. territoryGeoMapping.test.ts enforces that.
   asia_cosmodrome: [
     // North China + Inner Mongolia + Manchuria (was 73-115, 36-50; expanded
     // east to lng 135 to absorb the Manchuria piece previously stuffed into
@@ -604,9 +618,14 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   ],
   asia_heartland: [
     // Central China — Tibet, Yunnan, Sichuan, Hubei, Hunan, Henan inland.
-    // Was [100, 22, 115, 36] — left Tibet (73-100) and W Yunnan as gaps.
-    // Now covers full lng 73-115 from southern border up to lat 38.
-    { iso: 'CN', clip_bbox: [73, 22, 115, 38] },
+    // Two rectangles because the interior is an L around asia_coastal: the
+    // upper band stops at lng 115 where megacity_pacific_rim starts, the lower
+    // one stops at lng 100 where asia_coastal starts. The single box this
+    // replaced ([73, 22, 115, 38]) reached down to lat 22 across its whole
+    // width and so double-claimed lng 100-115 / lat 22-24 with asia_coastal —
+    // Guangzhou and Nanning were drawn by both territories.
+    { iso: 'CN', clip_bbox: [73, 24, 115, 38] },
+    { iso: 'CN', clip_bbox: [73, 18, 100, 24] }, // W/S Yunnan below lat 24
   ],
   asia_coastal: [
     // South China coast: Guangxi, Guangdong, Hainan, Fujian, plus HK/MO/TW.
