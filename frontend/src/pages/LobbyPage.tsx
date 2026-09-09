@@ -518,7 +518,6 @@ export default function LobbyPage() {
   const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(true);
   // Classic unbounded card-set escalation, opt-in. Off = the default ceiling.
   const [uncappedCardSets, setUncappedCardSets] = useState(false);
-  const [lanesContestableEnabled, setLanesContestableEnabled] = useState(false);
   const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
   const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
 
@@ -561,7 +560,6 @@ export default function LobbyPage() {
   // Conditional advanced settings — each only matters under certain other choices,
   // so they're surfaced in a dedicated "Conditional Settings" section instead of
   // always cluttering Advanced Features.
-  const isGalacticAge = selectedEra === GALACTIC_AGE_ERA_ID;
   // The Combat Dice Cap only does anything when some enabled feature can push
   // combat dice past the classic 3/2 — buildings/wonders (economy), tech, events,
   // era-gap bonuses, faction attack dice + once-per-turn charges, or naval
@@ -569,11 +567,6 @@ export default function LobbyPage() {
   const combatDiceCapApplicable =
     economyEnabled || techTreesEnabled || eventsEnabled || navalEnabled || factionsEnabled || eraAdvancementEnabled;
 
-  // Reset a conditional toggle when its precondition disappears, so a now-hidden
-  // setting can't leave a stale flag in the create-game payload.
-  useEffect(() => {
-    if (!isGalacticAge) setLanesContestableEnabled(false);
-  }, [isGalacticAge]);
   // Symmetric: the old one-way reset left the box unchecked forever once any
   // render had no dice-granting system on, so re-enabling Economy afterwards
   // silently dropped the default.
@@ -1072,7 +1065,6 @@ export default function LobbyPage() {
         // make the checkbox one-way.
         combat_dice_cap_enabled: combatDiceCapEnabled,
         card_set_bonus_cap: uncappedCardSets ? 0 : undefined,
-        lanes_contestable_enabled: lanesContestableEnabled || undefined,
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
@@ -2542,28 +2534,13 @@ export default function LobbyPage() {
                         )}
                       </div>
                     </div>
-                    {(isGalacticAge || combatDiceCapApplicable) && (
+                    {combatDiceCapApplicable && (
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Conditional Settings</label>
                       <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                         These appear because of choices you made above — they don&apos;t apply to every game.
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {isGalacticAge && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
-                            <label htmlFor="create-game-lanes-contestable" className="contents cursor-pointer">
-                              <input
-                                id="create-game-lanes-contestable"
-                                type="checkbox"
-                                checked={lanesContestableEnabled}
-                                onChange={(e) => setLanesContestableEnabled(e.target.checked)}
-                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              />
-                              <span className="leading-snug min-w-0 select-none">Contestable Lanes <span className="text-xs text-bf-muted">(galaxy · seal hyperspace lanes)</span></span>
-                            </label>
-                          </div>
-                        )}
                         {combatDiceCapApplicable && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                             <FeatureTooltip text="Caps the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. On by default; turn it off for classic rules." />

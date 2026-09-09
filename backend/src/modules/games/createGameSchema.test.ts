@@ -1,9 +1,8 @@
+import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { describe, it, expect } from 'vitest';
 import {
   applyOrbitGatedVictoryDefaults,
   CreateGameSchema,
-  LANES_CONTESTABLE_NON_GALAXY_ERROR,
-  lanesContestableRejection,
   territorySelectionRejection,
   galaxyPlayerCountRejection,
   GALAXY_PLAYER_COUNT_ERROR,
@@ -70,19 +69,17 @@ describe('Galactic Age lobby payload', () => {
       card_set_escalating: true,
       diplomacy_enabled: true,
       factions_enabled: true,
-      lanes_contestable_enabled: true,
       combat_dice_cap_enabled: true,
       combat_max_attacker_dice: 5,
       combat_max_defender_dice: 4,
     },
   };
 
-  it('keeps lanes_contestable_enabled and the dice-cap trio', () => {
+  it('keeps the dice-cap trio', () => {
     const parsed = CreateGameSchema.safeParse(galaxyPayload);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       const s = parsed.data.settings;
-      expect(s.lanes_contestable_enabled).toBe(true);
       expect(s.combat_dice_cap_enabled).toBe(true);
       expect(s.combat_max_attacker_dice).toBe(5);
       expect(s.combat_max_defender_dice).toBe(4);
@@ -98,58 +95,6 @@ describe('Galactic Age lobby payload', () => {
   });
 });
 
-describe('lanesContestableRejection', () => {
-  // canSealLane only requires an orbit-typed connection, and the Space Age map
-  // authors three — so without this guard a hand-crafted create could arm lane
-  // sealing outside the Galactic Age, where neither the lobby toggle nor the
-  // GalaxyStrategicView seal action exists.
-  it('rejects lanes_contestable_enabled outside the Galactic Age', () => {
-    expect(lanesContestableRejection({ lanesContestableEnabled: true, isGalacticAge: false })).toBe(
-      LANES_CONTESTABLE_NON_GALAXY_ERROR,
-    );
-  });
-
-  it('allows it on a galaxy create', () => {
-    expect(lanesContestableRejection({ lanesContestableEnabled: true, isGalacticAge: true })).toBeNull();
-  });
-
-  it('ignores creates that never asked for it', () => {
-    expect(lanesContestableRejection({ isGalacticAge: false })).toBeNull();
-    expect(lanesContestableRejection({ lanesContestableEnabled: false, isGalacticAge: false })).toBeNull();
-  });
-
-  it('matches how the route classifies a Galactic Age create (era_id or map_id)', () => {
-    const spaceAge = {
-      era_id: 'space_age',
-      map_id: 'era_space_age',
-      max_players: 4,
-      ai_count: 3,
-      ai_difficulty: 'medium',
-      settings: {
-        turn_timer_seconds: 0,
-        allowed_victory_conditions: ['domination'],
-        initial_unit_count: 3,
-        card_set_escalating: true,
-        diplomacy_enabled: true,
-        lanes_contestable_enabled: true,
-      },
-    };
-    // The schema still accepts the field (galaxy creates need it) — the route
-    // guard is what turns a Space Age create into a 400.
-    const parsed = CreateGameSchema.safeParse(spaceAge);
-    expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      const isGalacticAge =
-        parsed.data.era_id === 'galaxy_age' || parsed.data.map_id === 'era_galaxy';
-      expect(
-        lanesContestableRejection({
-          lanesContestableEnabled: parsed.data.settings.lanes_contestable_enabled,
-          isGalacticAge,
-        }),
-      ).toBe(LANES_CONTESTABLE_NON_GALAXY_ERROR);
-    }
-  });
-});
 
 describe('applyOrbitGatedVictoryDefaults', () => {
   // Domination-only + no turn cap never ends on an orbit-gated board (a large
@@ -282,6 +227,29 @@ describe('galaxyPlayerCountRejection', () => {
   it('leaves other eras alone', () => {
     for (const seats of [2, 3, 5]) {
       expect(galaxyPlayerCountRejection({ isGalacticAge: false, totalPlayers: seats })).toBeNull();
+    }
+  });
+});
+
+describe('galaxy_corridors_enabled', () => {
+  // Baked at create from the feature flag (never client input), and persisted
+  // only when on — the normalizer must carry it through room reloads.
+  it('survives normalization when on, and is absent when off', () => {
+    expect(normalizeGameSettings({ galaxy_corridors_enabled: true } as never).galaxy_corridors_enabled).toBe(true);
+    expect(normalizeGameSettings({} as never).galaxy_corridors_enabled).toBeUndefined();
+  });
+
+  it('is not part of the create-API whitelist', () => {
+    const parsed = CreateGameSchema.safeParse({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      max_players: 4,
+      ai_count: 3,
+      settings: { allowed_victory_conditions: ['domination'], factions_enabled: true, galaxy_corridors_enabled: false },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect((parsed.data.settings as Record<string, unknown>).galaxy_corridors_enabled).toBeUndefined();
     }
   });
 });

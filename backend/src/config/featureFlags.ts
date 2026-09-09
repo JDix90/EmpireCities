@@ -63,6 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
+  galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -355,6 +356,19 @@ export const featureFlags = {
    */
   get spaceAgeFrontiersEnabled(): boolean {
     return overrideBool('space_age_frontiers_enabled');
+  },
+
+  /**
+   * Galactic Age corridors: lanes need no tech to cross and cap the attacker at
+   * 2 dice (3 with Lane Charts). Default ON — the Hyperspace Chart gate it
+   * replaces was bought on turn 1 by every seat in every simulated game, so it
+   * gated nothing, while the cap is what makes the 16 gateway tiles worth
+   * fighting over. Kill switch: `GALAXY_CORRIDORS_ENABLED=false` or the
+   * `galaxy_corridors_enabled` admin override. Baked into game settings at
+   * create; the engine reads the setting, so a flip never re-rules a match.
+   */
+  get galaxyCorridorsEnabled(): boolean {
+    return overrideBool('galaxy_corridors_enabled');
   },
 
   /**

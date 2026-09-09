@@ -120,6 +120,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. On by default.',
   },
   {
+    key: 'galaxy_corridors_enabled',
+    label: 'Galactic Age corridors',
+    description:
+      'Hyperspace lanes need no tech to cross — you attack across a lane from the gateway tile you hold — and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so gateways defend like coasts. Baked into each game at creation. On by default; switch off to restore the Hyperspace Chart gate with no lane cap for games created afterwards.',
+  },
+  {
     key: 'space_age_frontiers_enabled',
     label: 'Space Age frontiers (standalone)',
     description:

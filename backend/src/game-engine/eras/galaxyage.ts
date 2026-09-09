@@ -78,8 +78,8 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'They guard the silent rings and tether cities where vacuum is the only neighbor.',
     flavor_quote: 'We keep the dark from leaning in.',
     home_region_ids: ['nexus_gate_ring', 'nexus_vault_ward', 'nexus_spire_walk', 'nexus_berth_ring'],
-    ability_id: 'terraform',
-    ability_description: 'Emergency Seal: once per turn, restore stability on an owned territory and gain 1 free unit there.',
+    ability_id: 'emergency_seal',
+    ability_description: 'Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.',
     color: '#9b59b6',
     stability_recovery_bonus: 2,
   },
@@ -89,18 +89,22 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
 // Galactic Age technology tree
 //
 // Two parallel tier-1 roots so opening builds branch:
-//   Hyperspace Chart (cost 5) — central mechanic, unlocks orbit travel.
+//   Lane Charts (cost 5) — the third attack die across a lane (crossings roll
+//   2 without it, under corridors); the access gate it used to be was bought
+//   on turn 1 by every seat in every simulated game.
 //   Lattice Logistics (cost 4) — economic root: +1 reinforcement / turn.
-// Hyperdrive Doctrine and Lane Sovereignty extend Hyperspace Chart so the
-// gate isn't just a binary unlock but a real progression: orbit attacks
-// become more powerful as the player invests deeper.
+// Hyperdrive Doctrine and Lane Sovereignty extend Lane Charts so lane
+// crossings keep getting stronger as the player invests deeper.
 // ──────────────────────────────────────────────────────────────────────────
 
 export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   {
+    // Kept the id so nothing that reads unlocked_techs churns. Under corridors
+    // this is no longer the access gate (every seat bought it on turn 1, so it
+    // gated nothing) — it buys back the third attack die across a lane.
     tech_id: 'ga_hyperspace_chart',
-    name: 'Hyperspace Chart',
-    description: 'Certified lane plots — unlocks travel and claims along orbit connections to foreign worlds.',
+    name: 'Lane Charts',
+    description: 'Certified lane plots — attacks across a hyperspace lane roll 3 dice instead of 2.',
     tier: 1,
     cost: 5,
   },

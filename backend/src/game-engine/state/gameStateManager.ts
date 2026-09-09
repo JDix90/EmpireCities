@@ -670,9 +670,6 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (next <= state.current_player_index) {
     state.turn_number++;
 
-    // Galaxy: lift expiring hyperspace-lane seals once per round.
-    tickLaneBlockades(state);
-
     // Decrement truce timers once per round (not per player turn)
     for (const entry of state.diplomacy) {
       if (entry.status === 'truce' && entry.truce_turns_remaining > 0) {
@@ -699,6 +696,8 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     }
   }
   state.current_player_index = next;
+  // Galaxy: the incoming player's own lane seals age as their turn begins.
+  tickLaneBlockades(state, state.players[next].player_id);
   state.phase = 'draft';
   state.draft_placements_this_turn = {};
   state.draft_deployments_this_turn = [];

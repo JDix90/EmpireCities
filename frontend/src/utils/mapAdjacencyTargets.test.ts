@@ -392,7 +392,7 @@ describe('computeFortifyReachable — orbit parity with the server', () => {
    */
   const spaceAge = {
     era: 'space_age',
-    settings: { lanes_contestable_enabled: false },
+    settings: {},
     territories: {
       na_east: { territory_id: 'na_east', owner_id: 'p1', unit_count: 9, buildings: [] },
       na_pad: { territory_id: 'na_pad', owner_id: 'p1', unit_count: 9, buildings: [] },

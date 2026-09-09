@@ -2633,6 +2633,13 @@ export default function GamePage() {
     () => new Set(Object.keys(gameState?.lane_blockades ?? {})),
     [gameState?.lane_blockades],
   );
+  // Emergency Seal is the Void Custodians' faction charge; only they get the
+  // lane-click affordance on the chart. The server re-checks faction and use.
+  const viewerCanEmergencySeal = useMemo(() => {
+    if (!gameState?.settings.factions_enabled) return false;
+    const me = gameState.players.find((p) => p.player_id === resolvedViewerPlayerId);
+    return me?.faction_id === 'void_custodians';
+  }, [gameState?.settings.factions_enabled, gameState?.players, resolvedViewerPlayerId]);
   const handleSealLane = useCallback(
     (fromId: string, toId: string) => {
       getSocket().emit('game:seal_lane', { gameId, fromId, toId, action_id: generateActionId() });
@@ -4175,7 +4182,7 @@ export default function GamePage() {
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
                       sealedLaneIds={galaxySealedLaneIds}
-                      lanesContestableEnabled={gameState.settings.lanes_contestable_enabled ?? false}
+                      lanesContestableEnabled={viewerCanEmergencySeal}
                       ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
                       onSealLane={handleSealLane}
                       pulseWorldId={galaxyPulse?.worldId ?? null}

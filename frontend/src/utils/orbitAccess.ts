@@ -10,8 +10,10 @@
  *   - `space_age_moon`: needs Lunar Expansion tech + Launch Pad building +
  *     either a launched Space Station or the Space Elevator wonder, OR be the
  *     Lunar Pioneers faction.
- *   - `galaxy_hyperspace`: needs `ga_hyperspace_chart` tech, OR own the
- *     Hyperlane Anchor wonder, OR be the Helion Navigators faction.
+ *   - `galaxy_hyperspace`: under corridors (`settings.galaxy_corridors_enabled`,
+ *     the default) access is positional and always allowed; with the kill
+ *     switch off it needs `ga_hyperspace_chart`, OR the Hyperlane Anchor
+ *     wonder, OR the Helion Navigators faction.
  */
 
 import { inferWorldId } from '@borderfall/shared';
@@ -243,12 +245,10 @@ export function fortifyTraversalFilter(
     return () => true;
   }
   const access = getOrbitAccessResult(mapData, gameState, playerId, era);
-  const sealsOn = gameState.settings?.lanes_contestable_enabled === true;
   const blockades = gameState.lane_blockades ?? {};
   return (conn) => {
     if (conn.type !== 'orbit') return true;
     if (!access.allowed) return false;
-    if (!sealsOn) return true;
     // Mirrors isLaneSealedForPlayer: an expired or absent seal blocks nobody,
     // and the player who set it can still cross their own.
     const seal = blockades[orbitLaneId(conn.from, conn.to)];
@@ -290,7 +290,9 @@ export function getOrbitAccessResult(
     return { allowed: missing.length === 0, missing };
   }
 
-  // galaxy_hyperspace
+  // galaxy_hyperspace — corridors: no tech gate, access is positional (you
+  // cross a lane from the gateway you hold). Mirrors the backend branch.
+  if (gameState.settings?.galaxy_corridors_enabled === true) return { allowed: true, missing: [] };
   if (player.faction_id === 'helion_navigators') return { allowed: true, missing: [] };
   const ownedTerritories = Object.values(gameState.territories).filter(
     (t) => t.owner_id === playerId,

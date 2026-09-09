@@ -1,11 +1,11 @@
 /**
  * Galactic Age hyperspace rules over the real wire, on era_galaxy.json.
  *
- * Probe spec written during the Galactic Age review: exercises the orbit gate,
- * Helion's free lanes, contestable lane seals (block, own-crossing, one-per-
- * player, expiry on round wrap), the four faction abilities, territory-selection
- * mode on a locked world, and the Hyperlane Anchor wonder. Some cases document
- * CURRENT behaviour that the review flags as a defect — they are labelled.
+ * Exercises corridors (no tech gate; positional access), the kill switch (the
+ * old Hyperspace Chart gate), the Void Custodians' Emergency Seal (block, own
+ * crossing, once per turn, lifts at the sealer's next turn), the faction
+ * abilities, the territory-selection defect the create boundary now rejects,
+ * and the Hyperlane Anchor wonder under the kill switch.
  *
  *   redis-server --port 6399 --save '' --appendonly no --daemonize yes
  *   REDIS_TEST=1 REDIS_HOST=localhost REDIS_PORT=6399 \
@@ -29,8 +29,12 @@ const P = ['ga_lane_p1', 'ga_lane_p2', 'ga_lane_p3', 'ga_lane_p4'] as const;
 const FACTIONS = ['stellar_mandate', 'forge_syndicate', 'helion_navigators', 'void_custodians'] as const;
 // Authored lanes used below.
 const L1 = { sol: 'sol_guinea', verdan: 'verdan_chlorophage_span' };
-const L2 = { sol: 'sol_pacific_rim', verdan: 'verdan_greenfire_vault' };
 const DENY = 'Hyperspace travel requires: Hyperspace Chart tech';
+/** Kill-switch settings: the classic Chart gate, no lane cap. */
+const GATED = { galaxy_corridors_enabled: false } as unknown as Partial<GameSettings>;
+// Lanes touching Nexus Station (Custodians' world), for Emergency Seal.
+const N1 = { sol: 'sol_amazonia', nexus: 'nexus_harmonic_rim' };
+const N2 = { sol: 'sol_cathay', nexus: 'nexus_resonance_vault' };
 
 describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path', () => {
   let httpServer: HttpServer;
@@ -80,7 +84,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
       fog_of_war: false, turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: false,
       diplomacy_enabled: false, factions_enabled: true, naval_enabled: false, events_enabled: false,
       economy_enabled: true, tech_trees_enabled: true, stability_enabled: false,
-      era_advancement_enabled: false, lanes_contestable_enabled: true,
+      era_advancement_enabled: false, galaxy_corridors_enabled: true,
       allowed_victory_conditions: ['domination', 'threshold'], victory_type: 'domination',
       victory_threshold: 60, max_turns: 90, ...extra,
     } as unknown as GameSettings;
@@ -142,11 +146,17 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     throw new Error('timed out waiting for persisted Redis state');
   }
 
-  /** Attack-phase setup: attacker tile stacked, defender tile thinned, dice fixed so one exchange captures. */
+  /**
+   * Attack-phase setup: attacker tile stacked, defender tile thinned, dice
+   * fixed so one exchange captures. Two sixes then ones: a lane crossing rolls
+   * two attacker dice under corridors (three with the kill switch off), and a
+   * one-unit defender rolls one, so either way the high die is a six against a
+   * one. A long tail keeps createPuzzleDieRoll from falling back to CSPRNG.
+   */
   function armAssault(state: GameState, from: string, to: string): void {
     state.territories[from].unit_count = 12;
     state.territories[to].unit_count = 1;
-    state.puzzle_dice_queue = [6, 6, 6, ...Array(40).fill(1)];
+    state.puzzle_dice_queue = [6, 6, ...Array(40).fill(1)];
   }
 
   async function endTurn(client: ClientSocket, gameId: string, fromPhase: 'draft' | 'attack' | 'fortify'): Promise<void> {
@@ -157,26 +167,39 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     }
   }
 
-  it('refuses a lane crossing before Hyperspace Chart, names the tech, and allows it once researched', async () => {
-    const gameId = 'itest-ga-gate';
+  it('crosses a lane with no tech at all under corridors — access is positional', async () => {
+    const gameId = 'itest-ga-corridor';
     const map = freshMap(); const state = freshState(gameId, map);
-    state.phase = 'draft'; state.draft_units_remaining = 0;
-    state.players[0].tech_points = 10;
+    state.phase = 'attack'; state.players[0].unlocked_techs = [];
     armAssault(state, L1.sol, L1.verdan);
     await seed(gameId, state, map);
     const c = await connect(P[0]); await joinRoom(P[0], gameId);
+    const r = await act<{ result: { territory_captured: boolean; attacker_dice?: number[] } }>(
+      c, 'game:attack', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:combat_result',
+    );
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    if (r.ok) {
+      expect(r.data.result.territory_captured).toBe(true);
+      // The lane cap: two attacker dice without Lane Charts.
+      expect(r.data.result.attacker_dice?.length ?? 2).toBeLessThanOrEqual(2);
+    }
+  }, 30_000);
 
-    expect((await act(c, 'game:advance_phase', { gameId }, 'game:state')).ok).toBe(true);
-    await waitForRedisState(gameId, (s) => s.phase === 'attack');
+  it('with the kill switch off, the Hyperspace Chart gate still refuses and names the tech', async () => {
+    const gameId = 'itest-ga-gate';
+    const map = freshMap(); const state = freshState(gameId, map, GATED);
+    state.phase = 'attack';
+    armAssault(state, L1.sol, L1.verdan);
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
     const denied = await act(c, 'game:attack', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:combat_result');
     expect(denied.ok).toBe(false);
     if (!denied.ok) { expect(denied.code).toBe('ACCESS_DENIED'); expect(denied.error).toBe(DENY); }
-
   }, 30_000);
 
-  it('allows the same crossing once Hyperspace Chart is researched', async () => {
+  it('with the kill switch off, the crossing opens once the Chart is researched', async () => {
     const gameId2 = 'itest-ga-gate-open';
-    const map2 = freshMap(); const s2 = freshState(gameId2, map2);
+    const map2 = freshMap(); const s2 = freshState(gameId2, map2, GATED);
     s2.phase = 'attack'; s2.players[0].unlocked_techs = ['ga_hyperspace_chart'];
     armAssault(s2, L1.sol, L1.verdan);
     await seed(gameId2, s2, map2);
@@ -188,7 +211,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     expect(after.territories[L1.verdan].owner_id).toBe(P[0]);
   }, 60_000);
 
-  it('Hyperspace Chart is affordable on turn 1 by every faction (the "race" is zero turns long)', async () => {
+  it('Lane Charts is affordable on turn 1 by every faction (why the old gate gated nothing)', async () => {
     const gameId = 'itest-ga-chart-t1';
     const map = freshMap(); const state = freshState(gameId, map);
     // Opening economy tick as the real create path applies it.
@@ -216,79 +239,77 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     if (r.ok) expect(r.data.result.territory_captured).toBe(true);
   }, 30_000);
 
-  it('a seal blocks the rival on that one lane, not the sealer and not the sister lane; one seal per player', async () => {
+  it('Emergency Seal: Custodians close a Nexus lane; it blocks the rival on that lane only, once per turn, and lifts at their next turn', async () => {
     const gameId = 'itest-ga-seal';
     const map = freshMap(); const state = freshState(gameId, map);
-    state.phase = 'attack'; state.current_player_index = 0;
-    state.players[0].unlocked_techs = ['ga_hyperspace_chart'];
-    // Helion's assault tiles armed for later; Sol tiles thinned to be capturable.
-    state.territories[L1.verdan].unit_count = 12; state.territories[L1.sol].unit_count = 1;
-    state.territories[L2.verdan].unit_count = 12; state.territories[L2.sol].unit_count = 1;
-    state.puzzle_dice_queue = [6, 6, 6, ...Array(40).fill(1)];
+    state.phase = 'attack'; state.current_player_index = 3;
+    // Sol's Mandate is armed to cross both Nexus lanes; Nexus tiles thinned.
+    state.territories[N1.sol].unit_count = 12; state.territories[N1.nexus].unit_count = 1;
+    state.territories[N2.sol].unit_count = 12; state.territories[N2.nexus].unit_count = 1;
+    state.puzzle_dice_queue = [6, 6, ...Array(40).fill(1)];
     await seed(gameId, state, map);
-    const c1 = await connect(P[0]); await joinRoom(P[0], gameId);
-    const c2 = await connect(P[1]); await joinRoom(P[1], gameId);
-    const c3 = await connect(P[2]); await joinRoom(P[2], gameId);
+    const cs = await Promise.all(P.map(async (id) => { const c = await connect(id); await joinRoom(id, gameId); return c; }));
     const log: string[] = [];
 
-    const seal = await act(c1, 'game:seal_lane', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:state');
+    // Not a Custodian: refused by faction.
+    const notMine = await act(cs[0], 'game:seal_lane', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:state');
+    expect(notMine.ok).toBe(false);
+    if (!notMine.ok) { expect(notMine.error).toMatch(/Not your turn|Void Custodians/); log.push(`P1 seal → ${notMine.error}`); }
+
+    // Custodians: a lane that does not touch Nexus is refused.
+    const wrongLane = await act(cs[3], 'game:seal_lane', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:state');
+    expect(wrongLane.ok).toBe(false);
+    if (!wrongLane.ok) { expect(wrongLane.error).toMatch(/touch Nexus Station/); log.push(`P4 seal Sol–Verdan → ${wrongLane.error}`); }
+
+    const seal = await act(cs[3], 'game:seal_lane', { gameId, fromId: N1.nexus, toId: N1.sol }, 'game:state');
     expect(seal.ok, seal.ok ? '' : seal.error).toBe(true);
-    const sealed = await waitForRedisState(gameId, (s) => !!s.lane_blockades?.[orbitLaneId(L1.sol, L1.verdan)]);
-    expect(sealed.lane_blockades![orbitLaneId(L1.sol, L1.verdan)]).toEqual({ owner_id: P[0], turns_remaining: 3 });
-    log.push('P1 sealed L1');
+    const sealed = await waitForRedisState(gameId, (s) => !!s.lane_blockades?.[orbitLaneId(N1.sol, N1.nexus)]);
+    expect(sealed.lane_blockades![orbitLaneId(N1.sol, N1.nexus)]).toEqual({ owner_id: P[3], turns_remaining: 1 });
+    log.push('P4 sealed N1');
 
-    const second = await act(c1, 'game:seal_lane', { gameId, fromId: L2.sol, toId: L2.verdan }, 'game:state');
-    expect(second.ok).toBe(false);
-    if (!second.ok) log.push(`P1 second seal → ${second.error}`);
+    const twice = await act(cs[3], 'game:seal_lane', { gameId, fromId: N2.nexus, toId: N2.sol }, 'game:state');
+    expect(twice.ok).toBe(false);
+    if (!twice.ok) { expect(twice.error).toMatch(/already used this turn/); log.push(`P4 second seal → ${twice.error}`); }
 
-    // Hand the turn to Helion (P3): P1 attack→fortify→end, P2 draft→attack→fortify→end.
-    await endTurn(c1, gameId, 'attack');
-    await waitForRedisState(gameId, (s) => s.current_player_index === 1);
-    await endTurn(c2, gameId, 'draft');
-    await waitForRedisState(gameId, (s) => s.current_player_index === 2 && s.phase === 'draft');
-    expect((await act(c3, 'game:advance_phase', { gameId }, 'game:state')).ok).toBe(true);
+    // Custodians end their turn; the round wraps to P1. The seal must survive
+    // the wrap — it ages at the SEALER's next turn, not the round boundary.
+    await endTurn(cs[3], gameId, 'attack');
+    const afterWrap = await waitForRedisState(gameId, (s) => s.current_player_index === 0 && s.phase === 'draft');
+    expect(afterWrap.lane_blockades?.[orbitLaneId(N1.sol, N1.nexus)]?.turns_remaining).toBe(1);
+    expect((await act(cs[0], 'game:advance_phase', { gameId }, 'game:state')).ok).toBe(true);
     await waitForRedisState(gameId, (s) => s.phase === 'attack');
 
-    const blocked = await act(c3, 'game:attack', { gameId, fromId: L1.verdan, toId: L1.sol }, 'game:combat_result');
+    const blocked = await act(cs[0], 'game:attack', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:combat_result');
     expect(blocked.ok).toBe(false);
-    if (!blocked.ok) { expect(blocked.code).toBe('LANE_SEALED'); log.push(`P3 across sealed L1 → ${blocked.error}`); }
+    if (!blocked.ok) { expect(blocked.code).toBe('LANE_SEALED'); log.push(`P1 across sealed N1 → ${blocked.error}`); }
 
-    // The sister lane between the same two worlds is untouched.
-    const sister = await act<{ result: { territory_captured: boolean } }>(c3, 'game:attack', { gameId, fromId: L2.verdan, toId: L2.sol }, 'game:combat_result');
+    const sister = await act<{ result: { territory_captured: boolean } }>(cs[0], 'game:attack', { gameId, fromId: N2.sol, toId: N2.nexus }, 'game:combat_result');
     expect(sister.ok, sister.ok ? '' : sister.error).toBe(true);
-    if (sister.ok) log.push(`P3 across sister lane L2 → captured ${sister.data.result.territory_captured}`);
-    console.log('\n[seal]\n' + log.join('\n'));
-  }, 90_000);
+    if (sister.ok) log.push(`P1 across sister lane N2 → captured ${sister.data.result.territory_captured}`);
+
+    // P1, P2, P3 finish; when P4's turn begins the seal has aged out.
+    await endTurn(cs[0], gameId, 'attack');
+    await waitForRedisState(gameId, (s) => s.current_player_index === 1);
+    await endTurn(cs[1], gameId, 'draft');
+    await waitForRedisState(gameId, (s) => s.current_player_index === 2);
+    await endTurn(cs[2], gameId, 'draft');
+    const lifted = await waitForRedisState(gameId, (s) => s.current_player_index === 3);
+    expect(lifted.lane_blockades ?? {}).toEqual({});
+    log.push('seal lifted as P4 came back round');
+    console.log('\n[emergency seal]\n' + log.join('\n'));
+  }, 120_000);
 
   it('the sealer crosses their own seal', async () => {
     const gameId = 'itest-ga-own-seal';
     const map = freshMap(); const state = freshState(gameId, map);
-    state.phase = 'attack'; state.players[0].unlocked_techs = ['ga_hyperspace_chart'];
-    state.lane_blockades = { [orbitLaneId(L1.sol, L1.verdan)]: { owner_id: P[0], turns_remaining: 3 } };
-    armAssault(state, L1.sol, L1.verdan);
+    state.phase = 'attack'; state.current_player_index = 3;
+    state.lane_blockades = { [orbitLaneId(N1.sol, N1.nexus)]: { owner_id: P[3], turns_remaining: 1 } };
+    armAssault(state, N1.nexus, N1.sol);
     await seed(gameId, state, map);
-    const c = await connect(P[0]); await joinRoom(P[0], gameId);
-    const r = await act<{ result: { territory_captured: boolean } }>(c, 'game:attack', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:combat_result');
+    const c = await connect(P[3]); await joinRoom(P[3], gameId);
+    const r = await act<{ result: { territory_captured: boolean } }>(c, 'game:attack', { gameId, fromId: N1.nexus, toId: N1.sol }, 'game:combat_result');
     expect(r.ok, r.ok ? '' : r.error).toBe(true);
   }, 30_000);
-
-  it('a seal lifts when the round wraps (3 rounds from a fresh seal)', async () => {
-    const gameId = 'itest-ga-seal-expiry';
-    const map = freshMap(); const state = freshState(gameId, map);
-    state.phase = 'attack'; state.current_player_index = 0;
-    state.lane_blockades = { [orbitLaneId(L1.sol, L1.verdan)]: { owner_id: P[0], turns_remaining: 1 } };
-    await seed(gameId, state, map);
-    const cs = await Promise.all(P.map(async (id) => { const c = await connect(id); await joinRoom(id, gameId); return c; }));
-    const startTurn = state.turn_number;
-    await endTurn(cs[0], gameId, 'attack');
-    await waitForRedisState(gameId, (s) => s.current_player_index === 1);
-    for (let i = 1; i < 4; i++) {
-      await endTurn(cs[i], gameId, 'draft');
-      await waitForRedisState(gameId, (s) => s.current_player_index === (i + 1) % 4);
-    }
-    const after = await waitForRedisState(gameId, (s) => s.turn_number === startTurn + 1);
-    expect(after.lane_blockades ?? {}).toEqual({});
-  }, 90_000);
 
   it('faction abilities over the wire: what each of the four actually does today', async () => {
     const log: string[] = [];
@@ -320,32 +341,31 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
       log.push(`forge guerrilla_warfare → ${r.ok ? 'OK' : 'ERROR ' + r.error}; units ${before} → ${s!.territories[own.territory_id].unit_count}`);
       expect(r.ok).toBe(true);
     }
-    // Custodians — Emergency Seal (terraform), draft phase, own tile
+    // Custodians — the old terraform charge is gone; Emergency Seal lives on
+    // game:seal_lane and is covered above.
     {
       const gameId = 'itest-ga-abil-void';
       const map = freshMap(); const state = freshState(gameId, map, { stability_enabled: true } as Partial<GameSettings>);
       state.phase = 'draft'; state.current_player_index = 3; state.draft_units_remaining = 0;
       const own = Object.values(state.territories).find((t) => t.owner_id === P[3])!;
-      own.stability = 20; const before = own.unit_count;
       await seed(gameId, state, map);
       const c = await connect(P[3]); await joinRoom(P[3], gameId);
       const r = await act(c, 'game:use_ability', { gameId, abilityId: 'terraform', params: { territoryId: own.territory_id } }, 'game:ability_result');
-      const s = await getGameState(gameId);
-      log.push(`void terraform → ${r.ok ? 'OK' : 'ERROR ' + r.error}; units ${before} → ${s!.territories[own.territory_id].unit_count}; stability 20 → ${s!.territories[own.territory_id].stability}`);
-      expect(r.ok).toBe(true);
+      log.push(`void terraform → ${r.ok ? 'OK' : 'ERROR ' + r.error}`);
+      expect(r.ok).toBe(false);
     }
-    // Mandate — Cyber Strike (cyber_attack) across an orbit lane WITHOUT the chart
+    // Mandate — Cyber Strike across a lane. Under corridors the strike is legal
+    // (access is positional); with the kill switch off it must respect the gate.
     {
       const gameId = 'itest-ga-abil-mandate';
-      const map = freshMap(); const state = freshState(gameId, map);
+      const map = freshMap(); const state = freshState(gameId, map, GATED);
       state.phase = 'attack'; state.current_player_index = 0;
       state.territories[L1.verdan].unit_count = 5;
       await seed(gameId, state, map);
       const c = await connect(P[0]); await joinRoom(P[0], gameId);
       const r = await act(c, 'game:use_ability', { gameId, abilityId: 'cyber_attack', params: { territoryId: L1.verdan } }, 'game:ability_result');
       const s = await getGameState(gameId);
-      log.push(`mandate cyber_attack across lane, no chart → ${r.ok ? 'OK' : 'ERROR ' + r.error}; target units 5 → ${s!.territories[L1.verdan].unit_count}`);
-      // The strike used to cross a hyperspace lane with no Chart researched.
+      log.push(`mandate cyber_attack across lane, gate on, no chart → ${r.ok ? 'OK' : 'ERROR ' + r.error}; target units 5 → ${s!.territories[L1.verdan].unit_count}`);
       expect(r.ok).toBe(false);
       expect(s!.territories[L1.verdan].unit_count).toBe(5);
     }
@@ -357,7 +377,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
   // arrive neutral with zero units, which no attack can ever resolve against.
   it('territory selection leaves every off-world tile neutral with no garrison', async () => {
     const gameId = 'itest-ga-select';
-    const map = freshMap(); const state = freshState(gameId, map, { territory_selection: true } as Partial<GameSettings>);
+    const map = freshMap(); const state = freshState(gameId, map, { territory_selection: true, ...GATED } as Partial<GameSettings>);
     expect(state.phase).toBe('territory_select');
     const neutralExo = Object.values(state.territories).filter((t) => t.world_id !== 'sol');
     const zeroUnit = neutralExo.filter((t) => t.owner_id == null && t.unit_count === 0).length;
@@ -398,9 +418,9 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     expect(s!.territories[L1.verdan].owner_id).toBeNull();
   }, 30_000);
 
-  it('the Hyperlane Anchor wonder grants lane access with no tech, for 22 production', async () => {
+  it('with the kill switch off, the Hyperlane Anchor wonder grants lane access with no tech', async () => {
     const gameId = 'itest-ga-anchor';
-    const map = freshMap(); const state = freshState(gameId, map);
+    const map = freshMap(); const state = freshState(gameId, map, GATED);
     state.phase = 'draft'; state.draft_units_remaining = 0;
     state.players[0].special_resource = 22; state.players[0].unlocked_techs = [];
     armAssault(state, L1.sol, L1.verdan);

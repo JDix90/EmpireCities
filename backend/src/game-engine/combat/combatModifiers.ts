@@ -21,6 +21,7 @@ import { getBuildingDefenseBonus, getSeaDefenseBonus } from '../state/economyMan
 import { getPlayerAttackBonus, getPlayerDefenseBonus } from '../state/techManager';
 import { getWonderDefenseBonus, getWonderSeaAttackDice } from '../state/wonderManager';
 import { getPlayerFaction } from '../eras/factionLineage';
+import { galaxyLaneAttackDiceCap } from '../state/moonAccess';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
 import {
   attackerIgnoresDefenseBuilding,
@@ -228,7 +229,12 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     attackerEraModifiers.sea_lanes && isSea
       ? Math.min(attackingUnits - 1, seaCap)
       : undefined;
-  const structuralAttackerDiceOverride = precisionDiceOverride ?? seaLanesOverride;
+  // Galactic Age corridors: a hyperspace-lane crossing rolls at most 2 attacker
+  // dice (3 with Lane Charts), the same structural cap sea lanes carry, so a
+  // defended gateway holds like a coast. Tech/faction dice still stack on top.
+  const laneCap = connection?.type === 'orbit' ? galaxyLaneAttackDiceCap(state, attackerId) : undefined;
+  const laneOverride = laneCap != null ? Math.min(attackingUnits - 1, laneCap) : undefined;
+  const structuralAttackerDiceOverride = precisionDiceOverride ?? seaLanesOverride ?? laneOverride;
 
   const techAttackBonus = state.settings.tech_trees_enabled
     ? getPlayerAttackBonus(state, attackerId)

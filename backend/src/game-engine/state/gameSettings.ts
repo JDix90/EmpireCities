@@ -58,8 +58,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // ceilings to never drop below the natural base (attacker 3, defender 2) so a
   // misconfigured low cap can't weaken vanilla combat.
   const combatDiceCapEnabled = typeof raw.combat_dice_cap_enabled === 'boolean' ? raw.combat_dice_cap_enabled : false;
-  // Galaxy contestable hyperspace lanes (lane seals). Off by default — real rule change.
-  const lanesContestableEnabled = typeof raw.lanes_contestable_enabled === 'boolean' ? raw.lanes_contestable_enabled : false;
+  // Galactic Age corridors. Baked at create from the galaxy_corridors_enabled
+  // feature flag; persisted only when explicitly on; no-op off galaxy maps.
+  const galaxyCorridorsEnabled = typeof raw.galaxy_corridors_enabled === 'boolean' ? raw.galaxy_corridors_enabled : false;
   // Standalone Space Age frontier seeding. Off by default — baked at create from
   // the space_age_frontiers_enabled feature flag; no-op off space_age.
   const spaceAgeFrontiersEnabled = typeof raw.space_age_frontiers_enabled === 'boolean' ? raw.space_age_frontiers_enabled : false;
@@ -256,8 +257,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_echo_cap_tech: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_echo_cap_tech, eraDefaults.era_advancement_echo_cap_tech)
       : undefined,
-    // Galaxy contestable lanes — only persisted when explicitly enabled.
-    lanes_contestable_enabled: lanesContestableEnabled || undefined,
+    // Galactic Age corridors — only persisted when explicitly enabled.
+    galaxy_corridors_enabled: galaxyCorridorsEnabled || undefined,
     // Standalone Space Age frontier seeding — persisted only when explicitly enabled.
     space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).

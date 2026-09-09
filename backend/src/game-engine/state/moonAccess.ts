@@ -208,6 +208,16 @@ export function getOrbitAccessResult(
   }
 
   // galaxy_hyperspace
+  //
+  // Corridors: no tech gate. A player attacks across a lane from the gateway
+  // tile they hold, and holding both ends of a lane is a corridor nobody else
+  // can cross — which follows from the same rule, since crossing needs one end.
+  // What keeps gateways contested is the lane dice cap (galaxyLaneAttackDiceCap),
+  // not a key everyone buys on turn 1. The Chart gate below survives only for
+  // games created with the kill switch off.
+  if (state.settings?.galaxy_corridors_enabled) {
+    return { allowed: true, missing: [], mode };
+  }
   if (player.faction_id === 'helion_navigators') {
     return { allowed: true, missing: [], mode };
   }
@@ -382,11 +392,14 @@ export function formatOrbitAccessError(access: OrbitAccessResult): string {
 }
 
 // ============================================================
-// Contestable hyperspace lanes (galaxy) — active lane seals
+// Corridors — per-lane state, the lane dice cap, and the Emergency Seal
 // ============================================================
 
-/** Rounds a fresh lane seal lasts. */
-export const GALAXY_LANE_SEAL_DURATION = 3;
+/** Rounds a fresh Emergency Seal lasts. One: it buys a round, not a wall. */
+export const GALAXY_LANE_SEAL_DURATION = 1;
+
+/** Attacker dice across a hyperspace lane without Lane Charts. */
+export const GALAXY_LANE_BASE_ATTACK_DICE = 2;
 
 /** Canonical, order-independent id for the orbit lane between two territories. */
 export function orbitLaneId(a: string, b: string): string {
@@ -400,12 +413,61 @@ export function isOrbitLane(map: GameMap, a: string, b: string): boolean {
   );
 }
 
+/** Territories that sit on an orbit lane — the galaxy's gateway tiles. */
+export function orbitGatewayTerritoryIds(map: GameMap): Set<string> {
+  const ids = new Set<string>();
+  for (const c of map.connections) {
+    if (c.type !== 'orbit') continue;
+    ids.add(c.from);
+    ids.add(c.to);
+  }
+  return ids;
+}
+
+export type LaneState = 'corridor' | 'open' | 'closed';
+
+/**
+ * A lane's state for one player, read live from who holds its two gateways:
+ *   corridor — the player holds both ends; only they can cross it.
+ *   open     — the player holds one end; they may attack across, and so may
+ *              whoever holds the other end.
+ *   closed   — the player holds neither end; their way in is intra-world.
+ * Purely descriptive under corridors (the crossing rule is "hold one end"), but
+ * it is what the chart paints, what the AI weighs, and what Lane Sovereignty
+ * will count.
+ */
+export function laneStateFor(state: GameState, fromId: string, toId: string, playerId: string): LaneState {
+  const a = state.territories[fromId]?.owner_id === playerId;
+  const b = state.territories[toId]?.owner_id === playerId;
+  if (a && b) return 'corridor';
+  if (a || b) return 'open';
+  return 'closed';
+}
+
+/**
+ * Attacker dice ceiling for an attack across a hyperspace lane, or undefined
+ * when no lane cap applies (corridors off, or not a galaxy game).
+ *
+ * Two dice is the sea-lane precedent: a defended gateway then holds like a
+ * coast, and the 16 gateway tiles become the places worth fighting over. Lane
+ * Charts (the tier-1 tech that used to be the access gate) restores the third
+ * die, and the galaxy's later attack-dice techs stack on top as bonuses.
+ */
+export function galaxyLaneAttackDiceCap(state: GameState, attackerId: string): number | undefined {
+  // The setting is only ever baked for Galactic Age games (games.routes.ts), so
+  // it is the era check as well; callers without the map can still ask.
+  if (!state.settings?.galaxy_corridors_enabled) return undefined;
+  const attacker = state.players.find((p) => p.player_id === attackerId);
+  const hasLaneCharts = state.settings.tech_trees_enabled
+    && (attacker?.unlocked_techs?.includes('ga_hyperspace_chart') ?? false);
+  return GALAXY_LANE_BASE_ATTACK_DICE + (hasLaneCharts ? 1 : 0);
+}
+
 /**
  * True when an active lane seal owned by ANOTHER player blocks `playerId` from
  * crossing the orbit edge from→to. The sealer can still use their own lane.
  */
 export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: string, playerId: string): boolean {
-  if (!state.settings.lanes_contestable_enabled) return false;
   const bl = state.lane_blockades?.[orbitLaneId(fromId, toId)];
   if (!bl || bl.turns_remaining <= 0) return false;
   return bl.owner_id !== playerId;
@@ -413,37 +475,58 @@ export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: st
 
 export interface SealLaneCheck { ok: boolean; error?: string; laneId?: string }
 
-/** Validate whether `playerId` may seal the orbit lane (from,to) right now. */
+/** The faction ability id that grants Emergency Seal. */
+export const EMERGENCY_SEAL_ABILITY_ID = 'emergency_seal';
+
+/** The world whose lanes Emergency Seal may close. */
+const EMERGENCY_SEAL_WORLD_ID = 'nexus_station';
+
+/**
+ * Validate whether `playerId` may seal the orbit lane (from,to) right now.
+ *
+ * Emergency Seal is the Void Custodians' faction tool and the only timed seal
+ * in the game: once per turn, any lane touching Nexus Station closes to everyone
+ * else for one round. It replaced a sealing rule open to every player, which
+ * lasted three rounds, was limited to one seal each, and was never used by the
+ * AI — a wall nobody on the other side of the table could see or answer.
+ */
 export function canSealLane(
   state: GameState,
   map: GameMap,
   fromId: string,
   toId: string,
   playerId: string,
+  factionAbilityId: string | undefined,
 ): SealLaneCheck {
-  if (!state.settings.lanes_contestable_enabled) return { ok: false, error: 'Lane seals are not enabled' };
+  if (factionAbilityId !== EMERGENCY_SEAL_ABILITY_ID) {
+    return { ok: false, error: 'Emergency Seal is a Void Custodians ability' };
+  }
   if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
-  const ownsEndpoint =
-    state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
-  if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
+  const touchesNexus = [fromId, toId].some((id) => {
+    const t = map.territories.find((tt) => tt.territory_id === id);
+    return !!t && inferWorldId(t) === EMERGENCY_SEAL_WORLD_ID;
+  });
+  if (!touchesNexus) return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
   const id = orbitLaneId(fromId, toId);
   const blockades = state.lane_blockades ?? {};
   const existing = blockades[id];
   if (existing && existing.turns_remaining > 0 && existing.owner_id !== playerId) {
     return { ok: false, error: 'This lane is already sealed by a rival' };
   }
-  // One active seal per player (refreshing your own lane is allowed).
-  const otherActive = Object.entries(blockades).some(
-    ([lid, b]) => lid !== id && b.owner_id === playerId && b.turns_remaining > 0,
-  );
-  if (otherActive) return { ok: false, error: 'You already have a lane sealed — wait for it to lift' };
   return { ok: true, laneId: id };
 }
 
-/** Decrement all active lane seals by one round; drop expired. Call once per round. */
-export function tickLaneBlockades(state: GameState): void {
+/**
+ * Decrement the seals `ownerId` holds by one round; drop expired. Called when
+ * that player's turn BEGINS, so "one round" means the same thing for every
+ * seat: the seal stands through each rival's turn and lifts as the sealer
+ * comes back round. Ticking at the round wrap instead made a seal placed by
+ * the last seat in turn order expire before anyone had to face it.
+ */
+export function tickLaneBlockades(state: GameState, ownerId: string): void {
   if (!state.lane_blockades) return;
   for (const [id, b] of Object.entries(state.lane_blockades)) {
+    if (b.owner_id !== ownerId) continue;
     b.turns_remaining -= 1;
     if (b.turns_remaining <= 0) delete state.lane_blockades[id];
   }

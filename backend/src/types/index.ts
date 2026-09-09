@@ -401,11 +401,14 @@ export interface GameSettings {
    */
   combat_dice_cap_enabled?: boolean;
   /**
-   * Galaxy contestable hyperspace lanes: when on, a player holding one end of an
-   * orbit lane can seal it (game:seal_lane), blocking enemies from crossing for a
-   * few rounds. Off by default (it's a real rule change); no-op on non-galaxy maps.
+   * Galactic Age corridors: when true, hyperspace lanes need no tech to cross —
+   * access is positional (you attack across a lane from the gateway you hold) —
+   * and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so
+   * gateway tiles defend like coasts. Off restores the Hyperspace Chart gate with
+   * no lane cap. Baked at create from the `galaxy_corridors_enabled` feature
+   * flag so a flip never re-rules a match in progress; no-op off galaxy maps.
    */
-  lanes_contestable_enabled?: boolean;
+  galaxy_corridors_enabled?: boolean;
   /**
    * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
    * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
@@ -698,10 +701,10 @@ export interface GameState {
   /** Pending truce proposals awaiting target player response. */
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   /**
-   * Galaxy contestable lanes: active hyperspace-lane seals, keyed by canonical
-   * lane id (`orbitLaneId(from,to)`). A sealed lane blocks players other than the
-   * sealer from crossing it for `turns_remaining` rounds. Gated by
-   * `lanes_contestable_enabled`.
+   * Active hyperspace-lane seals, keyed by canonical lane id
+   * (`orbitLaneId(from,to)`). A sealed lane blocks players other than the sealer
+   * from crossing it for `turns_remaining` rounds. The only source today is the
+   * Void Custodians' Emergency Seal (one round, on a lane touching Nexus Station).
    */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
   settings: GameSettings;

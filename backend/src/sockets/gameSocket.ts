@@ -69,6 +69,7 @@ import {
   canSealLane,
   tickLaneBlockades,
   GALAXY_LANE_SEAL_DURATION,
+  EMERGENCY_SEAL_ABILITY_ID,
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
@@ -3459,10 +3460,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (state.phase !== 'attack' && state.phase !== 'fortify') {
           return socket.emit('error', { message: 'Seal lanes during your attack or fortify phase' });
         }
-        const check = canSealLane(state, map, fromId, toId, userId);
+        const currentPlayer = state.players[state.current_player_index];
+        const sealFaction = state.settings.factions_enabled && currentPlayer?.faction_id
+          ? getPlayerFaction(state, currentPlayer)
+          : undefined;
+        const check = canSealLane(state, map, fromId, toId, userId, sealFaction?.ability_id);
         if (!check.ok || !check.laneId) {
           return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
         }
+        // Emergency Seal is the faction's once-per-turn charge; it shares the
+        // ability_uses ledger so the HUD and the AI parity path see it spent.
+        const sealUses = currentPlayer.ability_uses ?? {};
+        if (sealUses[EMERGENCY_SEAL_ABILITY_ID]) {
+          return socket.emit('error', { message: 'Emergency Seal already used this turn' });
+        }
+        currentPlayer.ability_uses = { ...sealUses, [EMERGENCY_SEAL_ABILITY_ID]: 1 };
         if (!state.lane_blockades) state.lane_blockades = {};
         state.lane_blockades[check.laneId] = { owner_id: userId, turns_remaining: GALAXY_LANE_SEAL_DURATION };
         await persistGameStateAfterMutation(gameId, state);
