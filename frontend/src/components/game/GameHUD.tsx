@@ -471,6 +471,22 @@ export default function GameHUD({
                     <span>{myPlayer.tech_points ?? 0} TP</span>
                   </div>
                 )}
+                {/*
+                  Space Age lunar economy. Shown from the moment the rules are
+                  on rather than once the player has some, so the counter is a
+                  standing reminder that the Moon pays — a resource you only
+                  learn about after already earning it is not an incentive.
+                */}
+                {gameState.settings.space_age_moon_helium3_enabled && (
+                  <div
+                    data-testid="hud-helium3"
+                    title="Helium-3 — mined from your Moon territories"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-cyan-800/40 text-cyan-300 text-xs font-mono"
+                  >
+                    <span>☾</span>
+                    <span>{myPlayer.helium3 ?? 0} He-3</span>
+                  </div>
+                )}
               </div>
               {myPlayer.temporary_modifiers && myPlayer.temporary_modifiers.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">

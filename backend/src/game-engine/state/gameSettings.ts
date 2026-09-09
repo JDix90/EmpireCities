@@ -63,6 +63,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Standalone Space Age frontier seeding. Off by default — baked at create from
   // the space_age_frontiers_enabled feature flag; no-op off space_age.
   const spaceAgeFrontiersEnabled = typeof raw.space_age_frontiers_enabled === 'boolean' ? raw.space_age_frontiers_enabled : false;
+  // Space Age lunar economy (Moon Race, Phase 1). Off by default — baked at
+  // create from the space_age_moon_helium3_enabled feature flag.
+  const spaceAgeMoonHelium3Enabled = typeof raw.space_age_moon_helium3_enabled === 'boolean' ? raw.space_age_moon_helium3_enabled : false;
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
@@ -260,6 +263,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     lanes_contestable_enabled: lanesContestableEnabled || undefined,
     // Standalone Space Age frontier seeding — persisted only when explicitly enabled.
     space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
+    // Space Age lunar economy — persisted only when explicitly enabled. A field
+    // missing from this whitelist is dropped on every room load, which is how a
+    // baked setting silently stops applying.
+    space_age_moon_helium3_enabled: spaceAgeMoonHelium3Enabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.

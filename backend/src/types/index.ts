@@ -144,6 +144,15 @@ export interface PlayerState {
   tech_points?: number;
   /** Special/strategic resource count for era abilities. */
   special_resource?: number;
+  /**
+   * Space Age lunar economy (Moon Race, Phase 1): Helium-3 mined from owned
+   * Moon tiles, capped at HELIUM3_STOCKPILE_CAP.
+   *
+   * A field of its own rather than reusing `special_resource`, which is
+   * era-advancement gold (`advanceEra.ts` spends it to advance) — sharing the
+   * counter would let a Moon holder buy era advances with lunar income.
+   */
+  helium3?: number;
   /** Tech node IDs that have been researched. */
   unlocked_techs?: string[];
   /** Per-ability use count this turn (keyed by ability_id). */
@@ -414,6 +423,13 @@ export interface GameSettings {
    * or when era advancement is on (growth handles frontiers then).
    */
   space_age_frontiers_enabled?: boolean;
+  /**
+   * Space Age Moon Race, Phase 1: owned Moon tiles pay Helium-3 each turn, and
+   * Lunar Export converts it to tech points. Baked at create from the
+   * `space_age_moon_helium3_enabled` feature flag; no-op off space_age.
+   * See docs/space-age-moon/README.md §3.
+   */
+  space_age_moon_helium3_enabled?: boolean;
   /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from

@@ -63,6 +63,11 @@ import {
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
+import {
+  LUNAR_EXPORT_MAX,
+  countLunarTerritories,
+  isHelium3Enabled,
+} from '../src/game-engine/state/helium3';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -89,6 +94,8 @@ const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'att
 const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 /** When set (1–99), adds threshold victory at that % — mirrors the live orbit-gated create default (60). */
 const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
+/** Moon Race Phase 1: lunar Helium-3 income + Lunar Export. */
+const MOON_HELIUM3 = process.env.SIM_MOON_HELIUM3 === '1';
 /** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
 const FACTIONS = process.env.SIM_FACTIONS === '1';
 const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
@@ -125,6 +132,7 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: false, // space_age is the start AND terminal era here
     space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
+    space_age_moon_helium3_enabled: MOON_HELIUM3,
     allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
@@ -178,6 +186,8 @@ interface PlayerSim {
   accessTurn: number | null; // first turn getOrbitAccessResult.allowed
   firstMoonCaptureTurn: number | null;
   moonCaptureEvents: number;
+  /** Moon Race Phase 1: He-3 converted to tech points across the game. */
+  helium3Exported: number;
 }
 
 function ladderDepth(ps: PlayerSim): number {
@@ -240,6 +250,17 @@ function playAiTurn(
     }
   };
   if (LAUNCH_PHASE === 'draft') tryLaunch();
+
+  // Lunar Export — mirrors the gameSocket AI-parity block: convert only on a
+  // full load so the one use per turn is not spent on a single point.
+  if (
+    isHelium3Enabled(state)
+    && (player.helium3 ?? 0) >= LUNAR_EXPORT_MAX
+    && countLunarTerritories(state, pid) > 0
+  ) {
+    const res = executeTechAbility({ state, map, playerId: pid, abilityId: 'lunar_export' });
+    if (res.success) ps.helium3Exported += res.amount ?? 0;
+  }
 
   useFactionDraftAbility(state, map, pid, difficulty);
   applyDraft(state, pid, plan);
@@ -344,6 +365,9 @@ interface GameStat {
   firstMoonCaptureTurn: number | null;
   moonCaptureEvents: number;
   moonTilesPlayerHeldEnd: number; // of 9
+  /** Two or more players held Moon tiles at the same time at some point. */
+  everSharedMoon: boolean;
+  helium3Exported: number;
   winnerMoonTilesEnd: number;
   loserAvgMoonTilesEnd: number;
   moonLeader: string | null; // strict leader in moon tiles at end (>0)
@@ -419,6 +443,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     accessTurn: null,
     firstMoonCaptureTurn: null,
     moonCaptureEvents: 0,
+    helium3Exported: 0,
   }]));
 
   let t10Leader: string | null = null;
@@ -426,6 +451,13 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
   let t10Captured = false;
   let lunarRegionHolder: string | null = null;
   let lunarRegionTurn: number | null = null;
+  /**
+   * Phase 1's gate asks whether two players are ever on the Moon at once —
+   * the difference between a shared frontier and a race one player wins. It
+   * has to be sampled during play, not read at the end, because a contested
+   * Moon usually resolves before the final turn.
+   */
+  let everSharedMoon = false;
 
   let guard = 0;
   while (state.phase !== 'game_over' && guard < (MAX_TURNS + 2) * PLAYERS + 5) {
@@ -440,6 +472,13 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
       t10Captured = true;
       t10Leader = territoryLeader(state);
       t10AnchorLeader = strictMaxKey(anchorCounts(state));
+    }
+
+    if (!everSharedMoon) {
+      const holders = new Set(
+        moonTileIds.map((tid) => state.territories[tid]?.owner_id).filter(Boolean),
+      );
+      if (holders.size >= 2) everSharedMoon = true;
     }
 
     if (lunarRegionHolder == null) {
@@ -502,6 +541,8 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     firstMoonCaptureTurn: firsts(simList.map((s) => s.firstMoonCaptureTurn)),
     moonCaptureEvents: simList.reduce((a, s) => a + s.moonCaptureEvents, 0),
     moonTilesPlayerHeldEnd,
+    everSharedMoon,
+    helium3Exported: simList.reduce((a, s) => a + s.helium3Exported, 0),
     winnerMoonTilesEnd,
     loserAvgMoonTilesEnd: loserMoon.length ? loserMoon.reduce((a, b) => a + b, 0) / loserMoon.length : 0,
     moonLeader,
@@ -590,6 +631,15 @@ function main(): void {
   console.log(`Games with any Moon tile captured:           ${pct(withCapture.length, GAMES)} · avg first-capture turn ${fmt(avg(withCapture.map((s) => s.firstMoonCaptureTurn!)))}`);
   console.log(`Avg player-held Moon tiles at end (of 9):    ${fmt(avg(stats.map((s) => s.moonTilesPlayerHeldEnd)), 2)}`);
   console.log(`Lunar Surface region fully held (any):       ${pct(withRegion.length, GAMES)}${withRegion.length ? ` · avg turn ${fmt(avg(withRegion.map((s) => s.lunarRegionTurn!)))}` : ''}`);
+
+  // Printed unconditionally: "is the Moon shared or swept?" is a property of
+  // the board, so a He-3 run needs a He-3-off control for the same number.
+  console.log(`Games with 2+ players on the Moon at once:   ${pct(stats.filter((s) => s.everSharedMoon).length, GAMES)}`);
+  if (MOON_HELIUM3) {
+    console.log(`\n— Helium-3 economy (Moon Race, Phase 1) —`);
+    console.log(`Avg He-3 exported to tech points per game:   ${fmt(avg(stats.map((s) => s.helium3Exported)), 1)}`);
+    console.log(`Games where any He-3 was exported:           ${pct(stats.filter((s) => s.helium3Exported > 0).length, GAMES)}`);
+  }
 
   console.log(`\n— Does the Moon correlate with winning? —`);
   console.log(`Moon-tile leader at end won:                 ${pct(withMoonLeader.filter((s) => s.moonLeaderWon).length, withMoonLeader.length)}  (n=${withMoonLeader.length}; baseline ${pct(1, PLAYERS)})`);

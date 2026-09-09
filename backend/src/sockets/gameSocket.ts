@@ -72,6 +72,11 @@ import {
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
+import {
+  isHelium3Enabled,
+  countLunarTerritories,
+  LUNAR_EXPORT_MAX,
+} from '../game-engine/state/helium3';
 import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -2766,7 +2771,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Atom Bomb) is usable even though its unlocking tech is gone.
       const hasLegacyCharge = (currentPlayer.legacy_ability_charges?.[abilityId] ?? 0) > 0;
 
-      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge) {
+      // Lunar Export is not a tech unlock: holding lunar ground is the
+      // credential. Gating it on sa_lunar_expansion would lock the Lunar
+      // Pioneers — who reach the Moon from turn one without researching it —
+      // out of the Moon's own economy. See helium3.ts applyLunarExport.
+      const hasLunarExport =
+        abilityId === 'lunar_export'
+        && isHelium3Enabled(state)
+        && countLunarTerritories(state, currentPlayer.player_id) > 0;
+
+      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge && !hasLunarExport) {
         return socket.emit('error', { message: `Ability '${abilityId}' is not available to you` });
       }
 
@@ -5356,6 +5370,22 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   }
 
   // (AI build + research run at the top of the draft phase, before the advance check.)
+
+  // AI parity: Lunar Export — Phase 1's He-3 sink. Fires only on a full
+  // conversion so the bot does not spend its one use per turn on a single
+  // point; the stockpile cap means hoarding past 30 is wasted anyway.
+  if (
+    isHelium3Enabled(state)
+    && (currentPlayer.helium3 ?? 0) >= LUNAR_EXPORT_MAX
+    && countLunarTerritories(state, currentPlayer.player_id) > 0
+  ) {
+    executeTechAbility({
+      state,
+      map,
+      playerId: currentPlayer.player_id,
+      abilityId: 'lunar_export',
+    });
+  }
 
   // AI parity: Launch Space Station — the third rung of the Moon ladder. The AI
   // researches the ladder (aiBot tech hook) and builds the Launch Pad (aiBot

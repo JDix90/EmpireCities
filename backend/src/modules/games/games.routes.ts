@@ -228,6 +228,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           combat_dice_cap_enabled: rawSettings.combat_dice_cap_enabled ?? true,
           card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
+          space_age_moon_helium3_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHelium3Enabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
