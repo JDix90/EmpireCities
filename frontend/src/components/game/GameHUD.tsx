@@ -19,6 +19,7 @@ import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivatio
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
 import { countOwnedLunarTerritories, type FrontendMapData } from '../../utils/orbitAccess';
 import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
+import { hegemonyBanner } from '../../utils/lunarHegemony';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -168,6 +169,9 @@ export default function GameHUD({
   // Standing alert rather than a one-shot toast — the counterplay is to
   // reinforce the tile, which takes until the drop actually lands.
   const incomingDrops = incomingDropAssaultsAgainst(gameState, myPlayer?.player_id ?? null);
+  // Space Age Phase 3: someone is counting down to a Moon victory. Shown to
+  // everyone — a clock only its holder can see is a victory nobody contests.
+  const hegemony = hegemonyBanner(gameState, myPlayer?.player_id ?? null);
   const turnClarityEnabled = useTurnClarityEnabled();
   const draftPool = computeDraftPool(
     gameState,
@@ -482,6 +486,27 @@ export default function GameHUD({
                   standing reminder that the Moon pays — a resource you only
                   learn about after already earning it is not an incentive.
                 */}
+                {hegemony && (
+                  <div
+                    data-testid="hud-hegemony"
+                    title="Hold every Moon territory for six consecutive turns to win"
+                    className={clsx(
+                      'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs',
+                      hegemony.isMe
+                        ? 'bg-indigo-950/60 border-indigo-600/60 text-indigo-200'
+                        : 'bg-amber-950/60 border-amber-600/60 text-amber-200',
+                    )}
+                  >
+                    <span>🌕</span>
+                    <span>
+                      {hegemony.isMe ? 'You hold the Moon' : `${hegemony.holderName} holds the Moon`}
+                      {' · '}
+                      {hegemony.turnsRemaining === 0
+                        ? 'Hegemony now'
+                        : `Hegemony in ${hegemony.turnsRemaining}`}
+                    </span>
+                  </div>
+                )}
                 {incomingDrops.length > 0 && (
                   <div
                     data-testid="hud-incoming-drop"

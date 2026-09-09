@@ -4,6 +4,7 @@
 
 import { inferWorldId } from '@borderfall/shared';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
+import { contestAccessMissing, contestOpensMoonAccess } from './lunarHegemony';
 
 export interface MoonAccessState {
   hasTech: boolean;
@@ -204,6 +205,17 @@ export function getOrbitAccessResult(
 
   if (mode === 'space_age_moon') {
     const m = getMoonAccessState(state, player);
+    if (m.allowed) return { allowed: true, missing: [], mode };
+    // The contest rule (Moon Race, Phase 3): once ANOTHER player holds lunar
+    // ground, the cost of joining the fight drops to Launch Pad tech plus a
+    // Launch Pad — two techs and one build, against the four techs and two
+    // builds the first lander paid. Without it the cost to contest an occupied
+    // Moon equals the cost to discover it, and a Moon-based victory becomes
+    // first-to-Moon-wins. See state/lunarHegemony.ts.
+    if (contestOpensMoonAccess(state, player.player_id)) {
+      const missing = contestAccessMissing(state, player);
+      return { allowed: missing.length === 0, missing, mode };
+    }
     return { allowed: m.allowed, missing: m.missing, mode };
   }
 

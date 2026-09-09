@@ -16,7 +16,17 @@ export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccess
 
 export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
-export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence';
+export type VictoryType =
+  | 'domination'
+  | 'secret_mission'
+  | 'capital'
+  | 'threshold'
+  | 'transcendence'
+  /**
+   * Space Age Moon Race, Phase 3: hold every lunar tile at the end of your turn
+   * for HEGEMONY_TURNS consecutive own-turns. See state/lunarHegemony.ts.
+   */
+  | 'lunar_hegemony';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -445,6 +455,19 @@ export interface GameSettings {
    */
   space_age_moon_gated_tier_enabled?: boolean;
   /**
+   * Space Age Moon Race, Phase 3: the Lunar Hegemony victory, its clock, and
+   * the contest rule that cheapens Moon access once anyone holds lunar ground.
+   * Baked at create from `space_age_moon_hegemony_enabled`; no-op off space_age.
+   * See docs/space-age-moon/README.md §5.
+   */
+  space_age_moon_hegemony_enabled?: boolean;
+  /**
+   * Phase 3 tunable: consecutive own-turns of total Moon control the Hegemony
+   * needs. Defaults to HEGEMONY_TURNS (6) when unset; §9 lists 4-8 as the range
+   * worth trying. Set per game, so a change never re-rules a match in progress.
+   */
+  space_age_hegemony_turns?: number;
+  /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
    * the map at init into `world_modifiers` so per-turn calc sites don't need the
@@ -808,6 +831,14 @@ export interface GameState {
    * See abilities/dropAssault.ts.
    */
   drop_assaults?: DropAssault[];
+  /**
+   * Space Age Moon Race, Phase 3: the Lunar Hegemony clock.
+   *
+   * Present only while a player holds every lunar tile. Resets — not decays —
+   * the moment one leaves them, which is what keeps the Moon a race rather than
+   * a coronation. See state/lunarHegemony.ts.
+   */
+  lunar_hegemony?: { owner_id: string; turns_held: number; started_turn: number };
   /** Whether a Blitzkrieg (WW2) bonus attack has been used this turn. */
   blitzkrieg_attacked?: boolean;
   /**

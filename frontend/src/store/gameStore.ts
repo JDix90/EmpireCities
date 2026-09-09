@@ -141,6 +141,8 @@ export interface GameState {
   territories: Record<string, TerritoryState>;
   /** Space Age Moon Race, Phase 2b: drops declared and not yet landed. */
   drop_assaults?: DropAssault[];
+  /** Phase 3: the Lunar Hegemony clock, present only while someone holds all nine. */
+  lunar_hegemony?: { owner_id: string; turns_held: number; started_turn: number };
   card_set_redemption_count: number;
   diplomacy?: Array<{
     player_index_a: number;
@@ -161,6 +163,8 @@ export interface GameState {
     space_age_moon_helium3_enabled?: boolean;
     /** Phase 2: the gated tier — Dyson Beam behind the Moon, Orbital Drop. */
     space_age_moon_gated_tier_enabled?: boolean;
+    /** Phase 3: the Lunar Hegemony victory and the contest rule. */
+    space_age_moon_hegemony_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

@@ -65,6 +65,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   space_age_moon_helium3_enabled: () => envOptIn('SPACE_AGE_MOON_HELIUM3_ENABLED'),
   space_age_moon_gated_tier_enabled: () => envOptIn('SPACE_AGE_MOON_GATED_TIER_ENABLED'),
+  space_age_moon_hegemony_enabled: () => envOptIn('SPACE_AGE_MOON_HEGEMONY_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -391,6 +392,22 @@ export const featureFlags = {
    */
   get spaceAgeMoonGatedTierEnabled(): boolean {
     return overrideBool('space_age_moon_gated_tier_enabled');
+  },
+
+  /**
+   * Space Age Moon Race, Phase 3 — the Lunar Hegemony. Holding all nine lunar
+   * tiles at the end of your turn for six consecutive own-turns wins the game,
+   * and the clock RESETS the moment one tile leaves you. Comes with the contest
+   * rule: once anybody holds lunar ground, everyone else's Moon access drops to
+   * Launch Pad tech plus a Launch Pad, so contesting an occupied Moon costs far
+   * less than discovering it did.
+   *
+   * DARK by default. Promote only once a `SIM_MOON_HEGEMONY=1` run clears §5.6
+   * — hegemony fires in 10–35% of games, at least half of started clocks are
+   * reset at least once, and the decisive rate does not fall.
+   */
+  get spaceAgeMoonHegemonyEnabled(): boolean {
+    return overrideBool('space_age_moon_hegemony_enabled');
   },
 
   /**

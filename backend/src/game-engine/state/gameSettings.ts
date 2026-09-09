@@ -8,7 +8,7 @@ import { isValidSpineId } from '../eraAdvancement/spines';
 import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
-const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold', 'transcendence'];
+const VICTORY_TYPES: VictoryType[] = ['domination', 'secret_mission', 'capital', 'threshold', 'transcendence', 'lunar_hegemony'];
 
 const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'] as const;
 
@@ -69,6 +69,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Space Age gated tier (Moon Race, Phase 2). Off by default — baked at create
   // from the space_age_moon_gated_tier_enabled feature flag.
   const spaceAgeMoonGatedTierEnabled = typeof raw.space_age_moon_gated_tier_enabled === 'boolean' ? raw.space_age_moon_gated_tier_enabled : false;
+  // Space Age Lunar Hegemony (Moon Race, Phase 3). Off by default — baked at
+  // create from the space_age_moon_hegemony_enabled feature flag.
+  const spaceAgeMoonHegemonyEnabled = typeof raw.space_age_moon_hegemony_enabled === 'boolean' ? raw.space_age_moon_hegemony_enabled : false;
+  // Hegemony clock length. Only carried when explicitly set; the engine's own
+  // default applies otherwise, so an unset game is not pinned to today's value.
+  const spaceAgeHegemonyTurns = typeof raw.space_age_hegemony_turns === 'number' && raw.space_age_hegemony_turns > 0
+    ? Math.floor(raw.space_age_hegemony_turns) : undefined;
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
@@ -272,6 +279,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     space_age_moon_helium3_enabled: spaceAgeMoonHelium3Enabled || undefined,
     // Space Age gated tier — persisted only when explicitly enabled.
     space_age_moon_gated_tier_enabled: spaceAgeMoonGatedTierEnabled || undefined,
+    // Space Age Lunar Hegemony — persisted only when explicitly enabled.
+    space_age_moon_hegemony_enabled: spaceAgeMoonHegemonyEnabled || undefined,
+    space_age_hegemony_turns: spaceAgeHegemonyTurns,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.

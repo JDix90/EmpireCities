@@ -138,6 +138,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Dyson Beam needs a Moon territory plus 6 Helium-3 to fire (its tech keeps the +8 TP/turn either way), and Orbital Drop — 3 units onto any territory you own, anywhere — becomes available at 3 Moon tiles for 8 Helium-3. NOTE: has no effect unless Phase 1 above is also on, since both powers are priced in Helium-3. Baked at creation. Off by default (dark-launch).',
   },
   {
+    key: 'space_age_moon_hegemony_enabled',
+    label: 'Moon Race · Lunar Hegemony (Phase 3)',
+    description:
+      'A Moon-only victory: hold all nine lunar territories at the end of your turn for six consecutive turns and you win, whatever is happening on Earth. The clock RESETS the moment one tile leaves you. Comes with the contest rule — once anybody holds lunar ground, everyone else needs only Launch Pad tech and a Launch Pad to reach the Moon, instead of the full four-tech ladder. Independent of Phases 1 and 2 (it costs no Helium-3). Baked at creation. Off by default (dark-launch).',
+  },
+  {
     key: 'today_panel_enabled',
     label: 'Lobby "Today" panel',
     description:

@@ -97,6 +97,59 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByTestId('hud-helium3')).toBeNull();
   });
 
+  describe('the Lunar Hegemony clock', () => {
+    // Shown to everyone, not just the holder: the whole phase rests on rivals
+    // being able to see the countdown and go break it.
+    const hegemonyState = (owner: string, turnsHeld: number) => makeState({
+      settings: {
+        economy_enabled: true, tech_trees_enabled: true,
+        space_age_moon_hegemony_enabled: true,
+      } as GameState['settings'],
+      lunar_hegemony: { owner_id: owner, turns_held: turnsHeld, started_turn: 3 },
+    } as Partial<GameState>);
+
+    it('counts down for a rival who has to answer it', () => {
+      useGameStore.setState({
+        gameState: hegemonyState('rival', 4), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('Rival holds the Moon · Hegemony in 3');
+    });
+
+    it('reads differently when the Moon is yours', () => {
+      useGameStore.setState({
+        gameState: hegemonyState('me', 1), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('You hold the Moon · Hegemony in 6');
+    });
+
+    it('shows nothing while no clock is running', () => {
+      useGameStore.setState({
+        gameState: makeState({
+          settings: {
+            economy_enabled: true, tech_trees_enabled: true,
+            space_age_moon_hegemony_enabled: true,
+          } as GameState['settings'],
+        }),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.queryByTestId('hud-hegemony')).toBeNull();
+    });
+
+    it('shows nothing in a game without the phase, clock or not', () => {
+      useGameStore.setState({
+        gameState: makeState({
+          lunar_hegemony: { owner_id: 'rival', turns_held: 5, started_turn: 1 },
+        } as Partial<GameState>),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.queryByTestId('hud-hegemony')).toBeNull();
+    });
+  });
+
   describe('the Moon\'s own powers', () => {
     // Phase 1 shipped Lunar Export as a socket handler with no way to reach it:
     // abilities are surfaced by walking the tech tree for `unlocks_ability`, and
