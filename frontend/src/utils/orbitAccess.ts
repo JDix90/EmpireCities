@@ -128,6 +128,15 @@ export interface SpaceProgramProgress {
    * reinforce there, but cannot cross a lane until they rebuild.
    */
   strandedWithoutPad: boolean;
+  /**
+   * Whether they demonstrably held a pad at some point, which decides whether
+   * the stranded copy should say the pad is *gone* or that they still need one.
+   * Launching the station required a pad, so a launch proves it. The Space
+   * Elevator does not: it replaces the launch, not the pad, and a player can
+   * build it having never had one — the exact path that made a mobile tester
+   * think the wonder granted Moon access on its own.
+   */
+  everHadPad: boolean;
 }
 
 /**
@@ -145,6 +154,7 @@ export function getSpaceProgramProgress(
 ): SpaceProgramProgress {
   const empty: SpaceProgramProgress = {
     applicable: false, isLunarPioneer: false, allowed: true, rungs: [], strandedWithoutPad: false,
+    everHadPad: false,
   };
   if (resolveOrbitAccessMode(mapData, era) !== 'space_age_moon') return empty;
   if (!gameState || !playerId) return empty;
@@ -199,6 +209,7 @@ export function getSpaceProgramProgress(
     allowed: isLunarPioneer || (hasTech && !!padTerritory && (hasLaunchedStation || hasElevator)),
     rungs,
     strandedWithoutPad: !isLunarPioneer && hasTech && (hasLaunchedStation || hasElevator) && !padTerritory,
+    everHadPad: hasLaunchedStation,
   };
 }
 
