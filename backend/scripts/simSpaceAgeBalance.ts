@@ -75,6 +75,7 @@ import {
 } from '../src/game-engine/ai/aiMoonPowers';
 import { resolveDropAssaultsFor } from '../src/game-engine/abilities/dropAssault';
 import { HEGEMONY_TURNS } from '../src/game-engine/state/lunarHegemony';
+import { isMissionComplete } from '../src/game-engine/victory/missions';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -123,6 +124,20 @@ const DROP_ASSAULT = process.env.SIM_DROP_ASSAULT !== '0';
  * be measured alone or stacked on the tier.
  */
 const MOON_HEGEMONY = process.env.SIM_MOON_HEGEMONY === '1';
+/**
+ * Moon Race Phase 5: the lunar branch of the secret-mission deck. Turning it on
+ * also ADDS `secret_mission` to the allowed victory conditions — the branch is
+ * a no-op without it, and §7.4's gate compares lunar mission completion against
+ * the completion rate of the ordinary missions in the same games.
+ */
+const MOON_MISSIONS = process.env.SIM_MOON_MISSIONS === '1';
+/**
+ * Secret-mission victory on its own — the matched control for a lunar-missions
+ * run. Without it the only comparison available would be against games that do
+ * not use missions at all, which changes the victory mix wholesale and tells us
+ * nothing about the lunar branch. `SIM_MOON_MISSIONS=1` implies it.
+ */
+const SECRET_MISSIONS = MOON_MISSIONS || process.env.SIM_SECRET_MISSIONS === '1';
 /** §9's clock-length sweep (4-8). Unset leaves the engine default of 6. */
 const HEGEMONY_TURNS_OVERRIDE = process.env.SIM_HEGEMONY_TURNS
   ? Number(process.env.SIM_HEGEMONY_TURNS) : null;
@@ -166,11 +181,13 @@ function simSettings(): GameSettings {
     space_age_moon_gated_tier_enabled: MOON_TIER,
     space_age_moon_hegemony_enabled: MOON_HEGEMONY,
     space_age_hegemony_turns: HEGEMONY_TURNS_OVERRIDE ?? undefined,
+    space_age_moon_missions_enabled: MOON_MISSIONS,
     // Phase 3 adds a third decisive route, mirroring applyOrbitGatedVictoryDefaults.
     allowed_victory_conditions: [
       'domination',
       ...(THRESHOLD != null ? ['threshold' as const] : []),
       ...(MOON_HEGEMONY ? ['lunar_hegemony' as const] : []),
+      ...(SECRET_MISSIONS ? ['secret_mission' as const] : []),
     ],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
@@ -494,6 +511,13 @@ interface GameStat {
   anyThreeMoonTiles: boolean;
   /** The player who peaked highest on the Moon, and whether they won. */
   moonPeakLeaderWon: boolean;
+  /**
+   * Phase 5: each seat's secret mission — its kind, whether it is one of the
+   * lunar objectives, and whether it was complete when the game ended. §7.4
+   * compares the lunar completion rate against the ordinary one IN THE SAME
+   * GAMES, so both are recorded per seat rather than as two separate runs.
+   */
+  missions: Array<{ kind: string; lunar: boolean; completed: boolean }>;
   /** Phase 3: Hegemony clocks started, and how many of them were broken. */
   hegemonyClocksStarted: number;
   hegemonyClocksReset: number;
@@ -718,6 +742,17 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     // The §4.5 denominator: a tier nobody could reach tells us nothing about
     // whether the tier is used, so usage is scored over these games only.
     anyThreeMoonTiles: simList.some((s) => s.peakMoonTiles >= 3),
+    missions: state.players.map((p) => {
+      const m = p.secret_mission;
+      const kind = m?.kind ?? 'none';
+      const lunar = !!m && (
+        m.kind === 'lunar_foothold'
+        || m.kind === 'lunar_denial'
+        || (m.kind === 'control_regions' && m.region_ids.includes('lunar_surface'))
+        || (m.kind === 'capture_territories' && m.territory_ids.every((id) => id.startsWith('moon_')))
+      );
+      return { kind, lunar, completed: !!m && isMissionComplete(state, map, p) };
+    }),
     hegemonyClocksStarted,
     hegemonyClocksReset,
     hegemonyPeakTurns,
@@ -857,6 +892,26 @@ function main(): void {
     console.log(`Games where a clock started:                 ${pct(stats.filter((s) => s.hegemonyClocksStarted > 0).length, GAMES)}`);
     console.log(`Clocks started / broken:                     ${started} / ${reset}  (gate: >=50% broken)`);
     console.log(`Avg longest clock per game (of ${HEGEMONY_TURNS_OVERRIDE ?? HEGEMONY_TURNS}):        ${fmt(avg(stats.map((s) => s.hegemonyPeakTurns)), 2)}`);
+  }
+
+  if (SECRET_MISSIONS) {
+    const seats = stats.flatMap((s) => s.missions).filter((m) => m.kind !== 'none');
+    const lunar = seats.filter((m) => m.lunar);
+    const ordinary = seats.filter((m) => !m.lunar);
+    const rate = (xs: typeof seats) => (xs.length ? pct(xs.filter((m) => m.completed).length, xs.length) : 'n/a');
+    console.log(`\n— Secret missions${MOON_MISSIONS ? ' incl. the lunar branch (Phase 5)' : ' (control: no lunar branch)'} —`);
+    console.log(`Lunar share of assigned missions:            ${pct(lunar.length, seats.length)}  (design target ~30%)`);
+    console.log(`Lunar missions completed:                    ${rate(lunar)}  (n=${lunar.length})`);
+    console.log(`Ordinary missions completed:                 ${rate(ordinary)}  (n=${ordinary.length}; gate: within +/-10 points)`);
+    const byKind = new Map<string, { n: number; done: number }>();
+    for (const m of lunar) {
+      const e = byKind.get(m.kind) ?? { n: 0, done: 0 };
+      e.n += 1; if (m.completed) e.done += 1;
+      byKind.set(m.kind, e);
+    }
+    for (const [kind, e] of [...byKind].sort()) {
+      console.log(`  ${kind.padEnd(22)} ${pct(e.done, e.n)}  (n=${e.n})`);
+    }
   }
 
   console.log(`\n— Does the Moon correlate with winning? —`);

@@ -296,3 +296,177 @@ describe('transcendence victory', () => {
     expect(checkVictory(transcendState(0, 'p1'), miniMap)).toBeNull();
   });
 });
+
+/**
+ * Space Age lunar missions (Moon Race, Phase 5).
+ *
+ * The load-bearing property is NOT the missions themselves — two of the four
+ * reuse existing kinds — but that the branch is invisible to every other game.
+ * `assignSecretMissions` draws from one seeded stream, so an extra `rng()` call
+ * in the wrong place silently re-rolls every mission on every map.
+ */
+
+const lunarMap: GameMap = {
+  map_id: 'era_space_age',
+  name: 'Space Age',
+  territories: [
+    { territory_id: 'na_launch_base', name: 'Launch Base', polygon: [], center_point: [0, 0], region_id: 'north_america_2100' },
+    { territory_id: 'euro_spaceport', name: 'Spaceport', polygon: [], center_point: [0, 0], region_id: 'europe_2100' },
+    ...['moon_polar_north', 'moon_polar_south', 'moon_mare_imbrium', 'moon_far_side_north'].map((id) => ({
+      territory_id: id, name: id, polygon: [], center_point: [0, 0] as [number, number],
+      region_id: 'lunar_surface', globe_id: 'moon',
+    })),
+  ],
+  connections: [],
+  regions: [
+    { region_id: 'north_america_2100', name: 'NA', bonus: 2 },
+    { region_id: 'europe_2100', name: 'EU', bonus: 2 },
+    { region_id: 'lunar_surface', name: 'Lunar Surface', bonus: 6 },
+  ],
+} as unknown as GameMap;
+
+function lunarState(players: PlayerState[], enabled: boolean, moonOwners: Record<string, string | null> = {}): GameState {
+  const state = baseState(players);
+  state.map_id = 'era_space_age';
+  state.era = 'space_age';
+  state.territories = {
+    na_launch_base: { territory_id: 'na_launch_base', owner_id: 'p1', unit_count: 3, unit_type: 'infantry' },
+    euro_spaceport: { territory_id: 'euro_spaceport', owner_id: 'p2', unit_count: 3, unit_type: 'infantry' },
+  } as GameState['territories'];
+  for (const t of lunarMap.territories.filter((x) => x.region_id === 'lunar_surface')) {
+    state.territories[t.territory_id] = {
+      territory_id: t.territory_id, owner_id: moonOwners[t.territory_id] ?? null,
+      unit_count: 3, unit_type: 'infantry', region_id: 'lunar_surface', globe_id: 'moon',
+    } as GameState['territories'][string];
+  }
+  state.settings.space_age_moon_missions_enabled = enabled;
+  return state;
+}
+
+describe('lunar missions — completion', () => {
+  const p1 = () => mkPlayer('p1');
+
+  it('completes a foothold once the tile count is reached', () => {
+    const player = p1();
+    player.secret_mission = { kind: 'lunar_foothold', tiles: 3 };
+    const two = lunarState([player], true, { moon_polar_north: 'p1', moon_polar_south: 'p1' });
+    expect(isMissionComplete(two, lunarMap, player)).toBe(false);
+    const three = lunarState([player], true, {
+      moon_polar_north: 'p1', moon_polar_south: 'p1', moon_mare_imbrium: 'p1',
+    });
+    expect(isMissionComplete(three, lunarMap, player)).toBe(true);
+  });
+
+  it('completes a denial only while the holder is themselves on the Moon', () => {
+    // Both halves matter. Without the first, the mission would be satisfied by
+    // a rival who simply never went — which is not a denial, it is a wish.
+    const player = p1();
+    player.secret_mission = { kind: 'lunar_denial', target_player_id: 'p2' };
+    const neither = lunarState([player, mkPlayer('p2')], true);
+    expect(isMissionComplete(neither, lunarMap, player)).toBe(false);
+
+    // One tile is not enough: at that bar the objective is really just "be
+    // first to the Moon", which measured three times easier than any other
+    // mission in the deck.
+    const one = lunarState([player, mkPlayer('p2')], true, { moon_polar_north: 'p1' });
+    expect(isMissionComplete(one, lunarMap, player)).toBe(false);
+
+    const foothold = lunarState([player, mkPlayer('p2')], true, {
+      moon_polar_north: 'p1', moon_polar_south: 'p1', moon_mare_imbrium: 'p1',
+    });
+    expect(isMissionComplete(foothold, lunarMap, player)).toBe(true);
+  });
+
+  it('fails a denial the moment the target lands', () => {
+    const player = p1();
+    player.secret_mission = { kind: 'lunar_denial', target_player_id: 'p2' };
+    const shared = lunarState([player, mkPlayer('p2')], true, {
+      moon_polar_north: 'p1', moon_polar_south: 'p1', moon_mare_imbrium: 'p1',
+      moon_far_side_north: 'p2',
+    });
+    expect(isMissionComplete(shared, lunarMap, player)).toBe(false);
+  });
+
+  it('reads the whole-Moon objective through the existing region rule', () => {
+    const player = p1();
+    player.secret_mission = { kind: 'control_regions', region_ids: ['lunar_surface'] };
+    const partial = lunarState([player], true, { moon_polar_north: 'p1', moon_polar_south: 'p1' });
+    expect(isMissionComplete(partial, lunarMap, player)).toBe(false);
+    const all = lunarState([player], true, Object.fromEntries(
+      lunarMap.territories.filter((t) => t.region_id === 'lunar_surface').map((t) => [t.territory_id, 'p1']),
+    ));
+    expect(isMissionComplete(all, lunarMap, player)).toBe(true);
+  });
+});
+
+describe('lunar missions — assignment', () => {
+  it('hands out a lunar objective on a Space Age board with the phase on', () => {
+    const players = [mkPlayer('p1'), mkPlayer('p2')];
+    const state = lunarState(players, true);
+    assignSecretMissions(state, lunarMap, () => 0.1); // roll < 0.30 → lunar branch
+    for (const p of players) {
+      const m = p.secret_mission!;
+      const isLunar = m.kind === 'lunar_foothold'
+        || m.kind === 'lunar_denial'
+        || (m.kind === 'control_regions' && m.region_ids.includes('lunar_surface'))
+        || (m.kind === 'capture_territories' && m.territory_ids.every((id) => id.startsWith('moon_')));
+      expect(isLunar, `${JSON.stringify(m)} is not lunar`).toBe(true);
+    }
+  });
+
+  it('hands out nothing lunar while the phase is off', () => {
+    const players = [mkPlayer('p1'), mkPlayer('p2')];
+    const state = lunarState(players, false);
+    assignSecretMissions(state, lunarMap, () => 0.1);
+    for (const p of players) {
+      expect(p.secret_mission!.kind).not.toBe('lunar_foothold');
+      expect(p.secret_mission!.kind).not.toBe('lunar_denial');
+    }
+  });
+
+  it('leaves the RNG stream of every other game byte-identical', () => {
+    // The branch is gated on a setting no other game carries, exactly like the
+    // era-advancement branch above it. A stray rng() draw here would silently
+    // re-roll every mission on every map in the game.
+    const seeded = () => {
+      let i = 0;
+      const seq = [0.05, 0.4, 0.61, 0.2, 0.9, 0.33, 0.5, 0.77, 0.12, 0.66];
+      return () => seq[i++ % seq.length]!;
+    };
+    const withPhase = [mkPlayer('p1'), mkPlayer('p2'), mkPlayer('p3')];
+    const withoutPhase = [mkPlayer('p1'), mkPlayer('p2'), mkPlayer('p3')];
+
+    const a = baseState(withPhase);
+    a.settings.space_age_moon_missions_enabled = true;   // on, but NOT a Space Age board
+    assignSecretMissions(a, miniMap, seeded());
+    const b = baseState(withoutPhase);
+    assignSecretMissions(b, miniMap, seeded());
+
+    expect(withPhase.map((p) => p.secret_mission)).toEqual(withoutPhase.map((p) => p.secret_mission));
+  });
+
+  it('draws no dice at all when the branch is not taken', () => {
+    // The real risk: a Space Age game with the phase OFF, or a roll above the
+    // lunar slot, must consume exactly the dice it always did. Comparing the
+    // resulting missions is the strongest available check — an extra draw
+    // anywhere would shift every mission after it.
+    const seq = [0.55, 0.4, 0.61, 0.2, 0.9, 0.33, 0.5, 0.77, 0.12, 0.66];
+    const run = (enabled: boolean) => {
+      const players = [mkPlayer('p1'), mkPlayer('p2'), mkPlayer('p3')];
+      const state = lunarState(players, enabled);
+      let i = 0;
+      assignSecretMissions(state, lunarMap, () => seq[i++ % seq.length]!);
+      return players.map((p) => p.secret_mission);
+    };
+    // 0.55 is above the 0.30 lunar slot, so the branch must not fire and the
+    // two runs must be indistinguishable.
+    expect(run(true)).toEqual(run(false));
+  });
+
+  it('never offers a denial with nobody to deny', () => {
+    const solo = [mkPlayer('p1')];
+    const state = lunarState(solo, true);
+    assignSecretMissions(state, lunarMap, () => 0.1);
+    expect(solo[0].secret_mission!.kind).not.toBe('lunar_denial');
+  });
+});

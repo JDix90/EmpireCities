@@ -46,7 +46,19 @@ export type SecretMission =
   | { kind: 'control_regions'; region_ids: string[] }
   | { kind: 'alliance'; ally_player_id: string; territory_threshold: number }
   /** Era-advancement mode: climb to the target era. era_id is the resolved era for display. */
-  | { kind: 'reach_era'; era_index: number; era_id: string };
+  | { kind: 'reach_era'; era_index: number; era_id: string }
+  /**
+   * Space Age Moon Race, Phase 5: hold at least `tiles` lunar territories.
+   * See docs/space-age-moon/README.md §7.
+   */
+  | { kind: 'lunar_foothold'; tiles: number }
+  /**
+   * Phase 5: you hold lunar ground and the named rival holds none. The
+   * asymmetric one — it gives a player a reason to go to the Moon AGAINST
+   * someone, which spreads the table's lunar interest across different targets
+   * instead of one race.
+   */
+  | { kind: 'lunar_denial'; target_player_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -467,6 +479,13 @@ export interface GameSettings {
    * worth trying. Set per game, so a change never re-rules a match in progress.
    */
   space_age_hegemony_turns?: number;
+  /**
+   * Space Age Moon Race, Phase 5: the lunar branch of the secret-mission deck.
+   * Baked at create from `space_age_moon_missions_enabled`; no-op off space_age
+   * and off unless secret_mission is an allowed victory condition.
+   * See docs/space-age-moon/README.md §7.
+   */
+  space_age_moon_missions_enabled?: boolean;
   /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from

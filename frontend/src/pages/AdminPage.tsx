@@ -144,6 +144,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A Moon-only victory: hold all nine lunar territories at the end of your turn for six consecutive turns and you win, whatever is happening on Earth. The clock RESETS the moment one tile leaves you. Comes with the contest rule — once anybody holds lunar ground, everyone else needs only Launch Pad tech and a Launch Pad to reach the Moon, instead of the full four-tech ladder. Independent of Phases 1 and 2 (it costs no Helium-3). Baked at creation. Off by default (dark-launch).',
   },
   {
+    key: 'space_age_moon_missions_enabled',
+    label: 'Moon Race · lunar secret missions (Phase 5)',
+    description:
+      'Adds four lunar objectives to the Space Age secret-mission deck — hold both polar basins, control the whole Moon, hold three or five lunar territories, or stand on the Moon while a named rival holds none of it — taking roughly 30% of assigned missions. Independent of the other phases, but a no-op unless the game also allows secret-mission victory. Baked at creation. Off by default (dark-launch).',
+  },
+  {
     key: 'today_panel_enabled',
     label: 'Lobby "Today" panel',
     description:

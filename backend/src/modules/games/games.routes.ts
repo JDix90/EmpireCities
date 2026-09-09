@@ -239,6 +239,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           space_age_moon_helium3_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHelium3Enabled : undefined,
           space_age_moon_gated_tier_enabled: isSpaceAge ? featureFlags.spaceAgeMoonGatedTierEnabled : undefined,
           space_age_moon_hegemony_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHegemonyEnabled : undefined,
+          space_age_moon_missions_enabled: isSpaceAge ? featureFlags.spaceAgeMoonMissionsEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,

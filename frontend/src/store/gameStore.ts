@@ -25,12 +25,22 @@ export interface TerritoryState {
 }
 
 export interface SecretMissionPayload {
-  kind: 'capture_territories' | 'eliminate_player' | 'control_regions' | 'reach_era';
+  kind:
+    | 'capture_territories'
+    | 'eliminate_player'
+    | 'control_regions'
+    | 'reach_era'
+    /** Space Age Moon Race, Phase 5: hold at least `tiles` lunar territories. */
+    | 'lunar_foothold'
+    /** Phase 5: stand on the Moon while a named rival holds none of it. */
+    | 'lunar_denial';
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
   era_index?: number;
   era_id?: string;
+  /** Lunar Foothold: how many Moon territories the objective needs. */
+  tiles?: number;
 }
 
 export interface PlayerState {

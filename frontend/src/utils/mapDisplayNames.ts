@@ -63,6 +63,13 @@ export function describeSecretMission(
   if (mission.kind === 'reach_era' && mission.era_id) {
     return `Advance to the ${formatEraLabel(mission.era_id)}`;
   }
+  if (mission.kind === 'lunar_foothold' && mission.tiles) {
+    return `Hold ${mission.tiles} Moon territories`;
+  }
+  if (mission.kind === 'lunar_denial' && mission.target_player_id) {
+    const target = players.find((p) => p.player_id === mission.target_player_id);
+    return `Hold the Moon while ${target?.username ?? 'an opponent'} holds none of it`;
+  }
   return 'Complete your secret objective';
 }
 
@@ -73,6 +80,8 @@ export type SecretMissionLike = {
   region_ids?: string[];
   ally_player_id?: string;
   era_id?: string;
+  /** Space Age Moon Race, Phase 5: Lunar Foothold's tile count. */
+  tiles?: number;
 };
 
 export type PlayerNameLookup = Pick<PlayerState, 'player_id' | 'username'>;
@@ -101,6 +110,12 @@ export function formatSecretMissionReveal(
     }
     case 'reach_era':
       return `Advance to the ${formatEraLabel(mission.era_id)}`;
+    case 'lunar_foothold':
+      return `Hold ${mission.tiles ?? 3} Moon territories`;
+    case 'lunar_denial': {
+      const denied = players?.find((p) => p.player_id === mission.target_player_id);
+      return `Hold the Moon while ${denied?.username ?? 'an opponent'} holds none of it`;
+    }
     default:
       return 'Unknown mission';
   }
