@@ -7,6 +7,13 @@ export interface TerritoryAbilityUiDef {
   phase: 'attack' | 'draft' | 'fortify';
   /** Show on enemy territories (true) or owned territories (false). */
   enemyTarget: boolean;
+  /**
+   * Also offer on NEUTRAL territories. Only Drop Assault does today: it takes
+   * ground rather than fighting a player, and the Space Age board carries
+   * neutral frontier tiles worth taking. Without it an enemy-target ability is
+   * hidden on unowned ground even where the server would accept it.
+   */
+  alsoUnowned?: boolean;
   style: 'danger' | 'warning' | 'info' | 'success';
   hint?: string;
 }
@@ -49,6 +56,11 @@ export const TERRITORY_ABILITY_UI: Record<string, TerritoryAbilityUiDef> = {
   orbital_drop: {
     label: 'Orbital Drop', emoji: '🛬', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'success',
     hint: 'Land 3 units on any territory you own — 3 Moon tiles, 8 He-3.',
+  },
+  drop_assault: {
+    label: 'Drop Assault', emoji: '💥', scope: 'turn', phase: 'draft', enemyTarget: true, style: 'danger',
+    alsoUnowned: true,
+    hint: 'Mark this tile: 3 units land here at the start of your next turn — 10 He-3.',
   },
   hypersonic_strike: {
     label: 'Hypersonic Strike', emoji: '🚀', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
@@ -144,6 +156,7 @@ export function isAbilityAvailable(
 const MOON_GROUND_TILE_REQUIREMENT: Record<string, number> = {
   lunar_export: 1,
   orbital_drop: 3,
+  drop_assault: 3,
 };
 
 /**
@@ -161,9 +174,9 @@ export function getMoonGroundAbilityIds(gameState: GameState, lunarTilesOwned: n
   if (!settings.space_age_moon_helium3_enabled) return [];
   const ids: string[] = [];
   if (lunarTilesOwned >= MOON_GROUND_TILE_REQUIREMENT.lunar_export) ids.push('lunar_export');
-  if (settings.space_age_moon_gated_tier_enabled
-    && lunarTilesOwned >= MOON_GROUND_TILE_REQUIREMENT.orbital_drop) {
-    ids.push('orbital_drop');
+  if (settings.space_age_moon_gated_tier_enabled) {
+    if (lunarTilesOwned >= MOON_GROUND_TILE_REQUIREMENT.orbital_drop) ids.push('orbital_drop');
+    if (lunarTilesOwned >= MOON_GROUND_TILE_REQUIREMENT.drop_assault) ids.push('drop_assault');
   }
   return ids;
 }
@@ -172,7 +185,7 @@ export function getTerritoryPanelAbilities(
   gameState: GameState,
   player: PlayerState,
   techTree: Array<{ tech_id: string; unlocks_ability?: string }>,
-  context: { isEnemy: boolean; isMine: boolean },
+  context: { isEnemy: boolean; isMine: boolean; isUnowned?: boolean },
   lunarTilesOwned = 0,
 ): string[] {
   const unlocked = getUnlockedAbilityIds(gameState, player, techTree);
@@ -191,7 +204,7 @@ export function getTerritoryPanelAbilities(
     .filter(([abilityId, def]) => {
       if (!unlocked.has(abilityId)) return false;
       if (def.phase !== phase && !(def.phase === 'draft' && phase === 'fortify')) return false;
-      if (def.enemyTarget && !context.isEnemy) return false;
+      if (def.enemyTarget && !(context.isEnemy || (def.alsoUnowned && context.isUnowned))) return false;
       if (!def.enemyTarget && !context.isMine) return false;
       return isAbilityAvailable(player, abilityId);
     })

@@ -153,6 +153,12 @@ export interface PlayerState {
    * counter would let a Moon holder buy era advances with lunar income.
    */
   helium3?: number;
+  /**
+   * Space Age Moon Race, Phase 2b: the round this player last DECLARED a Drop
+   * Assault. The cooldown reads from it; a drop that was cancelled before
+   * landing still counts, because the reload is on the launch, not the landing.
+   */
+  drop_assault_last_turn?: number;
   /** Tech node IDs that have been researched. */
   unlocked_techs?: string[];
   /** Per-ability use count this turn (keyed by ability_id). */
@@ -684,6 +690,19 @@ export interface EraSpineStep {
   gate_overrides?: Partial<EraMilestoneGate>;
 }
 
+/**
+ * A Drop Assault declared and not yet landed (Space Age Moon Race, Phase 2b).
+ * Mirrored in the engine module that owns the rules, `abilities/dropAssault.ts`.
+ */
+export interface DropAssault {
+  owner_id: string;
+  target_id: string;
+  /** Round (`turn_number`) it was declared; it lands on the declarer's next turn. */
+  declared_turn: number;
+  /** Units in the falling stack, snapshotted so a balance change cannot re-price a drop in flight. */
+  units: number;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -780,6 +799,15 @@ export interface GameState {
   fortify_moves_used?: number;
   /** Turns remaining before the influence ability can be used again (0 = ready). */
   influence_cooldown_remaining?: number;
+  /**
+   * Space Age Moon Race, Phase 2b: Drop Assaults declared and not yet landed.
+   *
+   * Deliberately top-level rather than per-player: the telegraph only works if
+   * every player can see the marked tile, and `buildClientState` spreads the
+   * whole state, so a shared list reaches the defender who has to answer it.
+   * See abilities/dropAssault.ts.
+   */
+  drop_assaults?: DropAssault[];
   /** Whether a Blitzkrieg (WW2) bonus attack has been used this turn. */
   blitzkrieg_attacked?: boolean;
   /**

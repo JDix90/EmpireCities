@@ -191,7 +191,19 @@ export function executeLandAttack(
   let defenderEliminated = false;
   if (result.territory_captured) {
     to.owner_id = attackerId;
-    to.unit_count = Math.min(from.unit_count - 1, 3);
+    // At least one unit always garrisons what it took.
+    //
+    // Bonus dice (tech, buildings, faction, blitz) let BOTH sides lose a unit in
+    // one exchange, so a 2-unit attacker can win the tile and be left holding
+    // exactly 1 — and `min(1 - 1, 3)` moved in ZERO, leaving an OWNED territory
+    // with no units. The rest of the engine treats that as impossible: the
+    // socket healed it at broadcast and logged it as a bug
+    // (`[game-engine][INVARIANT] … auto-correcting to 1`), so live games papered
+    // over it, but every non-socket caller inherited the illegal board. The
+    // balance simulator carried such tiles for the rest of the game, and a Space
+    // Age Drop Assault aimed at one was refused outright — `to.unit_count < 1`
+    // is one of this function's own structural rejections.
+    to.unit_count = Math.max(1, Math.min(from.unit_count - 1, 3));
     from.unit_count = Math.max(1, from.unit_count - to.unit_count);
     onTerritoryCapture(state, toId);
     if (state.settings.stability_enabled) onCaptureStabilityPenalty(state, toId);

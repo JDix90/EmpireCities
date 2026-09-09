@@ -181,8 +181,15 @@ import {
   hasMoonGroundAccess,
 } from '../game-engine/abilities/moonPowers';
 import {
+  clearDropAssaultsFor,
+  resolveDropAssaultsFor,
+  type DropAssaultResolution,
+} from '../game-engine/abilities/dropAssault';
+import {
+  canAiUseDropAssault,
   canAiUseDysonBeam,
   canAiUseOrbitalDrop,
+  selectAiDropAssaultTarget,
   selectAiDysonBeamTarget,
   selectAiOrbitalDropTarget,
   shouldAiExportHelium3,
@@ -936,6 +943,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
 
       advanceToNextPlayer(state, map);
+      landPendingDropAssaults(io, gameId, state, map);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const asyncVictory = checkVictory(state, map);
@@ -2269,6 +2277,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // counter (matters for AI debugging and replay reconstruction).
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
+        landPendingDropAssaults(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
 
         // Turn-passing can itself end the game (turn-cap stalemate guard,
@@ -3688,6 +3697,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const currentPlayer = state.players[state.current_player_index];
       if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
+        landPendingDropAssaults(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
         // Re-check after advancement: advancement may itself cause elimination
         // (e.g. a player who hit rebellion-floor on their turn-start tick).
@@ -4218,6 +4228,90 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
   }
 
   io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
+}
+
+/**
+ * Land any Drop Assault the incoming player declared last turn (Space Age Moon
+ * Race, Phase 2b).
+ *
+ * Called immediately after every `advanceToNextPlayer`, which is where "the
+ * start of the declarer's next turn" actually happens for humans and bots
+ * alike — there is no other hook a human turn passes through.
+ *
+ * The engine resolves the battle through `executeLandAttack`; everything here
+ * is the socket's own business around it: the card draw, elimination
+ * bookkeeping the resolver cannot do (cards, the eliminated event, stat
+ * recording), and telling the table what fell out of the sky. Callers run their
+ * existing victory check afterwards, which is what catches a drop that ends the
+ * game.
+ */
+function landPendingDropAssaults(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  map: GameMap,
+): DropAssaultResolution[] {
+  const player = state.players[state.current_player_index];
+  if (!player || !state.drop_assaults?.length) return [];
+
+  const resolutions = resolveDropAssaultsFor(state, map, player.player_id, {
+    onCapture: (s, pid) => {
+      // One card per turn, same rule the ordinary attack path applies.
+      if (!player.card_earned_this_turn) {
+        drawCard(s, pid);
+        player.card_earned_this_turn = true;
+      }
+    },
+  });
+  if (resolutions.length === 0) return [];
+
+  for (const res of resolutions) {
+    const targetName = territoryName(map, res.assault.target_id);
+    if (res.status === 'cancelled') {
+      io.to(`user:${player.player_id}`).emit('game:drop_assault_cancelled', {
+        targetTerritoryId: res.assault.target_id,
+        targetName,
+        reason: res.cancelReason ?? 'The drop was cancelled',
+      });
+      continue;
+    }
+
+    const defenderId = res.previousOwner ?? null;
+    const defender = defenderId ? state.players.find((p) => p.player_id === defenderId) : undefined;
+    const payload = {
+      playerId: player.player_id,
+      playerName: player.username,
+      playerColor: player.color,
+      targetTerritoryId: res.assault.target_id,
+      targetName,
+      captured: !!res.captured,
+      defenderId,
+      defenderName: defender?.username ?? null,
+      attackerLosses: res.outcome?.result.attacker_losses ?? 0,
+      defenderLosses: res.outcome?.result.defender_losses ?? 0,
+    };
+    io.to(gameId).emit('game:drop_assault_landed', payload);
+    queueSpectatorEvent(gameId, 'game:drop_assault_landed', payload);
+
+    if (res.outcome?.defenderEliminated && defender) {
+      // The resolver moved the cards; the socket owns everything else an
+      // elimination means — its record, its event, and clearing the dead
+      // player's own drop so it cannot land after they are gone.
+      clearDropAssaultsFor(state, defender.player_id);
+      recordElimination(gameId, player.player_id);
+      io.to(gameId).emit('game:player_eliminated', {
+        playerId: defender.player_id,
+        eliminatorId: player.player_id,
+        eliminatorName: player.username,
+        eliminatedName: defender.username,
+        secretMission: defender.secret_mission ?? null,
+      });
+    }
+  }
+
+  syncTerritoryCounts(state);
+  broadcastState(io, gameId, state);
+  return resolutions;
 }
 
 function recordSpectatorState(gameId: string, state: GameState): void {
@@ -5395,6 +5489,26 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
   }
 
+  // AI parity: Drop Assault — Phase 2b. Declared here and landing at the start
+  // of the bot's next turn, through exactly the path a human declaration takes,
+  // so the telegraph and the defender's round to answer it are identical.
+  if (areMoonPowersEnabled(state) && canAiUseDropAssault(state, currentPlayer.player_id)) {
+    const assaultTarget = selectAiDropAssaultTarget(state, currentPlayer.player_id);
+    if (assaultTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'drop_assault',
+        territoryId: assaultTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), drop_assault: 1 };
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
   // AI parity: Lunar Export — Phase 1's He-3 sink. Fires only on a full
   // conversion so the bot does not spend its one use per turn on a single
   // point; the stockpile cap means hoarding past 30 is wasted anyway. Under
@@ -5909,6 +6023,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);
+  landPendingDropAssaults(io, gameId, state, map);
   await saveGameState(gameId, state);
   broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);

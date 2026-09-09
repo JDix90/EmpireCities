@@ -34,6 +34,7 @@ import {
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
 import { countOwnedLunarTerritories } from '../../utils/orbitAccess';
+import { dropAssaultsTargeting } from '../../utils/dropAssaults';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -805,6 +806,27 @@ export default function TerritoryPanel({
           🌌 {orbitAccessHint}
         </div>
       )}
+
+      {/* Drop Assault marker. Shown to EVERY player, not just the defender: the
+          telegraph is the counterplay, and a marker only the attacker can see
+          would be no telegraph at all. */}
+      {dropAssaultsTargeting(gameState, selectedTerritory).map((assault) => {
+        const declarer = gameState.players.find((p) => p.player_id === assault.owner_id);
+        const mine = assault.owner_id === myPlayerId;
+        return (
+          <div
+            key={`${assault.owner_id}-${assault.target_id}`}
+            role="status"
+            data-testid="drop-assault-marker"
+            className="mx-3 mb-2 px-3 py-2 rounded-lg border border-red-700/50 bg-red-950/40 text-red-200 text-xs leading-snug"
+          >
+            💥 {mine
+              ? 'Your Drop Assault lands here at the start of your next turn.'
+              : `${declarer?.username ?? 'Someone'} has marked this tile — 3 units land here at the start of their next turn.`}
+            {!mine && <span className="block opacity-70 mt-0.5">Reinforce it before then.</span>}
+          </div>
+        );
+      })}
 
       {/* Actions */}
       {/* Territory Selection Claim */}

@@ -54,6 +54,7 @@ export function areMoonPowersEnabled(state: GameState): boolean {
 export const MOON_GROUND_ABILITY_IDS: ReadonlySet<string> = new Set([
   'lunar_export',
   'orbital_drop',
+  'drop_assault',
 ]);
 
 /**
@@ -75,6 +76,11 @@ export function hasMoonGroundAccess(
   if (abilityId === 'orbital_drop') {
     if (!areMoonPowersEnabled(state)) return false;
     const required = TERRITORY_ABILITY_DEFS.orbital_drop?.requiresMoonTiles ?? 0;
+    return countLunarTerritories(state, playerId) >= required;
+  }
+  if (abilityId === 'drop_assault') {
+    if (!areMoonPowersEnabled(state)) return false;
+    const required = TERRITORY_ABILITY_DEFS.drop_assault?.requiresMoonTiles ?? 0;
     return countLunarTerritories(state, playerId) >= required;
   }
   return false;

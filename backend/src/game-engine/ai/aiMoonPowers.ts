@@ -23,6 +23,11 @@ import type { GameMap, GameState } from '../../types';
 import { countLunarTerritories, isHelium3Enabled, LUNAR_EXPORT_MAX } from '../state/helium3';
 import { TERRITORY_ABILITY_DEFS, playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { areMoonPowersEnabled } from '../abilities/moonPowers';
+import {
+  DROP_ASSAULT_HELIUM3_COST,
+  dropAssaultBlockReason,
+  isDropAssaultTarget,
+} from '../abilities/dropAssault';
 
 /**
  * Enemy stack that makes the beam worth firing. Below this the bot is better
@@ -119,6 +124,64 @@ export function selectAiOrbitalDropTarget(
 }
 
 /**
+ * Lunar holding a bot wants before it commits to a Drop Assault.
+ *
+ * Higher than the rule's own threshold of three on purpose. The drop costs 10
+ * He-3 and a three-turn reload, and it is cancelled outright if the foothold is
+ * gone when it lands — so a bot clinging to exactly three tiles is the one most
+ * likely to pay for a drop that never arrives. Five means it can lose two and
+ * still land.
+ */
+export const AI_DROP_ASSAULT_MOON_TILES = 5;
+
+/**
+ * The enemy or neutral Earth tile that would COMPLETE a region for this bot —
+ * the one target worth the fuel, since a region bonus pays every turn after.
+ *
+ * Ties break on the smaller garrison: three units fight a normal battle, so the
+ * odds matter more than which region it is.
+ */
+export function selectAiDropAssaultTarget(
+  state: GameState,
+  playerId: string,
+): string | null {
+  const tally = new Map<string, { owned: number; total: number }>();
+  for (const t of Object.values(state.territories)) {
+    if (!t.region_id) continue;
+    const entry = tally.get(t.region_id) ?? { owned: 0, total: 0 };
+    entry.total += 1;
+    if (t.owner_id === playerId) entry.owned += 1;
+    tally.set(t.region_id, entry);
+  }
+
+  let best: { id: string; units: number } | null = null;
+  for (const t of Object.values(state.territories)) {
+    if (!t.region_id) continue;
+    const entry = tally.get(t.region_id)!;
+    // One tile short of the whole region, and this is that tile.
+    if (entry.total - entry.owned !== 1 || t.owner_id === playerId) continue;
+    if (!isDropAssaultTarget(state, playerId, t.territory_id)) continue;
+    if (!best || t.unit_count < best.units
+      || (t.unit_count === best.units && t.territory_id < best.id)) {
+      best = { id: t.territory_id, units: t.unit_count };
+    }
+  }
+  return best?.id ?? null;
+}
+
+/** Whether the bot could declare a drop this turn, target aside. */
+export function canAiPlanDropAssault(state: GameState, playerId: string): boolean {
+  return areMoonPowersEnabled(state)
+    && countLunarTerritories(state, playerId) >= AI_DROP_ASSAULT_MOON_TILES;
+}
+
+/** Whether the bot can declare one right now — fuel, reload and all. */
+export function canAiUseDropAssault(state: GameState, playerId: string): boolean {
+  return canAiPlanDropAssault(state, playerId)
+    && dropAssaultBlockReason(state, playerId) === null;
+}
+
+/**
  * Whether the bot holds the standing credentials for a power — everything
  * except the fuel.
  *
@@ -170,6 +233,9 @@ export function aiHelium3Reserve(state: GameState, map: GameMap, playerId: strin
   }
   if (canAiPlanDysonBeam(state, playerId) && selectAiDysonBeamTarget(state, map, playerId)) {
     reserve += gateCost('dyson_beam');
+  }
+  if (canAiPlanDropAssault(state, playerId) && selectAiDropAssaultTarget(state, playerId)) {
+    reserve += DROP_ASSAULT_HELIUM3_COST;
   }
   return reserve;
 }

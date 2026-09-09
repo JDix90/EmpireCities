@@ -13,6 +13,7 @@ import {
   playerHasUnlockedAbility,
 } from './techAbilities';
 import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
+import { declareDropAssault } from './dropAssault';
 
 export interface AbilityExecutionResult {
   success: boolean;
@@ -343,6 +344,16 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
       previousOwner,
       previousUnits,
     };
+  }
+
+  // ── Drop Assault: declare a drop that lands next turn (Phase 2b) ──────────
+  if (abilityId === 'drop_assault') {
+    if (!territoryId) return { success: false, error: 'Provide territoryId' };
+    const declared = declareDropAssault(state, playerId, territoryId);
+    if (!declared.ok) return { success: false, error: declared.error ?? 'Drop Assault failed' };
+    // Nothing lands now. The board is untouched until the declarer's next turn
+    // begins, which is the whole point: the defender gets a round to answer.
+    return { success: true, effect: 'drop_assault_declared', territoryId };
   }
 
   // ── Lunar Export: Helium-3 → tech points ──────────────────────────────────
