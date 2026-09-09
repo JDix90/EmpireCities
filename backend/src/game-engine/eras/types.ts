@@ -83,6 +83,13 @@ export interface Faction {
    */
   offworld_defense_bonus?: number;
   /**
+   * Galactic Age: extra defence dice when attacked ACROSS a hyperspace lane —
+   * the faction that holds its gateways (Void Custodians). Conditional on the
+   * crossing, like coastal_battery on sea attacks, so it is not a start-active
+   * defensive die.
+   */
+  lane_defense_bonus?: number;
+  /**
    * Lineage archetype this faction belongs to. When era advancement + factions
    * are both on, advancing remaps the player to the next era's faction sharing
    * this lineage_id (e.g. imperial: rome → hre → spain → ...). Every classic-spine

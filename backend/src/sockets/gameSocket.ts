@@ -70,9 +70,13 @@ import {
   tickLaneBlockades,
   GALAXY_LANE_SEAL_DURATION,
   EMERGENCY_SEAL_ABILITY_ID,
+  orbitGatewayTerritoryIds,
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
+
+/** The faction ability id that grants Drift Jump (Helion Navigators). */
+const DRIFT_JUMP_ABILITY_ID = 'drift_jump';
 import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
@@ -172,6 +176,7 @@ import {
   attackerIgnoresDefenseBuilding,
   expandFogVisibilityFromRecon,
   expandFogVisibilityFromFactionPassive,
+  consumeBlockadeRunner,
   getFortifyMoveLimit,
   getInfluenceUnitCost,
   getPrecisionStrikeMinUnits,
@@ -1640,7 +1645,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
-        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
+        if (
+          isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)
+          && !consumeBlockadeRunner(currentPlayer)
+        ) {
           return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
         }
       }
@@ -2359,7 +2367,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // cross. Checking only the from/to edge let a longer route through a lane
       // move troops between worlds with the orbit gate shut.
       const canTraverse = fortifyTraversalFilter(state, currentPlayer, map, state.era);
-      if (!pathExists(fromId, toId, state, map, userId, canTraverse)) {
+      // Drift Jump (Helion Navigators): once per turn, a fortify between two
+      // owned gateway tiles on different worlds needs no connecting route — the
+      // drift pilots cross the void between their own beacons. Applied
+      // implicitly when an ordinary fortify would fail for lack of a path, so
+      // the player just picks the two gateways.
+      const driftFaction = state.settings.factions_enabled && currentPlayer.faction_id
+        ? getPlayerFaction(state, currentPlayer)
+        : undefined;
+      let driftJump = false;
+      if (
+        driftFaction?.ability_id === DRIFT_JUMP_ABILITY_ID
+        && !(currentPlayer.ability_uses ?? {})[DRIFT_JUMP_ABILITY_ID]
+        && !pathExists(fromId, toId, state, map, userId, canTraverse)
+      ) {
+        const gateways = orbitGatewayTerritoryIds(map);
+        driftJump = gateways.has(fromId) && gateways.has(toId) && from.world_id !== to.world_id;
+      }
+      if (!driftJump && !pathExists(fromId, toId, state, map, userId, canTraverse)) {
         // Distinguish "you own nothing in between" from "your only route is a
         // lane you cannot use" — the latter is the gate, and saying
         // "not connected" would send the player looking for the wrong problem.
@@ -2373,7 +2398,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return emitGameError(socket, GameErrorCode.PATH_NOT_CONNECTED, 'No connected path between territories');
       }
 
-      if (fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
+      if (!driftJump && fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
@@ -2399,6 +2424,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       from.unit_count -= units;
       to.unit_count += units;
       state.fortify_moves_used = movesUsed + 1;
+      if (driftJump) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [DRIFT_JUMP_ABILITY_ID]: 1 };
+      }
       commitActionDecision(
         gameId, state, userId, 'fortify',
         `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,

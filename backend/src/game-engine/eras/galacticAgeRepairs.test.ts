@@ -148,10 +148,10 @@ describe("Forge Syndicate's Supply Insert", () => {
 });
 
 describe("Helion Navigators' Long-Range Sensors", () => {
-  it('is a passive, not an active with no handler', () => {
+  it('is a passive; the dead orbital_recon active is gone', () => {
     const helion = GALAXY_AGE_FACTIONS.find((f) => f.faction_id === 'helion_navigators')!;
-    expect(helion.ability_id).toBeUndefined();
-    expect(helion.ability_description).toMatch(/gateway/i);
+    expect(helion.ability_id).not.toBe('orbital_recon');
+    expect(helion.description).toMatch(/gateway/i);
   });
 
   it('reveals both ends of every lane under fog, and nothing else', () => {

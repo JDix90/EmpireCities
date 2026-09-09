@@ -148,6 +148,10 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     enemyTarget: null, style: 'info', requiresEconomy: true, hint: 'Your next research costs 3 fewer tech points.',
   },
   // ── Group D: attack self-buffs (attack, self-activated) ─────────────────────
+  blockade_runner: {
+    label: 'Blockade Runner', emoji: '🚀', scope: 'turn', phase: 'attack',
+    enemyTarget: null, style: 'warning', hint: 'Your next attack across a hyperspace lane ignores an Emergency Seal.',
+  },
   war_elephants: {
     label: 'War Elephants', emoji: '🐘', scope: 'turn', phase: 'attack',
     enemyTarget: null, style: 'warning', hint: '+1 attack die on your next attack.',
@@ -270,7 +274,8 @@ export function getAvailableFactionAbilityId(
     france:           'chevauchee',
     england_discovery:'privateer',
     cyber_power:      'cyber_attack',
-    stellar_mandate:  'cyber_attack',
+    // Galactic Age — Mandate's Blockade Runner is an attack-phase self-buff.
+    stellar_mandate:  'blockade_runner',
     // Group F — fortify boost (fortify)
     eastern_bloc:     'armored_push',
     // Group G — other actives

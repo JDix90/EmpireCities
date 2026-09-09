@@ -34,7 +34,7 @@ export interface TerritoryAbilityDef {
   requiresAdjacency?: boolean;
   maxHopRange?: number;
   /** Self-buff consumed on next land attack instead of targeting a territory. */
-  selfBuff?: 'pre_attack_damage' | 'extra_attack_die' | 'negate_attacker_losses';
+  selfBuff?: 'pre_attack_damage' | 'extra_attack_die' | 'negate_attacker_losses' | 'ignore_lane_seal';
   /**
    * Free-unit placement on an owned territory (faction draft abilities). Units
    * are placed directly, bypassing the stability draft cap (matching the
@@ -121,6 +121,9 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   banzai_charge: { label: 'Banzai Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   ambush: { label: 'Ambush', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   testudo: { label: 'Testudo', scope: 'turn', phase: 'attack', selfBuff: 'negate_attacker_losses' },
+
+  // ── Galactic Age (corridors) ─────────────────────────────────────────────────
+  blockade_runner: { label: 'Blockade Runner', scope: 'turn', phase: 'attack', selfBuff: 'ignore_lane_seal' },
 
   // ── Faction abilities: unit-reduction strikes (Group E, attack) ─────────────
   precision_airstrike: { label: 'Precision Airstrike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },
@@ -359,6 +362,16 @@ export function isEnemyTerritoryReachableForAbility(
  * different worlds are the orbit lanes, so a tile with a neighbour on another
  * world is exactly a lane endpoint. No-ops on single-world maps.
  */
+/**
+ * Blockade Runner: spend the held charge if a sealed lane is about to be
+ * crossed. Returns true when the crossing may proceed despite the seal.
+ */
+export function consumeBlockadeRunner(player: PlayerState): boolean {
+  if (!player.pending_ignore_lane_seal) return false;
+  player.pending_ignore_lane_seal = undefined;
+  return true;
+}
+
 export function expandFogVisibilityFromFactionPassive(
   state: GameState,
   playerId: string,

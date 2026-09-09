@@ -35,14 +35,16 @@ function galaxyState(factionId: string, overrides?: { factions?: boolean }): Gam
 const node = (cost: number): TechNode => ({ tech_id: 't', name: 't', description: '', tier: 1, cost });
 
 describe('Stellar Mandate research discount', () => {
-  it('every research costs 2 less', () => {
+  it('every research costs 1 less', () => {
+    // 2 → 1: under corridors the -2 compounded across a dice-heavy tree into a
+    // 47% win rate once gateway fights were decided by dice.
     const state = galaxyState('stellar_mandate');
-    expect(getEffectiveTechCost(state, state.players[0], node(5))).toBe(3);
+    expect(getEffectiveTechCost(state, state.players[0], node(5))).toBe(4);
   });
 
   it('cost never drops below 1', () => {
     const state = galaxyState('stellar_mandate');
-    expect(getEffectiveTechCost(state, state.players[0], node(2))).toBe(1);
+    expect(getEffectiveTechCost(state, state.players[0], node(1))).toBe(1);
   });
 
   it('does not apply when factions are disabled', () => {
@@ -57,10 +59,8 @@ describe('Stellar Mandate research discount', () => {
     }
   });
 
-  it('lets Sol research the 5-cost Hyperspace Chart with 4 tech points', () => {
-    // (Discount is 2; 4 TP comfortably covers the effective cost of 3.)
-    // The discount's headline effect: Sol reaches the era's central mechanic
-    // one income-tick earlier than an undiscounted faction.
+  it('lets Sol research the 5-cost Lane Charts with 4 tech points', () => {
+    // (Discount is 1; 4 TP exactly covers the effective cost of 4.)
     const state = galaxyState('stellar_mandate');
     const result = validateResearch(state, 'p1', 'ga_hyperspace_chart');
     expect(result.valid).toBe(true);

@@ -195,6 +195,8 @@ export interface PlayerState {
   pending_ignore_defense_building?: boolean;
   /** Next land attack the player makes inflicts 0 attacker losses (testudo). */
   pending_negate_attacker_losses?: boolean;
+  /** Blockade Runner (Stellar Mandate): the next lane crossing this turn ignores an Emergency Seal. */
+  pending_ignore_lane_seal?: boolean;
   /** Extra fortify moves granted this turn (armored_push). Reset at turn start. */
   bonus_fortify_moves?: number;
   /**

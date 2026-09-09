@@ -354,20 +354,46 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
       log.push(`void terraform → ${r.ok ? 'OK' : 'ERROR ' + r.error}`);
       expect(r.ok).toBe(false);
     }
-    // Mandate — Cyber Strike across a lane. Under corridors the strike is legal
-    // (access is positional); with the kill switch off it must respect the gate.
+    // Mandate — Blockade Runner: the next lane crossing ignores an Emergency Seal.
     {
       const gameId = 'itest-ga-abil-mandate';
-      const map = freshMap(); const state = freshState(gameId, map, GATED);
+      const map = freshMap(); const state = freshState(gameId, map);
       state.phase = 'attack'; state.current_player_index = 0;
-      state.territories[L1.verdan].unit_count = 5;
+      state.lane_blockades = { [orbitLaneId(N1.sol, N1.nexus)]: { owner_id: P[3], turns_remaining: 1 } };
+      armAssault(state, N1.sol, N1.nexus);
       await seed(gameId, state, map);
       const c = await connect(P[0]); await joinRoom(P[0], gameId);
-      const r = await act(c, 'game:use_ability', { gameId, abilityId: 'cyber_attack', params: { territoryId: L1.verdan } }, 'game:ability_result');
-      const s = await getGameState(gameId);
-      log.push(`mandate cyber_attack across lane, gate on, no chart → ${r.ok ? 'OK' : 'ERROR ' + r.error}; target units 5 → ${s!.territories[L1.verdan].unit_count}`);
-      expect(r.ok).toBe(false);
-      expect(s!.territories[L1.verdan].unit_count).toBe(5);
+      const blocked = await act(c, 'game:attack', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:combat_result');
+      expect(blocked.ok).toBe(false);
+      if (!blocked.ok) expect(blocked.code).toBe('LANE_SEALED');
+      const arm = await act(c, 'game:use_ability', { gameId, abilityId: 'blockade_runner' }, 'game:ability_result');
+      expect(arm.ok, arm.ok ? '' : arm.error).toBe(true);
+      const through = await act<{ result: { territory_captured: boolean } }>(c, 'game:attack', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:combat_result');
+      log.push(`mandate blockade_runner across sealed N1 → ${through.ok ? 'OK captured ' + through.data.result.territory_captured : 'ERROR ' + through.error}`);
+      expect(through.ok).toBe(true);
+    }
+    // Helion — Drift Jump: fortify between two owned gateways on different
+    // worlds with no connecting route, once per turn.
+    {
+      const gameId = 'itest-ga-abil-helion-drift';
+      const map = freshMap(); const state = freshState(gameId, map);
+      state.phase = 'fortify'; state.current_player_index = 2;
+      // Helion holds its own Verdan gateway and a beachhead gateway on Rust
+      // whose lane runs to Nexus, not Verdan — so no owned route joins them.
+      // (rust_anvil_basin would NOT do: its lane ends on Helion's own
+      // verdan_photic_crown, which makes an ordinary corridor fortify.)
+      const verdanGate = 'verdan_chlorophage_span';
+      const rustGate = 'rust_hematite_span';
+      state.territories[verdanGate].owner_id = P[2]; state.territories[verdanGate].unit_count = 9;
+      state.territories[rustGate].owner_id = P[2]; state.territories[rustGate].unit_count = 2;
+      await seed(gameId, state, map);
+      const c = await connect(P[2]); await joinRoom(P[2], gameId);
+      const jump = await act(c, 'game:fortify', { gameId, fromId: verdanGate, toId: rustGate, units: 4 }, 'game:fortify_result');
+      log.push(`helion drift_jump verdan→rust gateway → ${jump.ok ? 'OK' : 'ERROR ' + jump.error}`);
+      expect(jump.ok, jump.ok ? '' : jump.error).toBe(true);
+      const after = await waitForRedisState(gameId, (s) => s.territories[rustGate].unit_count === 6);
+      expect(after.territories[verdanGate].unit_count).toBe(5);
+      expect(after.players[2].ability_uses?.drift_jump).toBe(1);
     }
     console.log('\n[faction abilities]\n' + log.join('\n'));
   }, 120_000);

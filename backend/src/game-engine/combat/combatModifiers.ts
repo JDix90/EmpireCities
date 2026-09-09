@@ -141,7 +141,13 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const offworldDefenseBonus = defenderWorldId && defenderWorldId !== 'earth'
     ? defenderFaction?.offworld_defense_bonus ?? 0
     : 0;
-  const factionDefenseBonus = (defenderFaction?.passive_defense_bonus ?? 0) + offworldDefenseBonus;
+  // Galactic Age: the faction that holds its gateways (Void Custodians) rolls an
+  // extra die against any attack that comes ACROSS a lane. Conditional on the
+  // crossing, like coastal_battery on sea attacks; folded into `faction` too.
+  const laneDefenseBonus = connection?.type === 'orbit'
+    ? defenderFaction?.lane_defense_bonus ?? 0
+    : 0;
+  const factionDefenseBonus = (defenderFaction?.passive_defense_bonus ?? 0) + offworldDefenseBonus + laneDefenseBonus;
   const eventDefenseBonus = state.settings.events_enabled && defenderId
     ? getTemporaryModifierValue(state, defenderId, 'defense_modifier')
     : 0;

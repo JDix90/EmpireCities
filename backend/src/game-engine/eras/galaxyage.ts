@@ -22,8 +22,10 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   hyperspace head start). Discount ladder sim-tested at 400g×2 seeds
 //   (expert, threshold-60 meta): 1 → Sol 18.6%, 2 → all four factions in
 //   20-35% (Sol 33.8 / Rust 22.2 / Verdan 22.3 / Nexus 21.9 avg).
-// - Ability IDs reuse legacy handlers so the abilities work end-to-end today;
-//   the user-facing labels and lore have been refreshed for galaxy flavor.
+// - Kits are built around lanes (corridors): the Mandate runs blockades, Forge
+//   supplies, Helion sees gateways and jumps between its own, the Custodians
+//   seal and hold. Forge's Supply Insert still rides the shared
+//   guerrilla_warfare def; everything else here is galaxy-native.
 // - Void Custodians traded their flat `reinforce_bonus: 1` for Nexus Station's
 //   tech yield, which used to floor to ZERO (16 tiles x 0.05 = 0.8) and so paid
 //   nothing at all. Making it pay is worth ~20 points of win rate on its own —
@@ -37,13 +39,17 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'stellar_mandate',
     name: 'Stellar Mandate',
-    description: 'Central admiralty doctrine — every technology costs 2 less to research; cyber warfare unlocked.',
+    description: 'Central admiralty doctrine — every technology costs 1 less to research; blockade runners ignore lane seals.',
     lore: 'The Mandate believes stability flows from a single chain of command spanning every recognized star system.',
     flavor_quote: 'Order is not imposed — it is synchronized.',
     home_region_ids: ['sol_americas', 'sol_atlantic_arc', 'sol_crescent', 'sol_asian_rim'],
-    tech_cost_discount: 2,
-    ability_id: 'cyber_attack',
-    ability_description: 'Cyber Strike: once per turn, remove 1 enemy unit from an adjacent territory.',
+    // 2 → 1: measured under corridors (200g × 2 seeds, expert, threshold 60) the
+    // -2 discount compounds across a dice-heavy tree into a 47% win rate once
+    // gateway fights are decided by dice. Cyber Strike went with it: it was the
+    // only galaxy active the AI fired, and it belonged to the era that already led.
+    tech_cost_discount: 1,
+    ability_id: 'blockade_runner',
+    ability_description: 'Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.',
     color: '#5dade2',
   },
   {
@@ -61,20 +67,21 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'helion_navigators',
     name: 'Helion Navigators',
-    description: 'Lane-mappers and drift pilots — hyperspace lanes open without researching Hyperspace Chart first.',
+    description: 'Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.',
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
     home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts'],
-    // No active: the old `orbital_recon` id had no handler anywhere, so the
-    // advertised once-per-turn reveal returned "not implemented" over the wire.
-    // Long-Range Sensors is now a passive in expandFogVisibilityFromFactionPassive.
-    ability_description: 'Long-Range Sensors: every hyperspace gateway in the galaxy stays visible to you under fog of war.',
+    // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
+    // Drift Jump is applied implicitly by the fortify handler: a fortify between
+    // two owned gateway tiles on different worlds that has no connected path.
+    ability_id: 'drift_jump',
+    ability_description: 'Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route.',
     color: '#2ecc71',
   },
   {
     faction_id: 'void_custodians',
     name: 'Void Custodians',
-    description: 'Station enginseers — Nexus Station yields tech points every turn; faster stability recovery along station corridors.',
+    description: 'Station enginseers — Nexus Station yields tech points every turn; +1 defence die against any attack across a lane; faster stability recovery.',
     lore: 'They guard the silent rings and tether cities where vacuum is the only neighbor.',
     flavor_quote: 'We keep the dark from leaning in.',
     home_region_ids: ['nexus_gate_ring', 'nexus_vault_ward', 'nexus_spire_walk', 'nexus_berth_ring'],
@@ -82,6 +89,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     ability_description: 'Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.',
     color: '#9b59b6',
     stability_recovery_bonus: 2,
+    lane_defense_bonus: 1,
   },
 ];
 
