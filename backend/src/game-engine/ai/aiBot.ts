@@ -21,6 +21,9 @@ import {
   nearestLandingZoneFor,
   getOrbitAccessResult,
   isLaneSealedForPlayer,
+  galaxyLaneAttackDiceCap,
+  laneStateFor,
+  orbitGatewayTerritoryIds,
 } from '../state/moonAccess';
 
 export interface AiAction {
@@ -239,12 +242,32 @@ export function evaluateBoard(
 
 // ── Private helpers ──────────────────────────────────────────────────────────
 
-/** Extra attack score toward enemy capitals and secret-mission targets. */
-function attackObjectiveBonus(state: GameState, attackerId: string, targetTerritoryId: string): number {
+/** Extra attack score toward enemy capitals, secret-mission targets, and gateways. */
+function attackObjectiveBonus(
+  state: GameState,
+  map: GameMap,
+  attackerId: string,
+  targetTerritoryId: string,
+): number {
   let b = 0;
   const allowed = getAllowedVictoryConditions(state.settings);
   const me = state.players.find((p) => p.player_id === attackerId);
   if (!me) return 0;
+
+  // Galactic Age corridors: the far end of a lane whose near end I hold is the
+  // tile that turns an open lane into my corridor and shuts the rival out of
+  // my world. Weighted like an enemy capital so the bot fights for gateways
+  // instead of treating them as any other border tile. ⚠ balance
+  if (state.settings.galaxy_corridors_enabled) {
+    for (const c of map.connections) {
+      if (c.type !== 'orbit') continue;
+      const nearEnd = c.from === targetTerritoryId ? c.to : c.to === targetTerritoryId ? c.from : null;
+      if (nearEnd && laneStateFor(state, nearEnd, targetTerritoryId, attackerId) === 'open') {
+        b += GATEWAY_OBJECTIVE_BONUS;
+        break;
+      }
+    }
+  }
 
   if (allowed.includes('capital')) {
     for (const o of state.players) {
@@ -288,6 +311,12 @@ function selectDraftTarget(
     if (faction) factionHomeRegions.push(...faction.home_region_ids);
   }
 
+  // Galactic Age corridors: a gateway whose lane is open (the far end is a
+  // rival's) is where the invasion lands, so it carries the far end's units as
+  // extra threat plus a flat premium; a corridor's home end is quiet. ⚠ balance
+  const corridors = !!state.settings.galaxy_corridors_enabled;
+  const gateways = corridors ? orbitGatewayTerritoryIds(map) : new Set<string>();
+
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id !== playerId) continue;
     const neighbors = adjacency[tid] || [];
@@ -296,9 +325,20 @@ function selectDraftTarget(
     );
     if (enemyNeighbors.length === 0) continue;
 
-    const threatScore = enemyNeighbors.reduce(
+    let threatScore = enemyNeighbors.reduce(
       (s, nid) => s + (state.territories[nid]?.unit_count ?? 0), 0
     );
+    if (gateways.has(tid)) {
+      for (const nid of enemyNeighbors) {
+        if (!gateways.has(nid)) continue;
+        const lane = map.connections.find(
+          (c) => c.type === 'orbit' && ((c.from === tid && c.to === nid) || (c.from === nid && c.to === tid)),
+        );
+        if (lane && laneStateFor(state, tid, nid, playerId) === 'open') {
+          threatScore += GATEWAY_DRAFT_PREMIUM;
+        }
+      }
+    }
 
     // Bonus for faction home region border territories
     const mapTerritory = map.territories.find((t) => t.territory_id === tid);
@@ -334,6 +374,39 @@ export function eliminationAttackBonus(
 
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
 const FINISHER_OVERCAP = 4;
+
+/**
+ * Emergency Seal (Void Custodians): the Nexus lane worth closing this turn —
+ * the one whose far end holds the biggest rival stack relative to the bot's own
+ * gateway, i.e. the landing most likely to come. Null when no lane is
+ * threatened, so the charge is kept rather than spent on nothing. Pure so the
+ * socket's AI turn and tests share one rule.
+ */
+export function chooseEmergencySealLane(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+): { from: string; to: string } | null {
+  let best: { from: string; to: string; threat: number } | null = null;
+  for (const c of map.connections) {
+    if (c.type !== 'orbit') continue;
+    for (const [near, far] of [[c.from, c.to], [c.to, c.from]] as const) {
+      const nearT = state.territories[near];
+      const farT = state.territories[far];
+      if (!nearT || !farT || nearT.owner_id !== playerId) continue;
+      if (!farT.owner_id || farT.owner_id === playerId) continue;
+      const threat = farT.unit_count - nearT.unit_count;
+      if (threat <= 0) continue;
+      if (!best || threat > best.threat) best = { from: near, to: far, threat };
+    }
+  }
+  return best ? { from: best.from, to: best.to } : null;
+}
+
+/** Corridors: attack-score premium for the far gateway of an open lane (≈ an enemy capital). */
+const GATEWAY_OBJECTIVE_BONUS = 3;
+/** Corridors: draft-threat premium on a gateway whose lane is open to a rival. */
+const GATEWAY_DRAFT_PREMIUM = 4;
 
 /**
  * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming
@@ -450,8 +523,18 @@ function selectAttacks(
       }
 
       const isSeaLane = eraModifiers.sea_lanes && isSeaConn;
+      // Galactic Age corridors: a lane crossing rolls at most 2 attacker dice (3
+      // with Lane Charts). Mirror the resolver so the bot prices a gateway
+      // assault as the coast-style fight it is, instead of a 3-die land attack.
+      const laneCap = conn?.type === 'orbit' ? galaxyLaneAttackDiceCap(state, playerId) : undefined;
       const isPrecision = eraModifiers.precision_strike && tState.unit_count >= 4;
-      const attackDice = isPrecision ? 3 : isSeaLane ? Math.min(attackUnits, 2) : Math.min(attackUnits, 3);
+      const attackDice = isPrecision
+        ? 3
+        : isSeaLane
+          ? Math.min(attackUnits, 2)
+          : laneCap != null
+            ? Math.min(attackUnits, laneCap)
+            : Math.min(attackUnits, 3);
       const defDice = Math.min(nState.unit_count, 2);
 
       // Favorability. Odds-aware path: exact P(capture the garrison, pressing
@@ -486,7 +569,7 @@ function selectAttacks(
           defenseBonus: mods.defenderBonusBreakdown.total,
           // Plan-time approximation: the rare Lighthouse/Naval Charts raise of
           // the sea cap is ignored (slightly conservative on sea assaults).
-          attackerBaseCap: isSeaLane ? 2 : 3,
+          attackerBaseCap: isSeaLane ? 2 : laneCap ?? 3,
           maxAttackerDice: state.settings.combat_dice_cap_enabled
             ? state.settings.combat_max_attacker_dice ?? 5
             : undefined,
@@ -506,7 +589,7 @@ function selectAttacks(
       // Sea-lane attacks get a slight penalty beyond the reduced dice: the
       // crossing costs fleets/bombardment and can't be pressed within a turn.
       const seaPenalty = isSeaLane ? -0.5 : 0;
-      const objectiveBonus = attackObjectiveBonus(state, playerId, nid);
+      const objectiveBonus = attackObjectiveBonus(state, map, playerId, nid);
       const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
       const finisherBonus = eliminationAttackBonus(state, nOwner, difficulty);
       let expansionBonus = 0;
@@ -1069,8 +1152,12 @@ export function selectAiTechResearch(
   // permanently locked out of orbit attacks. Jump it (and any prereq it still
   // needs) to the front of the queue when the AI can't reach foreign worlds.
   if (state.era === 'galaxy_age') {
-    const factionOpenLanes = player.faction_id === 'helion_navigators';
-    const hasAnchor = Object.values(state.territories ?? {}).some(
+    // Under corridors the chart is Lane Charts — the third attack die across a
+    // lane, worth buying for every faction. The kill switch restores the gate,
+    // where Helion and an Anchor holder already have what it grants.
+    const corridorsOn = !!state.settings.galaxy_corridors_enabled;
+    const factionOpenLanes = !corridorsOn && player.faction_id === 'helion_navigators';
+    const hasAnchor = !corridorsOn && Object.values(state.territories ?? {}).some(
       (t) =>
         t.owner_id === playerId &&
         (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),

@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { AiAction } from '../src/game-engine/ai/aiBot';
-import type { AiDifficulty, GameMap, GameSettings, GameState } from '../src/types';
+import type { AiDifficulty, GameMap, GameSettings, GameState, MapConnection } from '../src/types';
 import {
   advanceToNextPlayer,
   checkVictory,
@@ -51,6 +51,12 @@ const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) 
  * exchange per planned edge) for comparison; the default mirrors production.
  */
 const GRIND = process.env.SIM_GRIND !== '0';
+/**
+ * Corridors (positional lane access + the lane dice cap). The live create path
+ * bakes `galaxy_corridors_enabled` from the feature flag, which this harness
+ * bypasses, so mirror the default here; `SIM_CORRIDORS=0` is the kill switch.
+ */
+const CORRIDORS = process.env.SIM_CORRIDORS !== '0';
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -100,6 +106,7 @@ function simSettings(): GameSettings {
     tech_trees_enabled: true,
     stability_enabled: true,
     era_advancement_enabled: false, // galaxy is the terminal era
+    galaxy_corridors_enabled: CORRIDORS,
     allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
@@ -165,6 +172,7 @@ function playAiTurn(
   difficulty: AiDifficulty,
   dieRoll: () => number,
   orbitLanePairs: Set<string>,
+  connectionsByKey: Map<string, MapConnection>,
   seat: SeatTelemetry,
 ): void {
   state.phase = 'draft';
@@ -193,9 +201,13 @@ function playAiTurn(
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
     if (budget.left <= 0) break;
     const crossesLane = orbitLanePairs.has(laneKey(a.from, a.to));
+    // The resolver only sees a lane if told about the edge: without the
+    // connection the lane dice cap never fires and the sim silently measures
+    // the kill-switch game.
+    const connection = connectionsByKey.get(laneKey(a.from, a.to));
     for (;;) {
       const ownerBefore = state.territories[a.to]?.owner_id;
-      const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll });
+      const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection });
       budget.left -= 1;
       if (outcome) {
         if (crossesLane) {
@@ -250,6 +262,12 @@ interface GameStat {
   seats: SeatStat[];
   /** world_id → largest share held by any single player at game end. */
   worldTopShare: Record<string, number>;
+  /**
+   * Times any lane's (owner of end A, owner of end B) pair changed across the
+   * game — the corridor identity's health signal: a galaxy where lanes never
+   * change hands has stopped being a war over lanes.
+   */
+  laneFlips: number;
 }
 
 /** Turns at which per-seat territory counts are sampled for the trajectory table. */
@@ -279,6 +297,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
   });
 
   const lanes = orbitLanePairs(map);
+  const connectionsByKey = new Map(map.connections.map((c) => [laneKey(c.from, c.to), c]));
   const telemetry: Record<string, SeatTelemetry> = {};
   const snapshots: Record<string, Record<number, number>> = {};
   for (const p of players) {
@@ -292,6 +311,12 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     snapshots[p.player_id] = {};
   }
 
+  const orbitEdges = map.connections.filter((c) => c.type === 'orbit');
+  const laneSignature = (): string =>
+    orbitEdges.map((c) => `${state.territories[c.from]?.owner_id ?? ''}|${state.territories[c.to]?.owner_id ?? ''}`).join(';');
+  let lastLaneSignature = laneSignature();
+  let laneFlips = 0;
+
   let t10Leader: string | null = null;
   let t10Captured = false;
   let maxSpread = 0;
@@ -300,9 +325,16 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, lanes, telemetry[player.player_id]);
+      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, lanes, connectionsByKey, telemetry[player.player_id]);
     }
     advanceToNextPlayer(state, map);
+
+    const sig = laneSignature();
+    if (sig !== lastLaneSignature) {
+      const before = lastLaneSignature.split(';');
+      laneFlips += sig.split(';').filter((v, i) => v !== before[i]).length;
+      lastLaneSignature = sig;
+    }
 
     const counts = state.players
       .filter((p) => !p.is_eliminated)
@@ -360,6 +392,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     maxTerritorySpread: maxSpread,
     seats,
     worldTopShare,
+    laneFlips,
   };
 }
 
@@ -390,7 +423,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
@@ -398,6 +431,7 @@ function main(): void {
   console.log(`Victory breakdown:                ${[...byCondition.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, GAMES)}`).join(' · ')}`);
   console.log(`Territory-leader@turn10 win rate: ${pct(withT10.filter((s) => s.t10LeaderWon).length, withT10.length)}  (snowball signal; ${pct(1, PLAYERS)} baseline)`);
   console.log(`Avg peak territory spread:        ${(stats.reduce((a, s) => a + s.maxTerritorySpread, 0) / GAMES).toFixed(1)} (leader − laggard, of ${terr})`);
+  console.log(`Lane end-owner changes per game:  ${fixed(avg(stats.map((s) => s.laneFlips)))} (corridor health; a lane that never changes hands is a wall)`);
   console.log(`\n— Per-faction win rate (4p baseline = 25%) —`);
   for (const f of FACTIONS) {
     const wins = byFaction[f];

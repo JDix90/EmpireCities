@@ -77,7 +77,9 @@ import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
-import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
+import { selectAiBuildingPlacement, selectAiTechResearch,
+  chooseEmergencySealLane,
+} from '../game-engine/ai/aiBot';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -5406,6 +5408,32 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     currentPlayer.march_to_sea_hops_used = 0;
     currentPlayer.march_to_sea_last_capture_id = null;
     currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), 'march_to_sea'];
+  }
+
+  // AI parity for Emergency Seal (Void Custodians): before attacking, close the
+  // Nexus lane whose far end holds the biggest rival stack, so the bot answers
+  // a landing the way a human would. Reuses canSealLane and the same
+  // ability_uses ledger as the human handler.
+  if (state.settings.factions_enabled && currentPlayer.faction_id) {
+    const sealFaction = getPlayerFaction(state, currentPlayer);
+    if (
+      sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID
+      && !(currentPlayer.ability_uses ?? {})[EMERGENCY_SEAL_ABILITY_ID]
+    ) {
+      const best = chooseEmergencySealLane(state, map, currentPlayer.player_id);
+      if (best) {
+        const check = canSealLane(state, map, best.from, best.to, currentPlayer.player_id, sealFaction.ability_id);
+        if (check.ok && check.laneId) {
+          if (!state.lane_blockades) state.lane_blockades = {};
+          state.lane_blockades[check.laneId] = {
+            owner_id: currentPlayer.player_id,
+            turns_remaining: GALAXY_LANE_SEAL_DURATION,
+          };
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [EMERGENCY_SEAL_ABILITY_ID]: 1 };
+          broadcastState(io, gameId, state);
+        }
+      }
+    }
   }
 
   // AI parity for faction unit-reduction strikes (precision_airstrike, longbowmen,
