@@ -1263,6 +1263,51 @@ export default function TerritoryPanel({
                   }
                 }}
               />
+              {/* The picker lists neighbours only, on purpose: the server will
+                  move troops along any chain of your own ground, and that set is
+                  the size of your empire — 25-37 rows on a mid-size board at 60%
+                  control. So the far half of the rule goes to the map, which can
+                  show it at no cost, instead of to a list that cannot. */}
+              {isMobileActionMode && attackSource !== fortifyNeighborSourceId && (
+                <button
+                  type="button"
+                  className="btn-secondary w-full text-sm py-2"
+                  data-testid="fortify-send-further"
+                  onClick={() => {
+                    setFortifyUnits(Math.min(fortifyAmount, fortifyMax));
+                    setAttackSource(fortifyNeighborSourceId);
+                    // Drop the sheet before the map is needed. The first tap on
+                    // the map is otherwise swallowed to collapse this sheet, so
+                    // without it choosing a destination would cost two taps and
+                    // the first would look like it did nothing.
+                    handleSnapChange('peek');
+                  }}
+                >
+                  Send further — pick on the map
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* An armed fortify source had no indicator and no way out: the only
+              "Cancel" in this panel lives in the attack block and says "attack".
+              That was survivable while arming was a desktop-only detour; it is
+              not, now that it is how a phone reaches a distant territory. */}
+          {gameState.phase === 'fortify' && attackSource && (
+            <div className="rounded-lg border border-bf-gold/40 bg-bf-gold/10 px-2.5 py-2">
+              <p className="text-bf-gold text-xs mb-2" data-testid="fortify-pick-banner">
+                Moving {Math.min(fortifyAmount, fortifyMax)} from{' '}
+                {territoryNameById.get(attackSource) ?? attackSource}. Tap any highlighted
+                territory to send them there.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary w-full text-sm"
+                data-testid="fortify-cancel"
+                onClick={() => setAttackSource(null)}
+              >
+                Cancel move
+              </button>
             </div>
           )}
 

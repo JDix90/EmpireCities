@@ -443,3 +443,71 @@ describe('computeFortifyReachable — orbit parity with the server', () => {
     ).toBe(false);
   });
 });
+
+describe('computePhaseAdjacencyTargets — fortifyReachable', () => {
+  /**
+   * The map can light every territory a fortify could reach; the panel's picker
+   * cannot, because that set is the size of the player's connected empire
+   * (measured 25-37 rows on a mid-size board at 60% control). So the option is
+   * opt-in, and these pin which caller gets which.
+   */
+  const chain = {
+    phase: 'fortify',
+    era: 'modern',
+    settings: {},
+    territories: {
+      a: { territory_id: 'a', owner_id: 'p1', unit_count: 9 },
+      b: { territory_id: 'b', owner_id: 'p1', unit_count: 9 },
+      c: { territory_id: 'c', owner_id: 'p1', unit_count: 9 },
+      d: { territory_id: 'd', owner_id: 'p2', unit_count: 9 },
+    },
+    players: [],
+  } as unknown as GameState;
+  const conns = [
+    { from: 'a', to: 'b', type: 'land' as const },
+    { from: 'b', to: 'c', type: 'land' as const },
+    { from: 'c', to: 'd', type: 'land' as const },
+  ];
+
+  it('offers only direct neighbours by default — what the picker renders', () => {
+    const t = computePhaseAdjacencyTargets(chain, conns, { attackSource: 'a' });
+    expect([...t]).toEqual(['b']);
+  });
+
+  it('offers the whole connected chain when the caller asks — what the map draws', () => {
+    const t = computePhaseAdjacencyTargets(chain, conns, { attackSource: 'a', fortifyReachable: true });
+    expect([...t].sort()).toEqual(['b', 'c']);
+  });
+
+  it('still stops at territory it does not own', () => {
+    const t = computePhaseAdjacencyTargets(chain, conns, { attackSource: 'a', fortifyReachable: true });
+    expect(t.has('d')).toBe(false);
+  });
+
+  it('leaves the attack phase alone', () => {
+    const attacking = { ...chain, phase: 'attack' } as unknown as GameState;
+    const t = computePhaseAdjacencyTargets(attacking, conns, { attackSource: 'c', fortifyReachable: true });
+    // Neighbours only, and only enemies — reachability is a fortify rule.
+    expect([...t]).toEqual(['d']);
+  });
+
+  it('honours the per-edge rule, so an uncrossable lane is not lit', () => {
+    const overLane = [
+      { from: 'a', to: 'b', type: 'land' as const },
+      { from: 'b', to: 'c', type: 'orbit' as const },
+    ];
+    const t = computePhaseAdjacencyTargets(chain, overLane, {
+      attackSource: 'a',
+      fortifyReachable: true,
+      canTraverse: (conn) => conn.type !== 'orbit',
+    });
+    expect([...t]).toEqual(['b']);
+  });
+
+  it('keeps the picker neighbours-only even on a long chain', () => {
+    // listNeighborTargets never passes the option, so the panel cannot
+    // accidentally inherit the full set.
+    const rows = listNeighborTargets(chain, conns, 'a', new Map([['b', 'Bee'], ['c', 'Cee']]));
+    expect(rows.map((r) => r.territoryId)).toEqual(['b']);
+  });
+});

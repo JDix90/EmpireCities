@@ -724,8 +724,19 @@ export default function GameMap({
     if (!source) return new Set<string>();
     return computePhaseAdjacencyTargets(gameState, mapData.connections, {
       attackSource: source,
+      // Fortify: light every territory the source can reach, not just its
+      // neighbours. The panel's picker stays neighbours-only — a reachable list
+      // is the size of the player's empire, which the map can show at no cost
+      // and a phone-sized list cannot.
+      fortifyReachable: true,
+      canTraverse: fortifyTraversalFilter(
+        rawMapData as unknown as FrontendMapData,
+        gameState,
+        gameState.territories[source]?.owner_id ?? null,
+        gameState.era ?? '',
+      ),
     });
-  }, [gameState, attackSource, selectedTerritory, mapData.connections]);
+  }, [gameState, attackSource, selectedTerritory, mapData.connections, rawMapData]);
 
   // Valid-source hint (turn-clarity): territories the viewer can act FROM this
   // phase, outlined until they pick one. Only populated when validSourceOwnerId

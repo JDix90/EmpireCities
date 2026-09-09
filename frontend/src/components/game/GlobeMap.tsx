@@ -2975,12 +2975,22 @@ function GlobeMap({
         const terr = territoryById.get(territoryId);
         return !!terr && inferWorldId(terr) === activeWorldId;
       },
+      // Fortify: light every territory the source can reach, not just its
+      // neighbours — see the 2D map. The per-world filter still scopes what is
+      // drawn to the world on screen, so the Moon lights up in the Moon inset.
+      fortifyReachable: true,
+      canTraverse: fortifyTraversalFilter(
+        mapData as unknown as FrontendMapData,
+        gameState,
+        gameState.territories[source]?.owner_id ?? null,
+        gameState.era ?? '',
+      ),
     });
   }, [
     gameState,
     attackSource,
     selectedTerritory,
-    mapData.connections,
+    mapData,
     territoryById,
     activeWorldId,
   ]);

@@ -13,6 +13,20 @@ export interface AdjacencyTargetOptions {
   attackSource?: string | null;
   /** Limit to territories on this world (galaxy maps). */
   territoryFilter?: (territoryId: string) => boolean;
+  /**
+   * Fortify only: offer every territory the source can REACH through a chain of
+   * the owner's own ground, not just its direct neighbours — what the server
+   * actually allows.
+   *
+   * Opt-in, and deliberately so. The maps want it, because highlighting a far
+   * destination costs nothing extra on a board the player is already looking at.
+   * The territory panel's picker must NOT have it: reachability is the size of
+   * your connected empire, measured at 25-37 rows on a mid-size map at 60%
+   * board control, which is a wall of text on a phone.
+   */
+  fortifyReachable?: boolean;
+  /** Per-edge rule (orbit access, sealed lanes) — see `fortifyTraversalFilter`. */
+  canTraverse?: (conn: MapConnection) => boolean;
 }
 
 function neighborsOf(
@@ -161,6 +175,16 @@ export function computePhaseAdjacencyTargets(
 
   const filter = options.territoryFilter ?? (() => true);
   const result = new Set<string>();
+
+  // Fortify, when the caller asked for the full picture: the server walks any
+  // chain of the owner's own territories, so the map can light all of them
+  // rather than only the ring of direct neighbours. Same action, same styling —
+  // a far destination is not a different move, just a longer one.
+  if (gameState.phase === 'fortify' && options.fortifyReachable) {
+    return computeFortifyReachable(
+      gameState, connections, source, sourceOwner, filter, options.canTraverse,
+    );
+  }
 
   // Off-world neutrals (the Space Age Moon, neutral galaxy worlds) are reached via
   // `orbit` connections. The backend allows conquering them once the attacker holds
