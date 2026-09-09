@@ -14,6 +14,12 @@ import { buildTerritoryGlobeGeometries, type GlobeMapDataForGeometry } from '../
 import { buildGeoLayout2d, type GeoLayout2d } from '../../utils/map2dProjection';
 import { hasGeoMapping } from '../../data/territoryGeoMapping';
 import { isFogHidden } from '../../utils/fogVisibility';
+import { isSeaFrontier } from '../../utils/maritimeFrontierRing';
+import {
+  SEA_FRONTIER_COLOR,
+  SEA_FRONTIER_FILL_ALPHA,
+  LAND_FILL_ALPHA,
+} from '../../utils/mapVisualStyles';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { hapticImpact } from '../../utils/haptics';
@@ -107,6 +113,9 @@ interface GameMapProps {
 function hexToPixi(hex: string): number {
   return getPlayerPixiColor(hex);
 }
+
+/** Sea-frontier beading colour, converted from the shared token once. */
+const SEA_FRONTIER_PIXI = parseInt(SEA_FRONTIER_COLOR.slice(1), 16);
 
 /** Projected geo layouts are pure functions of (map, canvas) — cached so view toggles don't redo the turf clipping pass. */
 const geoLayoutCache = new Map<string, GeoLayout2d | null>();
@@ -480,7 +489,7 @@ export default function GameMap({
       const scaledRings = ringsFor(territory.territory_id);
       const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
 
-      drawTerritory(g, scaledRings, 0x2d3448, 0x4a5568);
+      drawTerritory(g, scaledRings, 0x2d3448, 0x4a5568, 1.5, isSeaFrontier(territory.territory_id));
 
       // Tap detection: only fire click if pointer hasn't moved far (avoids conflict with pan)
       let tapDownPos: { x: number; y: number } | null = null;
@@ -856,7 +865,14 @@ export default function GameMap({
               : isContested
                 ? 2.25
                 : 1.25;
-      drawTerritory(g, scaledRings, fillColor, borderColor, adjacencyBorderWidth);
+      drawTerritory(
+        g,
+        scaledRings,
+        fillColor,
+        borderColor,
+        adjacencyBorderWidth,
+        isSeaFrontier(territory.territory_id),
+      );
 
       // ── Unit-count badge (Risk-style army counter at the territory center) ──
       const badgeLayer = unitBadgeLayerRef.current;
@@ -1269,18 +1285,80 @@ function drawTerritory(
   fillColor: number,
   borderColor: number,
   borderWidth = 1.5,
+  seaFrontier = false,
 ): void {
   g.clear();
   for (const points of rings) {
     if (points.length < 3) continue;
     g.lineStyle(borderWidth, borderColor, 1);
-    g.beginFill(fillColor, 0.85);
+    g.beginFill(fillColor, seaFrontier ? SEA_FRONTIER_FILL_ALPHA : LAND_FILL_ALPHA);
     g.moveTo(points[0][0], points[0][1]);
     for (let i = 1; i < points.length; i++) {
       g.lineTo(points[i][0], points[i][1]);
     }
     g.closePath();
     g.endFill();
+  }
+  if (!seaFrontier) return;
+  // Beading laid ON the border rather than inside it: the solid line underneath
+  // keeps carrying selection / adjacency / wonder / turn-holder state, and this
+  // rides over it to say "this margin is water". Drawn last so it survives the
+  // fill, and thinner than the border so the state colour still reads.
+  for (const points of rings) {
+    if (points.length < 3) continue;
+    drawDashedRing(g, points, SEA_FRONTIER_PIXI, Math.max(1.4, borderWidth * 0.55));
+  }
+}
+
+/** The subset of PIXI.Graphics dashing needs, so it can be exercised directly. */
+export interface DashTarget {
+  lineStyle(width: number, color: number, alpha: number): unknown;
+  moveTo(x: number, y: number): unknown;
+  lineTo(x: number, y: number): unknown;
+}
+
+/**
+ * Dash a closed ring. PixiJS has no dashed line style, so walk the ring at a
+ * fixed stride and draw every other span. The stride carries across vertices
+ * rather than restarting at each one, so the beading stays even around a
+ * many-vertex organic outline instead of clustering at the corners.
+ */
+export function drawDashedRing(
+  g: DashTarget,
+  points: [number, number][],
+  color: number,
+  width: number,
+  dash = 5,
+  gap = 4,
+): void {
+  // A non-positive stride would advance the walk by zero and hang the render
+  // loop, so neither is taken on trust from a caller.
+  const on = Math.max(0.5, dash);
+  const off = Math.max(0.5, gap);
+  g.lineStyle(width, color, 0.9);
+  let carry = 0;
+  let drawing = true;
+  for (let i = 0; i < points.length; i++) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % points.length];
+    const segLen = Math.hypot(x2 - x1, y2 - y1);
+    let travelled = 0;
+    while (travelled < segLen) {
+      const span = (drawing ? on : off) - carry;
+      const step = Math.min(span, segLen - travelled);
+      const t0 = travelled / segLen;
+      const t1 = (travelled + step) / segLen;
+      if (drawing) {
+        g.moveTo(x1 + (x2 - x1) * t0, y1 + (y2 - y1) * t0);
+        g.lineTo(x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1);
+      }
+      travelled += step;
+      carry += step;
+      if (carry >= (drawing ? on : off)) {
+        drawing = !drawing;
+        carry = 0;
+      }
+    }
   }
 }
 
