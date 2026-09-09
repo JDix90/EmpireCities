@@ -39,7 +39,8 @@ import {
   STRIKE_MAP_STYLES,
   type MapStrikeAbilityId,
 } from '../../utils/mapStrikeEffects';
-import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB, ERA_ADVANCE_GOLD_RGB } from '../../utils/mapVisualStyles';
+import { hexToRgb, lerpRgb, MAP_VISUAL_DURATIONS, INFLUENCE_RING_RGB, INFLUENCE_BLOCKED_RGB, NAVAL_RING_RGB, EVENT_AMBER_RGB, EVENT_STABILITY_RGB, EVENT_TRUCE_RGB, ERA_ADVANCE_GOLD_RGB, SEA_FRONTIER_COLOR } from '../../utils/mapVisualStyles';
+import { isSeaFrontier } from '../../utils/maritimeFrontierRing';
 import { eventDurationMs, resolveEventVisualMode } from '../../utils/mapEventEffects';
 import type { MapVisualEvent } from '../../utils/mapVisualEvents';
 import {
@@ -1372,6 +1373,12 @@ function GlobeMap({
           : 0.008;
       const jitter =
         regionalGlobe.lockRotation || authoredRegional ? polygonAltitudeHash(id) * 0.0015 : 0;
+      // Space Age sea frontiers sit lower than the land around them, so on a
+      // globe the open-water and ice tiles read as sea level rather than as
+      // another slab of raised ground. Jitter is dropped with it: that exists
+      // to stop neighbouring land caps z-fighting, and these have no
+      // neighbours at their height.
+      if (isSeaFrontier(id)) return base * 0.4;
       return base + jitter;
     },
     [regionalGlobe.lockRotation, mapData.map_kind, mapData.projection_bounds, isFloodedNorthAmerica, activeWorldId],
@@ -3096,6 +3103,10 @@ function GlobeMap({
       if (mapData.map_kind === 'galaxy') {
         return '#ffffff';
       }
+      // Below every state signal on purpose: selection, adjacency and
+      // turn-holder all return above this, so marking a tile as water never
+      // costs the player a cue they are acting on.
+      if (isSeaFrontier(p.territory_id)) return SEA_FRONTIER_COLOR;
       const regionId = territoryRegionMap.get(p.territory_id);
       const regionColor = regionId ? regionColorMap.get(regionId) : undefined;
       if (regionColor) return regionColor;
