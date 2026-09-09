@@ -13,16 +13,35 @@
  * with node/label sizes that shrink as worlds multiply. The math lives in
  * `galaxyStrategicLayout.ts` (unit-tested); this file is the rendering shell.
  *
+ * Lanes are the era's board, so every PHYSICAL lane is drawn (two per world
+ * pair on the shipped map, fanned apart), coloured by what it is to the viewer
+ * under corridors: a corridor (they hold both gateways, their colour), open
+ * (they hold one end, blue), closed (neither, dim) or sealed (an Emergency Seal,
+ * orange). Each lane's end dots carry the gateway owners' colours and its
+ * tooltip names the owners, the seal and its rounds left. The rules come from
+ * `utils/galaxyLanes.ts`, the client mirror of the backend.
+ *
  * Interaction: single-click a world for its ownership breakdown; double-click
- * (or "Enter world") drills into that world's globe. Orbit lanes show open
- * (blue) / locked (red, needs Hyperspace Chart) / sealed (orange); click a lane
- * you border to seal it when the contestable-lanes mechanic is on.
+ * (or "Enter world") drills into that world's globe. A Void Custodian clicks a
+ * lane touching Nexus Station to seal it for a round.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../../constants/galaxyLore';
 import type { GameState } from '../../store/gameStore';
+import {
+  EMERGENCY_SEAL_WORLD_ID,
+  describeLaneDice,
+  describeLaneSeal,
+  describeLaneState,
+  laneAttackDiceCap,
+  laneSealFor,
+  laneStateFor,
+  orbitLaneId,
+  type LaneSeal,
+  type LaneState,
+} from '../../utils/galaxyLanes';
 import {
   aggregateOrbitLanes,
   buildWorldNodes,
@@ -64,27 +83,27 @@ export interface GalaxyStrategicViewProps {
   height: number;
   /**
    * When false, orbit lanes render dim red to communicate that the active player
-   * has not satisfied the orbit-access gate. Backend stays authoritative for the
-   * actual claim/attack rejection.
+   * has not satisfied the orbit-access gate (corridors kill switch off). Backend
+   * stays authoritative for the actual claim/attack rejection.
    */
   orbitAccessAllowed?: boolean;
-  /** Galaxy contestable lanes: ids of currently-sealed orbit lanes (from gameState.lane_blockades). */
+  /**
+   * The viewing player. Lane states (corridor / open / closed) are read from
+   * their gateways. Falls back to whoever `ownsTerritory` reports as the owner.
+   */
+  viewerPlayerId?: string | null;
+  /** Ids of currently-sealed orbit lanes; used only when `gameState` carries no `lane_blockades`. */
   sealedLaneIds?: Set<string>;
-  /** Whether the lane-seal mechanic is on (enables click-to-seal). */
+  /** Whether the viewer may fire an Emergency Seal (enables click-to-seal on Nexus lanes). */
   lanesContestableEnabled?: boolean;
-  /** True when the active player owns the given territory (used to allow sealing a lane you border). */
+  /** True when the active player owns the given territory. */
   ownsTerritory?: (territoryId: string) => boolean;
-  /** Seal the orbit lane between two territories (the active player must hold an endpoint). */
+  /** Seal the orbit lane between two territories. */
   onSealLane?: (fromId: string, toId: string) => void;
   /** Pulse the world node when a map action occurs on that world. */
   pulseWorldId?: string | null;
   pulseKey?: number;
   pulseLabel?: string | null;
-}
-
-/** Canonical, order-independent lane id — must match the backend `orbitLaneId`. */
-function laneKey(a: string, b: string): string {
-  return a < b ? `${a}::${b}` : `${b}::${a}`;
 }
 
 /** Deterministic, muted planet-body color per world (scales to any world id). */
@@ -110,6 +129,13 @@ function mulberry32(seed: number): () => number {
 const GOLD = '#e6b34d';
 const NEUTRAL_COLOR = 'rgba(150, 160, 180, 0.5)';
 
+export const LANE_COLORS = {
+  open: 'rgba(120, 200, 255, 0.78)',
+  closed: 'rgba(150, 160, 180, 0.32)',
+  sealed: 'rgba(255, 120, 60, 0.95)',
+  gated: 'rgba(255, 110, 110, 0.5)',
+} as const;
+
 interface DonutSegment {
   color: string;
   len: number;
@@ -132,6 +158,28 @@ function donutSegments(node: WorldNode, circumference: number): DonutSegment[] {
   return segs;
 }
 
+interface LaneRender {
+  key: string;
+  from: string;
+  to: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  state: LaneState;
+  seal: LaneSeal | null;
+  /** The viewer is blocked by the seal (sealed by someone else). */
+  sealedAgainstViewer: boolean;
+  fromColor: string;
+  toColor: string;
+  stroke: string;
+  strokeWidth: number;
+  dash: string;
+  flow: boolean;
+  canSeal: boolean;
+  tooltip: string;
+}
+
 export default function GalaxyStrategicView({
   mapData,
   gameState,
@@ -141,6 +189,7 @@ export default function GalaxyStrategicView({
   width,
   height,
   orbitAccessAllowed = true,
+  viewerPlayerId: viewerPlayerIdProp,
   sealedLaneIds,
   lanesContestableEnabled = false,
   ownsTerritory,
@@ -156,6 +205,12 @@ export default function GalaxyStrategicView({
     const m = new Map<string, string>();
     for (const t of mapData.territories) m.set(t.territory_id, inferWorldId(t));
     return (tid: string): string | null => m.get(tid) ?? null;
+  }, [mapData.territories]);
+
+  const territoryName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of mapData.territories) m.set(t.territory_id, t.name);
+    return (tid: string): string => m.get(tid) ?? tid;
   }, [mapData.territories]);
 
   const ownerOf = useCallback(
@@ -202,8 +257,42 @@ export default function GalaxyStrategicView({
     [mapData.connections, worldOf],
   );
 
-  const laneRender = useMemo(() => {
+  // The viewer: the explicit prop, else the owner of any territory
+  // `ownsTerritory` reports as theirs.
+  const viewerPlayerId = useMemo(() => {
+    if (viewerPlayerIdProp) return viewerPlayerIdProp;
+    if (!ownsTerritory) return null;
+    for (const t of mapData.territories) {
+      if (ownsTerritory(t.territory_id)) return ownerOf(t.territory_id);
+    }
+    return null;
+  }, [viewerPlayerIdProp, ownsTerritory, mapData.territories, ownerOf]);
+
+  const viewerColor = useMemo(
+    () => (viewerPlayerId ? playerInfo(viewerPlayerId)?.color ?? GOLD : GOLD),
+    [viewerPlayerId, playerInfo],
+  );
+
+  const viewerLaneDice = useMemo(
+    () => (gameState ? laneAttackDiceCap(gameState, viewerPlayerId) : undefined),
+    [gameState, viewerPlayerId],
+  );
+
+  const sealFor = useCallback(
+    (from: string, to: string): LaneSeal | null => {
+      if (gameState?.lane_blockades) return laneSealFor(gameState, from, to);
+      return sealedLaneIds?.has(orbitLaneId(from, to)) ? { owner_id: '', turns_remaining: 1 } : null;
+    },
+    [gameState, sealedLaneIds],
+  );
+
+  const laneRender = useMemo((): LaneRender[] => {
     const trim = sizing.donutR + sizing.donutWidth / 2 + 3;
+    const gap = clamp(sizing.donutR * 0.45, 8, 16);
+    const ownerName = (pid: string | null): string =>
+      pid ? (pid === viewerPlayerId ? 'you' : playerInfo(pid)?.name ?? pid) : 'neutral';
+    const ownerColor = (pid: string | null): string =>
+      pid ? playerInfo(pid)?.color ?? NEUTRAL_COLOR : NEUTRAL_COLOR;
     return worldLanes.flatMap((lane) => {
       const pa = placeById.get(lane.a);
       const pb = placeById.get(lane.b);
@@ -214,35 +303,89 @@ export default function GalaxyStrategicView({
       if (len <= 2 * trim + 6) return []; // worlds too close — skip the stub
       const ux = dx / len;
       const uy = dy / len;
-      const sealed = lane.underlying.some((u) => sealedLaneIds?.has(laneKey(u.from, u.to)));
-      const sealable = lane.underlying.find(
-        (u) =>
-          !!ownsTerritory &&
-          (ownsTerritory(u.from) || ownsTerritory(u.to)) &&
-          !sealedLaneIds?.has(laneKey(u.from, u.to)),
-      );
-      return [
-        {
-          key: `${lane.a}::${lane.b}`,
-          x1: pa.px + ux * trim,
-          y1: pa.py + uy * trim,
-          x2: pb.px - ux * trim,
-          y2: pb.py - uy * trim,
-          sealed,
-          sealable: sealable ?? null,
-        },
-      ];
-    });
-  }, [worldLanes, placeById, sizing.donutR, sizing.donutWidth, sealedLaneIds, ownsTerritory]);
+      // Fan the physical lanes apart along the perpendicular so each reads.
+      const nx = -uy;
+      const ny = ux;
+      const count = lane.underlying.length;
+      return lane.underlying.map((u, i) => {
+        // Orient every lane from world `a` to world `b` so the end dots line up.
+        const [from, to] = worldOf(u.from) === lane.a ? [u.from, u.to] : [u.to, u.from];
+        const off = (i - (count - 1) / 2) * gap;
+        const state: LaneState = gameState ? laneStateFor(gameState, from, to, viewerPlayerId) : 'closed';
+        const seal = sealFor(from, to);
+        const sealedAgainstViewer = !!seal && seal.owner_id !== viewerPlayerId;
+        const fromOwner = ownerOf(from);
+        const toOwner = ownerOf(to);
+        const touchesSealWorld = worldOf(from) === EMERGENCY_SEAL_WORLD_ID || worldOf(to) === EMERGENCY_SEAL_WORLD_ID;
+        const canSeal = lanesContestableEnabled && !!onSealLane && !seal && touchesSealWorld;
 
-  // The viewer is the owner of any territory `ownsTerritory` reports as theirs.
-  const viewerPlayerId = useMemo(() => {
-    if (!ownsTerritory) return null;
-    for (const t of mapData.territories) {
-      if (ownsTerritory(t.territory_id)) return ownerOf(t.territory_id);
-    }
-    return null;
-  }, [ownsTerritory, mapData.territories, ownerOf]);
+        let stroke: string;
+        let strokeWidth: number;
+        let dash: string;
+        let flow = false;
+        if (seal) {
+          stroke = LANE_COLORS.sealed;
+          strokeWidth = 2.6;
+          dash = '4 4';
+        } else if (!orbitAccessAllowed) {
+          stroke = LANE_COLORS.gated;
+          strokeWidth = 1.7;
+          dash = '3 6';
+        } else if (state === 'corridor') {
+          stroke = viewerColor;
+          strokeWidth = 2.4;
+          dash = '11 4';
+          flow = true;
+        } else if (state === 'open') {
+          stroke = LANE_COLORS.open;
+          strokeWidth = 1.8;
+          dash = '7 6';
+          flow = true;
+        } else {
+          stroke = LANE_COLORS.closed;
+          strokeWidth = 1.2;
+          dash = '2 5';
+        }
+
+        const lines = [
+          `${territoryName(from)} ↔ ${territoryName(to)}`,
+          gameState && viewerPlayerId ? describeLaneState(state) : 'Hyperspace lane',
+          `${territoryName(from)}: ${ownerName(fromOwner)} · ${territoryName(to)}: ${ownerName(toOwner)}`,
+        ];
+        const sealLine = describeLaneSeal(seal, (pid) => playerInfo(pid)?.name ?? 'a rival', viewerPlayerId);
+        if (sealLine) lines.push(sealLine);
+        const dice = describeLaneDice(viewerLaneDice);
+        if (dice && state !== 'closed') lines.push(dice);
+        if (!orbitAccessAllowed) lines.push('Locked — research Lane Charts to cross');
+        if (canSeal) lines.push('Click to fire an Emergency Seal (1 round)');
+
+        return {
+          key: orbitLaneId(from, to),
+          from,
+          to,
+          x1: pa.px + ux * trim + nx * off,
+          y1: pa.py + uy * trim + ny * off,
+          x2: pb.px - ux * trim + nx * off,
+          y2: pb.py - uy * trim + ny * off,
+          state,
+          seal,
+          sealedAgainstViewer,
+          fromColor: ownerColor(fromOwner),
+          toColor: ownerColor(toOwner),
+          stroke,
+          strokeWidth,
+          dash,
+          flow,
+          canSeal,
+          tooltip: lines.join('\n'),
+        };
+      });
+    });
+  }, [
+    worldLanes, placeById, sizing.donutR, sizing.donutWidth, gameState, viewerPlayerId, viewerColor,
+    viewerLaneDice, sealFor, ownerOf, worldOf, playerInfo, territoryName, orbitAccessAllowed,
+    lanesContestableEnabled, onSealLane,
+  ]);
 
   const legendPlayers = useMemo(() => {
     const present = new Set<string>();
@@ -265,6 +408,21 @@ export default function GalaxyStrategicView({
     () => nodes.find((n) => n.world_id === selectedWorldId) ?? null,
     [nodes, selectedWorldId],
   );
+
+  /** Gateways on the selected world: how many, and how many the viewer holds. */
+  const selectedGateways = useMemo(() => {
+    if (!selectedNode) return null;
+    const ids = new Set<string>();
+    for (const lane of worldLanes) {
+      if (lane.a !== selectedNode.world_id && lane.b !== selectedNode.world_id) continue;
+      for (const u of lane.underlying) {
+        if (worldOf(u.from) === selectedNode.world_id) ids.add(u.from);
+        if (worldOf(u.to) === selectedNode.world_id) ids.add(u.to);
+      }
+    }
+    const mine = viewerPlayerId ? [...ids].filter((id) => ownerOf(id) === viewerPlayerId).length : 0;
+    return { total: ids.size, mine };
+  }, [selectedNode, worldLanes, worldOf, ownerOf, viewerPlayerId]);
 
   const stars = useMemo(() => {
     const rng = mulberry32(0x9e3779b9);
@@ -317,6 +475,7 @@ export default function GalaxyStrategicView({
   const circumference = 2 * Math.PI * sizing.donutR;
   const pulseActive = pulsePhase > 0;
   const pulseT = pulsePhase % 14;
+  const showLaneLegend = !!gameState && !!viewerPlayerId && orbitAccessAllowed;
 
   return (
     <div
@@ -329,6 +488,7 @@ export default function GalaxyStrategicView({
         .bf-world-node { cursor: pointer; }
         .bf-world-node circle.bf-body { transition: filter 120ms ease; }
         .bf-world-node:hover circle.bf-body { filter: brightness(1.25); }
+        .bf-lane:hover .bf-lane-line { filter: brightness(1.35); }
         @media (prefers-reduced-motion: reduce) { .bf-lane-flow { animation: none; } }
       `}</style>
 
@@ -355,45 +515,47 @@ export default function GalaxyStrategicView({
           <circle key={`star-${i}`} cx={s.x} cy={s.y} r={s.r} fill="#ffffff" opacity={s.o} />
         ))}
 
-        {/* Hyperspace lanes (drawn under the worlds) */}
-        {laneRender.map((l) => {
-          const stroke = l.sealed
-            ? 'rgba(255, 120, 60, 0.95)'
-            : orbitAccessAllowed
-              ? 'rgba(120, 200, 255, 0.7)'
-              : 'rgba(255, 110, 110, 0.5)';
-          const canSeal = lanesContestableEnabled && !l.sealed && !!l.sealable && !!onSealLane;
-          return (
-            <g key={`lane-${l.key}`}>
-              {/* wide invisible hit target for easier sealing */}
-              <line
-                x1={l.x1}
-                y1={l.y1}
-                x2={l.x2}
-                y2={l.y2}
-                stroke="transparent"
-                strokeWidth={14}
-                style={{ cursor: canSeal ? 'pointer' : 'default' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (canSeal && l.sealable && onSealLane) onSealLane(l.sealable.from, l.sealable.to);
-                }}
-              />
-              <line
-                x1={l.x1}
-                y1={l.y1}
-                x2={l.x2}
-                y2={l.y2}
-                stroke={stroke}
-                strokeWidth={l.sealed ? 2.6 : 1.7}
-                strokeLinecap="round"
-                strokeDasharray={l.sealed ? '4 4' : orbitAccessAllowed ? '7 6' : '3 6'}
-                className={!l.sealed && orbitAccessAllowed ? 'bf-lane-flow' : undefined}
-                pointerEvents="none"
-              />
-            </g>
-          );
-        })}
+        {/* Hyperspace lanes (drawn under the worlds), one per physical lane */}
+        {laneRender.map((l) => (
+          <g
+            key={`lane-${l.key}`}
+            className="bf-lane"
+            data-lane-id={l.key}
+            data-lane-state={l.state}
+            data-lane-sealed={l.seal ? 'true' : 'false'}
+          >
+            <title>{l.tooltip}</title>
+            {/* wide invisible hit target for easier sealing */}
+            <line
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke="transparent"
+              strokeWidth={14}
+              style={{ cursor: l.canSeal ? 'pointer' : 'default' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (l.canSeal && onSealLane) onSealLane(l.from, l.to);
+              }}
+            />
+            <line
+              className={`bf-lane-line${l.flow ? ' bf-lane-flow' : ''}`}
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke={l.stroke}
+              strokeWidth={l.strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={l.dash}
+              pointerEvents="none"
+            />
+            {/* Gateway owner dots at each end */}
+            <circle cx={l.x1} cy={l.y1} r={3} fill={l.fromColor} stroke="rgba(0,0,0,0.6)" strokeWidth={0.8} pointerEvents="none" />
+            <circle cx={l.x2} cy={l.y2} r={3} fill={l.toColor} stroke="rgba(0,0,0,0.6)" strokeWidth={0.8} pointerEvents="none" />
+          </g>
+        ))}
 
         {/* World nodes */}
         {nodes.map((node) => {
@@ -517,23 +679,50 @@ export default function GalaxyStrategicView({
         })}
       </svg>
 
-      {/* Player legend */}
-      {legendPlayers.length > 0 && (
+      {/* Player legend + lane legend */}
+      {(legendPlayers.length > 0 || showLaneLegend) && (
         <div className="pointer-events-none absolute top-3 left-3 max-w-[45%] px-2.5 py-2 rounded-lg bg-black/45 border border-bf-border/60">
-          <div className="text-[10px] uppercase tracking-wide text-bf-muted mb-1">Control</div>
-          <div className="flex flex-col gap-1">
-            {legendPlayers.map((pl) => (
-              <div key={pl.player_id} className="flex items-center gap-1.5">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
-                  style={{ background: pl.color }}
-                />
-                <span className="text-[11px] text-bf-text truncate">
-                  {pl.player_id === viewerPlayerId ? 'You' : pl.name}
+          {legendPlayers.length > 0 && (
+            <>
+              <div className="text-[10px] uppercase tracking-wide text-bf-muted mb-1">Control</div>
+              <div className="flex flex-col gap-1">
+                {legendPlayers.map((pl) => (
+                  <div key={pl.player_id} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+                      style={{ background: pl.color }}
+                    />
+                    <span className="text-[11px] text-bf-text truncate">
+                      {pl.player_id === viewerPlayerId ? 'You' : pl.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {showLaneLegend && (
+            <div className="mt-1.5 pt-1.5 border-t border-bf-border/40" data-testid="lane-legend">
+              <div className="text-[10px] uppercase tracking-wide text-bf-muted mb-1">Lanes</div>
+              <div className="flex flex-col gap-0.5 text-[10px] text-bf-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2" style={{ borderColor: viewerColor }} />
+                  Corridor · both gateways yours
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LANE_COLORS.open }} />
+                  Open · you hold one end
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t border-dotted" style={{ borderColor: 'rgba(150,160,180,0.7)' }} />
+                  Closed · take a gateway first
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LANE_COLORS.sealed }} />
+                  Sealed · Emergency Seal, 1 round
                 </span>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -584,6 +773,11 @@ export default function GalaxyStrategicView({
               </div>
             )}
           </div>
+          {selectedGateways && selectedGateways.total > 0 && (
+            <div className="mt-2 text-[11px] text-bf-muted" data-testid="world-gateways">
+              🛰 Gateways: {viewerPlayerId ? `you hold ${selectedGateways.mine} of ${selectedGateways.total}` : selectedGateways.total}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => enterWorld(selectedNode)}
@@ -598,10 +792,10 @@ export default function GalaxyStrategicView({
       <div className="pointer-events-none absolute bottom-3 left-3 px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-muted text-[11px]">
         Galaxy overview · click a world for details · double-click to enter · world tabs also drill in
         {!orbitAccessAllowed && (
-          <span className="ml-2 text-amber-300">· red lanes locked (need Hyperspace Chart)</span>
+          <span className="ml-2 text-amber-300">· red lanes locked (need Lane Charts)</span>
         )}
         {lanesContestableEnabled && (
-          <span className="ml-2 text-orange-300">· click a lane you border to seal it (orange = sealed)</span>
+          <span className="ml-2 text-orange-300">· click a lane touching Nexus Station to seal it for a round</span>
         )}
       </div>
     </div>

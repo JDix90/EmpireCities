@@ -35,8 +35,9 @@ export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
   galaxy_age: {
     systems: ['economy', 'tech_trees', 'factions'],
     warning:
-      'Galactic Age needs Economy & Buildings, Technology Trees and Asymmetric Factions: hyperspace ' +
-      'travel is unlocked by the Hyperspace Chart tech or the Hyperlane Anchor wonder, and the ' +
+      'Galactic Age needs Economy & Buildings, Technology Trees and Asymmetric Factions: every ' +
+      'faction kit is built around the hyperspace lanes (Emergency Seal, Blockade Runner, Drift ' +
+      'Jump, Supply Insert), Lane Charts and the Hyperlane Anchor shape lane combat, and the ' +
       'one-faction-per-world start only happens when four players each take a different faction. ' +
       'Without factions every player begins scattered across all four worlds.',
   },

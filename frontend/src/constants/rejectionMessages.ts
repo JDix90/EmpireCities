@@ -19,7 +19,7 @@ export const REJECTION_GUIDANCE: Record<string, string> = {
   PATH_NOT_CONNECTED: "Fortify only moves along a connected chain of territories you own.",
   ALREADY_ADVANCED: "You advanced an era this turn, so you can't attack until your next turn.",
   TRUCE_ACTIVE: "You have an active truce with this player. Break the truce first to attack them.",
-  LANE_SEALED: "That hyperspace lane is sealed — choose a different route.",
+  LANE_SEALED: "An Emergency Seal closes that hyperspace lane this round — cross another lane, or wait for it to lift.",
   INVALID_TERRITORY: "That territory can't be used for this action. Pick a highlighted one.",
   NON_INTEGER_UNITS: "Enter a whole number of units.",
   ACTION_IN_FLIGHT: "Still processing your last action — give it a moment and try again.",

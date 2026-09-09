@@ -1,0 +1,135 @@
+import { describe, it, expect } from 'vitest';
+import type { GameState } from '../store/gameStore';
+import {
+  describeLaneDice,
+  describeLaneSeal,
+  describeLaneState,
+  describeWorldModifiers,
+  gatewayLanesFor,
+  gatewayTerritoryIds,
+  isLaneSealedForPlayer,
+  laneAttackDiceCap,
+  laneSealFor,
+  laneStateFor,
+  laneTouchesSealWorld,
+  orbitLaneId,
+  worldDisplayName,
+} from './galaxyLanes';
+
+const mapData = {
+  map_kind: 'galaxy' as const,
+  worlds: [
+    { world_id: 'sol', display_name: 'Sol III' },
+    { world_id: 'verdan', display_name: 'Verdan Reach' },
+    { world_id: 'nexus_station', display_name: 'Nexus Station' },
+  ],
+  territories: [
+    { territory_id: 'sol_a', name: 'Columbia Reach', region_id: 'r', world_id: 'sol' },
+    { territory_id: 'sol_b', name: 'Cathay', region_id: 'r', world_id: 'sol' },
+    { territory_id: 'verdan_a', name: 'Sporefields', region_id: 'r', world_id: 'verdan' },
+    { territory_id: 'nexus_a', name: 'Gate Ring', region_id: 'r', world_id: 'nexus_station' },
+  ],
+  connections: [
+    { from: 'sol_a', to: 'verdan_a', type: 'orbit' as const },
+    { from: 'sol_b', to: 'nexus_a', type: 'orbit' as const },
+    { from: 'sol_a', to: 'sol_b', type: 'land' as const },
+  ],
+};
+
+function mkState(opts: {
+  owners?: Record<string, string>;
+  seals?: GameState['lane_blockades'];
+  corridors?: boolean;
+  techs?: string[];
+  anchor?: boolean;
+} = {}): GameState {
+  const owners = opts.owners ?? { sol_a: 'me', sol_b: 'me', verdan_a: 'rival', nexus_a: 'rival' };
+  return {
+    settings: { galaxy_corridors_enabled: opts.corridors ?? true, tech_trees_enabled: true },
+    players: [
+      { player_id: 'me', username: 'Commander', unlocked_techs: opts.techs ?? [] },
+      { player_id: 'rival', username: 'Rival', unlocked_techs: [] },
+    ],
+    lane_blockades: opts.seals,
+    territories: Object.fromEntries(
+      Object.entries(owners).map(([id, owner]) => [
+        id,
+        { owner_id: owner, buildings: opts.anchor && id === 'sol_a' ? ['wonder_hyperlane_anchor'] : [] },
+      ]),
+    ),
+  } as unknown as GameState;
+}
+
+describe('galaxyLanes', () => {
+  it('lane ids are order-independent and match the backend shape', () => {
+    expect(orbitLaneId('b', 'a')).toBe('a::b');
+    expect(orbitLaneId('a', 'b')).toBe(orbitLaneId('b', 'a'));
+  });
+
+  it('reads corridor / open / closed from the two gateways', () => {
+    const state = mkState({ owners: { sol_a: 'me', verdan_a: 'me', sol_b: 'me', nexus_a: 'rival' } });
+    expect(laneStateFor(state, 'sol_a', 'verdan_a', 'me')).toBe('corridor');
+    expect(laneStateFor(state, 'sol_a', 'verdan_a', 'rival')).toBe('closed');
+    expect(laneStateFor(state, 'sol_b', 'nexus_a', 'me')).toBe('open');
+    expect(laneStateFor(state, 'sol_b', 'nexus_a', 'rival')).toBe('open');
+    expect(laneStateFor(state, 'sol_b', 'nexus_a', null)).toBe('closed');
+  });
+
+  it('reports an active seal, and lets the sealer cross their own', () => {
+    const seals = { [orbitLaneId('sol_b', 'nexus_a')]: { owner_id: 'rival', turns_remaining: 1 } };
+    const state = mkState({ seals });
+    expect(laneSealFor(state, 'nexus_a', 'sol_b')).toEqual({ owner_id: 'rival', turns_remaining: 1 });
+    expect(isLaneSealedForPlayer(state, 'sol_b', 'nexus_a', 'me')).toBe(true);
+    expect(isLaneSealedForPlayer(state, 'sol_b', 'nexus_a', 'rival')).toBe(false);
+    const expired = mkState({ seals: { [orbitLaneId('sol_b', 'nexus_a')]: { owner_id: 'rival', turns_remaining: 0 } } });
+    expect(laneSealFor(expired, 'sol_b', 'nexus_a')).toBeNull();
+  });
+
+  it('caps lane attacks at 2 dice, 3 with Lane Charts, uncapped for the Anchor owner or with corridors off', () => {
+    expect(laneAttackDiceCap(mkState(), 'me')).toBe(2);
+    expect(laneAttackDiceCap(mkState({ techs: ['ga_hyperspace_chart'] }), 'me')).toBe(3);
+    expect(laneAttackDiceCap(mkState({ anchor: true }), 'me')).toBeUndefined();
+    expect(laneAttackDiceCap(mkState({ corridors: false }), 'me')).toBeUndefined();
+  });
+
+  it('lists the lanes leaving a gateway with the far world named', () => {
+    expect(gatewayLanesFor(mapData, 'sol_a')).toEqual([
+      { nearId: 'sol_a', farId: 'verdan_a', farName: 'Sporefields', farWorldId: 'verdan', farWorldName: 'Verdan Reach' },
+    ]);
+    expect(gatewayLanesFor(mapData, 'verdan_a')[0].farWorldName).toBe('Sol III');
+    expect(gatewayLanesFor(mapData, 'nope')).toEqual([]);
+    expect([...gatewayTerritoryIds(mapData)].sort()).toEqual(['nexus_a', 'sol_a', 'sol_b', 'verdan_a']);
+  });
+
+  it('falls back to lore names for worlds the map does not label', () => {
+    expect(worldDisplayName({ ...mapData, worlds: undefined }, 'rust')).toBe('Rust Belt');
+    expect(worldDisplayName(mapData, 'unknown')).toBe('unknown');
+  });
+
+  it('knows which lanes the Emergency Seal can close', () => {
+    expect(laneTouchesSealWorld(mapData, 'sol_b', 'nexus_a')).toBe(true);
+    expect(laneTouchesSealWorld(mapData, 'sol_a', 'verdan_a')).toBe(false);
+  });
+
+  it('describes states, seals, dice and world modifiers in plain words', () => {
+    expect(describeLaneState('corridor')).toMatch(/both gateways/);
+    expect(describeLaneState('open')).toMatch(/this end/);
+    expect(describeLaneState('closed')).toMatch(/neither/);
+    const name = (id: string) => (id === 'rival' ? 'Rival' : id);
+    expect(describeLaneSeal({ owner_id: 'rival', turns_remaining: 1 }, name, 'me')).toBe('Sealed by Rival · 1 round left');
+    expect(describeLaneSeal({ owner_id: 'me', turns_remaining: 2 }, name, 'me')).toBe('Sealed by you · 2 rounds left');
+    expect(describeLaneSeal(null, name, 'me')).toBeNull();
+    expect(describeLaneDice(2)).toBe('Lane attacks roll 2 dice (3 with Lane Charts)');
+    expect(describeLaneDice(3)).toBe('Lane attacks roll 3 dice');
+    expect(describeLaneDice(undefined)).toBeNull();
+    expect(describeWorldModifiers({ production_bonus: 0.3, stability_bonus: 1 })).toEqual([
+      '+0.3 production per system you hold',
+      '+1 stability recovery per system you hold',
+    ]);
+    expect(describeWorldModifiers({ tech_bonus: 0.0625, build_cost_mult: 0.8 })).toEqual([
+      '+0.063 tech per system you hold',
+      'Buildings cost 20% less',
+    ]);
+    expect(describeWorldModifiers(undefined)).toEqual([]);
+  });
+});

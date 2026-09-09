@@ -11,13 +11,15 @@
  *     either a launched Space Station or the Space Elevator wonder, OR be the
  *     Lunar Pioneers faction.
  *   - `galaxy_hyperspace`: under corridors (`settings.galaxy_corridors_enabled`,
- *     the default) access is positional and always allowed; with the kill
- *     switch off it needs `ga_hyperspace_chart`, OR the Hyperlane Anchor
- *     wonder, OR the Helion Navigators faction.
+ *     the default) access is positional and always allowed — lane STATE and the
+ *     lane dice cap live in `galaxyLanes.ts`; with the kill switch off it needs
+ *     Lane Charts (`ga_hyperspace_chart`), OR the Hyperlane Anchor wonder, OR
+ *     the Helion Navigators faction.
  */
 
 import { inferWorldId } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
+import { orbitLaneId } from './galaxyLanes';
 
 export type OrbitAccessMode = 'none' | 'space_age_moon' | 'galaxy_hyperspace';
 
@@ -32,6 +34,7 @@ export interface FrontendMapTerritory {
 
 export interface FrontendMapWorld {
   world_id: string;
+  display_name?: string;
   requires_orbit_access?: boolean;
 }
 
@@ -215,11 +218,6 @@ export function getSpaceProgramProgress(
   };
 }
 
-/** Lane id, matching the backend's `orbitLaneId` ordering. */
-function orbitLaneId(a: string, b: string): string {
-  return a < b ? `${a}::${b}` : `${b}::${a}`;
-}
-
 /**
  * Client mirror of the backend `fortifyTraversalFilter`: may this player move
  * troops across this connection right now?
@@ -303,7 +301,7 @@ export function getOrbitAccessResult(
   if (hasAnchor) return { allowed: true, missing: [] };
   const techs = player.unlocked_techs ?? [];
   if (techs.includes('ga_hyperspace_chart')) return { allowed: true, missing: [] };
-  return { allowed: false, missing: ['Hyperspace Chart tech'] };
+  return { allowed: false, missing: ['Lane Charts tech'] };
 }
 
 /**

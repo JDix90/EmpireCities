@@ -247,7 +247,8 @@ export function getAvailableFactionAbilityId(
     austria:                 'habsberg_garrison',
     lunar_pioneers:          'lunar_supply_drop',
     climate_alliance:        'terraform',
-    void_custodians:         'terraform',
+    // Void Custodians' charge is the Emergency Seal, fired from a lane (chart or
+    // gateway panel), not through game:use_ability — so no entry here.
     // Group B — tech-point-gated placement (draft)
     usa:               'arsenal_of_democracy',
     sino_hegemony:     'ai_surge',

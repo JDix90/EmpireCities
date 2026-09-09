@@ -13,7 +13,7 @@ interface NeighborTerritoryPickerProps {
   onAttack?: (toTerritoryId: string) => void;
   /** Galaxy: the viewing player can't yet traverse hyperspace lanes. */
   orbitLocked?: boolean;
-  /** Why orbit targets are locked (e.g. "Hyperspace travel requires: Hyperspace Chart tech"). */
+  /** Why orbit targets are locked (Space Age Moon ladder, or the galaxy kill-switch gate). */
   orbitLockReason?: string;
 }
 
@@ -126,6 +126,7 @@ export default function NeighborTerritoryPicker({
                   {neighbor.unitCount === -1 ? '? units' : plural(neighbor.unitCount, 'unit')}
                   {neighbor.isSea ? ' · sea' : ''}
                   {isOrbit ? ` · ${neighbor.targetWorldName ?? 'hyperspace'}` : ''}
+                  {isOrbit && isAttack && neighbor.laneDice != null ? ` · ${neighbor.laneDice} dice` : ''}
                 </span>
               </button>
               {isAttack && (

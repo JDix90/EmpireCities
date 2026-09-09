@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GamePhase } from '@borderfall/shared';
+import type { GamePhase, WorldModifiers } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 export interface TerritoryState {
@@ -145,6 +145,9 @@ export interface GameState {
      * attacks at 2 dice (3 with Lane Charts). Baked at create; advisory here.
      */
     galaxy_corridors_enabled?: boolean;
+    /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
+    world_modifiers_enabled?: boolean;
+    world_modifiers?: Record<string, WorldModifiers>;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

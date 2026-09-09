@@ -13,7 +13,7 @@ import { computeLandCombatModifiers } from './combatModifiers';
 const ORBIT: MapConnection = { from: 'sol_a', to: 'verdan_a', type: 'orbit' };
 const LAND: MapConnection = { from: 'sol_a', to: 'sol_b', type: 'land' };
 
-function mkState(opts: { corridors?: boolean; techs?: string[]; factions?: boolean } = {}): GameState {
+function mkState(opts: { corridors?: boolean; techs?: string[]; factions?: boolean; anchor?: boolean } = {}): GameState {
   return {
     era: 'galaxy_age',
     settings: {
@@ -28,7 +28,10 @@ function mkState(opts: { corridors?: boolean; techs?: string[]; factions?: boole
       { player_id: 'p2', unlocked_techs: [] },
     ],
     territories: {
-      sol_a: { territory_id: 'sol_a', owner_id: 'p1', unit_count: 10, world_id: 'sol' },
+      sol_a: {
+        territory_id: 'sol_a', owner_id: 'p1', unit_count: 10, world_id: 'sol',
+        buildings: opts.anchor ? ['wonder_hyperlane_anchor'] : [],
+      },
       sol_b: { territory_id: 'sol_b', owner_id: 'p2', unit_count: 4, world_id: 'sol' },
       verdan_a: { territory_id: 'verdan_a', owner_id: 'p2', unit_count: 4, world_id: 'verdan' },
     },
@@ -61,6 +64,14 @@ describe('lane dice cap', () => {
     // Hyperdrive Doctrine is +1 on all attacks: 2 (cap) + 1.
     expect(attackerDice(mkState({ techs: ['ga_hyperdrive_doctrine'] }), ORBIT)).toBe(3);
     expect(attackerDice(mkState({ techs: ['ga_hyperspace_chart', 'ga_hyperdrive_doctrine'] }), ORBIT)).toBe(4);
+  });
+
+  it('lifts the cap entirely for the Hyperlane Anchor owner', () => {
+    // The wonder used to skip the Chart gate; with no gate it removes the lane
+    // penalty instead, so the resolver falls back to the classic dice.
+    expect(attackerDice(mkState({ anchor: true }), ORBIT)).toBeUndefined();
+    // Classic 3 + Hyperdrive Doctrine's +1, exactly as on the ground.
+    expect(attackerDice(mkState({ anchor: true, techs: ['ga_hyperdrive_doctrine'] }), ORBIT)).toBe(4);
   });
 
   it('never caps a same-world attack', () => {

@@ -4059,15 +4059,15 @@ export default function GamePage() {
       {/*
         First-time Galactic Age coach tip. Self-gates via localStorage so it
         shows once per browser. Teaches the two non-obvious things: worlds are
-        drilled into individually, and crossing between them needs Hyperspace
-        Chart (or the Helion Navigators faction).
+        drilled into individually, and the lanes are positional — you cross
+        from a gateway system you hold, and crossings roll fewer dice.
       */}
       {mapData?.map_kind === 'galaxy' && (
         <FeatureExplainerModal
           featureKey="galactic_age_intro"
           icon="🌌"
           title="Welcome to the Galactic Age"
-          description="Four worlds, one war. Tap a world to drill into it, and open the galaxy chart to see all four at once. Hyperspace lanes link the planets — research Hyperspace Chart (or play the Helion Navigators) to move and attack across worlds."
+          description="Four worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches."
         />
       )}
 
@@ -4181,6 +4181,7 @@ export default function GamePage() {
                       width={mapCanvasSize.w}
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
+                      viewerPlayerId={resolvedViewerPlayerId}
                       sealedLaneIds={galaxySealedLaneIds}
                       lanesContestableEnabled={viewerCanEmergencySeal}
                       ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
@@ -4405,6 +4406,8 @@ export default function GamePage() {
               orbitAccessReason={orbitTravelBlockedReason}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               mapConnections={mapData.connections}
+              mapWorlds={mapData.worlds}
+              onSealLane={viewerCanEmergencySeal ? handleSealLane : undefined}
               denseMap={mapDensityMetrics?.isDense ?? false}
               onFortifyTo={handleFortifyTo}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}

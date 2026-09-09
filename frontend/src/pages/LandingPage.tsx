@@ -168,8 +168,8 @@ const ERAS: EraDefinition[] = [
     scope: 'global',
     territoryCount: 12,
     summary:
-      'Chart hyperspace lanes across a compact multi-world theater: hold your cradle world, then expand along orbit routes. '
-      + 'Helion Navigators begin with open lanes; everyone else researches Hyperspace Chart.',
+      'Four worlds linked by hyperspace lanes: hold a gateway system and strike straight across its lane. '
+      + 'Crossings roll fewer dice, so gateways defend like coasts — and each faction fights the lanes its own way.',
     suggestedPlayers: '2–4 players',
   },
 ];

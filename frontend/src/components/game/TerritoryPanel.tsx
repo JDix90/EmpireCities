@@ -33,6 +33,19 @@ import {
 } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId } from '@borderfall/shared';
+import {
+  EMERGENCY_SEAL_ABILITY_ID,
+  describeLaneDice,
+  describeLaneSeal,
+  describeLaneState,
+  describeWorldModifiers,
+  gatewayLanesFor,
+  laneAttackDiceCap,
+  laneSealFor,
+  laneStateFor,
+  laneTouchesSealWorld,
+  worldDisplayName,
+} from '../../utils/galaxyLanes';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -74,6 +87,10 @@ interface TerritoryPanelProps {
   /** Stable socket viewer id from `game:joined` — fixes draft UI when auth.user loads late */
   resolvedViewerPlayerId?: string | null;
   mapConnections?: MapConnection[];
+  /** Galaxy maps: authored world names, for the gateway badge's far-world label. */
+  mapWorlds?: Array<{ world_id: string; display_name: string }>;
+  /** Galaxy: fire an Emergency Seal on a lane leaving this gateway (Void Custodians). */
+  onSealLane?: (fromId: string, toId: string) => void;
   denseMap?: boolean;
   onFortifyTo?: (fromId: string, toId: string) => void;
   onClose: () => void;
@@ -285,6 +302,8 @@ export default function TerritoryPanel({
   orbitAccessReason,
   resolvedViewerPlayerId,
   mapConnections = [],
+  mapWorlds,
+  onSealLane,
   denseMap = false,
   onFortifyTo,
   onClose,
@@ -417,6 +436,13 @@ export default function TerritoryPanel({
     worldNameByTerritoryId,
     myPlayerId,
   ]);
+
+  /** Galaxy corridors: stamp each cross-world attack row with the dice it rolls. */
+  const attackNeighborsWithLaneDice = React.useMemo(() => {
+    const cap = laneAttackDiceCap(gameState, myPlayerId);
+    if (cap == null) return attackNeighbors;
+    return attackNeighbors.map((n) => (n.isOrbit ? { ...n, laneDice: cap } : n));
+  }, [attackNeighbors, gameState, myPlayerId]);
 
   /**
    * Can the armed attacker actually strike the territory being viewed? Reuses the
@@ -616,13 +642,17 @@ export default function TerritoryPanel({
         </div>
       )}
 
-      {/* Galaxy lore — shown above the region badge for galaxy_age maps. Mirrors the
-          per-territory flavor strings in `constants/galaxyLore.ts` so non-galaxy maps
-          render nothing here (lookup returns null). */}
+      {/* Galaxy world card — shown above the region badge for galaxy_age maps: the
+          world's lore, what holding it pays (its modifiers, in words), and — on a
+          gateway system — every lane leaving it with its state for the viewer.
+          Mirrors `constants/galaxyLore.ts`; non-galaxy maps render nothing here. */}
       {!isMobileCompactInfo && (() => {
         const territoryLore = getGalaxyTerritoryLoreDetail(mapTerritory.territory_id);
         const worldLore = getGalaxyWorldLore(mapTerritory.world_id);
-        if (!territoryLore && !worldLore) return null;
+        const worldMods = describeWorldModifiers(
+          mapTerritory.world_id ? gameState.settings.world_modifiers?.[mapTerritory.world_id] : undefined,
+        );
+        if (!territoryLore && !worldLore && worldMods.length === 0) return null;
         return (
           <div className="mb-3 px-3 py-2 rounded-lg border border-bf-border bg-[rgba(20,16,40,0.55)] text-xs leading-relaxed">
             {worldLore && (
@@ -635,6 +665,13 @@ export default function TerritoryPanel({
                   <p className="mt-1 text-[11px] text-bf-muted/90 leading-snug">{worldLore.stakes}</p>
                 )}
               </>
+            )}
+            {worldMods.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5" data-testid="world-modifiers">
+                {worldMods.map((line) => (
+                  <li key={line} className="text-[11px] text-emerald-200/90 leading-snug">◆ {line}</li>
+                ))}
+              </ul>
             )}
             {territoryLore && (
               <div className="mt-2 space-y-1.5 border-t border-bf-border/40 pt-2">
@@ -668,6 +705,73 @@ export default function TerritoryPanel({
           <span className="text-bf-muted">— launch to the Moon from here</span>
         </div>
       )}
+
+      {/* Galaxy gateway card — a system that anchors a hyperspace lane. One row per
+          lane: the far world, the lane's state for the viewer (corridor / open /
+          closed), any Emergency Seal on it, and the dice a crossing rolls. A Void
+          Custodian gets the seal button here as well as on the chart. */}
+      {!isMobileCompactInfo && (() => {
+        const galaxyMap = { territories: mapTerritories, connections: mapConnections, worlds: mapWorlds };
+        const lanes = gatewayLanesFor(galaxyMap, mapTerritory.territory_id);
+        if (lanes.length === 0 || inferWorldId(mapTerritory) === 'earth' || inferWorldId(mapTerritory) === 'moon') return null;
+        const playerName = (pid: string) => gameState.players.find((p) => p.player_id === pid)?.username ?? 'a rival';
+        const dice = describeLaneDice(laneAttackDiceCap(gameState, myPlayerId));
+        const sealUsed = (myPlayer?.ability_uses?.[EMERGENCY_SEAL_ABILITY_ID] ?? 0) >= 1;
+        const worldName = worldDisplayName(galaxyMap, inferWorldId(mapTerritory));
+        return (
+          <div className="mb-3 px-3 py-2 rounded-lg bg-bf-dark border border-violet-700/50 text-xs" data-testid="gateway-card">
+            <div className="flex items-center gap-1.5">
+              <span aria-hidden>🛰</span>
+              <span className="font-semibold text-bf-text">Gateway</span>
+              <span className="text-bf-muted">— {worldName}'s door onto the lanes</span>
+            </div>
+            <ul className="mt-1.5 space-y-1.5">
+              {lanes.map((lane) => {
+                const state = laneStateFor(gameState, lane.nearId, lane.farId, myPlayerId);
+                const seal = laneSealFor(gameState, lane.nearId, lane.farId);
+                const sealLine = describeLaneSeal(seal, playerName, myPlayerId);
+                const farOwnerId = gameState.territories[lane.farId]?.owner_id;
+                const farOwner = farOwnerId
+                  ? farOwnerId === myPlayerId ? 'you' : playerName(farOwnerId)
+                  : 'neutral';
+                const canSeal = !!onSealLane && isMyTurn && !seal
+                  && laneTouchesSealWorld(galaxyMap, lane.nearId, lane.farId);
+                const stateColor = seal
+                  ? 'text-orange-300'
+                  : state === 'corridor' ? 'text-bf-gold' : state === 'open' ? 'text-sky-300' : 'text-bf-muted';
+                return (
+                  <li key={lane.farId} className="leading-snug" data-lane-state={state} data-lane-sealed={seal ? 'true' : 'false'}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-bf-text">
+                        → <span className="font-medium">{lane.farWorldName}</span>
+                        <span className="text-bf-muted"> · {lane.farName} ({farOwner})</span>
+                      </span>
+                      <span className={clsx('shrink-0 font-medium', stateColor)}>
+                        {seal ? 'Sealed' : state === 'corridor' ? 'Corridor' : state === 'open' ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-bf-muted">
+                      {sealLine ?? describeLaneState(state)}
+                      {dice && state !== 'closed' && !seal ? ` · ${dice}` : ''}
+                    </div>
+                    {canSeal && (
+                      <button
+                        type="button"
+                        disabled={sealUsed}
+                        onClick={() => onSealLane!(lane.nearId, lane.farId)}
+                        className="mt-1 min-h-[32px] px-2.5 rounded border border-orange-500/60 text-orange-200 text-[11px] hover:bg-orange-900/30 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                        title={sealUsed ? 'Emergency Seal already used this turn' : 'Close this lane to everyone else for one round'}
+                      >
+                        🔒 {sealUsed ? 'Emergency Seal used this turn' : `Emergency Seal · lane to ${lane.farWorldName}`}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Region Badge — hidden in attack-confirm mode to keep the panel compact */}
       {!isMobileCompactInfo && (() => {
@@ -838,7 +942,7 @@ export default function TerritoryPanel({
             <NeighborTerritoryPicker
               phase="attack"
               sourceName={territoryNameById.get(attackNeighborSourceId) ?? attackNeighborSourceId}
-              neighbors={attackNeighbors}
+              neighbors={attackNeighborsWithLaneDice}
                 denseMap={denseMap}
                 compact={isMobileActionMode}
                 orbitLocked={!orbitAccessAllowed}

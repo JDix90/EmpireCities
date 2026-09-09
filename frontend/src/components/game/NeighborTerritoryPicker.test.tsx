@@ -80,7 +80,7 @@ describe('NeighborTerritoryPicker — attack rows attack', () => {
         onSelect={onSelect}
         onAttack={onAttack}
         orbitLocked
-        orbitLockReason="Hyperspace travel requires: Hyperspace Chart tech"
+        orbitLockReason="Hyperspace travel requires: Lane Charts tech"
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /Milan locked/ }));

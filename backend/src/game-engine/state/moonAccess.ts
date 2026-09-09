@@ -229,7 +229,7 @@ export function getOrbitAccessResult(
   if (hasAnchor) return { allowed: true, missing: [], mode };
   const hasTech = player.unlocked_techs?.includes('ga_hyperspace_chart') ?? false;
   if (hasTech) return { allowed: true, missing: [], mode };
-  return { allowed: false, missing: ['Hyperspace Chart tech'], mode };
+  return { allowed: false, missing: ['Lane Charts tech'], mode };
 }
 
 // ============================================================
@@ -457,10 +457,21 @@ export function galaxyLaneAttackDiceCap(state: GameState, attackerId: string): n
   // The setting is only ever baked for Galactic Age games (games.routes.ts), so
   // it is the era check as well; callers without the map can still ask.
   if (!state.settings?.galaxy_corridors_enabled) return undefined;
+  // The Hyperlane Anchor used to skip the Chart gate; under corridors there is
+  // no gate, so the wonder lifts the lane cap instead — its owner's crossings
+  // roll full dice, like a same-world attack.
+  if (playerOwnsHyperlaneAnchor(state, attackerId)) return undefined;
   const attacker = state.players.find((p) => p.player_id === attackerId);
   const hasLaneCharts = state.settings.tech_trees_enabled
     && (attacker?.unlocked_techs?.includes('ga_hyperspace_chart') ?? false);
   return GALAXY_LANE_BASE_ATTACK_DICE + (hasLaneCharts ? 1 : 0);
+}
+
+/** True when any territory the player holds carries the Hyperlane Anchor wonder. */
+export function playerOwnsHyperlaneAnchor(state: GameState, playerId: string): boolean {
+  return Object.values(state.territories).some(
+    (t) => t.owner_id === playerId && (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),
+  );
 }
 
 /**

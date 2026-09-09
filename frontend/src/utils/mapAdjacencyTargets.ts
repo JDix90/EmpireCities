@@ -241,6 +241,8 @@ export interface NeighborTargetRow {
   isOrbit: boolean;
   /** Destination world's display name (only set for orbit / cross-world targets). */
   targetWorldName?: string;
+  /** Galaxy corridors: attacker dice an assault across this lane rolls (2, 3 with Lane Charts). */
+  laneDice?: number;
 }
 
 export function listNeighborTargets(

@@ -200,7 +200,7 @@ export const ERA_METADATA: Record<string, {
     year: 'Far Future',
     color: '#9FA8DA',
     bgColor: '#0d0818',
-    description: 'Multi-world theater with a galaxy strategic chart — research Hyperspace Chart to claim distant worlds.',
+    description: 'Multi-world theater with a galaxy strategic chart — hold gateway systems to strike across hyperspace lanes.',
   },
   custom: {
     label: 'Community map',

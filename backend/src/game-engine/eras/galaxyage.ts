@@ -5,11 +5,11 @@ import type { Faction, TechNode, EraWonder } from './types';
 //
 // Design notes:
 // - Each faction's `home_region_ids` matches one world in `era_galaxy.json`
-//   so factions spawn on their lore home (orbit gating then forces hyperspace
-//   tech before contact between worlds).
-// - Helion Navigators get free hyperspace via `getOrbitAccessResult` special
-//   case — that's their primary advantage. They no longer also stack a flat
-//   attack passive; the open-lane perk alone is significant on this map.
+//   so factions spawn on their lore home; under corridors contact between
+//   worlds is positional (hold a gateway, attack across its lane), so the
+//   opening turns are about reaching and holding gateways, not research.
+// - Helion Navigators' old free-hyperspace special case only matters with the
+//   corridors kill switch off; their live kit is gateway sight + Drift Jump.
 // - Forge Syndicate now carries a passive `reinforce_bonus: 1` so it isn't
 //   the only faction without a sustained passive (parity with the era's
 //   other factions).
@@ -205,13 +205,13 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   },
 ];
 
-// `passive_effect_type: 'orbit_access'` is honest about what the wonder does.
-// `getOrbitAccessResult` already special-cases ownership of `wonder_hyperlane_anchor`
-// so no runtime change is needed — only the descriptor was misleading.
+// Under corridors there is no access gate for the Anchor to skip, so it lifts
+// the lane dice cap for its owner instead (`galaxyLaneAttackDiceCap`); with the
+// kill switch off it still grants orbit access (`getOrbitAccessResult`).
 export const GALAXY_AGE_WONDER: EraWonder = {
   wonder_id: 'wonder_hyperlane_anchor',
   name: 'Hyperlane Anchor',
-  description: 'Stabilized jump beacon — orbit travel no longer requires Hyperspace Chart for you.',
+  description: 'Stabilized jump beacon — your attacks across hyperspace lanes roll full dice (no lane cap).',
   cost: 22,
   passive_effect_type: 'orbit_access',
   passive_effect_value: 1,

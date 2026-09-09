@@ -29,7 +29,7 @@ const P = ['ga_lane_p1', 'ga_lane_p2', 'ga_lane_p3', 'ga_lane_p4'] as const;
 const FACTIONS = ['stellar_mandate', 'forge_syndicate', 'helion_navigators', 'void_custodians'] as const;
 // Authored lanes used below.
 const L1 = { sol: 'sol_guinea', verdan: 'verdan_chlorophage_span' };
-const DENY = 'Hyperspace travel requires: Hyperspace Chart tech';
+const DENY = 'Hyperspace travel requires: Lane Charts tech';
 /** Kill-switch settings: the classic Chart gate, no lane cap. */
 const GATED = { galaxy_corridors_enabled: false } as unknown as Partial<GameSettings>;
 // Lanes touching Nexus Station (Custodians' world), for Emergency Seal.

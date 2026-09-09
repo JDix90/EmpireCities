@@ -365,7 +365,7 @@ describe('formatOrbitAccessError copy', () => {
     const player = { player_id: 'p1', faction_id: 'stellar_mandate', unlocked_techs: [] } as unknown as PlayerState;
     const access = getOrbitAccessResult(state, player, galaxyMap, 'galaxy_age');
     expect(access.mode).toBe('galaxy_hyperspace');
-    expect(formatOrbitAccessError(access)).toBe('Hyperspace travel requires: Hyperspace Chart tech');
+    expect(formatOrbitAccessError(access)).toBe('Hyperspace travel requires: Lane Charts tech');
   });
 
   it('returns empty copy when access is allowed', () => {
