@@ -84,6 +84,21 @@ describe('new-game rule defaults stay OUT of the normalizer', () => {
     expect(off.space_age_moon_helium3_enabled).toBeFalsy();
   });
 
+  it('carries the Space Age gated tier through a room reload', () => {
+    // Same whitelist trap as the lunar economy above. Dropped here, Orbital
+    // Drop stops existing and dyson_beam quietly comes back off the Moon —
+    // mid-match, on a reload, with nothing in the logs.
+    const on = normalizeGameSettings({
+      fog_of_war: false, victory_type: 'domination',
+      space_age_moon_helium3_enabled: true, space_age_moon_gated_tier_enabled: true,
+    } as Partial<GameSettings>);
+    expect(on.space_age_moon_gated_tier_enabled).toBe(true);
+    expect(normalizeGameSettings(on).space_age_moon_gated_tier_enabled).toBe(true);
+
+    const off = normalizeGameSettings({ fog_of_war: false, victory_type: 'domination' } as Partial<GameSettings>);
+    expect(off.space_age_moon_gated_tier_enabled).toBeFalsy();
+  });
+
   it('round-trips an explicit dice-cap choice in both directions', () => {
     const on = normalizeGameSettings({ fog_of_war: false, victory_type: 'domination', combat_dice_cap_enabled: true } as Partial<GameSettings>);
     expect(on.combat_dice_cap_enabled).toBe(true);

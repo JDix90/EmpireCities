@@ -60,6 +60,14 @@ export interface TerritoryAbilityDef {
   requiresCoastalTarget?: boolean;
   /** Tech points granted to the user on a successful strike, if economy is on (privateer). */
   grantsTechPointOnUse?: number;
+  /**
+   * Space Age Moon Race, Phase 2: lunar tiles the user must hold at the moment
+   * of use. Enforced only while the phase is enabled, so the ability resolves
+   * exactly as it does today with the flag off. See abilities/moonPowers.ts.
+   */
+  requiresMoonTiles?: number;
+  /** Phase 2: Helium-3 the use consumes, charged only after the effect succeeds. */
+  helium3Cost?: number;
 }
 
 export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
@@ -69,7 +77,13 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   data_breach: { label: 'Data Breach', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true },
   orbital_strike: { label: 'Orbital Strike', scope: 'turn', phase: 'attack', unitReduction: 3, minTargetUnits: 1 },
   swarm_strike: { label: 'Swarm Strike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },
-  dyson_beam: { label: 'Dyson Beam', scope: 'turn', phase: 'attack', unitReduction: 4, minTargetUnits: 1 },
+  /**
+   * Space Age Moon Race, Phase 2: the era's most dramatic power moves behind the
+   * Moon. `sa_dyson_array` keeps its +8 TP/turn, so an Earth-only player still
+   * has a reason to buy it — only the beam itself needs the foothold and the
+   * fuel. Both are no-ops while the phase flag is off.
+   */
+  dyson_beam: { label: 'Dyson Beam', scope: 'turn', phase: 'attack', unitReduction: 4, minTargetUnits: 1, requiresMoonTiles: 1, helium3Cost: 6 },
   hypersonic_strike: { label: 'Hypersonic Strike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, maxHopRange: 2 },
   river_blockade: { label: 'River Blockade', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true },
   air_strike: { label: 'Air Strike', scope: 'turn', phase: 'attack', selfBuff: 'pre_attack_damage', unitReduction: 1 },
@@ -86,6 +100,19 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
    * Moon tiles. See helium3.ts applyLunarExport.
    */
   lunar_export: { label: 'Lunar Export', scope: 'turn', phase: 'draft' },
+  /**
+   * Phase 2, the Moon-only power: 3 units on ANY territory you already own,
+   * anywhere on the board. No unlocking tech — three Moon tiles and 8 He-3 are
+   * the whole credential (moonPowers.ts hasMoonGroundAccess).
+   *
+   * It needs no new placement option: `ownPlacement` has never been
+   * adjacency-bound, so "anywhere you own" is what the existing executor
+   * already does. What makes this a lunar power is the gate, not the reach.
+   *
+   * Reinforcement only, deliberately — it cannot take a tile by itself. The
+   * assault variant that resolves combat from a virtual origin is Phase 2b.
+   */
+  orbital_drop: { label: 'Orbital Drop', scope: 'turn', phase: 'draft', requiresMoonTiles: 3, helium3Cost: 8, ownPlacement: { units: 3 } },
   royal_decree: { label: 'Royal Decree', scope: 'turn', phase: 'draft' },
   mass_mobilization: { label: 'Mass Mobilization', scope: 'game', phase: 'draft' },
   detente_protocol: { label: 'Détente Influence', scope: 'turn', phase: 'attack' },

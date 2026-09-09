@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phases 0 and 1 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phases 0, 1 and 2a done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -52,7 +52,8 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 |---|---|---|---|---|
 | 0 ✅ | Prerequisites | AI Moon launch guarded; shipped ruleset measured as the control | — | none (test + harness) |
 | 1 ✅ | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` (dark) | `PlayerState.helium3`, income tick, one draft ability |
-| 2 | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** | `space_age_moon_gated_tier_enabled` | ability gate + cost fields; drop resolution |
+| 2a ✅ | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** (reinforcement) | `space_age_moon_gated_tier_enabled` (dark) | `requiresMoonTiles` / `helium3Cost` on the ability descriptor |
+| 2b | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
 | 3 | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` | new `VictoryType`, clock state, `contest` access mode |
 | 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
 | 5 | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` | two `SecretMission` kinds + generator branch |
@@ -105,6 +106,10 @@ These numbers are the **control group** for every phase gate below.
 ### 2.3 Harness
 
 Add to `simSpaceAgeBalance.ts`: `SIM_MOON_HELIUM3`, `SIM_MOON_TIER`, `SIM_MOON_HEGEMONY`, `SIM_MOON_BLOCKADE`, `SIM_MOON_MISSIONS`, `SIM_MOON_TRIBUTE` (each `=1` sets the corresponding game setting), `SIM_HEGEMONY_TURNS` (the clock length). Add to the report: He-3 income per player per game, games with ≥2 players holding Moon tiles, Hegemony clocks started / reset / completed, seals placed, drops fired. Extend the CSV.
+
+`SIM_MOON_HELIUM3` and `SIM_MOON_TIER` are in (Phases 1 and 2a); `SIM_MOON_TIER=1` implies the economy, mirroring the engine. Two metrics print **unconditionally** so a control run reports them too: games with 2+ players on the Moon, and games where any player held ≥3 Moon tiles — the latter is the denominator §4.5 scores usage over.
+
+**Replicates, not single runs.** The AI's score jitter comes from `Math.random`, which the harness does not seed (it seeds dice and setup only), so one 60-game run of a configuration is a draw, not a measurement — roughly ±8 points on the decisive rate. Run each arm ≥5 times with a shared seed set and report the mean with its range.
 
 ---
 
@@ -230,9 +235,39 @@ This is the only genuinely new engine piece in the package: `executeLandAttack` 
 
 Bank He-3 for `dyson_beam` when an enemy stack ≥ 6 units borders an owned tile; use `orbital_drop` (2a) to reinforce the weakest owned tile under threat when He-3 ≥ 8 and export would be wasted. 2b: drop-assault a tile that would complete a region bonus, when the AI holds ≥5 Moon tiles.
 
-### 4.5 Gate to Phase 3
+### 4.5 Gate to Phase 3 — measured 2026-09-09
 
 Beam and drop usage both non-zero in ≥60% of games where any player holds ≥3 Moon tiles; the Moon-holder's win share rises versus Phase 1 but stays **below 60%** in 4-player games (above that, the tier is a win button and costs go up before Phase 3 starts); games with ≥2 players on the Moon do not fall.
+
+**Measured over 5 replicates × 60 games per configuration** (4p medium, threshold 60 / 90 turns, seeds s1–s5 shared across configurations). Mean, with the replicate range in brackets:
+
+| | flag off (today) | Phase 1 | Phase 2a |
+|---|---|---|---|
+| Dyson Beam fired, of reachable games | — | — | **99.7%** [98.3–100] |
+| Orbital Drop used, of reachable games | — | — | **99.7%** [98.3–100] |
+| Moon-tile leader won | 37.6 [33.3–43.1] | 43.5 [37.5–47.1] | **52.0** [41.4–59.6] |
+| Peak-Moon leader won | 29.7 [26.7–33.3] | 36.4 [26.7–41.7] | 39.7 [23.3–48.3] |
+| Games with 2+ on the Moon | 92.0 [90.0–98.3] | 92.0 [88.3–96.7] | 92.3 [86.7–98.3] |
+| Decisive endings | 32.0 [25.0–43.3] | 24.7 [20.0–35.0] | 26.7 [16.7–36.7] |
+| He-3 exported per game | — | 384.6 | **7.5** |
+| Beams / drops per game | — | — | 33.9 / 32.4 |
+
+**All three criteria pass.** Usage is near-total rather than marginal, the Moon-holder's win share rises 43.5 → 52.0 and stays under the ceiling, and shared-Moon games are flat.
+
+Four things the run taught us, all of which change how later phases should be measured:
+
+- **The harness is not deterministic, and single runs were never evidence.** `computeAiTurn` takes its score jitter from `Math.random` (aiBot.ts:111) and the sim seeds only dice and setup, so a 60-game run of one configuration varies by roughly ±8 points on decisive endings. Phase 1's gate was reported from one run per arm; re-measured with replicates its decisive rate is 24.7 [20.0–35.0] against an off-control of 32.0 [25.0–43.3], which is a *worse* point estimate than the 23.3 vs 25.0 recorded at the time. **Every future phase gate takes replicates**, and §13's single-run figures should be read as one draw each.
+- **The Moon-holder correlation is mostly not caused by the tier.** It is already 37.6% with every flag off, because the player holding the Moon is usually just the strongest player. The tier adds ~8 points on top of that.
+- **Price is not the lever for it.** Raising the beam 6 → 10 and the drop 8 → 14 cut drops per game from 32.4 to 10.6 and moved the Moon-holder win share not at all (52.0 → 51.4, with peak-Moon *up* at 44.3). Same shape as Phase 1's export-ceiling result: §9's costs are not a useful dial for the win correlation, and the initial values stand. If the win share ever does need pulling down, the lever is who can hold the Moon, not what holding it costs.
+- **The tier ate Phase 1's sink.** He-3 exported per game falls 384.6 → 7.5, because a bot that can fire a power banks for it instead of converting. Phase 1 measured those ~385 tech points as changing nothing, so nothing measurable was lost — but Lunar Export is now close to vestigial for the AI, and §8's Tribute knob has correspondingly less to bite on.
+
+### 4.6 What 2a actually shipped, versus this design
+
+- **`anyOwned` was not needed.** §4.2 called for a new `ownPlacement` option because "today's placements are adjacency-bound by the caller". They are not: the executor's `ownPlacement` branch validates ownership and nothing else, so "any territory you own, anywhere" is what it already did. Orbital Drop is `ownPlacement: { units: 3 }` plus the Moon gate, with no new placement option.
+- **The gate is enforced by a wrapper, not per-branch.** `executeTechAbility` now checks the requirement before anything mutates and charges the He-3 only after the effect reports success, so a use rejected for a bad target or the wrong phase costs nothing. The alternative was getting that right in a dozen separate branches.
+- **Phase 2 requires Phase 1 in code, not just by convention.** Both powers are priced in He-3, so the tier flag without the economy flag would not gate `dyson_beam` — it would delete it. `areMoonPowersEnabled` requires both.
+- **The AI's first tech-unlocked strike.** The existing AI parity blocks cover faction abilities only, so before this a bot holding `nuclear_strike` or `orbital_strike` never fired it. Phase 2a adds that for `dyson_beam` alone, scoped to the flag so the control run stays today's game. Widening it to the other strikes is its own change and its own measurement.
+- **Phase 1 had no human path.** Abilities are surfaced in the UI by walking the tech tree for `unlocks_ability`, and Lunar Export deliberately has no unlocking tech, so no button ever rendered and only bots used the sink. Fixed here for both Moon-ground powers; a lunar tile count now feeds the ability panels.
 
 ---
 

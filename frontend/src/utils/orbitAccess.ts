@@ -43,6 +43,29 @@ export interface FrontendMapData {
 }
 
 /**
+ * How many Moon territories this player currently holds.
+ *
+ * Advisory, like everything else in this file: it decides whether the Moon's
+ * own powers (Lunar Export, Orbital Drop) are offered in the UI, and the server
+ * re-checks the same count before resolving one. It reads the MAP document
+ * because the client's territory state carries ownership but no world — which
+ * is also why this lives here rather than in the ability helpers.
+ */
+export function countOwnedLunarTerritories(
+  mapTerritories: readonly FrontendMapTerritory[] | null | undefined,
+  gameState: GameState | null | undefined,
+  playerId: string | null | undefined,
+): number {
+  if (!mapTerritories || !gameState || !playerId) return 0;
+  let count = 0;
+  for (const t of mapTerritories) {
+    if (inferWorldId(t) !== 'moon') continue;
+    if (gameState.territories[t.territory_id]?.owner_id === playerId) count += 1;
+  }
+  return count;
+}
+
+/**
  * The Moon tile a Launch Pad on `territoryId` opens (or has opened) a lane to.
  * Mirrors `nearestLandingZoneFor` on the backend: fewest hops over the map's
  * connections from the pad to an authored orbit lane's Earth end. Advisory

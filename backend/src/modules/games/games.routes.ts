@@ -229,6 +229,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
           space_age_moon_helium3_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHelium3Enabled : undefined,
+          space_age_moon_gated_tier_enabled: isSpaceAge ? featureFlags.spaceAgeMoonGatedTierEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,

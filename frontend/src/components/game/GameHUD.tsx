@@ -17,7 +17,7 @@ import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
-import type { FrontendMapData } from '../../utils/orbitAccess';
+import { countOwnedLunarTerritories, type FrontendMapData } from '../../utils/orbitAccess';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -766,7 +766,12 @@ export default function GameHUD({
           {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff).
               These are turn actions, not utilities, so they stay above the fold. */}
           {onUseAbility && gameState && myPlayer && (() => {
-            const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree);
+            // The Moon's own powers are held by ground, not by a tech, so the
+            // ability list needs to know how much lunar ground this player has.
+            const lunarTilesOwned = countOwnedLunarTerritories(
+              mapData?.territories, gameState, myPlayer.player_id,
+            );
+            const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree, lunarTilesOwned);
             if (globalAbils.length === 0) return null;
             return globalAbils.map((abilityId) => {
               const def = getAbilityUiDef(abilityId);

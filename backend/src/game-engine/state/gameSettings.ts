@@ -66,6 +66,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Space Age lunar economy (Moon Race, Phase 1). Off by default — baked at
   // create from the space_age_moon_helium3_enabled feature flag.
   const spaceAgeMoonHelium3Enabled = typeof raw.space_age_moon_helium3_enabled === 'boolean' ? raw.space_age_moon_helium3_enabled : false;
+  // Space Age gated tier (Moon Race, Phase 2). Off by default — baked at create
+  // from the space_age_moon_gated_tier_enabled feature flag.
+  const spaceAgeMoonGatedTierEnabled = typeof raw.space_age_moon_gated_tier_enabled === 'boolean' ? raw.space_age_moon_gated_tier_enabled : false;
   // Galaxy per-world identity modifiers. ON by default (no-op unless the map
   // authors worlds[].modifiers); a lobby toggle can disable it.
   const worldModifiersEnabled = typeof raw.world_modifiers_enabled === 'boolean' ? raw.world_modifiers_enabled : true;
@@ -267,6 +270,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // missing from this whitelist is dropped on every room load, which is how a
     // baked setting silently stops applying.
     space_age_moon_helium3_enabled: spaceAgeMoonHelium3Enabled || undefined,
+    // Space Age gated tier — persisted only when explicitly enabled.
+    space_age_moon_gated_tier_enabled: spaceAgeMoonGatedTierEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     // Anti-fortress dice cap — only persisted when explicitly enabled.

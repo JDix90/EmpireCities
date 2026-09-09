@@ -64,6 +64,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   space_age_moon_helium3_enabled: () => envOptIn('SPACE_AGE_MOON_HELIUM3_ENABLED'),
+  space_age_moon_gated_tier_enabled: () => envOptIn('SPACE_AGE_MOON_GATED_TIER_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -373,6 +374,23 @@ export const featureFlags = {
    */
   get spaceAgeMoonHelium3Enabled(): boolean {
     return overrideBool('space_age_moon_helium3_enabled');
+  },
+
+  /**
+   * Space Age Moon Race, Phase 2 — the gated tier. `dyson_beam` moves behind a
+   * lunar foothold plus 6 He-3, and Orbital Drop (3 units on any territory you
+   * own, anywhere) becomes available to a player holding three Moon tiles.
+   *
+   * DARK by default. It has no effect at all unless Phase 1 is also on: the
+   * powers are priced in He-3, so enabling this alone would take `dyson_beam`
+   * out of the game rather than move it to the Moon (see moonPowers.ts
+   * areMoonPowersEnabled). Promote to `envOptOut` only once a
+   * `SIM_MOON_TIER=1` run clears §4.5 — beam and drop both used in >=60% of
+   * games where someone holds three Moon tiles, the Moon holder's win share up
+   * on Phase 1 but under 60% in 4-player games, and shared-Moon games not down.
+   */
+  get spaceAgeMoonGatedTierEnabled(): boolean {
+    return overrideBool('space_age_moon_gated_tier_enabled');
   },
 
   /**
