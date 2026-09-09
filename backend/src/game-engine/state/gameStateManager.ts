@@ -10,6 +10,7 @@ import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolv
 import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettings';
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
+import { applyHelium3Income } from './helium3';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
@@ -77,6 +78,9 @@ export function applyOpeningEconomyTick(state: GameState): void {
     if (state.settings.tech_trees_enabled) {
       applyTechPointIncome(state, player.player_id);
     }
+    // Lunar income is gated on the setting, not on tech_trees_enabled: the
+    // Lunar Pioneers reach the Moon without researching anything.
+    applyHelium3Income(state, player.player_id);
   }
 }
 
@@ -750,6 +754,11 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (state.settings.tech_trees_enabled) {
     applyTechPointIncome(state, nextPlayer.player_id);
   }
+
+  // Helium-3 from owned Moon tiles (Space Age Moon Race, Phase 1). Its own
+  // gate rather than tech_trees_enabled — a Lunar Pioneer holds lunar ground
+  // from turn one without researching the ladder.
+  applyHelium3Income(state, nextPlayer.player_id);
 
   // Collect fleet income from ports / naval bases
   if (state.settings.naval_enabled) {

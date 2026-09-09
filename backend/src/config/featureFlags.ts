@@ -63,6 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
+  space_age_moon_helium3_enabled: () => envOptIn('SPACE_AGE_MOON_HELIUM3_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -355,6 +356,23 @@ export const featureFlags = {
    */
   get spaceAgeFrontiersEnabled(): boolean {
     return overrideBool('space_age_frontiers_enabled');
+  },
+
+  /**
+   * Space Age Moon Race, Phase 1 — the lunar economy. Owned Moon tiles pay
+   * Helium-3 each turn (polar basins double), and Lunar Export converts it to
+   * tech points, so three Moon tiles is a real position rather than a down
+   * payment on nine.
+   *
+   * DARK by default while the phase gate is unmeasured: promote to `envOptOut`
+   * only once a `SIM_MOON_HELIUM3=1` run clears §3.8 (median first-landing turn
+   * down, >=40% of games with two players on the Moon, Lunar Pioneers within
+   * +/-8 of the faction mean, decisive rate not worse). Baked into game settings
+   * at create; the engine reads the setting, so a flip never re-rules a match
+   * already in progress. See docs/space-age-moon/README.md.
+   */
+  get spaceAgeMoonHelium3Enabled(): boolean {
+    return overrideBool('space_age_moon_helium3_enabled');
   },
 
   /**

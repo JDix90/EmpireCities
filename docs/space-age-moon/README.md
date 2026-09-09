@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phase 0 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phases 0 and 1 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -50,8 +50,8 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 
 | Phase | Name | Delivers | Flag | New engine surface |
 |---|---|---|---|---|
-| 0 | Prerequisites | AI can reach the Moon in production; baseline measured on the shipped ruleset; sim knobs | — | none (bug fix + harness) |
-| 1 | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` | `PlayerState.helium3`, income tick, one draft ability |
+| 0 ✅ | Prerequisites | AI Moon launch guarded; shipped ruleset measured as the control | — | none (test + harness) |
+| 1 ✅ | Helium-3 economy | Per-tile lunar income; a sink so it's worth something on day one; partial rewards | `space_age_moon_helium3_enabled` (dark) | `PlayerState.helium3`, income tick, one draft ability |
 | 2 | The gated tier | `dyson_beam` moved behind Moon control and priced in He-3; **Orbital Drop** | `space_age_moon_gated_tier_enabled` | ability gate + cost fields; drop resolution |
 | 3 | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` | new `VictoryType`, clock state, `contest` access mode |
 | 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
@@ -141,17 +141,49 @@ Once Phase 2 ships, players face a real choice — export for tech, or bank for 
 
 They start with Moon access and +2 defence dice there (`spaceage.ts:79`). He-3 makes their opening stronger. **Do not pre-nerf**; Phase 0's factions run gives the baseline, and Phase 1's gate (§3.7) has an explicit Pioneers criterion.
 
-### 3.6 AI
+### 3.6 AI — one half shipped, one half measured and rejected
 
-`aiBot.ts` already runs the Moon ladder (`aiTechBudget`, `aiFrontierExpansion`). Add: score a Moon tile's He-3 yield as production-equivalent in territory valuation, weight the poles by their yield, and use `lunar_export` whenever He-3 ≥ 5 and no Phase 2 sink is affordable.
+**Shipped:** the bot fires `lunar_export` whenever He-3 ≥ 5 and it holds lunar ground, mirrored in both `gameSocket.processAiTurn` and the sim. Only on a full load, so its one use per turn is not spent on a single point.
+
+**Rejected, on evidence:** this section also asked for a Moon tile's He-3 yield to be scored in the AI's attack valuation, weighting the poles. It was built — `attackObjectiveBonus` gained `helium3YieldOf(target) * 1.4`, sized against the capital bonus of 3 — and it made the game distinctly worse:
+
+| AI Moon weight | Moon-tile leader won | Decisive endings |
+|---|---|---|
+| 1.4 (as designed) | 59.3% | **13.3%** |
+| 0.5 | 56.1% | 21.7% |
+| **0 (shipped)** | **32.1%** | **30.0%** |
+| *He-3 off entirely* | *46.6%* | *26.7%* |
+
+Weighting lunar ground pulled bots into fights over a sideshow: they spent turns on the Moon instead of on the Earth conquest that actually ends games, so decisive endings halved and the Moon-leader correlation inflated. The effect is monotonic in the weight, so there is no small safe value.
+
+The Moon is contested without the thumb on the scale — 95% of games see two or more players holding lunar tiles either way — because the ladder and the region bonus already pull bots there. **The pull toward the poles belongs in Phase 2**, where He-3 buys real powers and the AI's ability planning will value it for what it can do, rather than in the attack scorer valuing it for its own sake.
 
 ### 3.7 UI
 
-HUD resource strip gains an **He-3** counter next to tech points, shown only in Space Age games with the flag on. Moon inset badge shows the player's Moon tile count. Territory panel on a Moon tile shows its yield.
+**Shipped:** the HUD resource strip gains an **He-3** counter beside tech points, shown whenever the setting is on — from turn one, not once the player has some. A resource you only discover after already earning it is not an incentive to go and get it.
 
-### 3.8 Gate to Phase 2
+**Deferred:** the Moon-inset tile-count badge and the per-tile yield in the territory panel. Both are worth having and neither is load-bearing for the gate; they belong with Phase 2's HUD work, when there is a spend to show alongside the stock.
 
-Versus the Phase 0 control: median first-landing turn drops; **≥40% of games have ≥2 players holding Moon tiles at some point**; Lunar Pioneers' win share within **±8 points** of the faction mean; decisive rate not worse.
+### 3.8 Gate to Phase 2 — measured 2026-09-09
+
+60 games, `SIM_SEED=phase0`, 4p medium, threshold 60 / 90 turns, against a **matched control on the same commit** with the flag off.
+
+| | Control | Phase 1 | |
+|---|---|---|---|
+| Decisive endings | 25.0% | 23.3% | within noise |
+| Decisive endings (factions) | 35.0% | 43.3% | within noise |
+| Moon-tile leader won | 33.3% | 36.8% | within noise |
+| 2+ players on the Moon | 95.0% | 95.0% | — |
+| First Moon capture (turn) | 24.3 | 23.9 | within noise |
+| Lunar Pioneers win share | 30.0% | 22.5% | mean 25.0%, so −2.5 |
+| He-3 exported per game | — | 375.6, in 100% of games | the sink fires |
+
+**Verdict: passes as written, and the honest read is "neutral".** Nothing regressed, the mechanic works end to end, and the era's core numbers did not move. That is what §1 predicted — *"Phase 1 without 2 is a resource with one sink"* — so it is a reason to build Phase 2, not a reason to stop.
+
+Two things the run taught us about the gate itself:
+
+- **The ≥40% shared-Moon criterion was never discriminating.** The control also scores 95%: two players end up on the Moon regardless, because the ladder and the region bonus already send them. Phase 2 and 3 should measure *how long* the Moon stays shared, not whether it ever is.
+- **Roughly 375 tech points a game were injected and nothing moved.** Tech points are not a mid-game bottleneck for these bots, which makes Lunar Export a weak reward *and* a weak risk. That is fine for a placeholder sink, and it is more evidence that the interesting spend is Phase 2's, not this one's. Adjusting the export ceiling between 1 and 5 changed nothing outside noise, so §9's `Lunar Export per turn` bound is not a useful tuning lever — leave it at 5.
 
 ---
 

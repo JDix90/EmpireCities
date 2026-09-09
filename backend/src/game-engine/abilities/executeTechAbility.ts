@@ -1,3 +1,4 @@
+import { applyLunarExport } from '../state/helium3';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { syncTerritoryCounts } from '../state/gameStateManager';
 import { getEraTechTreeForPlayer } from '../state/techManager';
@@ -19,6 +20,8 @@ export interface AbilityExecutionResult {
   territoryId?: string;
   previousOwner?: string | null;
   previousUnits?: number;
+  /** Scalar payload for abilities that convert rather than target (lunar_export). */
+  amount?: number;
 }
 
 function getCurrentPlayer(state: GameState, playerId: string): PlayerState | undefined {
@@ -308,6 +311,13 @@ export function executeTechAbility(params: {
       previousOwner,
       previousUnits,
     };
+  }
+
+  // ── Lunar Export: Helium-3 → tech points ──────────────────────────────────
+  if (abilityId === 'lunar_export') {
+    const result = applyLunarExport(state, playerId);
+    if (!result.ok) return { success: false, error: result.error ?? 'Lunar Export failed' };
+    return { success: true, effect: 'lunar_export', amount: result.converted };
   }
 
   // ── Launch space station ──────────────────────────────────────────────────

@@ -76,6 +76,27 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByText('Rival')).toBeNull();
   });
 
+  it('shows Helium-3 whenever the Space Age lunar economy is on', () => {
+    // Shown from the moment the rules are on, not once the player has some: a
+    // resource you only discover after already earning it is not an incentive
+    // to go and get it.
+    useGameStore.setState({
+      gameState: makeState({
+        settings: {
+          economy_enabled: true, tech_trees_enabled: true, space_age_moon_helium3_enabled: true,
+        } as GameState['settings'],
+      }),
+      draftUnitsRemaining: 0, lastCombatResult: null,
+    } as never);
+    renderHud();
+    expect(screen.getByTestId('hud-helium3')).toHaveTextContent('0 He-3');
+  });
+
+  it('keeps Helium-3 off the HUD in every era that does not have a Moon', () => {
+    renderHud();
+    expect(screen.queryByTestId('hud-helium3')).toBeNull();
+  });
+
   it('shows the roster only on the Players tab', () => {
     renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Players/ }));

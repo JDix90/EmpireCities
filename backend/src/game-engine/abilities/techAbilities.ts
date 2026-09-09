@@ -80,6 +80,12 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   spy_network: { label: 'Spy Network', scope: 'turn', phase: 'attack' },
   satellite_reconnaissance: { label: 'Satellite Recon', scope: 'turn', phase: 'attack' },
   launch_space_station: { label: 'Launch Space Station', scope: 'game', phase: 'draft' },
+  /**
+   * Space Age Moon Race, Phase 1. Availability is NOT a tech unlock — holding
+   * lunar ground is the credential, so gameSocket validates it against owned
+   * Moon tiles. See helium3.ts applyLunarExport.
+   */
+  lunar_export: { label: 'Lunar Export', scope: 'turn', phase: 'draft' },
   royal_decree: { label: 'Royal Decree', scope: 'turn', phase: 'draft' },
   mass_mobilization: { label: 'Mass Mobilization', scope: 'game', phase: 'draft' },
   detente_protocol: { label: 'Détente Influence', scope: 'turn', phase: 'attack' },

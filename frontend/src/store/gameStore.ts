@@ -41,6 +41,8 @@ export interface PlayerState {
   tech_points?: number;
   unlocked_techs?: string[];
   special_resource?: number;
+  /** Space Age lunar economy: Helium-3 mined from owned Moon territories. */
+  helium3?: number;
   ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
@@ -142,6 +144,8 @@ export interface GameState {
     diplomacy_enabled: boolean;
     /** Galaxy: lane-seal mechanic toggle. */
     lanes_contestable_enabled?: boolean;
+    /** Space Age Moon Race, Phase 1: Moon tiles pay Helium-3 each turn. */
+    space_age_moon_helium3_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;
