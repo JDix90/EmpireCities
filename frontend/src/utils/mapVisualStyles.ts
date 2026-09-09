@@ -28,6 +28,22 @@ export const INFLUENCE_RING_RGB: [number, number, number] = [167, 139, 250];
 export const INFLUENCE_BLOCKED_RGB: [number, number, number] = [120, 120, 130];
 export const CAPTURE_FLASH_RGB: [number, number, number] = [255, 255, 255];
 
+/**
+ * Space Age sea frontiers. These tiles are open water and ice, not ground, and
+ * on a board where every other territory is a real coastline they should read
+ * as water at a glance rather than only by silhouette.
+ *
+ * The cue is deliberately the FILL and a beaded margin, never the territory
+ * border on its own: that border already carries selection, adjacency, wonder,
+ * turn-holder and contested state, and a sixth meaning would make all of them
+ * harder to read.
+ */
+export const SEA_FRONTIER_COLOR = '#5ec8f0';
+/** Sea tiles wash out so the dark ocean beneath shows through the owner colour. */
+export const SEA_FRONTIER_FILL_ALPHA = 0.55;
+/** Land fill alpha, for contrast with the above. */
+export const LAND_FILL_ALPHA = 0.85;
+
 export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   if (h.length === 3) {

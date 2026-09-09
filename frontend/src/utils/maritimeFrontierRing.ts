@@ -99,6 +99,16 @@ export const MARITIME_FRONTIER_PROFILES: Record<string, MaritimeProfileName> = {
   arctic_siberian_shelf: 'shelf',
 };
 
+/**
+ * Whether a territory is one of the Space Age sea frontiers.
+ *
+ * Shape and styling answer to the same list on purpose: a tile drawn with a
+ * sea outline should also be painted as water, and the two cannot drift.
+ */
+export function isSeaFrontier(territoryId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(MARITIME_FRONTIER_PROFILES, territoryId);
+}
+
 /** FNV-1a over the seed string → [0, 1). Matches galaxyOrganicGlobeRing. */
 function stableNoise01(seed: string): number {
   let h = 2166136261;
