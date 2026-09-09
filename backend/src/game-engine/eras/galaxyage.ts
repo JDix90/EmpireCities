@@ -58,8 +58,10 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
     home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts'],
-    ability_id: 'orbital_recon',
-    ability_description: 'Long-Range Sensors: once per turn, reveal units in one adjacent enemy territory.',
+    // No active: the old `orbital_recon` id had no handler anywhere, so the
+    // advertised once-per-turn reveal returned "not implemented" over the wire.
+    // Long-Range Sensors is now a passive in expandFogVisibilityFromFactionPassive.
+    ability_description: 'Long-Range Sensors: every hyperspace gateway in the galaxy stays visible to you under fog of war.',
     color: '#2ecc71',
   },
   {

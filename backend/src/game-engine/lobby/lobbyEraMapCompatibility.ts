@@ -25,6 +25,9 @@ export interface MapCompatibilityMeta {
   has_moon_territories: boolean;
 }
 
+export const GALAXY_FACTIONS_REQUIRED_ERROR =
+  'Galactic Age needs Asymmetric Factions on — each player commands one world';
+
 export interface EraMapCompatibilityInput {
   era_id: string;
   map_id: string;
@@ -142,6 +145,27 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   const isGalactic = era_id === 'galaxy_age' || map_id === 'era_galaxy';
   if (isGalactic && !input.is_admin) {
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
+  }
+
+  // The era's designed start — one faction per world — is produced by
+  // tryDistributeGalaxyAgeFactionHomeworlds, which fires ONLY for exactly four
+  // seats holding four distinct galaxy factions. Every other shape silently
+  // falls through to geographic distribution across all 64 tiles, so each seat
+  // begins holding territory on worlds it cannot reach: measured at 2p and 3p,
+  // every seat starts spread over three or four worlds, and a 2p game ends in
+  // ~16 turns because both players open with half the board. Block the shapes
+  // that cannot produce the designed start rather than shipping the fallback.
+  // Seat count is NOT checked here: this evaluator also runs on the in-lobby
+  // map-change path, which passes the humans who have joined so far rather than
+  // the final seat count (AI seats are added at create), so an exact-4 rule
+  // would block a half-filled lobby from ever selecting the era. The create
+  // boundary owns that rule — see galaxyPlayerCountRejection in games.routes.ts.
+  // Factions is a real lobby setting on both paths, so it belongs here.
+  // Must be explicitly ON: normalizeGameSettings persists
+  // `factions_enabled: factionsEnabled || undefined`, so an off game arrives
+  // here with the key absent rather than false.
+  if (isGalactic && settings.factions_enabled !== true) {
+    return { allowed: false, hardBlock: GALAXY_FACTIONS_REQUIRED_ERROR, warnings };
   }
 
   if (settings.tutorial === true) {

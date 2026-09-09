@@ -168,6 +168,7 @@ import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
   attackerIgnoresDefenseBuilding,
   expandFogVisibilityFromRecon,
+  expandFogVisibilityFromFactionPassive,
   getFortifyMoveLimit,
   getInfluenceUnitCost,
   getPrecisionStrikeMinUnits,
@@ -2795,20 +2796,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      if (abilityId === 'guerrilla_warfare') {
-        const territoryId = params?.territoryId as string;
-        if (!territoryId) return socket.emit('error', { message: 'Provide territoryId' });
-        const t = state.territories[territoryId];
-        if (!t || t.owner_id !== userId) return socket.emit('error', { message: 'Invalid territory' });
-        t.unit_count += 1;
-        syncTerritoryCounts(state);
-        recordAbility(`Guerrilla warfare: +1 unit on ${territoryName(map, territoryId)}`);
-        socket.emit('game:ability_result', { abilityId, success: true, territoryId });
-        broadcastState(io, gameId, state);
-        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
-        return;
-      }
-
       // ── Tech abilities (centralized execution) ────────────────────────────
       const territoryId = params?.territoryId as string | undefined;
       const execResult = executeTechAbility({
@@ -4295,6 +4282,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
         }
       }
       expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
+      expandFogVisibilityFromFactionPassive(state, playerId, visibleIds, adj);
     }
   }
   // Spectator view (playerId === null) in a fog game: visibleIds stays EMPTY, so

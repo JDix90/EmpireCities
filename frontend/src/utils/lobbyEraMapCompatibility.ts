@@ -104,6 +104,13 @@ export function buildMapMetaFromGameMap(map: GameMap): MapCompatibilityMeta {
   };
 }
 
+/** Seats a Galactic Age game needs for the one-faction-per-world start. */
+export const GALAXY_REQUIRED_PLAYERS = 4;
+export const GALAXY_PLAYER_COUNT_ERROR =
+  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+export const GALAXY_FACTIONS_REQUIRED_ERROR =
+  'Galactic Age needs Asymmetric Factions on — each player commands one world';
+
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
   const warnings: CompatibilityWarning[] = [];
   const { era_id, map_id, settings } = input;
@@ -119,6 +126,20 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   const isGalactic = era_id === 'galaxy_age' || map_id === 'era_galaxy';
   if (isGalactic && !input.is_admin) {
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
+  }
+
+  // Mirrors the server rules: factions come from the shared pairing evaluator,
+  // the exact-4 seat count from the create route (galaxyPlayerCountRejection).
+  // The form knows the FINAL seat count (human + AI), so unlike the in-lobby
+  // map-change path it can apply both and explain them before submitting.
+  if (isGalactic) {
+    const seats = input.player_count ?? 0;
+    if (seats > 0 && seats !== GALAXY_REQUIRED_PLAYERS) {
+      return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
+    }
+    if (settings.factions_enabled !== true) {
+      return { allowed: false, hardBlock: GALAXY_FACTIONS_REQUIRED_ERROR, warnings };
+    }
   }
 
   if (settings.tutorial === true) {

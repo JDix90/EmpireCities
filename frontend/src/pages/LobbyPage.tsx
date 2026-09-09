@@ -536,18 +536,17 @@ export default function LobbyPage() {
   useEffect(() => {
     const transition = transitionEraSystemDefaults({
       nextEra: selectedEra,
-      current: { economy: economyEnabled, tech_trees: techTreesEnabled },
+      current: { economy: economyEnabled, tech_trees: techTreesEnabled, factions: factionsEnabled },
       autoEnabled: autoEnabledSystemsRef.current,
     });
     autoEnabledSystemsRef.current = transition.nextAutoEnabled;
-    for (const key of transition.enable) {
-      if (key === 'economy') setEconomyEnabled(true);
-      else setTechTreesEnabled(true);
-    }
-    for (const key of transition.disable) {
-      if (key === 'economy') setEconomyEnabled(false);
-      else setTechTreesEnabled(false);
-    }
+    const setSystem = (key: EraSystemKey, on: boolean) => {
+      if (key === 'economy') setEconomyEnabled(on);
+      else if (key === 'tech_trees') setTechTreesEnabled(on);
+      else setFactionsEnabled(on);
+    };
+    for (const key of transition.enable) setSystem(key, true);
+    for (const key of transition.disable) setSystem(key, false);
     // Deliberately keyed on the era alone: the toggles are read fresh from the
     // render that the era change produced; re-running on toggle changes would
     // fight the player's manual unchecks.
@@ -556,6 +555,7 @@ export default function LobbyPage() {
   const eraSystemsWarning = missingEraSystemsWarning(selectedEra, {
     economy: economyEnabled,
     tech_trees: techTreesEnabled,
+    factions: factionsEnabled,
   });
 
   // Conditional advanced settings — each only matters under certain other choices,

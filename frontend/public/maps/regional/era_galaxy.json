@@ -64,7 +64,7 @@
       "background_color": "rgb(12, 14, 28)",
       "requires_orbit_access": true,
       "modifiers": {
-        "tech_bonus": 0.05,
+        "tech_bonus": 0.125,
         "production_bonus": 0.25
       }
     }

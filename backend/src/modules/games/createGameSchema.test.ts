@@ -4,6 +4,10 @@ import {
   CreateGameSchema,
   LANES_CONTESTABLE_NON_GALAXY_ERROR,
   lanesContestableRejection,
+  territorySelectionRejection,
+  galaxyPlayerCountRejection,
+  GALAXY_PLAYER_COUNT_ERROR,
+  TERRITORY_SELECTION_GALAXY_ERROR,
   ORBIT_GATED_DEFAULT_MAX_TURNS,
   ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD,
 } from './games.routes';
@@ -237,5 +241,47 @@ describe('Full Game Start payload', () => {
       settings: { ...fullGamePayload.settings, economy_enabled: false },
     };
     expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('territorySelectionRejection', () => {
+  // Territory Draft on a galaxy map leaves all 48 off-world tiles neutral with
+  // ZERO units — exempt from the draft, and never armed with a garrison — and
+  // executeLandAttack refuses a defender below one unit, so nobody can ever
+  // take them. Measured on era_galaxy before the create-time rejection.
+  it('rejects Territory Draft in the Galactic Age', () => {
+    expect(territorySelectionRejection({ territorySelection: true, isGalacticAge: true }))
+      .toBe(TERRITORY_SELECTION_GALAXY_ERROR);
+  });
+
+  it('leaves Territory Draft alone on every other era', () => {
+    expect(territorySelectionRejection({ territorySelection: true, isGalacticAge: false })).toBeNull();
+  });
+
+  it('is silent when Territory Draft is off', () => {
+    expect(territorySelectionRejection({ isGalacticAge: true })).toBeNull();
+    expect(territorySelectionRejection({ territorySelection: false, isGalacticAge: true })).toBeNull();
+  });
+});
+
+describe('galaxyPlayerCountRejection', () => {
+  // Four seats with four distinct factions is the only shape that produces the
+  // designed one-faction-per-world start; anything else scatters every seat
+  // across worlds it cannot reach.
+  it('accepts exactly four seats', () => {
+    expect(galaxyPlayerCountRejection({ isGalacticAge: true, totalPlayers: 4 })).toBeNull();
+  });
+
+  it('rejects every other seat count', () => {
+    for (const seats of [1, 2, 3, 5, 6, 8]) {
+      expect(galaxyPlayerCountRejection({ isGalacticAge: true, totalPlayers: seats }))
+        .toBe(GALAXY_PLAYER_COUNT_ERROR);
+    }
+  });
+
+  it('leaves other eras alone', () => {
+    for (const seats of [2, 3, 5]) {
+      expect(galaxyPlayerCountRejection({ isGalacticAge: false, totalPlayers: seats })).toBeNull();
+    }
   });
 });

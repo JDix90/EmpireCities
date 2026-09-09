@@ -172,6 +172,51 @@ export function applyOrbitGatedVictoryDefaults<
  * toggle for the Galactic Age, and the seal action is wired into
  * GalaxyStrategicView only). Reject it here instead. Exported for tests.
  */
+/**
+ * Territory Draft cannot work on a galaxy map. Orbit-gated tiles are exempt from
+ * the selection draft (nobody holds hyperspace access at game start, see
+ * selectionExemptTerritoryIds), and the neutral-garrison pass that would arm
+ * them only runs for worlds flagged `initial_neutral_garrison` — which the
+ * galaxy worlds deliberately are not, because factions spawn on them. Measured
+ * on era_galaxy: all 48 off-world tiles begin neutral with ZERO units, and
+ * executeLandAttack refuses a defender below one unit, so those 48 tiles can
+ * never be taken by anyone for the rest of the game. Reject the combination at
+ * the create boundary. Exported for tests.
+ */
+export const TERRITORY_SELECTION_GALAXY_ERROR =
+  'Territory Draft is not available in the Galactic Age — worlds behind a hyperspace gate cannot be drafted';
+export function territorySelectionRejection(opts: {
+  territorySelection?: boolean;
+  isGalacticAge: boolean;
+}): string | null {
+  if (!opts.territorySelection || !opts.isGalacticAge) return null;
+  return TERRITORY_SELECTION_GALAXY_ERROR;
+}
+
+/**
+ * The Galactic Age needs exactly four seats. The one-faction-per-world start
+ * (tryDistributeGalaxyAgeFactionHomeworlds) fires only for four seats holding
+ * four distinct galaxy factions; every other shape falls through to geographic
+ * distribution over all 64 tiles, so each seat begins holding territory on
+ * worlds it cannot reach — measured at 2p and 3p, every seat starts spread over
+ * three or four worlds, and a 2p game ends in ~16 turns because both players
+ * open with half the board.
+ *
+ * Enforced HERE rather than in evaluateEraMapCompatibility because the shared
+ * evaluator also runs on the in-lobby map-change path, where `player_count` is
+ * the humans joined so far and not the final seat count. Exported for tests.
+ */
+export const GALAXY_REQUIRED_PLAYERS = 4;
+export const GALAXY_PLAYER_COUNT_ERROR =
+  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+export function galaxyPlayerCountRejection(opts: {
+  isGalacticAge: boolean;
+  totalPlayers: number;
+}): string | null {
+  if (!opts.isGalacticAge || opts.totalPlayers === GALAXY_REQUIRED_PLAYERS) return null;
+  return GALAXY_PLAYER_COUNT_ERROR;
+}
+
 export const LANES_CONTESTABLE_NON_GALAXY_ERROR =
   'Contestable hyperspace lanes are only available in Galactic Age games';
 export function lanesContestableRejection(opts: {
@@ -202,6 +247,22 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     });
     if (lanesRejection) {
       return reply.status(400).send({ error: lanesRejection });
+    }
+
+    const selectionRejection = territorySelectionRejection({
+      territorySelection: rawSettings.territory_selection,
+      isGalacticAge,
+    });
+    if (selectionRejection) {
+      return reply.status(400).send({ error: selectionRejection });
+    }
+
+    const seatRejection = galaxyPlayerCountRejection({
+      isGalacticAge,
+      totalPlayers: 1 + ai_count,
+    });
+    if (seatRejection) {
+      return reply.status(400).send({ error: seatRejection });
     }
 
     const mergedList: VictoryType[] =

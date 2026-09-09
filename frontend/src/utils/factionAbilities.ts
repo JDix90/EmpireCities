@@ -232,6 +232,10 @@ export function getAvailableFactionAbilityId(
     germany:      'blitzkrieg',
     soviet_union: 'mass_mobilization',
     china_ww2:    'guerrilla_warfare',
+    // Forge Syndicate calls the same charge "Supply Insert". Without this entry
+    // the faction had no ability button at all: the server handler existed, but
+    // nothing mapped the faction to it.
+    forge_syndicate: 'guerrilla_warfare',
     // Group A — free-unit placement (draft)
     usa_cw:                  'marshall_plan',
     rogue_state:             'insurgency',
