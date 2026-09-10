@@ -27,9 +27,14 @@ import {
   ERA_LESSON_GRANT_TECH_POINTS,
 } from '../../game-engine/tutorial/tutorialGrants';
 import {
+  ASCENSION_GALAXY_ADVANCEMENT_ERROR,
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
 } from '../../game-engine/lobby/lobbyEraMapCompatibility';
+import {
+  ASCENSION_GALAXY_MAP_ID,
+  ASCENSION_GALAXY_SPINE_ID,
+} from '../../game-engine/lobby/lobbyMapChange';
 import { redactGameRowForViewer } from './gameRowRedaction';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 
@@ -224,6 +229,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (isGalacticAge && !request.isAdmin) {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
     }
+    // Space to Stars: Space Age rules on a board that carries the Galactic Age
+    // behind its second spine step. NOT `isGalacticAge` — that flag also demands
+    // the era's one-faction-per-world start (exactly four seats, four galaxy
+    // factions), and this board starts on Earth with Space Age factions. What it
+    // does share is the era's rule set for the lanes it inherits, so the three
+    // galaxy settings are baked below for both.
+    const isAscensionGalaxy = map_id === ASCENSION_GALAXY_MAP_ID;
+    if (isAscensionGalaxy && !request.isAdmin) {
+      return reply.status(403).send({ error: 'Space to Stars is coming soon and is only available to administrators.' });
+    }
 
     const selectionRejection = territorySelectionRejection({
       territorySelection: rawSettings.territory_selection,
@@ -251,6 +266,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // flag (the schema never accepts it from the client). Bake the live value into
     // the settings at create so the engine reads a fixed setting and stays pure.
     const isSpaceAge = era_id === 'space_age' || map_id === 'era_space_age';
+    // Boards whose hyperspace lanes follow Galactic Age rules — the lane dice
+    // cap, world rules and convoys. Space to Stars has lanes from turn one
+    // (Earth → Moon) and the ring to the far worlds from the moment somebody
+    // ascends, so it takes the same three settings the Galactic Age does.
+    const isGalaxyRules = isGalacticAge || isAscensionGalaxy;
     const settings = normalizeGameSettings(
       applyOrbitGatedVictoryDefaults(
         {
@@ -267,11 +287,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
           // Galactic Age corridors: same bake-at-create discipline as the
           // frontier flag, so the engine reads a fixed setting and stays pure.
-          galaxy_corridors_enabled: isGalacticAge ? featureFlags.galaxyCorridorsEnabled : undefined,
+          galaxy_corridors_enabled: isGalaxyRules ? featureFlags.galaxyCorridorsEnabled : undefined,
           // Galactic Age worlds as characters — same discipline; the map's
           // authored rules are snapshotted at init when this is on.
-          world_rules_enabled: isGalacticAge ? featureFlags.galaxyWorldRulesEnabled : undefined,
-          galaxy_transit_enabled: isGalacticAge ? featureFlags.galaxyTransitEnabled : undefined,
+          world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
+          galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
@@ -295,8 +315,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       if (rawSettings.is_ranked === true) {
         return reply.status(400).send({ error: 'Era Advancement is not available in ranked games' });
       }
-      if (era_id !== 'ancient') {
+      // Every built-in spine but one starts in Ancient. Space to Stars is the
+      // exception by construction: it is the two-step climb the Galactic Age was
+      // built for, and playing it as the tail of a six-era marathon is neither
+      // what it is for nor something that can be measured honestly.
+      const ascensionSpine = settings.era_advancement_spine_id === ASCENSION_GALAXY_SPINE_ID;
+      if (ascensionSpine) {
+        if (!isAscensionGalaxy) {
+          return reply.status(400).send({ error: 'The Space to Stars climb needs the Space to Stars theater' });
+        }
+      } else if (era_id !== 'ancient') {
         return reply.status(400).send({ error: 'Era Advancement must start in the Ancient era' });
+      }
+      if (isAscensionGalaxy && !ascensionSpine) {
+        return reply.status(400).send({ error: ASCENSION_GALAXY_ADVANCEMENT_ERROR });
       }
     }
 

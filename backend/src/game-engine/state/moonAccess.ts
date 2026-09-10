@@ -3,6 +3,7 @@
 // ============================================================
 
 import { inferWorldId } from '@borderfall/shared';
+import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { isLaneClosedByWeather } from './laneWeather';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
 
@@ -28,6 +29,50 @@ export function resolveOrbitAccessMode(map: GameMap, era: EraId): OrbitAccessMod
   if (era === 'galaxy_age') return 'galaxy_hyperspace';
   if (era === 'space_age') return 'space_age_moon';
   return 'none';
+}
+
+/**
+ * How far along the orbit ladder a mode sits. Only an ordering, not a judgement
+ * about strictness — `galaxy_hyperspace` under corridors is the more PERMISSIVE
+ * of the two, which is the point: a player who reached the Galactic Age has the
+ * drives, and crossing a lane is about holding a gateway rather than owning a
+ * Space Program they can no longer research.
+ */
+const ORBIT_MODE_RANK: Record<OrbitAccessMode, number> = {
+  none: 0,
+  space_age_moon: 1,
+  galaxy_hyperspace: 2,
+};
+
+/**
+ * The orbit regime governing ONE player: the later of the board's era and their
+ * own. Both halves are needed and neither alone is right.
+ *
+ *  • The board's era alone is wrong on an era-advancement board that does not
+ *    transform — Space to Stars stays `space_age` all game, so a player who
+ *    climbed to the Galactic Age would still be held to the Space Age ladder.
+ *    Since `executeAdvanceEra` clears `unlocked_techs`, that ladder is one they
+ *    can never re-climb: measured, every seat advanced by turn 15 and then not
+ *    one of them ever reached the Moon, let alone the worlds beyond it.
+ *  • The player's era alone is wrong on a board-transform game, where the board
+ *    IS the Space Age while a trailing player is still in the Modern day — their
+ *    own era resolves to `none`, which would hand them the Moon for free.
+ *
+ * Taking the later of the two is right in both: it never relaxes what the board
+ * demands, and it recognises a player who has climbed past it.
+ */
+export function resolveOrbitAccessModeForPlayer(
+  state: GameState,
+  player: PlayerState,
+  map: GameMap,
+  boardEra: EraId,
+): OrbitAccessMode {
+  // An explicit map declaration is the whole rule; era never enters into it.
+  if (map.orbit_access) return map.orbit_access;
+  const board = resolveOrbitAccessMode(map, boardEra);
+  if (!state.settings?.era_advancement_enabled) return board;
+  const own = resolveOrbitAccessMode(map, resolvePlayerEraId(state, player));
+  return ORBIT_MODE_RANK[own] > ORBIT_MODE_RANK[board] ? own : board;
 }
 
 /** Compute Space Age Moon access (legacy breakdown). */
@@ -200,7 +245,7 @@ export function getOrbitAccessResult(
   map: GameMap,
   era: EraId,
 ): OrbitAccessResult {
-  const mode = resolveOrbitAccessMode(map, era);
+  const mode = resolveOrbitAccessModeForPlayer(state, player, map, era);
   if (mode === 'none') return { allowed: true, missing: [], mode };
 
   if (mode === 'space_age_moon') {

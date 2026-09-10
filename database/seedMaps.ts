@@ -25,6 +25,7 @@ const MAP_FILES = [
   'era_risorgimento.json',
   'era_space_age.json',
   'era_galaxy.json',
+  'era_ascension_galaxy.json',
 ];
 
 const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [

@@ -143,10 +143,10 @@ import {
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId, aiPlayerName } from '@borderfall/shared';
-import { viewerHoldsVaultSeal } from '../utils/galaxyLanes';
+import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import {
   getOrbitAccessResult,
-  resolveOrbitAccessMode,
+  resolveOrbitAccessModeForPlayer,
   territoryRequiresOrbitAccessForClaim,
   formatOrbitAccessError,
 } from '../utils/orbitAccess';
@@ -154,6 +154,12 @@ import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+/** "a", "a and b", "a, b and c" — plain English for a short list of names. */
+function formatList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
@@ -1785,9 +1791,32 @@ export default function GamePage() {
     socket.on('game:territories_unlocked', ({ territory_ids }: { era_id?: string; territory_ids?: string[] }) => {
       const ids = territory_ids ?? [];
       if (ids.length === 0) return;
+      // Whole WORLDS can arrive at once, not just a frontier next door: on the
+      // Space to Stars board the Galactic Age step opens three of them. A world
+      // is new when every tile it has on the board is in this batch — the map
+      // re-emit has already landed, so "what it had before" is gone, but "all of
+      // it is brand new" says the same thing and needs no extra state.
+      const mapNow = mapDataRef.current;
+      const arrivedWorlds: string[] = [];
+      if (mapNow) {
+        const unlocked = new Set(ids);
+        const byWorld = new Map<string, { total: number; fresh: number }>();
+        for (const t of mapNow.territories) {
+          const wid = inferWorldId(t);
+          const tally = byWorld.get(wid) ?? { total: 0, fresh: 0 };
+          tally.total += 1;
+          if (unlocked.has(t.territory_id)) tally.fresh += 1;
+          byWorld.set(wid, tally);
+        }
+        for (const [wid, tally] of byWorld) {
+          if (tally.fresh > 0 && tally.fresh === tally.total) arrivedWorlds.push(worldDisplayName(mapNow, wid));
+        }
+      }
       toast(
-        `A new frontier opens — ${ids.length} unclaimed land${ids.length === 1 ? '' : 's'} ripe for the taking!`,
-        { icon: '🗺️', duration: 6000 },
+        arrivedWorlds.length > 0
+          ? `The stars open — ${formatList(arrivedWorlds)} ${arrivedWorlds.length === 1 ? 'is' : 'are'} on the chart.`
+          : `A new frontier opens — ${ids.length} unclaimed land${ids.length === 1 ? '' : 's'} ripe for the taking!`,
+        { icon: arrivedWorlds.length > 0 ? '\u2728' : '\ud83d\uddfa\ufe0f', duration: 6000 },
       );
       try { playFrontierUnlockSound(); } catch { /* audio is best-effort */ }
       // Epic entrance: route the reveal through the era-advance cinematic — re-themed
@@ -2623,6 +2652,15 @@ export default function GamePage() {
     return mapData.worlds.find((w) => w.world_id === focusedWorldId) ?? null;
   }, [mapData?.worlds, focusedWorldId]);
 
+  /**
+   * World tabs, derived from the board rather than the map manifest. On the
+   * Space to Stars board the three far worlds are authored from the start but
+   * held out of play until a player reaches the Galactic Age; a tab list built
+   * from `mapData.worlds` would offer three buttons that open an empty globe
+   * years before anyone can go there. This way the tab arrives with the world.
+   */
+  const galaxyWorldTabs = useMemo(() => worldsInPlay(mapData), [mapData]);
+
   /** Per-territory globe diffuse/bump when a galaxy node/territory is selected (Option A). */
   const galaxyDrillGlobeSkin = useMemo(() => {
     if (mapData?.map_kind !== 'galaxy') return null;
@@ -2699,7 +2737,7 @@ export default function GamePage() {
     if (!mapData || !selectedTerritory) return null;
     if (!territoryRequiresOrbitAccessForClaim(mapData, selectedTerritory)) return null;
     if (orbitAccess.allowed) return null;
-    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, user?.user_id ?? null, gameState?.era ?? '');
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
 
@@ -2712,7 +2750,7 @@ export default function GamePage() {
    */
   const orbitTravelBlockedReason = useMemo(() => {
     if (!mapData || orbitAccess.allowed) return null;
-    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, user?.user_id ?? null, gameState?.era ?? '');
     if (mode === 'none') return null;
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, orbitAccess, gameState?.era]);
@@ -3443,7 +3481,7 @@ export default function GamePage() {
     if (md.map_kind === 'galaxy') {
       setGalaxyOverviewMode(true);
       const wid =
-        md.worlds?.[0]?.world_id ??
+        worldsInPlay(md)[0]?.world_id ??
         inferWorldId(md.territories[0] ?? { territory_id: '', region_id: '' });
       setFocusedWorldId(wid);
     } else {
@@ -4038,7 +4076,7 @@ export default function GamePage() {
                 Galaxy chart
               </button>
               <div className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
-                {(mapData.worlds ?? []).map((w) => (
+                {galaxyWorldTabs.map((w) => (
                   <button
                     key={w.world_id}
                     type="button"
@@ -4077,7 +4115,7 @@ export default function GamePage() {
           >
             <Orbit className="w-3.5 h-3.5" /> Galaxy chart
           </button>
-          {(mapData.worlds ?? []).map((w) => (
+          {galaxyWorldTabs.map((w) => (
             <button
               key={w.world_id}
               type="button"

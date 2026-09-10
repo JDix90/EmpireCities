@@ -18,6 +18,22 @@ export const LOBBY_ERAS = [
   { id: 'galaxy_age', label: 'Galactic Age — Coming Soon' },
 ] as const;
 
+/**
+ * Space to Stars — one board that runs Space Age Earth + Moon and holds the
+ * three Galactic Age worlds behind an era-advancement unlock. A THEATER, not a
+ * rules era: it pairs with Space Age rules and needs Era Advancement on the
+ * `space_to_stars` spine. Mirrors backend `lobbyMapChange.ts`.
+ */
+export const ASCENSION_GALAXY_MAP_ID = 'era_ascension_galaxy';
+export const ASCENSION_GALAXY_START_ERA = 'space_age';
+export const ASCENSION_GALAXY_SPINE_ID = 'space_to_stars';
+export const ASCENSION_GALAXY_LABEL = 'Space to Stars';
+
+/** True when this theater is the Space to Stars board. */
+export function isAscensionGalaxyMap(mapId: string): boolean {
+  return mapId === ASCENSION_GALAXY_MAP_ID;
+}
+
 export const LOBBY_ERA_MAP_IDS: Record<string, string> = {
   ancient: 'era_ancient',
   medieval: 'era_medieval',

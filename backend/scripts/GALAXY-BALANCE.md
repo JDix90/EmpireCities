@@ -5,6 +5,11 @@ Headless AI-vs-AI balance for the **64-territory** Galactic Age map
 in a symmetric ring, 16 gateway tiles). Tool:
 [`simGalaxyBalance.ts`](./simGalaxyBalance.ts).
 
+The era's other board — `era_ascension_galaxy`, where a Space Age game climbs
+into these worlds rather than starting in them — is audited separately in
+[SPACE-TO-STARS-BALANCE.md](./SPACE-TO-STARS-BALANCE.md); nothing in this
+document is measured on it.
+
 ```sh
 # from backend/ — the live create defaults for this era are threshold 60% + cap
 # 90 + Lane Sovereignty, so this is the meaningful run:

@@ -58,6 +58,32 @@ export const ERA_ADVANCEMENT_SPINES: Record<string, EraAdvancementSpine> = {
       { era_id: 'space_age', signature_id: 'orbital_window' },
     ],
   },
+  // Space to Stars: the two-step climb the Galactic Age was built for, on the
+  // `era_ascension_galaxy` board. It starts where Full Ascension ends, so a game
+  // can be played on its own rather than as the tail of a six-era marathon —
+  // which is also the only way the step can be measured honestly. Arriving in
+  // the Galactic Age grants `pathfinder_gate`: the hyperspace lanes to worlds
+  // you have not reached are yours alone for two rounds, because your Space
+  // Program is why you got there first.
+  space_to_stars: {
+    spine_id: 'space_to_stars',
+    label: 'Space Age → Galactic Age',
+    steps: [
+      // The Space Program is the gate, not a tech count. Without it, measured:
+      // every seat climbed by turn 15, `executeAdvanceEra` wiped their
+      // `unlocked_techs` (including Lunar Expansion) on the way through, and
+      // across 10 games nobody ever set foot on the Moon — the three far worlds
+      // opened on schedule and sat untouched for 45 turns. Requiring Moon access
+      // to leave the Space Age makes the climb mean what it says, and the tech
+      // wipe stops mattering because the arriving era gates lanes positionally.
+      {
+        era_id: 'space_age',
+        gate_overrides: { min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 3 },
+        gate_requires_moon_access: true,
+      },
+      { era_id: 'galaxy_age', signature_id: 'pathfinder_gate' },
+    ],
+  },
 };
 
 export function getSpineById(spineId: string | undefined): EraAdvancementSpine {
@@ -91,7 +117,11 @@ export function buildAscensionSpineFromEra(startEraId: EraId): EraSpineStep[] | 
   const startIndex = ASCENSION_ERA_ORDER.indexOf(startEraId);
   if (startIndex < 0) return null;
   // Clone each step so the snapshot can't share references with the registry.
-  return ERA_ADVANCEMENT_SPINES.full_ascension.steps.slice(startIndex).map((s) => ({ ...s }));
+  const steps = ERA_ADVANCEMENT_SPINES.full_ascension.steps.slice(startIndex).map((s) => ({ ...s }));
+  // A one-step slice is not a spine: starting on the LAST ascension era leaves
+  // nowhere to climb, and returning it would shadow a configured spine that does
+  // go somewhere. That is exactly the Space Age start `space_to_stars` uses.
+  return steps.length > 1 ? steps : null;
 }
 
 export function isValidSpineId(spineId: unknown): spineId is string {

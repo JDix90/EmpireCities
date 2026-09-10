@@ -688,6 +688,15 @@ export interface EraSpineStep {
   signature_id?: string;
   /** Per-step overrides for the milestone gate to advance OUT of this era. */
   gate_overrides?: Partial<EraMilestoneGate>;
+  /**
+   * Advancing OUT of this era additionally requires the Space Program — the
+   * Moon-access ladder (Lunar Expansion + a Launch Pad + a launched Space
+   * Station, or the Lunar Pioneers' birthright). Set on the Space Age step of
+   * `space_to_stars`, where reaching the stars is supposed to MEAN you built the
+   * ship. Computed from `state` alone (getMoonAccessState), so the map-free
+   * advance path can check it.
+   */
+  gate_requires_moon_access?: boolean;
 }
 
 export interface GameState {

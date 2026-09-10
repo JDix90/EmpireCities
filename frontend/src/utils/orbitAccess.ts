@@ -20,6 +20,7 @@
 import { inferWorldId } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
 import { orbitLaneId } from './galaxyLanes';
+import { resolvePlayerTechEraId } from './eraAdvancement';
 
 export type OrbitAccessMode = 'none' | 'space_age_moon' | 'galaxy_hyperspace';
 
@@ -107,6 +108,43 @@ export function resolveOrbitAccessMode(
   return 'none';
 }
 
+/**
+ * How far along the orbit ladder a mode sits — an ordering, not a strictness
+ * ranking. `galaxy_hyperspace` under corridors is the more PERMISSIVE of the
+ * two, which is the point (see the backend twin in `state/moonAccess.ts`).
+ */
+const ORBIT_MODE_RANK: Record<OrbitAccessMode, number> = {
+  none: 0,
+  space_age_moon: 1,
+  galaxy_hyperspace: 2,
+};
+
+/**
+ * The orbit regime governing ONE player: the later of the board's era and their
+ * own. Mirrors `resolveOrbitAccessModeForPlayer` on the backend.
+ *
+ * Both halves are needed. On Space to Stars the board stays `space_age` all
+ * game, so a player who climbed to the Galactic Age would still be held to a
+ * Space Age ladder whose techs the advance itself wiped. On a board-transform
+ * game the board IS the Space Age while a trailing player is still in the
+ * Modern day, and their own era alone would hand them the Moon for free.
+ */
+export function resolveOrbitAccessModeForPlayer(
+  mapData: FrontendMapData | null | undefined,
+  gameState: GameState | null,
+  playerId: string | null | undefined,
+  boardEra: string,
+): OrbitAccessMode {
+  if (!mapData) return 'none';
+  if (mapData.orbit_access) return mapData.orbit_access;
+  const board = resolveOrbitAccessMode(mapData, boardEra);
+  if (!gameState?.settings?.era_advancement_enabled || !playerId) return board;
+  const player = gameState.players.find((p) => p.player_id === playerId);
+  if (!player) return board;
+  const own = resolveOrbitAccessMode(mapData, resolvePlayerTechEraId(gameState, player));
+  return ORBIT_MODE_RANK[own] > ORBIT_MODE_RANK[board] ? own : board;
+}
+
 export interface OrbitAccessResult {
   allowed: boolean;
   missing: string[];
@@ -161,7 +199,7 @@ export function getSpaceProgramProgress(
     applicable: false, isLunarPioneer: false, allowed: true, rungs: [], strandedWithoutPad: false,
     everHadPad: false,
   };
-  if (resolveOrbitAccessMode(mapData, era) !== 'space_age_moon') return empty;
+  if (resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era) !== 'space_age_moon') return empty;
   if (!gameState || !playerId) return empty;
   const player = gameState.players.find((p) => p.player_id === playerId);
   if (!player) return empty;
@@ -239,7 +277,7 @@ export function fortifyTraversalFilter(
   playerId: string | null | undefined,
   era: string,
 ): (conn: { from: string; to: string; type?: string }) => boolean {
-  if (resolveOrbitAccessMode(mapData, era) === 'none' || !gameState || !playerId) {
+  if (resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era) === 'none' || !gameState || !playerId) {
     return () => true;
   }
   const access = getOrbitAccessResult(mapData, gameState, playerId, era);
@@ -261,7 +299,7 @@ export function getOrbitAccessResult(
   playerId: string | null | undefined,
   era: string,
 ): OrbitAccessResult {
-  const mode = resolveOrbitAccessMode(mapData, era);
+  const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era);
   if (mode === 'none' || !gameState || !playerId) return { allowed: true, missing: [] };
 
   const player = gameState.players.find((p) => p.player_id === playerId);

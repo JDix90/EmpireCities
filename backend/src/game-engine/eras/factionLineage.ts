@@ -22,6 +22,31 @@ export function getPlayerFaction(state: GameState, player: PlayerState): Faction
   return getFactionById(resolvePlayerEraId(state, player), player.faction_id);
 }
 
+/**
+ * Last resort when the arriving era has no faction on the player's lineage. That
+ * happens whenever a spine crosses between eras with different lineage sets —
+ * `space_to_stars` runs the Space Age's six into the Galactic Age's four — and
+ * leaving the departing id in place is not an option: every faction lookup
+ * resolves against the player's CURRENT era, so a stale id reads as "no faction"
+ * and the player silently loses their whole kit on the turn they arrive.
+ *
+ * Picks the first faction in the arriving era that no other seat already holds,
+ * so a full table does not collapse onto one kit, and the first one when the era
+ * has fewer factions than seats.
+ */
+function fallbackFactionForEra(
+  state: GameState,
+  player: PlayerState,
+  arrivingEraId: EraId,
+): Faction | undefined {
+  const factions = getEraFactions(arrivingEraId);
+  if (factions.length === 0) return undefined;
+  const taken = new Set(
+    state.players.filter((p) => p.player_id !== player.player_id).map((p) => p.faction_id),
+  );
+  return factions.find((f) => !taken.has(f.faction_id)) ?? factions[0];
+}
+
 /** The faction in `eraId` belonging to `lineageId`, if one exists. */
 export function findFactionByLineage(eraId: EraId, lineageId: string | undefined): Faction | undefined {
   if (!lineageId) return undefined;
@@ -44,7 +69,8 @@ export function applyLineageOnAdvance(
   const lineageId = getFactionById(departingEraId, player.faction_id)?.lineage_id ?? player.faction_lineage_id;
   if (!lineageId) return;
   player.faction_lineage_id = lineageId;
-  const arriving = findFactionByLineage(arrivingEraId, lineageId);
+  const arriving = findFactionByLineage(arrivingEraId, lineageId)
+    ?? fallbackFactionForEra(state, player, arrivingEraId);
   if (arriving) player.faction_id = arriving.faction_id;
 }
 
@@ -67,7 +93,8 @@ export function migrateAdvancedFactions(state: GameState): void {
     }
     // Stale base-era id on an advanced player → remap via lineage.
     const lineageId = getFactionById(state.era, player.faction_id)?.lineage_id ?? player.faction_lineage_id;
-    const migrated = findFactionByLineage(currentEraId, lineageId);
+    const migrated = findFactionByLineage(currentEraId, lineageId)
+      ?? fallbackFactionForEra(state, player, currentEraId);
     if (migrated) {
       player.faction_id = migrated.faction_id;
       player.faction_lineage_id = lineageId;

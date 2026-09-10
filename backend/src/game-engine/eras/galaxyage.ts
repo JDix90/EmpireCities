@@ -33,6 +33,13 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   must take (see state/worldRules.ts and GALAXY-BALANCE.md).
 // ──────────────────────────────────────────────────────────────────────────
 
+// Lineage ids matter only on a spine that climbs INTO this era — Space to Stars.
+// A player's faction is remapped along its lineage on arrival, and every runtime
+// faction lookup resolves against the player's current era, so a galaxy faction
+// with no lineage would leave an arriving player holding an id this era cannot
+// resolve, i.e. no kit at all. The Space Age has six lineages and this era has
+// four kits; the two with no partner here are handled by the fallback in
+// `applyLineageOnAdvance`.
 export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'stellar_mandate',
@@ -41,6 +48,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'The Mandate believes stability flows from a single chain of command spanning every recognized star system.',
     flavor_quote: 'Order is not imposed — it is synchronized.',
     home_region_ids: ['sol_americas', 'sol_atlantic_arc', 'sol_crescent', 'sol_asian_rim'],
+    lineage_id: 'imperial',
     // The research discount is GONE, not reduced. Its history: -2 compounded into
     // a 47% win rate once gateway fights were decided by dice, so Phase 3 cut it to
     // -1. Measured again on the deterministic harness (400g x 3 seeds, expert,
@@ -61,6 +69,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'Shipyards and foundries form the true border between civilization and the dark between stars.',
     flavor_quote: 'We sell the hulls that empires die in.',
     home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works'],
+    lineage_id: 'mercantile',
     reinforce_bonus: 2,
     // The Syndicate sells the hulls, so it builds the gate network at cost: half
     // price on Jump Gates. It is the one faction whose kit is production rather
@@ -77,6 +86,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
     home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts'],
+    lineage_id: 'maritime',
     // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
     // Drift Jump is applied implicitly by the fortify handler: a fortify between
     // two owned gateway tiles on different worlds that has no connected path.
@@ -91,6 +101,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     lore: 'They guard the silent rings and tether cities where vacuum is the only neighbor.',
     flavor_quote: 'We keep the dark from leaning in.',
     home_region_ids: ['nexus_gate_ring', 'nexus_vault_ward', 'nexus_spire_walk', 'nexus_berth_ring'],
+    lineage_id: 'bastion',
     ability_id: 'emergency_seal',
     ability_description: 'Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.',
     color: '#9b59b6',

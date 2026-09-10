@@ -2733,7 +2733,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'Era advancement is only available during the reinforcement or fortify phase' });
       }
 
-      const result = executeAdvanceEra(state, userId);
+      const result = executeAdvanceEra(state, userId, room.map);
       if (!result.success) {
         return socket.emit('error', { message: result.error ?? 'Cannot advance era' });
       }
@@ -5348,7 +5348,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     && difficulty !== 'tutorial'
     && evaluateAiEraAdvancement(state, map, currentPlayer.player_id, difficulty).shouldAdvance
   ) {
-    const advanceResult = executeAdvanceEra(state, currentPlayer.player_id);
+    const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
     if (advanceResult.success) {
       const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({

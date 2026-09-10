@@ -1,6 +1,10 @@
 import {
+  ASCENSION_GALAXY_MAP_ID,
+  ASCENSION_GALAXY_SPINE_ID,
+  ASCENSION_GALAXY_START_ERA,
   COMMUNITY_MAP_LABELS,
   CURATED_COMMUNITY_MAP_IDS,
+  EXTRA_THEATER_MAP_LABELS,
   LOBBY_ERA_MAP_IDS,
   LOBBY_ERA_LABELS,
   LOBBY_RULES_ERA_IDS,
@@ -48,7 +52,13 @@ export interface EraMapCompatibilityResult {
 export const LOBBY_SELECTABLE_THEATER_MAP_IDS = new Set([
   ...Object.values(LOBBY_ERA_MAP_IDS),
   ...CURATED_COMMUNITY_MAP_IDS,
+  ASCENSION_GALAXY_MAP_ID,
 ]);
+
+export const ASCENSION_GALAXY_ERA_ERROR =
+  'Space to Stars starts under Space Age rules — pick Space Age or a different theater';
+export const ASCENSION_GALAXY_ADVANCEMENT_ERROR =
+  'Space to Stars needs Era Advancement on — the three far worlds only open when a player reaches the Galactic Age';
 
 const COMMUNITY_RECOMMENDED_RULES_ERA: Record<string, string> = {
   community_flooded_north_america: 'modern',
@@ -87,6 +97,7 @@ export function recommendedRulesEraForTheater(mapId: string): string | null {
 }
 
 export function formatTheaterMapLabel(mapId: string): string {
+  if (EXTRA_THEATER_MAP_LABELS[mapId]) return EXTRA_THEATER_MAP_LABELS[mapId];
   if (COMMUNITY_MAP_LABELS[mapId]) return COMMUNITY_MAP_LABELS[mapId];
   const eraKey = Object.entries(LOBBY_ERA_MAP_IDS).find(([, id]) => id === mapId)?.[0];
   if (eraKey) return LOBBY_ERA_LABELS[eraKey] ?? mapId;
@@ -147,6 +158,22 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
   }
 
+  // Space to Stars carries the Galactic Age's content behind its second spine
+  // step, so it rides the same admin gate — and it only makes sense as an
+  // advancement game: with advancement off the era floor never rises, and the
+  // 48 exo tiles are content nobody can ever reach.
+  if (map_id === ASCENSION_GALAXY_MAP_ID) {
+    if (!input.is_admin) {
+      return { allowed: false, hardBlock: 'Space to Stars is only available to administrators', warnings };
+    }
+    if (era_id !== ASCENSION_GALAXY_START_ERA) {
+      return { allowed: false, hardBlock: ASCENSION_GALAXY_ERA_ERROR, warnings };
+    }
+    if (settings.era_advancement_enabled !== true) {
+      return { allowed: false, hardBlock: ASCENSION_GALAXY_ADVANCEMENT_ERROR, warnings };
+    }
+  }
+
   // The era's designed start — one faction per world — is produced by
   // tryDistributeGalaxyAgeFactionHomeworlds, which fires ONLY for exactly four
   // seats holding four distinct galaxy factions. Every other shape silently
@@ -187,7 +214,9 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     // ascension line is a valid start. Other (growth) games are pinned to the
     // configured spine's fixed start era — all built-in spines begin at Ancient.
     const boardTransform = settings.era_advancement_board_transform === true;
-    if (boardTransform && isAscensionEra(era_id as EraId)) {
+    if (map_id === ASCENSION_GALAXY_MAP_ID && settings.era_advancement_spine_id === ASCENSION_GALAXY_SPINE_ID) {
+      // Already pinned to space_age above; the spine's own start era agrees.
+    } else if (boardTransform && isAscensionEra(era_id as EraId)) {
       // valid mid-line start — fall through to map/meta checks
     } else {
       const spineId = typeof settings.era_advancement_spine_id === 'string'

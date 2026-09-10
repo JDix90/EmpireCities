@@ -42,6 +42,10 @@ import {
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
 import {
+  ASCENSION_GALAXY_SPINE_ID,
+  isAscensionGalaxyMap,
+} from '../constants/lobbyMapOptions';
+import {
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
   evaluateEraMapCompatibility,
@@ -1043,6 +1047,7 @@ export default function LobbyPage() {
 
       const mapId = selectedTheaterMapId;
       const eraId = selectedEra;
+      const isAscensionTheater = isAscensionGalaxyMap(mapId);
       const allowed = Array.from(victoryModes) as VictoryMode[];
       const settings: Record<string, unknown> = {
         fog_of_war: fogOfWar,
@@ -1059,10 +1064,18 @@ export default function LobbyPage() {
         stability_enabled: stabilityEnabled || undefined,
         territory_selection: territorySelection || undefined,
         coaching_enabled: coachingEnabled || undefined,
+        // Space to Stars is an advancement board by construction — its three far
+        // worlds exist only behind the Galactic Age step — so the theater turns
+        // the climb on and pins its own two-step spine rather than a preset.
         era_advancement_enabled:
-          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+          isAscensionTheater
+            ? true
+            : eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+        era_advancement_spine_id: isAscensionTheater ? ASCENSION_GALAXY_SPINE_ID : undefined,
         era_advancement_preset:
-          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? eraAdvancementPreset : undefined,
+          !isAscensionTheater && eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient'
+            ? eraAdvancementPreset
+            : undefined,
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
@@ -1074,7 +1087,7 @@ export default function LobbyPage() {
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
-      if (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient') {
+      if (isAscensionTheater || (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient')) {
         settings.economy_enabled = true;
         settings.tech_trees_enabled = true;
         settings.stability_enabled = true;
@@ -2290,7 +2303,13 @@ export default function LobbyPage() {
                         }}
                       >
                         {LOBBY_THEATER_OPTIONS.map((opt) => (
-                          <option key={opt.map_id} value={opt.map_id}>{opt.label}</option>
+                          <option
+                            key={opt.map_id}
+                            value={opt.map_id}
+                            disabled={isAscensionGalaxyMap(opt.map_id) && !canAccessGalacticAge(user)}
+                          >
+                            {opt.label}
+                          </option>
                         ))}
                       </select>
                       <p className="text-xs text-bf-muted mt-1">Territories, geography, and globe layout.</p>

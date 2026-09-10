@@ -184,6 +184,39 @@ export function gatewayTerritoryIds(mapData: LaneMapData | null | undefined): Se
   return out;
 }
 
+/**
+ * The worlds a player can actually go to right now: the manifest entries that
+ * have at least one territory on the board, in manifest order, plus any world a
+ * territory infers that the manifest never declared.
+ *
+ * `mapData.worlds` is the authored manifest and lists every world the board will
+ * EVER have. On a growth board (Space to Stars) the far worlds are held out
+ * behind `unlock_era_index` and projected off the emitted map until somebody
+ * reaches the Galactic Age — but the manifest still names them, so a switcher
+ * built straight from it offers three tabs that open an empty globe. Deriving
+ * the list from the territories in hand means the tab appears on the turn the
+ * world does, which is also the reveal.
+ */
+export function worldsInPlay(
+  mapData: LaneMapData | null | undefined,
+): Array<{ world_id: string; display_name: string }> {
+  if (!mapData) return [];
+  const present = new Set(mapData.territories.map((t) => inferWorldId(t)));
+  const out: Array<{ world_id: string; display_name: string }> = [];
+  const seen = new Set<string>();
+  for (const w of mapData.worlds ?? []) {
+    if (!present.has(w.world_id) || seen.has(w.world_id)) continue;
+    seen.add(w.world_id);
+    out.push({ world_id: w.world_id, display_name: worldDisplayName(mapData, w.world_id) });
+  }
+  for (const wid of present) {
+    if (seen.has(wid)) continue;
+    seen.add(wid);
+    out.push({ world_id: wid, display_name: worldDisplayName(mapData, wid) });
+  }
+  return out;
+}
+
 /** The map's authored world name, else the lore name, else the id. */
 export function worldDisplayName(mapData: LaneMapData | null | undefined, worldId: string): string {
   const authored = mapData?.worlds?.find((w) => w.world_id === worldId)?.display_name;
