@@ -263,7 +263,10 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     const seal = await act(c, 'game:seal_lane', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:state');
     expect(seal.ok, seal.ok ? '' : seal.error).toBe(true);
     const sealed = await waitForRedisState(gameId, (s) => !!s.lane_blockades?.[orbitLaneId(L1.sol, L1.verdan)]);
-    expect(sealed.lane_blockades![orbitLaneId(L1.sol, L1.verdan)]).toEqual({ owner_id: P[0], turns_remaining: 1 });
+    // `tick: 'owner_turn'` is what marks this a Galactic Age seal: it ages as its
+    // owner's turn begins, not at the round wrap where a Space Age blockade does.
+    expect(sealed.lane_blockades![orbitLaneId(L1.sol, L1.verdan)])
+      .toEqual({ owner_id: P[0], turns_remaining: 1, tick: 'owner_turn' });
     // One charge a turn, Vault or not.
     const twice = await act(c, 'game:seal_lane', { gameId, fromId: N1.sol, toId: N1.nexus }, 'game:state');
     expect(twice.ok).toBe(false);
@@ -295,7 +298,8 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     const seal = await act(cs[3], 'game:seal_lane', { gameId, fromId: N1.nexus, toId: N1.sol }, 'game:state');
     expect(seal.ok, seal.ok ? '' : seal.error).toBe(true);
     const sealed = await waitForRedisState(gameId, (s) => !!s.lane_blockades?.[orbitLaneId(N1.sol, N1.nexus)]);
-    expect(sealed.lane_blockades![orbitLaneId(N1.sol, N1.nexus)]).toEqual({ owner_id: P[3], turns_remaining: 1 });
+    expect(sealed.lane_blockades![orbitLaneId(N1.sol, N1.nexus)])
+      .toEqual({ owner_id: P[3], turns_remaining: 1, tick: 'owner_turn' });
     log.push('P4 sealed N1');
 
     const twice = await act(cs[3], 'game:seal_lane', { gameId, fromId: N2.nexus, toId: N2.sol }, 'game:state');
