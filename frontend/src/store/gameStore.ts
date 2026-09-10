@@ -141,6 +141,15 @@ export interface GameState {
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   /** Active hyperspace-lane seals (Void Custodians' Emergency Seal), keyed by canonical lane id. */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  /** Galaxy transit: convoys in the void, visible to everyone as public commitments. */
+  transits?: Array<{
+    id: string;
+    owner_id: string;
+    from: string;
+    to: string;
+    units: number;
+    turns_remaining: number;
+  }>;
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
@@ -150,6 +159,8 @@ export interface GameState {
      * attacks at 2 dice (3 with Lane Charts). Baked at create; advisory here.
      */
     galaxy_corridors_enabled?: boolean;
+    /** Galaxy transit: cross-world fortifies become convoys that land next turn. */
+    galaxy_transit_enabled?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

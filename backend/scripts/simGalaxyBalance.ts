@@ -31,6 +31,7 @@ import {
 import { vaultStatuses } from '../src/game-engine/state/worldRules';
 import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
+import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import {
   aiAttackExchangeBudget,
@@ -79,6 +80,13 @@ const SOVEREIGNTY = process.env.SIM_SOVEREIGNTY !== '0';
  * way the galaxy's lane weather — Nebula Closure and Lane Surge — can fire.
  */
 const EVENTS = process.env.SIM_EVENTS === '1';
+/**
+ * Transit (`galaxy_transit_enabled`): a fortify between two worlds becomes a
+ * convoy that lands at the mover's next turn start. Ships OFF, so it is OFF here
+ * unless `SIM_TRANSIT=1` — this is the knob the era plan wanted measured before
+ * the mechanic was believed.
+ */
+const TRANSIT = process.env.SIM_TRANSIT === '1';
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -131,6 +139,7 @@ function simSettings(): GameSettings {
     stability_enabled: true,
     era_advancement_enabled: false, // galaxy is the terminal era
     galaxy_corridors_enabled: CORRIDORS,
+    galaxy_transit_enabled: TRANSIT,
     world_rules_enabled: WORLD_RULES,
     allowed_victory_conditions: [
       'domination',
@@ -169,6 +178,12 @@ function applyFortify(state: GameState, pid: string, from: string, to: string, u
   if (!f || !t || f.owner_id !== pid || t.owner_id !== pid) return;
   const move = Math.min(units ?? f.unit_count - 1, f.unit_count - 1);
   if (move <= 0) return;
+  // Same rule the socket applies: a move between two worlds is a convoy that
+  // lands at this player's next turn start (or turns back).
+  if (fortifyBecomesConvoy(state, from, to)) {
+    launchConvoy(state, pid, from, to, move);
+    return;
+  }
   f.unit_count -= move;
   t.unit_count += move;
 }
@@ -184,6 +199,11 @@ interface SeatTelemetry {
   jumpGatesBuilt: number;
   /** Attacks this seat resolved across a temporary Lane Surge. */
   surgeCrossings: number;
+  /** Convoys this seat sent, and how they ended (transit only). */
+  convoysSent: number;
+  convoysLanded: number;
+  convoysTurnedBack: number;
+  convoysLost: number;
 }
 
 /**
@@ -286,7 +306,11 @@ function playAiTurn(
 
   state.phase = 'fortify';
   for (const a of plan) {
-    if (a.type === 'fortify' && a.from && a.to) applyFortify(state, pid, a.from, a.to, a.units);
+    if (a.type === 'fortify' && a.from && a.to) {
+      const before = (state.transits ?? []).length;
+      applyFortify(state, pid, a.from, a.to, a.units);
+      if ((state.transits ?? []).length > before) seat.convoysSent++;
+    }
   }
 }
 
@@ -377,6 +401,10 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       homeExchanges: 0,
       jumpGatesBuilt: 0,
       surgeCrossings: 0,
+      convoysSent: 0,
+      convoysLanded: 0,
+      convoysTurnedBack: 0,
+      convoysLost: 0,
     };
     snapshots[p.player_id] = {};
   }
@@ -400,6 +428,14 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id]);
     }
     advanceToNextPlayer(state, map);
+    for (const arrival of state.last_transit_arrivals ?? []) {
+      const seatT = telemetry[arrival.convoy.owner_id];
+      if (!seatT) continue;
+      if (arrival.outcome === 'landed') seatT.convoysLanded++;
+      else if (arrival.outcome === 'turned_back') seatT.convoysTurnedBack++;
+      else seatT.convoysLost++;
+    }
+    state.last_transit_arrivals = undefined;
     // The socket clears `active_event` once it has broadcast the card; with no
     // socket here it would otherwise stay set and the SAME instant card would
     // re-apply every round (measured: 11.6 "closures" per game where the deck can
@@ -517,7 +553,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
@@ -617,6 +653,18 @@ function main(): void {
     console.log(
       `  surge lanes crossed in ${pct(gamesWithCrossing.length, Math.max(1, gamesWithSurge.length))} of games that opened one `
       + `(${crossings} crossings total)`,
+    );
+  }
+
+  if (TRANSIT) {
+    const seats = stats.flatMap((g) => g.seats);
+    const sent = seats.reduce((n, s) => n + s.convoysSent, 0);
+    const landed = seats.reduce((n, s) => n + s.convoysLanded, 0);
+    const back = seats.reduce((n, s) => n + s.convoysTurnedBack, 0);
+    const lost = seats.reduce((n, s) => n + s.convoysLost, 0);
+    console.log(`Transit: ${fixed(avg(seats.map((s) => s.convoysSent)))} convoys per seat per game`);
+    console.log(
+      `  of ${sent} sent: ${pct(landed, Math.max(1, sent))} landed · ${pct(back, Math.max(1, sent))} turned back · ${pct(lost, Math.max(1, sent))} lost`,
     );
   }
 

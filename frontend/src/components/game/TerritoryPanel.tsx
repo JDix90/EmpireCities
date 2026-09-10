@@ -37,6 +37,8 @@ import {
   EMERGENCY_SEAL_ABILITY_ID,
   describeLaneDice,
   describeLaneSeal,
+  convoysFor,
+  describeConvoy,
   describeLaneKind,
   describeLaneState,
   describeWorldModifiers,
@@ -734,6 +736,38 @@ export default function TerritoryPanel({
           <span className="text-bf-muted">— launch to the Moon from here</span>
         </div>
       )}
+
+      {/* Galaxy transit — convoys this system has sent or is waiting on. The
+          units are already gone from wherever they left, so a garrison that
+          looks thin may simply be in the void. */}
+      {!isMobileCompactInfo && (() => {
+        const convoys = convoysFor(gameState, { touching: mapTerritory.territory_id });
+        if (convoys.length === 0) return null;
+        const nameOf = (id: string) => territoryNameById.get(id) ?? id;
+        const ownerName = (pid: string) => gameState.players.find((p) => p.player_id === pid)?.username ?? 'a rival';
+        return (
+          <div className="mb-3 px-3 py-2 rounded-lg bg-bf-dark border border-sky-800/50 text-xs" data-testid="transit-card">
+            <div className="flex items-center gap-1.5">
+              <span aria-hidden>🚚</span>
+              <span className="font-semibold text-bf-text">In transit</span>
+            </div>
+            <ul className="mt-1 space-y-0.5">
+              {convoys.map((c) => (
+                <li key={c.id} className="text-[11px] leading-snug">
+                  <span className={c.to === mapTerritory.territory_id ? 'text-sky-200' : 'text-bf-muted'}>
+                    {c.to === mapTerritory.territory_id
+                      ? describeConvoy(c, nameOf)
+                      : `${c.units} unit${c.units === 1 ? '' : 's'} left here for ${nameOf(c.to)}`}
+                  </span>
+                  {c.owner_id !== myPlayerId && (
+                    <span className="text-bf-muted"> · {ownerName(c.owner_id)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Galaxy gateway card — a system that anchors a hyperspace lane. One row per
           lane: the far world, the lane's state for the viewer (corridor / open /

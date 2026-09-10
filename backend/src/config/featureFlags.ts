@@ -65,6 +65,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
   galaxy_world_rules_enabled: () => envOptOut('GALAXY_WORLD_RULES_ENABLED'),
+  galaxy_transit_enabled: () => envOptIn('GALAXY_TRANSIT_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -383,6 +384,17 @@ export const featureFlags = {
    */
   get galaxyWorldRulesEnabled(): boolean {
     return overrideBool('galaxy_world_rules_enabled');
+  },
+
+  /**
+   * Galactic Age transit: a fortify between two worlds becomes a convoy that
+   * lands at the mover's next turn start. Default OFF — it is the era plan's one
+   * explicitly optional mechanic, kept behind the switch until a playtest asks
+   * for it. Kill switch: `GALAXY_TRANSIT_ENABLED=true` to turn it on, or the
+   * `galaxy_transit_enabled` admin override. Baked into game settings at create.
+   */
+  get galaxyTransitEnabled(): boolean {
+    return overrideBool('galaxy_transit_enabled');
   },
 
   /**

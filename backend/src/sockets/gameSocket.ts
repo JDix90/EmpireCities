@@ -60,6 +60,7 @@ import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWith
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
 import { isLaneClosedByWeather, syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
+import { fortifyBecomesConvoy, launchConvoy } from '../game-engine/state/transit';
 import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
@@ -938,6 +939,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       advanceToNextPlayer(state, map);
       await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+      broadcastTransitArrivals(io, gameId, state, map);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const asyncVictory = checkVictory(state, map);
@@ -2301,6 +2303,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
         await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+        broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
 
         // Turn-passing can itself end the game (turn-cap stalemate guard,
@@ -2452,15 +2455,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
-      from.unit_count -= units;
-      to.unit_count += units;
+      // Galaxy transit: a move between two WORLDS is a convoy — the units leave
+      // now and land at this player's next turn start (state/transit.ts).
+      const asConvoy = fortifyBecomesConvoy(state, fromId, toId, { driftJump });
+      if (asConvoy) {
+        launchConvoy(state, userId, fromId, toId, units);
+      } else {
+        from.unit_count -= units;
+        to.unit_count += units;
+      }
       state.fortify_moves_used = movesUsed + 1;
       if (driftJump) {
         currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [DRIFT_JUMP_ABILITY_ID]: 1 };
       }
       commitActionDecision(
         gameId, state, userId, 'fortify',
-        `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
+        asConvoy
+          ? `Sent ${units} unit${units === 1 ? '' : 's'} from ${territoryName(map, fromId)} to ${territoryName(map, toId)} — arrives next turn`
+          : `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
         fortifyProbBefore,
       );
       emitMapVisual(io, gameId, buildFortifyMapVisual({
@@ -2472,7 +2484,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }));
       // Confirm the move to the actor so the client shows its "Moved N troops"
       // toast only on success — never alongside a rejection error toast.
-      socket.emit('game:fortify_result', { fromId, toId, units });
+      socket.emit('game:fortify_result', { fromId, toId, units, inTransit: asConvoy });
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -3738,6 +3750,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
         await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+        broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
         // Re-check after advancement: advancement may itself cause elimination
         // (e.g. a player who hit rebellion-floor on their turn-start tick).
@@ -4261,6 +4274,33 @@ async function syncLaneWeatherAndBroadcastMap(
     mapId: state.map_id,
     map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
   });
+}
+
+/**
+ * Convoys that just landed (or turned back, or were lost) at the incoming
+ * player's turn start. Told to the whole room: a convoy is a public commitment,
+ * so its outcome is public too.
+ */
+function broadcastTransitArrivals(io: Server, gameId: string, state: GameState, map: GameMap): void {
+  const arrivals = state.last_transit_arrivals;
+  if (!arrivals || arrivals.length === 0) return;
+  const owner = state.players.find((p) => p.player_id === arrivals[0].convoy.owner_id);
+  for (const { convoy, outcome } of arrivals) {
+    const payload = {
+      playerId: convoy.owner_id,
+      playerName: owner?.username ?? convoy.owner_id,
+      playerColor: owner?.color ?? '#ffffff',
+      fromId: convoy.from,
+      toId: convoy.to,
+      fromName: territoryName(map, convoy.from),
+      toName: territoryName(map, convoy.to),
+      units: convoy.units,
+      outcome,
+    };
+    io.to(gameId).emit('game:transit_arrived', payload);
+    queueSpectatorEvent(gameId, 'game:transit_arrived', payload);
+  }
+  state.last_transit_arrivals = undefined;
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
@@ -5964,8 +6004,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       continue;
     }
     if (from && to && from.owner_id === currentPlayer.player_id && to.owner_id === currentPlayer.player_id && from.unit_count > action.units) {
-      from.unit_count -= action.units;
-      to.unit_count += action.units;
+      // Same rule as the human path: a cross-world move is a convoy.
+      if (fortifyBecomesConvoy(state, action.from, action.to)) {
+        launchConvoy(state, currentPlayer.player_id, action.from, action.to, action.units);
+      } else {
+        from.unit_count -= action.units;
+        to.unit_count += action.units;
+      }
       state.fortify_moves_used = (state.fortify_moves_used ?? 0) + 1;
       emitMapVisual(io, gameId, buildFortifyMapVisual({
         fromTerritoryId: action.from,
@@ -5981,6 +6026,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);
   await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+  broadcastTransitArrivals(io, gameId, state, map);
   await saveGameState(gameId, state);
   broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);

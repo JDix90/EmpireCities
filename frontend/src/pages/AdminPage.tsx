@@ -126,6 +126,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Hyperspace lanes need no tech to cross — you attack across a lane from the gateway tile you hold — and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so gateways defend like coasts. Baked into each game at creation. On by default; switch off to restore the Hyperspace Chart gate with no lane cap for games created afterwards.',
   },
   {
+    key: 'galaxy_transit_enabled',
+    label: 'Galactic Age transit (convoys)',
+    description:
+      "A fortify between two WORLDS stops being instant: the units leave their garrison at once and land at the mover's next turn start, or turn back if the destination changed hands in the meantime. A Drift Jump is exempt. Baked into each game at creation. OFF by default — the era plan wanted this one measured before it was believed; measured at 400 games it fires about 1.5 times per seat per game and one convoy in eight turns back.",
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

@@ -218,4 +218,32 @@ describe('GalaxyStrategicView', () => {
     fireEvent.click(hit('sol_a::verdan_a'));
     expect(onSealLane).toHaveBeenCalledTimes(1);
   });
+
+  it('draws a convoy on the lane it is crossing, with its unit count', () => {
+    const inTransit = mkGameState({
+      settings: {
+        galaxy_corridors_enabled: true,
+        tech_trees_enabled: true,
+        galaxy_transit_enabled: true,
+      } as GameState['settings'],
+      transits: [
+        { id: 'c1', owner_id: 'me', from: 'sol_a', to: 'verdan_a', units: 6, turns_remaining: 1 },
+      ],
+    });
+    const { container } = renderView({ gameState: inTransit });
+    const markers = [...container.querySelectorAll('[data-testid="convoy-marker"]')];
+    expect(markers).toHaveLength(1);
+    expect(markers[0].querySelector('text')!.textContent).toBe('6');
+    expect(markers[0].querySelector('title')!.textContent).toContain('arriving next turn');
+  });
+
+  it('draws nothing when transit is off', () => {
+    const off = mkGameState({
+      transits: [
+        { id: 'c1', owner_id: 'me', from: 'sol_a', to: 'verdan_a', units: 6, turns_remaining: 1 },
+      ],
+    });
+    const { container } = renderView({ gameState: off });
+    expect(container.querySelectorAll('[data-testid="convoy-marker"]')).toHaveLength(0);
+  });
 });

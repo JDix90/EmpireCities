@@ -2183,6 +2183,30 @@ export default function GamePage() {
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
     });
 
+    // Galaxy transit: a convoy landed, turned back, or was lost in the void.
+    socket.on('game:transit_arrived', ({ playerName, fromName, toName, units, outcome }: {
+      playerId: string;
+      playerName: string;
+      playerColor: string;
+      fromId: string;
+      toId: string;
+      fromName: string;
+      toName: string;
+      units: number;
+      outcome: 'landed' | 'turned_back' | 'lost';
+    }) => {
+      const isMe = playerName === user?.username;
+      const who = isMe ? 'Your' : `${playerName}'s`;
+      const troops = `${units} unit${units === 1 ? '' : 's'}`;
+      const line =
+        outcome === 'landed'
+          ? `🚚 ${who} convoy reached ${toName} with ${troops}.`
+          : outcome === 'turned_back'
+            ? `🚚 ${who} convoy found ${toName} lost and turned back to ${fromName}.`
+            : `🚚 ${who} convoy had nowhere left to land — ${troops} lost in the void.`;
+      toast(line, { duration: 5000 });
+    });
+
     socket.on('game:orbit_lane_opened', ({ kind, playerName, territoryId, moonTargetId }: {
       kind?: 'launch_pad' | 'jump_gate';
       playerId: string;
@@ -2309,6 +2333,7 @@ export default function GamePage() {
       socket.off('game:map_visual');
       socket.off('game:space_station_launched');
       socket.off('game:orbit_lane_opened');
+      socket.off('game:transit_arrived');
       socket.off('game:puzzle_feedback');
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);
@@ -4195,6 +4220,7 @@ export default function GamePage() {
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
                       viewerPlayerId={resolvedViewerPlayerId}
+                      territoryNameOf={(id) => mapData.territories.find((t) => t.territory_id === id)?.name ?? id}
                       sealedLaneIds={galaxySealedLaneIds}
                       lanesContestableEnabled={viewerCanEmergencySeal}
                       sealAnyLane={viewerSealsAnyLane}

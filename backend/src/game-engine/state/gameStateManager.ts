@@ -27,6 +27,7 @@ import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moon
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather';
+import { arriveConvoys } from './transit';
 import {
   applyStormAttrition,
   buildWorldRuleSnapshot,
@@ -729,6 +730,10 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // right now — both are "at the start of your turn" rules.
   tickLaneBlockades(state, state.players[next].player_id);
   if (map) tickLaneSovereignty(state, map, state.players[next].player_id);
+  // Galaxy transit: convoys the incoming player sent last turn arrive now (or
+  // turn back, if the world they were sent to is no longer theirs).
+  const arrivals = arriveConvoys(state, state.players[next].player_id);
+  state.last_transit_arrivals = arrivals.length > 0 ? arrivals : undefined;
   state.phase = 'draft';
   state.draft_placements_this_turn = {};
   state.draft_deployments_this_turn = [];

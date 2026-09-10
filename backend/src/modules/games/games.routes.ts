@@ -271,6 +271,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // Galactic Age worlds as characters — same discipline; the map's
           // authored rules are snapshotted at init when this is on.
           world_rules_enabled: isGalacticAge ? featureFlags.galaxyWorldRulesEnabled : undefined,
+          galaxy_transit_enabled: isGalacticAge ? featureFlags.galaxyTransitEnabled : undefined,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,

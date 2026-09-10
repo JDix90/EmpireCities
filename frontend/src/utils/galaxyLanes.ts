@@ -407,3 +407,35 @@ export function laneSovereigntyProgress(
     roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
   };
 }
+
+// ── Transit ───────────────────────────────────────────────────────────────
+// Convoys are public commitments: the units have left their garrison and are in
+// the void until the mover's next turn. Mirrors backend `state/transit.ts`.
+
+export interface ConvoyView {
+  id: string;
+  owner_id: string;
+  from: string;
+  to: string;
+  units: number;
+  turns_remaining: number;
+}
+
+export function convoysFor(
+  gameState: Pick<GameState, 'settings' | 'transits'> | null | undefined,
+  opts?: { ownerId?: string | null; touching?: string },
+): ConvoyView[] {
+  if (!gameState?.settings?.galaxy_transit_enabled) return [];
+  return (gameState.transits ?? []).filter(
+    (c) =>
+      (!opts?.ownerId || c.owner_id === opts.ownerId)
+      && (!opts?.touching || c.from === opts.touching || c.to === opts.touching),
+  );
+}
+
+/** "6 units arrive next turn" — the line a territory panel shows for an inbound convoy. */
+export function describeConvoy(convoy: ConvoyView, territoryName: (id: string) => string): string {
+  const units = `${convoy.units} unit${convoy.units === 1 ? '' : 's'}`;
+  const when = convoy.turns_remaining <= 1 ? 'next turn' : `in ${convoy.turns_remaining} turns`;
+  return `${units} from ${territoryName(convoy.from)} arrive ${when}`;
+}

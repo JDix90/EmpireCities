@@ -12,6 +12,8 @@ import {
   laneAttackDiceCap,
   laneSealFor,
   laneStateFor,
+  convoysFor,
+  describeConvoy,
   laneSovereigntyProgress,
   laneTouchesSealWorld,
   orbitLaneId,
@@ -214,5 +216,22 @@ describe('galaxyLanes', () => {
     expect(off.held).toBe(0);
     expect(laneSovereigntyProgress(null, connections, 'me').applicable).toBe(false);
     expect(laneSovereigntyProgress(mk(mine, ['lane_sovereignty']), [], 'me').applicable).toBe(false);
+  });
+
+  it('lists convoys only when transit is on, and describes them', () => {
+    const transits = [
+      { id: 'c1', owner_id: 'me', from: 'a', to: 'b', units: 6, turns_remaining: 1 },
+      { id: 'c2', owner_id: 'rival', from: 'b', to: 'c', units: 2, turns_remaining: 2 },
+    ];
+    const on = { settings: { galaxy_transit_enabled: true }, transits } as unknown as GameState;
+    expect(convoysFor(on)).toHaveLength(2);
+    expect(convoysFor(on, { ownerId: 'me' })).toHaveLength(1);
+    expect(convoysFor(on, { touching: 'b' })).toHaveLength(2);
+    expect(convoysFor(on, { ownerId: 'me', touching: 'c' })).toHaveLength(0);
+    const off = { settings: {}, transits } as unknown as GameState;
+    expect(convoysFor(off)).toHaveLength(0);
+    const nameOf = (id: string) => id.toUpperCase();
+    expect(describeConvoy(transits[0], nameOf)).toBe('6 units from A arrive next turn');
+    expect(describeConvoy(transits[1], nameOf)).toBe('2 units from B arrive in 2 turns');
   });
 });

@@ -419,6 +419,13 @@ export interface GameSettings {
    */
   galaxy_corridors_enabled?: boolean;
   /**
+   * Galactic Age transit: a fortify between two WORLDS becomes a convoy that
+   * lands at the mover's next turn start rather than instantly. Ships OFF —
+   * the plan wanted it prototyped and measured before it was believed. Baked at
+   * create from the `galaxy_transit_enabled` feature flag; no-op off galaxy maps.
+   */
+  galaxy_transit_enabled?: boolean;
+  /**
    * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
    * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
    * non-era-advancement space_age game plays the full authored board. Baked at
@@ -746,6 +753,28 @@ export interface GameState {
     /** Temporary lanes between two worlds the authored ring does not join. */
     surges?: Array<{ from: string; to: string; turns_remaining: number }>;
   };
+  /**
+   * Galactic Age transit: convoys crossing between worlds. Units leave their
+   * source at once and land at the mover's next turn start — or turn back if the
+   * destination is no longer theirs. Off unless `galaxy_transit_enabled`.
+   * See state/transit.ts.
+   */
+  transits?: Array<{
+    id: string;
+    owner_id: string;
+    from: string;
+    to: string;
+    units: number;
+    turns_remaining: number;
+  }>;
+  /**
+   * What happened to the convoys that just landed at the incoming player's turn
+   * start, so the socket can narrate it. Transient — rewritten every advance.
+   */
+  last_transit_arrivals?: Array<{
+    convoy: { id: string; owner_id: string; from: string; to: string; units: number; turns_remaining: number };
+    outcome: 'landed' | 'turned_back' | 'lost';
+  }>;
   settings: GameSettings;
   draft_units_remaining: number;
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */

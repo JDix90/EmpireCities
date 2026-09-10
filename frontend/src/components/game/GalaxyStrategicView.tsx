@@ -33,6 +33,7 @@ import type { GameState } from '../../store/gameStore';
 import {
   EMERGENCY_SEAL_WORLD_ID,
   describeLaneDice,
+  convoysFor,
   describeLaneKind,
   laneKindOf,
   type LaneKind,
@@ -105,6 +106,8 @@ export interface GalaxyStrategicViewProps {
   ownsTerritory?: (territoryId: string) => boolean;
   /** Seal the orbit lane between two territories. */
   onSealLane?: (fromId: string, toId: string) => void;
+  /** Territory display names, for convoy tooltips. */
+  territoryNameOf?: (territoryId: string) => string;
   /** Pulse the world node when a map action occurs on that world. */
   pulseWorldId?: string | null;
   pulseKey?: number;
@@ -201,6 +204,7 @@ export default function GalaxyStrategicView({
   sealAnyLane = false,
   ownsTerritory,
   onSealLane,
+  territoryNameOf,
   pulseWorldId = null,
   pulseKey = 0,
   pulseLabel = null,
@@ -410,6 +414,47 @@ export default function GalaxyStrategicView({
     lanesContestableEnabled, sealAnyLane, onSealLane,
   ]);
 
+  /**
+   * Convoys in the void, drawn as a marker two-thirds of the way along the lane
+   * they are crossing — a public commitment the whole table can see coming. A
+   * convoy whose lane is not drawn (worlds too close to render a stub) is
+   * skipped rather than parked at an arbitrary point.
+   */
+  const convoyRender = useMemo(() => {
+    const convoys = convoysFor(gameState);
+    if (convoys.length === 0) return [];
+    const laneByKey = new Map(laneRender.map((l) => [l.key, l]));
+    const nameOf = territoryNameOf ?? territoryName;
+    return convoys.flatMap((c) => {
+      // A convoy travels between two WORLDS; any drawn lane joining them will do
+      // as its road, and the authored one is the honest choice when several run.
+      const wa = worldOf(c.from);
+      const wb = worldOf(c.to);
+      if (!wa || !wb) return [];
+      const lane = laneByKey.get(orbitLaneId(c.from, c.to))
+        ?? laneRender.find((l) => {
+          const la = worldOf(l.from);
+          const lb = worldOf(l.to);
+          return (la === wa && lb === wb) || (la === wb && lb === wa);
+        });
+      if (!lane) return [];
+      // Point the marker the way the convoy is going, and sit it two-thirds
+      // along so it never hides under a world node.
+      const forward = worldOf(lane.from) === wa;
+      const t = forward ? 0.66 : 0.34;
+      const owner = playerInfo(c.owner_id);
+      return [{
+        id: c.id,
+        x: lane.x1 + (lane.x2 - lane.x1) * t,
+        y: lane.y1 + (lane.y2 - lane.y1) * t,
+        units: c.units,
+        color: owner?.color ?? '#e3ebfa',
+        tooltip: `${owner?.name ?? 'A rival'}: ${c.units} unit${c.units === 1 ? '' : 's'} `
+          + `${nameOf(c.from)} → ${nameOf(c.to)}, arriving next turn`,
+      }];
+    });
+  }, [gameState, laneRender, worldOf, playerInfo, territoryName, territoryNameOf]);
+
   const legendPlayers = useMemo(() => {
     const present = new Set<string>();
     for (const n of nodes) for (const s of n.ownership) present.add(s.player_id);
@@ -578,6 +623,24 @@ export default function GalaxyStrategicView({
             {/* Gateway owner dots at each end */}
             <circle cx={l.x1} cy={l.y1} r={3} fill={l.fromColor} stroke="rgba(0,0,0,0.6)" strokeWidth={0.8} pointerEvents="none" />
             <circle cx={l.x2} cy={l.y2} r={3} fill={l.toColor} stroke="rgba(0,0,0,0.6)" strokeWidth={0.8} pointerEvents="none" />
+          </g>
+        ))}
+
+        {/* Convoys in transit (galaxy transit), riding their lane */}
+        {convoyRender.map((c) => (
+          <g key={`convoy-${c.id}`} data-testid="convoy-marker" pointerEvents="none">
+            <title>{c.tooltip}</title>
+            <circle cx={c.x} cy={c.y} r={7} fill="rgba(5,7,16,0.85)" stroke={c.color} strokeWidth={1.6} />
+            <text
+              x={c.x}
+              y={c.y + 3}
+              textAnchor="middle"
+              fontSize={8}
+              fontWeight={600}
+              fill={c.color}
+            >
+              {c.units}
+            </text>
           </g>
         ))}
 
