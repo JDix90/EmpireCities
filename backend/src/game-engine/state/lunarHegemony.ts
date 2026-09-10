@@ -24,6 +24,7 @@
 
 import type { GameState, PlayerState, TerritoryState } from '../../types';
 import { isLunarTerritory } from './helium3';
+import { getAllowedVictoryConditions } from './gameSettings';
 
 /**
  * Consecutive own-turns holding the whole Moon that win the game.
@@ -58,12 +59,26 @@ export function hegemonyTurnsFor(state: GameState): number {
  * Whether Phase 3's rules are live. Unlike the Phase 2 tier this does NOT
  * require the Helium-3 economy: the Hegemony is about holding ground, and it
  * prices nothing in He-3.
+ *
+ * It DOES require `lunar_hegemony` to be an allowed victory condition, which is
+ * a second gate the phase originally lacked. `checkVictory` only ever fires a
+ * win the game's victory list allows, so with the setting on and the condition
+ * off the clock still ran, still broadcast, and still drew the HUD countdown —
+ * for a victory that could never be declared. A rival watching "Hegemony in 2"
+ * and going to break it was answering a threat that did not exist. That happens
+ * whenever a host picks their own victory conditions on a Space Age game, since
+ * `applyOrbitGatedVictoryDefaults` only fills a blank list.
+ *
+ * Tying the two together also settles what an era-advancement game gets: the
+ * mechanics arm on arrival either way, and the clock appears only in a game that
+ * can actually be won that way.
  */
 export function isLunarHegemonyEnabled(state: GameState): boolean {
   // Optional chaining because this is now reached from `getOrbitAccessResult`,
   // which is called with partial states (fixtures, and the client-side hint
   // path) that carry territories but no settings.
-  return state?.settings?.space_age_moon_hegemony_enabled === true;
+  if (state?.settings?.space_age_moon_hegemony_enabled !== true) return false;
+  return getAllowedVictoryConditions(state.settings).includes('lunar_hegemony');
 }
 
 /** Every lunar tile on the board. */
