@@ -261,6 +261,13 @@ function isAuthoredOrbitLane(c: MapConnection): boolean {
   return c.type === 'orbit' && c.source !== LAUNCH_PAD_LANE_SOURCE;
 }
 
+/** True when (a,b) is an AUTHORED orbit lane — not one a Launch Pad opened. */
+export function isAuthoredOrbitLaneBetween(map: GameMap, a: string, b: string): boolean {
+  return (map.connections ?? []).some(
+    (c) => isAuthoredOrbitLane(c) && ((c.from === a && c.to === b) || (c.from === b && c.to === a)),
+  );
+}
+
 /**
  * Authored orbit lanes as (Earth anchor, Moon target) pairs, in authored order
  * so hop-distance ties resolve deterministically.
@@ -400,6 +407,32 @@ export function formatOrbitAccessError(access: OrbitAccessResult): string {
 /** Rounds a fresh lane seal lasts. */
 export const GALAXY_LANE_SEAL_DURATION = 3;
 
+/**
+ * Space Age Orbital Blockade (Moon Race, Phase 4).
+ *
+ * Two rounds rather than the Galaxy's three: the Space Age board is smaller and
+ * a rival's answer — build a Launch Pad, fly your own lane — takes fewer turns,
+ * so a longer seal would outlast the counterplay rather than buy time against it.
+ */
+export const SPACE_AGE_LANE_SEAL_DURATION = 2;
+
+/**
+ * He-3 a Space Age seal costs. The Galaxy's is free; here it ties defence to
+ * the lunar economy, so a Hegemon spending on seals is a Hegemon not spending
+ * on beams.
+ */
+export const SPACE_AGE_LANE_SEAL_HELIUM3_COST = 3;
+
+/** How long a seal lasts in this era. */
+export function laneSealDuration(state: GameState): number {
+  return state.era === 'space_age' ? SPACE_AGE_LANE_SEAL_DURATION : GALAXY_LANE_SEAL_DURATION;
+}
+
+/** He-3 this era charges to seal. Zero outside the Space Age. */
+export function laneSealHelium3Cost(state: GameState): number {
+  return state.era === 'space_age' ? SPACE_AGE_LANE_SEAL_HELIUM3_COST : 0;
+}
+
 /** Canonical, order-independent id for the orbit lane between two territories. */
 export function orbitLaneId(a: string, b: string): string {
   return a < b ? `${a}::${b}` : `${b}::${a}`;
@@ -435,6 +468,26 @@ export function canSealLane(
 ): SealLaneCheck {
   if (!state.settings.lanes_contestable_enabled) return { ok: false, error: 'Lane seals are not enabled' };
   if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
+
+  // Space Age Orbital Blockade (Phase 4). Two rules the Galaxy does not have,
+  // and the first is the one that makes the whole thing safe.
+  if (state.era === 'space_age') {
+    // ONLY the three authored anchor lanes can be sealed. `syncLaunchPadLanes`
+    // writes a Launch Pad's own lane into `map.connections` with `type: 'orbit'`,
+    // so without this a Hegemon could seal the very route a rival built to come
+    // and contest them — and the cost to contest an occupied Moon would once
+    // again be unbounded. The anchors are the CONVENIENT route and may be
+    // denied; the pad is the CONTEST route and stays open. A Hegemon can make
+    // you build a pad; a Hegemon cannot lock you out.
+    if (!isAuthoredOrbitLaneBetween(map, fromId, toId)) {
+      return { ok: false, error: 'Launch Pad lanes cannot be blockaded — only the authored orbit lanes' };
+    }
+    const cost = laneSealHelium3Cost(state);
+    const stock = state.players.find((p) => p.player_id === playerId)?.helium3 ?? 0;
+    if (stock < cost) {
+      return { ok: false, error: `Sealing a lane needs ${cost} Helium-3 (you have ${stock})` };
+    }
+  }
   const ownsEndpoint =
     state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
   if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
@@ -456,6 +509,26 @@ export function canSealLane(
 export function tickLaneBlockades(state: GameState): void {
   if (!state.lane_blockades) return;
   for (const [id, b] of Object.entries(state.lane_blockades)) {
+    // A seal outlives its owner's presence otherwise: they can be thrown off
+    // both ends of the lane and it stays shut for the rest of its duration,
+    // which is a blockade nobody is mounting. Holding an endpoint is what
+    // `canSealLane` requires to raise one, so it is what keeping one requires
+    // too. (Moon Race, Phase 4 §6.2(5) — the Galaxy inherits the same fix.)
+    const [endA, endB] = id.split('::');
+    const territoryA = state.territories[endA ?? ''];
+    const territoryB = state.territories[endB ?? ''];
+    // Only judge ownership when both endpoints actually resolve. A lane id that
+    // does not name two live territories tells us nothing about who holds it,
+    // and dropping a seal on that basis would be guessing — it expires on its
+    // own duration regardless.
+    if (territoryA && territoryB) {
+      const stillHoldsAnEnd =
+        territoryA.owner_id === b.owner_id || territoryB.owner_id === b.owner_id;
+      if (!stillHoldsAnEnd) {
+        delete state.lane_blockades[id];
+        continue;
+      }
+    }
     b.turns_remaining -= 1;
     if (b.turns_remaining <= 0) delete state.lane_blockades[id];
   }

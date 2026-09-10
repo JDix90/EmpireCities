@@ -68,7 +68,8 @@ import {
   isLaneSealedForPlayer,
   canSealLane,
   tickLaneBlockades,
-  GALAXY_LANE_SEAL_DURATION,
+  laneSealDuration,
+  laneSealHelium3Cost,
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
@@ -186,6 +187,7 @@ import {
   type DropAssaultResolution,
 } from '../game-engine/abilities/dropAssault';
 import {
+  selectAiLaneSeal,
   canAiUseDropAssault,
   canAiUseDysonBeam,
   canAiUseOrbitalDrop,
@@ -3504,7 +3506,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
         }
         if (!state.lane_blockades) state.lane_blockades = {};
-        state.lane_blockades[check.laneId] = { owner_id: userId, turns_remaining: GALAXY_LANE_SEAL_DURATION };
+        // Space Age seals cost He-3 and last two rounds; the Galaxy's are free
+        // and last three. canSealLane has already checked affordability.
+        const sealCost = laneSealHelium3Cost(state);
+        if (sealCost > 0) {
+          const sealer = state.players.find((p) => p.player_id === userId);
+          if (sealer) sealer.helium3 = (sealer.helium3 ?? 0) - sealCost;
+        }
+        state.lane_blockades[check.laneId] = {
+          owner_id: userId,
+          turns_remaining: laneSealDuration(state),
+        };
         await persistGameStateAfterMutation(gameId, state);
         broadcastState(io, gameId, state);
       });
@@ -5642,6 +5654,26 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
           targetOwnerId: res.previousOwner ?? null,
           targetOwnerName: targetOwner?.username ?? null,
         }), { state, map });
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
+  // AI parity: Orbital Blockade — Phase 4. A bot holding lunar ground seals an
+  // authored anchor lane when it can spare the He-3, through the same
+  // canSealLane the human path uses, so the Launch Pad exclusion and the
+  // endpoint rule apply identically.
+  {
+    const seal = selectAiLaneSeal(state, map, currentPlayer.player_id);
+    if (seal) {
+      const check = canSealLane(state, map, seal[0], seal[1], currentPlayer.player_id);
+      if (check.ok && check.laneId) {
+        currentPlayer.helium3 = (currentPlayer.helium3 ?? 0) - laneSealHelium3Cost(state);
+        if (!state.lane_blockades) state.lane_blockades = {};
+        state.lane_blockades[check.laneId] = {
+          owner_id: currentPlayer.player_id,
+          turns_remaining: laneSealDuration(state),
+        };
         broadcastState(io, gameId, state);
       }
     }

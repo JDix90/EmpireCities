@@ -185,8 +185,15 @@ export const LANES_CONTESTABLE_NON_GALAXY_ERROR =
 export function lanesContestableRejection(opts: {
   lanesContestableEnabled?: boolean;
   isGalacticAge: boolean;
+  /** Space Age Orbital Blockade (Moon Race, Phase 4) — the era's own opt-in. */
+  spaceAgeBlockade?: boolean;
 }): string | null {
   if (!opts.lanesContestableEnabled || opts.isGalacticAge) return null;
+  // Phase 4 gives the Space Age its own reason to contest lanes, with its own
+  // rules (He-3 cost, two rounds, authored anchors only). The rejection stays
+  // for every other era and for a Space Age game with the phase off, which is
+  // still a client trying to arm a mechanic it has no UI for.
+  if (opts.spaceAgeBlockade) return null;
   return LANES_CONTESTABLE_NON_GALAXY_ERROR;
 }
 
@@ -204,9 +211,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
     }
 
+    const isSpaceAgeEra = era_id === 'space_age' || map_id === 'era_space_age';
+    const spaceAgeBlockade = isSpaceAgeEra && featureFlags.spaceAgeMoonBlockadeEnabled;
     const lanesRejection = lanesContestableRejection({
       lanesContestableEnabled: rawSettings.lanes_contestable_enabled,
       isGalacticAge,
+      spaceAgeBlockade,
     });
     if (lanesRejection) {
       return reply.status(400).send({ error: lanesRejection });
@@ -240,6 +250,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           space_age_moon_gated_tier_enabled: isSpaceAge ? featureFlags.spaceAgeMoonGatedTierEnabled : undefined,
           space_age_moon_hegemony_enabled: isSpaceAge ? featureFlags.spaceAgeMoonHegemonyEnabled : undefined,
           space_age_moon_missions_enabled: isSpaceAge ? featureFlags.spaceAgeMoonMissionsEnabled : undefined,
+          space_age_moon_blockade_enabled: spaceAgeBlockade || undefined,
+          // The blockade IS lane sealing, so the phase flag arms the underlying
+          // mechanic rather than asking the lobby to set two things that must
+          // agree. An explicit client value still wins.
+          lanes_contestable_enabled: rawSettings.lanes_contestable_enabled ?? (spaceAgeBlockade || undefined),
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
