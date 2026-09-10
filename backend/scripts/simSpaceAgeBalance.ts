@@ -135,6 +135,13 @@ const MOON_HEGEMONY = process.env.SIM_MOON_HEGEMONY === '1';
 const MOON_MISSIONS = process.env.SIM_MOON_MISSIONS === '1';
 /** Moon Race Phase 4: the Orbital Blockade. Arms lane sealing for the Space Age. */
 const MOON_BLOCKADE = process.env.SIM_MOON_BLOCKADE === '1';
+/**
+ * The Tribute knob (§8). Independent of the phases above: it is a knob, not a
+ * phase, and §8 gates shipping it on the SHARED-MOON number below falling —
+ * evidence the table has learned to let one player hold the Moon. Run it against
+ * a tribute-off arm of the same ruleset to see what it costs the abstainers.
+ */
+const MOON_TRIBUTE = process.env.SIM_MOON_TRIBUTE === '1';
 /** §9's seal-duration sweep. Unset leaves the era default of 2. */
 const SEAL_DURATION_OVERRIDE = process.env.SIM_SEAL_DURATION
   ? Number(process.env.SIM_SEAL_DURATION) : null;
@@ -190,6 +197,7 @@ function simSettings(): GameSettings {
     space_age_hegemony_turns: HEGEMONY_TURNS_OVERRIDE ?? undefined,
     space_age_moon_missions_enabled: MOON_MISSIONS,
     space_age_moon_blockade_enabled: MOON_BLOCKADE,
+    space_age_moon_tribute_enabled: MOON_TRIBUTE,
     lanes_contestable_enabled: MOON_BLOCKADE,
     // Phase 3 adds a third decisive route, mirroring applyOrbitGatedVictoryDefaults.
     allowed_victory_conditions: [
@@ -529,6 +537,8 @@ interface GameStat {
   moonTilesPlayerHeldEnd: number; // of 9
   /** Two or more players held Moon tiles at the same time at some point. */
   everSharedMoon: boolean;
+  /** Tech points moved by Tribute across the whole game (§8). */
+  tributeMoved: number;
   helium3Exported: number;
   /** Phase 2a usage, and whether anyone ever held enough Moon to unlock it. */
   dysonBeams: number;
@@ -655,6 +665,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
    * Moon usually resolves before the final turn.
    */
   let everSharedMoon = false;
+  let tributeMoved = 0;
 
   /**
    * Phase 3's gate is about whether the clock is CONTESTED, so starts and
@@ -687,6 +698,16 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
       if (clockAfter && clockAfter.owner_id !== clockBefore.owner_id) hegemonyClocksStarted++;
     }
     if (clockAfter) hegemonyPeakTurns = Math.max(hegemonyPeakTurns, clockAfter.turns_held);
+
+    // Tribute moves inside advanceToNextPlayer, which returns nothing, so read
+    // the per-tick figure off the player it was just taken from. Summed here
+    // rather than differenced from tech_points, which income and spending also
+    // move every turn.
+    if (MOON_TRIBUTE) {
+      for (const p of state.players) {
+        tributeMoved += p.tribute_paid_this_turn ?? 0;
+      }
+    }
 
     if (!t10Captured && state.turn_number >= 10) {
       t10Captured = true;
@@ -762,6 +783,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     moonCaptureEvents: simList.reduce((a, s) => a + s.moonCaptureEvents, 0),
     moonTilesPlayerHeldEnd,
     everSharedMoon,
+    tributeMoved,
     helium3Exported: simList.reduce((a, s) => a + s.helium3Exported, 0),
     dysonBeams: simList.reduce((a, s) => a + s.dysonBeams, 0),
     orbitalDrops: simList.reduce((a, s) => a + s.orbitalDrops, 0),
@@ -887,6 +909,11 @@ function main(): void {
   // Printed unconditionally: "is the Moon shared or swept?" is a property of
   // the board, so a He-3 run needs a He-3-off control for the same number.
   console.log(`Games with 2+ players on the Moon at once:   ${pct(stats.filter((s) => s.everSharedMoon).length, GAMES)}`);
+  if (MOON_TRIBUTE) {
+    const levied = stats.filter((s) => s.tributeMoved > 0);
+    console.log(`Games where Tribute was ever levied (§8):     ${pct(levied.length, GAMES)}`);
+    console.log(`Mean tech points moved per game where levied:  ${fmt(avg(levied.map((s) => s.tributeMoved)), 1)}`);
+  }
   // Also printed unconditionally: it is the §4.5 denominator, so a control run
   // has to report the same figure or the usage percentages cannot be compared.
   const reachedTier = stats.filter((s) => s.anyThreeMoonTiles);

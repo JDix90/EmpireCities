@@ -521,6 +521,34 @@ export default function GameHUD({
                     </span>
                   </div>
                 )}
+                {/*
+                  Tribute (§8). Shown to BOTH sides and only while it is
+                  actually moving: a levy the payer cannot see is a mechanic
+                  that reads as a bug, and the whole justification for the knob
+                  is that abstaining from the Moon has a visible price.
+                */}
+                {gameState.settings.space_age_moon_tribute_enabled
+                  && (myPlayer.tribute_paid_this_turn ?? 0) > 0 && (
+                  <div
+                    data-testid="hud-tribute-paid"
+                    title="Tribute — the Moon holder levies tech points from players holding no lunar ground. Take a single Moon territory to stop paying."
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-rose-800/50 text-rose-300 text-xs font-mono"
+                  >
+                    <span>⇉</span>
+                    <span>−{myPlayer.tribute_paid_this_turn} TP tribute</span>
+                  </div>
+                )}
+                {gameState.settings.space_age_moon_tribute_enabled
+                  && (myPlayer.tribute_received_this_turn ?? 0) > 0 && (
+                  <div
+                    data-testid="hud-tribute-received"
+                    title="Tribute collected from players holding no lunar ground since your last turn"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-emerald-800/50 text-emerald-300 text-xs font-mono"
+                  >
+                    <span>⇉</span>
+                    <span>+{myPlayer.tribute_received_this_turn} TP tribute</span>
+                  </div>
+                )}
                 {gameState.settings.space_age_moon_helium3_enabled && (
                   <div
                     data-testid="hud-helium3"

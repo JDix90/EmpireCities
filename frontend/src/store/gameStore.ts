@@ -64,6 +64,8 @@ export interface PlayerState {
   special_resource?: number;
   /** Space Age lunar economy: Helium-3 mined from owned Moon territories. */
   helium3?: number;
+  tribute_paid_this_turn?: number;
+  tribute_received_this_turn?: number;
   ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
@@ -179,6 +181,8 @@ export interface GameState {
     space_age_hegemony_turns?: number;
     /** Phase 4: the Orbital Blockade — seal an authored orbit lane for 3 He-3. */
     space_age_moon_blockade_enabled?: boolean;
+    /** The Tribute knob (§8): 6+ lunar tiles levies 1 TP/turn from players holding none. */
+    space_age_moon_tribute_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

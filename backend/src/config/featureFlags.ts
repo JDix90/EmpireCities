@@ -64,6 +64,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   space_age_moon_race_enabled: () => envOptIn('SPACE_AGE_MOON_RACE_ENABLED'),
+  space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -401,6 +402,26 @@ export const featureFlags = {
    */
   get spaceAgeMoonRaceEnabled(): boolean {
     return overrideBool('space_age_moon_race_enabled');
+  },
+
+  /**
+   * The Tribute knob (Moon Race §8) — a player holding 6+ of the nine lunar
+   * tiles levies 1 tech point per turn from every player holding none.
+   *
+   * Its OWN flag rather than part of the Moon Race above, and the distinction
+   * is the point: the five phases collapsed into one switch because they are
+   * one feature and any subset is a broken game. Tribute is not a phase. It is
+   * an optional extra that costs abstainers directly, and §8 conditions
+   * shipping it on evidence that the table has learned to LET one player hold
+   * the Moon — games with two or more players on the Moon falling below the
+   * Phase 1 number. If that never happens, this never ships.
+   *
+   * DARK, and expected to stay dark unless that measurement moves. It is the
+   * most resented mechanic in the package: a player who chose an Earth strategy
+   * is being taxed for a choice the rules allowed them to make.
+   */
+  get spaceAgeMoonTributeEnabled(): boolean {
+    return overrideBool('space_age_moon_tribute_enabled');
   },
 
   /**
