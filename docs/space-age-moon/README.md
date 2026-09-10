@@ -513,6 +513,26 @@ At three it sits level with Lunar Foothold — the objective it most resembles �
 
 This is principle 3 — cost the abstainers — and it is the most direct incentive in the package. It is a knob and not a default because it is also the most resented mechanic here: a player who chose an Earth strategy is being taxed for it. **Turn it on only if** the Phase 3 gate shows games with ≥2 players on the Moon falling *below* the Phase 1 number — i.e. the table has learned to let one player have the Moon. If that never happens, this never ships.
 
+### 8.1 Built, measured, and staying off
+
+**Shipped dark** (own flag, own Admin entry, `SIM_MOON_TRIBUTE=1`), because a knob nobody can measure is an argument, not a knob. Six of nine tiles is deliberately over half, so at most one player can ever qualify and the transfer never has to choose between leviers. Three pieces of restraint carry it: only a player holding **no** lunar ground pays (one tile buys you out — the levy prices abstention, it does not punish a player who tried and was pushed off), it can never push anyone below zero, and both sides see it on the HUD.
+
+**§8's literal trigger fired.** Shared-Moon rate, 5 replicates × 60 games:
+
+| arm | games with 2+ players on the Moon |
+|---|---|
+| Phase 1 only | **94.3%** [88.3–98.3] |
+| shipped ruleset | **58.7%** [51.7–63.3] |
+
+No overlap between the ranges — under the full package the table really has stopped contesting the Moon as reflexively as Phase 1 alone made it.
+
+**And it should still stay off**, for two reasons the trigger does not capture:
+
+1. **58.7% is not "one player has the Moon".** §3.8's own floor for a healthily contested Moon is **≥40%**, and the shipped ruleset sits comfortably above it. The number fell from near-saturation to *healthy*, not to *conceded*. Acting on the drop alone would be reacting to a number that is still fine.
+2. **It moves an enormous amount and changes nothing.** With Tribute on: levied in **47.3%** [43.3–53.3] of games, moving **213** [171–233] tech points per game where it fires. For that, shared-Moon goes 58.7% → **60.3%** and the decisive rate 86.3% → **87.7%** — both inside replicate noise.
+
+All cost, no effect, on the mechanic the design already flags as the most resented. That is the worst possible profile, and it is a much stronger reason to leave it off than "the trigger has not fired". Revisit if production shared-Moon drops toward 40%.
+
 ---
 
 ## 9. Tunables

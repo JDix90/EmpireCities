@@ -132,6 +132,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The whole Space Age lunar package, one switch. Moon tiles pay Helium-3 each turn and Lunar Export converts it into tech points; Dyson Beam moves behind a lunar foothold and Orbital Drop / Drop Assault unlock; holding all nine lunar territories for seven of your own turns in a row wins outright (the clock RESETS the moment one tile leaves you), with the contest rule that cheapens Moon access for everyone else once anybody lands; roughly 30% of Space Age secret missions become lunar; and the three authored orbit lanes can be blockaded for 3 Helium-3 — Launch Pad lanes never can, which is what stops a Moon holder locking rivals out. Reaches EVERY Space Age game, including one that climbs there by Era Advancement — the Moon Race is what the era is, so there is no lobby opt-out. Baked into each game at creation, so switching it off only affects games created afterwards. Off by default (dark-launch).',
   },
   {
+    key: 'space_age_moon_tribute_enabled',
+    label: 'Space Age Tribute (knob)',
+    description:
+      'A player holding 6 or more of the nine lunar territories levies 1 tech point per turn from EVERY player holding none, taken at the payer\u2019s own income tick and shown on their HUD. One lunar tile is enough to opt out \u2014 the levy prices abstention, it does not punish a player who tried and was pushed off. Requires the Moon Race above AND tech trees. Off by default, and expected to stay off: it is the most resented mechanic in the package (an Earth strategy is taxed for a choice the rules allowed), and the design only calls for turning it on if games with two or more players on the Moon start FALLING \u2014 i.e. the table has learned to let one player have it. Baked into each game at creation.',
+  },
+  {
     key: 'today_panel_enabled',
     label: 'Lobby "Today" panel',
     description:

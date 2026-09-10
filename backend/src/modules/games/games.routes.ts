@@ -290,6 +290,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // Every Moon Race phase this game runs, resolved above. Spread rather
           // than listed so a sixth phase needs no edit here.
           ...moonRace.phases,
+          // Tribute (§8) is a knob, not a phase: its own flag, and it applies
+          // wherever the Moon Race does rather than needing a Space Age start.
+          space_age_moon_tribute_enabled:
+            (moonRace.enabled && featureFlags.spaceAgeMoonTributeEnabled) || undefined,
           // The blockade IS lane sealing, so the phase flag arms the underlying
           // mechanic rather than asking the lobby to set two things that must
           // agree. An explicit client value still wins.

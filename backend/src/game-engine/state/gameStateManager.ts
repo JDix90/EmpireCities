@@ -11,6 +11,7 @@ import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettin
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
 import { applyHelium3Income } from './helium3';
+import { applyMoonTribute, clearTributeReceived } from './moonTribute';
 import { hasCompletedHegemony, tickLunarHegemony } from './lunarHegemony';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
@@ -773,6 +774,13 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // gate rather than tech_trees_enabled — a Lunar Pioneer holds lunar ground
   // from turn one without researching the ladder.
   applyHelium3Income(state, nextPlayer.player_id);
+
+  // Tribute (§8, off by default): the Moon holder's levy, taken at the PAYER's
+  // income tick — the turn where they can see what it cost them, rather than
+  // quietly at the holder's. The holder's running total resets on their own
+  // turn so the figure reads "collected since I last acted".
+  clearTributeReceived(state, nextPlayer.player_id);
+  applyMoonTribute(state, nextPlayer.player_id);
 
   // Collect fleet income from ports / naval bases
   if (state.settings.naval_enabled) {

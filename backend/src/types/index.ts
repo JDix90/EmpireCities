@@ -176,6 +176,14 @@ export interface PlayerState {
    */
   helium3?: number;
   /**
+   * Space Age Moon Race, Tribute (§8): tech points this player handed the Moon
+   * holder at their last income tick, and the running total the holder has
+   * collected since their own last turn. Display only — the transfer itself is
+   * already reflected in `tech_points`.
+   */
+  tribute_paid_this_turn?: number;
+  tribute_received_this_turn?: number;
+  /**
    * Space Age Moon Race, Phase 2b: the round this player last DECLARED a Drop
    * Assault. The cooldown reads from it; a drop that was cancelled before
    * landing still counts, because the reload is on the launch, not the landing.
@@ -493,6 +501,14 @@ export interface GameSettings {
    * See docs/space-age-moon/README.md §6.
    */
   space_age_moon_blockade_enabled?: boolean;
+  /**
+   * Space Age Moon Race, the Tribute knob (§8). A player holding 6+ lunar tiles
+   * levies 1 tech point per turn from each player holding none. Its own flag,
+   * not part of the Moon Race package: §8 makes shipping it conditional on
+   * evidence the table has learned to let one player have the Moon, and that
+   * evidence may never arrive. Default OFF.
+   */
+  space_age_moon_tribute_enabled?: boolean;
   /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
