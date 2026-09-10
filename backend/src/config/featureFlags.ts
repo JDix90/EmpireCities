@@ -63,7 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
-  space_age_moon_race_enabled: () => envOptIn('SPACE_AGE_MOON_RACE_ENABLED'),
+  space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
@@ -391,14 +391,18 @@ export const featureFlags = {
    * cheapens Moon access once anyone lands; roughly 30% of Space Age secret
    * missions become lunar; and authored orbit lanes can be sealed for 3 He-3.
    *
-   * DARK by default. It reaches EVERY Space Age game the moment it is on —
-   * there is no lobby opt-out (§10.2) — so promote it only once the phase gates
-   * in §§3.8, 4.5, 5.6, 6.5 and 7.4 have been checked on staging. Baked into
-   * game settings at create; the engine reads the settings, so a flip never
-   * re-rules a match already in progress.
+   * ON. Promoted once the five phase gates (§§3.8, 4.5, 5.6, 6.5, 7.4) had all
+   * been measured and cleared. It reaches EVERY Space Age game, including one
+   * that climbs there by era advancement, and there is no lobby opt-out (§10.2)
+   * — the Moon Race is what the era is.
    *
-   * Kill switch: `SPACE_AGE_MOON_RACE_ENABLED=false` or the
-   * `space_age_moon_race_enabled` admin override.
+   * Baked into game settings at create; the engine reads the settings, so
+   * turning this off never re-rules a match already in progress — it only
+   * changes games created afterwards.
+   *
+   * Kill switch: `SPACE_AGE_MOON_RACE_ENABLED=false`, or the
+   * `space_age_moon_race_enabled` admin override, which wins over this default
+   * whenever it is present.
    */
   get spaceAgeMoonRaceEnabled(): boolean {
     return overrideBool('space_age_moon_race_enabled');

@@ -609,6 +609,21 @@ The Hegemony needed splitting out from the orbit-gated defaults: an ascending ga
 
 Each phase is one PR off `main`, dark-launched, with its sim run and gate numbers in the PR body. Phase 2b (Drop Assault) is its own PR after 2a. Promotion to ON is a separate one-line PR once staging has been checked — leaving it OFF in code while prod runs on an override is how the repo starts lying about what players see.
 
+**Promoted.** `space_age_moon_race_enabled` is `envOptOut` — ON in code — with all five phase gates (§§3.8, 4.5, 5.6, 6.5, 7.4) measured and cleared. Every Space Age game now runs the package, including one that climbs there by era advancement.
+
+Both kill switches were exercised live against a throwaway stack rather than assumed, because a kill switch nobody has pulled is a hope:
+
+| | Moon Race phases baked |
+|---|---|
+| default environment, no variable set | **5** |
+| `SPACE_AGE_MOON_RACE_ENABLED=false` | **0** |
+| admin override `space_age_moon_race_enabled: false` (no redeploy) | **0** |
+| override cleared (`null`) | **5** |
+
+An era-advancement game that climbs to the Space Age gets 5; a WW2 game gets 0. Either switch only affects games created afterwards — settings are baked at create, so a match already running keeps the rules it started under.
+
+**One thing to watch in production, which the gates do not cover.** §5.6's Hegemony gate was measured at **4 players** and passed (10.7%, inside its 10–35% band). The 6-player faction runs in §13 show the Hegemony firing in only **1.8–3.9%** of games — *below* its own floor. The clock is near-decorative at 6 players. Nothing here is broken and no gate failed in the configuration it was written for, but if production skews to larger tables the Hegemony is the phase to re-measure first, and `space_age_hegemony_turns` (§9 lists 4–8) is the per-game dial for it.
+
 ---
 
 ## 11. Risks

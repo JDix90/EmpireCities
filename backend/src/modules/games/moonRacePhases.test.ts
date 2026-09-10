@@ -57,8 +57,9 @@ describe('every Space Age game gets every shipped phase', () => {
   });
 
   it('leaves a Space Age game untouched while every phase is dark', () => {
-    // The shipping state today, and the reason promoting a flag is the only
-    // event that changes what players see.
+    // No longer the shipping state — this is what the KILL SWITCH buys. With
+    // the flag off, a Space Age create is byte-identical to one made before the
+    // package existed, and games already running keep their baked settings.
     expect(resolveMoonRacePhases({ isSpaceAge: true, shipped: NONE })).toEqual({
       enabled: false,
       phases: {},
@@ -162,12 +163,29 @@ describe('a create request cannot reach the Moon Race', () => {
 });
 
 describe('the operator flag as it ships today', () => {
-  it('leaves the package dark', () => {
-    // Dark-launched. When this fails the Moon Race has been promoted, and it
-    // now reaches every Space Age game at once — including one that climbs
-    // there by era advancement.
-    expect(featureFlags.spaceAgeMoonRaceEnabled).toBe(false);
-    expect(featureFlags.moonRacePhases).toEqual(NONE);
+  it('ships the package ON', () => {
+    // Promoted once all five phase gates cleared (§§3.8, 4.5, 5.6, 6.5, 7.4).
+    // This is the assertion that keeps the repo honest about what players
+    // actually see: leaving the code default OFF while production runs on an
+    // admin override is how the tree starts lying about the shipped game.
+    expect(featureFlags.spaceAgeMoonRaceEnabled).toBe(true);
+    expect(featureFlags.moonRacePhases).toEqual(ALL);
+  });
+
+  it('still has a kill switch', () => {
+    // envOptOut: anything other than the literal string 'false' leaves it on,
+    // so the switch is deliberate rather than trippable by an empty or
+    // mistyped value.
+    const prev = process.env.SPACE_AGE_MOON_RACE_ENABLED;
+    try {
+      process.env.SPACE_AGE_MOON_RACE_ENABLED = 'false';
+      expect(featureFlags.spaceAgeMoonRaceEnabled).toBe(false);
+      process.env.SPACE_AGE_MOON_RACE_ENABLED = '';
+      expect(featureFlags.spaceAgeMoonRaceEnabled).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.SPACE_AGE_MOON_RACE_ENABLED;
+      else process.env.SPACE_AGE_MOON_RACE_ENABLED = prev;
+    }
   });
 
   it('is all-or-nothing: one switch, never a partial package', () => {
