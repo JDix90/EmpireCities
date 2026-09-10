@@ -84,7 +84,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     faction_id: 'lunar_pioneers',
     lineage_id: 'maritime',
     name: 'Lunar Pioneers',
-    description: 'Moon-native colonists — Moon access from turn one; +1 reinforcement per turn; +2 defense dice on Moon territories; Lunar Supply Drop ability.',
+    description: 'Moon-native colonists — start with a Launch Pad and Moon access from turn one; +1 reinforcement per turn; +2 defense dice on Moon territories; Lunar Supply Drop ability.',
     lore: 'Descendants of the first permanent lunar settlers, the Pioneers see Earth as a gravity well they are no longer obligated to return to.',
     flavor_quote: 'We do not look up at the stars. We live among them.',
     // The Moon starts neutral (see initializeGameState), so a lunar home region
@@ -92,6 +92,16 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     // staging ground; the Moon is still theirs to take via turn-1 orbit access.
     home_region_ids: ['oceania_2100'],
     offworld_defense_bonus: 2,
+    // The route, not just the permission. `getMoonAccessState` waives the tech
+    // ladder for Pioneers, but all three AUTHORED orbit lanes anchor in rival
+    // home regions (na_launch_base and euro_spaceport in Terran's, asia_cosmodrome
+    // in Sino's) and none in Oceania — so "Moon access from turn one" granted
+    // permission to cross a lane they had no way to reach. Their real cost to the
+    // Moon was sa_orbital_recon → sa_launch_pad_tech (12 TP) → launch_pad (8
+    // gold): the same first two rungs everyone climbs, paid on the worst economy
+    // on the board. A pad at home opens its own lane (syncLaunchPadLanes) and
+    // makes the faction's one-line description true.
+    starting_building: 'launch_pad',
     // Their whole identity is Moon access from turn one, and they were reaching
     // the Moon in only 17% of games — the LOWEST of the six — while being
     // eliminated in 38%. Oceania is the smallest home on the board (4 tiles) and

@@ -690,5 +690,41 @@ A first pass measured 1.49× and it was **partly seed luck** — re-run on five 
 
 Left open:
 
-- **Lunar Pioneers still reach the Moon in only 26.3% of games**, against Corporate Enclave's 51.8%. The Moon-native faction reaching the Moon half as often as the corporation is still an identity problem, even though the win rate is now fine.
+- ~~**Lunar Pioneers still reach the Moon in only 26.3% of games**, against Corporate Enclave's 51.8%.~~ **Fixed — see §13.4.**
 - **Climate Alliance** is the remaining soft/defensive faction and the natural next candidate by the §13.1 mechanism. It moved in *opposite* directions on the two seed sets (+4.3 and −5.8), so there is no evidence to act on yet — tuning it now would be chasing noise.
+
+### 13.4 The Pioneers had permission, not a route
+
+The remaining identity problem from §13.3, diagnosed and fixed.
+
+`getMoonAccessState` waives the whole tech ladder for `lunar_pioneers` — their description promises "Moon access from turn one" and the access check honours it. But **access is a permission and reaching the Moon needs a route**, and the board never gave them one:
+
+| authored orbit lane | Earth anchor | region | whose home |
+|---|---|---|---|
+| 1 | `na_launch_base` | north_america_2100 | Terran Federation |
+| 2 | `euro_spaceport` | europe_2100 | Terran Federation |
+| 3 | `asia_cosmodrome` | asia_2100 | Sino-Pacific |
+
+All three anchor in a rival home region; none in Oceania. So the Moon-native faction's only route was to build a Launch Pad — `sa_orbital_recon` → `sa_launch_pad_tech` (12 TP) → `launch_pad` (8 gold) — the same first two rungs everyone climbs, paid on the worst economy on the board. Their exemption covered only the *last* two rungs, which were never what stopped them. §2.1's old line "reaching the Moon is not the bottleneck; profiting from it is" was exactly backwards for this faction.
+
+**The fix:** a `starting_building` field on `Faction`, with `lunar_pioneers` declaring `launch_pad`. Data, not a fourth hardcoded faction check — it generalises the `space_station_launched` special case already seeded at init. Placed on their most-connected home territory (defensible, and the lane it opens is the useful one), tie-broken on id so a game is reproducible.
+
+**One thing had to be fixed for the pad to be anything but decorative.** Lanes were synced on room load (`gameRoomManager`) and, in the balance sim, only after a pad was *built during play*. Nothing synced at **init**, so a seeded pad opened no lane until something else happened to trigger a sync. `initializeGameState` now calls `syncLaunchPadLanes` itself — idempotent, and it removes the sim/production divergence rather than papering over it in one of them.
+
+Measured, pooled over the same 10 replicates × 60 games as §13.2:
+
+| | before | after |
+|---|---|---|
+| **Pioneers reach the Moon** | 26.3% | **60.7%** — now the highest on the board |
+| Pioneers win rate | 15.5% | 21.3% |
+| Pioneers eliminated | 25.0% | 20.2% |
+| faction spread | 1.50× | **1.51× (unchanged)** |
+| games with 2+ players on the Moon | 50.8% | 59.1% |
+| Hegemony completions | 1.8% | 3.9% |
+| clocks started | 6.7% | 13.0% |
+
+The Moon-native faction now reaches the Moon more often than the corporation, which is what the faction was always described as being. The spread did not move — the Pioneers and Corporate Enclave simply swapped places at the top, and 21.3% is +4.6 over the 16.7% baseline, inside §3.8's ±8 Pioneers criterion.
+
+**The cost, stated plainly: decisiveness fell.** 87.2% → 82.4%; paired by seed that is −4.2 points mean, down in **7 of 9** replicates, stdev 6.0 — a real effect, not noise, though a modest one. The mechanism is legible and arguably the package working as intended: more players actually get to the Moon, so more of the board sits behind an orbit gate and Earth domination takes longer. 82.4% is still far above the ~70% the fixed harness measured for the shipped ruleset in §2.2.
+
+**Not a Hegemony dominance risk**, which was the §5.4 worry given the Pioneers' +2 defence dice on lunar ground. Hegemony completions roughly double but from 1.8% to 3.9% — still far *below* §5.6's own 10–35% gate, so this moves the clock toward being a live mechanic in 6-player games rather than toward dominating them. `HEGEMONY_TURNS_PIONEERS` is still not justified: it triggers at 1.5× the faction mean, and nothing near that is happening.
