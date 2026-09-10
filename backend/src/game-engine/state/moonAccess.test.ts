@@ -233,7 +233,7 @@ describe('fortifyTraversalFilter', () => {
   function mkState(over: Partial<GameState> = {}): GameState {
     return {
       era: 'space_age',
-      settings: { lanes_contestable_enabled: false },
+      settings: {},
       territories: {
         na_launch_base: { territory_id: 'na_launch_base', owner_id: 'p1', unit_count: 5, buildings: ['launch_pad'] },
         na_east: { territory_id: 'na_east', owner_id: 'p1', unit_count: 5, buildings: [] },
@@ -273,7 +273,7 @@ describe('fortifyTraversalFilter', () => {
     // Both players have finished the ladder and hold a pad, so the seal is the
     // only thing that can separate their two results.
     const sealed = mkState({
-      settings: { lanes_contestable_enabled: true },
+      settings: {},
       lane_blockades: { 'moon_a::na_launch_base': { owner_id: 'p2', turns_remaining: 2 } },
       territories: {
         na_launch_base: { territory_id: 'na_launch_base', owner_id: 'p1', unit_count: 5, buildings: ['launch_pad'] },
@@ -334,7 +334,25 @@ describe('formatOrbitAccessError copy', () => {
     expect(formatOrbitAccessError(access)).toBe('Moon access requires: launched Space Station');
   });
 
-  it('keeps the hyperspace wording for the galaxy gate', () => {
+  it('needs no tech under corridors: access is positional', () => {
+    const galaxyMap: GameMap = {
+      ...spaceAgeMap,
+      map_id: 'mini_galaxy',
+      worlds: [
+        { world_id: 'sol', display_name: 'Sol', requires_orbit_access: false },
+        { world_id: 'verdan', display_name: 'Verdan', requires_orbit_access: true },
+      ],
+    };
+    const state = {
+      era: 'galaxy_age', territories: {}, settings: { galaxy_corridors_enabled: true },
+    } as unknown as GameState;
+    const player = { player_id: 'p1', faction_id: 'stellar_mandate', unlocked_techs: [] } as unknown as PlayerState;
+    const access = getOrbitAccessResult(state, player, galaxyMap, 'galaxy_age');
+    expect(access.allowed).toBe(true);
+    expect(access.mode).toBe('galaxy_hyperspace');
+  });
+
+  it('keeps the hyperspace wording for the galaxy gate when corridors are off', () => {
     const galaxyMap: GameMap = {
       ...spaceAgeMap,
       map_id: 'mini_galaxy',
@@ -347,7 +365,7 @@ describe('formatOrbitAccessError copy', () => {
     const player = { player_id: 'p1', faction_id: 'stellar_mandate', unlocked_techs: [] } as unknown as PlayerState;
     const access = getOrbitAccessResult(state, player, galaxyMap, 'galaxy_age');
     expect(access.mode).toBe('galaxy_hyperspace');
-    expect(formatOrbitAccessError(access)).toBe('Hyperspace travel requires: Hyperspace Chart tech');
+    expect(formatOrbitAccessError(access)).toBe('Hyperspace travel requires: Lane Charts tech');
   });
 
   it('returns empty copy when access is allowed', () => {

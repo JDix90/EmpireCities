@@ -3,6 +3,8 @@
 // ============================================================
 
 import { inferWorldId } from '@borderfall/shared';
+import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { isLaneClosedByWeather } from './laneWeather';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
 import { contestAccessMissing, contestOpensMoonAccess } from './lunarHegemony';
 
@@ -28,6 +30,50 @@ export function resolveOrbitAccessMode(map: GameMap, era: EraId): OrbitAccessMod
   if (era === 'galaxy_age') return 'galaxy_hyperspace';
   if (era === 'space_age') return 'space_age_moon';
   return 'none';
+}
+
+/**
+ * How far along the orbit ladder a mode sits. Only an ordering, not a judgement
+ * about strictness — `galaxy_hyperspace` under corridors is the more PERMISSIVE
+ * of the two, which is the point: a player who reached the Galactic Age has the
+ * drives, and crossing a lane is about holding a gateway rather than owning a
+ * Space Program they can no longer research.
+ */
+const ORBIT_MODE_RANK: Record<OrbitAccessMode, number> = {
+  none: 0,
+  space_age_moon: 1,
+  galaxy_hyperspace: 2,
+};
+
+/**
+ * The orbit regime governing ONE player: the later of the board's era and their
+ * own. Both halves are needed and neither alone is right.
+ *
+ *  • The board's era alone is wrong on an era-advancement board that does not
+ *    transform — Space to Stars stays `space_age` all game, so a player who
+ *    climbed to the Galactic Age would still be held to the Space Age ladder.
+ *    Since `executeAdvanceEra` clears `unlocked_techs`, that ladder is one they
+ *    can never re-climb: measured, every seat advanced by turn 15 and then not
+ *    one of them ever reached the Moon, let alone the worlds beyond it.
+ *  • The player's era alone is wrong on a board-transform game, where the board
+ *    IS the Space Age while a trailing player is still in the Modern day — their
+ *    own era resolves to `none`, which would hand them the Moon for free.
+ *
+ * Taking the later of the two is right in both: it never relaxes what the board
+ * demands, and it recognises a player who has climbed past it.
+ */
+export function resolveOrbitAccessModeForPlayer(
+  state: GameState,
+  player: PlayerState,
+  map: GameMap,
+  boardEra: EraId,
+): OrbitAccessMode {
+  // An explicit map declaration is the whole rule; era never enters into it.
+  if (map.orbit_access) return map.orbit_access;
+  const board = resolveOrbitAccessMode(map, boardEra);
+  if (!state.settings?.era_advancement_enabled) return board;
+  const own = resolveOrbitAccessMode(map, resolvePlayerEraId(state, player));
+  return ORBIT_MODE_RANK[own] > ORBIT_MODE_RANK[board] ? own : board;
 }
 
 /** Compute Space Age Moon access (legacy breakdown). */
@@ -200,7 +246,7 @@ export function getOrbitAccessResult(
   map: GameMap,
   era: EraId,
 ): OrbitAccessResult {
-  const mode = resolveOrbitAccessMode(map, era);
+  const mode = resolveOrbitAccessModeForPlayer(state, player, map, era);
   if (mode === 'none') return { allowed: true, missing: [], mode };
 
   if (mode === 'space_age_moon') {
@@ -220,6 +266,16 @@ export function getOrbitAccessResult(
   }
 
   // galaxy_hyperspace
+  //
+  // Corridors: no tech gate. A player attacks across a lane from the gateway
+  // tile they hold, and holding both ends of a lane is a corridor nobody else
+  // can cross — which follows from the same rule, since crossing needs one end.
+  // What keeps gateways contested is the lane dice cap (galaxyLaneAttackDiceCap),
+  // not a key everyone buys on turn 1. The Chart gate below survives only for
+  // games created with the kill switch off.
+  if (state.settings?.galaxy_corridors_enabled) {
+    return { allowed: true, missing: [], mode };
+  }
   if (player.faction_id === 'helion_navigators') {
     return { allowed: true, missing: [], mode };
   }
@@ -231,7 +287,7 @@ export function getOrbitAccessResult(
   if (hasAnchor) return { allowed: true, missing: [], mode };
   const hasTech = player.unlocked_techs?.includes('ga_hyperspace_chart') ?? false;
   if (hasTech) return { allowed: true, missing: [], mode };
-  return { allowed: false, missing: ['Hyperspace Chart tech'], mode };
+  return { allowed: false, missing: ['Lane Charts tech'], mode };
 }
 
 // ============================================================
@@ -401,11 +457,14 @@ export function formatOrbitAccessError(access: OrbitAccessResult): string {
 }
 
 // ============================================================
-// Contestable hyperspace lanes (galaxy) — active lane seals
+// Corridors — per-lane state, the lane dice cap, and the Emergency Seal
 // ============================================================
 
-/** Rounds a fresh lane seal lasts. */
-export const GALAXY_LANE_SEAL_DURATION = 3;
+/** Rounds a fresh Emergency Seal lasts. One: it buys a round, not a wall. */
+export const GALAXY_LANE_SEAL_DURATION = 1;
+
+/** Attacker dice across a hyperspace lane without Lane Charts. */
+export const GALAXY_LANE_BASE_ATTACK_DICE = 2;
 
 /**
  * Space Age Orbital Blockade (Moon Race, Phase 4).
@@ -445,12 +504,75 @@ export function isOrbitLane(map: GameMap, a: string, b: string): boolean {
   );
 }
 
+/** Territories that sit on an orbit lane — the galaxy's gateway tiles. */
+export function orbitGatewayTerritoryIds(map: GameMap): Set<string> {
+  const ids = new Set<string>();
+  for (const c of map.connections) {
+    if (c.type !== 'orbit') continue;
+    ids.add(c.from);
+    ids.add(c.to);
+  }
+  return ids;
+}
+
+export type LaneState = 'corridor' | 'open' | 'closed';
+
+/**
+ * A lane's state for one player, read live from who holds its two gateways:
+ *   corridor — the player holds both ends; only they can cross it.
+ *   open     — the player holds one end; they may attack across, and so may
+ *              whoever holds the other end.
+ *   closed   — the player holds neither end; their way in is intra-world.
+ * Purely descriptive under corridors (the crossing rule is "hold one end"), but
+ * it is what the chart paints, what the AI weighs, and what Lane Sovereignty
+ * will count.
+ */
+export function laneStateFor(state: GameState, fromId: string, toId: string, playerId: string): LaneState {
+  const a = state.territories[fromId]?.owner_id === playerId;
+  const b = state.territories[toId]?.owner_id === playerId;
+  if (a && b) return 'corridor';
+  if (a || b) return 'open';
+  return 'closed';
+}
+
+/**
+ * Attacker dice ceiling for an attack across a hyperspace lane, or undefined
+ * when no lane cap applies (corridors off, or not a galaxy game).
+ *
+ * Two dice is the sea-lane precedent: a defended gateway then holds like a
+ * coast, and the 16 gateway tiles become the places worth fighting over. Lane
+ * Charts (the tier-1 tech that used to be the access gate) restores the third
+ * die, and the galaxy's later attack-dice techs stack on top as bonuses.
+ */
+export function galaxyLaneAttackDiceCap(state: GameState, attackerId: string): number | undefined {
+  // The setting is only ever baked for Galactic Age games (games.routes.ts), so
+  // it is the era check as well; callers without the map can still ask.
+  if (!state.settings?.galaxy_corridors_enabled) return undefined;
+  // The Hyperlane Anchor used to skip the Chart gate; under corridors there is
+  // no gate, so the wonder lifts the lane cap instead — its owner's crossings
+  // roll full dice, like a same-world attack.
+  if (playerOwnsHyperlaneAnchor(state, attackerId)) return undefined;
+  const attacker = state.players.find((p) => p.player_id === attackerId);
+  const hasLaneCharts = state.settings.tech_trees_enabled
+    && (attacker?.unlocked_techs?.includes('ga_hyperspace_chart') ?? false);
+  return GALAXY_LANE_BASE_ATTACK_DICE + (hasLaneCharts ? 1 : 0);
+}
+
+/** True when any territory the player holds carries the Hyperlane Anchor wonder. */
+export function playerOwnsHyperlaneAnchor(state: GameState, playerId: string): boolean {
+  return Object.values(state.territories).some(
+    (t) => t.owner_id === playerId && (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),
+  );
+}
+
 /**
  * True when an active lane seal owned by ANOTHER player blocks `playerId` from
  * crossing the orbit edge from→to. The sealer can still use their own lane.
  */
 export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: string, playerId: string): boolean {
-  if (!state.settings.lanes_contestable_enabled) return false;
+  // Lane weather (a Nebula Closure) shuts a lane for EVERYONE, including the
+  // owners of its gateways — it is not a seal and no charge lifts it.
+  if (isLaneClosedByWeather(state, fromId, toId)) return true;
   const bl = state.lane_blockades?.[orbitLaneId(fromId, toId)];
   if (!bl || bl.turns_remaining <= 0) return false;
   return bl.owner_id !== playerId;
@@ -458,27 +580,59 @@ export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: st
 
 export interface SealLaneCheck { ok: boolean; error?: string; laneId?: string }
 
-/** Validate whether `playerId` may seal the orbit lane (from,to) right now. */
+/** The faction ability id that grants Emergency Seal. */
+export const EMERGENCY_SEAL_ABILITY_ID = 'emergency_seal';
+
+/** The world whose lanes Emergency Seal may close. */
+const EMERGENCY_SEAL_WORLD_ID = 'nexus_station';
+
+/**
+ * Validate whether `playerId` may seal the orbit lane (from,to) right now.
+ *
+ * TWO mechanics come through here, and they are not variants of each other:
+ *
+ *  • The Space Age **Orbital Blockade** (Moon Race, Phase 4) is a purchase. Any
+ *    player holding an end of an AUTHORED anchor lane may close it for He-3.
+ *    The Launch Pad exclusion is the rule the whole phase rests on — the anchors
+ *    are the convenient route and may be denied, the pad is the contest route
+ *    and stays open, so a Hegemon can make you build a pad but can never lock
+ *    you out.
+ *  • The Galactic Age **Emergency Seal** is a faction charge. The Void
+ *    Custodians (and whoever holds the Nexus Vault) close a lane once a turn,
+ *    for free. It replaced a sealing rule open to every player, which lasted
+ *    three rounds and was never used by the AI — a wall nobody on the other side
+ *    of the table could see or answer.
+ *
+ * The era decides which set applies, because a board that carries both (Space to
+ * Stars) has no Galactic Age lanes until somebody ascends, and the Space Age
+ * rules are the ones its authored lanes were measured under.
+ */
 export function canSealLane(
   state: GameState,
   map: GameMap,
   fromId: string,
   toId: string,
   playerId: string,
+  /** Galactic Age only: the acting player's faction ability, for Emergency Seal. */
+  factionAbilityId?: string,
+  options?: {
+    /** The player holds a Vault that grants the seal — any lane, not just Nexus's. */
+    vaultHolder?: boolean;
+  },
 ): SealLaneCheck {
-  if (!state.settings.lanes_contestable_enabled) return { ok: false, error: 'Lane seals are not enabled' };
   if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
+  const id = orbitLaneId(fromId, toId);
+  const blockades = state.lane_blockades ?? {};
 
-  // Space Age Orbital Blockade (Phase 4). Two rules the Galaxy does not have,
-  // and the first is the one that makes the whole thing safe.
   if (state.era === 'space_age') {
-    // ONLY the three authored anchor lanes can be sealed. `syncLaunchPadLanes`
-    // writes a Launch Pad's own lane into `map.connections` with `type: 'orbit'`,
-    // so without this a Hegemon could seal the very route a rival built to come
-    // and contest them — and the cost to contest an occupied Moon would once
-    // again be unbounded. The anchors are the CONVENIENT route and may be
-    // denied; the pad is the CONTEST route and stays open. A Hegemon can make
-    // you build a pad; a Hegemon cannot lock you out.
+    if (!state.settings?.lanes_contestable_enabled) {
+      return { ok: false, error: 'Lane seals are not enabled' };
+    }
+    // ONLY the authored anchor lanes can be sealed. `syncLaunchPadLanes` writes
+    // a Launch Pad's own lane into `map.connections` with `type: 'orbit'`, so
+    // without this a Hegemon could seal the very route a rival built to come and
+    // contest them, and the cost to contest an occupied Moon would once again be
+    // unbounded.
     if (!isAuthoredOrbitLaneBetween(map, fromId, toId)) {
       return { ok: false, error: 'Launch Pad lanes cannot be blockaded — only the authored orbit lanes' };
     }
@@ -487,28 +641,64 @@ export function canSealLane(
     if (stock < cost) {
       return { ok: false, error: `Sealing a lane needs ${cost} Helium-3 (you have ${stock})` };
     }
+    const ownsEndpoint =
+      state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
+    if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
+    // One active seal per player (refreshing your own lane is allowed).
+    const otherActive = Object.entries(blockades).some(
+      ([lid, b]) => lid !== id && b.owner_id === playerId && b.turns_remaining > 0,
+    );
+    if (otherActive) return { ok: false, error: 'You already have a lane sealed — wait for it to lift' };
+  } else {
+    const viaFaction = factionAbilityId === EMERGENCY_SEAL_ABILITY_ID;
+    const viaVault = options?.vaultHolder === true;
+    if (!viaFaction && !viaVault) {
+      return { ok: false, error: 'Emergency Seal is a Void Custodians ability, or the Vault holder\'s' };
+    }
+    const touchesNexus = [fromId, toId].some((tid) => {
+      const t = map.territories.find((tt) => tt.territory_id === tid);
+      return !!t && inferWorldId(t) === EMERGENCY_SEAL_WORLD_ID;
+    });
+    if (!viaVault && !touchesNexus) {
+      return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
+    }
   }
-  const ownsEndpoint =
-    state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
-  if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
-  const id = orbitLaneId(fromId, toId);
-  const blockades = state.lane_blockades ?? {};
+
   const existing = blockades[id];
   if (existing && existing.turns_remaining > 0 && existing.owner_id !== playerId) {
     return { ok: false, error: 'This lane is already sealed by a rival' };
   }
-  // One active seal per player (refreshing your own lane is allowed).
-  const otherActive = Object.entries(blockades).some(
-    ([lid, b]) => lid !== id && b.owner_id === playerId && b.turns_remaining > 0,
-  );
-  if (otherActive) return { ok: false, error: 'You already have a lane sealed — wait for it to lift' };
   return { ok: true, laneId: id };
 }
 
-/** Decrement all active lane seals by one round; drop expired. Call once per round. */
-export function tickLaneBlockades(state: GameState): void {
+/** Which clock a seal raised in this era ages on — see `GameState.lane_blockades`. */
+export function laneSealTick(state: GameState): 'round' | 'owner_turn' {
+  return state.era === 'space_age' ? 'round' : 'owner_turn';
+}
+
+/**
+ * Age lane seals by one round and drop the expired.
+ *
+ * Called twice per round, on the two clocks a seal can be on (see
+ * `GameState.lane_blockades`):
+ *   • `tickLaneBlockades(state)` at the ROUND WRAP ages Space Age Orbital
+ *     Blockades — and, being the legacy shape, anything a pre-existing save
+ *     recorded without a clock.
+ *   • `tickLaneBlockades(state, ownerId)` at that player's TURN START ages the
+ *     Galactic Age's seals. "One round" then means the same thing for every
+ *     seat: the seal stands through each rival's turn and lifts as the sealer
+ *     comes back round. Ticking those at the wrap instead made a seal placed by
+ *     the last seat in turn order expire before anyone had to face it.
+ */
+export function tickLaneBlockades(state: GameState, ownerId?: string): void {
   if (!state.lane_blockades) return;
   for (const [id, b] of Object.entries(state.lane_blockades)) {
+    const clock = b.tick ?? 'round';
+    if (ownerId === undefined) {
+      if (clock !== 'round') continue;
+    } else {
+      if (clock !== 'owner_turn' || b.owner_id !== ownerId) continue;
+    }
     // A seal outlives its owner's presence otherwise: they can be thrown off
     // both ends of the lane and it stays shut for the rest of its duration,
     // which is a blockade nobody is mounting. Holding an endpoint is what

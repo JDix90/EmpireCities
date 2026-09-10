@@ -48,6 +48,43 @@ describe('lobbyEraMapCompatibility', () => {
     expect(result.hardBlock).toMatch(/administrators/i);
   });
 
+  it('blocks a Galactic Age game with factions off', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      settings: {},
+      is_admin: true,
+      player_count: 4,
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.hardBlock).toMatch(/Asymmetric Factions/i);
+  });
+
+  it('allows the designed Galactic Age shape: four seats with factions on', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      settings: { factions_enabled: true },
+      is_admin: true,
+      player_count: 4,
+    });
+    expect(result.hardBlock).toBeNull();
+    expect(result.allowed).toBe(true);
+  });
+
+  it('does not judge seat count — a half-filled lobby may still select the era', () => {
+    // The in-lobby map-change path passes the humans joined so far, not the
+    // final seat count, so an exact-4 rule here would block a lobby of one.
+    const result = evaluateEraMapCompatibility({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      settings: { factions_enabled: true },
+      is_admin: true,
+      player_count: 1,
+    });
+    expect(result.hardBlock).toBeNull();
+  });
+
   it('warns when naval is enabled on a theater with few sea routes', () => {
     const result = evaluateEraMapCompatibility({
       era_id: 'medieval',

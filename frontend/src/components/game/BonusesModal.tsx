@@ -8,8 +8,18 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
-import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
+import { buildingDisplayName, buildingEffect, inferWorldId } from '@borderfall/shared';
 import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
+import {
+  describeWorldModifiers,
+  describeWorldRules,
+  gatewayTerritoryIds,
+  laneAttackDiceCap,
+  laneStateFor,
+  prettyRegionId,
+  vaultViews,
+  worldDisplayName,
+} from '../../utils/galaxyLanes';
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
@@ -120,6 +130,8 @@ interface FactionInfo {
   reinforce_bonus?: number;
   tech_cost_discount?: number;
   stability_recovery_bonus?: number;
+  /** Galactic Age: extra defence die against any attack across a hyperspace lane. */
+  lane_defense_bonus?: number;
   ability_description?: string;
 }
 
@@ -171,6 +183,74 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
     gameState?.era ?? '',
   );
 
+  // ── Galactic Age worlds ─────────────────────────────────────────────────────
+  // One row per world the player holds a system on: what the world pays them,
+  // how many of its gateways they hold and how its lanes stand for them. Plus a
+  // row for the lane dice cap, the era's defining combat rule.
+  const galaxyWorldRows: BonusRow[] = (() => {
+    if (mapData?.map_kind !== 'galaxy' || !myPlayer) return [];
+    const me = myPlayer.player_id;
+    const worldIds = mapData.worlds?.map((w) => w.world_id)
+      ?? [...new Set(mapData.territories.map((t) => inferWorldId(t)))];
+    const gateways = gatewayTerritoryIds(mapData);
+    const rows: BonusRow[] = [];
+    for (const worldId of worldIds) {
+      const systems = mapData.territories.filter((t) => inferWorldId(t) === worldId);
+      const held = systems.filter((t) => gameState.territories[t.territory_id]?.owner_id === me).length;
+      if (held === 0) continue;
+      const worldGateways = systems.filter((t) => gateways.has(t.territory_id));
+      const gatewaysHeld = worldGateways.filter((t) => gameState.territories[t.territory_id]?.owner_id === me).length;
+      let corridors = 0;
+      let open = 0;
+      for (const c of mapData.connections) {
+        if (c.type !== 'orbit') continue;
+        const near = systems.some((t) => t.territory_id === c.from || t.territory_id === c.to);
+        if (!near) continue;
+        const state = laneStateFor(gameState, c.from, c.to, me);
+        if (state === 'corridor') corridors += 1;
+        else if (state === 'open') open += 1;
+      }
+      const lines = [
+        ...describeWorldRules(gameState.settings.world_rules?.[worldId]),
+        ...describeWorldModifiers(gameState.settings.world_modifiers?.[worldId]),
+      ];
+      if (worldGateways.length > 0) {
+        lines.push(`Gateways: you hold ${gatewaysHeld} of ${worldGateways.length} · lanes: ${corridors} corridor, ${open} open`);
+      }
+      rows.push({
+        icon: '🪐',
+        label: worldDisplayName(mapData, worldId),
+        value: `${held} / ${systems.length} systems`,
+        description: lines.join('\n'),
+        valueColor: held === systems.length ? 'text-emerald-400' : 'text-bf-gold',
+      });
+    }
+    for (const v of vaultViews(gameState, mapData.territories, me)) {
+      rows.push({
+        icon: '◈',
+        label: `The Vault — ${prettyRegionId(v.region_id)}`,
+        value: v.holder_id
+          ? (v.holder_id === me ? 'Held by you' : `Held by ${gameState.players.find((p) => p.player_id === v.holder_id)?.username ?? 'a rival'}`)
+          : `Unheld · ${v.viewer_held} / ${v.tiles}`,
+        description: `Hold every tile for +${v.tech_income} tech per turn${v.emergency_seal ? ' and one Emergency Seal per turn on any hyperspace lane' : ''}.`,
+        valueColor: v.holder_id === me ? 'text-emerald-400' : v.holder_id ? 'text-red-300' : 'text-bf-muted',
+      });
+    }
+    const cap = laneAttackDiceCap(gameState, me);
+    if (cap != null) {
+      rows.push({
+        icon: '🛰',
+        label: 'Hyperspace lane crossings',
+        value: `${cap} attack dice`,
+        description: cap === 2
+          ? 'Attacks across a lane roll 2 dice; Lane Charts gives the third back. The Hyperlane Anchor lifts the cap for its owner.'
+          : 'Lane Charts researched: attacks across a lane roll 3 dice. The Hyperlane Anchor lifts the cap for its owner.',
+        valueColor: 'text-sky-300',
+      });
+    }
+    return rows;
+  })();
+
   // ── Active era modifiers ────────────────────────────────────────────────────
   const activeEraRules = MODIFIER_INFO.filter(
     (m) => gameState.era_modifiers && (gameState.era_modifiers as Record<string, unknown>)[m.key],
@@ -205,6 +285,7 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
 
   const hasSomething =
     activeEraRules.length > 0 ||
+    galaxyWorldRows.length > 0 ||
     myPlayer.faction_id ||
     tempMods.length > 0 ||
     ownsWonder ||
@@ -265,6 +346,14 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                       valueColor: rung.done ? 'text-emerald-400' : 'text-bf-muted',
                     }))}
               />
+            </section>
+          )}
+
+          {/* ── Galactic Age worlds & lanes ───────────────────────── */}
+          {galaxyWorldRows.length > 0 && (
+            <section>
+              <SectionHeader icon="🌌" title="Your Worlds & Lanes" />
+              <BonusTable rows={galaxyWorldRows} />
             </section>
           )}
 
@@ -355,6 +444,16 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           description: 'Applied to each of your owned territories during stability tick.',
                           valueColor: 'text-emerald-300',
                         }]
+                      : []),
+                    ...(factionData.lane_defense_bonus
+                      ? [
+                          {
+                            icon: '🛰',
+                            label: 'Faction Lane Defence',
+                            value: `+${factionData.lane_defense_bonus} die`,
+                            description: 'Extra defence die against any attack across a hyperspace lane.',
+                          },
+                        ]
                       : []),
                     ...(factionData.ability_description
                       ? [{

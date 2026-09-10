@@ -64,6 +64,8 @@ export function describeWinConditions(settings: GameState['settings']): {
         // Without this case the raw enum name reached players, which is what a
         // Moon Race game shows on its very first screen.
         return `Hold every lunar territory for ${hegemonyTurnsFor(settings)} turns of your own in a row`;
+      case 'lane_sovereignty':
+        return 'Hold both gateways of 5 hyperspace lanes for 3 turns running';
       default:
         return kind;
     }

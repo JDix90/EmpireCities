@@ -28,12 +28,16 @@ function player(overrides: Partial<PlayerState> = {}): PlayerState {
   } as PlayerState;
 }
 
-function galaxyState(players: PlayerState[], territories: Record<string, TerritoryState>): GameState {
+function galaxyState(
+  players: PlayerState[],
+  territories: Record<string, TerritoryState>,
+  corridors = false,
+): GameState {
   return {
     era: 'galaxy_age',
     players,
     territories,
-    settings: { tech_trees_enabled: true, era_advancement_enabled: false },
+    settings: { tech_trees_enabled: true, era_advancement_enabled: false, galaxy_corridors_enabled: corridors },
   } as GameState;
 }
 
@@ -78,5 +82,26 @@ describe('selectAiTechResearch — Galactic Age', () => {
   it('medium non-Helion without access still front-runs the chart (hook regression)', () => {
     const s = galaxyState([player({ faction_id: 'forge_syndicate' })], home());
     expect(selectAiTechResearch(s, 'ai1', 'medium')).toBe('ga_hyperspace_chart');
+  });
+});
+
+describe('selectAiTechResearch — Galactic Age under corridors', () => {
+  // With no gate, Lane Charts is the third attack die across a lane for every
+  // faction; the Helion / Anchor exemptions only make sense with the gate on.
+  it('Helion front-runs Lane Charts like everyone else', () => {
+    const s = galaxyState([player({ faction_id: 'helion_navigators' })], home(), true);
+    expect(selectAiTechResearch(s, 'ai1', 'medium')).toBe('ga_hyperspace_chart');
+  });
+
+  it('an Anchor holder front-runs Lane Charts too', () => {
+    const s = galaxyState([player({ faction_id: 'forge_syndicate' })], home(['wonder_hyperlane_anchor']), true);
+    expect(selectAiTechResearch(s, 'ai1', 'medium')).toBe('ga_hyperspace_chart');
+  });
+
+  it('moves on once Lane Charts is owned', () => {
+    const s = galaxyState([player({ faction_id: 'helion_navigators', unlocked_techs: ['ga_hyperspace_chart'] })], home(), true);
+    const tech = selectAiTechResearch(s, 'ai1', 'medium');
+    expect(tech).not.toBeNull();
+    expect(tech).not.toBe('ga_hyperspace_chart');
   });
 });

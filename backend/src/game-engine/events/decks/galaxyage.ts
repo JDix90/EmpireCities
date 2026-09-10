@@ -51,6 +51,25 @@ export const galaxyageEvents: EventCard[] = [
     effect: { type: 'units_added', target: 'player', value: 2 },
   },
   {
+    // Lane weather: the two cards that edit the map rather than the armies.
+    card_id: 'ga_nebula_closure',
+    title: 'Nebula Closure',
+    description: 'A dust front swallows a hyperspace lane — the most-contested lane shuts to everyone for two rounds.',
+    category: 'global',
+    era_id: 'galaxy_age',
+    affects_all_players: true,
+    effect: { type: 'lane_closure', target: 'region', value: 2 },
+  },
+  {
+    card_id: 'ga_lane_surge',
+    title: 'Lane Surge',
+    description: 'A gravimetric shoal opens where no lane runs — two distant worlds become neighbours for two rounds.',
+    category: 'global',
+    era_id: 'galaxy_age',
+    affects_all_players: true,
+    effect: { type: 'lane_surge', target: 'region', value: 2 },
+  },
+  {
     card_id: 'ga_charted_vault',
     title: 'Charted Vault',
     description: 'Salvage crews crack a derelict archive ship — bank a windfall of tech points.',

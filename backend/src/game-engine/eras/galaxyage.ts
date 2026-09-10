@@ -5,48 +5,76 @@ import type { Faction, TechNode, EraWonder } from './types';
 //
 // Design notes:
 // - Each faction's `home_region_ids` matches one world in `era_galaxy.json`
-//   so factions spawn on their lore home (orbit gating then forces hyperspace
-//   tech before contact between worlds).
-// - Helion Navigators get free hyperspace via `getOrbitAccessResult` special
-//   case — that's their primary advantage. They no longer also stack a flat
-//   attack passive; the open-lane perk alone is significant on this map.
-// - Forge Syndicate now carries a passive `reinforce_bonus: 1` so it isn't
-//   the only faction without a sustained passive (parity with the era's
-//   other factions).
-// - Stellar Mandate's passive is a research discount (`tech_cost_discount: 2`)
-//   — its old copy claimed a +1 defense die that was never wired (always-on
-//   defensive dice were removed game-wide; see defenderReactions.ts), which
-//   left Sol the only passive-less faction (~13% win rate in 400-game sims).
-//   The lever is deliberately a DISCOUNT, not per-turn tech income: +1
-//   TP/turn compounds all game and sim-tested at ~39% (and crushed Helion's
-//   hyperspace head start). Discount ladder sim-tested at 400g×2 seeds
-//   (expert, threshold-60 meta): 1 → Sol 18.6%, 2 → all four factions in
-//   20-35% (Sol 33.8 / Rust 22.2 / Verdan 22.3 / Nexus 21.9 avg).
-// - Ability IDs reuse legacy handlers so the abilities work end-to-end today;
-//   the user-facing labels and lore have been refreshed for galaxy flavor.
+//   so factions spawn on their lore home; under corridors contact between
+//   worlds is positional (hold a gateway, attack across its lane), so the
+//   opening turns are about reaching and holding gateways, not research.
+// - Helion Navigators' old free-hyperspace special case only matters with the
+//   corridors kill switch off; their live kit is gateway sight + Drift Jump.
+// - Forge Syndicate carries `reinforce_bonus: 2`, the only purely economic kit in
+//   the era and the one that kept losing anyway: 12-14% across Phases 5-6 with +1,
+//   19.5% with +2 (400g x 3 seeds on the deterministic harness). A production kit
+//   needs units, not more buildings — its cheap buildings and half-price gates
+//   were already the most-built of the four and did not convert.
+// - Stellar Mandate has NO research discount any more. The history is in the field
+//   comment below; the short version is that the discount was worth ~10 points of
+//   win rate on a seat already worth ~24%, and nothing else about Sol moved the
+//   number.
+// - Kits are built around lanes (corridors): the Mandate runs blockades, Forge
+//   supplies, Helion sees gateways and jumps between its own, the Custodians
+//   seal and hold. Forge's Supply Insert still rides the shared
+//   guerrilla_warfare def; everything else here is galaxy-native.
+// - Void Custodians traded their flat `reinforce_bonus: 1` for Nexus Station's
+//   tech identity. That was first a per-tile world modifier (16 x 0.0625 = 1
+//   TP/turn; measured 400g x 2 seeds it alone put the Custodians at 56%, and
+//   even 1 TP/turn left them at 38-40% until the spare reinforcement went).
+//   Under worlds-as-characters the yield is the Vault instead: the Gate Ring
+//   starts neutral and whoever holds all four tiles earns +2 TP/turn and an
+//   Emergency Seal on any lane — a prize the Custodians start nearest to but
+//   must take (see state/worldRules.ts and GALAXY-BALANCE.md).
 // ──────────────────────────────────────────────────────────────────────────
 
+// Lineage ids matter only on a spine that climbs INTO this era — Space to Stars.
+// A player's faction is remapped along its lineage on arrival, and every runtime
+// faction lookup resolves against the player's current era, so a galaxy faction
+// with no lineage would leave an arriving player holding an id this era cannot
+// resolve, i.e. no kit at all. The Space Age has six lineages and this era has
+// four kits; the two with no partner here are handled by the fallback in
+// `applyLineageOnAdvance`.
 export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'stellar_mandate',
     name: 'Stellar Mandate',
-    description: 'Central admiralty doctrine — every technology costs 2 less to research; cyber warfare unlocked.',
+    description: 'Central admiralty doctrine — Sol III is the cradle: deeper reinforcement on its systems and a population that replaces what it loses. Blockade runners ignore lane seals.',
     lore: 'The Mandate believes stability flows from a single chain of command spanning every recognized star system.',
     flavor_quote: 'Order is not imposed — it is synchronized.',
     home_region_ids: ['sol_americas', 'sol_atlantic_arc', 'sol_crescent', 'sol_asian_rim'],
-    tech_cost_discount: 2,
-    ability_id: 'cyber_attack',
-    ability_description: 'Cyber Strike: once per turn, remove 1 enemy unit from an adjacent territory.',
+    lineage_id: 'imperial',
+    // The research discount is GONE, not reduced. Its history: -2 compounded into
+    // a 47% win rate once gateway fights were decided by dice, so Phase 3 cut it to
+    // -1. Measured again on the deterministic harness (400g x 3 seeds, expert,
+    // threshold 60) after Lane Sovereignty and the Jump Gates, -1 was still worth
+    // ~10 points of win rate: Sol 34.6% with it, 24.3% without, while the seat
+    // itself — four lanes, centre of the ring — is worth about 24%. No other Sol
+    // lever moved the number at all (see GALAXY-BALANCE.md: the Cradle world rule
+    // measures as inert), so the discount was the whole gap. Sol's identity is now
+    // the cradle world and Blockade Runner.
+    ability_id: 'blockade_runner',
+    ability_description: 'Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.',
     color: '#5dade2',
   },
   {
     faction_id: 'forge_syndicate',
     name: 'Forge Syndicate',
-    description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn; supply inserts on demand.',
+    description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.',
     lore: 'Shipyards and foundries form the true border between civilization and the dark between stars.',
     flavor_quote: 'We sell the hulls that empires die in.',
     home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works'],
-    reinforce_bonus: 1,
+    lineage_id: 'mercantile',
+    reinforce_bonus: 2,
+    // The Syndicate sells the hulls, so it builds the gate network at cost: half
+    // price on Jump Gates. It is the one faction whose kit is production rather
+    // than position, and mobility is what production could not previously buy.
+    jump_gate_cost_mult: 0.5,
     ability_id: 'guerrilla_warfare',
     ability_description: 'Supply Insert: once per turn, place 1 free unit on an owned territory.',
     color: '#e67e22',
@@ -54,26 +82,31 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'helion_navigators',
     name: 'Helion Navigators',
-    description: 'Lane-mappers and drift pilots — hyperspace lanes open without researching Hyperspace Chart first.',
+    description: 'Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.',
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
     home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts'],
-    ability_id: 'orbital_recon',
-    ability_description: 'Long-Range Sensors: once per turn, reveal units in one adjacent enemy territory.',
+    lineage_id: 'maritime',
+    // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
+    // Drift Jump is applied implicitly by the fortify handler: a fortify between
+    // two owned gateway tiles on different worlds that has no connected path.
+    ability_id: 'drift_jump',
+    ability_description: 'Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route.',
     color: '#2ecc71',
   },
   {
     faction_id: 'void_custodians',
     name: 'Void Custodians',
-    description: 'Deep patrol fleets — +1 reinforcement per turn; stronger defense along station corridors.',
+    description: 'Station enginseers — +1 defence die against any attack across a lane; faster stability recovery. Nexus Station\'s Gate Ring is the Vault: hold all four tiles for +2 tech per turn and an Emergency Seal on any lane.',
     lore: 'They guard the silent rings and tether cities where vacuum is the only neighbor.',
     flavor_quote: 'We keep the dark from leaning in.',
     home_region_ids: ['nexus_gate_ring', 'nexus_vault_ward', 'nexus_spire_walk', 'nexus_berth_ring'],
-    reinforce_bonus: 1,
-    ability_id: 'terraform',
-    ability_description: 'Emergency Seal: once per turn, restore stability on an owned territory and gain 1 free unit there.',
+    lineage_id: 'bastion',
+    ability_id: 'emergency_seal',
+    ability_description: 'Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.',
     color: '#9b59b6',
     stability_recovery_bonus: 2,
+    lane_defense_bonus: 1,
   },
 ];
 
@@ -81,18 +114,22 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
 // Galactic Age technology tree
 //
 // Two parallel tier-1 roots so opening builds branch:
-//   Hyperspace Chart (cost 5) — central mechanic, unlocks orbit travel.
+//   Lane Charts (cost 5) — the third attack die across a lane (crossings roll
+//   2 without it, under corridors); the access gate it used to be was bought
+//   on turn 1 by every seat in every simulated game.
 //   Lattice Logistics (cost 4) — economic root: +1 reinforcement / turn.
-// Hyperdrive Doctrine and Lane Sovereignty extend Hyperspace Chart so the
-// gate isn't just a binary unlock but a real progression: orbit attacks
-// become more powerful as the player invests deeper.
+// Hyperdrive Doctrine and Lane Sovereignty extend Lane Charts so lane
+// crossings keep getting stronger as the player invests deeper.
 // ──────────────────────────────────────────────────────────────────────────
 
 export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   {
+    // Kept the id so nothing that reads unlocked_techs churns. Under corridors
+    // this is no longer the access gate (every seat bought it on turn 1, so it
+    // gated nothing) — it buys back the third attack die across a lane.
     tech_id: 'ga_hyperspace_chart',
-    name: 'Hyperspace Chart',
-    description: 'Certified lane plots — unlocks travel and claims along orbit connections to foreign worlds.',
+    name: 'Lane Charts',
+    description: 'Certified lane plots — attacks across a hyperspace lane roll 3 dice instead of 2.',
     tier: 1,
     cost: 5,
   },
@@ -132,6 +169,18 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
     prerequisite: 'ga_hyperspace_chart',
     tech_point_income: 2,
     unlocks_building: 'production_1',
+  },
+  {
+    // Gate Engineering is the economic root's second branch: Disruption Net
+    // fortifies, this one MOVES. A pair of gates is a private lane between two
+    // of your worlds, which is the only mobility the era sells.
+    tech_id: 'ga_gate_engineering',
+    name: 'Gate Engineering',
+    description: 'Portable Pathfinder scaffolds — unlocks the Jump Gate building, a private lane between two worlds you hold.',
+    tier: 2,
+    cost: 10,
+    prerequisite: 'ga_lattice_logistics',
+    unlocks_building: 'jump_gate',
   },
   {
     tech_id: 'ga_lane_sovereignty',
@@ -185,13 +234,13 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   },
 ];
 
-// `passive_effect_type: 'orbit_access'` is honest about what the wonder does.
-// `getOrbitAccessResult` already special-cases ownership of `wonder_hyperlane_anchor`
-// so no runtime change is needed — only the descriptor was misleading.
+// Under corridors there is no access gate for the Anchor to skip, so it lifts
+// the lane dice cap for its owner instead (`galaxyLaneAttackDiceCap`); with the
+// kill switch off it still grants orbit access (`getOrbitAccessResult`).
 export const GALAXY_AGE_WONDER: EraWonder = {
   wonder_id: 'wonder_hyperlane_anchor',
   name: 'Hyperlane Anchor',
-  description: 'Stabilized jump beacon — orbit travel no longer requires Hyperspace Chart for you.',
+  description: 'Stabilized jump beacon — your attacks across hyperspace lanes roll full dice (no lane cap).',
   cost: 22,
   passive_effect_type: 'orbit_access',
   passive_effect_value: 1,

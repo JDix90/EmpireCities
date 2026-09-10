@@ -143,9 +143,10 @@ import {
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId, aiPlayerName } from '@borderfall/shared';
+import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import {
   getOrbitAccessResult,
-  resolveOrbitAccessMode,
+  resolveOrbitAccessModeForPlayer,
   territoryRequiresOrbitAccessForClaim,
   formatOrbitAccessError,
 } from '../utils/orbitAccess';
@@ -153,6 +154,12 @@ import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+/** "a", "a and b", "a, b and c" — plain English for a short list of names. */
+function formatList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 const FLOODED_NA_MAP_ID = 'community_flooded_north_america';
 const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
@@ -1784,9 +1791,32 @@ export default function GamePage() {
     socket.on('game:territories_unlocked', ({ territory_ids }: { era_id?: string; territory_ids?: string[] }) => {
       const ids = territory_ids ?? [];
       if (ids.length === 0) return;
+      // Whole WORLDS can arrive at once, not just a frontier next door: on the
+      // Space to Stars board the Galactic Age step opens three of them. A world
+      // is new when every tile it has on the board is in this batch — the map
+      // re-emit has already landed, so "what it had before" is gone, but "all of
+      // it is brand new" says the same thing and needs no extra state.
+      const mapNow = mapDataRef.current;
+      const arrivedWorlds: string[] = [];
+      if (mapNow) {
+        const unlocked = new Set(ids);
+        const byWorld = new Map<string, { total: number; fresh: number }>();
+        for (const t of mapNow.territories) {
+          const wid = inferWorldId(t);
+          const tally = byWorld.get(wid) ?? { total: 0, fresh: 0 };
+          tally.total += 1;
+          if (unlocked.has(t.territory_id)) tally.fresh += 1;
+          byWorld.set(wid, tally);
+        }
+        for (const [wid, tally] of byWorld) {
+          if (tally.fresh > 0 && tally.fresh === tally.total) arrivedWorlds.push(worldDisplayName(mapNow, wid));
+        }
+      }
       toast(
-        `A new frontier opens — ${ids.length} unclaimed land${ids.length === 1 ? '' : 's'} ripe for the taking!`,
-        { icon: '🗺️', duration: 6000 },
+        arrivedWorlds.length > 0
+          ? `The stars open — ${formatList(arrivedWorlds)} ${arrivedWorlds.length === 1 ? 'is' : 'are'} on the chart.`
+          : `A new frontier opens — ${ids.length} unclaimed land${ids.length === 1 ? '' : 's'} ripe for the taking!`,
+        { icon: arrivedWorlds.length > 0 ? '\u2728' : '\ud83d\uddfa\ufe0f', duration: 6000 },
       );
       try { playFrontierUnlockSound(); } catch { /* audio is best-effort */ }
       // Epic entrance: route the reveal through the era-advance cinematic — re-themed
@@ -2182,7 +2212,32 @@ export default function GamePage() {
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
     });
 
-    socket.on('game:orbit_lane_opened', ({ playerName, territoryId, moonTargetId }: {
+    // Galaxy transit: a convoy landed, turned back, or was lost in the void.
+    socket.on('game:transit_arrived', ({ playerName, fromName, toName, units, outcome }: {
+      playerId: string;
+      playerName: string;
+      playerColor: string;
+      fromId: string;
+      toId: string;
+      fromName: string;
+      toName: string;
+      units: number;
+      outcome: 'landed' | 'turned_back' | 'lost';
+    }) => {
+      const isMe = playerName === user?.username;
+      const who = isMe ? 'Your' : `${playerName}'s`;
+      const troops = `${units} unit${units === 1 ? '' : 's'}`;
+      const line =
+        outcome === 'landed'
+          ? `🚚 ${who} convoy reached ${toName} with ${troops}.`
+          : outcome === 'turned_back'
+            ? `🚚 ${who} convoy found ${toName} lost and turned back to ${fromName}.`
+            : `🚚 ${who} convoy had nowhere left to land — ${troops} lost in the void.`;
+      toast(line, { duration: 5000 });
+    });
+
+    socket.on('game:orbit_lane_opened', ({ kind, playerName, territoryId, moonTargetId }: {
+      kind?: 'launch_pad' | 'jump_gate';
       playerId: string;
       playerName: string;
       playerColor: string;
@@ -2191,8 +2246,13 @@ export default function GamePage() {
     }) => {
       const nameOf = (id: string) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id;
       const isMe = playerName === user?.username;
+      const gate = kind === 'jump_gate';
       toast(
-        isMe
+        gate
+          ? isMe
+            ? `🛰 Your Jump Gate at ${nameOf(territoryId)} opens a lane to ${nameOf(moonTargetId)} — your units only, no attacks.`
+            : `🛰 ${playerName} opened a Jump Gate lane: ${nameOf(territoryId)} ↔ ${nameOf(moonTargetId)}.`
+          : isMe
           ? `🛰 Your Launch Pad at ${nameOf(territoryId)} opens an orbit lane to ${nameOf(moonTargetId)}.`
           : `🛰 ${playerName} built a Launch Pad at ${nameOf(territoryId)}: orbit lane to ${nameOf(moonTargetId)}.`,
         {
@@ -2302,6 +2362,7 @@ export default function GamePage() {
       socket.off('game:map_visual');
       socket.off('game:space_station_launched');
       socket.off('game:orbit_lane_opened');
+      socket.off('game:transit_arrived');
       socket.off('game:puzzle_feedback');
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);
@@ -2591,6 +2652,15 @@ export default function GamePage() {
     return mapData.worlds.find((w) => w.world_id === focusedWorldId) ?? null;
   }, [mapData?.worlds, focusedWorldId]);
 
+  /**
+   * World tabs, derived from the board rather than the map manifest. On the
+   * Space to Stars board the three far worlds are authored from the start but
+   * held out of play until a player reaches the Galactic Age; a tab list built
+   * from `mapData.worlds` would offer three buttons that open an empty globe
+   * years before anyone can go there. This way the tab arrives with the world.
+   */
+  const galaxyWorldTabs = useMemo(() => worldsInPlay(mapData), [mapData]);
+
   /** Per-territory globe diffuse/bump when a galaxy node/territory is selected (Option A). */
   const galaxyDrillGlobeSkin = useMemo(() => {
     if (mapData?.map_kind !== 'galaxy') return null;
@@ -2633,6 +2703,29 @@ export default function GamePage() {
     () => new Set(Object.keys(gameState?.lane_blockades ?? {})),
     [gameState?.lane_blockades],
   );
+  // Emergency Seal is the Void Custodians' faction charge (lanes touching
+  // Nexus), and the Vault holder's — any faction, any lane. Only they get the
+  // lane-click affordance; the server re-checks faction, Vault and use.
+  const viewerSealsAnyLane = useMemo(
+    () => !!gameState && !!mapData && viewerHoldsVaultSeal(gameState, mapData.territories, resolvedViewerPlayerId),
+    [gameState, mapData, resolvedViewerPlayerId],
+  );
+  const viewerCanEmergencySeal = useMemo(() => {
+    if (viewerSealsAnyLane) return true;
+    if (!gameState?.settings.factions_enabled) return false;
+    const me = gameState.players.find((p) => p.player_id === resolvedViewerPlayerId);
+    return me?.faction_id === 'void_custodians';
+  }, [viewerSealsAnyLane, gameState?.settings.factions_enabled, gameState?.players, resolvedViewerPlayerId]);
+  /**
+   * May this viewer seal a lane from the territory panel? Two mechanics share
+   * the affordance and the socket event: the Space Age Orbital Blockade is open
+   * to anyone in a game running Phase 4, the Galactic Age's Emergency Seal is a
+   * faction charge. The server decides either way — this only keeps a button
+   * that would always be refused off the screen.
+   */
+  const viewerCanSealFromPanel = gameState?.era === 'space_age'
+    ? gameState?.settings.space_age_moon_blockade_enabled === true
+    : viewerCanEmergencySeal;
   const handleSealLane = useCallback(
     (fromId: string, toId: string) => {
       getSocket().emit('game:seal_lane', { gameId, fromId, toId, action_id: generateActionId() });
@@ -2654,7 +2747,7 @@ export default function GamePage() {
     if (!mapData || !selectedTerritory) return null;
     if (!territoryRequiresOrbitAccessForClaim(mapData, selectedTerritory)) return null;
     if (orbitAccess.allowed) return null;
-    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, user?.user_id ?? null, gameState?.era ?? '');
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, selectedTerritory, orbitAccess, gameState?.era]);
 
@@ -2667,7 +2760,7 @@ export default function GamePage() {
    */
   const orbitTravelBlockedReason = useMemo(() => {
     if (!mapData || orbitAccess.allowed) return null;
-    const mode = resolveOrbitAccessMode(mapData, gameState?.era ?? '');
+    const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, user?.user_id ?? null, gameState?.era ?? '');
     if (mode === 'none') return null;
     return formatOrbitAccessError(orbitAccess, mode);
   }, [mapData, orbitAccess, gameState?.era]);
@@ -3398,7 +3491,7 @@ export default function GamePage() {
     if (md.map_kind === 'galaxy') {
       setGalaxyOverviewMode(true);
       const wid =
-        md.worlds?.[0]?.world_id ??
+        worldsInPlay(md)[0]?.world_id ??
         inferWorldId(md.territories[0] ?? { territory_id: '', region_id: '' });
       setFocusedWorldId(wid);
     } else {
@@ -3993,7 +4086,7 @@ export default function GamePage() {
                 Galaxy chart
               </button>
               <div className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
-                {(mapData.worlds ?? []).map((w) => (
+                {galaxyWorldTabs.map((w) => (
                   <button
                     key={w.world_id}
                     type="button"
@@ -4032,7 +4125,7 @@ export default function GamePage() {
           >
             <Orbit className="w-3.5 h-3.5" /> Galaxy chart
           </button>
-          {(mapData.worlds ?? []).map((w) => (
+          {galaxyWorldTabs.map((w) => (
             <button
               key={w.world_id}
               type="button"
@@ -4052,15 +4145,15 @@ export default function GamePage() {
       {/*
         First-time Galactic Age coach tip. Self-gates via localStorage so it
         shows once per browser. Teaches the two non-obvious things: worlds are
-        drilled into individually, and crossing between them needs Hyperspace
-        Chart (or the Helion Navigators faction).
+        drilled into individually, and the lanes are positional — you cross
+        from a gateway system you hold, and crossings roll fewer dice.
       */}
       {mapData?.map_kind === 'galaxy' && (
         <FeatureExplainerModal
           featureKey="galactic_age_intro"
           icon="🌌"
           title="Welcome to the Galactic Age"
-          description="Four worlds, one war. Tap a world to drill into it, and open the galaxy chart to see all four at once. Hyperspace lanes link the planets — research Hyperspace Chart (or play the Helion Navigators) to move and attack across worlds."
+          description="Four worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches."
         />
       )}
 
@@ -4174,8 +4267,11 @@ export default function GamePage() {
                       width={mapCanvasSize.w}
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
+                      viewerPlayerId={resolvedViewerPlayerId}
+                      territoryNameOf={(id) => mapData.territories.find((t) => t.territory_id === id)?.name ?? id}
                       sealedLaneIds={galaxySealedLaneIds}
-                      lanesContestableEnabled={gameState.settings.lanes_contestable_enabled ?? false}
+                      lanesContestableEnabled={viewerCanEmergencySeal}
+                      sealAnyLane={viewerSealsAnyLane}
                       ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
                       onSealLane={handleSealLane}
                       pulseWorldId={galaxyPulse?.worldId ?? null}
@@ -4386,9 +4482,7 @@ export default function GamePage() {
                   : undefined
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
-              onSealLane={
-                gameState?.settings.space_age_moon_blockade_enabled ? handleSealLane : undefined
-              }
+              onSealLane={viewerCanSealFromPanel ? handleSealLane : undefined}
               onUseAbility={
                 (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
                   ? handleUseAbility
@@ -4401,6 +4495,8 @@ export default function GamePage() {
               orbitAccessReason={orbitTravelBlockedReason}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               mapConnections={mapData.connections}
+              mapWorlds={mapData.worlds}
+              sealAnyLane={viewerSealsAnyLane}
               denseMap={mapDensityMetrics?.isDense ?? false}
               onFortifyTo={handleFortifyTo}
               onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}

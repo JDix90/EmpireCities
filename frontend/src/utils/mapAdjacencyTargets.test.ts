@@ -7,6 +7,7 @@ import {
   listDirectAttackSources,
   canAttackFrom,
   listBorderingOwned,
+  type MapConnection,
 } from './mapAdjacencyTargets';
 import type { GameState } from '../store/gameStore';
 
@@ -392,7 +393,7 @@ describe('computeFortifyReachable — orbit parity with the server', () => {
    */
   const spaceAge = {
     era: 'space_age',
-    settings: { lanes_contestable_enabled: false },
+    settings: {},
     territories: {
       na_east: { territory_id: 'na_east', owner_id: 'p1', unit_count: 9, buildings: [] },
       na_pad: { territory_id: 'na_pad', owner_id: 'p1', unit_count: 9, buildings: [] },
@@ -509,5 +510,26 @@ describe('computePhaseAdjacencyTargets — fortifyReachable', () => {
     // accidentally inherit the full set.
     const rows = listNeighborTargets(chain, conns, 'a', new Map([['b', 'Bee'], ['c', 'Cee']]));
     expect(rows.map((r) => r.territoryId)).toEqual(['b']);
+  });
+});
+
+describe('a Jump Gate lane is not an attack target', () => {
+  it('is skipped in the attack phase, while an authored lane is offered', () => {
+    const state = {
+      phase: 'attack',
+      settings: {},
+      players: [{ player_id: 'me' }, { player_id: 'rival' }],
+      territories: {
+        a: { owner_id: 'me', unit_count: 9 },
+        b: { owner_id: 'rival', unit_count: 1 },
+        c: { owner_id: 'rival', unit_count: 1 },
+      },
+    } as unknown as GameState;
+    const connections: MapConnection[] = [
+      { from: 'a', to: 'b', type: 'orbit' },
+      { from: 'a', to: 'c', type: 'orbit', source: 'jump_gate' },
+    ];
+    const targets = computePhaseAdjacencyTargets(state, connections, { sourceTerritoryId: 'a' });
+    expect([...targets]).toEqual(['b']);
   });
 });

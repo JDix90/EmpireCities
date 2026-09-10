@@ -42,6 +42,10 @@ import {
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
 import {
+  ASCENSION_GALAXY_SPINE_ID,
+  isAscensionGalaxyMap,
+} from '../constants/lobbyMapOptions';
+import {
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
   evaluateEraMapCompatibility,
@@ -494,7 +498,7 @@ export default function LobbyPage() {
   const [fogOfWar, setFogOfWar] = useState(false);
   const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
   const [turnTimer, setTurnTimer] = useState(300);
-  type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission';
+  type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission' | 'lane_sovereignty';
   const [victoryModes, setVictoryModes] = useState<Set<VictoryMode>>(
     () => new Set<VictoryMode>(['domination']),
   );
@@ -518,7 +522,6 @@ export default function LobbyPage() {
   const [combatDiceCapEnabled, setCombatDiceCapEnabled] = useState(true);
   // Classic unbounded card-set escalation, opt-in. Off = the default ceiling.
   const [uncappedCardSets, setUncappedCardSets] = useState(false);
-  const [lanesContestableEnabled, setLanesContestableEnabled] = useState(false);
   const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
   const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
 
@@ -536,18 +539,17 @@ export default function LobbyPage() {
   useEffect(() => {
     const transition = transitionEraSystemDefaults({
       nextEra: selectedEra,
-      current: { economy: economyEnabled, tech_trees: techTreesEnabled },
+      current: { economy: economyEnabled, tech_trees: techTreesEnabled, factions: factionsEnabled },
       autoEnabled: autoEnabledSystemsRef.current,
     });
     autoEnabledSystemsRef.current = transition.nextAutoEnabled;
-    for (const key of transition.enable) {
-      if (key === 'economy') setEconomyEnabled(true);
-      else setTechTreesEnabled(true);
-    }
-    for (const key of transition.disable) {
-      if (key === 'economy') setEconomyEnabled(false);
-      else setTechTreesEnabled(false);
-    }
+    const setSystem = (key: EraSystemKey, on: boolean) => {
+      if (key === 'economy') setEconomyEnabled(on);
+      else if (key === 'tech_trees') setTechTreesEnabled(on);
+      else setFactionsEnabled(on);
+    };
+    for (const key of transition.enable) setSystem(key, true);
+    for (const key of transition.disable) setSystem(key, false);
     // Deliberately keyed on the era alone: the toggles are read fresh from the
     // render that the era change produced; re-running on toggle changes would
     // fight the player's manual unchecks.
@@ -556,12 +558,12 @@ export default function LobbyPage() {
   const eraSystemsWarning = missingEraSystemsWarning(selectedEra, {
     economy: economyEnabled,
     tech_trees: techTreesEnabled,
+    factions: factionsEnabled,
   });
 
   // Conditional advanced settings — each only matters under certain other choices,
   // so they're surfaced in a dedicated "Conditional Settings" section instead of
   // always cluttering Advanced Features.
-  const isGalacticAge = selectedEra === GALACTIC_AGE_ERA_ID;
   // The Combat Dice Cap only does anything when some enabled feature can push
   // combat dice past the classic 3/2 — buildings/wonders (economy), tech, events,
   // era-gap bonuses, faction attack dice + once-per-turn charges, or naval
@@ -569,11 +571,6 @@ export default function LobbyPage() {
   const combatDiceCapApplicable =
     economyEnabled || techTreesEnabled || eventsEnabled || navalEnabled || factionsEnabled || eraAdvancementEnabled;
 
-  // Reset a conditional toggle when its precondition disappears, so a now-hidden
-  // setting can't leave a stale flag in the create-game payload.
-  useEffect(() => {
-    if (!isGalacticAge) setLanesContestableEnabled(false);
-  }, [isGalacticAge]);
   // Symmetric: the old one-way reset left the box unchecked forever once any
   // render had no dice-granting system on, so re-enabling Economy afterwards
   // silently dropped the default.
@@ -726,7 +723,13 @@ export default function LobbyPage() {
   useEffect(() => {
     const isOrbitGated = selectedEra === GALACTIC_AGE_ERA_ID || selectedEra === 'space_age';
     if (isOrbitGated && !prevEraWasOrbitGated.current) {
-      setVictoryModes(new Set<VictoryMode>(['domination', 'threshold']));
+      // Mirror the server's create-time default (applyOrbitGatedVictoryDefaults):
+      // the galaxy also plays for Lane Sovereignty, its own way to win.
+      setVictoryModes(
+        selectedEra === GALACTIC_AGE_ERA_ID
+          ? new Set<VictoryMode>(['domination', 'threshold', 'lane_sovereignty'])
+          : new Set<VictoryMode>(['domination', 'threshold']),
+      );
       setVictoryThresholdPct(60);
     } else if (!isOrbitGated && prevEraWasOrbitGated.current) {
       setVictoryModes(new Set<VictoryMode>(['domination']));
@@ -1044,6 +1047,7 @@ export default function LobbyPage() {
 
       const mapId = selectedTheaterMapId;
       const eraId = selectedEra;
+      const isAscensionTheater = isAscensionGalaxyMap(mapId);
       const allowed = Array.from(victoryModes) as VictoryMode[];
       const settings: Record<string, unknown> = {
         fog_of_war: fogOfWar,
@@ -1060,10 +1064,18 @@ export default function LobbyPage() {
         stability_enabled: stabilityEnabled || undefined,
         territory_selection: territorySelection || undefined,
         coaching_enabled: coachingEnabled || undefined,
+        // Space to Stars is an advancement board by construction — its three far
+        // worlds exist only behind the Galactic Age step — so the theater turns
+        // the climb on and pins its own two-step spine rather than a preset.
         era_advancement_enabled:
-          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+          isAscensionTheater
+            ? true
+            : eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? true : undefined,
+        era_advancement_spine_id: isAscensionTheater ? ASCENSION_GALAXY_SPINE_ID : undefined,
         era_advancement_preset:
-          eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient' ? eraAdvancementPreset : undefined,
+          !isAscensionTheater && eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient'
+            ? eraAdvancementPreset
+            : undefined,
         async_mode: turnTimer >= 43200 || undefined,
         async_turn_deadline_seconds: turnTimer >= 43200 ? turnTimer : undefined,
         faction_id: factionsEnabled ? (selectedFactionId === 'random' ? null : selectedFactionId) : null,
@@ -1072,11 +1084,10 @@ export default function LobbyPage() {
         // make the checkbox one-way.
         combat_dice_cap_enabled: combatDiceCapEnabled,
         card_set_bonus_cap: uncappedCardSets ? 0 : undefined,
-        lanes_contestable_enabled: lanesContestableEnabled || undefined,
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
-      if (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient') {
+      if (isAscensionTheater || (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient')) {
         settings.economy_enabled = true;
         settings.tech_trees_enabled = true;
         settings.stability_enabled = true;
@@ -2292,7 +2303,13 @@ export default function LobbyPage() {
                         }}
                       >
                         {LOBBY_THEATER_OPTIONS.map((opt) => (
-                          <option key={opt.map_id} value={opt.map_id}>{opt.label}</option>
+                          <option
+                            key={opt.map_id}
+                            value={opt.map_id}
+                            disabled={isAscensionGalaxyMap(opt.map_id) && !canAccessGalacticAge(user)}
+                          >
+                            {opt.label}
+                          </option>
                         ))}
                       </select>
                       <p className="text-xs text-bf-muted mt-1">Territories, geography, and globe layout.</p>
@@ -2542,28 +2559,13 @@ export default function LobbyPage() {
                         )}
                       </div>
                     </div>
-                    {(isGalacticAge || combatDiceCapApplicable) && (
+                    {combatDiceCapApplicable && (
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Conditional Settings</label>
                       <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                         These appear because of choices you made above — they don&apos;t apply to every game.
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {isGalacticAge && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
-                            <label htmlFor="create-game-lanes-contestable" className="contents cursor-pointer">
-                              <input
-                                id="create-game-lanes-contestable"
-                                type="checkbox"
-                                checked={lanesContestableEnabled}
-                                onChange={(e) => setLanesContestableEnabled(e.target.checked)}
-                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              />
-                              <span className="leading-snug min-w-0 select-none">Contestable Lanes <span className="text-xs text-bf-muted">(galaxy · seal hyperspace lanes)</span></span>
-                            </label>
-                          </div>
-                        )}
                         {combatDiceCapApplicable && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                             <FeatureTooltip text="Caps the total combat dice each side can roll after all bonuses, so stacked defenses (buildings + wonder + faction + tech + naval bombardment) can't make a position impregnable to a much larger army. On by default; turn it off for classic rules." />
@@ -2635,6 +2637,10 @@ export default function LobbyPage() {
                         ['threshold', 'Territory threshold', 'Win by controlling a set percentage of territories (configurable below). Rewards sustained expansion over total domination.'],
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
+                        // Galaxy-only: a victory about the network rather than the headcount.
+                        ...(selectedEra === GALACTIC_AGE_ERA_ID
+                          ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and you win — so rivals get two rounds to break one corridor and stop it.'] as const]
+                          : []),
                       ] as const).map(([id, label, tip]) => (
                         <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={tip} />

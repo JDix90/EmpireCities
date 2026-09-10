@@ -63,6 +63,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
+  galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
+  galaxy_world_rules_enabled: () => envOptOut('GALAXY_WORLD_RULES_ENABLED'),
+  galaxy_transit_enabled: () => envOptIn('GALAXY_TRANSIT_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -371,6 +374,43 @@ export const featureFlags = {
    */
   get spaceAgeFrontiersEnabled(): boolean {
     return overrideBool('space_age_frontiers_enabled');
+  },
+
+  /**
+   * Galactic Age corridors: lanes need no tech to cross and cap the attacker at
+   * 2 dice (3 with Lane Charts). Default ON — the Hyperspace Chart gate it
+   * replaces was bought on turn 1 by every seat in every simulated game, so it
+   * gated nothing, while the cap is what makes the 16 gateway tiles worth
+   * fighting over. Kill switch: `GALAXY_CORRIDORS_ENABLED=false` or the
+   * `galaxy_corridors_enabled` admin override. Baked into game settings at
+   * create; the engine reads the setting, so a flip never re-rules a match.
+   */
+  get galaxyCorridorsEnabled(): boolean {
+    return overrideBool('galaxy_corridors_enabled');
+  },
+
+  /**
+   * Galactic Age worlds as characters: each world's authored `rules` apply —
+   * Sol drafts deeper and breeds faster, Verdan's storms shed units above 12,
+   * Rust's defence buildings roll an extra die, and the Nexus Gate Ring starts
+   * neutral as the Vault (+2 tech per turn and an Emergency Seal on any lane
+   * for whoever holds all four tiles). Default ON. Kill switch:
+   * `GALAXY_WORLD_RULES_ENABLED=false` or the `galaxy_world_rules_enabled`
+   * admin override. Baked into game settings at create, like corridors.
+   */
+  get galaxyWorldRulesEnabled(): boolean {
+    return overrideBool('galaxy_world_rules_enabled');
+  },
+
+  /**
+   * Galactic Age transit: a fortify between two worlds becomes a convoy that
+   * lands at the mover's next turn start. Default OFF — it is the era plan's one
+   * explicitly optional mechanic, kept behind the switch until a playtest asks
+   * for it. Kill switch: `GALAXY_TRANSIT_ENABLED=true` to turn it on, or the
+   * `galaxy_transit_enabled` admin override. Baked into game settings at create.
+   */
+  get galaxyTransitEnabled(): boolean {
+    return overrideBool('galaxy_transit_enabled');
   },
 
   /**

@@ -11,6 +11,9 @@ import {
 import type { GameState, GameMap } from '../types';
 import { ERA_GROWTH_MAP_IDS, mapHasEraGrowth, repairEraTerritoryGrowth } from '../game-engine/eraAdvancement/territoryUnlock';
 import { syncLaunchPadLanes } from '../game-engine/state/moonAccess';
+import { syncJumpGateLanes } from '../game-engine/state/jumpGates';
+import { syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
+import { pruneStrandedConvoys } from '../game-engine/state/transit';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
 import {
@@ -144,6 +147,12 @@ function repairRoom(state: GameState, map: GameMap): void {
   // Launch Pad orbit lanes live only in the game's map copy; a room rebuilt
   // from the authored map (Postgres recovery) must regain them from state.
   syncLaunchPadLanes(map, state);
+  // Galaxy Jump Gate lanes live in state (`jump_gate_links`) and are projected
+  // onto the map copy, so a room rehydrated from the authored map regains them.
+  syncJumpGateLanes(map, state);
+  // Lane weather surges are state too, and a rehydrated room must carry them.
+  syncLaneWeatherLanes(map, state);
+  pruneStrandedConvoys(map, state);
 }
 
 /**

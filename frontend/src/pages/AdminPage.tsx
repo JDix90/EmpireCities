@@ -120,6 +120,24 @@ const CLIENT_FEATURE_FLAGS = [
       'Collapse the landing hero to one dominant Play button (direct guest start + "No account" microcopy + a single See-gameplay secondary); nav Play/Learn hide, Sign In stays as a header utility. hero_play_clicked carries a variant prop so the A/B reads in the visitor funnel. On by default.',
   },
   {
+    key: 'galaxy_corridors_enabled',
+    label: 'Galactic Age corridors',
+    description:
+      'Hyperspace lanes need no tech to cross — you attack across a lane from the gateway tile you hold — and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so gateways defend like coasts. Baked into each game at creation. On by default; switch off to restore the Hyperspace Chart gate with no lane cap for games created afterwards.',
+  },
+  {
+    key: 'galaxy_transit_enabled',
+    label: 'Galactic Age transit (convoys)',
+    description:
+      "A fortify between two WORLDS stops being instant: the units leave their garrison at once and land at the mover's next turn start, or turn back if the destination changed hands in the meantime. A Drift Jump is exempt. Baked into each game at creation. OFF by default — the era plan wanted this one measured before it was believed; measured at 400 games it fires about 1.5 times per seat per game and one convoy in eight turns back.",
+  },
+  {
+    key: 'galaxy_world_rules_enabled',
+    label: 'Galactic Age worlds as characters',
+    description:
+      "Each world plays by its own rule: Sol places 2 extra units per system each draft and its population grows twice as fast; Verdan's storms strip any system above 12 units at round start; Rust's buildings cost half and its defence buildings roll an extra die; Nexus's Gate Ring starts neutral as the Vault (+2 tech per turn and an Emergency Seal on any lane for whoever holds all four tiles). Baked into each game at creation. On by default; switch off to return to flat worlds for games created afterwards.",
+  },
+  {
     key: 'space_age_frontiers_enabled',
     label: 'Space Age frontiers (standalone)',
     description:

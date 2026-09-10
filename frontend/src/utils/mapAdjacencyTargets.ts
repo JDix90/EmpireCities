@@ -5,10 +5,12 @@ export interface MapConnection {
   to: string;
   type?: 'land' | 'sea' | 'orbit' | string;
   /**
-   * Set to 'launch_pad' on a lane a Launch Pad opened, rather than one the map
-   * authored. The Space Age Orbital Blockade may only seal authored lanes, so
-   * the client needs to tell them apart to avoid offering a button the server
-   * always refuses.
+   * Engine-added lane rather than an authored one: 'launch_pad' (a pad's own
+   * route to orbit), 'jump_gate' or 'lane_surge'. Absent on authored edges.
+   *
+   * The client needs to tell them apart: the Space Age Orbital Blockade may only
+   * seal authored lanes, and a Jump Gate lane carries no attack at all — so
+   * without this the UI offers buttons the server always refuses.
    */
   source?: string;
 }
@@ -169,6 +171,19 @@ export function computeValidSources(
  * Valid neighbor territories for the current attack / fortify interaction.
  * Mirrors the adjacency arc rules in GlobeMap without depending on arc geometry.
  */
+/**
+ * True when every connection between these two territories is an engine-built
+ * Jump Gate lane. A gate lane is logistics: it moves its owner's units and never
+ * carries an attack (backend `state/jumpGates.ts`), so the attack phase must not
+ * offer the far end as a target.
+ */
+function isJumpGateOnlyEdge(connections: MapConnection[], a: string, b: string): boolean {
+  const edges = connections.filter(
+    (c) => (c.from === a && c.to === b) || (c.from === b && c.to === a),
+  );
+  return edges.length > 0 && edges.every((c) => c.source === 'jump_gate');
+}
+
 export function computePhaseAdjacencyTargets(
   gameState: GameState,
   connections: MapConnection[],
@@ -210,6 +225,7 @@ export function computePhaseAdjacencyTargets(
     const neighborOwner = gameState.territories[neighborId]?.owner_id;
 
     if (gameState.phase === 'attack') {
+      if (isJumpGateOnlyEdge(connections, source, neighborId)) continue;
       if (neighborOwner && neighborOwner !== sourceOwner) {
         result.add(neighborId);
       } else if (!neighborOwner && (gameState.settings?.era_advancement_enabled === true || orbitNeighbors.has(neighborId))) {
@@ -248,6 +264,8 @@ export interface NeighborTargetRow {
   isOrbit: boolean;
   /** Destination world's display name (only set for orbit / cross-world targets). */
   targetWorldName?: string;
+  /** Galaxy corridors: attacker dice an assault across this lane rolls (2, 3 with Lane Charts). */
+  laneDice?: number;
 }
 
 export function listNeighborTargets(

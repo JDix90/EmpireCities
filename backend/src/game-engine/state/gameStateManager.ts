@@ -29,6 +29,15 @@ import {
 import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
+import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
+import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather';
+import { arriveConvoys } from './transit';
+import {
+  applyStormAttrition,
+  buildWorldRuleSnapshot,
+  vaultRegionGarrisons,
+  worldDeployCapBonus,
+} from './worldRules';
 import { buildAscensionSpineFromEra, getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { territoryUnlockEra, seedsFullBoardAtStart, seedStandaloneFrontierTerritories } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
@@ -104,6 +113,11 @@ export function initializeGameState(
   if (settingsNorm.world_modifiers_enabled !== false) {
     const worldMods = buildWorldModifierSnapshot(map, true);
     if (worldMods) settingsNorm.world_modifiers = worldMods;
+  }
+  // Galaxy worlds as characters: the map's per-world RULES, same discipline.
+  if (settingsNorm.world_rules_enabled !== false) {
+    const worldRules = buildWorldRuleSnapshot(map, true);
+    if (worldRules) settingsNorm.world_rules = worldRules;
   }
   const territories: Record<string, TerritoryState> = {};
 
@@ -181,6 +195,11 @@ export function initializeGameState(
   // their lore home; the orbit-access gate then forces hyperspace tech before
   // factions can engage across worlds.
   const lunarTerritoryIds = offworldTerritoryIdsForInitialNeutral(map);
+  // Galaxy worlds as characters: a vault world's prize region (the Nexus Gate
+  // Ring) starts neutral with its authored garrison, so its home faction holds
+  // "all but the ring" and must take it like everyone else.
+  const vaultGarrisons = settingsNorm.world_rules ? vaultRegionGarrisons(map) : new Map<string, number>();
+  for (const tid of vaultGarrisons.keys()) lunarTerritoryIds.add(tid);
   // Landing zones (tiles on an orbit lane — where the race arrives) hold a
   // beachhead garrison; the interior is tougher, so the first player to gain
   // orbit access establishes a foothold but can't sweep the whole world in one
@@ -195,7 +214,8 @@ export function initializeGameState(
     }
   }
   const neutralOffworldGarrison = (tid: string): number =>
-    orbitTouched.has(tid) ? NEUTRAL_OFFWORLD_LANDING_GARRISON : NEUTRAL_OFFWORLD_INTERIOR_GARRISON;
+    vaultGarrisons.get(tid)
+      ?? (orbitTouched.has(tid) ? NEUTRAL_OFFWORLD_LANDING_GARRISON : NEUTRAL_OFFWORLD_INTERIOR_GARRISON);
 
   // Build a map view that excludes neutral-garrison territories AND any orbit/land
   // connections touching them, so geographic distribution never seeds or grows
@@ -223,6 +243,7 @@ export function initializeGameState(
       players,
       era,
       settingsNorm.initial_unit_count,
+      settingsNorm.world_rules !== undefined,
     );
     if (!galaxyHomeworldsOk) {
       distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
@@ -726,7 +747,18 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     // that runs after everybody has acted.
     tickLunarHegemony(state, null);
 
-    // Galaxy: lift expiring hyperspace-lane seals once per round.
+    // Galaxy worlds as characters: the storms shed units from over-stacked
+    // tiles once per round, before anyone drafts.
+    applyStormAttrition(state);
+
+    // Galaxy lane weather ages with the round, not with a player's turn: a
+    // closure nobody owns cannot wait on whose charge it was.
+    tickLaneWeather(state);
+
+    // Space Age Orbital Blockades age with the round. The Galactic Age's seals
+    // do NOT — they age at their owner's own turn start (below), so every seat
+    // faces one for the same length of time. Each seal records which clock it
+    // is on, so a board carrying both works.
     tickLaneBlockades(state);
 
     // Decrement truce timers once per round (not per player turn)
@@ -755,6 +787,15 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     }
   }
   state.current_player_index = next;
+  // Galaxy: the incoming player's own lane seals age as their turn begins, and
+  // their Lane Sovereignty streak extends or breaks on the corridors they hold
+  // right now — both are "at the start of your turn" rules.
+  tickLaneBlockades(state, state.players[next].player_id);
+  if (map) tickLaneSovereignty(state, map, state.players[next].player_id);
+  // Galaxy transit: convoys the incoming player sent last turn arrive now (or
+  // turn back, if the world they were sent to is no longer theirs).
+  const arrivals = arriveConvoys(state, state.players[next].player_id);
+  state.last_transit_arrivals = arrivals.length > 0 ? arrivals : undefined;
   state.phase = 'draft';
   state.draft_placements_this_turn = {};
   state.draft_deployments_this_turn = [];
@@ -834,7 +875,16 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     tickTemporaryModifiers(state, nextPlayer.player_id);
     // Apply instant event cards now (current_player_index is set to next player)
     if (state.active_event && (!state.active_event.choices || state.active_event.choices.length === 0) && state.active_event.effect) {
-      const effectResult = applyEventEffect(state, state.active_event.effect, state.active_event.affects_all_players);
+      // Lane weather rewrites the GRAPH, so it needs the map — which the generic
+      // effect applier deliberately does not take. Resolved here, where both are
+      // in hand; the caller then projects a new surge onto its map copy
+      // (`syncLaneWeatherLanes`).
+      const effectType = state.active_event.effect.type;
+      const effectResult = map && effectType === 'lane_closure'
+        ? applyLaneClosure(state, map)
+        : map && effectType === 'lane_surge'
+          ? applyLaneSurge(state, map)
+          : applyEventEffect(state, state.active_event.effect, state.active_event.affects_all_players);
       state.active_event_result = effectResult;
       // Leave active_event set so the socket layer can broadcast it, then clear it there
     }
@@ -953,6 +1003,7 @@ export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
       turnNumber: state.turn_number,
       economyEnabled: !!state.settings.economy_enabled,
       playerSpecialResource: player.special_resource ?? 0,
+      worldDeployCapBonus: worldDeployCapBonus(state, state.territories[tid].world_id),
     });
     remainingCap.set(tid, Math.max(0, cap - (placedThisTurn![tid] ?? 0)));
   }
@@ -1120,6 +1171,12 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
 
     if (condition == null && allowed.includes('capital')) {
       if (playerSatisfiesCapitalVictory(state, player.player_id)) condition = 'capital';
+    }
+
+    // Lane Sovereignty (galaxy): the streak is banked at the holder's own turn
+    // start, so this only reads it — see victory/laneSovereignty.ts.
+    if (condition == null && allowed.includes('lane_sovereignty')) {
+      if (hasLaneSovereignty(state, player.player_id)) condition = 'lane_sovereignty';
     }
 
     if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {
@@ -1316,6 +1373,7 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
   players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
   era: EraId,
   initialUnitCount: number,
+  worldRulesEnabled = false,
 ): boolean {
   if (era !== 'galaxy_age' || map.map_kind !== 'galaxy' || players.length !== 4) return false;
 
@@ -1348,13 +1406,18 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
 
   for (const { playerIndex, worldId } of claimedWorlds) {
     const playerId = players[playerIndex]!.player_id;
+    // Worlds as characters: a vault world's home faction starts without the
+    // ring, so the rule may pay them back in units on the tiles they do hold.
+    const homeBonus = worldRulesEnabled
+      ? map.worlds?.find((w) => w.world_id === worldId)?.rules?.vault?.home_unit_bonus ?? 0
+      : 0;
     let any = false;
     for (const t of map.territories) {
       if (t.world_id !== worldId) continue;
       const st = territories[t.territory_id];
       if (!st) return false;
       st.owner_id = playerId;
-      st.unit_count = initialUnitCount;
+      st.unit_count = initialUnitCount + homeBonus;
       any = true;
     }
     if (!any) return false;

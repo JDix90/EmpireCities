@@ -50,6 +50,15 @@
  *     pnpm exec tsx scripts/simSpaceAgeBalance.ts
  *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # no-Moon counterfactual
  *   SIM_FACTIONS=1 SIM_GAMES=120 SIM_PLAYERS=6 pnpm exec tsx scripts/simSpaceAgeBalance.ts
+ *
+ * SIM_ASCENSION=1 — the Space to Stars audit. Same Moon race, on
+ * `era_ascension_galaxy.json` with Era Advancement ON along the two-step
+ * `space_to_stars` spine (space_age → galaxy_age) and the Galactic Age's lane
+ * rules baked in. It answers the one question that board exists to answer:
+ * do games actually GET to the stars, and how long does it take? The exo worlds
+ * are held out of play behind `unlock_era_index: 1` and enter as neutral
+ * frontiers on the first arrival, exactly as `applyEraBoardChange` does live.
+ *   SIM_ASCENSION=1 SIM_GAMES=120 SIM_THRESHOLD=60 pnpm exec tsx scripts/simSpaceAgeBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -89,6 +98,10 @@ import {
   getOrbitAccessResult,
   syncLaunchPadLanes,
 } from '../src/game-engine/state/moonAccess';
+import { canAdvanceEra, executeAdvanceEra } from '../src/game-engine/eraAdvancement/advanceEra';
+import { evaluateAiEraAdvancement } from '../src/game-engine/ai/aiEraAdvancement';
+import { unlockTerritoriesForFloor } from '../src/game-engine/eraAdvancement/territoryUnlock';
+import { resolvePlayerEraId } from '../src/game-engine/eraAdvancement/constants';
 import { shouldSpendTechPointsOnAbility } from '../src/game-engine/ai/aiTechBudget';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 
@@ -104,15 +117,37 @@ const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'att
 const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 /** When set (1–99), adds threshold victory at that % — mirrors the live orbit-gated create default (60). */
 const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
+/**
+ * SIM_ASCENSION=1: the Space to Stars board + the two-step space_to_stars spine.
+ * Declared up here because it changes what the Moon Race defaults below are.
+ */
+const ASCENSION = process.env.SIM_ASCENSION === '1';
+const ASCENSION_MAP = 'era_ascension_galaxy.json';
+/** The three worlds the Galactic Age step opens. */
+const EXO_WORLD_IDS = new Set(['verdan', 'rust', 'nexus_station']);
+
+/**
+ * A Moon Race phase, per run.
+ *
+ * The phase knobs default OFF because this harness was built to measure them
+ * one at a time, against a control that did not have them. That is the wrong
+ * default for the ASCENSION board: the Moon Race is ON in production and every
+ * Space to Stars game bakes the whole package at create, so a run with them off
+ * would measure a game nobody can create. On that board they default ON, and
+ * `SIM_MOON_*=0` still turns one off for an ablation.
+ */
+const moonPhase = (name: string): boolean =>
+  process.env[name] === '1' || (ASCENSION && process.env[name] !== '0');
+
 /** Moon Race Phase 1: lunar Helium-3 income + Lunar Export. */
-const MOON_HELIUM3 = process.env.SIM_MOON_HELIUM3 === '1';
+const MOON_HELIUM3 = moonPhase('SIM_MOON_HELIUM3');
 /**
  * Moon Race Phase 2a: the gated tier — dyson_beam behind a lunar foothold plus
  * 6 He-3, and Orbital Drop. Implies Phase 1, exactly as the engine does: the
  * powers are priced in He-3, so without the economy this would delete
  * dyson_beam rather than gate it (moonPowers.ts areMoonPowersEnabled).
  */
-const MOON_TIER = process.env.SIM_MOON_TIER === '1';
+const MOON_TIER = moonPhase('SIM_MOON_TIER');
 /**
  * Phase 2b's declaration, on by default with the tier. `SIM_DROP_ASSAULT=0`
  * suppresses it so a Phase 2b run has a matched 2a-only control ON THE SAME
@@ -125,16 +160,16 @@ const DROP_ASSAULT = process.env.SIM_DROP_ASSAULT !== '0';
  * rule. Independent of Phases 1 and 2 — it prices nothing in He-3 — so it can
  * be measured alone or stacked on the tier.
  */
-const MOON_HEGEMONY = process.env.SIM_MOON_HEGEMONY === '1';
+const MOON_HEGEMONY = moonPhase('SIM_MOON_HEGEMONY');
 /**
  * Moon Race Phase 5: the lunar branch of the secret-mission deck. Turning it on
  * also ADDS `secret_mission` to the allowed victory conditions — the branch is
  * a no-op without it, and §7.4's gate compares lunar mission completion against
  * the completion rate of the ordinary missions in the same games.
  */
-const MOON_MISSIONS = process.env.SIM_MOON_MISSIONS === '1';
+const MOON_MISSIONS = moonPhase('SIM_MOON_MISSIONS');
 /** Moon Race Phase 4: the Orbital Blockade. Arms lane sealing for the Space Age. */
-const MOON_BLOCKADE = process.env.SIM_MOON_BLOCKADE === '1';
+const MOON_BLOCKADE = moonPhase('SIM_MOON_BLOCKADE');
 /**
  * The Tribute knob (§8). Independent of the phases above: it is a knob, not a
  * phase, and §8 gates shipping it on the SHARED-MOON number below falling —
@@ -150,8 +185,16 @@ const SEAL_DURATION_OVERRIDE = process.env.SIM_SEAL_DURATION
  * run. Without it the only comparison available would be against games that do
  * not use missions at all, which changes the victory mix wholesale and tells us
  * nothing about the lunar branch. `SIM_MOON_MISSIONS=1` implies it.
+ *
+ * NOT on the ascension board, where the phases are on by default rather than
+ * because someone is measuring Phase 5. `applyOrbitGatedVictoryDefaults` never
+ * adds `secret_mission` at create, so implying it there measures a game nobody
+ * can make — and a decisive one: with missions in the victory list, 41 of 60
+ * ascension games ended on one at a median turn 20, which is the same turn the
+ * first player reaches the Galactic Age. The board's whole second half never
+ * happened. Ask for it explicitly (`SIM_SECRET_MISSIONS=1`) to study that.
  */
-const SECRET_MISSIONS = MOON_MISSIONS || process.env.SIM_SECRET_MISSIONS === '1';
+const SECRET_MISSIONS = process.env.SIM_SECRET_MISSIONS === '1' || (MOON_MISSIONS && !ASCENSION);
 /** §9's clock-length sweep (4-8). Unset leaves the engine default of 6. */
 const HEGEMONY_TURNS_OVERRIDE = process.env.SIM_HEGEMONY_TURNS
   ? Number(process.env.SIM_HEGEMONY_TURNS) : null;
@@ -160,7 +203,6 @@ const FACTIONS = process.env.SIM_FACTIONS === '1';
 const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
 /** SIM_FACTION_ABILITIES=0 keeps passives but stops the AI firing draft abilities — isolates ability vs passive impact. */
 const FACTION_ABILITIES = process.env.SIM_FACTION_ABILITIES !== '0';
-
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 const LADDER = [
   'sa_digital_warfare',
@@ -172,7 +214,8 @@ const LADDER = [
 const ANCHORS = ['na_launch_base', 'euro_spaceport', 'asia_cosmodrome'] as const;
 
 function loadMap(): GameMap {
-  const raw = readFileSync(join(__dirname, '../../database/maps/era_space_age.json'), 'utf-8');
+  const file = ASCENSION ? ASCENSION_MAP : 'era_space_age.json';
+  const raw = readFileSync(join(__dirname, `../../database/maps/${file}`), 'utf-8');
   return JSON.parse(raw) as GameMap;
 }
 
@@ -189,8 +232,21 @@ function simSettings(): GameSettings {
     economy_enabled: true,
     tech_trees_enabled: true,
     stability_enabled: true,
-    era_advancement_enabled: false, // space_age is the start AND terminal era here
-    space_age_frontiers_enabled: FRONTIERS, // seed the 8 authored frontiers (full 63-tile board)
+    // Ascension mode climbs; plain Space Age mode is start AND terminal era.
+    era_advancement_enabled: ASCENSION,
+    ...(ASCENSION
+      ? {
+        era_advancement_spine_id: 'space_to_stars',
+        // The lanes on this board follow Galactic Age rules from turn one — the
+        // dice cap makes gateways worth holding, and the far worlds arrive with
+        // their authored rules (Verdan's storms, the Nexus Vault).
+        galaxy_corridors_enabled: true,
+        world_rules_enabled: true,
+      }
+      : {}),
+    // On the ascension board the 2100 frontiers are un-tagged (in play from turn
+    // one), so this only ever governs the standalone Space Age board.
+    space_age_frontiers_enabled: FRONTIERS,
     space_age_moon_helium3_enabled: MOON_HELIUM3 || MOON_TIER,
     space_age_moon_gated_tier_enabled: MOON_TIER,
     space_age_moon_hegemony_enabled: MOON_HEGEMONY,
@@ -258,6 +314,10 @@ interface PlayerSim {
   accessTurn: number | null; // first turn getOrbitAccessResult.allowed
   firstMoonCaptureTurn: number | null;
   moonCaptureEvents: number;
+  /** Ascension mode: turn this seat reached the Galactic Age (null = never). */
+  galaxyArrivalTurn: number | null;
+  /** Ascension mode: exo-world tiles this seat has taken. */
+  exoCaptureEvents: number;
   /** Moon Race Phase 1: He-3 converted to tech points across the game. */
   helium3Exported: number;
   /** Phase 2a: uses of each Moon-gated power across the game. */
@@ -290,6 +350,7 @@ function playAiTurn(
   ps: PlayerSim,
   difficulty: AiDifficulty,
   dieRoll: () => number,
+  jitter: () => number,
 ): void {
   const pid = ps.pid;
   const player = state.players.find((p) => p.player_id === pid);
@@ -314,7 +375,13 @@ function playAiTurn(
   }
 
   state.phase = 'draft';
-  const plan = computeAiTurn(state, map, difficulty); // planned before economy, like the socket
+  // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
+  // is right for live play and fatal for a measurement harness: jitter reorders
+  // the candidate list and the reordering cascades through the whole game, so
+  // two runs of the SAME config on the SAME seed disagreed by tens of points
+  // here (the lunar-region-holder sample moved from n=18 to n=9 between two
+  // identical 20-game runs). Same fix, and same reason, as simGalaxyBalance.
+  const plan = computeAiTurn(state, map, difficulty, { rng: jitter }); // planned before economy, like the socket
 
   // Economy first (matches processAiTurn): build, then research.
   const build = selectAiBuildingPlacement(state, map, pid, difficulty);
@@ -334,6 +401,21 @@ function playAiTurn(
     const v = validateResearch(state, pid, techId);
     if (v.valid && v.node) applyResearch(state, pid, v.node);
   }
+
+  // Era advancement, in the socket's order: economy first, so a bot that just
+  // met the gate can climb the same turn. A successful advance opens the shared
+  // frontier for EVERYONE (first-to-reach), which is the growth branch of
+  // `applyEraBoardChange` — the sim runs the same call.
+  if (state.settings.era_advancement_enabled) {
+    const gated = evaluateAiEraAdvancement(state, map, pid, difficulty).shouldAdvance;
+    if (gated && executeAdvanceEra(state, pid, map).success) {
+      if (ps.galaxyArrivalTurn == null && resolvePlayerEraId(state, player) === 'galaxy_age') {
+        ps.galaxyArrivalTurn = state.turn_number;
+      }
+      unlockTerritoriesForFloor(state, map);
+    }
+  }
+
   // Ladder progress snapshot (research above may have added a rung).
   const unlocked = player.unlocked_techs ?? [];
   LADDER.forEach((tid, i) => {
@@ -433,9 +515,14 @@ function playAiTurn(
       connection: conn,
       neutralOffworldCaptureAllowed: orbitAllowed, // same rule the socket applies
     });
-    if (outcome?.captured && state.territories[a.to]?.world_id === 'moon') {
-      ps.moonCaptureEvents++;
-      if (ps.firstMoonCaptureTurn == null) ps.firstMoonCaptureTurn = state.turn_number;
+    if (outcome?.captured) {
+      const world = state.territories[a.to]?.world_id;
+      if (world === 'moon') {
+        ps.moonCaptureEvents++;
+        if (ps.firstMoonCaptureTurn == null) ps.firstMoonCaptureTurn = state.turn_number;
+      } else if (world && EXO_WORLD_IDS.has(world)) {
+        ps.exoCaptureEvents++;
+      }
     }
   }
 
@@ -580,6 +667,13 @@ interface GameStat {
   perPlayerDepths: string; // "5@t22|3@-|..." depth@stationTurn per seat
   frontierTilesInPlay: number; // seeded Earth frontiers (0 when SIM_FRONTIERS=0)
   frontierNeutralEnd: number; // frontiers still unowned at game end (should trend to ~0)
+  // — ascension mode only —
+  reachedGalaxy: boolean; // any seat arrived in the Galactic Age
+  firstGalaxyTurn: number | null;
+  galaxySeats: number; // how many seats got there
+  exoTilesOwnedEnd: number; // exo tiles held by a player at end
+  exoCaptureEvents: number;
+  winnerReachedGalaxy: boolean;
 }
 
 /** Highest territory_count non-eliminated player; null on a tie. */
@@ -615,6 +709,8 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
   const map = JSON.parse(JSON.stringify(baseMap)) as GameMap;
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
+  // Separate stream from the dice so a jitter draw can never shift a roll.
+  const jitter = createSeededRng(hashStringToSeed(`${MASTER_SEED}:jitter:${gameIndex}`));
   const players = Array.from({ length: PLAYERS }, (_, i) => ({
     player_id: `ai_${i}`,
     player_index: i,
@@ -639,6 +735,8 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     accessTurn: null,
     firstMoonCaptureTurn: null,
     moonCaptureEvents: 0,
+    galaxyArrivalTurn: null,
+    exoCaptureEvents: 0,
     helium3Exported: 0,
     dysonBeams: 0,
     orbitalDrops: 0,
@@ -683,7 +781,7 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, sims.get(player.player_id)!, DIFFICULTY, dieRoll);
+      playAiTurn(state, map, sims.get(player.player_id)!, DIFFICULTY, dieRoll, jitter);
     }
     const clockBefore = state.lunar_hegemony
       ? { ...state.lunar_hegemony } : null;
@@ -835,6 +933,13 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
       .join('|'),
     frontierTilesInPlay: frontierIds.length,
     frontierNeutralEnd,
+    reachedGalaxy: simList.some((x) => x.galaxyArrivalTurn != null),
+    firstGalaxyTurn: firsts(simList.map((x) => x.galaxyArrivalTurn)),
+    galaxySeats: simList.filter((x) => x.galaxyArrivalTurn != null).length,
+    exoTilesOwnedEnd: Object.values(state.territories)
+      .filter((t) => t.owner_id && t.world_id && EXO_WORLD_IDS.has(t.world_id)).length,
+    exoCaptureEvents: simList.reduce((a, x) => a + x.exoCaptureEvents, 0),
+    winnerReachedGalaxy: !!winnerSim && winnerSim.galaxyArrivalTurn != null,
   };
 }
 
@@ -862,10 +967,13 @@ function main(): void {
   const moonTileIds = map.territories
     .filter((t) => t.region_id === 'lunar_surface')
     .map((t) => t.territory_id);
-  // Earth-side frontiers seeded only when the flag is on; empty otherwise.
-  const frontierIds = FRONTIERS
+  // Earth-side frontiers seeded only when the flag is on; empty otherwise. In
+  // ascension mode the tagged tiles are the exo worlds, reported separately —
+  // this counter is about Earth.
+  const frontierIds = FRONTIERS && !ASCENSION
     ? map.territories.filter((t) => (t.unlock_era_index ?? 0) > 0).map((t) => t.territory_id)
     : [];
+  const exoTileCount = map.territories.filter((t) => EXO_WORLD_IDS.has(t.world_id ?? '')).length;
   const started = Date.now();
   const stats: GameStat[] = [];
   for (let i = 0; i < GAMES; i++) stats.push(runGame(map, moonTileIds, frontierIds, i));
@@ -888,7 +996,18 @@ function main(): void {
   console.log(`\nSpace Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · launchPhase=${LAUNCH_PHASE} · frontiers=${FRONTIERS ? 'on' : 'off'}`);
   console.log(`Map: ${map.territories.length} territories in file · ${inPlay} in play (${baseInPlay - moonTileIds.length} Earth${FRONTIERS ? ` + ${frontierCount} frontier` : ''} + ${moonTileIds.length} neutral Moon${FRONTIERS ? '' : '; era-locked frontiers never spawn'})`);
   console.log(`Seed "${MASTER_SEED}" · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)`);
-  console.log(`Ruleset: economy+tech+stability ON · factions ${FACTIONS ? `ON (round-robin Space Age factions; AI abilities ${FACTION_ABILITIES ? 'on' : 'off'})` : 'OFF'} · naval/events/era-advancement OFF · domination(+last_standing)\n`);
+  console.log(`Ruleset: economy+tech+stability ON · factions ${FACTIONS ? `ON (round-robin Space Age factions; AI abilities ${FACTION_ABILITIES ? 'on' : 'off'})` : 'OFF'} · naval/events OFF · era-advancement ${ASCENSION ? 'ON (space_to_stars)' : 'OFF'} · domination(+last_standing)\n`);
+
+  if (ASCENSION) {
+    const reached = stats.filter((x) => x.reachedGalaxy);
+    console.log(`— Space to Stars: does anyone get there? (${exoTileCount} exo tiles behind the step) —`);
+    console.log(`Games reaching the Galactic Age:             ${pct(reached.length, GAMES)}   <== gate: >= 70%`);
+    console.log(`First arrival turn:                          median ${fmt(median(reached.map((x) => x.firstGalaxyTurn!)))} · avg ${fmt(avg(reached.map((x) => x.firstGalaxyTurn!)))}   <== gate: median <= 25`);
+    console.log(`Seats reaching it:                           avg ${fmt(avg(stats.map((x) => x.galaxySeats)), 2)} of ${PLAYERS} · per-seat rate ${pct(stats.reduce((a, x) => a + x.galaxySeats, 0), GAMES * PLAYERS)}`);
+    console.log(`Exo tiles owned at end (of ${exoTileCount}):${' '.repeat(Math.max(1, 20 - String(exoTileCount).length))}${fmt(avg(stats.map((x) => x.exoTilesOwnedEnd)), 1)} · exo captures per game ${fmt(avg(stats.map((x) => x.exoCaptureEvents)), 1)}`);
+    console.log(`Winner had reached the Galactic Age:         ${pct(stats.filter((x) => x.winnerReachedGalaxy).length, Math.max(1, stats.filter((x) => x.winner).length))}`);
+    console.log('');
+  }
 
   console.log(`— Moon tech ladder (${LADDER.join(' → ')}) —`);
   console.log(`Games where any player completed the ladder: ${pct(stats.filter((s) => s.maxLadderDepth >= 5).length, GAMES)}`);

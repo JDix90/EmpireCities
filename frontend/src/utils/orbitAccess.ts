@@ -10,12 +10,17 @@
  *   - `space_age_moon`: needs Lunar Expansion tech + Launch Pad building +
  *     either a launched Space Station or the Space Elevator wonder, OR be the
  *     Lunar Pioneers faction.
- *   - `galaxy_hyperspace`: needs `ga_hyperspace_chart` tech, OR own the
- *     Hyperlane Anchor wonder, OR be the Helion Navigators faction.
+ *   - `galaxy_hyperspace`: under corridors (`settings.galaxy_corridors_enabled`,
+ *     the default) access is positional and always allowed — lane STATE and the
+ *     lane dice cap live in `galaxyLanes.ts`; with the kill switch off it needs
+ *     Lane Charts (`ga_hyperspace_chart`), OR the Hyperlane Anchor wonder, OR
+ *     the Helion Navigators faction.
  */
 
 import { inferWorldId } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
+import { orbitLaneId } from './galaxyLanes';
+import { resolvePlayerTechEraId } from './eraAdvancement';
 
 export type OrbitAccessMode = 'none' | 'space_age_moon' | 'galaxy_hyperspace';
 
@@ -30,6 +35,7 @@ export interface FrontendMapTerritory {
 
 export interface FrontendMapWorld {
   world_id: string;
+  display_name?: string;
   requires_orbit_access?: boolean;
 }
 
@@ -39,7 +45,7 @@ export interface FrontendMapData {
   worlds?: FrontendMapWorld[];
   orbit_access?: OrbitAccessMode;
   territories: FrontendMapTerritory[];
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: 'launch_pad' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: string }>;
 }
 
 /**
@@ -125,6 +131,43 @@ export function resolveOrbitAccessMode(
   return 'none';
 }
 
+/**
+ * How far along the orbit ladder a mode sits — an ordering, not a strictness
+ * ranking. `galaxy_hyperspace` under corridors is the more PERMISSIVE of the
+ * two, which is the point (see the backend twin in `state/moonAccess.ts`).
+ */
+const ORBIT_MODE_RANK: Record<OrbitAccessMode, number> = {
+  none: 0,
+  space_age_moon: 1,
+  galaxy_hyperspace: 2,
+};
+
+/**
+ * The orbit regime governing ONE player: the later of the board's era and their
+ * own. Mirrors `resolveOrbitAccessModeForPlayer` on the backend.
+ *
+ * Both halves are needed. On Space to Stars the board stays `space_age` all
+ * game, so a player who climbed to the Galactic Age would still be held to a
+ * Space Age ladder whose techs the advance itself wiped. On a board-transform
+ * game the board IS the Space Age while a trailing player is still in the
+ * Modern day, and their own era alone would hand them the Moon for free.
+ */
+export function resolveOrbitAccessModeForPlayer(
+  mapData: FrontendMapData | null | undefined,
+  gameState: GameState | null,
+  playerId: string | null | undefined,
+  boardEra: string,
+): OrbitAccessMode {
+  if (!mapData) return 'none';
+  if (mapData.orbit_access) return mapData.orbit_access;
+  const board = resolveOrbitAccessMode(mapData, boardEra);
+  if (!gameState?.settings?.era_advancement_enabled || !playerId) return board;
+  const player = gameState.players.find((p) => p.player_id === playerId);
+  if (!player) return board;
+  const own = resolveOrbitAccessMode(mapData, resolvePlayerTechEraId(gameState, player));
+  return ORBIT_MODE_RANK[own] > ORBIT_MODE_RANK[board] ? own : board;
+}
+
 export interface OrbitAccessResult {
   allowed: boolean;
   missing: string[];
@@ -179,7 +222,7 @@ export function getSpaceProgramProgress(
     applicable: false, isLunarPioneer: false, allowed: true, rungs: [], strandedWithoutPad: false,
     everHadPad: false,
   };
-  if (resolveOrbitAccessMode(mapData, era) !== 'space_age_moon') return empty;
+  if (resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era) !== 'space_age_moon') return empty;
   if (!gameState || !playerId) return empty;
   const player = gameState.players.find((p) => p.player_id === playerId);
   if (!player) return empty;
@@ -236,11 +279,6 @@ export function getSpaceProgramProgress(
   };
 }
 
-/** Lane id, matching the backend's `orbitLaneId` ordering. */
-function orbitLaneId(a: string, b: string): string {
-  return a < b ? `${a}::${b}` : `${b}::${a}`;
-}
-
 /**
  * Client mirror of the backend `fortifyTraversalFilter`: may this player move
  * troops across this connection right now?
@@ -262,16 +300,14 @@ export function fortifyTraversalFilter(
   playerId: string | null | undefined,
   era: string,
 ): (conn: { from: string; to: string; type?: string }) => boolean {
-  if (resolveOrbitAccessMode(mapData, era) === 'none' || !gameState || !playerId) {
+  if (resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era) === 'none' || !gameState || !playerId) {
     return () => true;
   }
   const access = getOrbitAccessResult(mapData, gameState, playerId, era);
-  const sealsOn = gameState.settings?.lanes_contestable_enabled === true;
   const blockades = gameState.lane_blockades ?? {};
   return (conn) => {
     if (conn.type !== 'orbit') return true;
     if (!access.allowed) return false;
-    if (!sealsOn) return true;
     // Mirrors isLaneSealedForPlayer: an expired or absent seal blocks nobody,
     // and the player who set it can still cross their own.
     const seal = blockades[orbitLaneId(conn.from, conn.to)];
@@ -286,7 +322,7 @@ export function getOrbitAccessResult(
   playerId: string | null | undefined,
   era: string,
 ): OrbitAccessResult {
-  const mode = resolveOrbitAccessMode(mapData, era);
+  const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era);
   if (mode === 'none' || !gameState || !playerId) return { allowed: true, missing: [] };
 
   const player = gameState.players.find((p) => p.player_id === playerId);
@@ -313,7 +349,9 @@ export function getOrbitAccessResult(
     return { allowed: missing.length === 0, missing };
   }
 
-  // galaxy_hyperspace
+  // galaxy_hyperspace — corridors: no tech gate, access is positional (you
+  // cross a lane from the gateway you hold). Mirrors the backend branch.
+  if (gameState.settings?.galaxy_corridors_enabled === true) return { allowed: true, missing: [] };
   if (player.faction_id === 'helion_navigators') return { allowed: true, missing: [] };
   const ownedTerritories = Object.values(gameState.territories).filter(
     (t) => t.owner_id === playerId,
@@ -324,7 +362,7 @@ export function getOrbitAccessResult(
   if (hasAnchor) return { allowed: true, missing: [] };
   const techs = player.unlocked_techs ?? [];
   if (techs.includes('ga_hyperspace_chart')) return { allowed: true, missing: [] };
-  return { allowed: false, missing: ['Hyperspace Chart tech'] };
+  return { allowed: false, missing: ['Lane Charts tech'] };
 }
 
 /**

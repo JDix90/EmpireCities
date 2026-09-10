@@ -61,8 +61,16 @@ describe('lobbyMapChange', () => {
     expect(
       validateLobbyMapChangePair({ era_id: 'galaxy_age', map_id: 'era_galaxy' }, { isAdmin: false }),
     ).toMatch(/administrators/i);
+    // Galactic Age needs Asymmetric Factions: switching a lobby that has them
+    // off would produce the scattered fallback start, so it is refused.
     expect(
       validateLobbyMapChangePair({ era_id: 'galaxy_age', map_id: 'era_galaxy' }, { isAdmin: true }),
+    ).toMatch(/Asymmetric Factions/i);
+    expect(
+      validateLobbyMapChangePair(
+        { era_id: 'galaxy_age', map_id: 'era_galaxy' },
+        { isAdmin: true, settings: { factions_enabled: true } },
+      ),
     ).toBeNull();
   });
 

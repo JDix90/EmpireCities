@@ -57,6 +57,10 @@ import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } f
 import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
+import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
+import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
+import { isLaneClosedByWeather, syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
+import { fortifyBecomesConvoy, launchConvoy } from '../game-engine/state/transit';
 import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
@@ -68,16 +72,25 @@ import {
   isLaneSealedForPlayer,
   canSealLane,
   tickLaneBlockades,
+  GALAXY_LANE_SEAL_DURATION,
+  EMERGENCY_SEAL_ABILITY_ID,
+  orbitGatewayTerritoryIds,
   laneSealDuration,
   laneSealHelium3Cost,
+  laneSealTick,
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
+
+/** The faction ability id that grants Drift Jump (Helion Navigators). */
+const DRIFT_JUMP_ABILITY_ID = 'drift_jump';
 import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
-import { selectAiBuildingPlacement, selectAiTechResearch } from '../game-engine/ai/aiBot';
+import { selectAiBuildingPlacement, selectAiTechResearch,
+  chooseEmergencySealLane,
+} from '../game-engine/ai/aiBot';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -169,6 +182,8 @@ import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
   attackerIgnoresDefenseBuilding,
   expandFogVisibilityFromRecon,
+  expandFogVisibilityFromFactionPassive,
+  consumeBlockadeRunner,
   getFortifyMoveLimit,
   getInfluenceUnitCost,
   getPrecisionStrikeMinUnits,
@@ -946,6 +961,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       advanceToNextPlayer(state, map);
       landPendingDropAssaults(io, gameId, state, map);
+      await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+      broadcastTransitArrivals(io, gameId, state, map);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const asyncVictory = checkVictory(state, map);
@@ -1444,6 +1461,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           turnNumber: state.turn_number,
           economyEnabled: !!state.settings.economy_enabled,
           playerSpecialResource: currentPlayer.special_resource ?? 0,
+          worldDeployCapBonus: worldDeployCapBonus(state, territory.world_id),
         });
         const placements = state.draft_placements_this_turn ?? {};
         const alreadyPlaced = placements[territoryId] ?? 0;
@@ -1651,14 +1669,35 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!isAdjacent) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
+      if (isJumpGateOnlyEdge(map, fromId, toId)) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Jump Gate lane moves your own units — it cannot carry an attack',
+        );
+      }
 
       if (connectionRequiresMoonAccess(map, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
-        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
-          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
+        if (isLaneClosedByWeather(state, fromId, toId)) {
+          return emitGameError(
+            socket,
+            GameErrorCode.LANE_SEALED,
+            'A nebula front has closed that hyperspace lane — it clears in a round or two',
+          );
+        }
+        if (
+          isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)
+          && !consumeBlockadeRunner(currentPlayer)
+        ) {
+          return emitGameError(
+            socket,
+            GameErrorCode.LANE_SEALED,
+            'An Emergency Seal closes that hyperspace lane — cross another lane, or wait for it to lift',
+          );
         }
       }
 
@@ -2024,6 +2063,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!connection) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
+      if (isJumpGateOnlyEdge(map, fromId, toId)) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Jump Gate lane moves your own units — it cannot carry an attack',
+        );
+      }
       if (connection.type === 'sea') {
         // The crossing pays fleet losses and bombardment per attack; an
         // auto-repeat would burn a navy on one click. Same exclusion the AI
@@ -2280,6 +2326,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
         landPendingDropAssaults(io, gameId, state, map);
+        await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+        broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
 
         // Turn-passing can itself end the game (turn-cap stalemate guard,
@@ -2377,7 +2425,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // cross. Checking only the from/to edge let a longer route through a lane
       // move troops between worlds with the orbit gate shut.
       const canTraverse = fortifyTraversalFilter(state, currentPlayer, map, state.era);
-      if (!pathExists(fromId, toId, state, map, userId, canTraverse)) {
+      // Drift Jump (Helion Navigators): once per turn, a fortify between two
+      // owned gateway tiles on different worlds needs no connecting route — the
+      // drift pilots cross the void between their own beacons. Applied
+      // implicitly when an ordinary fortify would fail for lack of a path, so
+      // the player just picks the two gateways.
+      const driftFaction = state.settings.factions_enabled && currentPlayer.faction_id
+        ? getPlayerFaction(state, currentPlayer)
+        : undefined;
+      let driftJump = false;
+      if (
+        driftFaction?.ability_id === DRIFT_JUMP_ABILITY_ID
+        && !(currentPlayer.ability_uses ?? {})[DRIFT_JUMP_ABILITY_ID]
+        && !pathExists(fromId, toId, state, map, userId, canTraverse)
+      ) {
+        const gateways = orbitGatewayTerritoryIds(map);
+        driftJump = gateways.has(fromId) && gateways.has(toId) && from.world_id !== to.world_id;
+      }
+      if (!driftJump && !pathExists(fromId, toId, state, map, userId, canTraverse)) {
         // Distinguish "you own nothing in between" from "your only route is a
         // lane you cannot use" — the latter is the gate, and saying
         // "not connected" would send the player looking for the wrong problem.
@@ -2391,7 +2456,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return emitGameError(socket, GameErrorCode.PATH_NOT_CONNECTED, 'No connected path between territories');
       }
 
-      if (fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
+      if (!driftJump && fortifyEndpointsRequireOrbitAccess(map, state.era, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
@@ -2414,12 +2479,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
-      from.unit_count -= units;
-      to.unit_count += units;
+      // Galaxy transit: a move between two WORLDS is a convoy — the units leave
+      // now and land at this player's next turn start (state/transit.ts).
+      const asConvoy = fortifyBecomesConvoy(state, fromId, toId, { driftJump });
+      if (asConvoy) {
+        launchConvoy(state, userId, fromId, toId, units);
+      } else {
+        from.unit_count -= units;
+        to.unit_count += units;
+      }
       state.fortify_moves_used = movesUsed + 1;
+      if (driftJump) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [DRIFT_JUMP_ABILITY_ID]: 1 };
+      }
       commitActionDecision(
         gameId, state, userId, 'fortify',
-        `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
+        asConvoy
+          ? `Sent ${units} unit${units === 1 ? '' : 's'} from ${territoryName(map, fromId)} to ${territoryName(map, toId)} — arrives next turn`
+          : `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
         fortifyProbBefore,
       );
       emitMapVisual(io, gameId, buildFortifyMapVisual({
@@ -2431,7 +2508,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }));
       // Confirm the move to the actor so the client shows its "Moved N troops"
       // toast only on success — never alongside a rejection error toast.
-      socket.emit('game:fortify_result', { fromId, toId, units });
+      socket.emit('game:fortify_result', { fromId, toId, units, inTransit: asConvoy });
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -2512,6 +2589,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       socket.emit('game:build_result', { territoryId, buildingType, success: true });
       if (buildingType === 'launch_pad') {
         await announceLaunchPadLane(io, gameId, room, currentPlayer, territoryId);
+      }
+      if (buildingType === 'jump_gate') {
+        await announceJumpGateLanes(io, gameId, room, currentPlayer, territoryId);
       }
       // Quest check: first building
       checkOnboardingQuests(userId, 'build').catch(() => {});
@@ -2677,7 +2757,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'Era advancement is only available during the reinforcement or fortify phase' });
       }
 
-      const result = executeAdvanceEra(state, userId);
+      const result = executeAdvanceEra(state, userId, room.map);
       if (!result.success) {
         return socket.emit('error', { message: result.error ?? 'Cannot advance era' });
       }
@@ -2819,20 +2899,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.blitzkrieg_bonus_attacks_remaining = abilityId === 'double_blitz' ? 2 : 1;
         recordAbility(`Activated ${abilityId}`);
         socket.emit('game:ability_result', { abilityId, success: true, effect: 'blitzkrieg_ready' });
-        broadcastState(io, gameId, state);
-        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
-        return;
-      }
-
-      if (abilityId === 'guerrilla_warfare') {
-        const territoryId = params?.territoryId as string;
-        if (!territoryId) return socket.emit('error', { message: 'Provide territoryId' });
-        const t = state.territories[territoryId];
-        if (!t || t.owner_id !== userId) return socket.emit('error', { message: 'Invalid territory' });
-        t.unit_count += 1;
-        syncTerritoryCounts(state);
-        recordAbility(`Guerrilla warfare: +1 unit on ${territoryName(map, territoryId)}`);
-        socket.emit('game:ability_result', { abilityId, success: true, territoryId });
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
@@ -3492,7 +3558,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
     });
 
-    // ── Seal a hyperspace lane (galaxy contestable lanes) ─────────────────────
+    // ── Seal an orbit lane ────────────────────────────────────────────────────
+    // One event, two mechanics (see canSealLane): the Space Age Orbital Blockade
+    // is a He-3 purchase open to anyone holding an anchor lane's end, and the
+    // Galactic Age Emergency Seal is a once-per-turn faction charge that costs
+    // nothing. The era decides which rules apply, so the charge is only spent —
+    // and only demanded — where it exists.
     socket.on('game:seal_lane', async ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
         if (!checkAndRecordActionId(gameId, userId, action_id)) return;
@@ -3501,9 +3572,27 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (state.phase !== 'attack' && state.phase !== 'fortify') {
           return socket.emit('error', { message: 'Seal lanes during your attack or fortify phase' });
         }
-        const check = canSealLane(state, map, fromId, toId, userId);
+        const currentPlayer = state.players[state.current_player_index];
+        const viaEmergencySeal = state.era !== 'space_age';
+        const sealFaction = viaEmergencySeal && state.settings.factions_enabled && currentPlayer?.faction_id
+          ? getPlayerFaction(state, currentPlayer)
+          : undefined;
+        // The Vault holder (any faction) may seal ANY lane; the Custodians'
+        // faction charge is limited to lanes touching Nexus. One charge a turn.
+        const check = canSealLane(state, map, fromId, toId, userId, sealFaction?.ability_id, {
+          vaultHolder: viaEmergencySeal && playerHoldsVaultSeal(state, userId),
+        });
         if (!check.ok || !check.laneId) {
           return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
+        }
+        if (viaEmergencySeal) {
+          // Emergency Seal is the faction's once-per-turn charge; it shares the
+          // ability_uses ledger so the HUD and the AI parity path see it spent.
+          const sealUses = currentPlayer.ability_uses ?? {};
+          if (sealUses[EMERGENCY_SEAL_ABILITY_ID]) {
+            return socket.emit('error', { message: 'Emergency Seal already used this turn' });
+          }
+          currentPlayer.ability_uses = { ...sealUses, [EMERGENCY_SEAL_ABILITY_ID]: 1 };
         }
         if (!state.lane_blockades) state.lane_blockades = {};
         // Space Age seals cost He-3 and last two rounds; the Galaxy's are free
@@ -3516,6 +3605,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.lane_blockades[check.laneId] = {
           owner_id: userId,
           turns_remaining: laneSealDuration(state),
+          tick: laneSealTick(state),
         };
         await persistGameStateAfterMutation(gameId, state);
         broadcastState(io, gameId, state);
@@ -3710,6 +3800,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
         landPendingDropAssaults(io, gameId, state, map);
+        await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+        broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
         // Re-check after advancement: advancement may itself cause elimination
         // (e.g. a player who hit rebellion-floor on their turn-start tick).
@@ -4165,6 +4257,7 @@ async function announceLaunchPadLane(
   const moonTargetId = lane ? (lane.from === territoryId ? lane.to : lane.from) : zone?.moonTarget;
   if (!moonTargetId) return;
   const payload = {
+    kind: 'launch_pad' as const,
     playerId: builder.player_id,
     playerName: builder.username,
     playerColor: builder.color,
@@ -4173,6 +4266,92 @@ async function announceLaunchPadLane(
   };
   io.to(gameId).emit('game:orbit_lane_opened', payload);
   queueSpectatorEvent(gameId, 'game:orbit_lane_opened', payload);
+}
+
+/**
+ * A Jump Gate has just gone up: project its new lane(s) onto the game's map copy,
+ * persist, and tell the room. Mirrors `announceLaunchPadLane` — same map-authority
+ * and projection discipline — but a gate can open SEVERAL lanes at once (one per
+ * other world the builder holds a gate on), so each gets its own notice.
+ */
+async function announceJumpGateLanes(
+  io: Server,
+  gameId: string,
+  room: ActiveGameRoom,
+  builder: PlayerState,
+  territoryId: string,
+): Promise<void> {
+  const { state, map } = room;
+  if (!state.territories[territoryId]?.buildings?.includes('jump_gate')) return;
+  if (!syncJumpGateLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] jump gate lane persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+  for (const partnerId of jumpGatePartners(state, territoryId)) {
+    const payload = {
+      kind: 'jump_gate' as const,
+      playerId: builder.player_id,
+      playerName: builder.username,
+      playerColor: builder.color,
+      territoryId,
+      moonTargetId: partnerId,
+    };
+    io.to(gameId).emit('game:orbit_lane_opened', payload);
+    queueSpectatorEvent(gameId, 'game:orbit_lane_opened', payload);
+  }
+}
+
+/**
+ * Lane weather changed the graph (a surge opened, or one blew over): project it
+ * onto the game's map copy, persist, and push the new map to the room. Called
+ * after every turn advance, because weather ages with the round rather than with
+ * an action. No-op when nothing changed, which is almost always.
+ */
+async function syncLaneWeatherAndBroadcastMap(
+  io: Server,
+  gameId: string,
+  room: ActiveGameRoom,
+): Promise<void> {
+  const { state, map } = room;
+  if (!syncLaneWeatherLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] lane weather persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+}
+
+/**
+ * Convoys that just landed (or turned back, or were lost) at the incoming
+ * player's turn start. Told to the whole room: a convoy is a public commitment,
+ * so its outcome is public too.
+ */
+function broadcastTransitArrivals(io: Server, gameId: string, state: GameState, map: GameMap): void {
+  const arrivals = state.last_transit_arrivals;
+  if (!arrivals || arrivals.length === 0) return;
+  const owner = state.players.find((p) => p.player_id === arrivals[0].convoy.owner_id);
+  for (const { convoy, outcome } of arrivals) {
+    const payload = {
+      playerId: convoy.owner_id,
+      playerName: owner?.username ?? convoy.owner_id,
+      playerColor: owner?.color ?? '#ffffff',
+      fromId: convoy.from,
+      toId: convoy.to,
+      fromName: territoryName(map, convoy.from),
+      toName: territoryName(map, convoy.to),
+      units: convoy.units,
+      outcome,
+    };
+    io.to(gameId).emit('game:transit_arrived', payload);
+    queueSpectatorEvent(gameId, 'game:transit_arrived', payload);
+  }
+  state.last_transit_arrivals = undefined;
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
@@ -4419,6 +4598,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
         }
       }
       expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
+      expandFogVisibilityFromFactionPassive(state, playerId, visibleIds, adj);
     }
   }
   // Spectator view (playerId === null) in a fog game: visibleIds stays EMPTY, so
@@ -5303,7 +5483,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     && difficulty !== 'tutorial'
     && evaluateAiEraAdvancement(state, map, currentPlayer.player_id, difficulty).shouldAdvance
   ) {
-    const advanceResult = executeAdvanceEra(state, currentPlayer.player_id);
+    const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
     if (advanceResult.success) {
       const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
@@ -5423,6 +5603,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         turnNumber: state.turn_number,
         economyEnabled: !!state.settings.economy_enabled,
         playerSpecialResource: currentPlayer.special_resource ?? 0,
+        worldDeployCapBonus: worldDeployCapBonus(state, t.world_id),
       });
       const placements = state.draft_placements_this_turn ?? {};
       const alreadyPlaced = placements[action.to] ?? 0;
@@ -5464,6 +5645,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
             turnNumber: state.turn_number,
             economyEnabled: !!state.settings.economy_enabled,
             playerSpecialResource: currentPlayer.special_resource ?? 0,
+            worldDeployCapBonus: worldDeployCapBonus(state, territory.world_id),
           });
           const placements = state.draft_placements_this_turn ?? {};
           const alreadyPlaced = placements[tid] ?? 0;
@@ -5586,6 +5768,40 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), 'march_to_sea'];
   }
 
+  // AI parity for Emergency Seal (Void Custodians): before attacking, close the
+  // Nexus lane whose far end holds the biggest rival stack, so the bot answers
+  // a landing the way a human would. Reuses canSealLane and the same
+  // ability_uses ledger as the human handler.
+  {
+    // Emergency Seal: the Custodians' faction charge, or the Vault holder's
+    // (any faction) — one charge a turn either way, any lane for the Vault.
+    const sealFaction = state.settings.factions_enabled && currentPlayer.faction_id
+      ? getPlayerFaction(state, currentPlayer)
+      : undefined;
+    const vaultSeal = playerHoldsVaultSeal(state, currentPlayer.player_id);
+    if (
+      (sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID || vaultSeal)
+      && !(currentPlayer.ability_uses ?? {})[EMERGENCY_SEAL_ABILITY_ID]
+    ) {
+      const best = chooseEmergencySealLane(state, map, currentPlayer.player_id);
+      if (best) {
+        const check = canSealLane(state, map, best.from, best.to, currentPlayer.player_id, sealFaction?.ability_id, {
+          vaultHolder: vaultSeal,
+        });
+        if (check.ok && check.laneId) {
+          if (!state.lane_blockades) state.lane_blockades = {};
+          state.lane_blockades[check.laneId] = {
+            owner_id: currentPlayer.player_id,
+            turns_remaining: GALAXY_LANE_SEAL_DURATION,
+            tick: 'owner_turn',
+          };
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [EMERGENCY_SEAL_ABILITY_ID]: 1 };
+          broadcastState(io, gameId, state);
+        }
+      }
+    }
+  }
+
   // AI parity for faction unit-reduction strikes (precision_airstrike, longbowmen,
   // chevauchée, privateer, cyber_attack). Used once per turn on the AI's first
   // planned enemy attack target to soften it before assaulting — reuses
@@ -5673,6 +5889,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         state.lane_blockades[check.laneId] = {
           owner_id: currentPlayer.player_id,
           turns_remaining: laneSealDuration(state),
+          tick: laneSealTick(state),
         };
         broadcastState(io, gameId, state);
       }
@@ -6039,8 +6256,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       continue;
     }
     if (from && to && from.owner_id === currentPlayer.player_id && to.owner_id === currentPlayer.player_id && from.unit_count > action.units) {
-      from.unit_count -= action.units;
-      to.unit_count += action.units;
+      // Same rule as the human path: a cross-world move is a convoy.
+      if (fortifyBecomesConvoy(state, action.from, action.to)) {
+        launchConvoy(state, currentPlayer.player_id, action.from, action.to, action.units);
+      } else {
+        from.unit_count -= action.units;
+        to.unit_count += action.units;
+      }
       state.fortify_moves_used = (state.fortify_moves_used ?? 0) + 1;
       emitMapVisual(io, gameId, buildFortifyMapVisual({
         fromTerritoryId: action.from,
@@ -6056,6 +6278,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);
   landPendingDropAssaults(io, gameId, state, map);
+  await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+  broadcastTransitArrivals(io, gameId, state, map);
   await saveGameState(gameId, state);
   broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);

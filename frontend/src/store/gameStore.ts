@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GamePhase } from '@borderfall/shared';
+import type { GamePhase, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 /**
@@ -58,6 +58,11 @@ export interface PlayerState {
   mmr: number;
   capital_territory_id?: string | null;
   secret_mission?: SecretMissionPayload | null;
+  /**
+   * Galactic Age Lane Sovereignty: consecutive turn starts this player has held
+   * the corridor bar. Server-ticked; the HUD reads it beside its own live count.
+   */
+  lane_sovereignty_streak?: number;
   faction_id?: string | null;
   tech_points?: number;
   unlocked_techs?: string[];
@@ -163,12 +168,34 @@ export interface GameState {
     truce_turns_remaining: number;
   }>;
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
-  /** Galaxy contestable lanes: active hyperspace-lane seals keyed by canonical lane id. */
+  /** Active hyperspace-lane seals (Void Custodians' Emergency Seal), keyed by canonical lane id. */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  /** Galaxy transit: convoys in the void, visible to everyone as public commitments. */
+  transits?: Array<{
+    id: string;
+    owner_id: string;
+    from: string;
+    to: string;
+    units: number;
+    turns_remaining: number;
+  }>;
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
     diplomacy_enabled: boolean;
+    /**
+     * Galactic Age corridors: lanes need no tech to cross and cap cross-lane
+     * attacks at 2 dice (3 with Lane Charts). Baked at create; advisory here.
+     */
+    galaxy_corridors_enabled?: boolean;
+    /** Galaxy transit: cross-world fortifies become convoys that land next turn. */
+    galaxy_transit_enabled?: boolean;
+    /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
+    world_modifiers_enabled?: boolean;
+    world_modifiers?: Record<string, WorldModifiers>;
+    /** Galaxy worlds as characters: world_id → rules (Sol cradle, Verdan storms, Rust forge, the Nexus Vault). */
+    world_rules_enabled?: boolean;
+    world_rules?: Record<string, WorldRules>;
     /** Galaxy: lane-seal mechanic toggle. */
     lanes_contestable_enabled?: boolean;
     /** Space Age Moon Race, Phase 1: Moon tiles pay Helium-3 each turn. */

@@ -14,6 +14,26 @@ export const LOBBY_ERA_MAP_IDS: Record<string, string> = {
   galaxy_age: 'era_galaxy',
 };
 
+/**
+ * The Space to Stars board — one map that runs Space Age Earth + Moon and the
+ * three Galactic Age exo worlds, the latter held back behind `unlock_era_index`
+ * until a player reaches the Galactic Age. It is a THEATER, not a rules era:
+ * a game on it starts under Space Age rules and climbs the `space_to_stars`
+ * spine, so it pairs with `space_age` and never appears in LOBBY_ERA_MAP_IDS.
+ */
+export const ASCENSION_GALAXY_MAP_ID = 'era_ascension_galaxy';
+
+/** Rules era a Space to Stars game starts under (spine step 0). */
+export const ASCENSION_GALAXY_START_ERA = 'space_age';
+
+/** Era-advancement spine the Space to Stars board is built around. */
+export const ASCENSION_GALAXY_SPINE_ID = 'space_to_stars';
+
+/** Theater labels for built-in maps that are not a rules era's default board. */
+export const EXTRA_THEATER_MAP_LABELS: Record<string, string> = {
+  [ASCENSION_GALAXY_MAP_ID]: 'Space to Stars',
+};
+
 export const LOBBY_ERA_LABELS: Record<string, string> = {
   ancient: 'Ancient World',
   medieval: 'Medieval Era',

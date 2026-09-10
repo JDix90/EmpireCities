@@ -154,9 +154,13 @@ describe('buildAscensionSpineFromEra (non-Ancient board-transform starts)', () =
     expect(steps[1]).toMatchObject({ era_id: 'coldwar', signature_id: 'intelligence_coup' });
   });
 
-  it('reduces to a single terminal step when started at the Space Age', () => {
-    const steps = buildAscensionSpineFromEra('space_age');
-    expect(steps?.map((s) => s.era_id)).toEqual(['space_age']);
+  it('refuses a Space Age start — a one-step slice is not a spine', () => {
+    // The last era on the ascension line has nowhere to climb, so the slice is a
+    // single terminal step: a "spine" that can never advance. Returning it would
+    // ALSO shadow a configured spine that does go somewhere, which is exactly
+    // what `space_to_stars` is (space_age → galaxy_age). Null sends the caller
+    // to the configured spine instead.
+    expect(buildAscensionSpineFromEra('space_age')).toBeNull();
   });
 
   it('returns null for eras off the ascension line so callers fall back', () => {

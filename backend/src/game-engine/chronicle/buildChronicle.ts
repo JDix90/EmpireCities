@@ -318,6 +318,7 @@ function conclusionDetail(last: GameState): string | undefined {
     case 'threshold': return 'Enough of the world held to end the argument.';
     case 'capital': return 'The capitals fell, and with them the war.';
     case 'secret_mission': return 'A hidden objective, completed while the others fought.';
+    case 'lane_sovereignty': return 'The hyperspace network held, corridor by corridor, until it was theirs.';
     case 'alliance_victory': return 'Two powers finish it together.';
     case 'last_standing': return 'The last commander left on the field.';
     case 'humans_eliminated': return 'No human commander remained to contest it.';

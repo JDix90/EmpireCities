@@ -4,6 +4,10 @@
 
 import { GameMap } from '../services/mapService';
 import {
+  ASCENSION_GALAXY_LABEL,
+  ASCENSION_GALAXY_MAP_ID,
+  ASCENSION_GALAXY_SPINE_ID,
+  ASCENSION_GALAXY_START_ERA,
   LOBBY_ERA_MAP_IDS,
   LOBBY_ERAS,
   CURATED_COMMUNITY_MAP_IDS,
@@ -46,6 +50,7 @@ export interface EraMapCompatibilityResult {
 export const LOBBY_SELECTABLE_THEATER_MAP_IDS = [
   ...Object.values(LOBBY_ERA_MAP_IDS),
   ...CURATED_COMMUNITY_MAP_IDS,
+  ASCENSION_GALAXY_MAP_ID,
 ] as const;
 
 export const LOBBY_THEATER_OPTIONS: Array<{ map_id: string; label: string }> = [
@@ -53,13 +58,20 @@ export const LOBBY_THEATER_OPTIONS: Array<{ map_id: string; label: string }> = [
     map_id: LOBBY_ERA_MAP_IDS[e.id],
     label: e.label,
   })),
+  { map_id: ASCENSION_GALAXY_MAP_ID, label: `${ASCENSION_GALAXY_LABEL} — Coming Soon` },
   ...CURATED_COMMUNITY_MAP_IDS.map((mapId) => ({
     map_id: mapId,
     label: COMMUNITY_MAP_TITLES[mapId] ?? mapId,
   })),
 ];
 
+export const ASCENSION_GALAXY_ERA_ERROR =
+  'Space to Stars starts under Space Age rules — pick Space Age or a different theater';
+export const ASCENSION_GALAXY_ADVANCEMENT_ERROR =
+  'Space to Stars needs Era Advancement on — the three far worlds only open when a player reaches the Galactic Age';
+
 export function recommendedRulesEraForTheater(mapId: string): string | null {
+  if (mapId === ASCENSION_GALAXY_MAP_ID) return ASCENSION_GALAXY_START_ERA;
   const immersion = getCustomMapImmersion(mapId);
   if (immersion) return immersion.recommended_rules_era;
   const fromBuiltin = Object.entries(LOBBY_ERA_MAP_IDS).find(([, id]) => id === mapId)?.[0];
@@ -67,6 +79,7 @@ export function recommendedRulesEraForTheater(mapId: string): string | null {
 }
 
 export function formatTheaterMapLabel(mapId: string): string {
+  if (mapId === ASCENSION_GALAXY_MAP_ID) return ASCENSION_GALAXY_LABEL;
   if (COMMUNITY_MAP_TITLES[mapId]) return COMMUNITY_MAP_TITLES[mapId];
   const eraKey = Object.entries(LOBBY_ERA_MAP_IDS).find(([, id]) => id === mapId)?.[0];
   if (eraKey) return ERA_LABELS[eraKey] ?? mapId;
@@ -104,6 +117,13 @@ export function buildMapMetaFromGameMap(map: GameMap): MapCompatibilityMeta {
   };
 }
 
+/** Seats a Galactic Age game needs for the one-faction-per-world start. */
+export const GALAXY_REQUIRED_PLAYERS = 4;
+export const GALAXY_PLAYER_COUNT_ERROR =
+  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+export const GALAXY_FACTIONS_REQUIRED_ERROR =
+  'Galactic Age needs Asymmetric Factions on — each player commands one world';
+
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
   const warnings: CompatibilityWarning[] = [];
   const { era_id, map_id, settings } = input;
@@ -121,6 +141,36 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
   }
 
+  // Space to Stars carries the Galactic Age behind its second spine step, so it
+  // rides the same admin gate — and it only makes sense as an advancement game:
+  // with advancement off the era floor never rises and the 48 exo tiles are
+  // content nobody can reach. Mirrors the backend evaluator.
+  if (map_id === ASCENSION_GALAXY_MAP_ID) {
+    if (!input.is_admin) {
+      return { allowed: false, hardBlock: 'Space to Stars is only available to administrators', warnings };
+    }
+    if (era_id !== ASCENSION_GALAXY_START_ERA) {
+      return { allowed: false, hardBlock: ASCENSION_GALAXY_ERA_ERROR, warnings };
+    }
+    if (settings.era_advancement_enabled !== true) {
+      return { allowed: false, hardBlock: ASCENSION_GALAXY_ADVANCEMENT_ERROR, warnings };
+    }
+  }
+
+  // Mirrors the server rules: factions come from the shared pairing evaluator,
+  // the exact-4 seat count from the create route (galaxyPlayerCountRejection).
+  // The form knows the FINAL seat count (human + AI), so unlike the in-lobby
+  // map-change path it can apply both and explain them before submitting.
+  if (isGalactic) {
+    const seats = input.player_count ?? 0;
+    if (seats > 0 && seats !== GALAXY_REQUIRED_PLAYERS) {
+      return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
+    }
+    if (settings.factions_enabled !== true) {
+      return { allowed: false, hardBlock: GALAXY_FACTIONS_REQUIRED_ERROR, warnings };
+    }
+  }
+
   if (settings.tutorial === true) {
     return { allowed: false, hardBlock: 'Pairing cannot be changed in tutorial games', warnings };
   }
@@ -134,10 +184,18 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     return { allowed: false, hardBlock: 'Pairing cannot be changed in ranked games', warnings };
   }
 
-  if (settings.era_advancement_enabled === true && era_id !== 'ancient') {
+  const ascensionSpine = settings.era_advancement_spine_id === ASCENSION_GALAXY_SPINE_ID;
+  if (settings.era_advancement_enabled === true && !ascensionSpine && era_id !== 'ancient') {
     return {
       allowed: false,
       hardBlock: 'Era Advancement requires Ancient rules — pick Ancient or disable Era Advancement',
+      warnings,
+    };
+  }
+  if (ascensionSpine && map_id !== ASCENSION_GALAXY_MAP_ID) {
+    return {
+      allowed: false,
+      hardBlock: 'The Space to Stars climb needs the Space to Stars theater',
       warnings,
     };
   }

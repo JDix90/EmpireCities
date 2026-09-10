@@ -14,9 +14,9 @@
  * module enabled — never a choice the player made by hand.
  */
 
-export type EraSystemKey = 'economy' | 'tech_trees';
+export type EraSystemKey = 'economy' | 'tech_trees' | 'factions';
 
-export const ERA_SYSTEM_KEYS: readonly EraSystemKey[] = ['economy', 'tech_trees'];
+export const ERA_SYSTEM_KEYS: readonly EraSystemKey[] = ['economy', 'tech_trees', 'factions'];
 
 interface EraSystemRequirement {
   systems: readonly EraSystemKey[];
@@ -33,10 +33,13 @@ export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
       'and full domination is impossible.',
   },
   galaxy_age: {
-    systems: ['economy', 'tech_trees'],
+    systems: ['economy', 'tech_trees', 'factions'],
     warning:
-      'Galactic Age needs Economy & Buildings and Technology Trees: hyperspace travel is unlocked by ' +
-      'the Hyperspace Chart tech or the Hyperlane Anchor wonder. Without them rival worlds are unreachable.',
+      'Galactic Age needs Economy & Buildings, Technology Trees and Asymmetric Factions: every ' +
+      'faction kit is built around the hyperspace lanes (Emergency Seal, Blockade Runner, Drift ' +
+      'Jump, Supply Insert), Lane Charts and the Hyperlane Anchor shape lane combat, and the ' +
+      'one-faction-per-world start only happens when four players each take a different faction. ' +
+      'Without factions every player begins scattered across all four worlds.',
   },
 };
 
@@ -58,6 +61,7 @@ export function missingEraSystemsWarning(
 const SYSTEM_SETTING_KEYS = {
   economy: 'economy_enabled',
   tech_trees: 'tech_trees_enabled',
+  factions: 'factions_enabled',
 } as const satisfies Record<EraSystemKey, string>;
 
 /**
@@ -73,12 +77,12 @@ const SYSTEM_SETTING_KEYS = {
 export function withRequiredEraSystems<T extends Record<string, unknown>>(
   eraId: string,
   settings: T,
-): T & { economy_enabled?: boolean; tech_trees_enabled?: boolean } {
+): T & { economy_enabled?: boolean; tech_trees_enabled?: boolean; factions_enabled?: boolean } {
   const required = requiredSystemsForEra(eraId);
   if (required.length === 0) return settings;
   const merged: Record<string, unknown> = { ...settings };
   for (const key of required) merged[SYSTEM_SETTING_KEYS[key]] = true;
-  return merged as T & { economy_enabled?: boolean; tech_trees_enabled?: boolean };
+  return merged as T & { economy_enabled?: boolean; tech_trees_enabled?: boolean; factions_enabled?: boolean };
 }
 
 export interface EraSystemTransition {

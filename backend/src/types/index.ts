@@ -9,6 +9,7 @@ import type {
   MapKind,
   OrbitAccessMode,
   MapWorldDefinition,
+  WorldRules,
   WorldModifiers,
 } from '@borderfall/shared';
 
@@ -26,7 +27,12 @@ export type VictoryType =
    * Space Age Moon Race, Phase 3: hold every lunar tile at the end of your turn
    * for HEGEMONY_TURNS consecutive own-turns. See state/lunarHegemony.ts.
    */
-  | 'lunar_hegemony';
+  | 'lunar_hegemony'
+  /**
+   * Galactic Age: hold both gateways of 5 of the 8 authored hyperspace lanes at
+   * your own turn start, 3 turns running. See victory/laneSovereignty.ts.
+   */
+  | 'lane_sovereignty';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -232,6 +238,12 @@ export interface PlayerState {
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true after the player has used the launch_space_station ability (Moon-gating step). */
   space_station_launched?: boolean;
+  /**
+   * Galactic Age Lane Sovereignty: consecutive turn STARTS this player has been
+   * at or above the corridor bar. Ticked in `advanceToNextPlayer`; reaching
+   * LANE_SOVEREIGNTY_ROUNDS wins the game (victory/laneSovereignty.ts).
+   */
+  lane_sovereignty_streak?: number;
   /** Bonus defender losses applied before the next land attack resolves (air_strike). */
   pending_pre_attack_damage?: number;
   /** +1 attack die on the next land attack (knights_charge, bersaglieri_charge). */
@@ -240,6 +252,8 @@ export interface PlayerState {
   pending_ignore_defense_building?: boolean;
   /** Next land attack the player makes inflicts 0 attacker losses (testudo). */
   pending_negate_attacker_losses?: boolean;
+  /** Blockade Runner (Stellar Mandate): the next lane crossing this turn ignores an Emergency Seal. */
+  pending_ignore_lane_seal?: boolean;
   /** Extra fortify moves granted this turn (armored_push). Reset at turn start. */
   bonus_fortify_moves?: number;
   /**
@@ -446,11 +460,29 @@ export interface GameSettings {
    */
   combat_dice_cap_enabled?: boolean;
   /**
-   * Galaxy contestable hyperspace lanes: when on, a player holding one end of an
-   * orbit lane can seal it (game:seal_lane), blocking enemies from crossing for a
-   * few rounds. Off by default (it's a real rule change); no-op on non-galaxy maps.
+   * Orbit-lane sealing. Two mechanics ride it: the Space Age Orbital Blockade
+   * (Moon Race, Phase 4 — a He-3 purchase on an authored anchor lane, and what
+   * baking this at create is for today) and, historically, the Galactic Age's
+   * open sealing rule, which the Void Custodians' Emergency Seal replaced — that
+   * one is a faction charge and needs no setting. No-op where neither applies.
    */
   lanes_contestable_enabled?: boolean;
+  /**
+   * Galactic Age corridors: when true, hyperspace lanes need no tech to cross —
+   * access is positional (you attack across a lane from the gateway you hold) —
+   * and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so
+   * gateway tiles defend like coasts. Off restores the Hyperspace Chart gate with
+   * no lane cap. Baked at create from the `galaxy_corridors_enabled` feature
+   * flag so a flip never re-rules a match in progress; no-op off galaxy maps.
+   */
+  galaxy_corridors_enabled?: boolean;
+  /**
+   * Galactic Age transit: a fortify between two WORLDS becomes a convoy that
+   * lands at the mover's next turn start rather than instantly. Ships OFF —
+   * the plan wanted it prototyped and measured before it was believed. Baked at
+   * create from the `galaxy_transit_enabled` feature flag; no-op off galaxy maps.
+   */
+  galaxy_transit_enabled?: boolean;
   /**
    * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
    * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
@@ -518,6 +550,16 @@ export interface GameSettings {
   world_modifiers_enabled?: boolean;
   /** world_id → modifiers, snapshotted from map.worlds[] at init (see world_modifiers_enabled). */
   world_modifiers?: Record<string, WorldModifiers>;
+  /**
+   * Galaxy worlds as characters: when true (default), each world's `rules`
+   * apply — Sol's deploy cap and growth, Verdan's storms, Rust's forge dice,
+   * the Nexus Vault. Baked at create from the galaxy_world_rules_enabled flag
+   * and snapshotted from the map at init into `world_rules`. No-op on maps
+   * without rules.
+   */
+  world_rules_enabled?: boolean;
+  /** world_id → rules, snapshotted from map.worlds[] at init (see world_rules_enabled). */
+  world_rules?: Record<string, WorldRules>;
   /** Max attacker dice after bonuses (clamped to ≥3 base). Default 5 when capping. */
   combat_max_attacker_dice?: number;
   /** Max defender dice after bonuses (clamped to ≥2 base). Default 4 when capping. */
@@ -620,6 +662,7 @@ export type BuildingType =
   | 'wonder_arsenal'     // acw
   | 'wonder_unification' // risorgimento
   | 'launch_pad'         // space_age: orbital launch infrastructure
+  | 'jump_gate'          // galaxy_age: a private lane between two of your worlds
   | 'wonder_space_elevator' // space_age
   | 'wonder_hyperlane_anchor'; // galaxy_age
 
@@ -753,6 +796,15 @@ export interface EraSpineStep {
   signature_id?: string;
   /** Per-step overrides for the milestone gate to advance OUT of this era. */
   gate_overrides?: Partial<EraMilestoneGate>;
+  /**
+   * Advancing OUT of this era additionally requires the Space Program — the
+   * Moon-access ladder (Lunar Expansion + a Launch Pad + a launched Space
+   * Station, or the Lunar Pioneers' birthright). Set on the Space Age step of
+   * `space_to_stars`, where reaching the stars is supposed to MEAN you built the
+   * ship. Computed from `state` alone (getMoonAccessState), so the map-free
+   * advance path can check it.
+   */
+  gate_requires_moon_access?: boolean;
 }
 
 /**
@@ -806,12 +858,67 @@ export interface GameState {
   /** Pending truce proposals awaiting target player response. */
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   /**
-   * Galaxy contestable lanes: active hyperspace-lane seals, keyed by canonical
-   * lane id (`orbitLaneId(from,to)`). A sealed lane blocks players other than the
-   * sealer from crossing it for `turns_remaining` rounds. Gated by
-   * `lanes_contestable_enabled`.
+   * Active hyperspace-lane seals, keyed by canonical lane id
+   * (`orbitLaneId(from,to)`). A sealed lane blocks players other than the sealer
+   * from crossing it for `turns_remaining` rounds.
+   *
+   * Two mechanics share this ledger, and they age on different clocks, so each
+   * entry records which one raised it:
+   *   • `round` (the default, and what a pre-existing save has) — the Space Age
+   *     Orbital Blockade, which ages once per round at the wrap;
+   *   • `owner_turn` — the Galactic Age's seals (the Void Custodians' Emergency
+   *     Seal, the Vault holder's, and the Pathfinder Gate), which age as their
+   *     owner's turn begins so "one round" means the same thing for every seat.
+   *
+   * A board can carry both at once (Space to Stars), which is why the clock is
+   * a property of the seal rather than of the era.
    */
-  lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  lane_blockades?: Record<string, {
+    owner_id: string;
+    turns_remaining: number;
+    tick?: 'round' | 'owner_turn';
+  }>;
+  /**
+   * Galactic Age Jump Gates: pairs of gate tiles joined by a private hyperspace
+   * lane. Recorded when the second gate of a pair is built and dropped once
+   * either building is gone; `syncJumpGateLanes` projects them onto the game's
+   * map copy as `source: 'jump_gate'` orbit connections. See state/jumpGates.ts.
+   */
+  jump_gate_links?: Array<{ a: string; b: string }>;
+  /**
+   * Galactic Age lane weather (event deck): lanes the weather has shut, and
+   * temporary lanes it has opened. Both age once per ROUND in
+   * `advanceToNextPlayer`; surges are projected onto the game's map copy as
+   * `source: 'lane_surge'` connections. See state/laneWeather.ts.
+   */
+  lane_weather?: {
+    /** Canonical lane id → rounds remaining. Shut to everyone, owner-less. */
+    closures?: Record<string, number>;
+    /** Temporary lanes between two worlds the authored ring does not join. */
+    surges?: Array<{ from: string; to: string; turns_remaining: number }>;
+  };
+  /**
+   * Galactic Age transit: convoys crossing between worlds. Units leave their
+   * source at once and land at the mover's next turn start — or turn back if the
+   * destination is no longer theirs. Off unless `galaxy_transit_enabled`.
+   * See state/transit.ts.
+   */
+  transits?: Array<{
+    id: string;
+    owner_id: string;
+    from: string;
+    to: string;
+    units: number;
+    turns_remaining: number;
+  }>;
+  /**
+   * What happened to the convoys that just landed at the incoming player's turn
+   * start, so the socket can narrate it. Transient — rewritten every advance.
+   */
+  last_transit_arrivals?: Array<{
+    convoy: { id: string; owner_id: string; from: string; to: string; units: number; turns_remaining: number };
+    outcome: 'landed' | 'turned_back' | 'lost';
+  }>;
   settings: GameSettings;
   draft_units_remaining: number;
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
@@ -942,7 +1049,11 @@ export type EventEffectType =
   | 'truce'
   | 'region_disaster'
   | 'stability_change'
-  | 'tech_bonus';
+  | 'tech_bonus'
+  /** Galaxy lane weather: shut one authored lane to everyone for two rounds. */
+  | 'lane_closure'
+  /** Galaxy lane weather: open a temporary lane between two non-neighbour worlds. */
+  | 'lane_surge';
 
 export type EventCategory = 'global' | 'regional' | 'player_targeted' | 'natural_disaster';
 
@@ -967,6 +1078,8 @@ export interface EventEffectResult {
    * Omitted when no scaling occurred (multiplier 1 or non-scalable effect).
    */
   magnitude_scale?: number;
+  /** Galaxy lane weather: the lane the card shut or opened, and for how long. */
+  lane_weather?: { kind: 'closure' | 'surge'; from: string; to: string; rounds: number };
 }
 
 export interface EventChoice {
@@ -1117,10 +1230,12 @@ export interface MapConnection {
   /**
    * Set on connections the engine adds to a game's map copy rather than the
    * authored file: a Launch Pad opens an orbit lane from its territory to the
-   * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`).
-   * Authored maps never carry this field.
+   * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`), and a
+   * pair of Jump Gates opens a private lane between two worlds
+   * (state/jumpGates.ts `syncJumpGateLanes`). Authored maps never carry this
+   * field, and Lane Sovereignty counts only lanes without it.
    */
-  source?: 'launch_pad';
+  source?: 'launch_pad' | 'jump_gate' | 'lane_surge';
 }
 
 export interface MapRegion {

@@ -1,7 +1,8 @@
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
-import { isTerritoryReachableWithinHops, getAdjacentTerritoryIds } from '../state/influenceManager';
+import { getAdjacentTerritoryIds } from '../state/influenceManager';
+import { getOrbitAccessResult, isLaneSealedForPlayer } from '../state/moonAccess';
 
 /** Abilities consumed once per game (not per turn). */
 export const GAME_SCOPED_ABILITIES = new Set([
@@ -33,7 +34,7 @@ export interface TerritoryAbilityDef {
   requiresAdjacency?: boolean;
   maxHopRange?: number;
   /** Self-buff consumed on next land attack instead of targeting a territory. */
-  selfBuff?: 'pre_attack_damage' | 'extra_attack_die' | 'negate_attacker_losses';
+  selfBuff?: 'pre_attack_damage' | 'extra_attack_die' | 'negate_attacker_losses' | 'ignore_lane_seal';
   /**
    * Free-unit placement on an owned territory (faction draft abilities). Units
    * are placed directly, bypassing the stability draft cap (matching the
@@ -131,6 +132,12 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   marshall_plan: { label: 'Marshall Plan', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   insurgency: { label: 'Insurgency', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   guerrilla_resistance: { label: 'Guerrilla Resistance', scope: 'turn', phase: 'draft', ownPlacement: { units: 2 } },
+  // Forge Syndicate's Supply Insert (and China's Guerrilla Warfare) ran through a
+  // bespoke socket branch instead of a def, so the AI parity path — which reads
+  // TERRITORY_ABILITY_DEFS — could never fire it, and no client button existed.
+  // Label matches the client's FACTION_ABILITY_UI entry; Forge's faction copy
+  // calls the same charge "Supply Insert" until the galaxy kits are rebuilt.
+  guerrilla_warfare: { label: 'Guerrilla Warfare', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   habsberg_garrison: { label: 'Habsburg Garrison', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   lunar_supply_drop: { label: 'Lunar Supply Drop', scope: 'turn', phase: 'draft', ownPlacement: { units: 2, requiresMoon: true } },
   terraform: { label: 'Terraform', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, restoreStability: true } },
@@ -157,6 +164,9 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   banzai_charge: { label: 'Banzai Charge', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   ambush: { label: 'Ambush', scope: 'turn', phase: 'attack', selfBuff: 'extra_attack_die' },
   testudo: { label: 'Testudo', scope: 'turn', phase: 'attack', selfBuff: 'negate_attacker_losses' },
+
+  // ── Galactic Age (corridors) ─────────────────────────────────────────────────
+  blockade_runner: { label: 'Blockade Runner', scope: 'turn', phase: 'attack', selfBuff: 'ignore_lane_seal' },
 
   // ── Faction abilities: unit-reduction strikes (Group E, attack) ─────────────
   precision_airstrike: { label: 'Precision Airstrike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },
@@ -298,6 +308,37 @@ export function isOwnedTerritoryAdjacentToEnemy(
   });
 }
 
+/**
+ * Orbit lanes a strike may travel along, for this player, right now.
+ *
+ * A reduction strike reaches across the map the way an attack does, so it must
+ * respect the same orbit gate: measured on era_galaxy, Stellar Mandate's Cyber
+ * Strike removed a unit from a Verdan tile across a hyperspace lane with no
+ * Hyperspace Chart researched, because the reachability test only looked at
+ * adjacency. Non-orbit edges are never filtered, so Earth maps are unaffected.
+ */
+function abilityTraversalFilter(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+): (from: string, to: string) => boolean {
+  const player = state.players.find((p) => p.player_id === playerId);
+  const orbitPairs = new Set<string>();
+  for (const c of map.connections) {
+    if (c.type === 'orbit') {
+      orbitPairs.add(`${c.from}>${c.to}`);
+      orbitPairs.add(`${c.to}>${c.from}`);
+    }
+  }
+  if (orbitPairs.size === 0 || !player) return () => true;
+  const access = getOrbitAccessResult(state, player, map, state.era);
+  return (from, to) => {
+    if (!orbitPairs.has(`${from}>${to}`)) return true;
+    if (!access.allowed) return false;
+    return !isLaneSealedForPlayer(state, from, to, playerId);
+  };
+}
+
 export function isEnemyTerritoryReachableForAbility(
   state: GameState,
   map: GameMap,
@@ -312,20 +353,89 @@ export function isEnemyTerritoryReachableForAbility(
     .filter(([, t]) => t.owner_id === playerId)
     .map(([id]) => id);
 
+  const canTraverse = abilityTraversalFilter(state, map, playerId);
+
   if (def.maxHopRange != null) {
-    return isTerritoryReachableWithinHops({
-      map,
-      ownedTerritoryIds: ownedIds,
-      targetId,
-      hopLimit: def.maxHopRange,
-    });
+    // Walk the hop budget over the permitted edges only. The unfiltered helper
+    // stays the influence path's; a strike may not route through a closed lane.
+    if (ownedIds.length === 0 || def.maxHopRange <= 0) return false;
+    const visited = new Set<string>(ownedIds);
+    let frontier = [...ownedIds];
+    for (let hop = 0; hop < def.maxHopRange; hop++) {
+      const next: string[] = [];
+      for (const tid of frontier) {
+        for (const nid of getAdjacentTerritoryIds(map, tid)) {
+          if (visited.has(nid) || !canTraverse(tid, nid)) continue;
+          visited.add(nid);
+          if (nid === targetId) return true;
+          next.push(nid);
+        }
+      }
+      frontier = next;
+      if (frontier.length === 0) break;
+    }
+    return false;
   }
 
   if (def.requiresAdjacency) {
-    return ownedIds.some((oid) => getAdjacentTerritoryIds(map, oid).includes(targetId));
+    return ownedIds.some(
+      (oid) => getAdjacentTerritoryIds(map, oid).includes(targetId) && canTraverse(oid, targetId),
+    );
   }
 
+  // Unbounded strikes (orbital_strike, dyson_beam) are authored as "anywhere on
+  // the map" and stay that way: gating them on lanes would silently redesign
+  // them, which is a call for the corridor work, not this repair.
   return true;
+}
+
+/**
+ * Faction passives that reveal territory under fog.
+ *
+ * Helion Navigators' Long-Range Sensors was authored as a once-per-turn active
+ * (`orbital_recon`) that no handler implements: over the wire the ability
+ * returned "Ability 'orbital_recon' is not implemented", and no client button
+ * existed either, so the faction's only advertised active did nothing at all.
+ * The lore says they map the lanes, so the repair makes it a passive: every
+ * gateway tile in the galaxy — both ends of every inter-world lane — stays
+ * visible to them, garrison included.
+ *
+ * Gateways are derived from the adjacency graph rather than the map document
+ * (which this layer doesn't receive): on a galaxy map the only edges joining two
+ * different worlds are the orbit lanes, so a tile with a neighbour on another
+ * world is exactly a lane endpoint. No-ops on single-world maps.
+ */
+/**
+ * Blockade Runner: spend the held charge if a sealed lane is about to be
+ * crossed. Returns true when the crossing may proceed despite the seal.
+ */
+export function consumeBlockadeRunner(player: PlayerState): boolean {
+  if (!player.pending_ignore_lane_seal) return false;
+  player.pending_ignore_lane_seal = undefined;
+  return true;
+}
+
+export function expandFogVisibilityFromFactionPassive(
+  state: GameState,
+  playerId: string,
+  visibleIds: Set<string>,
+  adjacency: Map<string, string[]>,
+): void {
+  if (!state.settings.factions_enabled) return;
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (player?.faction_id !== 'helion_navigators') return;
+
+  for (const [tid, territory] of Object.entries(state.territories)) {
+    const world = territory.world_id;
+    if (!world) continue;
+    for (const neighbourId of adjacency.get(tid) ?? []) {
+      const neighbour = state.territories[neighbourId];
+      if (!neighbour?.world_id || neighbour.world_id === world) continue;
+      visibleIds.add(tid);
+      visibleIds.add(neighbourId);
+      break;
+    }
+  }
 }
 
 export function expandFogVisibilityFromRecon(

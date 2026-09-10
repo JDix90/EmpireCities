@@ -105,6 +105,12 @@ export function executeLandAttack(
       return null;
     }
   }
+  // A Jump Gate lane is logistics, not an invasion route: it moves the builder's
+  // own units between their worlds and never carries an attack (state/jumpGates.ts
+  // explains what measurement said about the alternative). Guarded here so the
+  // socket, the AI handler and the balance sim all obey one rule.
+  if (opts.connection?.source === 'jump_gate') return null;
+
   if (from.unit_count < 2 || to.unit_count < 1) return null;
 
   const defenderId = to.owner_id;

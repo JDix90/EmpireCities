@@ -56,6 +56,16 @@ import {
 } from '../../utils/connectionHints';
 import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/mapAdjacencyTargets';
 import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
+import {
+  describeLaneDice,
+  describeLaneSeal,
+  describeLaneState,
+  gatewayLanesFor,
+  laneAttackDiceCap,
+  laneSealFor,
+  laneStateFor,
+  type LaneState,
+} from '../../utils/galaxyLanes';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -256,6 +266,14 @@ type HtmlDatum =
       glow: number;
     })
   | (HtmlDatumBase & {
+      kind: 'gateway-marker';
+      tooltip: string;
+      color: string;
+      laneState: LaneState;
+      sealed: boolean;
+      size: number;
+    })
+  | (HtmlDatumBase & {
       kind: 'animation-units-plus';
       text: string;
       color: string;
@@ -448,6 +466,24 @@ function buildHtmlOverlayElement(
         'cursor:pointer',
       ].join(';');
       el.title = datum.territoryName;
+      break;
+    }
+
+    case 'gateway-marker': {
+      // A diamond in the lane's colour: solid for a corridor / open lane, dashed
+      // while an Emergency Seal is on it. The tooltip lists every lane leaving.
+      el.style.cssText = [
+        `width:${datum.size}px`,
+        `height:${datum.size}px`,
+        'transform:rotate(45deg)',
+        `border:2px ${datum.sealed ? 'dashed' : 'solid'} ${datum.color}`,
+        'background:rgba(5,7,16,0.85)',
+        `box-shadow:0 0 ${datum.sealed ? 12 : 8}px ${datum.color}, 0 0 3px rgba(0,0,0,0.9)`,
+        'cursor:pointer',
+      ].join(';');
+      el.title = datum.tooltip;
+      el.setAttribute('data-testid', 'gateway-marker');
+      el.setAttribute('data-lane-state', datum.laneState);
       break;
     }
 
@@ -2954,10 +2990,121 @@ function GlobeMap({
     });
   }, [mapData.map_id, activeWorldId]);
 
+  // ── Galaxy gateway markers + lane departures ────────────────────────────
+  // On a galaxy world's globe the far end of every hyperspace lane is off this
+  // globe, so each gateway system gets a diamond marker coloured by the lane's
+  // state for the viewer (corridor / open / closed / sealed) and a short beam
+  // leaving the planet in that colour — the drill-down view's answer to the
+  // chart's lane lines. Rules come from `utils/galaxyLanes.ts`.
+  const gatewayLaneInfo = useMemo(() => {
+    if (mapData.map_kind !== 'galaxy') return [];
+    const galaxyMap = { territories: mapData.territories, connections: mapData.connections, worlds: mapData.worlds };
+    const viewer = selfPlayerId ?? null;
+    const dice = gameState ? describeLaneDice(laneAttackDiceCap(gameState, viewer)) : null;
+    const playerName = (pid: string) =>
+      gameState?.players.find((p) => p.player_id === pid)?.username ?? 'a rival';
+    const viewerColor = viewer ? gameState?.players.find((p) => p.player_id === viewer)?.color : undefined;
+    const out: Array<{
+      territoryId: string;
+      center: { lat: number; lng: number };
+      state: LaneState;
+      sealed: boolean;
+      color: string;
+      tooltip: string;
+    }> = [];
+    for (const t of mapData.territories) {
+      if (inferWorldId(t) !== activeWorldId) continue;
+      const lanes = gatewayLanesFor(galaxyMap, t.territory_id);
+      if (lanes.length === 0) continue;
+      const center = territoryCentroids.get(t.territory_id);
+      if (!center) continue;
+      let best: LaneState = 'closed';
+      let sealed = false;
+      const lines: string[] = [`${t.name} — gateway`];
+      for (const lane of lanes) {
+        const state: LaneState = gameState ? laneStateFor(gameState, lane.nearId, lane.farId, viewer) : 'closed';
+        const seal = gameState ? laneSealFor(gameState, lane.nearId, lane.farId) : null;
+        if (seal) sealed = true;
+        if (state === 'corridor' || (state === 'open' && best === 'closed')) best = state;
+        const sealLine = describeLaneSeal(seal, playerName, viewer);
+        lines.push(`→ ${lane.farWorldName} (${lane.farName}): ${sealLine ?? describeLaneState(state)}`);
+      }
+      if (dice && best !== 'closed') lines.push(dice);
+      const color = sealed
+        ? 'rgba(255,120,60,0.95)'
+        : best === 'corridor'
+          ? (viewerColor ?? '#e6b34d')
+          : best === 'open'
+            ? 'rgba(120,200,255,0.9)'
+            : 'rgba(150,160,180,0.6)';
+      out.push({ territoryId: t.territory_id, center, state: best, sealed, color, tooltip: lines.join('\n') });
+    }
+    return out;
+  }, [
+    mapData.map_kind, mapData.territories, mapData.connections, mapData.worlds,
+    activeWorldId, territoryCentroids, gameState, selfPlayerId,
+  ]);
+
+  const gatewayHtmlOverlays = useMemo((): HtmlDatum[] => gatewayLaneInfo.map((g) => ({
+    kind: 'gateway-marker' as const,
+    id: `gateway-marker-${g.territoryId}`,
+    lat: g.center.lat,
+    lng: g.center.lng,
+    alt: 0.03,
+    onClickTerritoryId: g.territoryId,
+    tooltip: g.tooltip,
+    color: g.color,
+    laneState: g.state,
+    sealed: g.sealed,
+    size: g.territoryId === selectedTerritory || g.territoryId === attackSource ? 14 : 11,
+  })), [gatewayLaneInfo, selectedTerritory, attackSource]);
+
+  const gatewayLaneArcs = useMemo((): ArcDatum[] => {
+    if (gatewayLaneInfo.length === 0) return [];
+    // Beam away from the world's populated centre so the lane reads as leaving.
+    let cx = 0;
+    let cy = 0;
+    let n = 0;
+    for (const t of mapData.territories) {
+      if (inferWorldId(t) !== activeWorldId) continue;
+      const c = territoryCentroids.get(t.territory_id);
+      if (!c) continue;
+      cx += c.lng;
+      cy += c.lat;
+      n += 1;
+    }
+    if (n === 0) return [];
+    cx /= n;
+    cy /= n;
+    return gatewayLaneInfo.map((g) => {
+      let dx = g.center.lng - cx;
+      let dy = g.center.lat - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      dx /= len;
+      dy /= len;
+      const reach = 16;
+      return {
+        id: `gateway-lane-${g.territoryId}`,
+        startLat: g.center.lat,
+        startLng: g.center.lng,
+        endLat: Math.max(-85, Math.min(85, g.center.lat + dy * reach)),
+        endLng: g.center.lng + dx * reach,
+        color: [g.color, 'rgba(0,0,0,0)'],
+        stroke: g.sealed ? 1.6 : g.state === 'corridor' ? 1.5 : 1.1,
+        dashLen: g.state === 'closed' ? 0.12 : 0.3,
+        dashGap: g.state === 'closed' ? 0.2 : 0.15,
+        animateTime: g.state === 'closed' ? 0 : 2600,
+        altitude: 0.35,
+        clickForwardTerritoryId: g.territoryId,
+      };
+    });
+  }, [gatewayLaneInfo, mapData.territories, activeWorldId, territoryCentroids]);
+
   const combinedHtmlOverlays = useMemo(
     () => [
       ...regionHtmlOverlays,
       ...seaRouteHtmlOverlays,
+      ...gatewayHtmlOverlays,
       ...capitalHtmlOverlays,
       ...buildingHtmlOverlays,
       ...wastelandHtmlOverlays,
@@ -2966,6 +3113,7 @@ function GlobeMap({
     [
       regionHtmlOverlays,
       seaRouteHtmlOverlays,
+      gatewayHtmlOverlays,
       capitalHtmlOverlays,
       buildingHtmlOverlays,
       wastelandHtmlOverlays,
@@ -3006,9 +3154,9 @@ function GlobeMap({
   const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
 
   const combinedArcs = useMemo(() => {
-    if (!renderConnectionArcs) return arcs;
-    return [...seaLaneArcs, ...arcs, ...adjacencyArcs, ...contestedFrontierArcs];
-  }, [renderConnectionArcs, seaLaneArcs, arcs, adjacencyArcs, contestedFrontierArcs]);
+    if (!renderConnectionArcs) return gatewayLaneArcs.length > 0 ? [...gatewayLaneArcs, ...arcs] : arcs;
+    return [...gatewayLaneArcs, ...seaLaneArcs, ...arcs, ...adjacencyArcs, ...contestedFrontierArcs];
+  }, [gatewayLaneArcs, renderConnectionArcs, seaLaneArcs, arcs, adjacencyArcs, contestedFrontierArcs]);
 
   // ── Polygon accessors ──────────────────────────────────────────────────
 

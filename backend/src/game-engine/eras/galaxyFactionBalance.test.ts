@@ -5,13 +5,17 @@ import { GALAXY_AGE_FACTIONS } from './galaxyage';
 import { getEffectiveTechCost, validateResearch } from '../state/techManager';
 
 /**
- * Galaxy faction tempo guards, from the 2026-07 400-game sim tuning pass under
- * the threshold-60% endgame default: Sol sat at ~13% — its old copy claimed a
- * +1 defense die that was never wired (always-on defensive dice are banned;
- * see factionDefense.test.ts), leaving it the only passive-less faction. Its
- * passive is a RESEARCH DISCOUNT, deliberately not per-turn tech income:
- * +1 TP/turn compounds all game and sim-tested at ~39% (while collapsing
- * Helion to ~17%); the discount is worth ~1 TP per research.
+ * Galaxy faction tempo guards.
+ *
+ * History, because the shape of this file changed twice: the Stellar Mandate
+ * originally had no working passive (~13% win rate), was given a -2 research
+ * discount, cut to -1 under corridors (the -2 compounded into 47% once gateway
+ * fights were decided by dice), and then had it REMOVED entirely after Lane
+ * Sovereignty and the Jump Gates landed — measured on the deterministic harness
+ * at 400 games x 3 seeds, -1 was still worth about ten points of win rate on a
+ * seat already worth ~24% (Sol 34.6% with it, 24.3% without). No galaxy faction
+ * discounts research now, and this file guards that: a discount here is the one
+ * lever the era has repeatedly proved it cannot afford.
  */
 
 function galaxyState(factionId: string, overrides?: { factions?: boolean }): GameState {
@@ -26,7 +30,7 @@ function galaxyState(factionId: string, overrides?: { factions?: boolean }): Gam
         player_id: 'p1',
         faction_id: factionId,
         unlocked_techs: [],
-        tech_points: 4,
+        tech_points: 5,
       },
     ],
   } as unknown as GameState;
@@ -34,50 +38,43 @@ function galaxyState(factionId: string, overrides?: { factions?: boolean }): Gam
 
 const node = (cost: number): TechNode => ({ tech_id: 't', name: 't', description: '', tier: 1, cost });
 
-describe('Stellar Mandate research discount', () => {
-  it('every research costs 2 less', () => {
-    const state = galaxyState('stellar_mandate');
-    expect(getEffectiveTechCost(state, state.players[0], node(5))).toBe(3);
-  });
-
-  it('cost never drops below 1', () => {
-    const state = galaxyState('stellar_mandate');
-    expect(getEffectiveTechCost(state, state.players[0], node(2))).toBe(1);
-  });
-
-  it('does not apply when factions are disabled', () => {
-    const state = galaxyState('stellar_mandate', { factions: false });
-    expect(getEffectiveTechCost(state, state.players[0], node(5))).toBe(5);
-  });
-
-  it('other galaxy factions pay full cost', () => {
-    for (const f of ['forge_syndicate', 'helion_navigators', 'void_custodians']) {
-      const state = galaxyState(f);
+describe('no galaxy faction discounts research', () => {
+  it('every faction pays the list price', () => {
+    for (const f of GALAXY_AGE_FACTIONS) {
+      expect(f.tech_cost_discount ?? 0, `${f.faction_id} carries a research discount`).toBe(0);
+      const state = galaxyState(f.faction_id);
       expect(getEffectiveTechCost(state, state.players[0], node(5))).toBe(5);
     }
   });
 
-  it('lets Sol research the 5-cost Hyperspace Chart with 4 tech points', () => {
-    // (Discount is 2; 4 TP comfortably covers the effective cost of 3.)
-    // The discount's headline effect: Sol reaches the era's central mechanic
-    // one income-tick earlier than an undiscounted faction.
+  it('the Mandate needs the full 5 tech points for Lane Charts', () => {
     const state = galaxyState('stellar_mandate');
-    const result = validateResearch(state, 'p1', 'ga_hyperspace_chart');
-    expect(result.valid).toBe(true);
+    expect(validateResearch(state, 'p1', 'ga_hyperspace_chart').valid).toBe(true);
+    state.players[0].tech_points = 4;
+    expect(validateResearch(state, 'p1', 'ga_hyperspace_chart').valid).toBe(false);
   });
 });
 
 describe('galaxy faction sustained perks', () => {
   it('every galaxy faction carries one', () => {
-    // Sol: research discount · Rust: +1 reinforce · Verdan: free hyperspace
-    // (structural, via getOrbitAccessResult) · Nexus: +1 reinforce + stability.
+    // Sol: the Cradle world rule (deploy cap + population growth, in the map's
+    // `worlds[].rules`) · Rust: +2 reinforce and half-price Jump Gates · Verdan:
+    // gateway visibility + Drift Jump · Nexus: lane defence, stability, the Vault.
     for (const f of GALAXY_AGE_FACTIONS) {
       const hasPerk =
         (f.reinforce_bonus ?? 0) > 0 ||
-        (f.tech_cost_discount ?? 0) > 0 ||
         (f.stability_recovery_bonus ?? 0) > 0 ||
-        f.faction_id === 'helion_navigators';
+        (f.lane_defense_bonus ?? 0) > 0 ||
+        (f.jump_gate_cost_mult ?? 1) < 1 ||
+        f.faction_id === 'helion_navigators' ||
+        f.faction_id === 'stellar_mandate';
       expect(hasPerk, `${f.faction_id} has no sustained perk`).toBe(true);
+    }
+  });
+
+  it('only the Forge Syndicate builds Jump Gates at a discount', () => {
+    for (const f of GALAXY_AGE_FACTIONS) {
+      expect(f.jump_gate_cost_mult ?? 1).toBe(f.faction_id === 'forge_syndicate' ? 0.5 : 1);
     }
   });
 });

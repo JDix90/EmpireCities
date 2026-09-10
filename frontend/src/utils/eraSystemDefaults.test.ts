@@ -6,13 +6,15 @@ import {
   withRequiredEraSystems,
 } from './eraSystemDefaults';
 
-const off = { economy: false, tech_trees: false };
-const on = { economy: true, tech_trees: true };
+const off = { economy: false, tech_trees: false, factions: false };
+const on = { economy: true, tech_trees: true, factions: true };
 
 describe('requiredSystemsForEra', () => {
   it('requires economy + tech trees for the orbit-gated eras', () => {
     expect(requiredSystemsForEra('space_age')).toEqual(['economy', 'tech_trees']);
-    expect(requiredSystemsForEra('galaxy_age')).toEqual(['economy', 'tech_trees']);
+    // Galactic Age also needs factions: the one-faction-per-world start only
+    // happens when four players each take a different galaxy faction.
+    expect(requiredSystemsForEra('galaxy_age')).toEqual(['economy', 'tech_trees', 'factions']);
   });
 
   it('requires nothing for classic eras', () => {
@@ -71,7 +73,7 @@ describe('transitionEraSystemDefaults', () => {
   it('re-enables a required system the player switched off when re-entering the era', () => {
     const t = transitionEraSystemDefaults({
       nextEra: 'space_age',
-      current: { economy: true, tech_trees: false },
+      current: { economy: true, tech_trees: false, factions: false },
       autoEnabled: new Set(['economy']),
     });
     expect(t.enable).toEqual(['tech_trees']);
@@ -121,7 +123,7 @@ describe('withRequiredEraSystems', () => {
 
 describe('missingEraSystemsWarning', () => {
   it('warns when a required system is off for the selected era', () => {
-    expect(missingEraSystemsWarning('space_age', { economy: true, tech_trees: false })).toMatch(/Moon/);
+    expect(missingEraSystemsWarning('space_age', { economy: true, tech_trees: false, factions: false })).toMatch(/Moon/);
     expect(missingEraSystemsWarning('galaxy_age', off)).toMatch(/[Hh]yperspace/);
   });
 

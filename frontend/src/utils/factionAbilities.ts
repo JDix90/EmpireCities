@@ -148,6 +148,10 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     enemyTarget: null, style: 'info', requiresEconomy: true, hint: 'Your next research costs 3 fewer tech points.',
   },
   // ── Group D: attack self-buffs (attack, self-activated) ─────────────────────
+  blockade_runner: {
+    label: 'Blockade Runner', emoji: '🚀', scope: 'turn', phase: 'attack',
+    enemyTarget: null, style: 'warning', hint: 'Your next attack across a hyperspace lane ignores an Emergency Seal.',
+  },
   war_elephants: {
     label: 'War Elephants', emoji: '🐘', scope: 'turn', phase: 'attack',
     enemyTarget: null, style: 'warning', hint: '+1 attack die on your next attack.',
@@ -232,6 +236,10 @@ export function getAvailableFactionAbilityId(
     germany:      'blitzkrieg',
     soviet_union: 'mass_mobilization',
     china_ww2:    'guerrilla_warfare',
+    // Forge Syndicate calls the same charge "Supply Insert". Without this entry
+    // the faction had no ability button at all: the server handler existed, but
+    // nothing mapped the faction to it.
+    forge_syndicate: 'guerrilla_warfare',
     // Group A — free-unit placement (draft)
     usa_cw:                  'marshall_plan',
     rogue_state:             'insurgency',
@@ -239,7 +247,8 @@ export function getAvailableFactionAbilityId(
     austria:                 'habsberg_garrison',
     lunar_pioneers:          'lunar_supply_drop',
     climate_alliance:        'terraform',
-    void_custodians:         'terraform',
+    // Void Custodians' charge is the Emergency Seal, fired from a lane (chart or
+    // gateway panel), not through game:use_ability — so no entry here.
     // Group B — tech-point-gated placement (draft)
     usa:               'arsenal_of_democracy',
     sino_hegemony:     'ai_surge',
@@ -266,7 +275,8 @@ export function getAvailableFactionAbilityId(
     france:           'chevauchee',
     england_discovery:'privateer',
     cyber_power:      'cyber_attack',
-    stellar_mandate:  'cyber_attack',
+    // Galactic Age — Mandate's Blockade Runner is an attack-phase self-buff.
+    stellar_mandate:  'blockade_runner',
     // Group F — fortify boost (fortify)
     eastern_bloc:     'armored_push',
     // Group G — other actives

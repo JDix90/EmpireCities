@@ -86,9 +86,12 @@ describe('what the Space Age lets you seal', () => {
 
   it('still lets the Galaxy seal any orbit lane it holds', () => {
     // The exclusion is Space Age only; the Galactic Age has no Launch Pads and
-    // its own tuning.
+    // its own tuning. What it DOES have is a different key: sealing there is the
+    // Void Custodians' Emergency Seal (or the Vault holder's), not a purchase
+    // open to whoever holds an end — so the galaxy call carries an ability id.
     const state = mkState({ era: 'galaxy_age' });
-    expect(canSealLane(state, MAP, PAD_EARTH, PAD_MOON, 'p2').ok).toBe(true);
+    const viaVault = canSealLane(state, MAP, PAD_EARTH, PAD_MOON, 'p2', undefined, { vaultHolder: true });
+    expect(viaVault.ok).toBe(true);
   });
 
   it('refuses a lane you hold neither end of', () => {
@@ -115,10 +118,14 @@ describe('what a Space Age seal costs', () => {
     expect(laneSealHelium3Cost(mkState())).toBe(SPACE_AGE_LANE_SEAL_HELIUM3_COST);
   });
 
-  it('lasts two rounds here and three in the Galaxy', () => {
+  it('lasts longer here than in the Galaxy, because here you paid for it', () => {
     expect(laneSealDuration(mkState())).toBe(SPACE_AGE_LANE_SEAL_DURATION);
     expect(laneSealDuration(mkState({ era: 'galaxy_age' }))).toBe(GALAXY_LANE_SEAL_DURATION);
-    expect(SPACE_AGE_LANE_SEAL_DURATION).toBeLessThan(GALAXY_LANE_SEAL_DURATION);
+    // The order used to run the other way, when the Galaxy's seal was an open
+    // rule anyone could use for three rounds. The Emergency Seal replaced it: a
+    // free once-per-turn faction charge that buys a round, not a wall. A Space
+    // Age blockade costs He-3, so it outlasts it.
+    expect(SPACE_AGE_LANE_SEAL_DURATION).toBeGreaterThan(GALAXY_LANE_SEAL_DURATION);
   });
 });
 

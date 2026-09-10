@@ -28,9 +28,14 @@ import {
   ERA_LESSON_GRANT_TECH_POINTS,
 } from '../../game-engine/tutorial/tutorialGrants';
 import {
+  ASCENSION_GALAXY_ADVANCEMENT_ERROR,
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
 } from '../../game-engine/lobby/lobbyEraMapCompatibility';
+import {
+  ASCENSION_GALAXY_MAP_ID,
+  ASCENSION_GALAXY_SPINE_ID,
+} from '../../game-engine/lobby/lobbyMapChange';
 import { redactGameRowForViewer } from './gameRowRedaction';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 
@@ -42,7 +47,10 @@ const TutorialStartSchema = z.object({
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence', 'lunar_hegemony']);
+const victoryConditionEnum = z.enum([
+  'domination', 'secret_mission', 'capital', 'threshold', 'transcendence',
+  'lunar_hegemony', 'lane_sovereignty',
+]);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -89,10 +97,9 @@ export const CreateGameSchema = z.object({
       /** Anti-fortress dice cap + ceilings (normalizeGameSettings clamps the
        * ceilings up to the natural base of atk 3 / def 2). */
       combat_dice_cap_enabled: z.boolean().optional(),
+      lanes_contestable_enabled: z.boolean().optional(),
       combat_max_attacker_dice: z.number().int().min(3).max(10).optional(),
       combat_max_defender_dice: z.number().int().min(2).max(10).optional(),
-      /** Galaxy contestable hyperspace lanes (seal-lane mechanic). */
-      lanes_contestable_enabled: z.boolean().optional(),
     })
     .superRefine((data, ctx) => {
       const list =
@@ -155,7 +162,12 @@ export function applyOrbitGatedVictoryDefaults<
   T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
 >(
   settings: T,
-  opts: { isOrbitGated: boolean; callerChoseVictory: boolean; lunarHegemony?: boolean },
+  opts: {
+    isOrbitGated: boolean;
+    callerChoseVictory: boolean;
+    lunarHegemony?: boolean;
+    isGalacticAge?: boolean;
+  },
 ): T {
   // Nothing to apply off an orbit-gated era unless the Hegemony is in play:
   // return the caller's own object so a non-Space-Age create is untouched, by
@@ -163,14 +175,18 @@ export function applyOrbitGatedVictoryDefaults<
   if (!opts.isOrbitGated && !opts.lunarHegemony) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
-    // Both additions only ever fill a blank list; an explicit lobby choice wins.
+    // Every addition only ever fills a blank list; an explicit lobby choice wins.
     const add: VictoryType[] = [];
     if (opts.isOrbitGated) add.push('threshold');
     // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route.
     // Deliberately NOT conditioned on `isOrbitGated`, because an era-advancement
-    // game that climbs into the Space Age should be winnable that way too — it
-    // just must not pick up the backstop below with it.
+    // game that climbs there should be winnable that way too — it just must not
+    // pick up the backstop below with it.
     if (opts.lunarHegemony) add.push('lunar_hegemony');
+    // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
+    // the tiles — and ships ON beside the headcount backstop. It is meaningless
+    // off a lane map, so it is never added elsewhere.
+    if (opts.isGalacticAge) add.push('lane_sovereignty');
     if (add.length > 0) {
       out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
     }
@@ -189,13 +205,29 @@ export function applyOrbitGatedVictoryDefaults<
 }
 
 /**
- * Contestable hyperspace lanes are a Galactic Age mechanic, but nothing below
- * the create boundary enforces that: `canSealLane` only requires an orbit-typed
- * connection and the Space Age map authors three, so a hand-crafted
- * POST /api/games could arm lane sealing in a Space Age game — with
- * "hyperspace lane" wording and no UI on either side (the lobby only offers the
- * toggle for the Galactic Age, and the seal action is wired into
- * GalaxyStrategicView only). Reject it here instead. Exported for tests.
+ * Territory Draft cannot work on a galaxy map. Orbit-gated tiles are exempt from
+ * the selection draft (nobody holds hyperspace access at game start, see
+ * selectionExemptTerritoryIds), and the neutral-garrison pass that would arm
+ * them only runs for worlds flagged `initial_neutral_garrison` — which the
+ * galaxy worlds deliberately are not, because factions spawn on them. Measured
+ * on era_galaxy: all 48 off-world tiles begin neutral with ZERO units, and
+ * executeLandAttack refuses a defender below one unit, so those 48 tiles can
+ * never be taken by anyone for the rest of the game. Reject the combination at
+ * the create boundary. Exported for tests.
+ */
+export const TERRITORY_SELECTION_GALAXY_ERROR =
+  'Territory Draft is not available in the Galactic Age — worlds behind a hyperspace gate cannot be drafted';
+export function territorySelectionRejection(opts: {
+  territorySelection?: boolean;
+  isGalacticAge: boolean;
+}): string | null {
+  if (!opts.territorySelection || !opts.isGalacticAge) return null;
+  return TERRITORY_SELECTION_GALAXY_ERROR;
+}
+
+/**
+ * Contestable lanes are a Galactic Age setting the client may not arm anywhere
+ * else — except the Space Age, which now has its own reason to seal one.
  */
 export const LANES_CONTESTABLE_NON_GALAXY_ERROR =
   'Contestable hyperspace lanes are only available in Galactic Age games';
@@ -212,6 +244,30 @@ export function lanesContestableRejection(opts: {
   // still a client trying to arm a mechanic it has no UI for.
   if (opts.spaceAgeBlockade) return null;
   return LANES_CONTESTABLE_NON_GALAXY_ERROR;
+}
+
+/**
+ * The Galactic Age needs exactly four seats. The one-faction-per-world start
+ * (tryDistributeGalaxyAgeFactionHomeworlds) fires only for four seats holding
+ * four distinct galaxy factions; every other shape falls through to geographic
+ * distribution over all 64 tiles, so each seat begins holding territory on
+ * worlds it cannot reach — measured at 2p and 3p, every seat starts spread over
+ * three or four worlds, and a 2p game ends in ~16 turns because both players
+ * open with half the board.
+ *
+ * Enforced HERE rather than in evaluateEraMapCompatibility because the shared
+ * evaluator also runs on the in-lobby map-change path, where `player_count` is
+ * the humans joined so far and not the final seat count. Exported for tests.
+ */
+export const GALAXY_REQUIRED_PLAYERS = 4;
+export const GALAXY_PLAYER_COUNT_ERROR =
+  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+export function galaxyPlayerCountRejection(opts: {
+  isGalacticAge: boolean;
+  totalPlayers: number;
+}): string | null {
+  if (!opts.isGalacticAge || opts.totalPlayers === GALAXY_REQUIRED_PLAYERS) return null;
+  return GALAXY_PLAYER_COUNT_ERROR;
 }
 
 /**
@@ -264,6 +320,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (isGalacticAge && !request.isAdmin) {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
     }
+    // Space to Stars: Space Age rules on a board that carries the Galactic Age
+    // behind its second spine step. NOT `isGalacticAge` — that flag also demands
+    // the era's one-faction-per-world start (exactly four seats, four galaxy
+    // factions), and this board starts on Earth with Space Age factions. What it
+    // does share is the era's rule set for the lanes it inherits, so the three
+    // galaxy settings are baked below for both.
+    const isAscensionGalaxy = map_id === ASCENSION_GALAXY_MAP_ID;
+    if (isAscensionGalaxy && !request.isAdmin) {
+      return reply.status(403).send({ error: 'Space to Stars is coming soon and is only available to administrators.' });
+    }
 
     const isSpaceAgeEra = era_id === 'space_age' || map_id === 'era_space_age';
     // "Is or will be the Space Age": an era-advancement game that climbs there
@@ -285,6 +351,22 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: lanesRejection });
     }
 
+    const selectionRejection = territorySelectionRejection({
+      territorySelection: rawSettings.territory_selection,
+      isGalacticAge,
+    });
+    if (selectionRejection) {
+      return reply.status(400).send({ error: selectionRejection });
+    }
+
+    const seatRejection = galaxyPlayerCountRejection({
+      isGalacticAge,
+      totalPlayers: 1 + ai_count,
+    });
+    if (seatRejection) {
+      return reply.status(400).send({ error: seatRejection });
+    }
+
     const mergedList: VictoryType[] =
       rawSettings.allowed_victory_conditions && rawSettings.allowed_victory_conditions.length > 0
         ? [...new Set(rawSettings.allowed_victory_conditions)]
@@ -294,7 +376,12 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // Standalone Space Age frontier seeding is server-controlled via the feature
     // flag (the schema never accepts it from the client). Bake the live value into
     // the settings at create so the engine reads a fixed setting and stays pure.
-    const isSpaceAge = era_id === 'space_age' || map_id === 'era_space_age';
+    const isSpaceAge = isSpaceAgeEra;
+    // Boards whose hyperspace lanes follow Galactic Age rules — the lane dice
+    // cap, world rules and convoys. Space to Stars has lanes from turn one
+    // (Earth → Moon) and the ring to the far worlds from the moment somebody
+    // ascends, so it takes the same three settings the Galactic Age does.
+    const isGalaxyRules = isGalacticAge || isAscensionGalaxy;
     const settings = normalizeGameSettings(
       applyOrbitGatedVictoryDefaults(
         {
@@ -309,6 +396,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           combat_dice_cap_enabled: rawSettings.combat_dice_cap_enabled ?? true,
           card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
           space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
+          // Galactic Age corridors: same bake-at-create discipline as the
+          // frontier flag, so the engine reads a fixed setting and stays pure.
+          galaxy_corridors_enabled: isGalaxyRules ? featureFlags.galaxyCorridorsEnabled : undefined,
+          // Galactic Age worlds as characters — same discipline; the map's
+          // authored rules are snapshotted at init when this is on.
+          world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
+          galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
           // Every Moon Race phase this game runs, resolved above. Spread rather
           // than listed so a sixth phase needs no edit here.
           ...moonRace.phases,
@@ -323,6 +417,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
+          isGalacticAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
           lunarHegemony: moonRace.phases.space_age_moon_hegemony_enabled === true,
@@ -343,8 +438,20 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       if (rawSettings.is_ranked === true) {
         return reply.status(400).send({ error: 'Era Advancement is not available in ranked games' });
       }
-      if (era_id !== 'ancient') {
+      // Every built-in spine but one starts in Ancient. Space to Stars is the
+      // exception by construction: it is the two-step climb the Galactic Age was
+      // built for, and playing it as the tail of a six-era marathon is neither
+      // what it is for nor something that can be measured honestly.
+      const ascensionSpine = settings.era_advancement_spine_id === ASCENSION_GALAXY_SPINE_ID;
+      if (ascensionSpine) {
+        if (!isAscensionGalaxy) {
+          return reply.status(400).send({ error: 'The Space to Stars climb needs the Space to Stars theater' });
+        }
+      } else if (era_id !== 'ancient') {
         return reply.status(400).send({ error: 'Era Advancement must start in the Ancient era' });
+      }
+      if (isAscensionGalaxy && !ascensionSpine) {
+        return reply.status(400).send({ error: ASCENSION_GALAXY_ADVANCEMENT_ERROR });
       }
     }
 

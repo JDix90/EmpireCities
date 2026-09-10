@@ -70,6 +70,7 @@ export const DEFAULTS: AdminConfigState = {
       wonder_arsenal: 18, wonder_unification: 20, wonder_space_elevator: 25,
       wonder_hyperlane_anchor: 22,
       launch_pad: 8,
+      jump_gate: 12,
     },
     production_income: {
       production_1: 1, production_2: 2, production_3: 4, production_4: 7,

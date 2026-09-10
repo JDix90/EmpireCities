@@ -19,6 +19,8 @@
 
 import { inferWorldId } from '@borderfall/shared';
 import { getCoastalTerritoryIds } from '../state/navalManager';
+import { orbitGatewayTerritoryIds, territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
+import { vaultRegionGarrisons } from '../state/worldRules';
 import type { EraId, GameMap, GameState, TerritoryState } from '../../types';
 
 /**
@@ -28,6 +30,51 @@ import type { EraId, GameMap, GameState, TerritoryState } from '../../types';
  */
 export function unlockGarrisonForEra(unlockEraIndex: number): number {
   return Math.min(8, 2 + Math.max(1, unlockEraIndex));
+}
+
+/**
+ * Garrison on a freshly unlocked frontier that sits on an OFF-WORLD world (one
+ * flagged `requires_orbit_access`) — the Space to Stars exo worlds.
+ *
+ * A landing zone (one end of a hyperspace lane) keeps the era-scaled number, so
+ * the lanes stay the way in; the interior behind it gets one more, so a world is
+ * a campaign rather than a single push.
+ *
+ * ONE more, and no further. The first version of this rule was 4/6, on the
+ * argument that a world reached after a whole Space Program should not defend
+ * like a field next door. Measured over 200-game runs on two seeds, weight here
+ * does almost nothing for the thing it was meant to do — exo tiles owned at the
+ * end sat at 29-30 of 48 whether the frontier defended with 3/4, 4/6 or 6/8, and
+ * neither the turn-10 snowball (58-63%) nor the faction spread moved at all —
+ * while the heavier settings cost decisive games outright: 46.5% and 53.0% at
+ * 4/6 against 55.5% and 60.5% at 3/4, purely from grinding more games into the
+ * turn cap. The lighter frontier is contested exactly as much and finishes.
+ */
+export const OFFWORLD_FRONTIER_GATEWAY_GARRISON = 3;
+export const OFFWORLD_FRONTIER_INTERIOR_GARRISON = 4;
+
+/**
+ * Garrison sizer for one map's frontiers. Returns a closure so the gateway set
+ * (a scan of every connection) is computed once per unlock, not once per tile.
+ */
+export function frontierGarrisonSizer(map: GameMap): (t: GameMap['territories'][number]) => number {
+  let gateways: Set<string> | null = null;
+  // A vault region (the Nexus Gate Ring) carries its own authored garrison. It
+  // is applied at init for a world that starts in play; a world that ARRIVES
+  // has to get the same number here or the prize would be cheaper depending on
+  // which board it showed up on.
+  const vault = vaultRegionGarrisons(map);
+  return (t) => {
+    const authored = vault.get(t.territory_id);
+    if (authored != null) return authored;
+    if (!territoryRequiresOrbitAccessForClaim(map, t.territory_id)) {
+      return unlockGarrisonForEra(territoryUnlockEra(t));
+    }
+    gateways = gateways ?? orbitGatewayTerritoryIds(map);
+    return gateways.has(t.territory_id)
+      ? OFFWORLD_FRONTIER_GATEWAY_GARRISON
+      : OFFWORLD_FRONTIER_INTERIOR_GARRISON;
+  };
 }
 
 /** The advancement era index at which a map territory enters play (0 = start). */
@@ -49,6 +96,9 @@ export const ERA_GROWTH_MAP_IDS: ReadonlySet<string> = new Set([
   'era_coldwar',
   'era_modern',
   'era_space_age',
+  // Space to Stars: Earth + Moon in play from turn one, the three exo worlds
+  // tagged `unlock_era_index: 1` for the Galactic Age step.
+  'era_ascension_galaxy',
 ]);
 
 /** True when the map tags any territory for later-era unlocking. */
@@ -75,11 +125,14 @@ export function maxUnlockEra(map: GameMap): number {
  * after, naval-aware, exactly like base tiles + the neutral Moon), while mid-game
  * unlock sets it directly since naval init has already run.
  */
-function buildNeutralFrontier(t: GameMap['territories'][number]): TerritoryState {
+function buildNeutralFrontier(
+  t: GameMap['territories'][number],
+  garrisonFor: (t: GameMap['territories'][number]) => number,
+): TerritoryState {
   return {
     territory_id: t.territory_id,
     owner_id: null,
-    unit_count: unlockGarrisonForEra(territoryUnlockEra(t)),
+    unit_count: garrisonFor(t),
     unit_type: 'infantry',
     world_id: inferWorldId(t),
     region_id: t.region_id,
@@ -120,9 +173,10 @@ export function seedStandaloneFrontierTerritories(
   territories: Record<string, TerritoryState>,
   map: GameMap,
 ): number {
+  const garrisonFor = frontierGarrisonSizer(map);
   for (const t of map.territories) {
     if (territoryUnlockEra(t) <= 0) continue;
-    if (!territories[t.territory_id]) territories[t.territory_id] = buildNeutralFrontier(t);
+    if (!territories[t.territory_id]) territories[t.territory_id] = buildNeutralFrontier(t, garrisonFor);
   }
   return maxUnlockEra(map);
 }
@@ -187,11 +241,12 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
 
   const added: string[] = [];
   const coastal = getCoastalTerritoryIds(map);
+  const garrisonFor = frontierGarrisonSizer(map);
   for (const t of map.territories) {
     const unlockEra = territoryUnlockEra(t);
     if (unlockEra <= prevFloor || unlockEra > newFloor) continue; // outside the (prev, new] window
     if (state.territories[t.territory_id]) continue; // already in play — never duplicate
-    const territory = buildNeutralFrontier(t);
+    const territory = buildNeutralFrontier(t, garrisonFor);
     // Coastal marker: naval buildings + sea attacks read `naval_units != null`
     // as "coastal" (navalManager.initializeNavalUnits sets it at game start,
     // which runs before frontiers exist — without this, unlocked frontiers

@@ -1,10 +1,11 @@
-import type { AdvanceEraClientPreview, GameState, PlayerState } from '../../types';
+import type { AdvanceEraClientPreview, GameMap, GameState, PlayerState } from '../../types';
 import { getEmpireWeightedStability } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex, resolvePlayerEraId } from './constants';
 import { evaluateEraAdvancementReadiness, resolveTechGateMode } from './eraAdvancementReadiness';
 import { applyLineageOnAdvance } from '../eras/factionLineage';
 import { ERA_SIGNATURES, grantEraSignature } from './signatures';
 import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
+import { getMoonAccessState } from '../state/moonAccess';
 import { captureTechEcho, storeTechEcho } from './techEcho';
 import { getCarryableLegacyAbility } from '../abilities/techAbilities';
 import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
@@ -137,6 +138,21 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
     }
   }
 
+  // The Space Program gate (`space_to_stars`). Leaving the Space Age for the
+  // stars means you built the ship — not that you hit a tech count. Checked from
+  // `state` alone (getMoonAccessState reads techs, buildings and the launch
+  // flag), so the map-free advance path can enforce it.
+  if (getStateSpineSteps(state)[currentIndex]?.gate_requires_moon_access) {
+    const access = getMoonAccessState(state, player);
+    if (!access.allowed) {
+      return {
+        canAdvance: false,
+        error: `The stars need a Space Program — still missing: ${access.missing.join(', ')}`,
+        cost,
+      };
+    }
+  }
+
   // Anti-steamroll cap: a player can't advance more than `max_lead` eras ahead of
   // the lowest-era living player, so the field never gets left multiple eras
   // behind (esp. AI bots vs an optimizing human). Null/absent = no cap.
@@ -158,7 +174,17 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
   return { canAdvance: true, cost };
 }
 
-export function executeAdvanceEra(state: GameState, playerId: string): { success: boolean; error?: string } {
+/**
+ * `map` is optional and used only by map-aware era signatures (pathfinder_gate,
+ * whose payoff is measured in hyperspace lanes). Every other effect — and the
+ * whole advance itself — is computed from `state`, so callers without a map in
+ * hand (the era-balance harness, tests) behave exactly as before.
+ */
+export function executeAdvanceEra(
+  state: GameState,
+  playerId: string,
+  map?: GameMap,
+): { success: boolean; error?: string } {
   const gate = canAdvanceEra(state, playerId);
   if (!gate.canAdvance) return { success: false, error: gate.error };
 
@@ -198,7 +224,7 @@ export function executeAdvanceEra(state: GameState, playerId: string): { success
   const arrivingEraId = getEraIdForAdvancementIndex(state, nextIndex);
   const arrivalStep = getStateSpineSteps(state)[nextIndex];
   if (arrivalStep?.signature_id) {
-    grantEraSignature(state, player, arrivalStep.signature_id);
+    grantEraSignature(state, player, arrivalStep.signature_id, map);
   }
   // Remap the player's faction along its lineage into the arriving era.
   applyLineageOnAdvance(state, player, departingEraId, arrivingEraId);

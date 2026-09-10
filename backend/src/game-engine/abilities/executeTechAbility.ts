@@ -119,6 +119,10 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     currentPlayer.pending_negate_attacker_losses = true;
     return { success: true, effect: 'negate_attacker_losses_ready' };
   }
+  if (def?.selfBuff === 'ignore_lane_seal') {
+    currentPlayer.pending_ignore_lane_seal = true;
+    return { success: true, effect: 'ignore_lane_seal_ready' };
+  }
 
   // ── Recon abilities (no territory target) ─────────────────────────────────
   if (abilityId === 'spy_network' || abilityId === 'satellite_reconnaissance') {

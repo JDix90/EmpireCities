@@ -8,6 +8,13 @@ import { getTemporaryModifierValue } from '../events/eventCardManager';
 import { isWonderId, isWonderBuilt } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
 import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
+import { vaultTechIncome, worldDefenseBuildingBonusDice } from './worldRules';
+import {
+  JUMP_GATE_BUILDING,
+  JUMP_GATE_COST,
+  playerHasGateOnWorld,
+  recordJumpGateLinks,
+} from './jumpGates';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { buildingDisplayName } from '@borderfall/shared';
 
@@ -40,6 +47,8 @@ export const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   wonder_hyperlane_anchor: 22,
   // Space Age buildings
   launch_pad: 8,
+  // Galactic Age buildings
+  jump_gate: JUMP_GATE_COST,
 };
 
 /** The building a tier must upgrade from (null = no prerequisite). */
@@ -126,6 +135,28 @@ export interface BuildValidationResult {
  * - If tech trees are enabled, the player must have unlocked the corresponding
  *   tech node (verified externally — caller may pass `techUnlocked` flag).
  */
+/**
+ * Build cost for this player on this territory: the declared cost through the
+ * world's `build_cost_mult`, then any faction discount that applies to this
+ * building. Today only the Forge Syndicate's Jump Gate discount is narrow
+ * enough to live here rather than in the world modifier.
+ */
+export function resolveBuildCostFor(
+  state: GameState,
+  playerId: string,
+  worldId: string | undefined,
+  buildingType: BuildingType,
+  declaredCost: number,
+): number {
+  let cost = applyWorldBuildCost(state, worldId, declaredCost);
+  if (buildingType === JUMP_GATE_BUILDING && state.settings.factions_enabled) {
+    const player = state.players.find((p) => p.player_id === playerId);
+    const mult = player ? getPlayerFaction(state, player)?.jump_gate_cost_mult : undefined;
+    if (mult != null && mult !== 1) cost = Math.max(0, Math.ceil(cost * mult));
+  }
+  return cost;
+}
+
 export function validateBuild(
   state: GameState,
   playerId: string,
@@ -160,10 +191,22 @@ export function validateBuild(
     return { valid: false, error: 'Unknown building type' };
   }
 
-  const cost = applyWorldBuildCost(state, territory.world_id, declaredCost);
+  const cost = resolveBuildCostFor(state, playerId, territory.world_id, buildingType, declaredCost);
   const playerProduction = player.special_resource ?? 0;
   if (playerProduction < cost) {
     return { valid: false, error: `Not enough production points (need ${cost}, have ${playerProduction})` };
+  }
+
+  // Jump Gate: one per world per player. A second gate on the same world buys
+  // nothing (its tiles are already joined by land) and the pairing rule would
+  // have nothing to link it to.
+  if (buildingType === JUMP_GATE_BUILDING) {
+    if (!territory.world_id) {
+      return { valid: false, error: 'Jump Gates need a multi-world map' };
+    }
+    if (playerHasGateOnWorld(state, playerId, territory.world_id, territoryId)) {
+      return { valid: false, error: 'You already hold a Jump Gate on this world' };
+    }
   }
 
   const existingBuildings = territory.buildings ?? [];
@@ -256,7 +299,9 @@ export function applyBuild(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!territory || !player) return;
 
-  const cost = applyWorldBuildCost(state, territory.world_id, resolveBuildingCosts(state)[buildingType]);
+  const cost = resolveBuildCostFor(
+    state, playerId, territory.world_id, buildingType, resolveBuildingCosts(state)[buildingType],
+  );
   player.special_resource = (player.special_resource ?? 0) - cost;
 
   if (!territory.buildings) territory.buildings = [];
@@ -277,6 +322,11 @@ export function applyBuild(
   }
 
   territory.buildings.push(buildingType);
+
+  // Galactic Age: a new gate pairs with every gate this player holds on another
+  // world. Recorded here, in the one place every build path runs through (socket,
+  // AI, sim), so no caller can open a gate without its lane.
+  if (buildingType === JUMP_GATE_BUILDING) recordJumpGateLinks(state, playerId, territoryId);
 }
 
 // ── Production tick ───────────────────────────────────────────────────────────
@@ -340,6 +390,8 @@ export function collectProduction(
   // Base tech income: 1 TP per 5 territories when tech trees are enabled
   if (state.settings.tech_trees_enabled) {
     techPointsEarned += Math.max(1, Math.floor(ownedCount / 5));
+    // Galaxy worlds as characters (Nexus): the Vault pays its holder.
+    techPointsEarned += vaultTechIncome(state, playerId);
   }
 
   // Galaxy per-world identity: production/tech bonus per owned territory on a world
@@ -395,6 +447,8 @@ export function getBuildingDefenseBonus(state: GameState, territoryId: string): 
   for (const building of territory.buildings ?? []) {
     bonus += BUILDING_DEFENSE_BONUS[building] ?? 0;
   }
+  // Galaxy worlds as characters (Rust): a defended tile here rolls extra dice.
+  if (bonus > 0) bonus += worldDefenseBuildingBonusDice(state, territory.world_id);
   return bonus;
 }
 
