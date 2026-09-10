@@ -66,6 +66,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_moon_helium3_enabled: () => envOptIn('SPACE_AGE_MOON_HELIUM3_ENABLED'),
   space_age_moon_gated_tier_enabled: () => envOptIn('SPACE_AGE_MOON_GATED_TIER_ENABLED'),
   space_age_moon_hegemony_enabled: () => envOptIn('SPACE_AGE_MOON_HEGEMONY_ENABLED'),
+  space_age_moon_missions_enabled: () => envOptIn('SPACE_AGE_MOON_MISSIONS_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -408,6 +409,21 @@ export const featureFlags = {
    */
   get spaceAgeMoonHegemonyEnabled(): boolean {
     return overrideBool('space_age_moon_hegemony_enabled');
+  },
+
+  /**
+   * Space Age Moon Race, Phase 5 — the lunar branch of the secret-mission deck.
+   * Roughly 30% of Space Age secret missions become lunar: hold both polar
+   * basins, control the whole Moon, hold three or five lunar tiles, or keep a
+   * named rival off the Moon entirely while standing on it yourself.
+   *
+   * Independent of every other phase — it needs no Helium-3 and no victory
+   * clock — but it is a no-op unless the game also allows `secret_mission`
+   * victory. DARK by default; §7.4 asks only that lunar missions complete
+   * within ±10 points of the existing mission mean.
+   */
+  get spaceAgeMoonMissionsEnabled(): boolean {
+    return overrideBool('space_age_moon_missions_enabled');
   },
 
   /**

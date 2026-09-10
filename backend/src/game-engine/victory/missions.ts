@@ -2,6 +2,87 @@ import type { GameMap, GameState, PlayerState, SecretMission } from '../../types
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
+import { isLunarTerritory } from '../state/helium3';
+
+/** Lunar tiles this player holds — the measure both Phase 5 missions read. */
+function countLunarTilesHeldBy(state: GameState, playerId: string): number {
+  return Object.values(state.territories)
+    .filter((t) => t.owner_id === playerId && isLunarTerritory(t))
+    .length;
+}
+
+/**
+ * The two authored polar basins, and the id of the lunar region. Named rather
+ * than derived so a mission cannot silently retarget if the map gains tiles.
+ */
+const LUNAR_POLE_IDS: [string, string] = ['moon_polar_north', 'moon_polar_south'];
+const LUNAR_REGION_ID = 'lunar_surface';
+
+/**
+ * Lunar tiles a Lunar Denial holder must stand on themselves.
+ *
+ * THREE, not the one §7.2 specified. At one tile the objective is really just
+ * "be first to the Moon", which is a race outcome rather than a thing you work
+ * at. Swept over 5 replicates x 60 games per value, completion rate within the
+ * lunar deck:
+ *
+ *   >=1 tile   denial 46%  ·  foothold 36%  ·  poles 16%  ·  whole Moon 3%
+ *   >=2 tiles  denial 38%  ·  foothold 39%  ·  poles 13%  ·  whole Moon 0%
+ *   >=3 tiles  denial 31%  ·  foothold 32%  ·  poles 20%  ·  whole Moon 6%
+ *
+ * At one tile denial was three times easier than the ordinary-mission mean of
+ * 16%; at three it sits level with Lunar Foothold, which is the objective it
+ * most resembles. Three is also the foothold the Phase 2 tier asks for, so the
+ * mission reads as "establish a real position AND keep them off it".
+ *
+ * Note the aggregate barely moved across the sweep (23.5% → 22.1%): §7.4's gate
+ * averages four objectives with a 15x spread between easiest and hardest, so it
+ * cannot see an imbalance inside the deck. That is a limitation of the gate,
+ * not evidence there was nothing to fix.
+ */
+const LUNAR_DENIAL_MIN_TILES = 3;
+
+/**
+ * The four lunar objectives (Moon Race, Phase 5).
+ *
+ * Two of them need no new mission kind at all — the poles are an ordinary
+ * `capture_territories` and the whole Moon an ordinary `control_regions`.
+ *
+ * This branch DELIBERATELY targets ground the generic path excludes. The
+ * exclusion above exists because a random capture mission naming a Moon tile
+ * would be wildly unfair against a rival whose mission is two ordinary
+ * territories. These are different: the player knows the objective is lunar,
+ * every one of them is lunar, and by Phase 3 the contest rule makes reaching an
+ * occupied Moon cost two techs and one build rather than the full ladder.
+ */
+function buildLunarMission(
+  map: GameMap,
+  others: PlayerState[],
+  rng: () => number,
+): SecretMission | null {
+  const lunarTilesOnMap = map.territories.filter(
+    (t) => t.region_id === LUNAR_REGION_ID,
+  ).length;
+  if (lunarTilesOnMap === 0) return null;
+
+  const options: SecretMission[] = [
+    { kind: 'capture_territories', territory_ids: LUNAR_POLE_IDS },
+    { kind: 'control_regions', region_ids: [LUNAR_REGION_ID] },
+    // Three tiles is the Phase 2 tier's own threshold; five is most of the Moon
+    // without being the whole-Moon mission above.
+    { kind: 'lunar_foothold', tiles: rng() < 0.5 ? 3 : 5 },
+  ];
+  // Denial needs somebody to deny.
+  if (others.length > 0) {
+    const target = others[Math.floor(rng() * others.length)]!;
+    options.push({ kind: 'lunar_denial', target_player_id: target.player_id });
+  }
+  // Both poles must actually exist on the resolved map, or the first option is
+  // an objective nobody can complete.
+  const poles = LUNAR_POLE_IDS.every((id) => map.territories.some((t) => t.territory_id === id));
+  const pool = poles ? options : options.slice(1);
+  return pool[Math.floor(rng() * pool.length)]!;
+}
 
 /**
  * Deterministic 32-bit seed from an arbitrary string (FNV-1a). Used together
@@ -94,6 +175,8 @@ export function assignSecretMissions(
     .map((r) => r.region_id)
     .filter((id) => (territoriesPerRegion.get(id) ?? 0) > 0);
 
+  const lunarMissionsEnabled = state.settings.space_age_moon_missions_enabled === true;
+
   for (const player of state.players) {
     const others = state.players.filter((p) => p.player_id !== player.player_id);
     const owned = new Set(
@@ -105,12 +188,23 @@ export function assignSecretMissions(
     const roll = rng();
     let mission: SecretMission;
 
+    // Space Age lunar branch (Moon Race, Phase 5). Placed after the
+    // era-advancement branch and gated the same way — on a setting that is off
+    // for every other game — so the RNG STREAM for non-Space-Age games is
+    // byte-identical to before this existed: the roll is already drawn, the
+    // condition is false, and the same fall-through tests run in the same order.
+    const lunarMission = lunarMissionsEnabled && roll < 0.30
+      ? buildLunarMission(map, others, rng)
+      : null;
+
     if (state.settings.era_advancement_enabled && getMaxEraIndex(state) >= 1 && roll < 0.25) {
       // Era-themed objective: reach a mid-spine era (capped by the spine length).
       // Gated on era advancement so the RNG stream for non-era games is unchanged.
       const targetIndex = Math.min(2, getMaxEraIndex(state));
       const eraId = getStateSpineSteps(state)[targetIndex]?.era_id ?? 'medieval';
       mission = { kind: 'reach_era', era_index: Math.max(1, targetIndex), era_id: eraId };
+    } else if (lunarMission) {
+      mission = lunarMission;
     } else if (roll < 0.34 && enemyOwned.length >= 2) {
       const [a, b] = pickManyUnique(enemyOwned, 2, rng);
       mission = { kind: 'capture_territories', territory_ids: [a, b] };
@@ -195,6 +289,16 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);
     case 'reach_era':
       return (player.current_era_index ?? 0) >= m.era_index;
+    // ── Space Age Moon Race, Phase 5 ──────────────────────────────────────
+    case 'lunar_foothold':
+      return countLunarTilesHeldBy(state, player.player_id) >= m.tiles;
+    case 'lunar_denial': {
+      // Both halves matter: standing on the Moon yourself is what makes it a
+      // denial rather than a wish, and it is why this cannot be satisfied by a
+      // rival simply never going.
+      if (countLunarTilesHeldBy(state, player.player_id) < LUNAR_DENIAL_MIN_TILES) return false;
+      return countLunarTilesHeldBy(state, m.target_player_id) === 0;
+    }
     case 'alliance':
       // Alliance victory is handled in checkVictory directly (requires both players)
       return false;

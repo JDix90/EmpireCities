@@ -1,6 +1,6 @@
 # Space Age — The Moon Race: Design Package
 
-**Status: design-archive → proposed. Phases 0, 1, 2a, 2b and 3 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
+**Status: design-archive → proposed. Phases 0, 1, 2a, 2b, 3 and 5 done (2026-09-09).** No gameplay phase is implemented; Phase 0's prerequisites are complete and its measurements are recorded in §2. It specifies a phased, flag-gated package that turns the Space Age Moon from a cost centre into the keystone of the era, and it is written against the systems that exist today so each phase is an engineering task rather than an idea.
 
 Owner of the questions this answers: the Space Age review session (PRs #253–#274). Companion reading: [PLAYER_GUIDE.md § Space Age Moon ladder](../PLAYER_GUIDE.md), `backend/src/game-engine/state/moonAccess.ts`, `backend/scripts/simSpaceAgeBalance.ts`.
 
@@ -56,7 +56,7 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 | 2b ✅ | Drop Assault | The drop that can take a tile: telegraphed, resolved from a virtual origin | same flag | attack resolution from a transient source |
 | 3 ✅ | Lunar Hegemony | A Moon-only victory with reset-on-loss and a relaxed contest gate | `space_age_moon_hegemony_enabled` (dark) | new `VictoryType`, clock state, `contest` access mode |
 | 4 | Orbital Blockade | Lane seals for Space Age, reusing the Galactic mechanic; anchor lanes only | `space_age_moon_blockade_enabled` | create-boundary change, seal cost, lane filter |
-| 5 | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` | two `SecretMission` kinds + generator branch |
+| 5 ✅ | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` (dark) | two `SecretMission` kinds + generator branch |
 | knob | Tribute | Tech-point tithe on Earth-only players | `space_age_moon_tribute_enabled` (**default OFF**) | income-tick transfer |
 
 **Player-facing surface:** one lobby toggle, **Moon Race**, which enables whichever phases have shipped. The per-phase flags are operator kill switches, not player choices — six checkboxes in a lobby would be the wrong product.
@@ -442,9 +442,40 @@ Two of the four wanted missions need **no new kinds**:
 
 `assignSecretMissions` (`victory/missions.ts`) gains a branch guarded exactly like the era-advancement branch — *gated so the RNG stream for non-Space-Age games is unchanged*: when the map is Space Age and the flag is on, a `roll < 0.30` slot picks uniformly from the four lunar missions (denial only when a valid target exists). The existing PR that stopped missions targeting unseeded frontiers already guarantees Moon tiles are seeded neutral and valid targets.
 
-### 7.4 Gate
+### 7.4 Gate — measured 2026-09-09
 
 Independent of the others; ship when `isMissionComplete` tests pass and a 60-game `SIM_MOON_MISSIONS=1` run shows lunar missions completing at a rate within ±10 points of the existing mission mean.
+
+5 replicates × 60 games, against a matched control on the same commit (`SIM_SECRET_MISSIONS=1` — secret-mission victory on, lunar branch off), mean [range]:
+
+| | control | **with the lunar branch** | |
+|---|---|---|---|
+| Lunar share of assigned missions | 0 | **28.8%** [24–33] | ~30% as designed |
+| Lunar missions completed | — | **22.1%** [16–29] | |
+| Ordinary missions completed, same games | 21.3 [20–22] | 17.3 [15–21] | **+4.8 points apart** ✓ |
+| Game length | 26.4 | 38.1 | lunar objectives take longer |
+
+**Passes.** Also worth noting: the branch makes games *longer*, not shorter — a lunar objective is slower to complete than an ordinary one, so it is not a fast-win shortcut.
+
+**The gate cannot see inside the deck, and that mattered.** Completion by objective, at the design's original thresholds:
+
+| | whole Moon | both poles | Lunar Foothold | **Lunar Denial** |
+|---|---|---|---|---|
+| completion | 3% | 16% | 36% | **46%** |
+
+Denial at "hold ≥1 lunar tile while the target holds none" was **three times easier** than the ordinary-mission mean of 16% — because at one tile the objective is really just *be first to the Moon*, which is a race outcome rather than something you work at. The aggregate still passed, because a 3% objective and a 46% objective average out. A gate that averages four objectives with a 15× spread cannot detect an imbalance inside the deck.
+
+Swept and fixed: **Lunar Denial requires the holder to stand on three lunar tiles**, not one.
+
+| denial threshold | denial | foothold | poles | whole Moon | lunar aggregate |
+|---|---|---|---|---|---|
+| ≥1 tile | 46% | 36% | 16% | 3% | 23.5% |
+| ≥2 tiles | 38% | 39% | 13% | 0% | 22.6% |
+| **≥3 tiles** | **31%** | 32% | 20% | 6% | 22.1% |
+
+At three it sits level with Lunar Foothold — the objective it most resembles — and the spread across the deck narrows from 3–46 to 6–32. Three is also the foothold the Phase 2 tier asks for, so the mission reads as *establish a real position AND keep them off it*.
+
+**Whole-Moon control stays the hard one at 6%.** That is the Hegemony bar without the clock, and it is deliberately the deck's big objective; one in sixteen is low but it is one of four.
 
 ---
 
