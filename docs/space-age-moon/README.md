@@ -441,7 +441,7 @@ Shipped at 2 because both gate criteria clear on the mean there and a defensive 
 ### 6.6 What Phase 4 actually shipped, versus this design
 
 - **§6.2(5)'s fix applies to the Galactic Age too.** A seal outliving its owner's presence was never Space-Age-specific; `tickLaneBlockades` now drops any seal whose owner holds neither endpoint, in both eras. Holding an end is what raising a seal requires, so it is what keeping one requires.
-- **The blockade flag arms `lanes_contestable_enabled` itself.** §6.2(1) expects the Moon Race lobby toggle to set both, and that toggle does not exist yet (§10.2). Rather than ship a phase that silently does nothing without a second setting, the create boundary arms the underlying mechanic when the phase flag is on. An explicit client value still wins.
+- **The blockade flag arms `lanes_contestable_enabled` itself.** §6.2(1) expects the Moon Race lobby toggle to set both. The create boundary arms the underlying mechanic whenever the phase resolves on, rather than asking the lobby to set two things that must agree; an explicit client value still wins. Now that the toggle exists (§10.2) it gates the phase, so declining the race also withdraws the lane-sealing permission.
 - **The Space Age needed its own seal UI.** The Galactic Age seals from its strategic view, which Space Age games never render — so without this the blockade would have been a mechanic only bots could use, exactly the gap Phase 1 shipped with Lunar Export. The action now lives on the territory panel of any orbit-lane endpoint you hold, and Launch Pad lanes are deliberately not offered rather than offered-and-refused.
 
 ---
@@ -557,6 +557,33 @@ Backend-only flags stay out of `getClientFeatureFlags()`; the client reads the b
 
 One toggle, **Moon Race**, on Space Age era games. Sets every shipped phase's game setting. Off = today's game exactly. Ranked: off until Phase 3's gate has passed on production data, then on.
 
+**Shipped.** `resolveMoonRacePhases` (`games.routes.ts`) is the whole resolution, and it keeps two questions apart:
+
+- **Does this game want the package?** The lobby's one checkbox, carried as `moon_race_enabled` on the create request.
+- **Does the operator ship a given phase?** `featureFlags.moonRacePhases` — one record, now the single definition of what "the Moon Race" contains. `moonRaceAvailable` and the client flag `space_age_moon_race_enabled` are both derived from it, so the toggle can never offer a phase it cannot enable, or enable one it never offered. A sixth phase is one line in that record.
+
+Every phase setting is the AND of the two. Three consequences worth stating, each covered by a test in `moonRaceLobbyToggle.test.ts`:
+
+1. **Unticking gives today's game exactly** — asserted by normalizing a declined Space Age create and comparing it to one built before the package existed. It also withdraws the Orbital Blockade's create-boundary permission, so a declined game cannot arm lane sealing either (§6.2).
+2. **A player can never turn on a dark phase**, however a create request is hand-crafted. The schema accepts `moon_race_enabled` and nothing else; the per-phase keys are server-owned and zod strips them.
+3. **An absent toggle follows the operator.** Quick Match, an older client and a scripted create keep behaving exactly as they did before the toggle existed, and promoting a phase flag to ON reaches players without a second switch to remember. The lobby therefore sends an **explicit** boolean whenever the checkbox is on screen — an omitted untick would be read as consent.
+
+The checkbox is ticked by default wherever it is offered, which is what makes 10.3's promotion step actually reach players, and it is only offered on a Space Age create with at least one phase live. With all five flags dark today, it is invisible and every Space Age game is unchanged.
+
+**Verified live**, not only in unit tests: a throwaway Postgres + Redis, the real `POST /api/games`, five creates on `era_space_age`.
+
+| Create | Phase settings persisted |
+|---|---|
+| toggle ticked, all five flags ON | all five, plus `lanes_contestable_enabled` |
+| toggle unticked, all five flags ON | none |
+| toggle absent, all five flags ON | all five (follows the operator) |
+| toggle ticked, no victory conditions chosen | `allowed_victory_conditions: [domination, threshold, lunar_hegemony]` |
+| toggle unticked, no victory conditions chosen | `[domination, threshold]` |
+
+And the claim that matters most, checked as a database comparison rather than by reading code: the unticked create's `settings_json` is **byte-identical** to a create made against a server with every Moon Race flag dark. With the flags dark the client flag `space_age_moon_race_enabled` reads false and the toggle does not render at all, which is the state shipping today.
+
+Two things the toggle exposed and this work fixed: `lunar_hegemony` fell through `describeWinConditions` to its raw enum name, so a Phase 3 game opened by telling players they could win by `lunar_hegemony`; and both the start modal and the HUD banner counted from the default clock rather than the game's own `space_age_hegemony_turns`, which tells a rival they have turns they do not have.
+
 ### 10.3 One PR per phase
 
 Each phase is one PR off `main`, dark-launched, with its sim run and gate numbers in the PR body. Phase 2b (Drop Assault) is its own PR after 2a. Promotion to ON is a separate one-line PR once staging has been checked — leaving it OFF in code while prod runs on an override is how the repo starts lying about what players see.
@@ -572,7 +599,7 @@ Each phase is one PR off `main`, dark-launched, with its sim run and gate number
 | Lunar Pioneers dominate | every gate's faction criterion | Pioneers clock offset (§5.4); their +2 def is the knob to touch next |
 | Drop collapses Earth geography | Phase 2 gate; player reports | 2a before 2b; telegraphed landing; cooldown; cost |
 | AI cannot contest the Moon | everywhere | resolved: bots launch in 100% of games and capture Moon tiles in 100% (§2.1–2.2), and an AI-path socket test now guards the ordering |
-| Six flags, one feature | ops confusion | one lobby toggle; flags are kill switches only |
+| Six flags, one feature | ops confusion | resolved: one lobby toggle, one `moonRacePhases` record behind it; flags are kill switches only (§10.2) |
 | Moon fights invisible on phones | Phase 3 | HUD banner + inset badge specified as part of the phase, not a follow-up |
 
 ---

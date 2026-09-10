@@ -19,7 +19,7 @@ import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivatio
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
 import { countOwnedLunarTerritories, type FrontendMapData } from '../../utils/orbitAccess';
 import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
-import { hegemonyBanner } from '../../utils/lunarHegemony';
+import { hegemonyBanner, hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -489,7 +489,7 @@ export default function GameHUD({
                 {hegemony && (
                   <div
                     data-testid="hud-hegemony"
-                    title="Hold every Moon territory for six consecutive turns to win"
+                    title={`Hold every Moon territory for ${hegemonyTurnsFor(gameState?.settings)} consecutive turns of your own to win`}
                     className={clsx(
                       'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs',
                       hegemony.isMe

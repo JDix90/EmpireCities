@@ -175,6 +175,8 @@ export interface GameState {
     space_age_moon_gated_tier_enabled?: boolean;
     /** Phase 3: the Lunar Hegemony victory and the contest rule. */
     space_age_moon_hegemony_enabled?: boolean;
+    /** Phase 3 tunable: own-turns of total Moon control the clock needs. */
+    space_age_hegemony_turns?: number;
     /** Phase 4: the Orbital Blockade — seal an authored orbit lane for 3 He-3. */
     space_age_moon_blockade_enabled?: boolean;
     async_mode?: boolean;

@@ -131,6 +131,56 @@ describe('describeWinConditions', () => {
       'Hold your capital and capture every enemy capital',
     ]);
   });
+
+  it('phrases the Lunar Hegemony instead of leaking its enum name', () => {
+    // Before this it fell through to `return kind`, so a Moon Race game opened
+    // by telling players they could win by 'lunar_hegemony'.
+    const settings = { ...makeState().settings, allowed_victory_conditions: ['lunar_hegemony'] };
+    expect(describeWinConditions(settings).conditions).toEqual([
+      'Hold every lunar territory for 7 turns of your own in a row',
+    ]);
+  });
+
+  it('counts from the clock length THIS game runs on', () => {
+    const settings = {
+      ...makeState().settings,
+      allowed_victory_conditions: ['lunar_hegemony'],
+      space_age_hegemony_turns: 5,
+    };
+    expect(describeWinConditions(settings).conditions).toEqual([
+      'Hold every lunar territory for 5 turns of your own in a row',
+    ]);
+  });
+});
+
+describe('what a Moon Race game tells players before their first turn', () => {
+  const spaceAge = (settings: Record<string, unknown>) => makeState({
+    era: 'space_age',
+    settings: { ...makeState().settings, ...settings },
+  } as Partial<GameState>);
+
+  it('names only the phases this game actually runs', () => {
+    render(
+      <GameStartModal
+        open
+        onClose={() => {}}
+        gameState={spaceAge({ space_age_moon_helium3_enabled: true })}
+        viewerPlayerId="me"
+      />,
+    );
+    expect(screen.getByText(/Moon Race is on/)).toHaveTextContent('lunar tiles mine Helium-3');
+    expect(screen.queryByText(/blockaded/)).not.toBeInTheDocument();
+  });
+
+  it('says nothing at all when the race is declined', () => {
+    // The whole promise of unticking the toggle: today's Space Age, unchanged.
+    render(
+      <GameStartModal open onClose={() => {}} gameState={spaceAge({})} viewerPlayerId="me" />,
+    );
+    expect(screen.queryByText(/Moon Race is on/)).not.toBeInTheDocument();
+    // The plain orbit-gate note still shows — the Moon still counts.
+    expect(screen.getByText(/The Moon counts too/)).toBeInTheDocument();
+  });
 });
 
 describe('GameStartModal', () => {

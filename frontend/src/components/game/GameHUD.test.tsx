@@ -124,6 +124,24 @@ describe('GameHUD — tabbed redesign (#9)', () => {
       expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('You hold the Moon · Hegemony in 6');
     });
 
+    it('counts down from the clock length THIS game runs on', () => {
+      // §9 lists 4-8 as the range a game may be set to. A banner counting from
+      // the default when the game runs a shorter clock tells every rival they
+      // have turns they do not have.
+      useGameStore.setState({
+        gameState: makeState({
+          settings: {
+            economy_enabled: true, tech_trees_enabled: true,
+            space_age_moon_hegemony_enabled: true, space_age_hegemony_turns: 5,
+          } as GameState['settings'],
+          lunar_hegemony: { owner_id: 'rival', turns_held: 4, started_turn: 3 },
+        } as Partial<GameState>),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('Hegemony in 1');
+    });
+
     it('shows nothing while no clock is running', () => {
       useGameStore.setState({
         gameState: makeState({
