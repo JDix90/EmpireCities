@@ -11,6 +11,7 @@ import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettin
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
 import { applyHelium3Income } from './helium3';
+import { syncLaunchPadLanes } from './moonAccess';
 import { applyMoonTribute, clearTributeReceived } from './moonTribute';
 import { hasCompletedHegemony, tickLunarHegemony } from './lunarHegemony';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
@@ -323,6 +324,34 @@ export function initializeGameState(
     for (const t of Object.values(territories)) {
       t.buildings = [];
     }
+    // Faction starting buildings (Faction.starting_building). Gated on economy
+    // because that is what creates the arrays above; in a no-economy game nobody
+    // can build at all, so the board is equally bare for everyone.
+    if (settingsNorm.factions_enabled) {
+      const factionDefs = getEraFactions(era);
+      for (const p of playerStates) {
+        const building = p.faction_id
+          ? factionDefs.find((f) => f.faction_id === p.faction_id)?.starting_building
+          : undefined;
+        if (!building) continue;
+        const owned = Object.values(territories).filter((t) => t.owner_id === p.player_id);
+        if (owned.length === 0) continue;
+        // Most-connected owned territory: a lone starting building is a target,
+        // and the well-connected tile is both the easiest to reinforce and the
+        // one whose lane is most useful. Tie-break on id so a seeded game is
+        // reproducible rather than depending on object key order.
+        const host = owned.reduce((best, t) => {
+          const deg = (id: string) => map.connections.filter(
+            (c) => c.from === id || c.to === id,
+          ).length;
+          const d = deg(t.territory_id);
+          const bd = deg(best.territory_id);
+          if (d !== bd) return d > bd ? t : best;
+          return t.territory_id < best.territory_id ? t : best;
+        });
+        if (!host.buildings?.includes(building)) host.buildings = [...(host.buildings ?? []), building];
+      }
+    }
   }
 
   const startingPlayerIndex = initOptions?.forceStartingPlayerIndex
@@ -458,6 +487,14 @@ export function initializeGameState(
       }
     }
   }
+
+  // A launch pad seeded above opens its own orbit lane, and the lane has to
+  // exist from turn one or the building is decorative. gameRoomManager syncs on
+  // every room load, but nothing had synced at INIT — which the balance sim
+  // relies on, since it only syncs after a pad is built during play. Doing it
+  // here removes that divergence: the same call, idempotent (it returns false
+  // when there is nothing to add), on every path that starts a game.
+  syncLaunchPadLanes(map, state);
 
   appendWinProbabilitySnapshot(state);
   return state;
