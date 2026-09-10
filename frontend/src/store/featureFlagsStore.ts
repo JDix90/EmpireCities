@@ -18,6 +18,13 @@ export interface ClientFeatureFlags {
   ranked_multi_size_enabled: boolean;
   match_alerts_enabled: boolean;
   attack_blitz_enabled: boolean;
+  /**
+   * Whether the Space Age lobby offers the Moon Race toggle at all. ONE client
+   * flag for the whole package, not one per phase: the lobby only needs to know
+   * there is something behind the toggle, and which phases it turns on is
+   * decided server-side at create, where the per-phase flags live.
+   */
+  space_age_moon_race_enabled: boolean;
 }
 
 /**
@@ -52,6 +59,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   match_alerts_enabled: false,
   // "Attack until captured": one event resolves repeated exchanges server-side.
   attack_blitz_enabled: true,
+  // Derived server-side from the five Moon Race phase flags — all dark, so the
+  // toggle is hidden until an operator ships a phase.
+  space_age_moon_race_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -134,4 +144,8 @@ export function useMatchAlertsEnabled(): boolean {
 
 export function useAttackBlitzEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.attack_blitz_enabled);
+}
+
+export function useMoonRaceEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.space_age_moon_race_enabled);
 }

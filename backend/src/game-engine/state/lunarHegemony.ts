@@ -2,7 +2,8 @@
  * Lunar Hegemony — the Space Age Moon Race, Phase 3.
  *
  * The Moon's own victory: hold all nine lunar tiles at the end of your turn for
- * six consecutive own-turns and you win, however Earth stands. It exists so the
+ * seven consecutive own-turns and you win, however Earth stands (the sweep moved
+ * this from the designed six — see HEGEMONY_TURNS). It exists so the
  * era has an ending that is not the 54-tile Earth grind, and so the Moon is
  * worth rushing rather than worth visiting.
  *

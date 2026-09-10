@@ -121,6 +121,20 @@ export function getFeatureFlagStates(): Record<string, FeatureFlagState> {
  * exactly one place and the `admin_config.feature_flags` row means "explicit
  * operator override" (the kill switch), nothing more.
  */
+/**
+ * The game-settings keys the Moon Race package owns, one per shipped phase.
+ * Named by their SETTINGS key rather than their flag name so the create bake can
+ * spread the resolved record straight into a game's settings.
+ */
+export type MoonRacePhaseKey =
+  | 'space_age_moon_helium3_enabled'
+  | 'space_age_moon_gated_tier_enabled'
+  | 'space_age_moon_hegemony_enabled'
+  | 'space_age_moon_missions_enabled'
+  | 'space_age_moon_blockade_enabled';
+
+export type MoonRacePhaseFlags = Record<MoonRacePhaseKey, boolean>;
+
 export const featureFlags = {
   /**
    * When true, emit structured analytics events to logs and persist them to
@@ -398,7 +412,7 @@ export const featureFlags = {
 
   /**
    * Space Age Moon Race, Phase 3 — the Lunar Hegemony. Holding all nine lunar
-   * tiles at the end of your turn for six consecutive own-turns wins the game,
+   * tiles at the end of your turn for seven consecutive own-turns wins the game,
    * and the clock RESETS the moment one tile leaves you. Comes with the contest
    * rule: once anybody holds lunar ground, everyone else's Moon access drops to
    * Launch Pad tech plus a Launch Pad, so contesting an occupied Moon costs far
@@ -441,6 +455,36 @@ export const featureFlags = {
    */
   get spaceAgeMoonBlockadeEnabled(): boolean {
     return overrideBool('space_age_moon_blockade_enabled');
+  },
+
+  /**
+   * Which Moon Race phases the operator currently ships, as one record.
+   *
+   * The single definition of what "the Moon Race" contains: the lobby toggle
+   * asks for the package, the create bake reads this to decide which parts of
+   * it that turns on, and the client flag below is derived from the same record.
+   * Shipping a sixth phase means adding one line here and nowhere else — three
+   * hand-maintained lists is how a toggle ends up offering a phase it cannot
+   * enable, or enabling one it never offered.
+   */
+  get moonRacePhases(): MoonRacePhaseFlags {
+    return {
+      space_age_moon_helium3_enabled: this.spaceAgeMoonHelium3Enabled,
+      space_age_moon_gated_tier_enabled: this.spaceAgeMoonGatedTierEnabled,
+      space_age_moon_hegemony_enabled: this.spaceAgeMoonHegemonyEnabled,
+      space_age_moon_missions_enabled: this.spaceAgeMoonMissionsEnabled,
+      space_age_moon_blockade_enabled: this.spaceAgeMoonBlockadeEnabled,
+    };
+  },
+
+  /**
+   * Whether the lobby has a Moon Race to offer at all — true when ANY phase is
+   * enabled. Not a phase itself and deliberately not overridable: it is derived,
+   * so an operator can never end up with a lobby toggle that turns nothing on,
+   * or with phases live and no way for a player to decline them.
+   */
+  get moonRaceAvailable(): boolean {
+    return Object.values(this.moonRacePhases).some(Boolean);
   },
 
   /**
@@ -499,5 +543,10 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
+    // ONE client flag for the whole Moon Race, not six. The lobby offers a
+    // single toggle (§10.2) and only needs to know whether there is anything
+    // behind it; which phases that toggle actually turns on is decided
+    // server-side at create, where the per-phase flags live.
+    space_age_moon_race_enabled: featureFlags.moonRaceAvailable,
   };
 }

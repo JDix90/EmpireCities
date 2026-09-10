@@ -16,6 +16,17 @@ import type { GameState } from '../store/gameStore';
  */
 export const HEGEMONY_TURNS = 7;
 
+/**
+ * The clock length THIS game runs on. A game may carry its own value in
+ * `space_age_hegemony_turns` (§9 lists 4-8 as the range), and a banner counting
+ * down from the wrong number is worse than no banner: it tells every rival they
+ * have turns they do not have.
+ */
+export function hegemonyTurnsFor(settings: GameState['settings'] | null | undefined): number {
+  const configured = settings?.space_age_hegemony_turns;
+  return typeof configured === 'number' && configured > 0 ? configured : HEGEMONY_TURNS;
+}
+
 export interface HegemonyBanner {
   holderName: string;
   isMe: boolean;
@@ -32,6 +43,6 @@ export function hegemonyBanner(
   return {
     holderName: holder?.username ?? 'Someone',
     isMe: !!viewerId && clock.owner_id === viewerId,
-    turnsRemaining: Math.max(0, HEGEMONY_TURNS - clock.turns_held),
+    turnsRemaining: Math.max(0, hegemonyTurnsFor(gameState.settings) - clock.turns_held),
   };
 }
