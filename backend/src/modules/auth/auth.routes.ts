@@ -247,7 +247,11 @@ function refreshCookieOpts(maxAgeSeconds: number) {
  * rotation stamp gives ~hourly last-active granularity for returning users.
  */
 function stampLastLogin(userId: string): void {
-  query('UPDATE users SET last_login_at = NOW() WHERE user_id = $1', [userId]).catch(() => {});
+  // Logged rather than swallowed: a silent failure here leaves the admin
+  // "Last login" column frozen at signup with nothing in the logs to say why.
+  query('UPDATE users SET last_login_at = NOW() WHERE user_id = $1', [userId]).catch((err) => {
+    console.warn('[auth] last_login_at stamp failed', { userId, err });
+  });
 }
 
 /**

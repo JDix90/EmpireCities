@@ -139,6 +139,7 @@ export function emitAbilityStrikeVisuals(
   emitMapVisual(io, gameId, buildStrikeMapVisual({
     territoryId: payload.territoryId,
     abilityId: payload.abilityId,
+    playerId: payload.attackerId,
     attackerColor: payload.attackerColor,
     defenderLosses: unitReduction,
     unitReduction,
