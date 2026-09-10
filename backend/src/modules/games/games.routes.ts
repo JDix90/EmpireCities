@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { z } from 'zod';
-import type { GameState, VictoryType } from '../../types';
+import type { EraId, GameState, VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
@@ -16,6 +16,7 @@ import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags, type MoonRacePhaseFlags, type MoonRacePhaseKey } from '../../config/featureFlags';
+import { reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
 import { buildChronicle } from '../../game-engine/chronicle/buildChronicle';
@@ -156,16 +157,32 @@ export function applyOrbitGatedVictoryDefaults<
   settings: T,
   opts: { isOrbitGated: boolean; callerChoseVictory: boolean; lunarHegemony?: boolean },
 ): T {
-  if (!opts.isOrbitGated) return settings;
+  // Nothing to apply off an orbit-gated era unless the Hegemony is in play:
+  // return the caller's own object so a non-Space-Age create is untouched, by
+  // identity and not merely by value.
+  if (!opts.isOrbitGated && !opts.lunarHegemony) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
-    const defaults: VictoryType[] = ['threshold'];
-    // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route, so
-    // a create that expressed no preference gets it alongside threshold. An
-    // explicit lobby choice still wins — this only fills a blank.
-    if (opts.lunarHegemony) defaults.push('lunar_hegemony');
-    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...defaults])];
-    if (typeof out.victory_threshold !== 'number') out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
+    // Both additions only ever fill a blank list; an explicit lobby choice wins.
+    const add: VictoryType[] = [];
+    if (opts.isOrbitGated) add.push('threshold');
+    // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route.
+    // Deliberately NOT conditioned on `isOrbitGated`, because an era-advancement
+    // game that climbs into the Space Age should be winnable that way too — it
+    // just must not pick up the backstop below with it.
+    if (opts.lunarHegemony) add.push('lunar_hegemony');
+    if (add.length > 0) {
+      out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
+    }
+  }
+  // The threshold-60 / 90-turn backstop exists for a game that is orbit-gated
+  // from turn ONE and would otherwise never end (a large share of the board
+  // sits behind an orbit gate, so domination is unreachable). An era-advancement
+  // climb is not that game: capping a marathon at 90 turns would be a different
+  // game entirely, so this stays scoped to the start era.
+  if (!opts.isOrbitGated) return out;
+  if (!opts.callerChoseVictory && typeof out.victory_threshold !== 'number') {
+    out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
   }
   if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
   return out;
@@ -249,8 +266,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const isSpaceAgeEra = era_id === 'space_age' || map_id === 'era_space_age';
+    // "Is or will be the Space Age": an era-advancement game that climbs there
+    // has to arrive with the package, or it reaches the era without the thing
+    // that makes it the era. The phases are inert until the board has lunar
+    // tiles, so baking them at create costs an Ancient start nothing.
+    const willBeSpaceAge = isSpaceAgeEra || reachesSpaceAge(era_id as EraId, rawSettings);
     const moonRace = resolveMoonRacePhases({
-      isSpaceAge: isSpaceAgeEra,
+      isSpaceAge: willBeSpaceAge,
       shipped: featureFlags.moonRacePhases,
     });
     const spaceAgeBlockade = moonRace.phases.space_age_moon_blockade_enabled === true;

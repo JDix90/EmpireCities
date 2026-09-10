@@ -573,9 +573,15 @@ So: **every Space Age game gets every shipped phase.** `resolveMoonRacePhases` (
 
 Both silent failure modes are still covered by tests (`moonRacePhases.test.ts`): the `normalizeGameSettings` whitelist, which drops any key it does not name and would make a phase inert with nothing failing, and the create-schema whitelist.
 
+**A clock that could not win (fixed here).** `checkVictory` only declares a win the game's victory list allows, but the clock was gated on the phase SETTING alone. With the phase on and `lunar_hegemony` not in the list — every Space Age game whose host picks their own victory conditions, since the defaults only fill a blank list — the clock still ran, still broadcast, and still drew the HUD countdown for a victory that could never be declared. A rival reading "Hegemony in 2" and spending three turns going to break it was answering a threat that did not exist. `isLunarHegemonyEnabled` now requires both, which also withdraws the contest rule where there is no Hegemony to contest.
+
 Two bugs the toggle work exposed, and which outlived it: `lunar_hegemony` fell through `describeWinConditions` to its raw enum name, so a Phase 3 game opened by telling players they could win by `lunar_hegemony`; and both the start modal and the HUD banner counted from the default clock rather than the game's own `space_age_hegemony_turns`, which tells a rival they have turns they do not have.
 
-**Still open (§12):** the phases are baked keyed on the era at CREATE, so a game that *advances into* the Space Age on the `full_ascension` spine reaches the era with none of them. If the Moon Race is what the era is, that game is not really playing the Space Age either. Decide whether era-advancement games should pick the package up on arrival.
+**Era-advancement games (settled).** The phases are baked keyed on the era, and `reachesSpaceAge` answers "is or *will be* the Space Age" — so a game climbing the `full_ascension` spine (or a board-transform game anchored anywhere on the line) is created with the package rather than arriving without it.
+
+Baked at CREATE, not at the board transform, for two reasons: the engine never reads a feature flag, and a match's rules cannot shift under it depending on when it happened to transform. That works because the phases are **inert until the board has lunar tiles** — `isLunarTerritory` matches nothing on an Ancient board, so the economy pays nothing, `soleMoonHolder` finds no Moon, the lunar-mission generator returns before its first `rng()` call, and there are no orbit lanes to seal. The helper resolves the era-advancement preset itself, because at the create boundary `era_advancement_spine_id` is often still implied by `era_advancement_preset` ('epic') rather than set.
+
+The Hegemony needed splitting out from the orbit-gated defaults: an ascending game gets `lunar_hegemony` as a victory route (when the host chose none), but **not** the threshold-60 / 90-turn backstop, which exists for a game orbit-gated from turn one and would turn a marathon climb into a different game.
 
 **Ranked** stays as designed: off until Phase 3's gate has passed on production data, then on. That is matchmaking configuration, not a per-game choice.
 
