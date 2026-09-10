@@ -22,7 +22,9 @@ import {
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled } from '../store/featureFlagsStore';
+import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
+import { backgroundMusic, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
@@ -836,6 +838,32 @@ export default function GamePage() {
   const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
   /** Incoming attacks shown live during the attacker's turn (non-blocking dice theater). */
   const [defenderTheaterQueue, setDefenderTheaterQueue] = useState<CombatResult[]>([]);
+
+  // ── Background music (flag-gated, generated in the browser) ──────────────
+  // The bed follows the VIEWING player's era and leans in while they attack or
+  // are attacked; the cadence at game over lets it resolve and fade.
+  const backgroundMusicEnabled = useBackgroundMusicEnabled();
+  const [musicOutcome, setMusicOutcome] = useState<MusicCadence | null>(null);
+  const musicTension = useMemo(() => {
+    const viewerId = viewerPlayer?.player_id ?? null;
+    const isMyTurn =
+      !!viewerId && gameState?.players[gameState.current_player_index]?.player_id === viewerId;
+    return musicTensionFor({
+      phase: gameState?.phase,
+      isMyTurn,
+      underAttack: defenderTheaterQueue.length > 0,
+      gameOver: gameState?.phase === 'game_over',
+    });
+  }, [gameState?.phase, gameState?.players, gameState?.current_player_index, viewerPlayer?.player_id, defenderTheaterQueue.length]);
+  useBackgroundMusic({
+    enabled: backgroundMusicEnabled && gameStarted,
+    eraId: playerTechEra,
+    tension: musicTension,
+    outcome: musicOutcome,
+  });
+  useEffect(() => {
+    setMusicOutcome(null);
+  }, [gameId]);
   const gamePhase = gameState?.phase;
   useEffect(() => {
     // Don't leave the recap overlay floating over the results screen.
@@ -1639,6 +1667,7 @@ export default function GamePage() {
         myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
       const currentEra = useGameStore.getState().gameState?.era;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
+      setMusicOutcome(!!myId && winnerIds.includes(myId) ? 'victory' : 'defeat');
       const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
       const vc = stats.victory_condition;
       const probHistory = stats.win_probability_history ?? [];
@@ -1760,6 +1789,8 @@ export default function GamePage() {
     socket.on('game:advance_era_result', ({ era_id }: { success: boolean; era_id?: string }) => {
       const label = era_id ? (ERA_LABELS[era_id] ?? era_id) : 'the next era';
       setShowTechTree(false);
+      // The bed swells here; the palette itself changes when playerTechEra does.
+      backgroundMusic.playEraSwell();
       const payoff = pendingAdvancePayoffRef.current;
       pendingAdvancePayoffRef.current = null;
       const payoffEnabled = useFeatureFlagsStore.getState().flags.era_advance_payoff_enabled;

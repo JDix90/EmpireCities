@@ -79,6 +79,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never breaks a truce, never in daily challenges. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
   },
   {
+    key: 'background_music_enabled',
+    label: 'Background music',
+    description:
+      'Play a generated ambient bed on the game page (synthesized in the browser, no audio files). It follows the viewing player\u2019s era, leans in during combat, swells on an era advance and resolves at game over. Starts on the player\u2019s first click (browser autoplay rules). Players keep their own music volume and mute in Settings; lite mode and reduce-motion silence it. Off by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
