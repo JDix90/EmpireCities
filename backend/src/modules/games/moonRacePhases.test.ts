@@ -40,9 +40,12 @@ describe('every Space Age game gets every shipped phase', () => {
     expect(res.phases).toEqual(ALL);
   });
 
-  it('turns on ONLY the phases the operator ships', () => {
-    // The flags are a rollout mechanism, so a partly-promoted package has to
-    // land as exactly the promoted part — never all-or-nothing.
+  it('turns on ONLY the phases named in the shipped record', () => {
+    // The resolver stays per-phase even though the flag no longer is: it writes
+    // the SETTINGS a game is baked with, and those are read one at a time by the
+    // code implementing each phase. A partial record cannot come from
+    // featureFlags today (see below), but the contract is what keeps the bake
+    // honest if that ever changes.
     const res = resolveMoonRacePhases({
       isSpaceAge: true,
       shipped: { ...NONE, space_age_moon_helium3_enabled: true, space_age_moon_hegemony_enabled: true },
@@ -158,10 +161,22 @@ describe('a create request cannot reach the Moon Race', () => {
   });
 });
 
-describe('the operator flags as they ship today', () => {
-  it('leaves every phase dark', () => {
-    // The package is dark-launched in full. When this fails a phase has been
-    // promoted, and it now reaches every Space Age game at once.
+describe('the operator flag as it ships today', () => {
+  it('leaves the package dark', () => {
+    // Dark-launched. When this fails the Moon Race has been promoted, and it
+    // now reaches every Space Age game at once — including one that climbs
+    // there by era advancement.
+    expect(featureFlags.spaceAgeMoonRaceEnabled).toBe(false);
     expect(featureFlags.moonRacePhases).toEqual(NONE);
+  });
+
+  it('is all-or-nothing: one switch, never a partial package', () => {
+    // The five per-phase flags are gone. They offered the illusion of five
+    // choices when only one combination was ever right — the gated tier is
+    // inert without the economy that prices it, the blockade exists to counter
+    // the Hegemony. Whatever the flag reads, every phase agrees with it.
+    const values = new Set(Object.values(featureFlags.moonRacePhases));
+    expect(values.size).toBe(1);
+    expect([...values][0]).toBe(featureFlags.spaceAgeMoonRaceEnabled);
   });
 });

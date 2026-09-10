@@ -541,17 +541,21 @@ All initial values; every one is expected to move after the phase's sim run.
 
 ## 10. Flags, settings, and rollout
 
-### 10.1 Per phase
+### 10.1 One flag, per-phase settings
 
-Each phase adds, following the `space_age_frontiers_enabled` pattern:
+~~Each phase adds an entry in `FLAG_CODE_DEFAULTS`, a getter, and its own Admin kill switch.~~ **It did while the package was being built and rolled out; it is now one flag.**
 
-- an entry in `FLAG_CODE_DEFAULTS` (`backend/src/config/featureFlags.ts`), **`envOptIn` while dark**, promoted to `envOptOut` once the phase gate passes on staging;
-- a getter on the flags object;
-- **baked into `GameSettings` at create** (`games.routes.ts`), so the engine reads the setting and stays pure, and a flip never changes a match in progress;
-- an Admin → Config kill switch (`CLIENT_FEATURE_FLAGS` in `AdminPage.tsx`) — every flag that defaults ON needs it visible;
-- a sim knob (§2.3).
+- **One flag, `space_age_moon_race_enabled`** (`FLAG_CODE_DEFAULTS`, `envOptIn` while dark), one getter, and **one** Admin → Config entry. The five per-phase flags are gone.
+- **The settings stay per phase.** `featureFlags.moonRacePhases` maps the one flag onto the five `GameSettings` keys, which are baked at create (`games.routes.ts`) and read by the engine. That split is what keeps games already in flight on exactly the rules they started under, and keeps each phase's own gate honest in the code that implements it (`isHelium3Enabled`, `areMoonPowersEnabled`, `isLunarHegemonyEnabled`, …).
+- **A sim knob per phase** (§2.3) — unchanged, and still the way to measure a phase in isolation. The flags were never the right tool for that; the sim knobs always were.
 
-Backend-only flags stay out of `getClientFeatureFlags()`; the client reads the baked game setting.
+Why one: the phases are one feature (§10.2), and five switches offered the illusion of five choices when only one combination was ever right. The gated tier is inert without the lunar economy that prices it; the lunar missions are inert unless the game allows secret-mission victory; the blockade exists as a counter to the Hegemony. An operator picking a subset was picking a broken game.
+
+What that costs: partial promotion. §5.7's observation that a **Phase-3-only** cohort wants `space_age_hegemony_turns: 5` is no longer reachable by flag — it is still reachable per game via that setting, and still measurable via `SIM_MOON_HEGEMONY=1` alone.
+
+Backend-only flags stay out of `getClientFeatureFlags()`; the client reads the baked game settings. The Moon Race sends nothing to the client at all (§10.2).
+
+**Note when promoting on a database that ran the old flags:** admin overrides for the five retired keys become dead rows. `pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts` previews and `--apply` clears them.
 
 ### 10.2 How the Moon Race reaches a game
 

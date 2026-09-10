@@ -63,11 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
   spectate_enabled: () => envOptIn('SPECTATE_ENABLED'),
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
-  space_age_moon_helium3_enabled: () => envOptIn('SPACE_AGE_MOON_HELIUM3_ENABLED'),
-  space_age_moon_gated_tier_enabled: () => envOptIn('SPACE_AGE_MOON_GATED_TIER_ENABLED'),
-  space_age_moon_hegemony_enabled: () => envOptIn('SPACE_AGE_MOON_HEGEMONY_ENABLED'),
-  space_age_moon_missions_enabled: () => envOptIn('SPACE_AGE_MOON_MISSIONS_ENABLED'),
-  space_age_moon_blockade_enabled: () => envOptIn('SPACE_AGE_MOON_BLOCKADE_ENABLED'),
+  space_age_moon_race_enabled: () => envOptIn('SPACE_AGE_MOON_RACE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -377,103 +373,55 @@ export const featureFlags = {
   },
 
   /**
-   * Space Age Moon Race, Phase 1 — the lunar economy. Owned Moon tiles pay
-   * Helium-3 each turn (polar basins double), and Lunar Export converts it to
-   * tech points, so three Moon tiles is a real position rather than a down
-   * payment on nine.
+   * The Space Age Moon Race — the whole package, one switch.
    *
-   * DARK by default while the phase gate is unmeasured: promote to `envOptOut`
-   * only once a `SIM_MOON_HELIUM3=1` run clears §3.8 (median first-landing turn
-   * down, >=40% of games with two players on the Moon, Lunar Pioneers within
-   * +/-8 of the faction mean, decisive rate not worse). Baked into game settings
-   * at create; the engine reads the setting, so a flip never re-rules a match
-   * already in progress. See docs/space-age-moon/README.md.
+   * It was five flags, one per phase, which is how the package was built and
+   * rolled out. That is not what it is: the phases are one feature (§10.2), and
+   * an operator has no way to reason about the combinations anyway — the gated
+   * tier is inert without the lunar economy that prices it, the lunar missions
+   * are inert unless the game allows secret-mission victory, and the blockade
+   * exists to be a counter to the Hegemony. Five switches offered the illusion
+   * of five choices and only one of them was ever right.
+   *
+   * What it turns on, all of it: Moon tiles pay Helium-3 and Lunar Export
+   * converts it to tech points; `dyson_beam` moves behind a lunar foothold and
+   * Orbital Drop / Drop Assault become available; holding all nine lunar tiles
+   * for seven consecutive own-turns wins outright, with the contest rule that
+   * cheapens Moon access once anyone lands; roughly 30% of Space Age secret
+   * missions become lunar; and authored orbit lanes can be sealed for 3 He-3.
+   *
+   * DARK by default. It reaches EVERY Space Age game the moment it is on —
+   * there is no lobby opt-out (§10.2) — so promote it only once the phase gates
+   * in §§3.8, 4.5, 5.6, 6.5 and 7.4 have been checked on staging. Baked into
+   * game settings at create; the engine reads the settings, so a flip never
+   * re-rules a match already in progress.
+   *
+   * Kill switch: `SPACE_AGE_MOON_RACE_ENABLED=false` or the
+   * `space_age_moon_race_enabled` admin override.
    */
-  get spaceAgeMoonHelium3Enabled(): boolean {
-    return overrideBool('space_age_moon_helium3_enabled');
+  get spaceAgeMoonRaceEnabled(): boolean {
+    return overrideBool('space_age_moon_race_enabled');
   },
 
   /**
-   * Space Age Moon Race, Phase 2 — the gated tier. `dyson_beam` moves behind a
-   * lunar foothold plus 6 He-3, and Orbital Drop (3 units on any territory you
-   * own, anywhere) becomes available to a player holding three Moon tiles.
+   * The game-settings keys the one flag above writes — the single definition of
+   * what "the Moon Race" contains, and the only place the package is spelled
+   * out as a list.
    *
-   * DARK by default. It has no effect at all unless Phase 1 is also on: the
-   * powers are priced in He-3, so enabling this alone would take `dyson_beam`
-   * out of the game rather than move it to the Moon (see moonPowers.ts
-   * areMoonPowersEnabled). Promote to `envOptOut` only once a
-   * `SIM_MOON_TIER=1` run clears §4.5 — beam and drop both used in >=60% of
-   * games where someone holds three Moon tiles, the Moon holder's win share up
-   * on Phase 1 but under 60% in 4-player games, and shared-Moon games not down.
-   */
-  get spaceAgeMoonGatedTierEnabled(): boolean {
-    return overrideBool('space_age_moon_gated_tier_enabled');
-  },
-
-  /**
-   * Space Age Moon Race, Phase 3 — the Lunar Hegemony. Holding all nine lunar
-   * tiles at the end of your turn for seven consecutive own-turns wins the game,
-   * and the clock RESETS the moment one tile leaves you. Comes with the contest
-   * rule: once anybody holds lunar ground, everyone else's Moon access drops to
-   * Launch Pad tech plus a Launch Pad, so contesting an occupied Moon costs far
-   * less than discovering it did.
-   *
-   * DARK by default. Promote only once a `SIM_MOON_HEGEMONY=1` run clears §5.6
-   * — hegemony fires in 10–35% of games, at least half of started clocks are
-   * reset at least once, and the decisive rate does not fall.
-   */
-  get spaceAgeMoonHegemonyEnabled(): boolean {
-    return overrideBool('space_age_moon_hegemony_enabled');
-  },
-
-  /**
-   * Space Age Moon Race, Phase 5 — the lunar branch of the secret-mission deck.
-   * Roughly 30% of Space Age secret missions become lunar: hold both polar
-   * basins, control the whole Moon, hold three or five lunar tiles, or keep a
-   * named rival off the Moon entirely while standing on it yourself.
-   *
-   * Independent of every other phase — it needs no Helium-3 and no victory
-   * clock — but it is a no-op unless the game also allows `secret_mission`
-   * victory. DARK by default; §7.4 asks only that lunar missions complete
-   * within ±10 points of the existing mission mean.
-   */
-  get spaceAgeMoonMissionsEnabled(): boolean {
-    return overrideBool('space_age_moon_missions_enabled');
-  },
-
-  /**
-   * Space Age Moon Race, Phase 4 — the Orbital Blockade. Reuses the Galactic
-   * lane-seal mechanic: hold either end of one of the three AUTHORED orbit
-   * lanes, pay 3 He-3, and it is shut to everyone else for two rounds.
-   *
-   * Launch Pad lanes are deliberately unsealable (canSealLane), which is what
-   * keeps the blockade from undoing Phase 3's contest rule: the anchors are the
-   * convenient route and may be denied, the pad is the contest route and stays
-   * open. DARK by default; §6.5 asks that seals are used in >=40% of games with
-   * a running Hegemony clock AND that Hegemony completion does not rise by more
-   * than 5 points — if it does, the exclusion is not doing its job.
-   */
-  get spaceAgeMoonBlockadeEnabled(): boolean {
-    return overrideBool('space_age_moon_blockade_enabled');
-  },
-
-  /**
-   * Which Moon Race phases the operator currently ships, as one record.
-   *
-   * The single definition of what "the Moon Race" contains: the lobby toggle
-   * asks for the package, the create bake reads this to decide which parts of
-   * it that turns on, and the client flag below is derived from the same record.
-   * Shipping a sixth phase means adding one line here and nowhere else — three
-   * hand-maintained lists is how a toggle ends up offering a phase it cannot
-   * enable, or enabling one it never offered.
+   * The SETTINGS stay per-phase even though the FLAG no longer is. That split is
+   * deliberate: settings are baked per game and read by the engine, so games
+   * already in flight keep exactly the rules they started under, and each phase
+   * keeps its own honest gate in the code that implements it. Shipping a sixth
+   * phase is one line here.
    */
   get moonRacePhases(): MoonRacePhaseFlags {
+    const on = this.spaceAgeMoonRaceEnabled;
     return {
-      space_age_moon_helium3_enabled: this.spaceAgeMoonHelium3Enabled,
-      space_age_moon_gated_tier_enabled: this.spaceAgeMoonGatedTierEnabled,
-      space_age_moon_hegemony_enabled: this.spaceAgeMoonHegemonyEnabled,
-      space_age_moon_missions_enabled: this.spaceAgeMoonMissionsEnabled,
-      space_age_moon_blockade_enabled: this.spaceAgeMoonBlockadeEnabled,
+      space_age_moon_helium3_enabled: on,
+      space_age_moon_gated_tier_enabled: on,
+      space_age_moon_hegemony_enabled: on,
+      space_age_moon_missions_enabled: on,
+      space_age_moon_blockade_enabled: on,
     };
   },
 
