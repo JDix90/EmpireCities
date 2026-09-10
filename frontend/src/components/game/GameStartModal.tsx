@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
+import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
 /**
@@ -59,6 +60,10 @@ export function describeWinConditions(settings: GameState['settings']): {
         return 'Hold your capital and capture every enemy capital';
       case 'secret_mission':
         return 'Complete your secret mission';
+      case 'lunar_hegemony':
+        // Without this case the raw enum name reached players, which is what a
+        // Moon Race game shows on its very first screen.
+        return `Hold every lunar territory for ${hegemonyTurnsFor(settings)} turns of your own in a row`;
       case 'lane_sovereignty':
         return 'Hold both gateways of 5 hyperspace lanes for 3 turns running';
       default:
@@ -113,6 +118,23 @@ export default function GameStartModal({
       ? 'The Moon counts too — you start with access to it.'
       : 'The Moon counts too. Reach it with the Space Program: Spaceport Infrastructure, a Launch Pad, then the Space Station and Lunar Expansion.'
     : null;
+  // The Moon Race changes what the Moon is FOR, and this modal is the one
+  // moment every player is guaranteed to read before their first turn. Only
+  // the phases this game actually runs are named — the lobby toggle asks for
+  // the package, the server decides which parts of it exist.
+  const moonRaceNote = gameState.era === 'space_age'
+    ? [
+        gameState.settings.space_age_moon_helium3_enabled
+          ? 'lunar tiles mine Helium-3 for you each turn'
+          : null,
+        gameState.settings.space_age_moon_gated_tier_enabled
+          ? 'the strongest orbital powers need a foothold up there'
+          : null,
+        gameState.settings.space_age_moon_blockade_enabled
+          ? 'orbit lanes can be blockaded'
+          : null,
+      ].filter(Boolean).join(', ')
+    : '';
 
   // Faction name + ability come from the era endpoint (same source the
   // in-game Bonuses modal uses). Best-effort: the section simply doesn't
@@ -188,6 +210,11 @@ export default function GameStartModal({
       </ul>
       {turnCap && <p className="text-xs text-bf-muted mb-1.5 pl-[22px]">{turnCap}.</p>}
       {moonNote && <p className="text-xs text-violet-300/90 mb-4 pl-[22px]">{moonNote}</p>}
+      {moonRaceNote && (
+        <p className="text-xs text-violet-300/90 mb-4 pl-[22px]">
+          Moon Race is on: {moonRaceNote}.
+        </p>
+      )}
       {!turnCap && !moonNote && <div className="mb-4" />}
       {(turnCap || moonNote) && <div className="mb-2.5" />}
 

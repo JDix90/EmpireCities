@@ -26,6 +26,7 @@ const VICTORY_LABELS: Record<string, string> = {
   secret_mission: 'Secret Mission',
   lane_sovereignty: 'Lane Sovereignty',
   alliance_victory: 'Alliance Victory',
+  lunar_hegemony: 'Lunar Hegemony',
   turn_limit: 'Turn Limit Victory',
   resignation: 'Victory by Resignation',
 };

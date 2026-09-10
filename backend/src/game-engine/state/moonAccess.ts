@@ -6,6 +6,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { isLaneClosedByWeather } from './laneWeather';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
+import { contestAccessMissing, contestOpensMoonAccess } from './lunarHegemony';
 
 export interface MoonAccessState {
   hasTech: boolean;
@@ -250,6 +251,17 @@ export function getOrbitAccessResult(
 
   if (mode === 'space_age_moon') {
     const m = getMoonAccessState(state, player);
+    if (m.allowed) return { allowed: true, missing: [], mode };
+    // The contest rule (Moon Race, Phase 3): once ANOTHER player holds lunar
+    // ground, the cost of joining the fight drops to Launch Pad tech plus a
+    // Launch Pad — two techs and one build, against the four techs and two
+    // builds the first lander paid. Without it the cost to contest an occupied
+    // Moon equals the cost to discover it, and a Moon-based victory becomes
+    // first-to-Moon-wins. See state/lunarHegemony.ts.
+    if (contestOpensMoonAccess(state, player.player_id)) {
+      const missing = contestAccessMissing(state, player);
+      return { allowed: missing.length === 0, missing, mode };
+    }
     return { allowed: m.allowed, missing: m.missing, mode };
   }
 
@@ -303,6 +315,13 @@ export interface LandingZone {
 
 function isAuthoredOrbitLane(c: MapConnection): boolean {
   return c.type === 'orbit' && c.source !== LAUNCH_PAD_LANE_SOURCE;
+}
+
+/** True when (a,b) is an AUTHORED orbit lane — not one a Launch Pad opened. */
+export function isAuthoredOrbitLaneBetween(map: GameMap, a: string, b: string): boolean {
+  return (map.connections ?? []).some(
+    (c) => isAuthoredOrbitLane(c) && ((c.from === a && c.to === b) || (c.from === b && c.to === a)),
+  );
 }
 
 /**
@@ -447,6 +466,32 @@ export const GALAXY_LANE_SEAL_DURATION = 1;
 /** Attacker dice across a hyperspace lane without Lane Charts. */
 export const GALAXY_LANE_BASE_ATTACK_DICE = 2;
 
+/**
+ * Space Age Orbital Blockade (Moon Race, Phase 4).
+ *
+ * Two rounds rather than the Galaxy's three: the Space Age board is smaller and
+ * a rival's answer — build a Launch Pad, fly your own lane — takes fewer turns,
+ * so a longer seal would outlast the counterplay rather than buy time against it.
+ */
+export const SPACE_AGE_LANE_SEAL_DURATION = 2;
+
+/**
+ * He-3 a Space Age seal costs. The Galaxy's is free; here it ties defence to
+ * the lunar economy, so a Hegemon spending on seals is a Hegemon not spending
+ * on beams.
+ */
+export const SPACE_AGE_LANE_SEAL_HELIUM3_COST = 3;
+
+/** How long a seal lasts in this era. */
+export function laneSealDuration(state: GameState): number {
+  return state.era === 'space_age' ? SPACE_AGE_LANE_SEAL_DURATION : GALAXY_LANE_SEAL_DURATION;
+}
+
+/** He-3 this era charges to seal. Zero outside the Space Age. */
+export function laneSealHelium3Cost(state: GameState): number {
+  return state.era === 'space_age' ? SPACE_AGE_LANE_SEAL_HELIUM3_COST : 0;
+}
+
 /** Canonical, order-independent id for the orbit lane between two territories. */
 export function orbitLaneId(a: string, b: string): string {
   return a < b ? `${a}::${b}` : `${b}::${a}`;
@@ -544,11 +589,23 @@ const EMERGENCY_SEAL_WORLD_ID = 'nexus_station';
 /**
  * Validate whether `playerId` may seal the orbit lane (from,to) right now.
  *
- * Emergency Seal is the Void Custodians' faction tool and the only timed seal
- * in the game: once per turn, any lane touching Nexus Station closes to everyone
- * else for one round. It replaced a sealing rule open to every player, which
- * lasted three rounds, was limited to one seal each, and was never used by the
- * AI — a wall nobody on the other side of the table could see or answer.
+ * TWO mechanics come through here, and they are not variants of each other:
+ *
+ *  • The Space Age **Orbital Blockade** (Moon Race, Phase 4) is a purchase. Any
+ *    player holding an end of an AUTHORED anchor lane may close it for He-3.
+ *    The Launch Pad exclusion is the rule the whole phase rests on — the anchors
+ *    are the convenient route and may be denied, the pad is the contest route
+ *    and stays open, so a Hegemon can make you build a pad but can never lock
+ *    you out.
+ *  • The Galactic Age **Emergency Seal** is a faction charge. The Void
+ *    Custodians (and whoever holds the Nexus Vault) close a lane once a turn,
+ *    for free. It replaced a sealing rule open to every player, which lasted
+ *    three rounds and was never used by the AI — a wall nobody on the other side
+ *    of the table could see or answer.
+ *
+ * The era decides which set applies, because a board that carries both (Space to
+ * Stars) has no Galactic Age lanes until somebody ascends, and the Space Age
+ * rules are the ones its authored lanes were measured under.
  */
 export function canSealLane(
   state: GameState,
@@ -556,25 +613,57 @@ export function canSealLane(
   fromId: string,
   toId: string,
   playerId: string,
-  factionAbilityId: string | undefined,
+  /** Galactic Age only: the acting player's faction ability, for Emergency Seal. */
+  factionAbilityId?: string,
   options?: {
     /** The player holds a Vault that grants the seal — any lane, not just Nexus's. */
     vaultHolder?: boolean;
   },
 ): SealLaneCheck {
-  const viaFaction = factionAbilityId === EMERGENCY_SEAL_ABILITY_ID;
-  const viaVault = options?.vaultHolder === true;
-  if (!viaFaction && !viaVault) {
-    return { ok: false, error: 'Emergency Seal is a Void Custodians ability, or the Vault holder\'s' };
-  }
   if (!isOrbitLane(map, fromId, toId)) return { ok: false, error: 'Not a hyperspace lane' };
-  const touchesNexus = [fromId, toId].some((id) => {
-    const t = map.territories.find((tt) => tt.territory_id === id);
-    return !!t && inferWorldId(t) === EMERGENCY_SEAL_WORLD_ID;
-  });
-  if (!viaVault && !touchesNexus) return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
   const id = orbitLaneId(fromId, toId);
   const blockades = state.lane_blockades ?? {};
+
+  if (state.era === 'space_age') {
+    if (!state.settings?.lanes_contestable_enabled) {
+      return { ok: false, error: 'Lane seals are not enabled' };
+    }
+    // ONLY the authored anchor lanes can be sealed. `syncLaunchPadLanes` writes
+    // a Launch Pad's own lane into `map.connections` with `type: 'orbit'`, so
+    // without this a Hegemon could seal the very route a rival built to come and
+    // contest them, and the cost to contest an occupied Moon would once again be
+    // unbounded.
+    if (!isAuthoredOrbitLaneBetween(map, fromId, toId)) {
+      return { ok: false, error: 'Launch Pad lanes cannot be blockaded — only the authored orbit lanes' };
+    }
+    const cost = laneSealHelium3Cost(state);
+    const stock = state.players.find((p) => p.player_id === playerId)?.helium3 ?? 0;
+    if (stock < cost) {
+      return { ok: false, error: `Sealing a lane needs ${cost} Helium-3 (you have ${stock})` };
+    }
+    const ownsEndpoint =
+      state.territories[fromId]?.owner_id === playerId || state.territories[toId]?.owner_id === playerId;
+    if (!ownsEndpoint) return { ok: false, error: 'You must hold one end of the lane to seal it' };
+    // One active seal per player (refreshing your own lane is allowed).
+    const otherActive = Object.entries(blockades).some(
+      ([lid, b]) => lid !== id && b.owner_id === playerId && b.turns_remaining > 0,
+    );
+    if (otherActive) return { ok: false, error: 'You already have a lane sealed — wait for it to lift' };
+  } else {
+    const viaFaction = factionAbilityId === EMERGENCY_SEAL_ABILITY_ID;
+    const viaVault = options?.vaultHolder === true;
+    if (!viaFaction && !viaVault) {
+      return { ok: false, error: 'Emergency Seal is a Void Custodians ability, or the Vault holder\'s' };
+    }
+    const touchesNexus = [fromId, toId].some((tid) => {
+      const t = map.territories.find((tt) => tt.territory_id === tid);
+      return !!t && inferWorldId(t) === EMERGENCY_SEAL_WORLD_ID;
+    });
+    if (!viaVault && !touchesNexus) {
+      return { ok: false, error: 'Emergency Seal only closes lanes that touch Nexus Station' };
+    }
+  }
+
   const existing = blockades[id];
   if (existing && existing.turns_remaining > 0 && existing.owner_id !== playerId) {
     return { ok: false, error: 'This lane is already sealed by a rival' };
@@ -582,17 +671,54 @@ export function canSealLane(
   return { ok: true, laneId: id };
 }
 
+/** Which clock a seal raised in this era ages on — see `GameState.lane_blockades`. */
+export function laneSealTick(state: GameState): 'round' | 'owner_turn' {
+  return state.era === 'space_age' ? 'round' : 'owner_turn';
+}
+
 /**
- * Decrement the seals `ownerId` holds by one round; drop expired. Called when
- * that player's turn BEGINS, so "one round" means the same thing for every
- * seat: the seal stands through each rival's turn and lifts as the sealer
- * comes back round. Ticking at the round wrap instead made a seal placed by
- * the last seat in turn order expire before anyone had to face it.
+ * Age lane seals by one round and drop the expired.
+ *
+ * Called twice per round, on the two clocks a seal can be on (see
+ * `GameState.lane_blockades`):
+ *   • `tickLaneBlockades(state)` at the ROUND WRAP ages Space Age Orbital
+ *     Blockades — and, being the legacy shape, anything a pre-existing save
+ *     recorded without a clock.
+ *   • `tickLaneBlockades(state, ownerId)` at that player's TURN START ages the
+ *     Galactic Age's seals. "One round" then means the same thing for every
+ *     seat: the seal stands through each rival's turn and lifts as the sealer
+ *     comes back round. Ticking those at the wrap instead made a seal placed by
+ *     the last seat in turn order expire before anyone had to face it.
  */
-export function tickLaneBlockades(state: GameState, ownerId: string): void {
+export function tickLaneBlockades(state: GameState, ownerId?: string): void {
   if (!state.lane_blockades) return;
   for (const [id, b] of Object.entries(state.lane_blockades)) {
-    if (b.owner_id !== ownerId) continue;
+    const clock = b.tick ?? 'round';
+    if (ownerId === undefined) {
+      if (clock !== 'round') continue;
+    } else {
+      if (clock !== 'owner_turn' || b.owner_id !== ownerId) continue;
+    }
+    // A seal outlives its owner's presence otherwise: they can be thrown off
+    // both ends of the lane and it stays shut for the rest of its duration,
+    // which is a blockade nobody is mounting. Holding an endpoint is what
+    // `canSealLane` requires to raise one, so it is what keeping one requires
+    // too. (Moon Race, Phase 4 §6.2(5) — the Galaxy inherits the same fix.)
+    const [endA, endB] = id.split('::');
+    const territoryA = state.territories[endA ?? ''];
+    const territoryB = state.territories[endB ?? ''];
+    // Only judge ownership when both endpoints actually resolve. A lane id that
+    // does not name two live territories tells us nothing about who holds it,
+    // and dropping a seal on that basis would be guessing — it expires on its
+    // own duration regardless.
+    if (territoryA && territoryB) {
+      const stillHoldsAnEnd =
+        territoryA.owner_id === b.owner_id || territoryB.owner_id === b.owner_id;
+      if (!stillHoldsAnEnd) {
+        delete state.lane_blockades[id];
+        continue;
+      }
+    }
     b.turns_remaining -= 1;
     if (b.turns_remaining <= 0) delete state.lane_blockades[id];
   }

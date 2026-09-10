@@ -16,6 +16,8 @@ import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import { getEffectiveTechCost } from '../state/techManager';
 import { aiResearchesTech } from './aiTechBudget';
+import { HEGEMONY_TURNS } from '../state/lunarHegemony';
+import { isLunarTerritory } from '../state/helium3';
 import {
   connectionRequiresMoonAccess,
   nearestLandingZoneFor,
@@ -245,6 +247,13 @@ export function evaluateBoard(
 
 // ── Private helpers ──────────────────────────────────────────────────────────
 
+/**
+ * How close a rival's Hegemony clock has to be before bots drop what they are
+ * doing. Three of six: half the clock gone, and enough turns left that a lander
+ * can still arrive.
+ */
+export const HEGEMONY_BREAK_URGENCY_TURNS = 3;
+
 /** Extra attack score toward enemy capitals, secret-mission targets, and gateways. */
 function attackObjectiveBonus(
   state: GameState,
@@ -293,6 +302,31 @@ function attackObjectiveBonus(
     for (const o of state.players) {
       if (o.player_id === attackerId || o.is_eliminated) continue;
       if (o.capital_territory_id === targetTerritoryId) b += 3;
+    }
+  }
+
+  // Lunar Hegemony (Space Age Moon Race, Phase 3): a rival is N turns from
+  // winning on the Moon. Weight lunar tiles they hold, so bots break the clock
+  // instead of watching it run out.
+  //
+  // Deliberately CONDITIONAL on a running clock close to completion, not a
+  // standing preference for lunar ground. Phase 1 measured the standing version
+  // — `helium3YieldOf(target) * 1.4` in this same function — and it halved
+  // decisive endings, because bots spent their turns on a sideshow instead of
+  // the Earth conquest that ends games (§3.6). This fires only when the sideshow
+  // IS the game.
+  if (allowed.includes('lunar_hegemony') && state.lunar_hegemony) {
+    const clock = state.lunar_hegemony;
+    const remaining = HEGEMONY_TURNS - clock.turns_held;
+    if (
+      clock.owner_id !== attackerId
+      && remaining <= HEGEMONY_BREAK_URGENCY_TURNS
+      && state.territories[targetTerritoryId]?.owner_id === clock.owner_id
+      && isLunarTerritory(state.territories[targetTerritoryId])
+    ) {
+      // Above the capital bonus of 3: one tile taken anywhere on the Moon
+      // resets the clock outright, so it is the cheapest answer on the board.
+      b += 4;
     }
   }
 

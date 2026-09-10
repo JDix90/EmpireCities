@@ -4,7 +4,14 @@ export interface MapConnection {
   from: string;
   to: string;
   type?: 'land' | 'sea' | 'orbit' | string;
-  /** Engine-added lane ('launch_pad', 'jump_gate'); absent on authored edges. */
+  /**
+   * Engine-added lane rather than an authored one: 'launch_pad' (a pad's own
+   * route to orbit), 'jump_gate' or 'lane_surge'. Absent on authored edges.
+   *
+   * The client needs to tell them apart: the Space Age Orbital Blockade may only
+   * seal authored lanes, and a Jump Gate lane carries no attack at all — so
+   * without this the UI offers buttons the server always refuses.
+   */
   source?: string;
 }
 

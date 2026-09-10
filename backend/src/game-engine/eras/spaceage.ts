@@ -8,11 +8,19 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     faction_id: 'terran_federation',
     lineage_id: 'imperial',
     name: 'Terran Federation',
-    description: 'Satellite-backed democracies — +1 attack die on every attack; +2 stability recovery per turn; Satellite Uplink ability.',
+    description: 'Satellite-backed democracies — +1 attack die on every attack; +2 tech points and +2 stability recovery per turn; Satellite Uplink ability.',
     lore: 'A confederation of North Atlantic and European megastates bound together by shared orbital infrastructure and open data networks.',
     flavor_quote: 'Transparency is the sharpest weapon of the free.',
     home_region_ids: ['north_america_2100', 'europe_2100'],
     passive_attack_bonus: 1,
+    // Half of Corporate Enclave's +4. Added because the measured spread showed
+    // every winning faction had a COMPOUNDING per-turn resource and every losing
+    // one had a situational or per-combat bonus — and Terran was the extreme
+    // case: a 4-tech-point ability with zero tech-point income to pay for it, so
+    // Satellite Uplink was very nearly unreachable. Fits the lore it already
+    // had (shared orbital infrastructure, open data networks) rather than
+    // inventing a new identity for them.
+    tech_point_income: 2,
     ability_id: 'satellite_uplink',
     ability_description: 'Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.',
     color: '#3498db',
@@ -76,7 +84,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     faction_id: 'lunar_pioneers',
     lineage_id: 'maritime',
     name: 'Lunar Pioneers',
-    description: 'Moon-native colonists — Moon access from turn one; +2 defense dice on Moon territories; Lunar Supply Drop ability.',
+    description: 'Moon-native colonists — start with a Launch Pad and Moon access from turn one; +1 reinforcement per turn; +2 defense dice on Moon territories; Lunar Supply Drop ability.',
     lore: 'Descendants of the first permanent lunar settlers, the Pioneers see Earth as a gravity well they are no longer obligated to return to.',
     flavor_quote: 'We do not look up at the stars. We live among them.',
     // The Moon starts neutral (see initializeGameState), so a lunar home region
@@ -84,6 +92,23 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     // staging ground; the Moon is still theirs to take via turn-1 orbit access.
     home_region_ids: ['oceania_2100'],
     offworld_defense_bonus: 2,
+    // The route, not just the permission. `getMoonAccessState` waives the tech
+    // ladder for Pioneers, but all three AUTHORED orbit lanes anchor in rival
+    // home regions (na_launch_base and euro_spaceport in Terran's, asia_cosmodrome
+    // in Sino's) and none in Oceania — so "Moon access from turn one" granted
+    // permission to cross a lane they had no way to reach. Their real cost to the
+    // Moon was sa_orbital_recon → sa_launch_pad_tech (12 TP) → launch_pad (8
+    // gold): the same first two rungs everyone climbs, paid on the worst economy
+    // on the board. A pad at home opens its own lane (syncLaunchPadLanes) and
+    // makes the faction's one-line description true.
+    starting_building: 'launch_pad',
+    // Their whole identity is Moon access from turn one, and they were reaching
+    // the Moon in only 17% of games — the LOWEST of the six — while being
+    // eliminated in 38%. Oceania is the smallest home on the board (4 tiles) and
+    // the most exposed (3.0 foreign borders per tile), so every unit that went
+    // up was a unit not defending the only ground they had. One extra
+    // reinforcement per turn is what lets them garrison Earth and still climb.
+    reinforce_bonus: 1,
     ability_id: 'lunar_supply_drop',
     ability_description: 'Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.',
     color: '#bdc3c7',

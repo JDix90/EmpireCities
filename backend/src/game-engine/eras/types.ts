@@ -97,6 +97,22 @@ export interface Faction {
    */
   lane_defense_bonus?: number;
   /**
+   * A building placed on one of this faction's starting territories at game
+   * init, when the game has economy enabled (buildings need somewhere to live).
+   *
+   * Exists because a faction identity can depend on infrastructure rather than
+   * on a stat. The Lunar Pioneers are the case: their whole kit is Moon access
+   * from turn one, but access is a PERMISSION and reaching the Moon needs a
+   * ROUTE — every authored orbit lane on the Space Age board anchors in a rival
+   * home region, so the Moon-native faction had to climb the same tech ladder as
+   * everyone else, with the worst economy on the board, before it could go home.
+   *
+   * Placed on their most-connected home territory so the pad is defensible and
+   * the lane it opens is reachable. Generalises the `space_station_launched`
+   * special case already seeded at init.
+   */
+  starting_building?: BuildingType;
+  /**
    * Lineage archetype this faction belongs to. When era advancement + factions
    * are both on, advancing remaps the player to the next era's faction sharing
    * this lineage_id (e.g. imperial: rome → hre → spain → ...). Every classic-spine

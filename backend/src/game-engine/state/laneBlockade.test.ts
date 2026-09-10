@@ -131,15 +131,26 @@ describe('canSealLane — Emergency Seal', () => {
 
 describe('tickLaneBlockades', () => {
   it('ages only the incoming player\'s seals, and drops them at zero', () => {
-    const state = mkState({ blockades: { a: { owner_id: 'p1', turns_remaining: 2 }, b: { owner_id: 'p2', turns_remaining: 1 } } });
+    // `tick: 'owner_turn'` is what a Galactic Age seal carries; a Space Age
+    // Orbital Blockade records 'round' and is aged at the wrap instead.
+    const owner = (owner_id: string, turns_remaining: number) =>
+      ({ owner_id, turns_remaining, tick: 'owner_turn' as const });
+    const state = mkState({ blockades: { a: owner('p1', 2), b: owner('p2', 1) } });
     tickLaneBlockades(state, 'p1');
-    expect(state.lane_blockades).toEqual({
-      a: { owner_id: 'p1', turns_remaining: 1 },
-      b: { owner_id: 'p2', turns_remaining: 1 },
-    });
+    expect(state.lane_blockades).toEqual({ a: owner('p1', 1), b: owner('p2', 1) });
     tickLaneBlockades(state, 'p2');
-    expect(state.lane_blockades).toEqual({ a: { owner_id: 'p1', turns_remaining: 1 } });
+    expect(state.lane_blockades).toEqual({ a: owner('p1', 1) });
     tickLaneBlockades(state, 'p1');
     expect(state.lane_blockades).toEqual({});
+  });
+
+  it('leaves a round-clock seal alone at a turn start, and ages it at the wrap', () => {
+    // The two clocks must not tread on each other: a board can carry both.
+    const blockade = { owner_id: 'p1', turns_remaining: 2 };
+    const state = mkState({ blockades: { a: { ...blockade } } });
+    tickLaneBlockades(state, 'p1');
+    expect(state.lane_blockades).toEqual({ a: blockade });
+    tickLaneBlockades(state);
+    expect(state.lane_blockades).toEqual({ a: { owner_id: 'p1', turns_remaining: 1 } });
   });
 });

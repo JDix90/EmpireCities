@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import type { GamePhase, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
+/**
+ * Space Age Moon Race, Phase 2b: a Drop Assault declared and not yet landed.
+ * Shared with every player on purpose — the telegraph is the counterplay.
+ */
+export interface DropAssault {
+  owner_id: string;
+  target_id: string;
+  declared_turn: number;
+  units: number;
+}
+
 export interface TerritoryState {
   territory_id: string;
   owner_id: string | null;
@@ -14,12 +25,22 @@ export interface TerritoryState {
 }
 
 export interface SecretMissionPayload {
-  kind: 'capture_territories' | 'eliminate_player' | 'control_regions' | 'reach_era';
+  kind:
+    | 'capture_territories'
+    | 'eliminate_player'
+    | 'control_regions'
+    | 'reach_era'
+    /** Space Age Moon Race, Phase 5: hold at least `tiles` lunar territories. */
+    | 'lunar_foothold'
+    /** Phase 5: stand on the Moon while a named rival holds none of it. */
+    | 'lunar_denial';
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
   era_index?: number;
   era_id?: string;
+  /** Lunar Foothold: how many Moon territories the objective needs. */
+  tiles?: number;
 }
 
 export interface PlayerState {
@@ -46,6 +67,10 @@ export interface PlayerState {
   tech_points?: number;
   unlocked_techs?: string[];
   special_resource?: number;
+  /** Space Age lunar economy: Helium-3 mined from owned Moon territories. */
+  helium3?: number;
+  tribute_paid_this_turn?: number;
+  tribute_received_this_turn?: number;
   ability_uses?: Record<string, number>;
   temporary_modifiers?: { type: string; value: number; turns_remaining: number; source: string }[];
   used_game_abilities?: string[];
@@ -131,6 +156,10 @@ export interface GameState {
   turn_number: number;
   players: PlayerState[];
   territories: Record<string, TerritoryState>;
+  /** Space Age Moon Race, Phase 2b: drops declared and not yet landed. */
+  drop_assaults?: DropAssault[];
+  /** Phase 3: the Lunar Hegemony clock, present only while someone holds all nine. */
+  lunar_hegemony?: { owner_id: string; turns_held: number; started_turn: number };
   card_set_redemption_count: number;
   diplomacy?: Array<{
     player_index_a: number;
@@ -167,6 +196,20 @@ export interface GameState {
     /** Galaxy worlds as characters: world_id → rules (Sol cradle, Verdan storms, Rust forge, the Nexus Vault). */
     world_rules_enabled?: boolean;
     world_rules?: Record<string, WorldRules>;
+    /** Galaxy: lane-seal mechanic toggle. */
+    lanes_contestable_enabled?: boolean;
+    /** Space Age Moon Race, Phase 1: Moon tiles pay Helium-3 each turn. */
+    space_age_moon_helium3_enabled?: boolean;
+    /** Phase 2: the gated tier — Dyson Beam behind the Moon, Orbital Drop. */
+    space_age_moon_gated_tier_enabled?: boolean;
+    /** Phase 3: the Lunar Hegemony victory and the contest rule. */
+    space_age_moon_hegemony_enabled?: boolean;
+    /** Phase 3 tunable: own-turns of total Moon control the clock needs. */
+    space_age_hegemony_turns?: number;
+    /** Phase 4: the Orbital Blockade — seal an authored orbit lane for 3 He-3. */
+    space_age_moon_blockade_enabled?: boolean;
+    /** The Tribute knob (§8): 6+ lunar tiles levies 1 TP/turn from players holding none. */
+    space_age_moon_tribute_enabled?: boolean;
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;

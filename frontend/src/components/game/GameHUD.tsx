@@ -17,7 +17,9 @@ import { AiBadge } from '../ui/AiBadge';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
-import type { FrontendMapData } from '../../utils/orbitAccess';
+import { countOwnedLunarTerritories, type FrontendMapData } from '../../utils/orbitAccess';
+import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
+import { hegemonyBanner, hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { laneSovereigntyProgress } from '../../utils/galaxyLanes';
 import {
   describeSecretMission,
@@ -164,6 +166,13 @@ export default function GameHUD({
         (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
       );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
+  // Space Age Phase 2b: a Drop Assault marked against ground this player holds.
+  // Standing alert rather than a one-shot toast — the counterplay is to
+  // reinforce the tile, which takes until the drop actually lands.
+  const incomingDrops = incomingDropAssaultsAgainst(gameState, myPlayer?.player_id ?? null);
+  // Space Age Phase 3: someone is counting down to a Moon victory. Shown to
+  // everyone — a clock only its holder can see is a victory nobody contests.
+  const hegemony = hegemonyBanner(gameState, myPlayer?.player_id ?? null);
   // Galactic Age Lane Sovereignty: corridors held now (computed here, since the
   // viewer always sees their own tiles) beside the server-ticked round streak.
   const sovereignty = laneSovereigntyProgress(gameState, mapData?.connections, myPlayer?.player_id ?? null);
@@ -503,6 +512,85 @@ export default function GameHUD({
                     <span>{myPlayer.tech_points ?? 0} TP</span>
                   </div>
                 )}
+                {/*
+                  Space Age lunar economy. Shown from the moment the rules are
+                  on rather than once the player has some, so the counter is a
+                  standing reminder that the Moon pays — a resource you only
+                  learn about after already earning it is not an incentive.
+                */}
+                {hegemony && (
+                  <div
+                    data-testid="hud-hegemony"
+                    title={`Hold every Moon territory for ${hegemonyTurnsFor(gameState?.settings)} consecutive turns of your own to win`}
+                    className={clsx(
+                      'flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs',
+                      hegemony.isMe
+                        ? 'bg-indigo-950/60 border-indigo-600/60 text-indigo-200'
+                        : 'bg-amber-950/60 border-amber-600/60 text-amber-200',
+                    )}
+                  >
+                    <span>🌕</span>
+                    <span>
+                      {hegemony.isMe ? 'You hold the Moon' : `${hegemony.holderName} holds the Moon`}
+                      {' · '}
+                      {hegemony.turnsRemaining === 0
+                        ? 'Hegemony now'
+                        : `Hegemony in ${hegemony.turnsRemaining}`}
+                    </span>
+                  </div>
+                )}
+                {incomingDrops.length > 0 && (
+                  <div
+                    data-testid="hud-incoming-drop"
+                    title="A Drop Assault has been declared against you"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-950/60 border border-red-700/50 text-red-200 text-xs"
+                  >
+                    <span>💥</span>
+                    <span>
+                      {incomingDrops.length === 1
+                        ? `Drop inbound: ${resolveTerritoryName(incomingDrops[0].assault.target_id, mapNameLookup)}`
+                        : `${incomingDrops.length} drops inbound`}
+                    </span>
+                  </div>
+                )}
+                {/*
+                  Tribute (§8). Shown to BOTH sides and only while it is
+                  actually moving: a levy the payer cannot see is a mechanic
+                  that reads as a bug, and the whole justification for the knob
+                  is that abstaining from the Moon has a visible price.
+                */}
+                {gameState.settings.space_age_moon_tribute_enabled
+                  && (myPlayer.tribute_paid_this_turn ?? 0) > 0 && (
+                  <div
+                    data-testid="hud-tribute-paid"
+                    title="Tribute — the Moon holder levies tech points from players holding no lunar ground. Take a single Moon territory to stop paying."
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-rose-800/50 text-rose-300 text-xs font-mono"
+                  >
+                    <span>⇉</span>
+                    <span>−{myPlayer.tribute_paid_this_turn} TP tribute</span>
+                  </div>
+                )}
+                {gameState.settings.space_age_moon_tribute_enabled
+                  && (myPlayer.tribute_received_this_turn ?? 0) > 0 && (
+                  <div
+                    data-testid="hud-tribute-received"
+                    title="Tribute collected from players holding no lunar ground since your last turn"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-emerald-800/50 text-emerald-300 text-xs font-mono"
+                  >
+                    <span>⇉</span>
+                    <span>+{myPlayer.tribute_received_this_turn} TP tribute</span>
+                  </div>
+                )}
+                {gameState.settings.space_age_moon_helium3_enabled && (
+                  <div
+                    data-testid="hud-helium3"
+                    title="Helium-3 — mined from your Moon territories"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-bf-dark border border-cyan-800/40 text-cyan-300 text-xs font-mono"
+                  >
+                    <span>☾</span>
+                    <span>{myPlayer.helium3 ?? 0} He-3</span>
+                  </div>
+                )}
               </div>
               {myPlayer.temporary_modifiers && myPlayer.temporary_modifiers.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -782,7 +870,12 @@ export default function GameHUD({
           {/* Global faction abilities (no territory target — e.g. blitzkrieg self-buff).
               These are turn actions, not utilities, so they stay above the fold. */}
           {onUseAbility && gameState && myPlayer && (() => {
-            const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree);
+            // The Moon's own powers are held by ground, not by a tech, so the
+            // ability list needs to know how much lunar ground this player has.
+            const lunarTilesOwned = countOwnedLunarTerritories(
+              mapData?.territories, gameState, myPlayer.player_id,
+            );
+            const globalAbils = getPlayerGlobalAbilities(gameState, myPlayer, techTree, lunarTilesOwned);
             if (globalAbils.length === 0) return null;
             return globalAbils.map((abilityId) => {
               const def = getAbilityUiDef(abilityId);

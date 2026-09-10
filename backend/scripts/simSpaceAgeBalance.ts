@@ -31,20 +31,24 @@
  * ENGINE-vs-SOCKET NOTE (production discrepancy, replicated honestly here):
  * The AI's "Launch Space Station" step exists ONLY in the socket layer
  * (gameSocket.ts processAiTurn, ~line 5010) — the pure engine (computeAiTurn /
- * selectAiTechResearch / selectAiBuildingPlacement) never fires it. Worse, that
- * socket block runs AFTER `state.phase = 'attack'` (gameSocket.ts:4962), and
- * executeTechAbility rejects launch_space_station during the attack phase
- * (executeTechAbility.ts:306-308) — so in production the AI launch appears to
- * ALWAYS fail. This sim replicates the socket sequence via the same executor
- * (executeTechAbility) but schedules it in the DRAFT phase as intended;
- * SIM_LAUNCH_PHASE=attack reproduces the production ordering to quantify the bug.
+ * selectAiTechResearch / selectAiBuildingPlacement) never fires it, so this sim
+ * has to schedule the launch itself, via the same executor, during the DRAFT
+ * phase — which is what production does.
+ *
+ * That socket block USED TO run after `state.phase = 'attack'`, and
+ * executeTechAbility refuses launch_space_station during the attack phase, so
+ * every AI launch failed silently and bots never reached the Moon. That was
+ * fixed in ae02c66 (2026-07-13); the block now precedes the phase transition and
+ * `spaceAgeMoonLadderSocket.test.ts` drives a real AI turn to keep it there.
+ * SIM_LAUNCH_PHASE=attack still reproduces the old ordering, now as a
+ * counterfactual — how much the Moon race is worth — rather than a prod repro.
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simSpaceAgeBalance.ts
  *   SIM_GAMES=60 SIM_PLAYERS=4 SIM_DIFFICULTY=expert SIM_MAX_TURNS=80 \
  *     SIM_SEED=borderfall SIM_CSV=/tmp/sim_space_age.csv \
  *     pnpm exec tsx scripts/simSpaceAgeBalance.ts
- *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # prod repro
+ *   SIM_LAUNCH_PHASE=attack pnpm exec tsx scripts/simSpaceAgeBalance.ts   # no-Moon counterfactual
  *   SIM_FACTIONS=1 SIM_GAMES=120 SIM_PLAYERS=6 pnpm exec tsx scripts/simSpaceAgeBalance.ts
  *
  * SIM_ASCENSION=1 — the Space to Stars audit. Same Moon race, on
@@ -68,6 +72,21 @@ import {
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
+import { countLunarTerritories } from '../src/game-engine/state/helium3';
+import {
+  canAiUseDropAssault,
+  canAiUseDysonBeam,
+  canAiUseOrbitalDrop,
+  selectAiDropAssaultTarget,
+  selectAiDysonBeamTarget,
+  selectAiOrbitalDropTarget,
+  shouldAiExportHelium3,
+} from '../src/game-engine/ai/aiMoonPowers';
+import { resolveDropAssaultsFor } from '../src/game-engine/abilities/dropAssault';
+import { HEGEMONY_TURNS } from '../src/game-engine/state/lunarHegemony';
+import { isMissionComplete } from '../src/game-engine/victory/missions';
+import { selectAiLaneSeal } from '../src/game-engine/ai/aiMoonPowers';
+import { canSealLane, laneSealDuration, laneSealHelium3Cost } from '../src/game-engine/state/moonAccess';
 import { TERRITORY_ABILITY_DEFS, isOwnedTerritoryAdjacentToEnemy } from '../src/game-engine/abilities/techAbilities';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { SPACE_AGE_FACTIONS } from '../src/game-engine/eras/spaceage';
@@ -98,17 +117,92 @@ const LAUNCH_PHASE = (process.env.SIM_LAUNCH_PHASE ?? 'draft') as 'draft' | 'att
 const FRONTIERS = process.env.SIM_FRONTIERS !== '0';
 /** When set (1–99), adds threshold victory at that % — mirrors the live orbit-gated create default (60). */
 const THRESHOLD = process.env.SIM_THRESHOLD ? Number(process.env.SIM_THRESHOLD) : null;
-/** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
-const FACTIONS = process.env.SIM_FACTIONS === '1';
-const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
-/** SIM_FACTION_ABILITIES=0 keeps passives but stops the AI firing draft abilities — isolates ability vs passive impact. */
-const FACTION_ABILITIES = process.env.SIM_FACTION_ABILITIES !== '0';
-/** SIM_ASCENSION=1: the Space to Stars board + the two-step space_to_stars spine. */
+/**
+ * SIM_ASCENSION=1: the Space to Stars board + the two-step space_to_stars spine.
+ * Declared up here because it changes what the Moon Race defaults below are.
+ */
 const ASCENSION = process.env.SIM_ASCENSION === '1';
 const ASCENSION_MAP = 'era_ascension_galaxy.json';
 /** The three worlds the Galactic Age step opens. */
 const EXO_WORLD_IDS = new Set(['verdan', 'rust', 'nexus_station']);
 
+/**
+ * A Moon Race phase, per run.
+ *
+ * The phase knobs default OFF because this harness was built to measure them
+ * one at a time, against a control that did not have them. That is the wrong
+ * default for the ASCENSION board: the Moon Race is ON in production and every
+ * Space to Stars game bakes the whole package at create, so a run with them off
+ * would measure a game nobody can create. On that board they default ON, and
+ * `SIM_MOON_*=0` still turns one off for an ablation.
+ */
+const moonPhase = (name: string): boolean =>
+  process.env[name] === '1' || (ASCENSION && process.env[name] !== '0');
+
+/** Moon Race Phase 1: lunar Helium-3 income + Lunar Export. */
+const MOON_HELIUM3 = moonPhase('SIM_MOON_HELIUM3');
+/**
+ * Moon Race Phase 2a: the gated tier — dyson_beam behind a lunar foothold plus
+ * 6 He-3, and Orbital Drop. Implies Phase 1, exactly as the engine does: the
+ * powers are priced in He-3, so without the economy this would delete
+ * dyson_beam rather than gate it (moonPowers.ts areMoonPowersEnabled).
+ */
+const MOON_TIER = moonPhase('SIM_MOON_TIER');
+/**
+ * Phase 2b's declaration, on by default with the tier. `SIM_DROP_ASSAULT=0`
+ * suppresses it so a Phase 2b run has a matched 2a-only control ON THE SAME
+ * COMMIT — both phases ship behind one flag, so there is no setting that
+ * separates them in a real game.
+ */
+const DROP_ASSAULT = process.env.SIM_DROP_ASSAULT !== '0';
+/**
+ * Moon Race Phase 3: the Lunar Hegemony victory, its clock, and the contest
+ * rule. Independent of Phases 1 and 2 — it prices nothing in He-3 — so it can
+ * be measured alone or stacked on the tier.
+ */
+const MOON_HEGEMONY = moonPhase('SIM_MOON_HEGEMONY');
+/**
+ * Moon Race Phase 5: the lunar branch of the secret-mission deck. Turning it on
+ * also ADDS `secret_mission` to the allowed victory conditions — the branch is
+ * a no-op without it, and §7.4's gate compares lunar mission completion against
+ * the completion rate of the ordinary missions in the same games.
+ */
+const MOON_MISSIONS = moonPhase('SIM_MOON_MISSIONS');
+/** Moon Race Phase 4: the Orbital Blockade. Arms lane sealing for the Space Age. */
+const MOON_BLOCKADE = moonPhase('SIM_MOON_BLOCKADE');
+/**
+ * The Tribute knob (§8). Independent of the phases above: it is a knob, not a
+ * phase, and §8 gates shipping it on the SHARED-MOON number below falling —
+ * evidence the table has learned to let one player hold the Moon. Run it against
+ * a tribute-off arm of the same ruleset to see what it costs the abstainers.
+ */
+const MOON_TRIBUTE = process.env.SIM_MOON_TRIBUTE === '1';
+/** §9's seal-duration sweep. Unset leaves the era default of 2. */
+const SEAL_DURATION_OVERRIDE = process.env.SIM_SEAL_DURATION
+  ? Number(process.env.SIM_SEAL_DURATION) : null;
+/**
+ * Secret-mission victory on its own — the matched control for a lunar-missions
+ * run. Without it the only comparison available would be against games that do
+ * not use missions at all, which changes the victory mix wholesale and tells us
+ * nothing about the lunar branch. `SIM_MOON_MISSIONS=1` implies it.
+ *
+ * NOT on the ascension board, where the phases are on by default rather than
+ * because someone is measuring Phase 5. `applyOrbitGatedVictoryDefaults` never
+ * adds `secret_mission` at create, so implying it there measures a game nobody
+ * can make — and a decisive one: with missions in the victory list, 41 of 60
+ * ascension games ended on one at a median turn 20, which is the same turn the
+ * first player reaches the Galactic Age. The board's whole second half never
+ * happened. Ask for it explicitly (`SIM_SECRET_MISSIONS=1`) to study that.
+ */
+const SECRET_MISSIONS = process.env.SIM_SECRET_MISSIONS === '1' || (MOON_MISSIONS && !ASCENSION);
+/** §9's clock-length sweep (4-8). Unset leaves the engine default of 6. */
+const HEGEMONY_TURNS_OVERRIDE = process.env.SIM_HEGEMONY_TURNS
+  ? Number(process.env.SIM_HEGEMONY_TURNS) : null;
+/** Factions ON: seats get Space Age factions round-robin (offset by game index) and the per-faction table prints. */
+const FACTIONS = process.env.SIM_FACTIONS === '1';
+const FACTION_ORDER = SPACE_AGE_FACTIONS.map((f) => f.faction_id);
+/** SIM_FACTION_ABILITIES=0 keeps passives but stops the AI firing draft abilities — isolates ability vs passive impact. */
+const FACTION_ABILITIES = process.env.SIM_FACTION_ABILITIES !== '0';
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 const LADDER = [
   'sa_digital_warfare',
@@ -153,7 +247,21 @@ function simSettings(): GameSettings {
     // On the ascension board the 2100 frontiers are un-tagged (in play from turn
     // one), so this only ever governs the standalone Space Age board.
     space_age_frontiers_enabled: FRONTIERS,
-    allowed_victory_conditions: THRESHOLD != null ? ['domination', 'threshold'] : ['domination'],
+    space_age_moon_helium3_enabled: MOON_HELIUM3 || MOON_TIER,
+    space_age_moon_gated_tier_enabled: MOON_TIER,
+    space_age_moon_hegemony_enabled: MOON_HEGEMONY,
+    space_age_hegemony_turns: HEGEMONY_TURNS_OVERRIDE ?? undefined,
+    space_age_moon_missions_enabled: MOON_MISSIONS,
+    space_age_moon_blockade_enabled: MOON_BLOCKADE,
+    space_age_moon_tribute_enabled: MOON_TRIBUTE,
+    lanes_contestable_enabled: MOON_BLOCKADE,
+    // Phase 3 adds a third decisive route, mirroring applyOrbitGatedVictoryDefaults.
+    allowed_victory_conditions: [
+      'domination',
+      ...(THRESHOLD != null ? ['threshold' as const] : []),
+      ...(MOON_HEGEMONY ? ['lunar_hegemony' as const] : []),
+      ...(SECRET_MISSIONS ? ['secret_mission' as const] : []),
+    ],
     victory_type: 'domination',
     victory_threshold: THRESHOLD ?? undefined,
     max_turns: MAX_TURNS,
@@ -210,6 +318,23 @@ interface PlayerSim {
   galaxyArrivalTurn: number | null;
   /** Ascension mode: exo-world tiles this seat has taken. */
   exoCaptureEvents: number;
+  /** Moon Race Phase 1: He-3 converted to tech points across the game. */
+  helium3Exported: number;
+  /** Phase 2a: uses of each Moon-gated power across the game. */
+  dysonBeams: number;
+  orbitalDrops: number;
+  /** Phase 4: lane seals this player raised. */
+  lanesSealed: number;
+  /** Phase 2b: drops declared, and how they ended. */
+  dropAssaultsDeclared: number;
+  dropAssaultsLanded: number;
+  dropAssaultsCaptured: number;
+  dropAssaultsCancelled: number;
+  dropAssaultsCancelledSelfTook: number;
+  dropAssaultsCancelledNoFoothold: number;
+  dropAssaultsCancelledOther: number;
+  /** Most lunar tiles this player held at once — the §4.5 usage denominator. */
+  peakMoonTiles: number;
 }
 
 function ladderDepth(ps: PlayerSim): number {
@@ -230,6 +355,24 @@ function playAiTurn(
   const pid = ps.pid;
   const player = state.players.find((p) => p.player_id === pid);
   if (!player) return;
+
+  // Phase 2b: a drop declared last turn lands as this turn begins, before the
+  // bot plans — the socket lands it in the same place, right after
+  // advanceToNextPlayer, so the plan is made against the post-landing board.
+  for (const res of resolveDropAssaultsFor(state, map, pid, { dieRoll })) {
+    if (res.status === 'cancelled') {
+      ps.dropAssaultsCancelled++;
+      if (res.cancelCode === 'already_held') ps.dropAssaultsCancelledSelfTook++;
+      if (res.cancelCode === 'lost_foothold') ps.dropAssaultsCancelledNoFoothold++;
+      if (res.cancelCode !== 'lost_foothold' && res.cancelCode !== 'already_held') {
+        ps.dropAssaultsCancelledOther++;
+      }
+    }
+    else {
+      ps.dropAssaultsLanded++;
+      if (res.captured) ps.dropAssaultsCaptured++;
+    }
+  }
 
   state.phase = 'draft';
   // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
@@ -295,11 +438,69 @@ function playAiTurn(
   };
   if (LAUNCH_PHASE === 'draft') tryLaunch();
 
+  // Peak lunar holding, sampled every turn: the §4.5 gate is "usage in games
+  // where someone held three Moon tiles", and a holding that is taken and lost
+  // again would be invisible in an end-of-game reading.
+  ps.peakMoonTiles = Math.max(ps.peakMoonTiles, countLunarTerritories(state, pid));
+
+  // Orbital Drop (Phase 2a) — before the export, exactly as the socket orders
+  // them: a bot that exported first would never hold the 8 He-3 it costs.
+  if (canAiUseOrbitalDrop(state, pid)) {
+    const dropTarget = selectAiOrbitalDropTarget(state, map, pid);
+    if (dropTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'orbital_drop', territoryId: dropTarget,
+      });
+      if (res.success) {
+        ps.orbitalDrops++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), orbital_drop: 1 };
+      }
+    }
+  }
+
+  // Drop Assault declaration (Phase 2b), before the export for the same reason
+  // the drop is: a bot that exported first would never hold the 10 He-3.
+  if (DROP_ASSAULT && canAiUseDropAssault(state, pid)) {
+    const assaultTarget = selectAiDropAssaultTarget(state, pid);
+    if (assaultTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'drop_assault', territoryId: assaultTarget,
+      });
+      if (res.success) {
+        ps.dropAssaultsDeclared++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), drop_assault: 1 };
+      }
+    }
+  }
+
+  // Lunar Export — mirrors the gameSocket AI-parity block: convert only on a
+  // full load so the one use per turn is not spent on a single point, and under
+  // Phase 2 only the surplus over what the powers are saving for.
+  if (shouldAiExportHelium3(state, map, pid)) {
+    const res = executeTechAbility({ state, map, playerId: pid, abilityId: 'lunar_export' });
+    if (res.success) ps.helium3Exported += res.amount ?? 0;
+  }
+
   useFactionDraftAbility(state, map, pid, difficulty);
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
   if (LAUNCH_PHASE === 'attack') tryLaunch(); // production ordering repro
+
+  // Dyson Beam (Phase 2a) — fired before the attack loop, as the socket does,
+  // so the softened stack is one the planned attacks can actually take.
+  if (canAiUseDysonBeam(state, pid)) {
+    const beamTarget = selectAiDysonBeamTarget(state, map, pid);
+    if (beamTarget) {
+      const res = executeTechAbility({
+        state, map, playerId: pid, abilityId: 'dyson_beam', territoryId: beamTarget,
+      });
+      if (res.success) {
+        ps.dysonBeams++;
+        player.ability_uses = { ...(player.ability_uses ?? {}), dyson_beam: 1 };
+      }
+    }
+  }
 
   for (const a of plan) {
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
@@ -321,6 +522,24 @@ function playAiTurn(
         if (ps.firstMoonCaptureTurn == null) ps.firstMoonCaptureTurn = state.turn_number;
       } else if (world && EXO_WORLD_IDS.has(world)) {
         ps.exoCaptureEvents++;
+      }
+    }
+  }
+
+  // Orbital Blockade (Phase 4) — the socket seals in the attack phase, through
+  // the same canSealLane, so the Launch Pad exclusion applies identically.
+  {
+    const seal = selectAiLaneSeal(state, map, pid);
+    if (seal) {
+      const check = canSealLane(state, map, seal[0], seal[1], pid);
+      if (check.ok && check.laneId) {
+        player.helium3 = (player.helium3 ?? 0) - laneSealHelium3Cost(state);
+        if (!state.lane_blockades) state.lane_blockades = {};
+        state.lane_blockades[check.laneId] = {
+          owner_id: pid,
+          turns_remaining: SEAL_DURATION_OVERRIDE ?? laneSealDuration(state),
+        };
+        ps.lanesSealed++;
       }
     }
   }
@@ -403,6 +622,35 @@ interface GameStat {
   firstMoonCaptureTurn: number | null;
   moonCaptureEvents: number;
   moonTilesPlayerHeldEnd: number; // of 9
+  /** Two or more players held Moon tiles at the same time at some point. */
+  everSharedMoon: boolean;
+  /** Tech points moved by Tribute across the whole game (§8). */
+  tributeMoved: number;
+  helium3Exported: number;
+  /** Phase 2a usage, and whether anyone ever held enough Moon to unlock it. */
+  dysonBeams: number;
+  orbitalDrops: number;
+  dropAssaultsDeclared: number;
+  dropAssaultsLanded: number;
+  dropAssaultsCaptured: number;
+  dropAssaultsCancelled: number;
+  anyThreeMoonTiles: boolean;
+  /** The player who peaked highest on the Moon, and whether they won. */
+  moonPeakLeaderWon: boolean;
+  /**
+   * Phase 5: each seat's secret mission — its kind, whether it is one of the
+   * lunar objectives, and whether it was complete when the game ended. §7.4
+   * compares the lunar completion rate against the ordinary one IN THE SAME
+   * GAMES, so both are recorded per seat rather than as two separate runs.
+   */
+  missions: Array<{ kind: string; lunar: boolean; completed: boolean }>;
+  /** Phase 4: lane seals raised in this game. */
+  lanesSealed: number;
+  /** Phase 3: Hegemony clocks started, and how many of them were broken. */
+  hegemonyClocksStarted: number;
+  hegemonyClocksReset: number;
+  /** Longest a clock ever ran in this game, in own-turns. */
+  hegemonyPeakTurns: number;
   winnerMoonTilesEnd: number;
   loserAvgMoonTilesEnd: number;
   moonLeader: string | null; // strict leader in moon tiles at end (>0)
@@ -489,6 +737,18 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     moonCaptureEvents: 0,
     galaxyArrivalTurn: null,
     exoCaptureEvents: 0,
+    helium3Exported: 0,
+    dysonBeams: 0,
+    orbitalDrops: 0,
+    lanesSealed: 0,
+    dropAssaultsDeclared: 0,
+    dropAssaultsLanded: 0,
+    dropAssaultsCaptured: 0,
+    dropAssaultsCancelled: 0,
+    dropAssaultsCancelledSelfTook: 0,
+    dropAssaultsCancelledNoFoothold: 0,
+    dropAssaultsCancelledOther: 0,
+    peakMoonTiles: 0,
   }]));
 
   let t10Leader: string | null = null;
@@ -496,6 +756,25 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
   let t10Captured = false;
   let lunarRegionHolder: string | null = null;
   let lunarRegionTurn: number | null = null;
+  /**
+   * Phase 1's gate asks whether two players are ever on the Moon at once —
+   * the difference between a shared frontier and a race one player wins. It
+   * has to be sampled during play, not read at the end, because a contested
+   * Moon usually resolves before the final turn.
+   */
+  let everSharedMoon = false;
+  let tributeMoved = 0;
+
+  /**
+   * Phase 3's gate is about whether the clock is CONTESTED, so starts and
+   * breaks are counted as they happen. Read off the state around each turn
+   * boundary rather than returned from the engine, because the tick lives
+   * inside `advanceToNextPlayer` where the sim has no return value to read.
+   */
+  let lanesSealed = 0;
+  let hegemonyClocksStarted = 0;
+  let hegemonyClocksReset = 0;
+  let hegemonyPeakTurns = 0;
 
   let guard = 0;
   while (state.phase !== 'game_over' && guard < (MAX_TURNS + 2) * PLAYERS + 5) {
@@ -504,12 +783,41 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     if (!player.is_eliminated) {
       playAiTurn(state, map, sims.get(player.player_id)!, DIFFICULTY, dieRoll, jitter);
     }
+    const clockBefore = state.lunar_hegemony
+      ? { ...state.lunar_hegemony } : null;
     advanceToNextPlayer(state, map);
+    const clockAfter = state.lunar_hegemony;
+    if (!clockBefore && clockAfter) hegemonyClocksStarted++;
+    if (clockBefore && (!clockAfter
+      || clockAfter.owner_id !== clockBefore.owner_id
+      || clockAfter.turns_held < clockBefore.turns_held)) {
+      hegemonyClocksReset++;
+      // A takeover is both: the old clock broke and a new one started.
+      if (clockAfter && clockAfter.owner_id !== clockBefore.owner_id) hegemonyClocksStarted++;
+    }
+    if (clockAfter) hegemonyPeakTurns = Math.max(hegemonyPeakTurns, clockAfter.turns_held);
+
+    // Tribute moves inside advanceToNextPlayer, which returns nothing, so read
+    // the per-tick figure off the player it was just taken from. Summed here
+    // rather than differenced from tech_points, which income and spending also
+    // move every turn.
+    if (MOON_TRIBUTE) {
+      for (const p of state.players) {
+        tributeMoved += p.tribute_paid_this_turn ?? 0;
+      }
+    }
 
     if (!t10Captured && state.turn_number >= 10) {
       t10Captured = true;
       t10Leader = territoryLeader(state);
       t10AnchorLeader = strictMaxKey(anchorCounts(state));
+    }
+
+    if (!everSharedMoon) {
+      const holders = new Set(
+        moonTileIds.map((tid) => state.territories[tid]?.owner_id).filter(Boolean),
+      );
+      if (holders.size >= 2) everSharedMoon = true;
     }
 
     if (lunarRegionHolder == null) {
@@ -572,6 +880,41 @@ function runGame(baseMap: GameMap, moonTileIds: string[], frontierIds: string[],
     firstMoonCaptureTurn: firsts(simList.map((s) => s.firstMoonCaptureTurn)),
     moonCaptureEvents: simList.reduce((a, s) => a + s.moonCaptureEvents, 0),
     moonTilesPlayerHeldEnd,
+    everSharedMoon,
+    tributeMoved,
+    helium3Exported: simList.reduce((a, s) => a + s.helium3Exported, 0),
+    dysonBeams: simList.reduce((a, s) => a + s.dysonBeams, 0),
+    orbitalDrops: simList.reduce((a, s) => a + s.orbitalDrops, 0),
+    dropAssaultsDeclared: simList.reduce((a, s) => a + s.dropAssaultsDeclared, 0),
+    dropAssaultsLanded: simList.reduce((a, s) => a + s.dropAssaultsLanded, 0),
+    dropAssaultsCaptured: simList.reduce((a, s) => a + s.dropAssaultsCaptured, 0),
+    dropAssaultsCancelled: simList.reduce((a, s) => a + s.dropAssaultsCancelled, 0),
+    dropAssaultsCancelledSelfTook: simList.reduce((a, s) => a + s.dropAssaultsCancelledSelfTook, 0),
+    dropAssaultsCancelledNoFoothold: simList.reduce((a, s) => a + s.dropAssaultsCancelledNoFoothold, 0),
+    dropAssaultsCancelledOther: simList.reduce((a, s) => a + s.dropAssaultsCancelledOther, 0),
+    // The §4.5 denominator: a tier nobody could reach tells us nothing about
+    // whether the tier is used, so usage is scored over these games only.
+    anyThreeMoonTiles: simList.some((s) => s.peakMoonTiles >= 3),
+    missions: state.players.map((p) => {
+      const m = p.secret_mission;
+      const kind = m?.kind ?? 'none';
+      const lunar = !!m && (
+        m.kind === 'lunar_foothold'
+        || m.kind === 'lunar_denial'
+        || (m.kind === 'control_regions' && m.region_ids.includes('lunar_surface'))
+        || (m.kind === 'capture_territories' && m.territory_ids.every((id) => id.startsWith('moon_')))
+      );
+      return { kind, lunar, completed: !!m && isMissionComplete(state, map, p) };
+    }),
+    lanesSealed: simList.reduce((a, s) => a + s.lanesSealed, 0),
+    hegemonyClocksStarted,
+    hegemonyClocksReset,
+    hegemonyPeakTurns,
+    moonPeakLeaderWon: (() => {
+      const peak = new Map(simList.map((s) => [s.pid, s.peakMoonTiles]));
+      const leader = strictMaxKey(new Map([...peak].filter(([, v]) => v > 0)));
+      return !!leader && leader === winner;
+    })(),
     winnerMoonTilesEnd,
     loserAvgMoonTilesEnd: loserMoon.length ? loserMoon.reduce((a, b) => a + b, 0) / loserMoon.length : 0,
     moonLeader,
@@ -681,6 +1024,87 @@ function main(): void {
   console.log(`Games with any Moon tile captured:           ${pct(withCapture.length, GAMES)} · avg first-capture turn ${fmt(avg(withCapture.map((s) => s.firstMoonCaptureTurn!)))}`);
   console.log(`Avg player-held Moon tiles at end (of 9):    ${fmt(avg(stats.map((s) => s.moonTilesPlayerHeldEnd)), 2)}`);
   console.log(`Lunar Surface region fully held (any):       ${pct(withRegion.length, GAMES)}${withRegion.length ? ` · avg turn ${fmt(avg(withRegion.map((s) => s.lunarRegionTurn!)))}` : ''}`);
+
+  // Printed unconditionally: "is the Moon shared or swept?" is a property of
+  // the board, so a He-3 run needs a He-3-off control for the same number.
+  console.log(`Games with 2+ players on the Moon at once:   ${pct(stats.filter((s) => s.everSharedMoon).length, GAMES)}`);
+  if (MOON_TRIBUTE) {
+    const levied = stats.filter((s) => s.tributeMoved > 0);
+    console.log(`Games where Tribute was ever levied (§8):     ${pct(levied.length, GAMES)}`);
+    console.log(`Mean tech points moved per game where levied:  ${fmt(avg(levied.map((s) => s.tributeMoved)), 1)}`);
+  }
+  // Also printed unconditionally: it is the §4.5 denominator, so a control run
+  // has to report the same figure or the usage percentages cannot be compared.
+  const reachedTier = stats.filter((s) => s.anyThreeMoonTiles);
+  console.log(`Games where a player held 3+ Moon tiles:     ${pct(reachedTier.length, GAMES)}`);
+  console.log(`Peak-Moon leader won:                        ${pct(stats.filter((s) => s.moonPeakLeaderWon).length, GAMES)}  (baseline ${pct(1, PLAYERS)})`);
+  if (MOON_HELIUM3 || MOON_TIER) {
+    console.log(`\n— Helium-3 economy (Moon Race, Phase 1) —`);
+    console.log(`Avg He-3 exported to tech points per game:   ${fmt(avg(stats.map((s) => s.helium3Exported)), 1)}`);
+    console.log(`Games where any He-3 was exported:           ${pct(stats.filter((s) => s.helium3Exported > 0).length, GAMES)}`);
+  }
+  if (MOON_TIER) {
+    console.log(`\n— The gated tier (Moon Race, Phase 2a) —`);
+    // Scored over games where the tier was reachable at all: a power nobody
+    // could unlock says nothing about whether the power is worth firing.
+    console.log(`Dyson Beam fired (of reachable games):       ${pct(reachedTier.filter((s) => s.dysonBeams > 0).length, reachedTier.length)}  (n=${reachedTier.length})`);
+    console.log(`Orbital Drop used (of reachable games):      ${pct(reachedTier.filter((s) => s.orbitalDrops > 0).length, reachedTier.length)}`);
+    console.log(`Avg beams per game:                          ${fmt(avg(stats.map((s) => s.dysonBeams)), 2)} · avg drops ${fmt(avg(stats.map((s) => s.orbitalDrops)), 2)}`);
+    const withAssault = stats.filter((s) => s.dropAssaultsDeclared > 0);
+    const declared = stats.reduce((a, s) => a + s.dropAssaultsDeclared, 0);
+    const landed = stats.reduce((a, s) => a + s.dropAssaultsLanded, 0);
+    const captured = stats.reduce((a, s) => a + s.dropAssaultsCaptured, 0);
+    console.log(`Drop Assault declared (of reachable games): ${pct(withAssault.length, reachedTier.length)}`);
+    console.log(`Avg declared per game:                       ${fmt(avg(stats.map((s) => s.dropAssaultsDeclared)), 2)}`);
+    // Cancelled-vs-landed is the telegraph working: a drop cancelled at landing
+    // is one whose declarer was thrown off the Moon in the round it was in flight.
+    console.log(`Of those declared: landed ${pct(landed, declared)} · cancelled ${pct(stats.reduce((a, s) => a + s.dropAssaultsCancelled, 0), declared)}`);
+    console.log(`Of those landed: took the tile ${pct(captured, landed)}`);
+    console.log(`Cancelled because the declarer took it anyway: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledSelfTook, 0)} · lost the Moon: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledNoFoothold, 0)} · other: ${stats.reduce((a, s) => a + s.dropAssaultsCancelledOther, 0)}`);
+  }
+
+  if (MOON_HEGEMONY) {
+    const started = stats.reduce((a, s) => a + s.hegemonyClocksStarted, 0);
+    const reset = stats.reduce((a, s) => a + s.hegemonyClocksReset, 0);
+    const won = stats.filter((s) => s.victory === 'lunar_hegemony').length;
+    console.log(`\n— Lunar Hegemony (Moon Race, Phase 3) —`);
+    console.log(`Games won by Hegemony:                       ${pct(won, GAMES)}  (gate: 10-35%)`);
+    console.log(`Games where a clock started:                 ${pct(stats.filter((s) => s.hegemonyClocksStarted > 0).length, GAMES)}`);
+    console.log(`Clocks started / broken:                     ${started} / ${reset}  (gate: >=50% broken)`);
+    console.log(`Avg longest clock per game (of ${HEGEMONY_TURNS_OVERRIDE ?? HEGEMONY_TURNS}):        ${fmt(avg(stats.map((s) => s.hegemonyPeakTurns)), 2)}`);
+  }
+
+  if (SECRET_MISSIONS) {
+    const seats = stats.flatMap((s) => s.missions).filter((m) => m.kind !== 'none');
+    const lunar = seats.filter((m) => m.lunar);
+    const ordinary = seats.filter((m) => !m.lunar);
+    const rate = (xs: typeof seats) => (xs.length ? pct(xs.filter((m) => m.completed).length, xs.length) : 'n/a');
+    console.log(`\n— Secret missions${MOON_MISSIONS ? ' incl. the lunar branch (Phase 5)' : ' (control: no lunar branch)'} —`);
+    console.log(`Lunar share of assigned missions:            ${pct(lunar.length, seats.length)}  (design target ~30%)`);
+    console.log(`Lunar missions completed:                    ${rate(lunar)}  (n=${lunar.length})`);
+    console.log(`Ordinary missions completed:                 ${rate(ordinary)}  (n=${ordinary.length}; gate: within +/-10 points)`);
+    const byKind = new Map<string, { n: number; done: number }>();
+    for (const m of lunar) {
+      const e = byKind.get(m.kind) ?? { n: 0, done: 0 };
+      e.n += 1; if (m.completed) e.done += 1;
+      byKind.set(m.kind, e);
+    }
+    for (const [kind, e] of [...byKind].sort()) {
+      console.log(`  ${kind.padEnd(22)} ${pct(e.done, e.n)}  (n=${e.n})`);
+    }
+  }
+
+  if (MOON_BLOCKADE) {
+    // §6.5 scores seal usage over games where a Hegemony clock ran — a seal in
+    // a game nobody was defending says nothing about whether the tool works.
+    const withClock = stats.filter((s) => s.hegemonyClocksStarted > 0);
+    console.log(`\n— Orbital Blockade (Moon Race, Phase 4) —`);
+    console.log(`Games with any lane sealed:                  ${pct(stats.filter((s) => s.lanesSealed > 0).length, GAMES)}`);
+    if (withClock.length) {
+      console.log(`Of games with a Hegemony clock, sealed:      ${pct(withClock.filter((s) => s.lanesSealed > 0).length, withClock.length)}  (n=${withClock.length}; gate: >=40%)`);
+    }
+    console.log(`Avg seals per game:                          ${fmt(avg(stats.map((s) => s.lanesSealed)), 2)}`);
+  }
 
   console.log(`\n— Does the Moon correlate with winning? —`);
   console.log(`Moon-tile leader at end won:                 ${pct(withMoonLeader.filter((s) => s.moonLeaderWon).length, withMoonLeader.length)}  (n=${withMoonLeader.length}; baseline ${pct(1, PLAYERS)})`);

@@ -17,7 +17,22 @@ export type { GamePhase, ConnectionType, MapConnectionEdge, MapKind, OrbitAccess
 
 export type EraId = 'ancient' | 'medieval' | 'discovery' | 'ww2' | 'coldwar' | 'modern' | 'acw' | 'risorgimento' | 'space_age' | 'galaxy_age' | 'custom';
 export type GameStatus = 'waiting' | 'in_progress' | 'completed' | 'abandoned';
-export type VictoryType = 'domination' | 'secret_mission' | 'capital' | 'threshold' | 'transcendence' | 'lane_sovereignty';
+export type VictoryType =
+  | 'domination'
+  | 'secret_mission'
+  | 'capital'
+  | 'threshold'
+  | 'transcendence'
+  /**
+   * Space Age Moon Race, Phase 3: hold every lunar tile at the end of your turn
+   * for HEGEMONY_TURNS consecutive own-turns. See state/lunarHegemony.ts.
+   */
+  | 'lunar_hegemony'
+  /**
+   * Galactic Age: hold both gateways of 5 of the 8 authored hyperspace lanes at
+   * your own turn start, 3 turns running. See victory/laneSovereignty.ts.
+   */
+  | 'lane_sovereignty';
 /** Victory condition that ended the game, including fallback for last-player-standing. */
 export type VictoryConditionKey =
   | VictoryType
@@ -37,7 +52,19 @@ export type SecretMission =
   | { kind: 'control_regions'; region_ids: string[] }
   | { kind: 'alliance'; ally_player_id: string; territory_threshold: number }
   /** Era-advancement mode: climb to the target era. era_id is the resolved era for display. */
-  | { kind: 'reach_era'; era_index: number; era_id: string };
+  | { kind: 'reach_era'; era_index: number; era_id: string }
+  /**
+   * Space Age Moon Race, Phase 5: hold at least `tiles` lunar territories.
+   * See docs/space-age-moon/README.md §7.
+   */
+  | { kind: 'lunar_foothold'; tiles: number }
+  /**
+   * Phase 5: you hold lunar ground and the named rival holds none. The
+   * asymmetric one — it gives a player a reason to go to the Moon AGAINST
+   * someone, which spreads the table's lunar interest across different targets
+   * instead of one race.
+   */
+  | { kind: 'lunar_denial'; target_player_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -145,6 +172,29 @@ export interface PlayerState {
   tech_points?: number;
   /** Special/strategic resource count for era abilities. */
   special_resource?: number;
+  /**
+   * Space Age lunar economy (Moon Race, Phase 1): Helium-3 mined from owned
+   * Moon tiles, capped at HELIUM3_STOCKPILE_CAP.
+   *
+   * A field of its own rather than reusing `special_resource`, which is
+   * era-advancement gold (`advanceEra.ts` spends it to advance) — sharing the
+   * counter would let a Moon holder buy era advances with lunar income.
+   */
+  helium3?: number;
+  /**
+   * Space Age Moon Race, Tribute (§8): tech points this player handed the Moon
+   * holder at their last income tick, and the running total the holder has
+   * collected since their own last turn. Display only — the transfer itself is
+   * already reflected in `tech_points`.
+   */
+  tribute_paid_this_turn?: number;
+  tribute_received_this_turn?: number;
+  /**
+   * Space Age Moon Race, Phase 2b: the round this player last DECLARED a Drop
+   * Assault. The cooldown reads from it; a drop that was cancelled before
+   * landing still counts, because the reload is on the launch, not the landing.
+   */
+  drop_assault_last_turn?: number;
   /** Tech node IDs that have been researched. */
   unlocked_techs?: string[];
   /** Per-ability use count this turn (keyed by ability_id). */
@@ -410,6 +460,14 @@ export interface GameSettings {
    */
   combat_dice_cap_enabled?: boolean;
   /**
+   * Orbit-lane sealing. Two mechanics ride it: the Space Age Orbital Blockade
+   * (Moon Race, Phase 4 — a He-3 purchase on an authored anchor lane, and what
+   * baking this at create is for today) and, historically, the Galactic Age's
+   * open sealing rule, which the Void Custodians' Emergency Seal replaced — that
+   * one is a faction charge and needs no setting. No-op where neither applies.
+   */
+  lanes_contestable_enabled?: boolean;
+  /**
    * Galactic Age corridors: when true, hyperspace lanes need no tech to cross —
    * access is positional (you attack across a lane from the gateway you hold) —
    * and cross-lane attacks roll at most 2 attacker dice (3 with Lane Charts), so
@@ -433,6 +491,56 @@ export interface GameSettings {
    * or when era advancement is on (growth handles frontiers then).
    */
   space_age_frontiers_enabled?: boolean;
+  /**
+   * Space Age Moon Race, Phase 1: owned Moon tiles pay Helium-3 each turn, and
+   * Lunar Export converts it to tech points. Baked at create from the
+   * `space_age_moon_helium3_enabled` feature flag; no-op off space_age.
+   * See docs/space-age-moon/README.md §3.
+   */
+  space_age_moon_helium3_enabled?: boolean;
+  /**
+   * Space Age Moon Race, Phase 2: the gated tier. `dyson_beam` needs a lunar
+   * foothold and He-3, and Orbital Drop exists at all. Baked at create from the
+   * `space_age_moon_gated_tier_enabled` feature flag, and inert without Phase 1 —
+   * gating a power on a resource the game does not produce would delete it
+   * rather than gate it. See docs/space-age-moon/README.md §4.
+   */
+  space_age_moon_gated_tier_enabled?: boolean;
+  /**
+   * Space Age Moon Race, Phase 3: the Lunar Hegemony victory, its clock, and
+   * the contest rule that cheapens Moon access once anyone holds lunar ground.
+   * Baked at create from `space_age_moon_hegemony_enabled`; no-op off space_age.
+   * See docs/space-age-moon/README.md §5.
+   */
+  space_age_moon_hegemony_enabled?: boolean;
+  /**
+   * Phase 3 tunable: consecutive own-turns of total Moon control the Hegemony
+   * needs. Defaults to HEGEMONY_TURNS (6) when unset; §9 lists 4-8 as the range
+   * worth trying. Set per game, so a change never re-rules a match in progress.
+   */
+  space_age_hegemony_turns?: number;
+  /**
+   * Space Age Moon Race, Phase 5: the lunar branch of the secret-mission deck.
+   * Baked at create from `space_age_moon_missions_enabled`; no-op off space_age
+   * and off unless secret_mission is an allowed victory condition.
+   * See docs/space-age-moon/README.md §7.
+   */
+  space_age_moon_missions_enabled?: boolean;
+  /**
+   * Space Age Moon Race, Phase 4: the Orbital Blockade. Turns on
+   * `lanes_contestable_enabled` for the game and applies the Space Age seal
+   * rules — 3 He-3, two rounds, authored anchor lanes only.
+   * See docs/space-age-moon/README.md §6.
+   */
+  space_age_moon_blockade_enabled?: boolean;
+  /**
+   * Space Age Moon Race, the Tribute knob (§8). A player holding 6+ lunar tiles
+   * levies 1 tech point per turn from each player holding none. Its own flag,
+   * not part of the Moon Race package: §8 makes shipping it conditional on
+   * evidence the table has learned to let one player have the Moon, and that
+   * evidence may never arrive. Default OFF.
+   */
+  space_age_moon_tribute_enabled?: boolean;
   /**
    * Galaxy per-world identity: when true (default), each world's `modifiers`
    * (production/tech/stability/build-cost) apply to its owners. Snapshotted from
@@ -699,6 +807,19 @@ export interface EraSpineStep {
   gate_requires_moon_access?: boolean;
 }
 
+/**
+ * A Drop Assault declared and not yet landed (Space Age Moon Race, Phase 2b).
+ * Mirrored in the engine module that owns the rules, `abilities/dropAssault.ts`.
+ */
+export interface DropAssault {
+  owner_id: string;
+  target_id: string;
+  /** Round (`turn_number`) it was declared; it lands on the declarer's next turn. */
+  declared_turn: number;
+  /** Units in the falling stack, snapshotted so a balance change cannot re-price a drop in flight. */
+  units: number;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -739,10 +860,24 @@ export interface GameState {
   /**
    * Active hyperspace-lane seals, keyed by canonical lane id
    * (`orbitLaneId(from,to)`). A sealed lane blocks players other than the sealer
-   * from crossing it for `turns_remaining` rounds. The only source today is the
-   * Void Custodians' Emergency Seal (one round, on a lane touching Nexus Station).
+   * from crossing it for `turns_remaining` rounds.
+   *
+   * Two mechanics share this ledger, and they age on different clocks, so each
+   * entry records which one raised it:
+   *   • `round` (the default, and what a pre-existing save has) — the Space Age
+   *     Orbital Blockade, which ages once per round at the wrap;
+   *   • `owner_turn` — the Galactic Age's seals (the Void Custodians' Emergency
+   *     Seal, the Vault holder's, and the Pathfinder Gate), which age as their
+   *     owner's turn begins so "one round" means the same thing for every seat.
+   *
+   * A board can carry both at once (Space to Stars), which is why the clock is
+   * a property of the seal rather than of the era.
    */
-  lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  lane_blockades?: Record<string, {
+    owner_id: string;
+    turns_remaining: number;
+    tick?: 'round' | 'owner_turn';
+  }>;
   /**
    * Galactic Age Jump Gates: pairs of gate tiles joined by a private hyperspace
    * lane. Recorded when the second gate of a pair is built and dropped once
@@ -836,6 +971,23 @@ export interface GameState {
   fortify_moves_used?: number;
   /** Turns remaining before the influence ability can be used again (0 = ready). */
   influence_cooldown_remaining?: number;
+  /**
+   * Space Age Moon Race, Phase 2b: Drop Assaults declared and not yet landed.
+   *
+   * Deliberately top-level rather than per-player: the telegraph only works if
+   * every player can see the marked tile, and `buildClientState` spreads the
+   * whole state, so a shared list reaches the defender who has to answer it.
+   * See abilities/dropAssault.ts.
+   */
+  drop_assaults?: DropAssault[];
+  /**
+   * Space Age Moon Race, Phase 3: the Lunar Hegemony clock.
+   *
+   * Present only while a player holds every lunar tile. Resets — not decays —
+   * the moment one leaves them, which is what keeps the Moon a race rather than
+   * a coronation. See state/lunarHegemony.ts.
+   */
+  lunar_hegemony?: { owner_id: string; turns_held: number; started_turn: number };
   /** Whether a Blitzkrieg (WW2) bonus attack has been used this turn. */
   blitzkrieg_attacked?: boolean;
   /**

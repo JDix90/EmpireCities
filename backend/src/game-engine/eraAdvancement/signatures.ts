@@ -188,7 +188,13 @@ export function grantEraSignature(
         if (!near) continue;
         const farWorld = worldOfTile.get(near === c.from ? c.to : c.from);
         if (!farWorld || reached.has(farWorld)) continue;
-        blockades[orbitLaneId(c.from, c.to)] = { owner_id: id, turns_remaining: PATHFINDER_GATE_ROUNDS };
+        blockades[orbitLaneId(c.from, c.to)] = {
+          owner_id: id,
+          turns_remaining: PATHFINDER_GATE_ROUNDS,
+          // A Galactic Age seal: it ages as its owner's turn begins, not at the
+          // round wrap, so each rival faces it for the same two rounds.
+          tick: 'owner_turn',
+        };
         sealed++;
       }
       if (sealed > 0) state.lane_blockades = blockades;

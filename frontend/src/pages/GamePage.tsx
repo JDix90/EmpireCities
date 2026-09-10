@@ -2716,6 +2716,16 @@ export default function GamePage() {
     const me = gameState.players.find((p) => p.player_id === resolvedViewerPlayerId);
     return me?.faction_id === 'void_custodians';
   }, [viewerSealsAnyLane, gameState?.settings.factions_enabled, gameState?.players, resolvedViewerPlayerId]);
+  /**
+   * May this viewer seal a lane from the territory panel? Two mechanics share
+   * the affordance and the socket event: the Space Age Orbital Blockade is open
+   * to anyone in a game running Phase 4, the Galactic Age's Emergency Seal is a
+   * faction charge. The server decides either way — this only keeps a button
+   * that would always be refused off the screen.
+   */
+  const viewerCanSealFromPanel = gameState?.era === 'space_age'
+    ? gameState?.settings.space_age_moon_blockade_enabled === true
+    : viewerCanEmergencySeal;
   const handleSealLane = useCallback(
     (fromId: string, toId: string) => {
       getSocket().emit('game:seal_lane', { gameId, fromId, toId, action_id: generateActionId() });
@@ -4472,6 +4482,7 @@ export default function GamePage() {
                   : undefined
               }
               onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
+              onSealLane={viewerCanSealFromPanel ? handleSealLane : undefined}
               onUseAbility={
                 (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
                   ? handleUseAbility
@@ -4485,7 +4496,6 @@ export default function GamePage() {
               resolvedViewerPlayerId={resolvedViewerPlayerId}
               mapConnections={mapData.connections}
               mapWorlds={mapData.worlds}
-              onSealLane={viewerCanEmergencySeal ? handleSealLane : undefined}
               sealAnyLane={viewerSealsAnyLane}
               denseMap={mapDensityMetrics?.isDense ?? false}
               onFortifyTo={handleFortifyTo}

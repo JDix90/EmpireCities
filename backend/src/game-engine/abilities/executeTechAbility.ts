@@ -1,3 +1,4 @@
+import { applyLunarExport } from '../state/helium3';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { syncTerritoryCounts } from '../state/gameStateManager';
 import { getEraTechTreeForPlayer } from '../state/techManager';
@@ -11,6 +12,8 @@ import {
   isOwnedTerritoryAdjacentToEnemy,
   playerHasUnlockedAbility,
 } from './techAbilities';
+import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
+import { declareDropAssault } from './dropAssault';
 
 export interface AbilityExecutionResult {
   success: boolean;
@@ -19,6 +22,10 @@ export interface AbilityExecutionResult {
   territoryId?: string;
   previousOwner?: string | null;
   previousUnits?: number;
+  /** Scalar payload for abilities that convert rather than target (lunar_export). */
+  amount?: number;
+  /** He-3 charged by a Moon-gated power (Phase 2), set only when non-zero. */
+  helium3Spent?: number;
 }
 
 function getCurrentPlayer(state: GameState, playerId: string): PlayerState | undefined {
@@ -54,13 +61,42 @@ export function validateAbilityPhase(abilityId: string, phase: GameState['phase'
   return null;
 }
 
-export function executeTechAbility(params: {
+export interface TechAbilityParams {
   state: GameState;
   map: GameMap;
   playerId: string;
   abilityId: string;
   territoryId?: string;
-}): AbilityExecutionResult {
+}
+
+/**
+ * Every ability use goes through here, human and bot alike.
+ *
+ * The Moon gate (Space Age Phase 2) wraps the effect rather than living inside
+ * it: the requirement is checked before anything mutates, and the He-3 cost is
+ * charged only once the effect has reported success, so a use rejected for a
+ * bad target or the wrong phase costs the player nothing. Doing it per-branch
+ * would mean getting that right in a dozen places instead of one.
+ */
+export function executeTechAbility(params: TechAbilityParams): AbilityExecutionResult {
+  const { state, playerId, abilityId } = params;
+
+  // Phase first, so a beam fired in the draft phase says so rather than
+  // reporting a Moon requirement the player may well already meet.
+  const gatePhaseError = validateAbilityPhase(abilityId, state.phase);
+  if (gatePhaseError) return { success: false, error: gatePhaseError };
+
+  const gateError = checkMoonPowerRequirement(state, playerId, abilityId);
+  if (gateError) return { success: false, error: gateError };
+
+  const result = executeAbilityEffect(params);
+  if (!result.success) return result;
+
+  const spent = spendMoonPowerCost(state, playerId, abilityId);
+  return spent > 0 ? { ...result, helium3Spent: spent } : result;
+}
+
+function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult {
   const { state, map, playerId, abilityId, territoryId } = params;
   const currentPlayer = getCurrentPlayer(state, playerId);
   if (!currentPlayer) return { success: false, error: 'Player not found' };
@@ -312,6 +348,23 @@ export function executeTechAbility(params: {
       previousOwner,
       previousUnits,
     };
+  }
+
+  // ── Drop Assault: declare a drop that lands next turn (Phase 2b) ──────────
+  if (abilityId === 'drop_assault') {
+    if (!territoryId) return { success: false, error: 'Provide territoryId' };
+    const declared = declareDropAssault(state, playerId, territoryId);
+    if (!declared.ok) return { success: false, error: declared.error ?? 'Drop Assault failed' };
+    // Nothing lands now. The board is untouched until the declarer's next turn
+    // begins, which is the whole point: the defender gets a round to answer.
+    return { success: true, effect: 'drop_assault_declared', territoryId };
+  }
+
+  // ── Lunar Export: Helium-3 → tech points ──────────────────────────────────
+  if (abilityId === 'lunar_export') {
+    const result = applyLunarExport(state, playerId);
+    if (!result.ok) return { success: false, error: result.error ?? 'Lunar Export failed' };
+    return { success: true, effect: 'lunar_export', amount: result.converted };
   }
 
   // ── Launch space station ──────────────────────────────────────────────────

@@ -51,6 +51,8 @@ import {
   vaultViews,
   worldDisplayName,
 } from '../../utils/galaxyLanes';
+import { countOwnedLunarTerritories } from '../../utils/orbitAccess';
+import { dropAssaultsTargeting } from '../../utils/dropAssaults';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -94,7 +96,14 @@ interface TerritoryPanelProps {
   mapConnections?: MapConnection[];
   /** Galaxy maps: authored world names, for the gateway badge's far-world label. */
   mapWorlds?: Array<{ world_id: string; display_name: string }>;
-  /** Galaxy: fire an Emergency Seal on a lane leaving this gateway (Void Custodians, or the Vault holder). */
+  /**
+   * Seal an orbit lane leaving this gateway. Absent = affordance hidden.
+   *
+   * One prop, both mechanics: the Space Age Orbital Blockade (Moon Race, Phase
+   * 4) has no strategic view to seal from, so without a panel affordance it
+   * would be a mechanic only bots could use; the Galactic Age fires its
+   * Emergency Seal from here too (Void Custodians, or the Vault holder).
+   */
   onSealLane?: (fromId: string, toId: string) => void;
   /** The viewer holds the Vault: their seal closes ANY lane, not only Nexus's. */
   sealAnyLane?: boolean;
@@ -975,6 +984,53 @@ export default function TerritoryPanel({
         </div>
       )}
 
+      {/* Orbital Blockade: seal an authored orbit lane from an end you hold.
+          Launch Pad lanes are deliberately absent — the server refuses them, and
+          offering a button that always fails would teach the wrong rule. */}
+      {onSealLane && isMine && gameState.settings.space_age_moon_blockade_enabled
+        && (gameState.phase === 'attack' || gameState.phase === 'fortify')
+        && (() => {
+          const lane = mapConnections.find(
+            (c) => c.type === 'orbit' && c.source !== 'launch_pad'
+              && (c.from === selectedTerritory || c.to === selectedTerritory),
+          );
+          if (!lane) return null;
+          const otherEnd = lane.from === selectedTerritory ? lane.to : lane.from;
+          return (
+            <button
+              data-testid="seal-lane-btn"
+              onClick={() => onSealLane(lane.from, lane.to)}
+              className="mx-3 mb-2 w-[calc(100%-1.5rem)] py-2 px-3 rounded-lg text-sm transition-colors
+                         border border-cyan-600/70 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900/50
+                         flex flex-col items-center gap-0.5"
+            >
+              <span>🚧 Blockade the lane to {territoryNameById.get(otherEnd) ?? otherEnd}</span>
+              <span className="text-[10px] opacity-60">Shuts it to everyone else for 2 turns — 3 He-3</span>
+            </button>
+          );
+        })()}
+
+      {/* Drop Assault marker. Shown to EVERY player, not just the defender: the
+          telegraph is the counterplay, and a marker only the attacker can see
+          would be no telegraph at all. */}
+      {dropAssaultsTargeting(gameState, selectedTerritory).map((assault) => {
+        const declarer = gameState.players.find((p) => p.player_id === assault.owner_id);
+        const mine = assault.owner_id === myPlayerId;
+        return (
+          <div
+            key={`${assault.owner_id}-${assault.target_id}`}
+            role="status"
+            data-testid="drop-assault-marker"
+            className="mx-3 mb-2 px-3 py-2 rounded-lg border border-red-700/50 bg-red-950/40 text-red-200 text-xs leading-snug"
+          >
+            💥 {mine
+              ? 'Your Drop Assault lands here at the start of your next turn.'
+              : `${declarer?.username ?? 'Someone'} has marked this tile — 3 units land here at the start of their next turn.`}
+            {!mine && <span className="block opacity-70 mt-0.5">Reinforce it before then.</span>}
+          </div>
+        );
+      })}
+
       {/* Actions */}
       {/* Territory Selection Claim */}
       {gameState.phase === 'territory_select' && isUnowned && onClaimTerritory && (
@@ -1218,7 +1274,7 @@ export default function TerritoryPanel({
               isEnemy,
               isMine,
               isUnowned,
-            });
+            }, countOwnedLunarTerritories(mapTerritories, gameState, myPlayer.player_id));
             if (allAbilities.length === 0) return null;
             return allAbilities.map((abilityId) => {
               const def = getAbilityUiDef(abilityId);

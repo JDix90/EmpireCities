@@ -38,6 +38,34 @@ describe('executeLandAttack', () => {
     expect(out?.defenderEliminated).toBe(true); // p2 had only that territory
   });
 
+  it('never leaves a captured territory with no units', () => {
+    // Bonus dice let both sides lose a unit in one exchange, so a 2-unit
+    // attacker can take the tile and be left holding exactly one. The move-in
+    // used to be `min(1 - 1, 3)` = zero, which left an OWNED territory holding
+    // nothing — a state the engine treats as impossible. The socket healed it at
+    // broadcast and logged it as a bug; every other caller kept the illegal
+    // board, and a Space Age Drop Assault aimed at such a tile was rejected,
+    // because `to.unit_count < 1` is a structural refusal in this function.
+    const s = state(
+      { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1) },
+      [player('p1', { territory_count: 1 }), player('p2', { territory_count: 1 })],
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'b', {
+      // One bonus die each: two comparisons from a 2-vs-1 board.
+      extraAttackBonuses: { test: 1 },
+      extraDefenseBonuses: { test: 1 },
+      // Rolls are compared highest-against-highest after sorting, so 6-1 against
+      // 5-2 splits the exchange: the attacker takes the first comparison and
+      // loses the second.
+      dieRoll: diceFrom([6, 1, 5, 2]),
+    });
+    expect(out?.captured).toBe(true);
+    expect(out?.result.attacker_losses).toBe(1);
+    expect(s.territories.a.unit_count).toBe(1);
+    expect(s.territories.b.owner_id).toBe('p1');
+    expect(s.territories.b.unit_count).toBeGreaterThanOrEqual(1);
+  });
+
   it('rejects structurally invalid attacks', () => {
     const s = state(
       { a: terr('a', 'p1', 1), b: terr('b', 'p2', 3), c: terr('c', 'p1', 5) },

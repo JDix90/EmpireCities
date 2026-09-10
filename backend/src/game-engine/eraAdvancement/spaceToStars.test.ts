@@ -203,7 +203,13 @@ describe('the Pathfinder Gate', () => {
     const sealed = state.lane_blockades ?? {};
     expect(Object.keys(sealed).length).toBeGreaterThan(0);
     for (const b of Object.values(sealed)) {
-      expect(b).toEqual({ owner_id: 'p0', turns_remaining: PATHFINDER_GATE_ROUNDS });
+      expect(b).toEqual({
+        owner_id: 'p0',
+        turns_remaining: PATHFINDER_GATE_ROUNDS,
+        // A Galactic Age seal ages at its owner's turn start, not at the round
+        // wrap, so every rival faces it for the same two rounds.
+        tick: 'owner_turn',
+      });
     }
     // Every sealed lane leads AWAY from a world p0 stands on.
     const worldOf = new Map(map.territories.map((t) => [t.territory_id, t.world_id]));

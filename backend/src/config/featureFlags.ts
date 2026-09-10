@@ -66,6 +66,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
   galaxy_world_rules_enabled: () => envOptOut('GALAXY_WORLD_RULES_ENABLED'),
   galaxy_transit_enabled: () => envOptIn('GALAXY_TRANSIT_ENABLED'),
+  space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
+  space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
 };
@@ -119,6 +121,20 @@ export function getFeatureFlagStates(): Record<string, FeatureFlagState> {
  * exactly one place and the `admin_config.feature_flags` row means "explicit
  * operator override" (the kill switch), nothing more.
  */
+/**
+ * The game-settings keys the Moon Race package owns, one per shipped phase.
+ * Named by their SETTINGS key rather than their flag name so the create bake can
+ * spread the resolved record straight into a game's settings.
+ */
+export type MoonRacePhaseKey =
+  | 'space_age_moon_helium3_enabled'
+  | 'space_age_moon_gated_tier_enabled'
+  | 'space_age_moon_hegemony_enabled'
+  | 'space_age_moon_missions_enabled'
+  | 'space_age_moon_blockade_enabled';
+
+export type MoonRacePhaseFlags = Record<MoonRacePhaseKey, boolean>;
+
 export const featureFlags = {
   /**
    * When true, emit structured analytics events to logs and persist them to
@@ -395,6 +411,83 @@ export const featureFlags = {
    */
   get galaxyTransitEnabled(): boolean {
     return overrideBool('galaxy_transit_enabled');
+  },
+
+  /**
+   * The Space Age Moon Race — the whole package, one switch.
+   *
+   * It was five flags, one per phase, which is how the package was built and
+   * rolled out. That is not what it is: the phases are one feature (§10.2), and
+   * an operator has no way to reason about the combinations anyway — the gated
+   * tier is inert without the lunar economy that prices it, the lunar missions
+   * are inert unless the game allows secret-mission victory, and the blockade
+   * exists to be a counter to the Hegemony. Five switches offered the illusion
+   * of five choices and only one of them was ever right.
+   *
+   * What it turns on, all of it: Moon tiles pay Helium-3 and Lunar Export
+   * converts it to tech points; `dyson_beam` moves behind a lunar foothold and
+   * Orbital Drop / Drop Assault become available; holding all nine lunar tiles
+   * for seven consecutive own-turns wins outright, with the contest rule that
+   * cheapens Moon access once anyone lands; roughly 30% of Space Age secret
+   * missions become lunar; and authored orbit lanes can be sealed for 3 He-3.
+   *
+   * ON. Promoted once the five phase gates (§§3.8, 4.5, 5.6, 6.5, 7.4) had all
+   * been measured and cleared. It reaches EVERY Space Age game, including one
+   * that climbs there by era advancement, and there is no lobby opt-out (§10.2)
+   * — the Moon Race is what the era is.
+   *
+   * Baked into game settings at create; the engine reads the settings, so
+   * turning this off never re-rules a match already in progress — it only
+   * changes games created afterwards.
+   *
+   * Kill switch: `SPACE_AGE_MOON_RACE_ENABLED=false`, or the
+   * `space_age_moon_race_enabled` admin override, which wins over this default
+   * whenever it is present.
+   */
+  get spaceAgeMoonRaceEnabled(): boolean {
+    return overrideBool('space_age_moon_race_enabled');
+  },
+
+  /**
+   * The Tribute knob (Moon Race §8) — a player holding 6+ of the nine lunar
+   * tiles levies 1 tech point per turn from every player holding none.
+   *
+   * Its OWN flag rather than part of the Moon Race above, and the distinction
+   * is the point: the five phases collapsed into one switch because they are
+   * one feature and any subset is a broken game. Tribute is not a phase. It is
+   * an optional extra that costs abstainers directly, and §8 conditions
+   * shipping it on evidence that the table has learned to LET one player hold
+   * the Moon — games with two or more players on the Moon falling below the
+   * Phase 1 number. If that never happens, this never ships.
+   *
+   * DARK, and expected to stay dark unless that measurement moves. It is the
+   * most resented mechanic in the package: a player who chose an Earth strategy
+   * is being taxed for a choice the rules allowed them to make.
+   */
+  get spaceAgeMoonTributeEnabled(): boolean {
+    return overrideBool('space_age_moon_tribute_enabled');
+  },
+
+  /**
+   * The game-settings keys the one flag above writes — the single definition of
+   * what "the Moon Race" contains, and the only place the package is spelled
+   * out as a list.
+   *
+   * The SETTINGS stay per-phase even though the FLAG no longer is. That split is
+   * deliberate: settings are baked per game and read by the engine, so games
+   * already in flight keep exactly the rules they started under, and each phase
+   * keeps its own honest gate in the code that implements it. Shipping a sixth
+   * phase is one line here.
+   */
+  get moonRacePhases(): MoonRacePhaseFlags {
+    const on = this.spaceAgeMoonRaceEnabled;
+    return {
+      space_age_moon_helium3_enabled: on,
+      space_age_moon_gated_tier_enabled: on,
+      space_age_moon_hegemony_enabled: on,
+      space_age_moon_missions_enabled: on,
+      space_age_moon_blockade_enabled: on,
+    };
   },
 
   /**

@@ -1,4 +1,5 @@
 import type { EraId, EraMilestoneGate, EraSpineStep, GameState, PlayerState } from '../../types';
+import { getEraAdvancementPresetBundle } from './presets';
 
 /**
  * An era advancement spine: the ordered, linear sequence of rules eras a game
@@ -122,6 +123,46 @@ export function buildAscensionSpineFromEra(startEraId: EraId): EraSpineStep[] | 
   // nowhere to climb, and returning it would shadow a configured spine that does
   // go somewhere. That is exactly the Space Age start `space_to_stars` uses.
   return steps.length > 1 ? steps : null;
+}
+
+/**
+ * Whether a game will ever be played in the Space Age — true for a game that
+ * STARTS there, and for an era-advancement game whose spine climbs there.
+ *
+ * The Moon Race is what the Space Age is (§10.2), so a game that arrives in the
+ * era by advancement has to arrive with it. The alternative — arming the phases
+ * at the board transform — would mean the engine reading feature flags mid-game
+ * and a match's rules changing under it depending on when it happened to
+ * transform. Baking at create instead keeps `games.routes.ts` the only place
+ * that reads a flag, and the phases are inert until the board has lunar tiles:
+ * `isLunarTerritory` matches nothing on an Ancient board, so the economy pays
+ * nothing, `soleMoonHolder` finds no Moon, the lunar missions generator returns
+ * before its first rng() call, and there are no orbit lanes to seal.
+ *
+ * Reads the raw create settings, so it resolves the preset itself — at the
+ * create boundary `era_advancement_spine_id` may still be implied by
+ * `era_advancement_preset` ('epic' is the one that reaches the Space Age) rather
+ * than set outright.
+ */
+export function reachesSpaceAge(
+  era: EraId,
+  settings: {
+    era_advancement_enabled?: boolean;
+    era_advancement_preset?: string;
+    era_advancement_spine_id?: string;
+    era_advancement_board_transform?: boolean;
+  },
+): boolean {
+  if (era === 'space_age') return true;
+  if (settings.era_advancement_enabled !== true) return false;
+  // Board transform anchors an ascension spine at the start era, which always
+  // climbs to the Space Age when the start era is on the line at all.
+  if (settings.era_advancement_board_transform === true && buildAscensionSpineFromEra(era)) {
+    return true;
+  }
+  const spineId = settings.era_advancement_spine_id
+    ?? (getEraAdvancementPresetBundle(settings.era_advancement_preset).era_advancement_spine_id as string | undefined);
+  return getSpineById(spineId).steps.some((step) => step.era_id === 'space_age');
 }
 
 export function isValidSpineId(spineId: unknown): spineId is string {

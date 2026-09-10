@@ -75,6 +75,9 @@ import {
   GALAXY_LANE_SEAL_DURATION,
   EMERGENCY_SEAL_ABILITY_ID,
   orbitGatewayTerritoryIds,
+  laneSealDuration,
+  laneSealHelium3Cost,
+  laneSealTick,
   syncLaunchPadLanes,
   nearestLandingZoneFor,
 } from '../game-engine/state/moonAccess';
@@ -189,6 +192,25 @@ import {
   playerHasUnlockedAbility,
   TERRITORY_ABILITY_DEFS,
 } from '../game-engine/abilities/techAbilities';
+import {
+  areMoonPowersEnabled,
+  hasMoonGroundAccess,
+} from '../game-engine/abilities/moonPowers';
+import {
+  clearDropAssaultsFor,
+  resolveDropAssaultsFor,
+  type DropAssaultResolution,
+} from '../game-engine/abilities/dropAssault';
+import {
+  selectAiLaneSeal,
+  canAiUseDropAssault,
+  canAiUseDysonBeam,
+  canAiUseOrbitalDrop,
+  selectAiDropAssaultTarget,
+  selectAiDysonBeamTarget,
+  selectAiOrbitalDropTarget,
+  shouldAiExportHelium3,
+} from '../game-engine/ai/aiMoonPowers';
 import {
   buildStrikeAnimationPayload,
   emitAbilityStrikeVisuals,
@@ -938,6 +960,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
 
       advanceToNextPlayer(state, map);
+      landPendingDropAssaults(io, gameId, state, map);
       await syncLaneWeatherAndBroadcastMap(io, gameId, room);
       broadcastTransitArrivals(io, gameId, state, map);
       {
@@ -2302,6 +2325,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // counter (matters for AI debugging and replay reconstruction).
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
+        landPendingDropAssaults(io, gameId, state, map);
         await syncLaneWeatherAndBroadcastMap(io, gameId, room);
         broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
@@ -2844,7 +2868,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Atom Bomb) is usable even though its unlocking tech is gone.
       const hasLegacyCharge = (currentPlayer.legacy_ability_charges?.[abilityId] ?? 0) > 0;
 
-      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge) {
+      // The Moon's own powers (Lunar Export, Orbital Drop) are not tech unlocks:
+      // holding lunar ground is the credential. Gating them on
+      // sa_lunar_expansion would lock the Lunar Pioneers — who reach the Moon
+      // from turn one without researching it — out of the Moon's own tier.
+      // See moonPowers.ts hasMoonGroundAccess.
+      const hasMoonGroundAbility = hasMoonGroundAccess(state, currentPlayer.player_id, abilityId);
+
+      if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge && !hasMoonGroundAbility) {
         return socket.emit('error', { message: `Ability '${abilityId}' is not available to you` });
       }
 
@@ -3527,7 +3558,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
     });
 
-    // ── Seal a hyperspace lane (galaxy contestable lanes) ─────────────────────
+    // ── Seal an orbit lane ────────────────────────────────────────────────────
+    // One event, two mechanics (see canSealLane): the Space Age Orbital Blockade
+    // is a He-3 purchase open to anyone holding an anchor lane's end, and the
+    // Galactic Age Emergency Seal is a once-per-turn faction charge that costs
+    // nothing. The era decides which rules apply, so the charge is only spent —
+    // and only demanded — where it exists.
     socket.on('game:seal_lane', async ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
         if (!checkAndRecordActionId(gameId, userId, action_id)) return;
@@ -3537,26 +3573,40 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return socket.emit('error', { message: 'Seal lanes during your attack or fortify phase' });
         }
         const currentPlayer = state.players[state.current_player_index];
-        const sealFaction = state.settings.factions_enabled && currentPlayer?.faction_id
+        const viaEmergencySeal = state.era !== 'space_age';
+        const sealFaction = viaEmergencySeal && state.settings.factions_enabled && currentPlayer?.faction_id
           ? getPlayerFaction(state, currentPlayer)
           : undefined;
         // The Vault holder (any faction) may seal ANY lane; the Custodians'
         // faction charge is limited to lanes touching Nexus. One charge a turn.
         const check = canSealLane(state, map, fromId, toId, userId, sealFaction?.ability_id, {
-          vaultHolder: playerHoldsVaultSeal(state, userId),
+          vaultHolder: viaEmergencySeal && playerHoldsVaultSeal(state, userId),
         });
         if (!check.ok || !check.laneId) {
           return socket.emit('error', { message: check.error ?? 'Cannot seal that lane' });
         }
-        // Emergency Seal is the faction's once-per-turn charge; it shares the
-        // ability_uses ledger so the HUD and the AI parity path see it spent.
-        const sealUses = currentPlayer.ability_uses ?? {};
-        if (sealUses[EMERGENCY_SEAL_ABILITY_ID]) {
-          return socket.emit('error', { message: 'Emergency Seal already used this turn' });
+        if (viaEmergencySeal) {
+          // Emergency Seal is the faction's once-per-turn charge; it shares the
+          // ability_uses ledger so the HUD and the AI parity path see it spent.
+          const sealUses = currentPlayer.ability_uses ?? {};
+          if (sealUses[EMERGENCY_SEAL_ABILITY_ID]) {
+            return socket.emit('error', { message: 'Emergency Seal already used this turn' });
+          }
+          currentPlayer.ability_uses = { ...sealUses, [EMERGENCY_SEAL_ABILITY_ID]: 1 };
         }
-        currentPlayer.ability_uses = { ...sealUses, [EMERGENCY_SEAL_ABILITY_ID]: 1 };
         if (!state.lane_blockades) state.lane_blockades = {};
-        state.lane_blockades[check.laneId] = { owner_id: userId, turns_remaining: GALAXY_LANE_SEAL_DURATION };
+        // Space Age seals cost He-3 and last two rounds; the Galaxy's are free
+        // and last three. canSealLane has already checked affordability.
+        const sealCost = laneSealHelium3Cost(state);
+        if (sealCost > 0) {
+          const sealer = state.players.find((p) => p.player_id === userId);
+          if (sealer) sealer.helium3 = (sealer.helium3 ?? 0) - sealCost;
+        }
+        state.lane_blockades[check.laneId] = {
+          owner_id: userId,
+          turns_remaining: laneSealDuration(state),
+          tick: laneSealTick(state),
+        };
         await persistGameStateAfterMutation(gameId, state);
         broadcastState(io, gameId, state);
       });
@@ -3749,6 +3799,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const currentPlayer = state.players[state.current_player_index];
       if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
+        landPendingDropAssaults(io, gameId, state, map);
         await syncLaneWeatherAndBroadcastMap(io, gameId, room);
         broadcastTransitArrivals(io, gameId, state, map);
         broadcastEventCard(io, gameId, state, map);
@@ -4368,6 +4419,90 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
   }
 
   io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
+}
+
+/**
+ * Land any Drop Assault the incoming player declared last turn (Space Age Moon
+ * Race, Phase 2b).
+ *
+ * Called immediately after every `advanceToNextPlayer`, which is where "the
+ * start of the declarer's next turn" actually happens for humans and bots
+ * alike — there is no other hook a human turn passes through.
+ *
+ * The engine resolves the battle through `executeLandAttack`; everything here
+ * is the socket's own business around it: the card draw, elimination
+ * bookkeeping the resolver cannot do (cards, the eliminated event, stat
+ * recording), and telling the table what fell out of the sky. Callers run their
+ * existing victory check afterwards, which is what catches a drop that ends the
+ * game.
+ */
+function landPendingDropAssaults(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  map: GameMap,
+): DropAssaultResolution[] {
+  const player = state.players[state.current_player_index];
+  if (!player || !state.drop_assaults?.length) return [];
+
+  const resolutions = resolveDropAssaultsFor(state, map, player.player_id, {
+    onCapture: (s, pid) => {
+      // One card per turn, same rule the ordinary attack path applies.
+      if (!player.card_earned_this_turn) {
+        drawCard(s, pid);
+        player.card_earned_this_turn = true;
+      }
+    },
+  });
+  if (resolutions.length === 0) return [];
+
+  for (const res of resolutions) {
+    const targetName = territoryName(map, res.assault.target_id);
+    if (res.status === 'cancelled') {
+      io.to(`user:${player.player_id}`).emit('game:drop_assault_cancelled', {
+        targetTerritoryId: res.assault.target_id,
+        targetName,
+        reason: res.cancelReason ?? 'The drop was cancelled',
+      });
+      continue;
+    }
+
+    const defenderId = res.previousOwner ?? null;
+    const defender = defenderId ? state.players.find((p) => p.player_id === defenderId) : undefined;
+    const payload = {
+      playerId: player.player_id,
+      playerName: player.username,
+      playerColor: player.color,
+      targetTerritoryId: res.assault.target_id,
+      targetName,
+      captured: !!res.captured,
+      defenderId,
+      defenderName: defender?.username ?? null,
+      attackerLosses: res.outcome?.result.attacker_losses ?? 0,
+      defenderLosses: res.outcome?.result.defender_losses ?? 0,
+    };
+    io.to(gameId).emit('game:drop_assault_landed', payload);
+    queueSpectatorEvent(gameId, 'game:drop_assault_landed', payload);
+
+    if (res.outcome?.defenderEliminated && defender) {
+      // The resolver moved the cards; the socket owns everything else an
+      // elimination means — its record, its event, and clearing the dead
+      // player's own drop so it cannot land after they are gone.
+      clearDropAssaultsFor(state, defender.player_id);
+      recordElimination(gameId, player.player_id);
+      io.to(gameId).emit('game:player_eliminated', {
+        playerId: defender.player_id,
+        eliminatorId: player.player_id,
+        eliminatorName: player.username,
+        eliminatedName: defender.username,
+        secretMission: defender.secret_mission ?? null,
+      });
+    }
+  }
+
+  syncTerritoryCounts(state);
+  broadcastState(io, gameId, state);
+  return resolutions;
 }
 
 function recordSpectatorState(gameId: string, state: GameState): void {
@@ -5528,6 +5663,60 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // (AI build + research run at the top of the draft phase, before the advance check.)
 
+  // AI parity: Orbital Drop — Phase 2's draft-phase power. Runs BEFORE the
+  // export below, which only converts what the powers do not need: a bot that
+  // exported first would never hold the 8 He-3 this costs.
+  if (areMoonPowersEnabled(state) && canAiUseOrbitalDrop(state, currentPlayer.player_id)) {
+    const dropTarget = selectAiOrbitalDropTarget(state, map, currentPlayer.player_id);
+    if (dropTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'orbital_drop',
+        territoryId: dropTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), orbital_drop: 1 };
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
+  // AI parity: Drop Assault — Phase 2b. Declared here and landing at the start
+  // of the bot's next turn, through exactly the path a human declaration takes,
+  // so the telegraph and the defender's round to answer it are identical.
+  if (areMoonPowersEnabled(state) && canAiUseDropAssault(state, currentPlayer.player_id)) {
+    const assaultTarget = selectAiDropAssaultTarget(state, currentPlayer.player_id);
+    if (assaultTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'drop_assault',
+        territoryId: assaultTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), drop_assault: 1 };
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
+  // AI parity: Lunar Export — Phase 1's He-3 sink. Fires only on a full
+  // conversion so the bot does not spend its one use per turn on a single
+  // point; the stockpile cap means hoarding past 30 is wasted anyway. Under
+  // Phase 2 it converts only the surplus over what the bot is saving for its
+  // powers (aiMoonPowers.ts); with Phase 2 off the rule is Phase 1's exactly.
+  if (shouldAiExportHelium3(state, map, currentPlayer.player_id)) {
+    executeTechAbility({
+      state,
+      map,
+      playerId: currentPlayer.player_id,
+      abilityId: 'lunar_export',
+    });
+  }
+
   // AI parity: Launch Space Station — the third rung of the Moon ladder. The AI
   // researches the ladder (aiBot tech hook) and builds the Launch Pad (aiBot
   // build list); this fires the once-per-game launch as soon as both are in
@@ -5604,6 +5793,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
           state.lane_blockades[check.laneId] = {
             owner_id: currentPlayer.player_id,
             turns_remaining: GALAXY_LANE_SEAL_DURATION,
+            tick: 'owner_turn',
           };
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [EMERGENCY_SEAL_ABILITY_ID]: 1 };
           broadcastState(io, gameId, state);
@@ -5640,6 +5830,68 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         if (res.success) {
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [strikeId]: 1 };
         }
+      }
+    }
+  }
+
+  // AI parity: Dyson Beam — Phase 2's attack-phase power. The bot fires it at
+  // the largest enemy stack bordering its own ground, which is the one it is
+  // about to have to fight; the beam is global, but fuel spent on a stack the
+  // bot will never reach is fuel wasted (aiMoonPowers.ts).
+  //
+  // This is the first tech-unlocked strike ability the AI has ever used — the
+  // existing parity blocks cover FACTION abilities only, so an unlocked
+  // nuclear_strike or orbital_strike still sits idle in a bot's hands. Widening
+  // that is its own change; here it is scoped to the Moon tier so the Phase 2
+  // control run stays today's game exactly.
+  if (areMoonPowersEnabled(state) && canAiUseDysonBeam(state, currentPlayer.player_id)) {
+    const beamTarget = selectAiDysonBeamTarget(state, map, currentPlayer.player_id);
+    if (beamTarget) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'dyson_beam',
+        territoryId: beamTarget,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), dyson_beam: 1 };
+        const targetOwner = res.previousOwner
+          ? state.players.find((p) => p.player_id === res.previousOwner)
+          : undefined;
+        // Same visuals a human beam gets: a bot firing the era's loudest power
+        // should not be silent on everyone else's screen.
+        emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
+          abilityId: 'dyson_beam',
+          attackerId: currentPlayer.player_id,
+          attackerName: currentPlayer.username,
+          attackerColor: currentPlayer.color,
+          territoryId: beamTarget,
+          targetOwnerId: res.previousOwner ?? null,
+          targetOwnerName: targetOwner?.username ?? null,
+        }), { state, map });
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
+  // AI parity: Orbital Blockade — Phase 4. A bot holding lunar ground seals an
+  // authored anchor lane when it can spare the He-3, through the same
+  // canSealLane the human path uses, so the Launch Pad exclusion and the
+  // endpoint rule apply identically.
+  {
+    const seal = selectAiLaneSeal(state, map, currentPlayer.player_id);
+    if (seal) {
+      const check = canSealLane(state, map, seal[0], seal[1], currentPlayer.player_id);
+      if (check.ok && check.laneId) {
+        currentPlayer.helium3 = (currentPlayer.helium3 ?? 0) - laneSealHelium3Cost(state);
+        if (!state.lane_blockades) state.lane_blockades = {};
+        state.lane_blockades[check.laneId] = {
+          owner_id: currentPlayer.player_id,
+          turns_remaining: laneSealDuration(state),
+          tick: laneSealTick(state),
+        };
+        broadcastState(io, gameId, state);
       }
     }
   }
@@ -6025,6 +6277,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);
+  landPendingDropAssaults(io, gameId, state, map);
   await syncLaneWeatherAndBroadcastMap(io, gameId, room);
   broadcastTransitArrivals(io, gameId, state, map);
   await saveGameState(gameId, state);

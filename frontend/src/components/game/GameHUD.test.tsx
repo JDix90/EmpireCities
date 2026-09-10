@@ -76,6 +76,142 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByText('Rival')).toBeNull();
   });
 
+  it('shows Helium-3 whenever the Space Age lunar economy is on', () => {
+    // Shown from the moment the rules are on, not once the player has some: a
+    // resource you only discover after already earning it is not an incentive
+    // to go and get it.
+    useGameStore.setState({
+      gameState: makeState({
+        settings: {
+          economy_enabled: true, tech_trees_enabled: true, space_age_moon_helium3_enabled: true,
+        } as GameState['settings'],
+      }),
+      draftUnitsRemaining: 0, lastCombatResult: null,
+    } as never);
+    renderHud();
+    expect(screen.getByTestId('hud-helium3')).toHaveTextContent('0 He-3');
+  });
+
+  it('keeps Helium-3 off the HUD in every era that does not have a Moon', () => {
+    renderHud();
+    expect(screen.queryByTestId('hud-helium3')).toBeNull();
+  });
+
+  describe('the Lunar Hegemony clock', () => {
+    // Shown to everyone, not just the holder: the whole phase rests on rivals
+    // being able to see the countdown and go break it.
+    const hegemonyState = (owner: string, turnsHeld: number) => makeState({
+      settings: {
+        economy_enabled: true, tech_trees_enabled: true,
+        space_age_moon_hegemony_enabled: true,
+      } as GameState['settings'],
+      lunar_hegemony: { owner_id: owner, turns_held: turnsHeld, started_turn: 3 },
+    } as Partial<GameState>);
+
+    it('counts down for a rival who has to answer it', () => {
+      useGameStore.setState({
+        gameState: hegemonyState('rival', 4), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('Rival holds the Moon · Hegemony in 3');
+    });
+
+    it('reads differently when the Moon is yours', () => {
+      useGameStore.setState({
+        gameState: hegemonyState('me', 1), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('You hold the Moon · Hegemony in 6');
+    });
+
+    it('counts down from the clock length THIS game runs on', () => {
+      // §9 lists 4-8 as the range a game may be set to. A banner counting from
+      // the default when the game runs a shorter clock tells every rival they
+      // have turns they do not have.
+      useGameStore.setState({
+        gameState: makeState({
+          settings: {
+            economy_enabled: true, tech_trees_enabled: true,
+            space_age_moon_hegemony_enabled: true, space_age_hegemony_turns: 5,
+          } as GameState['settings'],
+          lunar_hegemony: { owner_id: 'rival', turns_held: 4, started_turn: 3 },
+        } as Partial<GameState>),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.getByTestId('hud-hegemony')).toHaveTextContent('Hegemony in 1');
+    });
+
+    it('shows nothing while no clock is running', () => {
+      useGameStore.setState({
+        gameState: makeState({
+          settings: {
+            economy_enabled: true, tech_trees_enabled: true,
+            space_age_moon_hegemony_enabled: true,
+          } as GameState['settings'],
+        }),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.queryByTestId('hud-hegemony')).toBeNull();
+    });
+
+    it('shows nothing in a game without the phase, clock or not', () => {
+      useGameStore.setState({
+        gameState: makeState({
+          lunar_hegemony: { owner_id: 'rival', turns_held: 5, started_turn: 1 },
+        } as Partial<GameState>),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.queryByTestId('hud-hegemony')).toBeNull();
+    });
+  });
+
+  describe('the Moon\'s own powers', () => {
+    // Phase 1 shipped Lunar Export as a socket handler with no way to reach it:
+    // abilities are surfaced by walking the tech tree for `unlocks_ability`, and
+    // it deliberately has none, so no button ever rendered and only bots used
+    // the sink. These pin the human path.
+    const moonMap = {
+      map_id: 'space_age', territories: [
+        { territory_id: 'moon_polar_north', region_id: 'lunar_surface', globe_id: 'moon', name: 'North Polar Basin' },
+        { territory_id: 'moon_mare_imbrium', region_id: 'lunar_surface', globe_id: 'moon', name: 'Mare Imbrium' },
+        { territory_id: 'na_launch_base', region_id: 'north_america_2100', globe_id: 'earth', name: 'Launch Base' },
+      ],
+      connections: [],
+    };
+    const lunarState = (ownedMoonTiles: string[]) => makeState({
+      phase: 'draft',
+      settings: {
+        economy_enabled: true, tech_trees_enabled: true, space_age_moon_helium3_enabled: true,
+      } as GameState['settings'],
+      territories: Object.fromEntries(
+        moonMap.territories.map((t) => [t.territory_id, {
+          territory_id: t.territory_id,
+          owner_id: ownedMoonTiles.includes(t.territory_id) ? 'me' : 'rival',
+          unit_count: 3, unit_type: 'infantry',
+        }]),
+      ) as GameState['territories'],
+    });
+
+    it('offers Lunar Export to a player holding lunar ground', () => {
+      useGameStore.setState({
+        gameState: lunarState(['moon_polar_north']), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud({ onUseAbility: () => {}, mapData: moonMap });
+      expect(screen.getByTestId('ability-btn-lunar_export')).toBeInTheDocument();
+    });
+
+    it('withholds it from a player with no Moon territory', () => {
+      useGameStore.setState({
+        gameState: lunarState([]), draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud({ onUseAbility: () => {}, mapData: moonMap });
+      expect(screen.queryByTestId('ability-btn-lunar_export')).toBeNull();
+    });
+  });
+
   it('shows the roster only on the Players tab', () => {
     renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Players/ }));

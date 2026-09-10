@@ -10,6 +10,10 @@ import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolv
 import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettings';
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
+import { applyHelium3Income } from './helium3';
+import { syncLaunchPadLanes } from './moonAccess';
+import { applyMoonTribute, clearTributeReceived } from './moonTribute';
+import { hasCompletedHegemony, tickLunarHegemony } from './lunarHegemony';
 import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
@@ -86,6 +90,9 @@ export function applyOpeningEconomyTick(state: GameState): void {
     if (state.settings.tech_trees_enabled) {
       applyTechPointIncome(state, player.player_id);
     }
+    // Lunar income is gated on the setting, not on tech_trees_enabled: the
+    // Lunar Pioneers reach the Moon without researching anything.
+    applyHelium3Income(state, player.player_id);
   }
 }
 
@@ -338,6 +345,34 @@ export function initializeGameState(
     for (const t of Object.values(territories)) {
       t.buildings = [];
     }
+    // Faction starting buildings (Faction.starting_building). Gated on economy
+    // because that is what creates the arrays above; in a no-economy game nobody
+    // can build at all, so the board is equally bare for everyone.
+    if (settingsNorm.factions_enabled) {
+      const factionDefs = getEraFactions(era);
+      for (const p of playerStates) {
+        const building = p.faction_id
+          ? factionDefs.find((f) => f.faction_id === p.faction_id)?.starting_building
+          : undefined;
+        if (!building) continue;
+        const owned = Object.values(territories).filter((t) => t.owner_id === p.player_id);
+        if (owned.length === 0) continue;
+        // Most-connected owned territory: a lone starting building is a target,
+        // and the well-connected tile is both the easiest to reinforce and the
+        // one whose lane is most useful. Tie-break on id so a seeded game is
+        // reproducible rather than depending on object key order.
+        const host = owned.reduce((best, t) => {
+          const deg = (id: string) => map.connections.filter(
+            (c) => c.from === id || c.to === id,
+          ).length;
+          const d = deg(t.territory_id);
+          const bd = deg(best.territory_id);
+          if (d !== bd) return d > bd ? t : best;
+          return t.territory_id < best.territory_id ? t : best;
+        });
+        if (!host.buildings?.includes(building)) host.buildings = [...(host.buildings ?? []), building];
+      }
+    }
   }
 
   const startingPlayerIndex = initOptions?.forceStartingPlayerIndex
@@ -473,6 +508,14 @@ export function initializeGameState(
       }
     }
   }
+
+  // A launch pad seeded above opens its own orbit lane, and the lane has to
+  // exist from turn one or the building is decorative. gameRoomManager syncs on
+  // every room load, but nothing had synced at INIT — which the balance sim
+  // relies on, since it only syncs after a pad is built during play. Doing it
+  // here removes that divergence: the same call, idempotent (it returns false
+  // when there is nothing to add), on every path that starts a game.
+  syncLaunchPadLanes(map, state);
 
   appendWinProbabilitySnapshot(state);
   return state;
@@ -681,6 +724,13 @@ export function calculateContinentBonuses(
  * Skips eliminated players and wraps around.
  */
 export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
+  // Lunar Hegemony (Phase 3): the outgoing player's turn is ending, which is
+  // exactly when "hold the whole Moon at the end of your turn" is judged.
+  // `checkVictory` reads the completed clock; the callers all run it right
+  // after this returns.
+  const outgoing = state.players[state.current_player_index]?.player_id ?? null;
+  tickLunarHegemony(state, outgoing);
+
   const total = state.players.length;
   let next = (state.current_player_index + 1) % total;
   let attempts = 0;
@@ -691,6 +741,12 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (next <= state.current_player_index) {
     state.turn_number++;
 
+    // Round-end sweep for the Hegemony clock. The end-of-turn tick above only
+    // sees the board as the holder left it; an event card that flips a lunar
+    // tile between turns has to break the clock too, and this is the one place
+    // that runs after everybody has acted.
+    tickLunarHegemony(state, null);
+
     // Galaxy worlds as characters: the storms shed units from over-stacked
     // tiles once per round, before anyone drafts.
     applyStormAttrition(state);
@@ -698,6 +754,12 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     // Galaxy lane weather ages with the round, not with a player's turn: a
     // closure nobody owns cannot wait on whose charge it was.
     tickLaneWeather(state);
+
+    // Space Age Orbital Blockades age with the round. The Galactic Age's seals
+    // do NOT — they age at their owner's own turn start (below), so every seat
+    // faces one for the same length of time. Each seal records which clock it
+    // is on, so a board carrying both works.
+    tickLaneBlockades(state);
 
     // Decrement truce timers once per round (not per player turn)
     for (const entry of state.diplomacy) {
@@ -785,6 +847,18 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   if (state.settings.tech_trees_enabled) {
     applyTechPointIncome(state, nextPlayer.player_id);
   }
+
+  // Helium-3 from owned Moon tiles (Space Age Moon Race, Phase 1). Its own
+  // gate rather than tech_trees_enabled — a Lunar Pioneer holds lunar ground
+  // from turn one without researching the ladder.
+  applyHelium3Income(state, nextPlayer.player_id);
+
+  // Tribute (§8, off by default): the Moon holder's levy, taken at the PAYER's
+  // income tick — the turn where they can see what it cost them, rather than
+  // quietly at the holder's. The holder's running total resets on their own
+  // turn so the figure reads "collected since I last acted".
+  clearTributeReceived(state, nextPlayer.player_id);
+  applyMoonTribute(state, nextPlayer.player_id);
 
   // Collect fleet income from ports / naval bases
   if (state.settings.naval_enabled) {
@@ -1085,6 +1159,14 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
     ) {
       const need = Math.ceil(totalTerritories * (settings.victory_threshold / 100));
       if (player.territory_count >= need) condition = 'threshold';
+    }
+
+    // Lunar Hegemony (Space Age Moon Race, Phase 3): the clock is advanced at
+    // end of turn by `tickLunarHegemony`; this only reads whether it has run
+    // out. Placed with the other alternates — `last_standing` still pre-empts
+    // it, which is fine: a hegemon who also cleared Earth has won either way.
+    if (condition == null && allowed.includes('lunar_hegemony')) {
+      if (hasCompletedHegemony(state, player.player_id)) condition = 'lunar_hegemony';
     }
 
     if (condition == null && allowed.includes('capital')) {

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { z } from 'zod';
-import type { GameState, VictoryType } from '../../types';
+import type { EraId, GameState, VictoryType } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
@@ -15,7 +15,8 @@ import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResol
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { formatZodError } from '../../utils/formatZodError';
-import { featureFlags } from '../../config/featureFlags';
+import { featureFlags, type MoonRacePhaseFlags, type MoonRacePhaseKey } from '../../config/featureFlags';
+import { reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
 import { buildChronicle } from '../../game-engine/chronicle/buildChronicle';
@@ -46,7 +47,10 @@ const TutorialStartSchema = z.object({
     .optional(),
 });
 
-const victoryConditionEnum = z.enum(['domination', 'secret_mission', 'capital', 'threshold', 'transcendence', 'lane_sovereignty']);
+const victoryConditionEnum = z.enum([
+  'domination', 'secret_mission', 'capital', 'threshold', 'transcendence',
+  'lunar_hegemony', 'lane_sovereignty',
+]);
 
 /** Exported for tests — the settings whitelist must keep pace with what lobbies send. */
 export const CreateGameSchema = z.object({
@@ -93,6 +97,7 @@ export const CreateGameSchema = z.object({
       /** Anti-fortress dice cap + ceilings (normalizeGameSettings clamps the
        * ceilings up to the natural base of atk 3 / def 2). */
       combat_dice_cap_enabled: z.boolean().optional(),
+      lanes_contestable_enabled: z.boolean().optional(),
       combat_max_attacker_dice: z.number().int().min(3).max(10).optional(),
       combat_max_defender_dice: z.number().int().min(2).max(10).optional(),
     })
@@ -155,17 +160,45 @@ export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
 export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
 export function applyOrbitGatedVictoryDefaults<
   T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
->(settings: T, opts: { isOrbitGated: boolean; callerChoseVictory: boolean; isGalacticAge?: boolean }): T {
-  if (!opts.isOrbitGated) return settings;
+>(
+  settings: T,
+  opts: {
+    isOrbitGated: boolean;
+    callerChoseVictory: boolean;
+    lunarHegemony?: boolean;
+    isGalacticAge?: boolean;
+  },
+): T {
+  // Nothing to apply off an orbit-gated era unless the Hegemony is in play:
+  // return the caller's own object so a non-Space-Age create is untouched, by
+  // identity and not merely by value.
+  if (!opts.isOrbitGated && !opts.lunarHegemony) return settings;
   const out = { ...settings };
   if (!opts.callerChoseVictory) {
-    const added: VictoryType[] = ['threshold'];
+    // Every addition only ever fills a blank list; an explicit lobby choice wins.
+    const add: VictoryType[] = [];
+    if (opts.isOrbitGated) add.push('threshold');
+    // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route.
+    // Deliberately NOT conditioned on `isOrbitGated`, because an era-advancement
+    // game that climbs there should be winnable that way too — it just must not
+    // pick up the backstop below with it.
+    if (opts.lunarHegemony) add.push('lunar_hegemony');
     // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
-    // the tiles — and ships ON by default beside the headcount backstop. It is
-    // meaningless off a lane map, so it is never added elsewhere.
-    if (opts.isGalacticAge) added.push('lane_sovereignty');
-    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...added])];
-    if (typeof out.victory_threshold !== 'number') out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
+    // the tiles — and ships ON beside the headcount backstop. It is meaningless
+    // off a lane map, so it is never added elsewhere.
+    if (opts.isGalacticAge) add.push('lane_sovereignty');
+    if (add.length > 0) {
+      out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
+    }
+  }
+  // The threshold-60 / 90-turn backstop exists for a game that is orbit-gated
+  // from turn ONE and would otherwise never end (a large share of the board
+  // sits behind an orbit gate, so domination is unreachable). An era-advancement
+  // climb is not that game: capping a marathon at 90 turns would be a different
+  // game entirely, so this stays scoped to the start era.
+  if (!opts.isOrbitGated) return out;
+  if (!opts.callerChoseVictory && typeof out.victory_threshold !== 'number') {
+    out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
   }
   if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
   return out;
@@ -193,6 +226,27 @@ export function territorySelectionRejection(opts: {
 }
 
 /**
+ * Contestable lanes are a Galactic Age setting the client may not arm anywhere
+ * else — except the Space Age, which now has its own reason to seal one.
+ */
+export const LANES_CONTESTABLE_NON_GALAXY_ERROR =
+  'Contestable hyperspace lanes are only available in Galactic Age games';
+export function lanesContestableRejection(opts: {
+  lanesContestableEnabled?: boolean;
+  isGalacticAge: boolean;
+  /** Space Age Orbital Blockade (Moon Race, Phase 4) — the era's own opt-in. */
+  spaceAgeBlockade?: boolean;
+}): string | null {
+  if (!opts.lanesContestableEnabled || opts.isGalacticAge) return null;
+  // Phase 4 gives the Space Age its own reason to contest lanes, with its own
+  // rules (He-3 cost, two rounds, authored anchors only). The rejection stays
+  // for every other era and for a Space Age game with the phase off, which is
+  // still a client trying to arm a mechanic it has no UI for.
+  if (opts.spaceAgeBlockade) return null;
+  return LANES_CONTESTABLE_NON_GALAXY_ERROR;
+}
+
+/**
  * The Galactic Age needs exactly four seats. The one-faction-per-world start
  * (tryDistributeGalaxyAgeFactionHomeworlds) fires only for four seats holding
  * four distinct galaxy factions; every other shape falls through to geographic
@@ -214,6 +268,43 @@ export function galaxyPlayerCountRejection(opts: {
 }): string | null {
   if (!opts.isGalacticAge || opts.totalPlayers === GALAXY_REQUIRED_PLAYERS) return null;
   return GALAXY_PLAYER_COUNT_ERROR;
+}
+
+/**
+ * The Space Age Moon Race resolution (docs/space-age-moon/README.md §10.2).
+ *
+ * ONE question: does the operator ship this phase yet. There is deliberately no
+ * second, player-facing one.
+ *
+ * The Moon Race IS the Space Age — the lunar economy, the gated tier, the
+ * Hegemony victory are what separate the era from rocket-flavoured Earth. An era
+ * whose defining mechanic is optional does not have a defining mechanic: half
+ * the games would be the old grind, "Space Age" would name two different games,
+ * and a host would be making that choice for four other people before any of
+ * them knew what it meant. So every Space Age game gets every shipped phase.
+ *
+ * The per-phase flags stay what they always were — dark-launch and kill
+ * switches for the operator, not a game mode. `featureFlags.moonRacePhases` is
+ * their single definition, so a sixth phase is one line there and reaches every
+ * Space Age game the moment it is promoted.
+ *
+ * Exported for tests.
+ */
+export function resolveMoonRacePhases(opts: {
+  isSpaceAge: boolean;
+  /** What the operator ships — `featureFlags.moonRacePhases`. */
+  shipped: MoonRacePhaseFlags;
+}): { enabled: boolean; phases: Partial<Record<MoonRacePhaseKey, true>> } {
+  const phases: Partial<Record<MoonRacePhaseKey, true>> = {};
+  if (opts.isSpaceAge) {
+    for (const [key, on] of Object.entries(opts.shipped) as [MoonRacePhaseKey, boolean][]) {
+      // Only ever `true` or absent: normalizeGameSettings persists a phase key
+      // solely when it is on, so writing an explicit `false` would round-trip to
+      // undefined anyway and make settings comparisons lie in the meantime.
+      if (on) phases[key] = true;
+    }
+  }
+  return { enabled: Object.keys(phases).length > 0, phases };
 }
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
@@ -238,6 +329,26 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const isAscensionGalaxy = map_id === ASCENSION_GALAXY_MAP_ID;
     if (isAscensionGalaxy && !request.isAdmin) {
       return reply.status(403).send({ error: 'Space to Stars is coming soon and is only available to administrators.' });
+    }
+
+    const isSpaceAgeEra = era_id === 'space_age' || map_id === 'era_space_age';
+    // "Is or will be the Space Age": an era-advancement game that climbs there
+    // has to arrive with the package, or it reaches the era without the thing
+    // that makes it the era. The phases are inert until the board has lunar
+    // tiles, so baking them at create costs an Ancient start nothing.
+    const willBeSpaceAge = isSpaceAgeEra || reachesSpaceAge(era_id as EraId, rawSettings);
+    const moonRace = resolveMoonRacePhases({
+      isSpaceAge: willBeSpaceAge,
+      shipped: featureFlags.moonRacePhases,
+    });
+    const spaceAgeBlockade = moonRace.phases.space_age_moon_blockade_enabled === true;
+    const lanesRejection = lanesContestableRejection({
+      lanesContestableEnabled: rawSettings.lanes_contestable_enabled,
+      isGalacticAge,
+      spaceAgeBlockade,
+    });
+    if (lanesRejection) {
+      return reply.status(400).send({ error: lanesRejection });
     }
 
     const selectionRejection = territorySelectionRejection({
@@ -265,7 +376,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // Standalone Space Age frontier seeding is server-controlled via the feature
     // flag (the schema never accepts it from the client). Bake the live value into
     // the settings at create so the engine reads a fixed setting and stays pure.
-    const isSpaceAge = era_id === 'space_age' || map_id === 'era_space_age';
+    const isSpaceAge = isSpaceAgeEra;
     // Boards whose hyperspace lanes follow Galactic Age rules — the lane dice
     // cap, world rules and convoys. Space to Stars has lanes from turn one
     // (Earth → Moon) and the ring to the far worlds from the moment somebody
@@ -292,12 +403,24 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // authored rules are snapshotted at init when this is on.
           world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
           galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
+          // Every Moon Race phase this game runs, resolved above. Spread rather
+          // than listed so a sixth phase needs no edit here.
+          ...moonRace.phases,
+          // Tribute (§8) is a knob, not a phase: its own flag, and it applies
+          // wherever the Moon Race does rather than needing a Space Age start.
+          space_age_moon_tribute_enabled:
+            (moonRace.enabled && featureFlags.spaceAgeMoonTributeEnabled) || undefined,
+          // The blockade IS lane sealing, so the phase flag arms the underlying
+          // mechanic rather than asking the lobby to set two things that must
+          // agree. An explicit client value still wins.
+          lanes_contestable_enabled: rawSettings.lanes_contestable_enabled ?? (spaceAgeBlockade || undefined),
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
           isGalacticAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
+          lunarHegemony: moonRace.phases.space_age_moon_hegemony_enabled === true,
         },
       ),
     );
