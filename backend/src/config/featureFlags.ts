@@ -478,16 +478,6 @@ export const featureFlags = {
   },
 
   /**
-   * Whether the lobby has a Moon Race to offer at all — true when ANY phase is
-   * enabled. Not a phase itself and deliberately not overridable: it is derived,
-   * so an operator can never end up with a lobby toggle that turns nothing on,
-   * or with phases live and no way for a player to decline them.
-   */
-  get moonRaceAvailable(): boolean {
-    return Object.values(this.moonRacePhases).some(Boolean);
-  },
-
-  /**
    * When true, ranked matchmaking supports variable game sizes: the lobby shows
    * an opponents-count dropdown (1–5, era-capped), the queue matches cohorts of
    * `preferred_opponents + 1` players, and joiners with a larger preference get
@@ -543,10 +533,5 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
-    // ONE client flag for the whole Moon Race, not six. The lobby offers a
-    // single toggle (§10.2) and only needs to know whether there is anything
-    // behind it; which phases that toggle actually turns on is decided
-    // server-side at create, where the per-phase flags live.
-    space_age_moon_race_enabled: featureFlags.moonRaceAvailable,
   };
 }

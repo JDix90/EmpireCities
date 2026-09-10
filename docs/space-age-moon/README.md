@@ -59,7 +59,7 @@ Every phase below is held to these; where a rule exists only to satisfy one of t
 | 5 ✅ | Lunar Missions | Space Age secret-mission branch | `space_age_moon_missions_enabled` (dark) | two `SecretMission` kinds + generator branch |
 | knob | Tribute | Tech-point tithe on Earth-only players | `space_age_moon_tribute_enabled` (**default OFF**) | income-tick transfer |
 
-**Player-facing surface:** one lobby toggle, **Moon Race**, which enables whichever phases have shipped. The per-phase flags are operator kill switches, not player choices — six checkboxes in a lobby would be the wrong product.
+**Player-facing surface:** none. The Moon Race is not a setting — it is what the Space Age is, so every Space Age game runs whichever phases have shipped (§10.2). The per-phase flags are operator dark-launch kill switches, never player choices.
 
 **Order is load-bearing.** Phase 1 without 2 is a resource with one sink; Phase 3 without 1 is a hold-the-Moon race with no reason to hold three tiles; Phase 4 without 3 is a defensive tool with nothing to defend. Phase 5 is independent and can land any time after 1.
 
@@ -396,7 +396,7 @@ Everything needed exists for the Galactic Age: `state.lane_blockades`, `canSealL
 
 ### 6.2 Changes
 
-1. **Create boundary:** allow `lanes_contestable_enabled` for Space Age when `space_age_moon_blockade_enabled` is on. The Moon Race lobby toggle sets it.
+1. **Create boundary:** allow `lanes_contestable_enabled` for Space Age when `space_age_moon_blockade_enabled` is on. The phase resolution sets it (§10.2).
 2. **Cost:** sealing costs **3 He-3** in Space Age (Galaxy stays free). Ties defence to the economy; a Hegemon spending on seals is a Hegemon not spending on beams.
 3. **Duration:** `SPACE_AGE_LANE_SEAL_DURATION = 2` (Galaxy's 3 is tuned for a bigger board).
 4. **Endpoint ownership** (already required by `canSealLane`): from the Moon end, hold the landing-zone tile; from Earth, hold the anchor. Both are existing "endpoints".
@@ -441,7 +441,7 @@ Shipped at 2 because both gate criteria clear on the mean there and a defensive 
 ### 6.6 What Phase 4 actually shipped, versus this design
 
 - **§6.2(5)'s fix applies to the Galactic Age too.** A seal outliving its owner's presence was never Space-Age-specific; `tickLaneBlockades` now drops any seal whose owner holds neither endpoint, in both eras. Holding an end is what raising a seal requires, so it is what keeping one requires.
-- **The blockade flag arms `lanes_contestable_enabled` itself.** §6.2(1) expects the Moon Race lobby toggle to set both. The create boundary arms the underlying mechanic whenever the phase resolves on, rather than asking the lobby to set two things that must agree; an explicit client value still wins. Now that the toggle exists (§10.2) it gates the phase, so declining the race also withdraws the lane-sealing permission.
+- **The blockade flag arms `lanes_contestable_enabled` itself.** §6.2(1) expects a lobby toggle to set both; there is no such toggle (§10.2), so the create boundary arms the underlying mechanic whenever the phase resolves on rather than asking anyone to set two things that must agree. An explicit client value still wins.
 - **The Space Age needed its own seal UI.** The Galactic Age seals from its strategic view, which Space Age games never render — so without this the blockade would have been a mechanic only bots could use, exactly the gap Phase 1 shipped with Lunar Export. The action now lives on the territory panel of any orbit-lane endpoint you hold, and Launch Pad lanes are deliberately not offered rather than offered-and-refused.
 
 ---
@@ -553,36 +553,27 @@ Each phase adds, following the `space_age_frontiers_enabled` pattern:
 
 Backend-only flags stay out of `getClientFeatureFlags()`; the client reads the baked game setting.
 
-### 10.2 The lobby
+### 10.2 How the Moon Race reaches a game
 
-One toggle, **Moon Race**, on Space Age era games. Sets every shipped phase's game setting. Off = today's game exactly. Ranked: off until Phase 3's gate has passed on production data, then on.
+~~One toggle, **Moon Race**, on Space Age era games. Sets every shipped phase's game setting. Off = today's game exactly.~~
 
-**Shipped.** `resolveMoonRacePhases` (`games.routes.ts`) is the whole resolution, and it keeps two questions apart:
+**Reversed — there is no lobby toggle.** The design called for one and it was built (PR #283); the owner overruled it and the toggle was removed the same day (PR #284). The reasoning is worth keeping, because it applies to anything else this package is tempted to make optional:
 
-- **Does this game want the package?** The lobby's one checkbox, carried as `moon_race_enabled` on the create request.
-- **Does the operator ship a given phase?** `featureFlags.moonRacePhases` — one record, now the single definition of what "the Moon Race" contains. `moonRaceAvailable` and the client flag `space_age_moon_race_enabled` are both derived from it, so the toggle can never offer a phase it cannot enable, or enable one it never offered. A sixth phase is one line in that record.
+> The Moon Race *is* the Space Age. The lunar economy, the gated tier and the Hegemony victory are what separate the era from rocket-flavoured Earth — the whole point of §1. An era whose defining mechanic is optional does not have a defining mechanic. Ship the toggle and "Space Age" names two different games; roughly half of them are the old 54-tile grind, every piece of copy has to hedge, and balance data arrives split down the middle for no benefit. Worse, the choice lands on the host, who makes it for four other people, from a checkbox, before any of them know what it does.
 
-Every phase setting is the AND of the two. Three consequences worth stating, each covered by a test in `moonRaceLobbyToggle.test.ts`:
+So: **every Space Age game gets every shipped phase.** `resolveMoonRacePhases` (`games.routes.ts`) asks one question — does the operator ship this phase — and bakes the answer at create. What survived from the toggle work:
 
-1. **Unticking gives today's game exactly** — asserted by normalizing a declined Space Age create and comparing it to one built before the package existed. It also withdraws the Orbital Blockade's create-boundary permission, so a declined game cannot arm lane sealing either (§6.2).
-2. **A player can never turn on a dark phase**, however a create request is hand-crafted. The schema accepts `moon_race_enabled` and nothing else; the per-phase keys are server-owned and zod strips them.
-3. **An absent toggle follows the operator.** Quick Match, an older client and a scripted create keep behaving exactly as they did before the toggle existed, and promoting a phase flag to ON reaches players without a second switch to remember. The lobby therefore sends an **explicit** boolean whenever the checkbox is on screen — an omitted untick would be read as consent.
+- **`featureFlags.moonRacePhases`**, one record and the single definition of what "the Moon Race" contains. A sixth phase is one line there and reaches every Space Age game the moment it is promoted.
+- **The per-phase flags stay what they always were:** dark-launch and kill switches for the operator, not a game mode. A partly-promoted package lands as exactly the promoted part.
+- **Nothing player-facing.** No create-schema field, no client feature flag, no lobby checkbox. `CreateGameSchema` strips both the per-phase keys and the retired `moon_race_enabled`, so an older client cannot decline the era's own mechanic.
 
-The checkbox is ticked by default wherever it is offered, which is what makes 10.3's promotion step actually reach players, and it is only offered on a Space Age create with at least one phase live. With all five flags dark today, it is invisible and every Space Age game is unchanged.
+Both silent failure modes are still covered by tests (`moonRacePhases.test.ts`): the `normalizeGameSettings` whitelist, which drops any key it does not name and would make a phase inert with nothing failing, and the create-schema whitelist.
 
-**Verified live**, not only in unit tests: a throwaway Postgres + Redis, the real `POST /api/games`, five creates on `era_space_age`.
+Two bugs the toggle work exposed, and which outlived it: `lunar_hegemony` fell through `describeWinConditions` to its raw enum name, so a Phase 3 game opened by telling players they could win by `lunar_hegemony`; and both the start modal and the HUD banner counted from the default clock rather than the game's own `space_age_hegemony_turns`, which tells a rival they have turns they do not have.
 
-| Create | Phase settings persisted |
-|---|---|
-| toggle ticked, all five flags ON | all five, plus `lanes_contestable_enabled` |
-| toggle unticked, all five flags ON | none |
-| toggle absent, all five flags ON | all five (follows the operator) |
-| toggle ticked, no victory conditions chosen | `allowed_victory_conditions: [domination, threshold, lunar_hegemony]` |
-| toggle unticked, no victory conditions chosen | `[domination, threshold]` |
+**Still open (§12):** the phases are baked keyed on the era at CREATE, so a game that *advances into* the Space Age on the `full_ascension` spine reaches the era with none of them. If the Moon Race is what the era is, that game is not really playing the Space Age either. Decide whether era-advancement games should pick the package up on arrival.
 
-And the claim that matters most, checked as a database comparison rather than by reading code: the unticked create's `settings_json` is **byte-identical** to a create made against a server with every Moon Race flag dark. With the flags dark the client flag `space_age_moon_race_enabled` reads false and the toggle does not render at all, which is the state shipping today.
-
-Two things the toggle exposed and this work fixed: `lunar_hegemony` fell through `describeWinConditions` to its raw enum name, so a Phase 3 game opened by telling players they could win by `lunar_hegemony`; and both the start modal and the HUD banner counted from the default clock rather than the game's own `space_age_hegemony_turns`, which tells a rival they have turns they do not have.
+**Ranked** stays as designed: off until Phase 3's gate has passed on production data, then on. That is matchmaking configuration, not a per-game choice.
 
 ### 10.3 One PR per phase
 
@@ -599,7 +590,7 @@ Each phase is one PR off `main`, dark-launched, with its sim run and gate number
 | Lunar Pioneers dominate | every gate's faction criterion | Pioneers clock offset (§5.4); their +2 def is the knob to touch next |
 | Drop collapses Earth geography | Phase 2 gate; player reports | 2a before 2b; telegraphed landing; cooldown; cost |
 | AI cannot contest the Moon | everywhere | resolved: bots launch in 100% of games and capture Moon tiles in 100% (§2.1–2.2), and an AI-path socket test now guards the ordering |
-| Six flags, one feature | ops confusion | resolved: one lobby toggle, one `moonRacePhases` record behind it; flags are kill switches only (§10.2) |
+| Six flags, one feature | ops confusion | resolved: one `moonRacePhases` record is the whole definition; flags are dark-launch kill switches only, never a game mode (§10.2) |
 | Moon fights invisible on phones | Phase 3 | HUD banner + inset badge specified as part of the phase, not a follow-up |
 
 ---

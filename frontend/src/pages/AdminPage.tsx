@@ -129,31 +129,31 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'space_age_moon_helium3_enabled',
     label: 'Moon Race · Helium-3 economy (Phase 1)',
     description:
-      'Owned Moon tiles pay Helium-3 each turn (polar basins 2, the rest 1, stockpile capped at 30), and Lunar Export converts up to 5 of it into tech points — so three Moon tiles is a real position rather than a down payment on nine. Baked into each game at creation, so switching it off only affects games created afterwards. Off by default (dark-launch). Also gated on the lobby’s Moon Race toggle — a host who unticks it gets none of the phases, however many are on here.',
+      'Owned Moon tiles pay Helium-3 each turn (polar basins 2, the rest 1, stockpile capped at 30), and Lunar Export converts up to 5 of it into tech points — so three Moon tiles is a real position rather than a down payment on nine. Baked into each game at creation, so switching it off only affects games created afterwards. Off by default (dark-launch). Reaches EVERY Space Age game the moment it is on — the Moon Race is what the era is, so there is no lobby opt-out.',
   },
   {
     key: 'space_age_moon_gated_tier_enabled',
     label: 'Moon Race · the gated tier (Phase 2)',
     description:
-      'Dyson Beam needs a Moon territory plus 6 Helium-3 to fire (its tech keeps the +8 TP/turn either way), and Orbital Drop — 3 units onto any territory you own, anywhere — becomes available at 3 Moon tiles for 8 Helium-3. NOTE: has no effect unless Phase 1 above is also on, since both powers are priced in Helium-3. Baked at creation. Off by default (dark-launch). Also gated on the lobby’s Moon Race toggle — a host who unticks it gets none of the phases, however many are on here.',
+      'Dyson Beam needs a Moon territory plus 6 Helium-3 to fire (its tech keeps the +8 TP/turn either way), and Orbital Drop — 3 units onto any territory you own, anywhere — becomes available at 3 Moon tiles for 8 Helium-3. NOTE: has no effect unless Phase 1 above is also on, since both powers are priced in Helium-3. Baked at creation. Off by default (dark-launch). Reaches EVERY Space Age game the moment it is on — the Moon Race is what the era is, so there is no lobby opt-out.',
   },
   {
     key: 'space_age_moon_hegemony_enabled',
     label: 'Moon Race · Lunar Hegemony (Phase 3)',
     description:
-      'A Moon-only victory: hold all nine lunar territories at the end of your turn for seven consecutive turns and you win, whatever is happening on Earth. The clock RESETS the moment one tile leaves you. Comes with the contest rule — once anybody holds lunar ground, everyone else needs only Launch Pad tech and a Launch Pad to reach the Moon, instead of the full four-tech ladder. Independent of Phases 1 and 2 (it costs no Helium-3). Baked at creation. Off by default (dark-launch). Also gated on the lobby’s Moon Race toggle — a host who unticks it gets none of the phases, however many are on here.',
+      'A Moon-only victory: hold all nine lunar territories at the end of your turn for seven consecutive turns and you win, whatever is happening on Earth. The clock RESETS the moment one tile leaves you. Comes with the contest rule — once anybody holds lunar ground, everyone else needs only Launch Pad tech and a Launch Pad to reach the Moon, instead of the full four-tech ladder. Independent of Phases 1 and 2 (it costs no Helium-3). Baked at creation. Off by default (dark-launch). Reaches EVERY Space Age game the moment it is on — the Moon Race is what the era is, so there is no lobby opt-out.',
   },
   {
     key: 'space_age_moon_missions_enabled',
     label: 'Moon Race · lunar secret missions (Phase 5)',
     description:
-      'Adds four lunar objectives to the Space Age secret-mission deck — hold both polar basins, control the whole Moon, hold three or five lunar territories, or stand on the Moon while a named rival holds none of it — taking roughly 30% of assigned missions. Independent of the other phases, but a no-op unless the game also allows secret-mission victory. Baked at creation. Off by default (dark-launch). Also gated on the lobby’s Moon Race toggle — a host who unticks it gets none of the phases, however many are on here.',
+      'Adds four lunar objectives to the Space Age secret-mission deck — hold both polar basins, control the whole Moon, hold three or five lunar territories, or stand on the Moon while a named rival holds none of it — taking roughly 30% of assigned missions. Independent of the other phases, but a no-op unless the game also allows secret-mission victory. Baked at creation. Off by default (dark-launch). Reaches EVERY Space Age game the moment it is on — the Moon Race is what the era is, so there is no lobby opt-out.',
   },
   {
     key: 'space_age_moon_blockade_enabled',
     label: 'Moon Race · Orbital Blockade (Phase 4)',
     description:
-      'Lets a Space Age player seal one of the three authored orbit lanes for 3 Helium-3, shutting it to everyone else for two turns, provided they hold an end of it. Launch Pad lanes can never be sealed, so a Moon holder can make a rival build a pad but can never lock them out. Turning this on also arms lane contesting for the game. Baked at creation. Off by default (dark-launch). Also gated on the lobby’s Moon Race toggle — a host who unticks it gets none of the phases, however many are on here.',
+      'Lets a Space Age player seal one of the three authored orbit lanes for 3 Helium-3, shutting it to everyone else for two turns, provided they hold an end of it. Launch Pad lanes can never be sealed, so a Moon holder can make a rival build a pad but can never lock them out. Turning this on also arms lane contesting for the game. Baked at creation. Off by default (dark-launch). Reaches EVERY Space Age game the moment it is on — the Moon Race is what the era is, so there is no lobby opt-out.',
   },
   {
     key: 'today_panel_enabled',

@@ -14,8 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { moonRaceApplicable, moonRaceCreateValue } from '../utils/moonRaceToggle';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useMoonRaceEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { api } from '../services/api';
@@ -477,7 +476,6 @@ export default function LobbyPage() {
   // count for the selected era (persisted per era in cc-ranked-prefs), and the
   // join-time "complete a smaller game" offer, when the server surfaces one.
   const rankedMultiSizeEnabled = useRankedMultiSizeEnabled();
-  const moonRaceFlagEnabled = useMoonRaceEnabled();
   const matchAlertsEnabled = useMatchAlertsEnabled();
   const [rankedOpponents, setRankedOpponents] = useState(() => getRankedOpponents('ancient'));
   const [rankedOffer, setRankedOffer] = useState<{ opponents: number; era_id: string; bucket: string } | null>(null);
@@ -521,10 +519,6 @@ export default function LobbyPage() {
   // Classic unbounded card-set escalation, opt-in. Off = the default ceiling.
   const [uncappedCardSets, setUncappedCardSets] = useState(false);
   const [lanesContestableEnabled, setLanesContestableEnabled] = useState(false);
-  // Space Age Moon Race (docs/space-age-moon/README.md §10.2). ONE toggle for
-  // the whole package; the server decides which phases it turns on. Seeded from
-  // the effect below rather than here so it follows what the operator ships.
-  const [moonRaceEnabled, setMoonRaceEnabled] = useState(false);
   const [combatMaxAttackerDice, setCombatMaxAttackerDice] = useState(5);
   const [combatMaxDefenderDice, setCombatMaxDefenderDice] = useState(4);
 
@@ -575,21 +569,11 @@ export default function LobbyPage() {
   const combatDiceCapApplicable =
     economyEnabled || techTreesEnabled || eventsEnabled || navalEnabled || factionsEnabled || eraAdvancementEnabled;
 
-  // The Moon Race is a Space Age package and only offered when the operator
-  // ships at least one of its phases (one derived client flag stands for all of
-  // them). Off any other era there is no Moon to race for.
-  const moonRaceOffered = moonRaceApplicable(selectedEra, moonRaceFlagEnabled);
-
   // Reset a conditional toggle when its precondition disappears, so a now-hidden
   // setting can't leave a stale flag in the create-game payload.
   useEffect(() => {
     if (!isGalacticAge) setLanesContestableEnabled(false);
   }, [isGalacticAge]);
-  // Ticked by default wherever it is offered, which is what makes promoting a
-  // phase flag to ON actually reach players; switching era clears it again.
-  useEffect(() => {
-    setMoonRaceEnabled(moonRaceOffered);
-  }, [moonRaceOffered]);
   // Symmetric: the old one-way reset left the box unchecked forever once any
   // render had no dice-granting system on, so re-enabling Economy afterwards
   // silently dropped the default.
@@ -1089,7 +1073,6 @@ export default function LobbyPage() {
         combat_dice_cap_enabled: combatDiceCapEnabled,
         card_set_bonus_cap: uncappedCardSets ? 0 : undefined,
         lanes_contestable_enabled: lanesContestableEnabled || undefined,
-        moon_race_enabled: moonRaceCreateValue(moonRaceOffered, moonRaceEnabled),
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
@@ -2559,28 +2542,13 @@ export default function LobbyPage() {
                         )}
                       </div>
                     </div>
-                    {(isGalacticAge || combatDiceCapApplicable || moonRaceOffered) && (
+                    {(isGalacticAge || combatDiceCapApplicable) && (
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Conditional Settings</label>
                       <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                         These appear because of choices you made above — they don&apos;t apply to every game.
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {moonRaceOffered && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Space Age only: makes the Moon worth racing for. Owned lunar tiles mine Helium-3, the strongest orbital powers need a foothold up there, holding the whole Moon for several turns wins outright, and rivals can blockade the lanes between. Off = the classic Space Age, where the Moon is just more ground." />
-                            <label htmlFor="create-game-moon-race" className="contents cursor-pointer">
-                              <input
-                                id="create-game-moon-race"
-                                type="checkbox"
-                                checked={moonRaceEnabled}
-                                onChange={(e) => setMoonRaceEnabled(e.target.checked)}
-                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              />
-                              <span className="leading-snug min-w-0 select-none">Moon Race <span className="text-xs text-bf-muted">(space age · lunar economy &amp; victory)</span></span>
-                            </label>
-                          </div>
-                        )}
                         {isGalacticAge && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                             <FeatureTooltip text="Galactic Age only: lets a player who holds one end of a hyperspace lane SEAL it, blocking enemies from crossing for a few turns. Hold the orbit territory + seal to wall off a world. Off = lanes are always open once you have Hyperspace Chart." />
