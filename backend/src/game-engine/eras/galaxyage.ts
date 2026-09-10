@@ -10,18 +10,15 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   opening turns are about reaching and holding gateways, not research.
 // - Helion Navigators' old free-hyperspace special case only matters with the
 //   corridors kill switch off; their live kit is gateway sight + Drift Jump.
-// - Forge Syndicate now carries a passive `reinforce_bonus: 1` so it isn't
-//   the only faction without a sustained passive (parity with the era's
-//   other factions).
-// - Stellar Mandate's passive is a research discount (`tech_cost_discount: 2`)
-//   — its old copy claimed a +1 defense die that was never wired (always-on
-//   defensive dice were removed game-wide; see defenderReactions.ts), which
-//   left Sol the only passive-less faction (~13% win rate in 400-game sims).
-//   The lever is deliberately a DISCOUNT, not per-turn tech income: +1
-//   TP/turn compounds all game and sim-tested at ~39% (and crushed Helion's
-//   hyperspace head start). Discount ladder sim-tested at 400g×2 seeds
-//   (expert, threshold-60 meta): 1 → Sol 18.6%, 2 → all four factions in
-//   20-35% (Sol 33.8 / Rust 22.2 / Verdan 22.3 / Nexus 21.9 avg).
+// - Forge Syndicate carries `reinforce_bonus: 2`, the only purely economic kit in
+//   the era and the one that kept losing anyway: 12-14% across Phases 5-6 with +1,
+//   19.5% with +2 (400g x 3 seeds on the deterministic harness). A production kit
+//   needs units, not more buildings — its cheap buildings and half-price gates
+//   were already the most-built of the four and did not convert.
+// - Stellar Mandate has NO research discount any more. The history is in the field
+//   comment below; the short version is that the discount was worth ~10 points of
+//   win rate on a seat already worth ~24%, and nothing else about Sol moved the
+//   number.
 // - Kits are built around lanes (corridors): the Mandate runs blockades, Forge
 //   supplies, Helion sees gateways and jumps between its own, the Custodians
 //   seal and hold. Forge's Supply Insert still rides the shared
@@ -40,15 +37,19 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'stellar_mandate',
     name: 'Stellar Mandate',
-    description: 'Central admiralty doctrine — every technology costs 1 less to research; blockade runners ignore lane seals.',
+    description: 'Central admiralty doctrine — Sol III is the cradle: deeper reinforcement on its systems and a population that replaces what it loses. Blockade runners ignore lane seals.',
     lore: 'The Mandate believes stability flows from a single chain of command spanning every recognized star system.',
     flavor_quote: 'Order is not imposed — it is synchronized.',
     home_region_ids: ['sol_americas', 'sol_atlantic_arc', 'sol_crescent', 'sol_asian_rim'],
-    // 2 → 1: measured under corridors (200g × 2 seeds, expert, threshold 60) the
-    // -2 discount compounds across a dice-heavy tree into a 47% win rate once
-    // gateway fights are decided by dice. Cyber Strike went with it: it was the
-    // only galaxy active the AI fired, and it belonged to the era that already led.
-    tech_cost_discount: 1,
+    // The research discount is GONE, not reduced. Its history: -2 compounded into
+    // a 47% win rate once gateway fights were decided by dice, so Phase 3 cut it to
+    // -1. Measured again on the deterministic harness (400g x 3 seeds, expert,
+    // threshold 60) after Lane Sovereignty and the Jump Gates, -1 was still worth
+    // ~10 points of win rate: Sol 34.6% with it, 24.3% without, while the seat
+    // itself — four lanes, centre of the ring — is worth about 24%. No other Sol
+    // lever moved the number at all (see GALAXY-BALANCE.md: the Cradle world rule
+    // measures as inert), so the discount was the whole gap. Sol's identity is now
+    // the cradle world and Blockade Runner.
     ability_id: 'blockade_runner',
     ability_description: 'Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.',
     color: '#5dade2',
@@ -56,11 +57,15 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'forge_syndicate',
     name: 'Forge Syndicate',
-    description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn; supply inserts on demand.',
+    description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.',
     lore: 'Shipyards and foundries form the true border between civilization and the dark between stars.',
     flavor_quote: 'We sell the hulls that empires die in.',
     home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works'],
-    reinforce_bonus: 1,
+    reinforce_bonus: 2,
+    // The Syndicate sells the hulls, so it builds the gate network at cost: half
+    // price on Jump Gates. It is the one faction whose kit is production rather
+    // than position, and mobility is what production could not previously buy.
+    jump_gate_cost_mult: 0.5,
     ability_id: 'guerrilla_warfare',
     ability_description: 'Supply Insert: once per turn, place 1 free unit on an owned territory.',
     color: '#e67e22',
@@ -153,6 +158,18 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
     prerequisite: 'ga_hyperspace_chart',
     tech_point_income: 2,
     unlocks_building: 'production_1',
+  },
+  {
+    // Gate Engineering is the economic root's second branch: Disruption Net
+    // fortifies, this one MOVES. A pair of gates is a private lane between two
+    // of your worlds, which is the only mobility the era sells.
+    tech_id: 'ga_gate_engineering',
+    name: 'Gate Engineering',
+    description: 'Portable Pathfinder scaffolds — unlocks the Jump Gate building, a private lane between two worlds you hold.',
+    tier: 2,
+    cost: 10,
+    prerequisite: 'ga_lattice_logistics',
+    unlocks_building: 'jump_gate',
   },
   {
     tech_id: 'ga_lane_sovereignty',

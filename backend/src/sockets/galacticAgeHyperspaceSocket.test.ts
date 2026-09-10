@@ -491,4 +491,43 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     expect(r.ok, r.ok ? '' : r.error).toBe(true);
     if (r.ok) expect(r.data.result.territory_captured).toBe(true);
   }, 45_000);
+
+  it('a pair of Jump Gates opens a private lane that moves units but carries no attack', async () => {
+    const gameId = 'itest-ga-jumpgate';
+    const map = freshMap();
+    const state = freshState(gameId, map);
+    state.phase = 'draft'; state.draft_units_remaining = 0;
+    // The Mandate holds a Sol tile and a Rust beachhead, with the tech and the PP.
+    const SOL_GATE = 'sol_columbia';
+    const RUST_GATE = 'rust_cinderworks';
+    state.territories[RUST_GATE].owner_id = P[0];
+    state.territories[SOL_GATE].unit_count = 9;
+    state.territories[RUST_GATE].unit_count = 2;
+    state.players[0].special_resource = 60;
+    state.players[0].unlocked_techs = ['ga_lattice_logistics', 'ga_gate_engineering'];
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+
+    const first = await act(c, 'game:build', { gameId, territoryId: SOL_GATE, buildingType: 'jump_gate' }, 'game:build_result');
+    expect(first.ok, first.ok ? '' : first.error).toBe(true);
+    const second = await act(c, 'game:build', { gameId, territoryId: RUST_GATE, buildingType: 'jump_gate' }, 'game:build_result');
+    expect(second.ok, second.ok ? '' : second.error).toBe(true);
+
+    // A second gate on the same world is refused.
+    const dupe = await act(c, 'game:build', { gameId, territoryId: 'rust_oxide_flats', buildingType: 'jump_gate' }, 'game:build_result');
+    expect(dupe.ok).toBe(false);
+
+    const withLane = await waitForRedisState(gameId, (st) => (st.jump_gate_links?.length ?? 0) > 0);
+    expect(withLane.jump_gate_links).toEqual([{ a: RUST_GATE, b: SOL_GATE }]);
+
+    // Hand the far end to a rival and try to invade down the private lane.
+    const armed = await getGameState(gameId);
+    armed!.territories[RUST_GATE].owner_id = P[1];
+    armed!.territories[RUST_GATE].unit_count = 1;
+    armed!.phase = 'attack';
+    await setGameState(gameId, armed!);
+    const attack = await act(c, 'game:attack', { gameId, fromId: SOL_GATE, toId: RUST_GATE }, 'game:combat_result');
+    expect(attack.ok).toBe(false);
+    if (!attack.ok) expect(attack.error).toMatch(/cannot carry an attack/);
+  }, 45_000);
 });

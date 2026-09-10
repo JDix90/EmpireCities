@@ -4,6 +4,8 @@ export interface MapConnection {
   from: string;
   to: string;
   type?: 'land' | 'sea' | 'orbit' | string;
+  /** Engine-added lane ('launch_pad', 'jump_gate'); absent on authored edges. */
+  source?: string;
 }
 
 export interface AdjacencyTargetOptions {
@@ -162,6 +164,19 @@ export function computeValidSources(
  * Valid neighbor territories for the current attack / fortify interaction.
  * Mirrors the adjacency arc rules in GlobeMap without depending on arc geometry.
  */
+/**
+ * True when every connection between these two territories is an engine-built
+ * Jump Gate lane. A gate lane is logistics: it moves its owner's units and never
+ * carries an attack (backend `state/jumpGates.ts`), so the attack phase must not
+ * offer the far end as a target.
+ */
+function isJumpGateOnlyEdge(connections: MapConnection[], a: string, b: string): boolean {
+  const edges = connections.filter(
+    (c) => (c.from === a && c.to === b) || (c.from === b && c.to === a),
+  );
+  return edges.length > 0 && edges.every((c) => c.source === 'jump_gate');
+}
+
 export function computePhaseAdjacencyTargets(
   gameState: GameState,
   connections: MapConnection[],
@@ -203,6 +218,7 @@ export function computePhaseAdjacencyTargets(
     const neighborOwner = gameState.territories[neighborId]?.owner_id;
 
     if (gameState.phase === 'attack') {
+      if (isJumpGateOnlyEdge(connections, source, neighborId)) continue;
       if (neighborOwner && neighborOwner !== sourceOwner) {
         result.add(neighborId);
       } else if (!neighborOwner && (gameState.settings?.era_advancement_enabled === true || orbitNeighbors.has(neighborId))) {

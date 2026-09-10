@@ -2183,7 +2183,8 @@ export default function GamePage() {
       setCombatLog((prev) => [...prev, `🚀 ${playerName} launched a Space Station from ${tName}`]);
     });
 
-    socket.on('game:orbit_lane_opened', ({ playerName, territoryId, moonTargetId }: {
+    socket.on('game:orbit_lane_opened', ({ kind, playerName, territoryId, moonTargetId }: {
+      kind?: 'launch_pad' | 'jump_gate';
       playerId: string;
       playerName: string;
       playerColor: string;
@@ -2192,8 +2193,13 @@ export default function GamePage() {
     }) => {
       const nameOf = (id: string) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id;
       const isMe = playerName === user?.username;
+      const gate = kind === 'jump_gate';
       toast(
-        isMe
+        gate
+          ? isMe
+            ? `🛰 Your Jump Gate at ${nameOf(territoryId)} opens a lane to ${nameOf(moonTargetId)} — your units only, no attacks.`
+            : `🛰 ${playerName} opened a Jump Gate lane: ${nameOf(territoryId)} ↔ ${nameOf(moonTargetId)}.`
+          : isMe
           ? `🛰 Your Launch Pad at ${nameOf(territoryId)} opens an orbit lane to ${nameOf(moonTargetId)}.`
           : `🛰 ${playerName} built a Launch Pad at ${nameOf(territoryId)}: orbit lane to ${nameOf(moonTargetId)}.`,
         {

@@ -1,8 +1,11 @@
 /**
  * Galactic Age faction kits, rebuilt around lanes (corridors).
  *
- *   Stellar Mandate  — -1 tech; Blockade Runner: next lane crossing ignores a seal.
- *   Forge Syndicate  — +1 reinforcement; Supply Insert (shared guerrilla_warfare def).
+ *   Stellar Mandate  — the Cradle world rule; Blockade Runner: next lane crossing
+ *                      ignores a seal. No research discount (see
+ *                      galaxyFactionBalance.test.ts for why it was removed).
+ *   Forge Syndicate  — +2 reinforcement, half-price Jump Gates; Supply Insert
+ *                      (shared guerrilla_warfare def).
  *   Helion Navigators — gateways visible under fog; Drift Jump (fortify handler).
  *   Void Custodians  — +1 defence die against attacks across a lane; Emergency Seal.
  */
@@ -17,9 +20,10 @@ const byId = (id: string) => GALAXY_AGE_FACTIONS.find((f) => f.faction_id === id
 
 describe('kit shape', () => {
   it('every faction carries a lane-native kit', () => {
-    expect(byId('stellar_mandate').tech_cost_discount).toBe(1);
+    expect(byId('stellar_mandate').tech_cost_discount ?? 0).toBe(0);
     expect(byId('stellar_mandate').ability_id).toBe('blockade_runner');
-    expect(byId('forge_syndicate').reinforce_bonus).toBe(1);
+    expect(byId('forge_syndicate').reinforce_bonus).toBe(2);
+    expect(byId('forge_syndicate').jump_gate_cost_mult).toBe(0.5);
     expect(byId('forge_syndicate').ability_id).toBe('guerrilla_warfare');
     expect(byId('helion_navigators').ability_id).toBe('drift_jump');
     expect(byId('void_custodians').lane_defense_bonus).toBe(1);

@@ -26,6 +26,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
+import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather';
 import {
   applyStormAttrition,
   buildWorldRuleSnapshot,
@@ -693,6 +694,10 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     // tiles once per round, before anyone drafts.
     applyStormAttrition(state);
 
+    // Galaxy lane weather ages with the round, not with a player's turn: a
+    // closure nobody owns cannot wait on whose charge it was.
+    tickLaneWeather(state);
+
     // Decrement truce timers once per round (not per player turn)
     for (const entry of state.diplomacy) {
       if (entry.status === 'truce' && entry.truce_turns_remaining > 0) {
@@ -791,7 +796,16 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     tickTemporaryModifiers(state, nextPlayer.player_id);
     // Apply instant event cards now (current_player_index is set to next player)
     if (state.active_event && (!state.active_event.choices || state.active_event.choices.length === 0) && state.active_event.effect) {
-      const effectResult = applyEventEffect(state, state.active_event.effect, state.active_event.affects_all_players);
+      // Lane weather rewrites the GRAPH, so it needs the map — which the generic
+      // effect applier deliberately does not take. Resolved here, where both are
+      // in hand; the caller then projects a new surge onto its map copy
+      // (`syncLaneWeatherLanes`).
+      const effectType = state.active_event.effect.type;
+      const effectResult = map && effectType === 'lane_closure'
+        ? applyLaneClosure(state, map)
+        : map && effectType === 'lane_surge'
+          ? applyLaneSurge(state, map)
+          : applyEventEffect(state, state.active_event.effect, state.active_event.affects_all_players);
       state.active_event_result = effectResult;
       // Leave active_event set so the socket layer can broadcast it, then clear it there
     }

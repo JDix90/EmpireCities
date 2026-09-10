@@ -183,4 +183,39 @@ describe('GalaxyStrategicView', () => {
     renderView({ orbitAccessAllowed: false });
     expect(screen.getByText(/need Lane Charts/i)).toBeTruthy();
   });
+
+  it('draws engine-built lanes as their own kind, and never offers one to seal', () => {
+    const withGate: GalaxyMapDatum = {
+      ...mapData,
+      connections: [
+        ...mapData.connections,
+        // A Jump Gate lane between two Sol/Rust tiles the viewer holds, and a
+        // surge lane. Neither is the authored ring.
+        { from: 'sol_a', to: 'rust_b', type: 'orbit', source: 'jump_gate' },
+        { from: 'sol_b', to: 'nexus_a', type: 'orbit', source: 'lane_surge' },
+      ],
+    };
+    const onSealLane = vi.fn();
+    const { container } = renderView({
+      mapData: withGate,
+      lanesContestableEnabled: true,
+      sealAnyLane: true,
+      onSealLane,
+    });
+    const byId = Object.fromEntries(laneGroups(container).map((g) => [g.dataset.laneId, g]));
+    expect(byId['rust_b::sol_a'].dataset.laneKind).toBe('jump_gate');
+    expect(byId['nexus_a::sol_b'].dataset.laneKind).toBe('lane_surge');
+    expect(byId['sol_a::verdan_a'].dataset.laneKind).toBe('authored');
+    expect(byId['rust_b::sol_a'].querySelector('title')!.textContent).toContain('no attacks');
+    expect(byId['nexus_a::sol_b'].querySelector('title')!.textContent).toContain('blows over');
+
+    // The Vault holder may seal any AUTHORED lane, but not an engine-built one.
+    const hit = (laneId: string) =>
+      byId[laneId].querySelector('line[stroke="transparent"]')!;
+    fireEvent.click(hit('rust_b::sol_a'));
+    fireEvent.click(hit('nexus_a::sol_b'));
+    expect(onSealLane).not.toHaveBeenCalled();
+    fireEvent.click(hit('sol_a::verdan_a'));
+    expect(onSealLane).toHaveBeenCalledTimes(1);
+  });
 });

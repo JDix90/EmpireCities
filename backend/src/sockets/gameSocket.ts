@@ -58,6 +58,8 @@ import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engi
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
+import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
+import { isLaneClosedByWeather, syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
 import {
   connectionRequiresMoonAccess,
   fortifyEndpointsRequireOrbitAccess,
@@ -935,6 +937,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
 
       advanceToNextPlayer(state, map);
+      await syncLaneWeatherAndBroadcastMap(io, gameId, room);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const asyncVictory = checkVictory(state, map);
@@ -1641,17 +1644,35 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!isAdjacent) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
+      if (isJumpGateOnlyEdge(map, fromId, toId)) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Jump Gate lane moves your own units — it cannot carry an attack',
+        );
+      }
 
       if (connectionRequiresMoonAccess(map, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
+        if (isLaneClosedByWeather(state, fromId, toId)) {
+          return emitGameError(
+            socket,
+            GameErrorCode.LANE_SEALED,
+            'A nebula front has closed that hyperspace lane — it clears in a round or two',
+          );
+        }
         if (
           isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)
           && !consumeBlockadeRunner(currentPlayer)
         ) {
-          return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
+          return emitGameError(
+            socket,
+            GameErrorCode.LANE_SEALED,
+            'An Emergency Seal closes that hyperspace lane — cross another lane, or wait for it to lift',
+          );
         }
       }
 
@@ -2017,6 +2038,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
       );
       if (!connection) return emitGameError(socket, GameErrorCode.NOT_ADJACENT, 'Territories not adjacent');
+      if (isJumpGateOnlyEdge(map, fromId, toId)) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Jump Gate lane moves your own units — it cannot carry an attack',
+        );
+      }
       if (connection.type === 'sea') {
         // The crossing pays fleet losses and bombardment per attack; an
         // auto-repeat would burn a navy on one click. Same exclusion the AI
@@ -2272,6 +2300,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // counter (matters for AI debugging and replay reconstruction).
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
+        await syncLaneWeatherAndBroadcastMap(io, gameId, room);
         broadcastEventCard(io, gameId, state, map);
 
         // Turn-passing can itself end the game (turn-cap stalemate guard,
@@ -2524,6 +2553,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       socket.emit('game:build_result', { territoryId, buildingType, success: true });
       if (buildingType === 'launch_pad') {
         await announceLaunchPadLane(io, gameId, room, currentPlayer, territoryId);
+      }
+      if (buildingType === 'jump_gate') {
+        await announceJumpGateLanes(io, gameId, room, currentPlayer, territoryId);
       }
       // Quest check: first building
       checkOnboardingQuests(userId, 'build').catch(() => {});
@@ -3705,6 +3737,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const currentPlayer = state.players[state.current_player_index];
       if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
+        await syncLaneWeatherAndBroadcastMap(io, gameId, room);
         broadcastEventCard(io, gameId, state, map);
         // Re-check after advancement: advancement may itself cause elimination
         // (e.g. a player who hit rebellion-floor on their turn-start tick).
@@ -4160,6 +4193,7 @@ async function announceLaunchPadLane(
   const moonTargetId = lane ? (lane.from === territoryId ? lane.to : lane.from) : zone?.moonTarget;
   if (!moonTargetId) return;
   const payload = {
+    kind: 'launch_pad' as const,
     playerId: builder.player_id,
     playerName: builder.username,
     playerColor: builder.color,
@@ -4168,6 +4202,65 @@ async function announceLaunchPadLane(
   };
   io.to(gameId).emit('game:orbit_lane_opened', payload);
   queueSpectatorEvent(gameId, 'game:orbit_lane_opened', payload);
+}
+
+/**
+ * A Jump Gate has just gone up: project its new lane(s) onto the game's map copy,
+ * persist, and tell the room. Mirrors `announceLaunchPadLane` — same map-authority
+ * and projection discipline — but a gate can open SEVERAL lanes at once (one per
+ * other world the builder holds a gate on), so each gets its own notice.
+ */
+async function announceJumpGateLanes(
+  io: Server,
+  gameId: string,
+  room: ActiveGameRoom,
+  builder: PlayerState,
+  territoryId: string,
+): Promise<void> {
+  const { state, map } = room;
+  if (!state.territories[territoryId]?.buildings?.includes('jump_gate')) return;
+  if (!syncJumpGateLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] jump gate lane persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+  for (const partnerId of jumpGatePartners(state, territoryId)) {
+    const payload = {
+      kind: 'jump_gate' as const,
+      playerId: builder.player_id,
+      playerName: builder.username,
+      playerColor: builder.color,
+      territoryId,
+      moonTargetId: partnerId,
+    };
+    io.to(gameId).emit('game:orbit_lane_opened', payload);
+    queueSpectatorEvent(gameId, 'game:orbit_lane_opened', payload);
+  }
+}
+
+/**
+ * Lane weather changed the graph (a surge opened, or one blew over): project it
+ * onto the game's map copy, persist, and push the new map to the room. Called
+ * after every turn advance, because weather ages with the round rather than with
+ * an action. No-op when nothing changed, which is almost always.
+ */
+async function syncLaneWeatherAndBroadcastMap(
+  io: Server,
+  gameId: string,
+  room: ActiveGameRoom,
+): Promise<void> {
+  const { state, map } = room;
+  if (!syncLaneWeatherLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] lane weather persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
 }
 
 function broadcastState(io: Server, gameId: string, state: GameState): void {
@@ -5887,6 +5980,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);
+  await syncLaneWeatherAndBroadcastMap(io, gameId, room);
   await saveGameState(gameId, state);
   broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);

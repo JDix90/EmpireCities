@@ -3,6 +3,7 @@
 // ============================================================
 
 import { inferWorldId } from '@borderfall/shared';
+import { isLaneClosedByWeather } from './laneWeather';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
 
 export interface MoonAccessState {
@@ -479,6 +480,9 @@ export function playerOwnsHyperlaneAnchor(state: GameState, playerId: string): b
  * crossing the orbit edge from→to. The sealer can still use their own lane.
  */
 export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: string, playerId: string): boolean {
+  // Lane weather (a Nebula Closure) shuts a lane for EVERYONE, including the
+  // owners of its gateways — it is not a seal and no charge lifts it.
+  if (isLaneClosedByWeather(state, fromId, toId)) return true;
   const bl = state.lane_blockades?.[orbitLaneId(fromId, toId)];
   if (!bl || bl.turns_remaining <= 0) return false;
   return bl.owner_id !== playerId;

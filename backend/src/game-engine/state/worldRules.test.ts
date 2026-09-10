@@ -7,8 +7,13 @@
  *   Verdan Reach any tile above 12 units sheds one to the storms each round
  *   Rust Belt    buildings cost half (a modifier); a defended tile rolls +1 die
  *   Nexus        the Gate Ring starts neutral (garrison 6); its holder earns
- *                +2 tech per turn and an Emergency Seal on ANY lane; the
- *                Custodians start with +1 unit per tile for the ring they lack
+ *                +2 tech per turn and an Emergency Seal on ANY lane
+ *
+ * The Custodians briefly started with +1 unit per tile (`vault.home_unit_bonus`)
+ * to pay for the ring they begin without. It came out again once Lane Sovereignty
+ * and the Jump Gates landed: measured at 400 games x 3 seeds it was worth about
+ * seven points of win rate (Nexus 34% with it, 27% without) on a seat that no
+ * longer needed the help. The field is still supported for other maps.
  *
  * The numeric world modifiers stay alongside the rules: measured with them cut
  * (200g, seed A) the Custodians fell to 0.5% and Forge to 9.5%, because the
@@ -79,7 +84,7 @@ describe('world rules snapshot', () => {
     expect(snap.verdan).toEqual({ storm_threshold: 12, storm_attrition: 1 });
     expect(snap.rust).toEqual({ defense_building_bonus_dice: 1 });
     expect(snap.nexus_station.vault).toEqual({
-      region_id: RING, neutral_garrison: 6, tech_income: 2, emergency_seal: true, home_unit_bonus: 1,
+      region_id: RING, neutral_garrison: 6, tech_income: 2, emergency_seal: true,
     });
     expect(buildWorldRuleSnapshot(AUTHORED, false)).toBeUndefined();
     expect(buildWorldRuleSnapshot({ worlds: [{ world_id: 'a' }, { world_id: 'b', rules: {} }] }, true)).toBeUndefined();
@@ -182,8 +187,9 @@ describe('Nexus Station · the Vault', () => {
     const custodian = Object.values(state.territories).filter((t) => t.owner_id === 'p_nexus');
     expect(custodian).toHaveLength(12);
     expect(custodian.every((t) => t.world_id === 'nexus_station')).toBe(true);
-    // The home bonus pays for the ring: 12 × 4 = 48 units, parity with a 16-tile world.
-    expect(custodian.every((t) => t.unit_count === 4)).toBe(true);
+    // No home bonus on the shipped map: they hold twelve tiles at the same
+    // starting count as everyone else, and must take the ring like everyone else.
+    expect(custodian.every((t) => t.unit_count === 3)).toBe(true);
     expect(Object.values(state.territories).filter((t) => t.owner_id === 'p_sol').every((t) => t.unit_count === 3)).toBe(true);
     // The other three homeworlds are whole.
     for (const seat of ['p_sol', 'p_rust', 'p_verdan']) {

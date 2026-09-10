@@ -99,8 +99,17 @@ describe('galaxyLanes', () => {
 
   it('lists the lanes leaving a gateway with the far world named', () => {
     expect(gatewayLanesFor(mapData, 'sol_a')).toEqual([
-      { nearId: 'sol_a', farId: 'verdan_a', farName: 'Sporefields', farWorldId: 'verdan', farWorldName: 'Verdan Reach' },
+      {
+        nearId: 'sol_a', farId: 'verdan_a', farName: 'Sporefields',
+        farWorldId: 'verdan', farWorldName: 'Verdan Reach', kind: 'authored',
+      },
     ]);
+    // Engine-added lanes are listed too, labelled for what they are.
+    const withGate = {
+      ...mapData,
+      connections: [...mapData.connections, { from: 'sol_a', to: 'nexus_a', type: 'orbit' as const, source: 'jump_gate' }],
+    };
+    expect(gatewayLanesFor(withGate, 'sol_a').map((l) => l.kind)).toEqual(['authored', 'jump_gate']);
     expect(gatewayLanesFor(mapData, 'verdan_a')[0].farWorldName).toBe('Sol III');
     expect(gatewayLanesFor(mapData, 'nope')).toEqual([]);
     expect([...gatewayTerritoryIds(mapData)].sort()).toEqual(['nexus_a', 'sol_a', 'sol_b', 'verdan_a']);
@@ -149,10 +158,11 @@ describe('galaxyLanes', () => {
     expect(describeWorldRules({ defense_building_bonus_dice: 1 })).toEqual([
       'Forge: a system with a defence building rolls +1 extra defence die',
     ]);
-    expect(describeWorldRules({ vault: { region_id: 'nexus_gate_ring', neutral_garrison: 6, tech_income: 2, emergency_seal: true, home_unit_bonus: 1 } })).toEqual([
+    expect(describeWorldRules({ vault: { region_id: 'nexus_gate_ring', neutral_garrison: 6, tech_income: 2, emergency_seal: true } })).toEqual([
       'The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane',
-      'Its home faction starts with +1 unit per system, paying for the ring it begins without',
     ]);
+    // The home-unit compensation is off the shipped map but still described.
+    expect(describeWorldRules({ vault: { region_id: 'r', neutral_garrison: 6, tech_income: 1, home_unit_bonus: 1 } })).toHaveLength(2);
     expect(describeWorldRules(undefined)).toEqual([]);
     expect(prettyRegionId('nexus_gate_ring')).toBe('Nexus Gate Ring');
   });

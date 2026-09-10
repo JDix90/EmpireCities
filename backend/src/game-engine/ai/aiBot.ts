@@ -26,6 +26,7 @@ import {
   orbitGatewayTerritoryIds,
 } from '../state/moonAccess';
 import { getWorldRules, vaultRegionIds } from '../state/worldRules';
+import { isJumpGateOnlyEdge } from '../state/jumpGates';
 import { corridorCompletionTargets, laneSovereigntyProgress } from '../victory/laneSovereignty';
 
 export interface AiAction {
@@ -427,8 +428,21 @@ export function chooseEmergencySealLane(
 
 /** Corridors: attack-score premium for the far gateway of an open lane (≈ an enemy capital). */
 const GATEWAY_OBJECTIVE_BONUS = 3;
+/** Distinct worlds this player holds at least one territory on. */
+function countWorldsHeld(state: GameState, playerId: string): number {
+  const worlds = new Set<string>();
+  for (const t of Object.values(state.territories)) {
+    if (t.owner_id === playerId && t.world_id) worlds.add(t.world_id);
+  }
+  return worlds.size;
+}
+
 /** Corridors: draft-threat premium on a gateway whose lane is open to a rival. */
 const GATEWAY_DRAFT_PREMIUM = 4;
+/** Jump Gates: worlds the bot will wire into its gate network. ⚠ balance */
+const AI_MAX_JUMP_GATE_WORLDS = 3;
+/** …and the foothold a world needs before a 12-PP gate there is worth it. ⚠ balance */
+const AI_MIN_TILES_FOR_JUMP_GATE = 3;
 /** Worlds as characters: attack-score premium on a vault tile (the Nexus Gate Ring). */
 const VAULT_OBJECTIVE_BONUS = 3;
 /** Lane Sovereignty: premium on a tile that closes one more corridor. ⚠ balance */
@@ -500,6 +514,10 @@ function selectAttacks(
     for (const nid of neighbors) {
       const nState = state.territories[nid];
       if (!nState || nState.owner_id === playerId) continue;
+
+      // A Jump Gate lane carries no attack (state/jumpGates.ts), so planning one
+      // would burn a turn's exchange budget on a move the resolver refuses.
+      if (isJumpGateOnlyEdge(map, tid, nid)) continue;
 
       // Check truce
       const nOwner = nState.owner_id;
@@ -991,6 +1009,36 @@ export function selectAiBuildingPlacement(
     if (result) return result;
   }
 
+  // ── Jump Gate priority (galaxy) ───────────────────────────────────────────
+  // A pair of gates on two worlds is a private lane: the only mobility this era
+  // sells, and the answer for a faction whose kit is production rather than
+  // position. Build one per world the bot has a real foothold on, up to the cap,
+  // on its strongest tile there (a gate on a tile about to fall is a gift).
+  if (state.era === 'galaxy_age') {
+    const byWorld = new Map<string, string[]>();
+    for (const tid of owned) {
+      const world = state.territories[tid].world_id;
+      if (!world) continue;
+      (byWorld.get(world) ?? byWorld.set(world, []).get(world)!).push(tid);
+    }
+    const gateWorlds = new Set<string>();
+    for (const tid of owned) {
+      const world = state.territories[tid].world_id;
+      if (world && (state.territories[tid].buildings?.includes('jump_gate') ?? false)) gateWorlds.add(world);
+    }
+    if (byWorld.size >= 2 && gateWorlds.size < AI_MAX_JUMP_GATE_WORLDS) {
+      const candidates = [...byWorld.entries()]
+        // A world the bot barely holds is not worth a 12-PP gate yet.
+        .filter(([world, tids]) => !gateWorlds.has(world) && tids.length >= AI_MIN_TILES_FOR_JUMP_GATE)
+        .sort((a, b) => b[1].length - a[1].length)
+        .flatMap(([, tids]) => [...tids].sort(
+          (x, y) => state.territories[y].unit_count - state.territories[x].unit_count,
+        ));
+      const result = tryBuild('jump_gate', candidates);
+      if (result) return result;
+    }
+  }
+
   // ── Naval priority ────────────────────────────────────────────────────────
   // When naval warfare is enabled, the AI must build ports before it can
   // attack via sea lanes (each sea attack consumes a fleet, and fleets only
@@ -1207,6 +1255,19 @@ export function selectAiTechResearch(
       // medium bots burning 5 TP on it). Drop it from the candidate pool.
       available = available.filter((n) => n.tech_id !== 'ga_hyperspace_chart');
       if (available.length === 0) return null;
+    }
+    // Gate Engineering carries no combat numbers either, so the score path below
+    // would never buy it — the same blind spot the chart had. Buy it once the bot
+    // has a foothold on a second world, which is when a gate pair has something
+    // to join. ⚠ balance
+    if (!unlocked.includes('ga_gate_engineering') && countWorldsHeld(state, playerId) >= 2) {
+      const gateTech = available.find((n) => n.tech_id === 'ga_gate_engineering');
+      if (gateTech) return gateTech.tech_id;
+      const gateNode = tree.find((n) => n.tech_id === 'ga_gate_engineering');
+      if (gateNode?.prerequisite && !unlocked.includes(gateNode.prerequisite)) {
+        const prereq = available.find((n) => n.tech_id === gateNode.prerequisite);
+        if (prereq) return prereq.tech_id;
+      }
     }
     // Easy bots in the Galactic Age research the chart and nothing else —
     // they only reach this function for the world-lock exception above.

@@ -8,6 +8,8 @@
  * Codes whose server message already carries specifics worth keeping (unit
  * counts, stability caps, orbit-access reasons, fortify limits) are deliberately
  * OMITTED here so the toast falls back to that more specific server message.
+ * LANE_SEALED is one of them: the server says whether it was an Emergency Seal
+ * or a nebula front, and those clear on different clocks.
  *
  * Keep the keys in sync with backend/src/sockets/socketErrors.ts.
  */
@@ -19,7 +21,6 @@ export const REJECTION_GUIDANCE: Record<string, string> = {
   PATH_NOT_CONNECTED: "Fortify only moves along a connected chain of territories you own.",
   ALREADY_ADVANCED: "You advanced an era this turn, so you can't attack until your next turn.",
   TRUCE_ACTIVE: "You have an active truce with this player. Break the truce first to attack them.",
-  LANE_SEALED: "An Emergency Seal closes that hyperspace lane this round — cross another lane, or wait for it to lift.",
   INVALID_TERRITORY: "That territory can't be used for this action. Pick a highlighted one.",
   NON_INTEGER_UNITS: "Enter a whole number of units.",
   ACTION_IN_FLIGHT: "Still processing your last action — give it a moment and try again.",

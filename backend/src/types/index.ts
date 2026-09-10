@@ -547,6 +547,7 @@ export type BuildingType =
   | 'wonder_arsenal'     // acw
   | 'wonder_unification' // risorgimento
   | 'launch_pad'         // space_age: orbital launch infrastructure
+  | 'jump_gate'          // galaxy_age: a private lane between two of your worlds
   | 'wonder_space_elevator' // space_age
   | 'wonder_hyperlane_anchor'; // galaxy_age
 
@@ -726,6 +727,25 @@ export interface GameState {
    * Void Custodians' Emergency Seal (one round, on a lane touching Nexus Station).
    */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  /**
+   * Galactic Age Jump Gates: pairs of gate tiles joined by a private hyperspace
+   * lane. Recorded when the second gate of a pair is built and dropped once
+   * either building is gone; `syncJumpGateLanes` projects them onto the game's
+   * map copy as `source: 'jump_gate'` orbit connections. See state/jumpGates.ts.
+   */
+  jump_gate_links?: Array<{ a: string; b: string }>;
+  /**
+   * Galactic Age lane weather (event deck): lanes the weather has shut, and
+   * temporary lanes it has opened. Both age once per ROUND in
+   * `advanceToNextPlayer`; surges are projected onto the game's map copy as
+   * `source: 'lane_surge'` connections. See state/laneWeather.ts.
+   */
+  lane_weather?: {
+    /** Canonical lane id → rounds remaining. Shut to everyone, owner-less. */
+    closures?: Record<string, number>;
+    /** Temporary lanes between two worlds the authored ring does not join. */
+    surges?: Array<{ from: string; to: string; turns_remaining: number }>;
+  };
   settings: GameSettings;
   draft_units_remaining: number;
   /** Per-draft-phase cumulative unit placements by territory (stability cap enforcement). */
@@ -839,7 +859,11 @@ export type EventEffectType =
   | 'truce'
   | 'region_disaster'
   | 'stability_change'
-  | 'tech_bonus';
+  | 'tech_bonus'
+  /** Galaxy lane weather: shut one authored lane to everyone for two rounds. */
+  | 'lane_closure'
+  /** Galaxy lane weather: open a temporary lane between two non-neighbour worlds. */
+  | 'lane_surge';
 
 export type EventCategory = 'global' | 'regional' | 'player_targeted' | 'natural_disaster';
 
@@ -864,6 +888,8 @@ export interface EventEffectResult {
    * Omitted when no scaling occurred (multiplier 1 or non-scalable effect).
    */
   magnitude_scale?: number;
+  /** Galaxy lane weather: the lane the card shut or opened, and for how long. */
+  lane_weather?: { kind: 'closure' | 'surge'; from: string; to: string; rounds: number };
 }
 
 export interface EventChoice {
@@ -1014,10 +1040,12 @@ export interface MapConnection {
   /**
    * Set on connections the engine adds to a game's map copy rather than the
    * authored file: a Launch Pad opens an orbit lane from its territory to the
-   * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`).
-   * Authored maps never carry this field.
+   * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`), and a
+   * pair of Jump Gates opens a private lane between two worlds
+   * (state/jumpGates.ts `syncJumpGateLanes`). Authored maps never carry this
+   * field, and Lane Sovereignty counts only lanes without it.
    */
-  source?: 'launch_pad';
+  source?: 'launch_pad' | 'jump_gate' | 'lane_surge';
 }
 
 export interface MapRegion {

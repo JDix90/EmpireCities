@@ -6,164 +6,185 @@ in a symmetric ring, 16 gateway tiles). Tool:
 [`simGalaxyBalance.ts`](./simGalaxyBalance.ts).
 
 ```sh
-# from backend/ — the live create default for this era is threshold 60% + cap 90
-# (games.routes.ts applyOrbitGatedVictoryDefaults), so this is the meaningful run:
+# from backend/ — the live create defaults for this era are threshold 60% + cap
+# 90 + Lane Sovereignty, so this is the meaningful run:
 SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
 SIM_GAMES=400 SIM_THRESHOLD=60 SIM_SEED=borderfall-galaxy-balance-B \
-  pnpm exec tsx scripts/simGalaxyBalance.ts        # confirm on a second seed
-SIM_GAMES=400 pnpm exec tsx scripts/simGalaxyBalance.ts   # domination only
-SIM_WORLD_RULES=0 SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts  # kill switch
-SIM_MAP=/tmp/variant.json SIM_GAMES=200 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts  # knob sweep
+  pnpm exec tsx scripts/simGalaxyBalance.ts        # …and two more seeds
+SIM_GAMES=400 SIM_THRESHOLD=60 SIM_SEED=borderfall-galaxy-balance-C \
+  pnpm exec tsx scripts/simGalaxyBalance.ts
+SIM_EVENTS=1     SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts  # lane weather
+SIM_SOVEREIGNTY=0 SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # kill switch
+SIM_WORLD_RULES=0 SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # kill switch
+SIM_MAP=/tmp/variant.json SIM_GAMES=400 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # knob sweep
 ```
 
 Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_MAX_TURNS`, `SIM_SEED`, `SIM_CSV`, `SIM_THRESHOLD`, `SIM_GRIND`,
-`SIM_CORRIDORS`, `SIM_WORLD_RULES`. 4 players, one per galaxy faction,
-faction↔seat rotated per game. Factions ON, naval OFF, era advancement OFF,
-stability ON, seeded dice.
+`SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_SOVEREIGNTY`, `SIM_EVENTS`. 4 players,
+one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
+era advancement OFF, stability ON, events OFF (the era's own system defaults are
+economy + tech + factions).
 
-**Every table below is 400 games at expert with a 90-turn cap** unless a row says
-200, measured on the Phase 4 tree (2026-09-09), seeds `borderfall-galaxy-balance`
-(A) and `borderfall-galaxy-balance-B` (B). Each row is reproducible from the
-commands above; nothing here is hand-copied from an older run.
+**Every table below is 400 games at expert with a 90-turn cap**, measured on the
+Phase 5–6 tree (2026-09-10), seeds `borderfall-galaxy-balance` (A),
+`…-B` and `…-C`. Every row is reproducible from the commands above.
 
-## 1. What the harness mirrors, and the two bugs it had
+## 1. The harness, and the four bugs it had
 
-- **The grind.** `processAiTurn` (sockets/gameSocket.ts) runs
-  `runAiAttackExchanges` (ai/aiAttackGrind.ts): a turn-wide exchange budget — 8
-  at expert, 16 once the game is decided — grinding one edge until it falls,
-  drains, or the budget is gone. The sim used to resolve each planned attack as
-  ONE exchange, which named the wrong faction as broken (it had Rust at 34% and
-  Sol at 32%; the live AI had them at 14% and 41%). `SIM_GRIND=0` keeps the old
-  behaviour only for that comparison.
-- **The corridors.** Cross-lane attacks roll at most 2 attacker dice (3 with
-  Lane Charts). The resolver only knows an edge is a lane if the caller passes
-  the connection; the sim did not, so it silently measured the kill-switch game
-  until `connectionsByKey` was threaded through. `SIM_CORRIDORS=0` is the
-  kill switch.
-- **Neutral off-world capture.** `executeLandAttack` refuses a neutral
-  off-world tile unless the caller passes `neutralOffworldCaptureAllowed` after
-  the orbit-access check (the socket does). The sim did not, so when the Vault
-  arrived its Gate Ring was untouchable: **0 ring tiles taken in 400 games**
-  and the Custodians read as 0% while live players could take it. Fixed the
-  same way the socket does it. Anything measured on a neutral-start galaxy
-  before that fix is wrong.
+Each of these made the sim measure a game nobody plays. They are listed because
+every number in this document is only as good as the harness that produced it.
 
-## 2. Where the era stands (Phase 4: corridors + worlds as characters)
+- **The grind.** `processAiTurn` spends a turn-wide exchange budget grinding one
+  edge until it falls (`ai/aiAttackGrind.ts`); the sim used to resolve each
+  planned attack as ONE exchange. That inverted the faction ranking (it had Rust
+  at 34% and Sol at 32%; the live AI had them at 14% and 41%). `SIM_GRIND=0`
+  reproduces the old behaviour for that comparison.
+- **The corridors.** Cross-lane attacks roll at most 2 attacker dice. The
+  resolver only knows an edge is a lane if the caller passes the connection; the
+  sim did not, so it silently measured the kill-switch game.
+- **Neutral off-world capture.** `executeLandAttack` refuses a neutral off-world
+  tile unless the caller passes `neutralOffworldCaptureAllowed` after the
+  orbit-access check (the socket does). The sim did not, so when the Vault
+  arrived its Gate Ring was untouchable: **0 ring tiles taken in 400 games**, and
+  the Custodians read as a dead seat.
+- **Unseeded AI jitter.** `computeAiTurn` adds heuristic jitter to every
+  candidate's score, from `Math.random` — right for live play, fatal for a
+  measurement harness. Two runs of the same config on the same seed differed by
+  up to **4 points of faction win rate** (seed C gave Forge 18.3% then 14.3%),
+  because a reordered candidate list cascades through the whole game. The harness
+  now passes a seeded stream, and two identical runs are byte-identical. Any
+  single-faction tuning done before that fix should be treated as noise.
 
-Live defaults: corridors ON, world rules ON, threshold 60 + cap 90.
+## 2. Where the era stands (Phases 3–6, live defaults)
 
-| Metric | threshold 60 (live default) A / B | domination only A |
-|---|---|---|
-| Avg game length | 33.8 / 32.4 turns | 55.0 turns |
-| Decisive (not turn-limit) | **91.5% / 92.3%** | 70.3% |
-| Territory-leader@turn-10 wins | 55.0% / 59.1% | 54.1% |
-| Lane end-owner changes per game | 77.3 / 73.8 | 100.5 |
-| Largest single-owner share per world at end | 11.2–12.7 of 16 | — |
-| Vault (Gate Ring) held by someone at end | 70.0% / 72.8% | 88.5% |
+Corridors ON, world rules ON, Lane Sovereignty ON, threshold 60 + cap 90.
 
-| Faction | World | thr-60 A / B | dom A | eliminated (thr-60) A / B | holds the Vault at end A / B |
-|---|---|---|---|---|---|
-| stellar_mandate | Sol | 27.8% / 29.0% | 27.2% | 19.5% / 19.0% | 23.0% / 24.3% |
-| forge_syndicate | Rust | 19.3% / 20.5% | 19.0% | 12.3% / 9.5% | 12.8% / 14.3% |
-| helion_navigators | Verdan | 29.5% / 28.3% | 29.3% | 12.3% / 14.0% | 10.0% / 9.8% |
-| void_custodians | Nexus | 23.5% / 22.3% | 24.5% | 12.8% / 14.0% | 24.3% / 24.5% |
-
-Per-seat diagnostics (threshold 60, seed A):
-
-| Faction | 1st cross-world capture (turn) | Lane exchanges → captures | Tiles @10 / @30 / end |
+| Metric | A | B | C |
 |---|---|---|---|
-| stellar_mandate | 1.1 | 36.3 → 8.9 | 14.6 / 14.8 / 16.0 |
-| forge_syndicate | 1.8 | 35.4 → 7.1 | 17.2 / 15.9 / 14.9 |
-| helion_navigators | 1.1 | 32.9 → 8.0 | 18.9 / 17.8 / 17.9 |
-| void_custodians | 5.9 | 18.5 → 5.2 | 13.3 / 15.5 / 15.2 |
+| Avg game length | 29.9 | 29.0 | 31.3 turns |
+| Decisive (not turn-limit) | 97.3% | 97.0% | 95.5% |
+| Won by Lane Sovereignty | 40.5% | 43.0% | 38.5% |
+| Won by threshold | 56.8% | 54.0% | 57.0% |
+| Territory-leader@turn-10 wins | 60.8% | 61.3% | 60.8% |
+| Lane end-owner changes per game | 105.2 | 97.1 | 107.0 |
+| Vault (Gate Ring) held at end | 68.0% | 66.5% | 64.5% |
+| Games that opened a Jump Gate lane | 100% | 99.8% | 100% |
+
+| Faction | World | A | B | C | avg | eliminated (A/B/C) |
+|---|---|---|---|---|---|---|
+| stellar_mandate | Sol | 26.3% | 25.8% | 25.3% | **25.8%** | 10.8 / 15.3 / 13.0% |
+| forge_syndicate | Rust | 19.5% | 17.8% | 17.3% | **18.2%** | 9.8 / 10.8 / 9.0% |
+| helion_navigators | Verdan | 24.8% | 28.0% | 28.5% | **27.1%** | 13.5 / 13.3 / 12.3% |
+| void_custodians | Nexus | 29.5% | 28.5% | 29.0% | **29.0%** | 7.0 / 7.0 / 12.0% |
 
 ### The gate
 
-Phase 3/4 exit (grind-faithful sim, two seeds, live defaults): decisive ≥ 80%,
-every faction within 18–32%, no faction eliminated in more than 30% of games,
-lanes changing state at least six times per game. **All four hold on both
-seeds.** The Vault is a real prize rather than a garrison the bots walk past:
-somebody holds all four ring tiles at the end of seven games in ten, and it is
-the Custodians (nearest) and Sol (two lanes onto Nexus) who take it most, at
-roughly equal rates.
+The exit bar from Phase 3 onward: decisive ≥ 80%, every faction within 18–32%,
+no faction eliminated in more than 30% of games, lanes changing state at least
+six times per game. Phase 5 adds "Sovereignty ends at least a quarter of decisive
+games"; Phase 6 adds "gates built in at least half of games" and "a surge lane is
+crossed when it appears".
+
+Everything passes except one detail worth stating plainly: **Forge averages 18.2%
+but sits at 17.8% and 17.3% on two of the three seeds**, a few tenths under the
+floor. It is the closest the seat has been (12–14% before this pass) and the
+weakest point in the era; §4 lists what was tried.
 
 ### Read
 
-1. **Lanes are the board.** A lane's end-owner pair changes ~75 times per game
-   under the threshold default and ~100 under domination; games are decided in
-   ~33 turns instead of ~45 because gateway fights convert.
-2. **The Custodians' identity is the Vault, not a home.** They start with 12 of
-   16 tiles and must take the ring like everyone else; the `home_unit_bonus`
-   below is what makes that a fair start (see §4).
-3. **Forge is the weakest seat, at the band floor.** The Rust rule (buildings
-   ×0.5, defence buildings +1 die) lifted it from 14–18% to 19–21%; its
-   elimination rate fell from 42–49% (Phase 0) to ~10%.
-4. **Helion swings least now** (28–30% across seeds, vs 16–23% before): the
-   storms cap their stacks at 12 on Verdan, which happens to be exactly how the
-   AI plays them anyway, and the Vault gives every faction a second objective.
+1. **Two ways to win, both live.** Sovereignty ends ~40% of games and the
+   headcount ~56%, which is the split the design wanted: a victory about the
+   network that does not crowd out the one about the map.
+2. **Lanes are the board.** A lane's end-owner pair changes ~100 times a game.
+3. **Nexus is the strongest seat** at 29%, on the back of the Vault — held by
+   someone at the end of two games in three, and by the Custodians in ~30%.
+4. **The snowball is still there**: the turn-10 leader wins ~61% of games against
+   a 25% baseline. Sovereignty was supposed to give trailing seats a second way
+   in and only partly does.
 
 ## 3. What each phase moved
 
-Measured under the threshold-60 default. Phase 0–1 rows are 400 games; Phase 3
-rows 200; Phase 4 rows 400 (seed A / seed B).
+Threshold-60 default. Phase 0–4 rows predate the jitter fix, so treat them as
+±3 points; Phases 5–6 are 3-seed averages on the deterministic harness.
 
 | Phase | Sol | Rust | Verdan | Nexus | Decisive | Turns |
 |---|---|---|---|---|---|---|
-| 0 · grind-faithful harness, era as found | 41.3 / 37.3 | 13.8 / 8.8 | 16.0 / 22.8 | 29.0 / 31.3 | 86.5 / 84.8 | 45.4 |
-| 1 · Nexus tech yield (0.0625) − Custodian reinforcement | ~39 | — | — | 29.5 / 32.0 | — | — |
-| 3 · corridors: no gate, lane cap 2/3, kits rebuilt | 22.5 / 22.0 | 14.5 / 18.0 | 32.0 / 30.5 | 31.0 / 29.5 | 93.0 / 91.5 | ~32 |
-| 4 · worlds as characters (this tree) | 27.8 / 29.0 | 19.3 / 20.5 | 29.5 / 28.3 | 23.5 / 22.3 | 91.5 / 92.3 | 33.8 / 32.4 |
-| 4 with `SIM_WORLD_RULES=0` (kill switch, seed A) | 24.5 | 16.8 | 27.3 | 31.5 | 91.3 | 32.6 |
+| 0 · grind-faithful harness, era as found | 41.3 | 13.8 | 16.0 | 29.0 | 86.5 | 45.4 |
+| 3 · corridors: no gate, lane cap, kits rebuilt | 22.5 | 14.5 | 32.0 | 31.0 | 93.0 | ~32 |
+| 4 · worlds as characters | 27.8 | 19.3 | 29.5 | 23.5 | 91.5 | 33.8 |
+| 5 · Lane Sovereignty | ~28 | ~16 | ~33 | ~24 | 97 | 27 |
+| 6 · Jump Gates + lane weather (this tree) | **25.8** | **18.2** | **27.1** | **29.0** | 96.6 | 30.1 |
+| 6 with `SIM_SOVEREIGNTY=0` (seed A) | 24.8 | 19.5 | 27.5 | 28.3 | 93.5 | 33.5 |
+| 6 with `SIM_EVENTS=1` (seed A) | 24.5 | 27.0 | 24.0 | 24.5 | 98.3 | 28.0 |
 
-The kill switch restores the Phase 3 shape (Rust keeps its halved building
-cost, which is a modifier, not a rule), so an operator flipping
-`galaxy_world_rules_enabled` off gets a balanced game, not the pre-corridor one.
+Both kill switches leave a balanced game rather than the pre-corridor one. The
+events-on row is not the live default, but it is the flattest spread the era has
+produced — worth remembering if the lobby ever turns events on for this era.
 
-## 4. Tuning the Vault — what was tried
+## 4. The tuning that got here, and what it cost
 
-The plan's numbers carried two ⚠ balance knobs on Nexus (the ring garrison and
-whether the world keeps its modifiers/region bonuses) and one on Verdan (the
-storm threshold). 200 games, seed A, threshold 60, unless noted:
+Every number below is 400 games × 3 seeds on the deterministic harness unless
+noted.
 
-| Variant | Sol | Rust | Verdan | Nexus | Vault held at end |
-|---|---|---|---|---|---|
-| numeric modifiers cut, Nexus regions pay 0, garrison 6 (plan as written) | 40.0 | 9.5 | 50.0 | **0.5** | 0% (harness bug) |
-| modifiers + region bonuses restored, garrison 6 | 34.0 | 31.5 | 18.0 | 16.5 | 74.5% |
-| garrison 4 | 41.5 | 21.5 | 23.5 | 13.5 | 66.5% |
-| garrison 8 | 33.5 | 26.5 | 20.5 | 19.5 | 74.0% |
-| garrison 6 + `home_unit_bonus: 1` (shipped) | 31.0 | 21.5 | 25.0 | 22.5 | 68.5% |
-| … same, seed B | 26.0 | 19.5 | 31.5 | 23.0 | 73.5% |
+| Change | Why | Measured |
+|---|---|---|
+| **Jump Gate lanes carry no attack** | With gate lanes fighting like authored ones, mobility paid the leader: turn-10 leader 55% → 68%, games down to 25.7 turns, Sol 38%, and the Forge Syndicate — whose gates these are — down to 13.5%, because mobility erodes exactly the positional defence a turtle lives on. | Sol 38.0 → 26.5, leader 68 → 60 (200g, seed A) |
+| **Vault `home_unit_bonus` removed** | It was Phase 4 compensation for the Custodians starting without the ring; by Phase 6 they were the strongest seat. | Nexus 34.4 → 27.1 avg |
+| **Forge `reinforce_bonus` 1 → 2** | The only purely economic kit in the era, and the one that kept losing anyway. Its buildings and half-price gates were already the most-built of the four and did not convert. | Rust 14.3 → 19.5 avg |
+| **Sol research discount removed** | The last compounding lever. Sol III is the centre of the ring and worth ~24% on position alone; the discount added ten points on top. | Sol 34.6 → 25.8 avg |
 
-What the sweep says: the numeric world modifiers are load-bearing income, not
-decoration — cutting them (the plan's "replace four invisible decimals") sent
-Forge to 9.5% and the Custodians to nothing, so the rules ship **alongside** the
-modifiers and Nexus keeps its region bonuses (a home that pays nothing is a
-12-tile handicap, not a prize). Garrison size mostly moves Sol, which crosses
-onto Nexus by two lanes: lower it and Sol takes the ring; raise it and nobody
-does. The lever that fixes the seat without moving the prize is the start
-itself — the Custodians begin without the ring's 4 tiles (12 units and a region
-bonus), and one extra unit on each of their 12 tiles (`vault.home_unit_bonus`)
-restores parity: 48 units, like every other world.
+Two things were tried and **rejected on the evidence**:
 
-## 5. Open, and owned by the era plan
+- **A production-to-attack die for Forge** (+1 attack die from a territory with a
+  production building). It moved Forge 12.5% → 12.5%. A balance lever that does
+  not move the number it exists for is surface for nothing, so it came out.
+- **Capping the AI at two gate worlds** instead of three. Sol 45%, Verdan 14% —
+  worse on both ends, and the gate counts barely changed because captured gates
+  get rebuilt.
 
-- **Forge sits at the floor of the band (19–21%).** Phase 6's Jump Gates (half
-  price for the Syndicate) are the next lever that is theirs alone.
-- **Sol still snowballs from the top**: the turn-10 leader wins 55–59% of games
-  (25% baseline). Lane Sovereignty (Phase 5) gives the other seats a way to end
-  a game the headcount would hand to Sol.
+**Sol's Cradle world rule measures as inert.** Removing `population_growth_mult`
+changed nothing on two of three seeds; removing `deploy_cap_bonus` changed
+nothing on any (the deploy cap only binds below 50 stability, which the AI rarely
+reaches). Sol's identity is currently carried by Blockade Runner and by position.
+Giving that world a rule that actually fires is the clearest next balance job.
+
+## 5. Lane weather (`SIM_EVENTS=1`)
+
+Events are off by default for this era, so weather is measured on its own run.
+
+| Metric | 400g, seed A |
+|---|---|
+| Nebula Closures per game | 2.3 |
+| Lane Surges per game | 2.3 |
+| Games opening a surge where somebody crossed it | 85.8% |
+| Surge crossings total | 1828 |
+
+A harness bug surfaced here too: the socket clears `active_event` once it has
+broadcast the card, and with no socket the sim left it set, re-applying the same
+instant card every round (11.6 "closures" per game where the deck can deal about
+4). The sim now clears it the way `broadcastEventCard` does.
+
+## 6. Open
+
+- **Forge at 18.2%** (17.3–19.5 across seeds), the floor of the band. The next
+  lever is theirs alone rather than a shared mechanic — the gates were meant to
+  be that and turned out to be logistics everyone uses.
+- **Sol's Cradle rule does nothing measurable** (§4).
+- **The snowball**: turn-10 leader at ~61%.
 - **Only four-player games are measured**, because that is the only shape the
   create boundary allows: the one-faction-per-world start fires only for four
   seats with four distinct factions, and the Vault start assumes it.
+- **Stability's own randomness** (`cryptoFraction` for rebellions and population)
+  is still unseeded. It did not break run-to-run determinism in practice, but it
+  is the one remaining source that could.
 
 ## History
 
-- **2026-09-09, main @ 0f1a19a (Phase 0/1):** grind-faithful harness; Nexus
-  tech yield 0.05 → 0.0625 (it floored to zero), paid for by the Custodians'
-  reinforcement. Sol 41 → 39, Custodians 18 → 30.
-- **Pre-fix baseline (obsolete):** measured on the pre-densification map with
-  the single-exchange harness — stellar_mandate 2.0% / 1.2%, forge_syndicate
-  36% / 33%, helion_navigators 35% / 41%, void_custodians 27% / 25%; ~45% of
-  games hit the cap. The diagnosis then (Sol hubbed by 6 lanes, no economic
-  passive) drove the ring and modifier changes.
+- **2026-09-09 (Phases 0–4):** grind-faithful harness; Nexus tech yield 0.05 →
+  0.0625 (it floored to zero); corridors replaced the Hyperspace Chart gate;
+  worlds got their rules. Sol 41 → 28, Rust 14 → 19.
+- **Pre-fix baseline (obsolete):** the pre-densification map on the
+  single-exchange harness — stellar_mandate 2.0% / 1.2%, forge_syndicate 36% /
+  33%, helion_navigators 35% / 41%, void_custodians 27% / 25%; ~45% of games hit
+  the cap.

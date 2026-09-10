@@ -50,7 +50,7 @@ interface LaneMapData {
   map_kind?: 'standard' | 'galaxy';
   territories: LaneMapTerritory[];
   /** `type` is loose so the panel's `MapConnection` (type?: string) fits without a cast. */
-  connections: Array<{ from: string; to: string; type?: string }>;
+  connections: Array<{ from: string; to: string; type?: string; source?: string }>;
   worlds?: Array<{ world_id: string; display_name?: string }>;
 }
 
@@ -109,6 +109,26 @@ export function laneAttackDiceCap(
   return GALAXY_LANE_BASE_ATTACK_DICE + (hasLaneCharts ? 1 : 0);
 }
 
+/**
+ * What opened this lane. Authored lanes are the ring the era is fought over; the
+ * other two are engine-added and behave differently — a Jump Gate lane carries
+ * no attack, and a surge lane blows over after two rounds.
+ */
+export type LaneKind = 'authored' | 'jump_gate' | 'lane_surge';
+
+export function laneKindOf(source: string | undefined): LaneKind {
+  if (source === 'jump_gate') return 'jump_gate';
+  if (source === 'lane_surge') return 'lane_surge';
+  return 'authored';
+}
+
+/** Short label for a lane's kind, or null for an ordinary authored lane. */
+export function describeLaneKind(kind: LaneKind): string | null {
+  if (kind === 'jump_gate') return 'Jump Gate lane — your units only, no attacks';
+  if (kind === 'lane_surge') return 'Lane Surge — a temporary lane, it blows over';
+  return null;
+}
+
 export interface GatewayLane {
   /** The gateway on this side (the territory asked about). */
   nearId: string;
@@ -117,6 +137,7 @@ export interface GatewayLane {
   farName: string;
   farWorldId: string;
   farWorldName: string;
+  kind: LaneKind;
 }
 
 /** Every hyperspace lane leaving `territoryId` (empty for non-gateway tiles). */
@@ -141,6 +162,7 @@ export function gatewayLanesFor(mapData: LaneMapData | null | undefined, territo
       farName: far.name ?? farId,
       farWorldId,
       farWorldName: worldDisplayName(mapData, farWorldId),
+      kind: laneKindOf(c.source),
     });
   }
   return out;

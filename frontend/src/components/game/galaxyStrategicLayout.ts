@@ -23,6 +23,8 @@ export interface GalaxyConnectionLite {
   from: string;
   to: string;
   type: 'land' | 'sea' | 'orbit';
+  /** Engine-added lane ('launch_pad', 'jump_gate', 'lane_surge'); absent on authored edges. */
+  source?: string;
 }
 
 export interface OwnershipSlice {
@@ -56,7 +58,7 @@ export interface WorldLane {
   a: string;
   b: string;
   /** Underlying territory orbit-connections this world-pair aggregates. */
-  underlying: Array<{ from: string; to: string }>;
+  underlying: Array<{ from: string; to: string; source?: string }>;
 }
 
 export interface BuildWorldNodesOptions {
@@ -281,7 +283,7 @@ export function aggregateOrbitLanes(
     const [a, b] = wa < wb ? [wa, wb] : [wb, wa];
     const key = `${a}::${b}`;
     const lane = map.get(key) ?? { a, b, underlying: [] };
-    lane.underlying.push({ from: c.from, to: c.to });
+    lane.underlying.push({ from: c.from, to: c.to, source: c.source });
     map.set(key, lane);
   }
   return [...map.values()].sort((x, y) =>

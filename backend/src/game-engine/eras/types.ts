@@ -76,6 +76,13 @@ export interface Faction {
    */
   population_growth_multiplier?: number;
   /**
+   * Galactic Age: multiplier on this faction's Jump Gate cost (1 = no change,
+   * 0.5 = half price). Narrow on purpose — the Forge Syndicate sells hulls, so
+   * the gate network is theirs to build; a blanket building discount would stack
+   * with Rust Belt's own halved build costs into near-free everything.
+   */
+  jump_gate_cost_mult?: number;
+  /**
    * Defense dice added only when the defended territory sits off Earth
    * (`world_id` present and not 'earth'). Deliberately NOT `passive_defense_bonus`:
    * an always-on defensive die makes a faction impregnable from turn one, whereas

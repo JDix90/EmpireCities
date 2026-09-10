@@ -11,7 +11,7 @@ export interface MapConnectionEdge {
   to: string;
   type?: ConnectionType;
   /** Engine-added lane (a Launch Pad's orbit lane); never present in authored maps. */
-  source?: 'launch_pad';
+  source?: 'launch_pad' | 'jump_gate';
 }
 
 export {
@@ -229,6 +229,10 @@ export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
   launch_pad: {
     name: 'Launch Pad',
     effect: 'Enables Launch Space Station, and opens an orbit lane to the Moon from this territory',
+  },
+  jump_gate: {
+    name: 'Jump Gate',
+    effect: 'Moves your units to your gates on other worlds — logistics only, no attacks (one gate per world)',
   },
 };
 

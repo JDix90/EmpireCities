@@ -37,6 +37,7 @@ import {
   EMERGENCY_SEAL_ABILITY_ID,
   describeLaneDice,
   describeLaneSeal,
+  describeLaneKind,
   describeLaneState,
   describeWorldModifiers,
   describeWorldRules,
@@ -780,8 +781,11 @@ export default function TerritoryPanel({
                     </div>
                     <div className="text-[10px] text-bf-muted">
                       {sealLine ?? describeLaneState(state)}
-                      {dice && state !== 'closed' && !seal ? ` · ${dice}` : ''}
+                      {dice && state !== 'closed' && !seal && lane.kind === 'authored' ? ` · ${dice}` : ''}
                     </div>
+                    {describeLaneKind(lane.kind) && (
+                      <div className="text-[10px] text-sky-300/80">{describeLaneKind(lane.kind)}</div>
+                    )}
                     {canSeal && (
                       <button
                         type="button"

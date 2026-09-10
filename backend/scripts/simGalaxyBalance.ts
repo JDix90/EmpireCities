@@ -29,6 +29,8 @@ import {
   initializeGameState,
 } from '../src/game-engine/state/gameStateManager';
 import { vaultStatuses } from '../src/game-engine/state/worldRules';
+import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
+import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import {
   aiAttackExchangeBudget,
@@ -71,6 +73,12 @@ const WORLD_RULES = process.env.SIM_WORLD_RULES !== '0';
  * the era without it.
  */
 const SOVEREIGNTY = process.env.SIM_SOVEREIGNTY !== '0';
+/**
+ * Event cards are OFF by default here, matching the era's own system defaults
+ * (economy + tech + factions). `SIM_EVENTS=1` turns them on, which is the only
+ * way the galaxy's lane weather — Nebula Closure and Lane Surge — can fire.
+ */
+const EVENTS = process.env.SIM_EVENTS === '1';
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -117,7 +125,7 @@ function simSettings(): GameSettings {
     diplomacy_enabled: false,
     factions_enabled: true,
     naval_enabled: false,
-    events_enabled: false,
+    events_enabled: EVENTS,
     economy_enabled: true,
     tech_trees_enabled: true,
     stability_enabled: true,
@@ -172,6 +180,10 @@ interface SeatTelemetry {
   crossExchanges: number;
   crossCaptures: number;
   homeExchanges: number;
+  /** Jump Gates this seat built (a lane needs two, on different worlds). */
+  jumpGatesBuilt: number;
+  /** Attacks this seat resolved across a temporary Lane Surge. */
+  surgeCrossings: number;
 }
 
 /**
@@ -192,15 +204,34 @@ function playAiTurn(
   pid: string,
   difficulty: AiDifficulty,
   dieRoll: () => number,
+  jitter: () => number,
   orbitLanePairs: Set<string>,
   connectionsByKey: Map<string, MapConnection>,
   seat: SeatTelemetry,
 ): void {
   state.phase = 'draft';
-  const plan = computeAiTurn(state, map, difficulty);
+  // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
+  // is right for live play and wrong for a measurement harness: two runs of the
+  // same config on the same seed differed by up to 4 points of faction win rate
+  // (measured: seed C gave Forge 18.3% then 14.3%), because jitter reorders every
+  // candidate and the whole game cascades. `computeAiTurn` already accepts an rng;
+  // the harness simply never passed one.
+  const plan = computeAiTurn(state, map, difficulty, { rng: jitter });
 
   const build = selectAiBuildingPlacement(state, map, pid, difficulty);
-  if (build) applyBuild(state, pid, build.territoryId, build.buildingType);
+  if (build) {
+    applyBuild(state, pid, build.territoryId, build.buildingType);
+    // A Jump Gate's lane only exists once it is projected onto the map copy —
+    // the socket does this after every build, so the harness must too, or the
+    // sim measures gates that cost 12 PP and connect nothing.
+    if (build.buildingType === 'jump_gate') {
+      if (syncJumpGateLanes(map, state)) {
+        connectionsByKey.clear();
+        for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
+      }
+      seat.jumpGatesBuilt++;
+    }
+  }
   const techId = selectAiTechResearch(state, pid, difficulty);
   if (techId) {
     const v = validateResearch(state, pid, techId);
@@ -236,6 +267,7 @@ function playAiTurn(
       const ownerBefore = state.territories[a.to]?.owner_id;
       const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection, neutralOffworldCaptureAllowed });
       budget.left -= 1;
+      if (outcome && connection?.source === 'lane_surge') seat.surgeCrossings++;
       if (outcome) {
         if (crossesLane) {
           seat.crossExchanges++;
@@ -299,6 +331,9 @@ interface GameStat {
    * change hands has stopped being a war over lanes.
    */
   laneFlips: number;
+  /** Lane weather cards that actually edited the graph this game. */
+  weatherClosures: number;
+  weatherSurges: number;
 }
 
 /** Turns at which per-seat territory counts are sampled for the trajectory table. */
@@ -307,6 +342,8 @@ const TERRITORY_SNAPSHOT_TURNS = [10, 30, 60] as const;
 function runGame(gameIndex: number, map: GameMap): GameStat {
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
+  // Separate stream from the dice so a jitter draw can never shift a roll.
+  const jitter = createSeededRng(hashStringToSeed(`${MASTER_SEED}:jitter:${gameIndex}`));
   // Rotate faction-to-player assignment per game so faction win rate isn't
   // confounded with turn order (player 0 acts first).
   const rot = gameIndex % PLAYERS;
@@ -338,6 +375,8 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       crossExchanges: 0,
       crossCaptures: 0,
       homeExchanges: 0,
+      jumpGatesBuilt: 0,
+      surgeCrossings: 0,
     };
     snapshots[p.player_id] = {};
   }
@@ -347,6 +386,8 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     orbitEdges.map((c) => `${state.territories[c.from]?.owner_id ?? ''}|${state.territories[c.to]?.owner_id ?? ''}`).join(';');
   let lastLaneSignature = laneSignature();
   let laneFlips = 0;
+  let weatherClosures = 0;
+  let weatherSurges = 0;
 
   let t10Leader: string | null = null;
   let t10Captured = false;
@@ -356,9 +397,24 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, lanes, connectionsByKey, telemetry[player.player_id]);
+      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id]);
     }
     advanceToNextPlayer(state, map);
+    // The socket clears `active_event` once it has broadcast the card; with no
+    // socket here it would otherwise stay set and the SAME instant card would
+    // re-apply every round (measured: 11.6 "closures" per game where the deck can
+    // only deal about 4). Clear it the way broadcastEventCard does.
+    const weatherResult = state.active_event_result?.lane_weather;
+    if (weatherResult?.kind === 'closure') weatherClosures++;
+    if (weatherResult?.kind === 'surge') weatherSurges++;
+    state.active_event = undefined;
+    state.active_event_result = undefined;
+    // Lane weather edits the graph between rounds; the socket projects it onto
+    // the map copy after every advance, so the harness must too.
+    if (syncLaneWeatherLanes(map, state)) {
+      connectionsByKey.clear();
+      for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
+    }
 
     const sig = laneSignature();
     if (sig !== lastLaneSignature) {
@@ -429,6 +485,8 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     seats,
     worldTopShare,
     laneFlips,
+    weatherClosures,
+    weatherSurges,
   };
 }
 
@@ -534,6 +592,32 @@ function main(): void {
       .map((f) => `${f} ${fixed(avg(allSeats.filter((s) => s.faction === f).map((s) => s.vaultTiles)))}`)
       .join(' · ');
     console.log(`Vault tiles held at game end (avg of 4): ${tilesByFaction}`);
+  }
+
+  // Jump Gates: a lane needs two, so "built >= 2" is the share of seats that
+  // actually opened one. A gate nobody builds is a dead 12-PP button.
+  {
+    const allGateSeats = stats.flatMap((g) => g.seats);
+    const gatesByFaction = FACTIONS
+      .map((f) => `${f} ${fixed(avg(allGateSeats.filter((s) => s.faction === f).map((s) => s.jumpGatesBuilt)))}`)
+      .join(' · ');
+    console.log(`Jump Gate lanes opened in: ${pct(stats.filter((g) => g.seats.some((s) => s.jumpGatesBuilt >= 2)).length, GAMES)} of games · avg gates per seat: ${gatesByFaction}`);
+    console.log(`  (${pct(allGateSeats.filter((s) => s.jumpGatesBuilt >= 2).length, allGateSeats.length)} of seats built the two a lane needs)`);
+  }
+
+  if (EVENTS) {
+    const allWeatherSeats = stats.flatMap((g) => g.seats);
+    const crossings = allWeatherSeats.reduce((n, s) => n + s.surgeCrossings, 0);
+    const gamesWithSurge = stats.filter((g) => g.weatherSurges > 0);
+    const gamesWithCrossing = stats.filter((g) => g.seats.some((s) => s.surgeCrossings > 0));
+    console.log(
+      `Lane weather: ${fixed(avg(stats.map((g) => g.weatherClosures)))} closures + `
+      + `${fixed(avg(stats.map((g) => g.weatherSurges)))} surges per game`,
+    );
+    console.log(
+      `  surge lanes crossed in ${pct(gamesWithCrossing.length, Math.max(1, gamesWithSurge.length))} of games that opened one `
+      + `(${crossings} crossings total)`,
+    );
   }
 
   if (CSV_PATH) {

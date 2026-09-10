@@ -35,6 +35,7 @@ const BUILD_CHROME: Record<string, { cost: number; icon: React.ReactNode; catego
   naval_base: { cost: 10, icon: <Anchor className="w-3 h-3" />, category: 'naval' },
   coastal_battery: { cost: 4, icon: <Shield className="w-3 h-3" />, category: 'coastal_defense' },
   launch_pad: { cost: 8, icon: <Rocket className="w-3 h-3" />, category: 'launch' },
+  jump_gate: { cost: 12, icon: <Rocket className="w-3 h-3" />, category: 'jump_gate' },
 };
 
 export const BUILDING_META: Record<

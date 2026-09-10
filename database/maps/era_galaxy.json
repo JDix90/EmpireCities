@@ -83,8 +83,7 @@
           "region_id": "nexus_gate_ring",
           "neutral_garrison": 6,
           "tech_income": 2,
-          "emergency_seal": true,
-          "home_unit_bonus": 1
+          "emergency_seal": true
         }
       }
     }

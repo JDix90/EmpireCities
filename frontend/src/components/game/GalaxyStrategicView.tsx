@@ -33,6 +33,9 @@ import type { GameState } from '../../store/gameStore';
 import {
   EMERGENCY_SEAL_WORLD_ID,
   describeLaneDice,
+  describeLaneKind,
+  laneKindOf,
+  type LaneKind,
   describeLaneSeal,
   describeLaneState,
   laneAttackDiceCap,
@@ -64,7 +67,7 @@ export interface GalaxyMapDatum {
     globe_id?: string;
     galaxy_position?: [number, number];
   }>;
-  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit' }>;
+  connections: Array<{ from: string; to: string; type: 'land' | 'sea' | 'orbit'; source?: string }>;
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
   worlds?: Array<{
     world_id: string;
@@ -169,6 +172,7 @@ interface LaneRender {
   x2: number;
   y2: number;
   state: LaneState;
+  kind: LaneKind;
   seal: LaneSeal | null;
   /** The viewer is blocked by the seal (sealed by someone else). */
   sealedAgainstViewer: boolean;
@@ -313,6 +317,7 @@ export default function GalaxyStrategicView({
       return lane.underlying.map((u, i) => {
         // Orient every lane from world `a` to world `b` so the end dots line up.
         const [from, to] = worldOf(u.from) === lane.a ? [u.from, u.to] : [u.to, u.from];
+        const kind = laneKindOf(u.source);
         const off = (i - (count - 1) / 2) * gap;
         const state: LaneState = gameState ? laneStateFor(gameState, from, to, viewerPlayerId) : 'closed';
         const seal = sealFor(from, to);
@@ -320,7 +325,10 @@ export default function GalaxyStrategicView({
         const fromOwner = ownerOf(from);
         const toOwner = ownerOf(to);
         const touchesSealWorld = worldOf(from) === EMERGENCY_SEAL_WORLD_ID || worldOf(to) === EMERGENCY_SEAL_WORLD_ID;
-        const canSeal = lanesContestableEnabled && !!onSealLane && !seal && (sealAnyLane || touchesSealWorld);
+        // Only the authored ring can be sealed: the Custodians close Pathfinder
+        // lanes, not somebody's private gate thread.
+        const canSeal = kind === 'authored'
+          && lanesContestableEnabled && !!onSealLane && !seal && (sealAnyLane || touchesSealWorld);
 
         let stroke: string;
         let strokeWidth: number;
@@ -349,6 +357,15 @@ export default function GalaxyStrategicView({
           strokeWidth = 1.2;
           dash = '2 5';
         }
+        // Engine-added lanes read as what they are: a gate lane is a thin private
+        // thread, a surge a loose temporary one. Neither is the authored ring.
+        if (kind === 'jump_gate') {
+          strokeWidth = Math.min(strokeWidth, 1.6);
+          dash = '1 4';
+        } else if (kind === 'lane_surge') {
+          strokeWidth = Math.min(strokeWidth, 1.8);
+          dash = '5 3';
+        }
 
         const lines = [
           `${territoryName(from)} ↔ ${territoryName(to)}`,
@@ -357,8 +374,10 @@ export default function GalaxyStrategicView({
         ];
         const sealLine = describeLaneSeal(seal, (pid) => playerInfo(pid)?.name ?? 'a rival', viewerPlayerId);
         if (sealLine) lines.push(sealLine);
+        const kindLine = describeLaneKind(kind);
+        if (kindLine) lines.push(kindLine);
         const dice = describeLaneDice(viewerLaneDice);
-        if (dice && state !== 'closed') lines.push(dice);
+        if (dice && state !== 'closed' && kind === 'authored') lines.push(dice);
         if (!orbitAccessAllowed) lines.push('Locked — research Lane Charts to cross');
         if (canSeal) lines.push('Click to fire an Emergency Seal (1 round)');
 
@@ -366,6 +385,7 @@ export default function GalaxyStrategicView({
           key: orbitLaneId(from, to),
           from,
           to,
+          kind,
           x1: pa.px + ux * trim + nx * off,
           y1: pa.py + uy * trim + ny * off,
           x2: pb.px - ux * trim + nx * off,
@@ -525,6 +545,7 @@ export default function GalaxyStrategicView({
             className="bf-lane"
             data-lane-id={l.key}
             data-lane-state={l.state}
+            data-lane-kind={l.kind}
             data-lane-sealed={l.seal ? 'true' : 'false'}
           >
             <title>{l.tooltip}</title>
