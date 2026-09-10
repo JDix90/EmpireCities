@@ -92,15 +92,6 @@ export const CreateGameSchema = z.object({
       combat_max_defender_dice: z.number().int().min(2).max(10).optional(),
       /** Galaxy contestable hyperspace lanes (seal-lane mechanic). */
       lanes_contestable_enabled: z.boolean().optional(),
-      /**
-       * Space Age Moon Race (docs/space-age-moon/README.md §10.2) — ONE lobby
-       * toggle for the whole package, not one per phase. It says whether this
-       * game wants the Moon Race at all; which phases that turns on is decided
-       * server-side from the operator flags, so a client can never enable a
-       * phase that is switched off. Absent means "whatever the operator ships",
-       * which is what keeps promoting a flag to ON reaching players.
-       */
-      moon_race_enabled: z.boolean().optional(),
     })
     .superRefine((data, ctx) => {
       const list =
@@ -209,31 +200,30 @@ export function lanesContestableRejection(opts: {
 /**
  * The Space Age Moon Race resolution (docs/space-age-moon/README.md §10.2).
  *
- * Two questions, deliberately kept apart: does this GAME want the package (the
- * lobby's one toggle), and does the OPERATOR ship a given phase at all (the
- * per-phase flags). Every phase setting is the AND of the two, which is what
- * makes both halves of §10.2 true — unticking gives today's game exactly, and
- * ticking can never conjure a phase an operator has switched off, however a
- * create request is hand-crafted.
+ * ONE question: does the operator ship this phase yet. There is deliberately no
+ * second, player-facing one.
  *
- * An absent toggle falls back to whatever the operator ships. That is what lets
- * a caller predating the toggle (Quick Match, an older client, a scripted
- * create) keep behaving as it did, and what makes promoting a phase flag to ON
- * reach players without a second switch to remember.
+ * The Moon Race IS the Space Age — the lunar economy, the gated tier, the
+ * Hegemony victory are what separate the era from rocket-flavoured Earth. An era
+ * whose defining mechanic is optional does not have a defining mechanic: half
+ * the games would be the old grind, "Space Age" would name two different games,
+ * and a host would be making that choice for four other people before any of
+ * them knew what it meant. So every Space Age game gets every shipped phase.
+ *
+ * The per-phase flags stay what they always were — dark-launch and kill
+ * switches for the operator, not a game mode. `featureFlags.moonRacePhases` is
+ * their single definition, so a sixth phase is one line there and reaches every
+ * Space Age game the moment it is promoted.
  *
  * Exported for tests.
  */
 export function resolveMoonRacePhases(opts: {
   isSpaceAge: boolean;
-  /** The lobby toggle; undefined from a caller that does not know about it. */
-  requested?: boolean;
   /** What the operator ships — `featureFlags.moonRacePhases`. */
   shipped: MoonRacePhaseFlags;
 }): { enabled: boolean; phases: Partial<Record<MoonRacePhaseKey, true>> } {
-  const anyShipped = Object.values(opts.shipped).some(Boolean);
-  const enabled = opts.isSpaceAge && (opts.requested ?? anyShipped);
   const phases: Partial<Record<MoonRacePhaseKey, true>> = {};
-  if (enabled) {
+  if (opts.isSpaceAge) {
     for (const [key, on] of Object.entries(opts.shipped) as [MoonRacePhaseKey, boolean][]) {
       // Only ever `true` or absent: normalizeGameSettings persists a phase key
       // solely when it is on, so writing an explicit `false` would round-trip to
@@ -241,7 +231,7 @@ export function resolveMoonRacePhases(opts: {
       if (on) phases[key] = true;
     }
   }
-  return { enabled, phases };
+  return { enabled: Object.keys(phases).length > 0, phases };
 }
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
@@ -261,7 +251,6 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const isSpaceAgeEra = era_id === 'space_age' || map_id === 'era_space_age';
     const moonRace = resolveMoonRacePhases({
       isSpaceAge: isSpaceAgeEra,
-      requested: rawSettings.moon_race_enabled,
       shipped: featureFlags.moonRacePhases,
     });
     const spaceAgeBlockade = moonRace.phases.space_age_moon_blockade_enabled === true;
