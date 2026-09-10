@@ -79,6 +79,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never breaks a truce, never in daily challenges. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
   },
   {
+    key: 'era_heritage_buildings_enabled',
+    label: 'Heritage buildings (era advancement)',
+    description:
+      'In era-advancement games, build rights earned by research survive the era tech wipe, so a player who held tier-3 walls can still raise a basic wall after advancing. Buildings raised in an earlier era yield 75% (never below 1) until that era\u2019s research covers their line of work, which restores them and adds +1. Read only when a game is CREATED, so flipping this never changes a match already in progress. Off by default.',
+  },
+  {
     key: 'map_editor_enabled',
     label: 'Map Editor',
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',

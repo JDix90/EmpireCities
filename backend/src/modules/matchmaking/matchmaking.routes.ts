@@ -376,6 +376,9 @@ async function createRankedGameTx(
     settings.economy_enabled = true;
     settings.tech_trees_enabled = true;
     settings.stability_enabled = true;
+    // Baked at create like the lobby path, so a ranked match keeps the yield
+    // rules it started under even if the flag flips mid-season.
+    settings.era_heritage_buildings_enabled = featureFlags.eraHeritageBuildingsEnabled;
   }
 
   const eraMapIds: Record<string, string> = {

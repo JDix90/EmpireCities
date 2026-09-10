@@ -13,6 +13,13 @@ import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import {
+  buildingModernization,
+  heritageEnabled,
+  isHeritageOnlyUnlock,
+  modernizingTech,
+  type BuildingModernization,
+} from '../../utils/buildingHeritage';
 import { isMobileViewport } from '../../utils/device';
 import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
@@ -1746,11 +1753,35 @@ export default function TerritoryPanel({
          * building nor the tech, after the player had already spent the click.
          */
         const techLocks: Record<string, string> = {};
+        // Heritage rights lift the lock: the server accepts these builds, so
+        // listing them as locked would be a lie the player can disprove by
+        // looking at the walls they already own.
+        const heritageRights = heritageEnabled(gameState.settings)
+          ? new Set(myPlayer?.legacy_building_unlocks ?? [])
+          : new Set<string>();
         for (const n of buildingUnlocks) {
           if (unlockedTechs.has(n.tech_id)) continue;
           const building = n.unlocks_building as string;
+          if (heritageRights.has(building)) continue;
           // Cheapest wording when two nodes unlock the same building: first wins.
           if (!(building in techLocks)) techLocks[building] = n.name ?? n.tech_id;
+        }
+        // Buildings offered ONLY because of an inherited right — labelled so an
+        // option the player never researched this era does not read as a bug.
+        const heritageUnlocks = [...heritageRights].filter(
+          (b) => isHeritageOnlyUnlock(gameState.settings, myPlayer, b, techTree),
+        );
+        // Age/modernization of what already stands here, and the research that
+        // would lift an aged one.
+        const buildingStates: Record<string, BuildingModernization> = {};
+        const modernizeTechFor: Record<string, string> = {};
+        for (const b of tState.buildings ?? []) {
+          const ageState = buildingModernization(gameState.settings, myPlayer, tState, b, techTree);
+          buildingStates[b] = ageState;
+          if (ageState === 'aged') {
+            const via = modernizingTech(techTree, myPlayer, b);
+            if (via) modernizeTechFor[b] = via.name ?? via.tech_id;
+          }
         }
         // Era-special buildings (e.g. the Space Age launch_pad). Locked ones are
         // listed too, so the panel shows what this era HAS rather than hiding it
@@ -1797,6 +1828,9 @@ export default function TerritoryPanel({
             eraWonder={eraWonderProp}
             extraBuildOptions={extraBuildOptions}
             techLocks={techLocks}
+            heritageUnlocks={heritageUnlocks}
+            buildingStates={buildingStates}
+            modernizeTechFor={modernizeTechFor}
             onOpenTechTree={onOpenTechTree}
           />
         );

@@ -7,6 +7,11 @@ import { ERA_SIGNATURES, grantEraSignature } from './signatures';
 import { getCatchupGap, getMaxEraIndex, getStateSpineSteps } from './spines';
 import { getMoonAccessState } from '../state/moonAccess';
 import { captureTechEcho, storeTechEcho } from './techEcho';
+import {
+  captureHeritageUnlocks,
+  heritageEnabled,
+  storeHeritageUnlocks,
+} from './buildingHeritage';
 import { getCarryableLegacyAbility } from '../abilities/techAbilities';
 import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
 
@@ -205,6 +210,13 @@ export function executeAdvanceEra(
 
   const departingEraId = resolvePlayerEraId(state, player);
   storeTechEcho(player, departingEraId, captureTechEcho(state, player));
+
+  // Heritage: the right to raise the buildings this era's research opened
+  // survives the tech wipe below. Captured BEFORE `unlocked_techs` is cleared,
+  // for obvious reasons.
+  if (heritageEnabled(state)) {
+    storeHeritageUnlocks(player, captureHeritageUnlocks(state, player, departingEraId));
+  }
 
   // Carry the strongest unused once-per-game tech ability forward as a one-time
   // legacy charge (e.g. an undetonated Atom Bomb), so advancing never silently

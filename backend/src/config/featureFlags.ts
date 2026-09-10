@@ -50,6 +50,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
+  era_heritage_buildings_enabled: () => envOptIn('ERA_HERITAGE_BUILDINGS_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -305,6 +306,18 @@ export const featureFlags = {
   },
 
   /**
+   * When true, era-advancement games bake in heritage building rights and the
+   * modernize rule: build rights earned by research survive the era tech wipe,
+   * a building raised in an earlier era yields less until the current era's
+   * tech for it is researched, and researching that restores it with a premium.
+   * Read only at game create (baked into settings), so a flip never changes the
+   * yield math of a game already in progress. Dark-launched OFF.
+   */
+  get eraHeritageBuildingsEnabled(): boolean {
+    return overrideBool('era_heritage_buildings_enabled');
+  },
+
+  /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
    * Default ON **in production only** — outbound mail must never fire from a
@@ -546,5 +559,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
+    era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
   };
 }

@@ -414,6 +414,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // mechanic rather than asking the lobby to set two things that must
           // agree. An explicit client value still wins.
           lanes_contestable_enabled: rawSettings.lanes_contestable_enabled ?? (spaceAgeBlockade || undefined),
+          // Heritage building rights + modernize. Server-controlled: the schema
+          // never accepts it from the client, and baking the live flag here (not
+          // in the normalizer, which re-runs on every room load) keeps a running
+          // game on the rules it started under.
+          era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
