@@ -1,17 +1,31 @@
 /**
  * Background music — generated in the browser, no audio files.
  *
- * The game's sound effects are already synthesized with WebAudio oscillators
- * (`utils/gameSounds.ts`); this is the same idea stretched into a bed. One
- * generator, parameterized per era: a slow chord progression on a detuned pad
- * through a low-pass filter, a drone an octave or two beneath it, and a sparse
- * pulse layer that only comes forward under tension. Ambient by design — a
- * strategy session runs an hour or more, so no hooks, no melody to tire of,
- * and a dynamic range narrow enough to sit under the sound effects.
+ * The architecture is borrowed from Pyxis (JDix90/pyxis, tools/gen_sfx.py and
+ * scripts/music.gd), whose bed is what this should feel like:
  *
- * Everything here is display-side and disposable: the engine never touches
- * game state, and every method is a no-op until `start()` has run inside a
- * user gesture (browsers refuse to open an AudioContext otherwise).
+ *  - ONE eight-bar phrase, four chords, two bars each, looping forever. Each
+ *    chord is re-struck with a slow overlapping envelope (0.9 s in, 1.3 s out,
+ *    running 0.9 s under the next chord), so the pad breathes instead of
+ *    sliding — a pad that glides between chords reads as seasick.
+ *  - Chord voices are two detuned saws each, weighted so the root is loudest
+ *    (0.30 / (voice + 1)), with a sine SUB on the chord root an octave down.
+ *    The sub follows the chord: a drone parked on the key note fights every
+ *    chord that is not the tonic.
+ *  - Everything voiced around the third octave (roughly D3–C4) through a soft
+ *    low-pass near 800 Hz. Dark, and low enough to sit under the sound effects.
+ *  - Two struck bells per loop, and only two: a third starts to sound like a
+ *    melody, and a melody you cannot turn off becomes the thing you hear
+ *    instead of the game.
+ *  - Combat is not a different piece. It is the SAME phrase with the top half
+ *    switched on — a 16th-note arpeggio, a kick on 1 and 3, hats on the 8ths —
+ *    crossfaded in over 1.6 s and out over 3.4 s. Fights end raggedly; the
+ *    music should not snap.
+ *
+ * What Borderfall adds is the era axis: the same machine, re-voiced per era
+ * (key, mode, progression, pad and bell timbre, which drums exist). Everything
+ * here is display-side and disposable, and every method is a no-op until
+ * `start()` has run inside a user gesture.
  */
 import { prefersReducedMotion } from '../utils/device';
 import { getMusicMasterGain, isLiteMode } from '../utils/userPreferences';
@@ -19,134 +33,115 @@ import { getMusicMasterGain, isLiteMode } from '../utils/userPreferences';
 // ── Era profiles ─────────────────────────────────────────────────────────────
 
 export interface EraMusicProfile {
-  /** Scale root in Hz. */
+  /** Register root in Hz: chords are voiced in the octave above this. */
   root: number;
-  /** Semitone offsets of the scale within one octave. */
-  scale: number[];
-  /** Chords as scale-degree indices; a degree past the scale length is an octave up. */
+  /** Four chords as semitone offsets from `root`; negative offsets voice below it. */
   progression: number[][];
-  /** How many bars (of 4 beats) each chord holds. */
-  barsPerChord: number;
   bpm: number;
   padWave: OscillatorType;
-  droneWave: OscillatorType;
-  pulseWave: OscillatorType;
-  /** Spread between a pad voice's two oscillators, in cents. */
-  padDetuneCents: number;
-  /** Low-pass cutoff at rest and fully open under tension, in Hz. */
-  filterRest: number;
-  filterTense: number;
-  /** 16-step pulse pattern: 0 = rest, otherwise a scale degree (1-based) to sound. */
-  pulsePattern: number[];
-  /** Pulse note length in seconds. */
-  pulseLength: number;
-  /** Drone octaves below the root. */
-  droneOctavesDown: 1 | 2;
+  /** Detune between a voice's two oscillators, as a fraction (0.0035 ≈ 6 cents). */
+  padDetune: number;
+  /** Soft low-pass over the bed, in Hz. The combat layer bypasses it. */
+  filterHz: number;
+  /** Two bells per eight-bar loop: which bar, and semitones above `root`. */
+  bells: Array<{ bar: number; semis: number }>;
+  /** Bell timbre as [partial ratio, gain]. Slightly inharmonic ratios shimmer. */
+  bellPartials: Array<[number, number]>;
+  /** Bell decay time constant in seconds. */
+  bellDecay: number;
+  arpWave: OscillatorType;
+  /** Which drums the combat layer has. */
+  kick: boolean;
+  /** Kick pitch sweep, Hz. */
+  kickSweep: [number, number];
+  hats: boolean;
 }
 
-const PENTATONIC_MINOR = [0, 3, 5, 7, 10];
-const DORIAN = [0, 2, 3, 5, 7, 9, 10];
-const LYDIAN = [0, 2, 4, 6, 7, 9, 11];
-const MIXOLYDIAN = [0, 2, 4, 5, 7, 9, 10];
-const AEOLIAN = [0, 2, 3, 5, 7, 8, 10];
-const PHRYGIAN = [0, 1, 3, 5, 7, 8, 10];
-const WHOLE_TONE = [0, 2, 4, 6, 8, 10];
+const D3 = 146.83;
+const E3 = 164.81;
+const F3 = 174.61;
+const C3 = 130.81;
+
+const BRONZE_BELL: Array<[number, number]> = [[1, 1], [2.76, 0.3], [5.4, 0.1]];
+const CHAPEL_BELL: Array<[number, number]> = [[1, 1], [2.01, 0.42], [3.02, 0.16]];
+const GLASS_BELL: Array<[number, number]> = [[1, 1], [3.0, 0.22], [5.0, 0.06]];
+const ROUND_BELL: Array<[number, number]> = [[1, 1], [2.0, 0.5], [3.0, 0.28], [4.0, 0.12]];
 
 /**
- * The palette per era. Instrument choices are stand-ins the synth can reach:
- * frame drums are a low triangle thump, a choir is a filtered saw pad, a
- * harpsichord is a short bright pluck, teletype is a square 16th pattern.
+ * The palette per era. Progressions are written as offsets from the register
+ * root so each chord lands in the same octave (Dm = D3 F3 A3, Bb = Bb2 D3 F3,
+ * and so on) instead of climbing away with the scale degree.
  */
 export const ERA_MUSIC_PROFILES: Record<string, EraMusicProfile> = {
+  // Frame drums and a bronze bell. Minor pentatonic movement: Dm – C – Am – Dm.
   ancient: {
-    root: 110, scale: PENTATONIC_MINOR,
-    progression: [[0, 2, 4], [3, 5, 7], [1, 3, 5], [0, 2, 4]],
-    barsPerChord: 2, bpm: 64,
-    padWave: 'triangle', droneWave: 'sine', pulseWave: 'triangle',
-    padDetuneCents: 6, filterRest: 700, filterTense: 1900,
-    pulsePattern: [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0], pulseLength: 0.18,
-    droneOctavesDown: 1,
+    root: D3, progression: [[0, 3, 7], [-2, 2, 5], [-5, 0, 3], [0, 3, 7]], bpm: 72,
+    padWave: 'triangle', padDetune: 0.004, filterHz: 720,
+    bells: [{ bar: 0, semis: 12 }, { bar: 4, semis: 17 }], bellPartials: BRONZE_BELL, bellDecay: 0.5,
+    arpWave: 'triangle', kick: true, kickSweep: [150, 58], hats: false,
   },
+  // A filtered saw choir, i – iv – VI – VII: Dm – Gm – Bb – C.
   medieval: {
-    root: 73.42, scale: DORIAN,
-    progression: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
-    barsPerChord: 2, bpm: 70,
-    padWave: 'sawtooth', droneWave: 'triangle', pulseWave: 'triangle',
-    padDetuneCents: 9, filterRest: 520, filterTense: 1600,
-    pulsePattern: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], pulseLength: 0.22,
-    droneOctavesDown: 1,
+    root: D3, progression: [[0, 3, 7], [5, 10, 14], [-4, 0, 3], [-2, 2, 5]], bpm: 78,
+    padWave: 'sawtooth', padDetune: 0.0035, filterHz: 820,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 27 }], bellPartials: CHAPEL_BELL, bellDecay: 0.41,
+    arpWave: 'square', kick: true, kickSweep: [128, 44], hats: true,
   },
+  // Lydian and open, glassy bells like a harpsichord's ring: F – G – Am – C.
   discovery: {
-    root: 98, scale: LYDIAN,
-    progression: [[0, 2, 4], [3, 5, 7], [1, 3, 5], [4, 6, 8]],
-    barsPerChord: 2, bpm: 76,
-    padWave: 'triangle', droneWave: 'sine', pulseWave: 'square',
-    padDetuneCents: 5, filterRest: 900, filterTense: 2600,
-    pulsePattern: [1, 0, 3, 0, 5, 0, 3, 0, 1, 0, 3, 0, 5, 0, 8, 0], pulseLength: 0.09,
-    droneOctavesDown: 2,
+    root: F3, progression: [[0, 4, 7], [2, 6, 9], [4, 7, 11], [-5, -1, 2]], bpm: 84,
+    padWave: 'triangle', padDetune: 0.003, filterHz: 1100,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 28 }], bellPartials: GLASS_BELL, bellDecay: 0.6,
+    arpWave: 'square', kick: true, kickSweep: [120, 50], hats: true,
   },
+  // Mixolydian march, I – bVII – IV – I: F – Eb – Bb – F. Snare-forward hats.
   acw: {
-    root: 87.31, scale: MIXOLYDIAN,
-    progression: [[0, 2, 4], [3, 5, 7], [0, 2, 4], [4, 6, 8]],
-    barsPerChord: 2, bpm: 84,
-    padWave: 'sawtooth', droneWave: 'triangle', pulseWave: 'square',
-    padDetuneCents: 7, filterRest: 650, filterTense: 2100,
-    pulsePattern: [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1], pulseLength: 0.07,
-    droneOctavesDown: 1,
+    root: F3, progression: [[0, 4, 7], [-2, 2, 5], [5, 9, 12], [0, 4, 7]], bpm: 88,
+    padWave: 'sawtooth', padDetune: 0.0035, filterHz: 820,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 31 }], bellPartials: ROUND_BELL, bellDecay: 0.35,
+    arpWave: 'square', kick: true, kickSweep: [128, 44], hats: true,
   },
+  // Same march palette, I – IV – vi – bVII: F – Bb – Dm – Eb.
   risorgimento: {
-    root: 87.31, scale: MIXOLYDIAN,
-    progression: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
-    barsPerChord: 2, bpm: 84,
-    padWave: 'sawtooth', droneWave: 'triangle', pulseWave: 'square',
-    padDetuneCents: 7, filterRest: 650, filterTense: 2100,
-    pulsePattern: [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1], pulseLength: 0.07,
-    droneOctavesDown: 1,
+    root: F3, progression: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [-2, 2, 5]], bpm: 88,
+    padWave: 'sawtooth', padDetune: 0.0035, filterHz: 820,
+    bells: [{ bar: 0, semis: 28 }, { bar: 4, semis: 24 }], bellPartials: ROUND_BELL, bellDecay: 0.35,
+    arpWave: 'square', kick: true, kickSweep: [128, 44], hats: true,
   },
+  // Darker and wider, i – VI – III – VII in C: Cm – Ab – Eb – Bb. Heavy kick.
   ww2: {
-    root: 65.41, scale: AEOLIAN,
-    progression: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
-    barsPerChord: 2, bpm: 80,
-    padWave: 'sawtooth', droneWave: 'sawtooth', pulseWave: 'square',
-    padDetuneCents: 10, filterRest: 480, filterTense: 1700,
-    pulsePattern: [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0], pulseLength: 0.12,
-    droneOctavesDown: 1,
+    root: C3, progression: [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]], bpm: 80,
+    padWave: 'sawtooth', padDetune: 0.005, filterHz: 620,
+    bells: [{ bar: 0, semis: 12 }, { bar: 4, semis: 15 }], bellPartials: ROUND_BELL, bellDecay: 0.45,
+    arpWave: 'square', kick: true, kickSweep: [110, 40], hats: true,
   },
+  // Phrygian, thin square pad, teletype 16ths: Em – F – Em – Dm.
   coldwar: {
-    root: 82.41, scale: PHRYGIAN,
-    progression: [[0, 2, 4], [1, 3, 5], [0, 2, 4], [5, 7, 9]],
-    barsPerChord: 2, bpm: 92,
-    padWave: 'square', droneWave: 'sine', pulseWave: 'square',
-    padDetuneCents: 4, filterRest: 500, filterTense: 2300,
-    pulsePattern: [1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1], pulseLength: 0.05,
-    droneOctavesDown: 2,
+    root: E3, progression: [[0, 3, 7], [1, 5, 8], [0, 3, 7], [-2, 1, 5]], bpm: 92,
+    padWave: 'square', padDetune: 0.002, filterHz: 560,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 25 }], bellPartials: CHAPEL_BELL, bellDecay: 0.3,
+    arpWave: 'square', kick: true, kickSweep: [140, 48], hats: true,
   },
+  // Wide detuned saws, brighter: Em – C – G – D.
   modern: {
-    root: 110, scale: AEOLIAN,
-    progression: [[0, 2, 4], [5, 7, 9], [2, 4, 6], [3, 5, 7]],
-    barsPerChord: 2, bpm: 88,
-    padWave: 'sawtooth', droneWave: 'sine', pulseWave: 'triangle',
-    padDetuneCents: 12, filterRest: 800, filterTense: 2800,
-    pulsePattern: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0], pulseLength: 0.1,
-    droneOctavesDown: 2,
+    root: E3, progression: [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]], bpm: 84,
+    padWave: 'sawtooth', padDetune: 0.006, filterHz: 900,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 31 }], bellPartials: GLASS_BELL, bellDecay: 0.55,
+    arpWave: 'triangle', kick: true, kickSweep: [120, 42], hats: true,
   },
+  // Lydian sevenths, the widest pad: Cmaj7 – D7/C – Em7 – G6.
   space_age: {
-    root: 130.81, scale: LYDIAN,
-    progression: [[0, 2, 4, 6], [3, 5, 7, 9], [1, 3, 5, 7], [4, 6, 8, 10]],
-    barsPerChord: 2, bpm: 96,
-    padWave: 'sawtooth', droneWave: 'sine', pulseWave: 'triangle',
-    padDetuneCents: 14, filterRest: 1000, filterTense: 3400,
-    pulsePattern: [1, 0, 3, 0, 5, 0, 8, 0, 5, 0, 3, 0, 1, 0, 5, 0], pulseLength: 0.08,
-    droneOctavesDown: 2,
+    root: C3, progression: [[0, 4, 7, 11], [2, 6, 9, 14], [4, 7, 11, 16], [-5, -1, 2, 7]], bpm: 90,
+    padWave: 'sawtooth', padDetune: 0.008, filterHz: 1200,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 30 }], bellPartials: GLASS_BELL, bellDecay: 0.7,
+    arpWave: 'triangle', kick: true, kickSweep: [100, 40], hats: true,
   },
+  // Whole tone, slowest and deepest. No hats; the kick is a distant sub.
   galaxy_age: {
-    root: 73.42, scale: WHOLE_TONE,
-    progression: [[0, 2, 4], [1, 3, 5], [2, 4, 6], [0, 2, 4]],
-    barsPerChord: 4, bpm: 56,
-    padWave: 'triangle', droneWave: 'sine', pulseWave: 'sine',
-    padDetuneCents: 8, filterRest: 600, filterTense: 2000,
-    pulsePattern: [1, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0], pulseLength: 0.3,
-    droneOctavesDown: 2,
+    root: D3, progression: [[0, 4, 8], [2, 6, 10], [0, 4, 8], [-2, 2, 6]], bpm: 56,
+    padWave: 'triangle', padDetune: 0.004, filterHz: 520,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 28 }], bellPartials: GLASS_BELL, bellDecay: 1.1,
+    arpWave: 'sine', kick: true, kickSweep: [80, 36], hats: false,
   },
 };
 
@@ -154,11 +149,8 @@ export function profileForEra(eraId: string | null | undefined): EraMusicProfile
   return (eraId && ERA_MUSIC_PROFILES[eraId]) || ERA_MUSIC_PROFILES.ancient;
 }
 
-/** Frequency of a scale degree (0-based; past the scale length climbs an octave). */
-export function degreeToHz(profile: EraMusicProfile, degree: number, octaveShift = 0): number {
-  const len = profile.scale.length;
-  const octave = Math.floor(degree / len) + octaveShift;
-  const semis = profile.scale[((degree % len) + len) % len] + 12 * octave;
+/** Frequency of a semitone offset from the profile's register root. */
+export function semisToHz(profile: EraMusicProfile, semis: number): number {
   return profile.root * Math.pow(2, semis / 12);
 }
 
@@ -173,8 +165,10 @@ export interface MusicTensionInput {
 }
 
 /**
- * How much the music leans in, 0..1. Opens the filter and brings the pulse
- * layer forward; it never changes tempo, which would read as a glitch.
+ * How much the music leans in, 0..1. Two things read it: PRESENCE (below 0.2
+ * the bed is ducked and darkened — someone else's turn, the world a little
+ * further away) and the COMBAT layer, which comes in from 0.35 and is fully
+ * up at 0.85. Tempo never changes; that reads as a glitch.
  */
 export function musicTensionFor(input: MusicTensionInput): number {
   if (input.gameOver) return 0;
@@ -184,24 +178,30 @@ export function musicTensionFor(input: MusicTensionInput): number {
   return 0.1;
 }
 
+/** Combat-layer level for a tension value. */
+export function combatBlendFor(tension: number): number {
+  return Math.min(1, Math.max(0, (tension - 0.35) / 0.5));
+}
+
 // ── Engine ───────────────────────────────────────────────────────────────────
 
 export type MusicCadence = 'victory' | 'defeat';
 
-interface PadVoice {
-  oscA: OscillatorNode;
-  oscB: OscillatorNode;
-  gain: GainNode;
-}
-
 /** Overall level of the bed before the user's volume. Deliberately low. */
-const BED_LEVEL = 0.45;
-const PAD_VOICE_GAIN = 0.05;
-const DRONE_GAIN = 0.06;
-const PULSE_GAIN = 0.05;
-const SCHEDULE_AHEAD_SEC = 0.35;
+const BED_LEVEL = 0.4;
+const SUB_GAIN = 0.55;
+const BELL_GAIN = 0.2;
+const ARP_GAIN = 0.085;
+const KICK_GAIN = 0.42;
+const HAT_GAIN = 0.16;
+const PRESENCE_DUCK = 0.6;
+const COMBAT_FADE_IN_SEC = 1.6;
+const COMBAT_FADE_OUT_SEC = 3.4;
+const SCHEDULE_AHEAD_SEC = 0.4;
 const SCHEDULER_INTERVAL_MS = 100;
 const CROSSFADE_SEC = 1.6;
+const BARS = 8;
+const CHORD_BARS = 2;
 
 function canPlayMusic(): boolean {
   if (typeof window === 'undefined') return false;
@@ -211,17 +211,25 @@ function canPlayMusic(): boolean {
   return !prefersReducedMotion() && !isLiteMode();
 }
 
+function tanhCurve(samples = 1024): Float32Array<ArrayBuffer> {
+  const curve = new Float32Array(new ArrayBuffer(samples * 4));
+  for (let i = 0; i < samples; i++) {
+    const x = (i / (samples - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * 1.5);
+  }
+  return curve;
+}
+
 export class BackgroundMusicEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private bed: GainNode | null = null;
+  private presence: GainNode | null = null;
   private filter: BiquadFilterNode | null = null;
-  private lfo: OscillatorNode | null = null;
   private padBus: GainNode | null = null;
-  private droneBus: GainNode | null = null;
-  private pulseBus: GainNode | null = null;
-  private padVoices: PadVoice[] = [];
-  private droneOscs: OscillatorNode[] = [];
+  private bellBus: GainNode | null = null;
+  private combatBus: GainNode | null = null;
+  private noiseBuffer: AudioBuffer | null = null;
 
   private profile: EraMusicProfile = ERA_MUSIC_PROFILES.ancient;
   private eraId: string | null = null;
@@ -230,7 +238,7 @@ export class BackgroundMusicEngine {
   private schedulerId: ReturnType<typeof setInterval> | null = null;
   private nextStepTime = 0;
   private step = 0;
-  private chordIndex = -1;
+  private live: Array<{ stop: (at: number) => void; until: number }> = [];
 
   get isRunning(): boolean {
     return this.running;
@@ -256,45 +264,46 @@ export class BackgroundMusicEngine {
     const ctx = this.ctx;
     if (ctx.state === 'suspended') void ctx.resume();
 
+    // master (user volume) ← soft clip ← bed (fixed level) ← presence (duck)
+    //   ← { filter ← padBus, bellBus ; combatBus (unfiltered) }
     this.master = ctx.createGain();
     this.master.gain.value = 0;
     this.master.connect(ctx.destination);
 
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = tanhCurve();
+    shaper.connect(this.master);
+
     this.bed = ctx.createGain();
     this.bed.gain.value = BED_LEVEL;
-    this.bed.connect(this.master);
+    this.bed.connect(shaper);
+
+    this.presence = ctx.createGain();
+    this.presence.gain.value = 1;
+    this.presence.connect(this.bed);
 
     this.filter = ctx.createBiquadFilter();
     this.filter.type = 'lowpass';
-    this.filter.Q.value = 0.7;
-    this.filter.connect(this.bed);
-
-    // Slow filter wobble so the pad never sits perfectly still.
-    this.lfo = ctx.createOscillator();
-    this.lfo.type = 'sine';
-    this.lfo.frequency.value = 0.045;
-    const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 120;
-    this.lfo.connect(lfoDepth);
-    lfoDepth.connect(this.filter.frequency);
-    this.lfo.start();
+    this.filter.Q.value = 0.5;
+    this.filter.connect(this.presence);
 
     this.padBus = ctx.createGain();
     this.padBus.gain.value = 1;
     this.padBus.connect(this.filter);
-    this.droneBus = ctx.createGain();
-    this.droneBus.gain.value = DRONE_GAIN;
-    this.droneBus.connect(this.filter);
-    this.pulseBus = ctx.createGain();
-    this.pulseBus.gain.value = 0;
-    this.pulseBus.connect(this.filter);
+    this.bellBus = ctx.createGain();
+    this.bellBus.gain.value = 1;
+    this.bellBus.connect(this.filter);
+    // Muffling the combat layer would take the bite out of exactly the moment
+    // that needs it, so it skips the filter.
+    this.combatBus = ctx.createGain();
+    this.combatBus.gain.value = 0;
+    this.combatBus.connect(this.presence);
 
     this.profile = profileForEra(eraId);
     this.eraId = eraId ?? null;
-    this.buildVoices();
-    this.applyTension(this.tension, 0.5);
-
+    this.step = 0;
     this.running = true;
+    this.applyTension(this.tension, true);
     this.master.gain.setTargetAtTime(getMusicMasterGain(), ctx.currentTime, 0.8);
     this.startScheduler();
     return true;
@@ -309,26 +318,18 @@ export class BackgroundMusicEngine {
     const master = this.master;
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setTargetAtTime(0, ctx.currentTime, fadeSec / 3);
-    const voices = this.padVoices;
-    const drones = this.droneOscs;
-    const lfo = this.lfo;
-    const teardown = () => {
-      for (const v of voices) { try { v.oscA.stop(); v.oscB.stop(); } catch { /* already stopped */ } }
-      for (const d of drones) { try { d.stop(); } catch { /* already stopped */ } }
-      try { lfo?.stop(); } catch { /* already stopped */ }
-      master.disconnect();
-    };
-    window.setTimeout(teardown, fadeSec * 1000 + 200);
-    this.padVoices = [];
-    this.droneOscs = [];
+    const live = this.live;
+    const at = ctx.currentTime + fadeSec + 0.2;
+    for (const v of live) { try { v.stop(at); } catch { /* already stopped */ } }
+    window.setTimeout(() => master.disconnect(), fadeSec * 1000 + 300);
+    this.live = [];
     this.master = null;
     this.bed = null;
+    this.presence = null;
     this.filter = null;
-    this.lfo = null;
     this.padBus = null;
-    this.droneBus = null;
-    this.pulseBus = null;
-    this.chordIndex = -1;
+    this.bellBus = null;
+    this.combatBus = null;
     this.step = 0;
   }
 
@@ -337,37 +338,36 @@ export class BackgroundMusicEngine {
     const next = eraId ?? null;
     if (next === this.eraId) return;
     this.eraId = next;
-    this.profile = profileForEra(next);
-    if (!this.running || !this.ctx || !this.padBus || !this.droneBus) return;
-
+    if (!this.running || !this.ctx || !this.padBus || !this.bellBus) {
+      this.profile = profileForEra(next);
+      return;
+    }
     const ctx = this.ctx;
     const now = ctx.currentTime;
-    this.padBus.gain.cancelScheduledValues(now);
-    this.padBus.gain.setTargetAtTime(0, now, CROSSFADE_SEC / 4);
-    this.droneBus.gain.cancelScheduledValues(now);
-    this.droneBus.gain.setTargetAtTime(0, now, CROSSFADE_SEC / 4);
-
-    const oldVoices = this.padVoices;
-    const oldDrones = this.droneOscs;
+    this.stopScheduler();
+    for (const bus of [this.padBus, this.bellBus]) {
+      bus.gain.cancelScheduledValues(now);
+      bus.gain.setTargetAtTime(0, now, CROSSFADE_SEC / 4);
+    }
+    const fading = this.live;
+    this.live = [];
     window.setTimeout(() => {
-      for (const v of oldVoices) { try { v.oscA.stop(); v.oscB.stop(); } catch { /* ok */ } }
-      for (const d of oldDrones) { try { d.stop(); } catch { /* ok */ } }
-      if (!this.running || !this.ctx || !this.padBus || !this.droneBus) return;
-      this.chordIndex = -1;
+      for (const v of fading) { try { v.stop(0); } catch { /* ok */ } }
+      if (!this.running || !this.ctx || !this.padBus || !this.bellBus) return;
+      this.profile = profileForEra(next);
       this.step = 0;
-      this.buildVoices();
-      this.applyTension(this.tension, 0.5);
+      this.applyTension(this.tension, true);
       const t = this.ctx.currentTime;
-      this.padBus.gain.setTargetAtTime(1, t, CROSSFADE_SEC / 3);
-      this.droneBus.gain.setTargetAtTime(DRONE_GAIN, t, CROSSFADE_SEC / 3);
+      for (const bus of [this.padBus, this.bellBus]) bus.gain.setTargetAtTime(1, t, CROSSFADE_SEC / 3);
       this.nextStepTime = t + 0.05;
+      this.startScheduler();
     }, CROSSFADE_SEC * 1000);
   }
 
   setTension(tension: number): void {
     const t = Math.min(1, Math.max(0, tension));
     this.tension = t;
-    if (this.running) this.applyTension(t, 2.5);
+    if (this.running) this.applyTension(t, false);
   }
 
   /** Re-read the user's music volume (0..1). Live, no restart. */
@@ -389,9 +389,9 @@ export class BackgroundMusicEngine {
     }
   }
 
-  /** The era-advance moment: a rising swell that opens the filter, then settles. */
+  /** The era-advance moment: the filter opens and a rising partial climbs, then it settles. */
   playEraSwell(): void {
-    if (!this.running || !this.ctx || !this.filter || !this.bed) return;
+    if (!this.running || !this.ctx || !this.filter || !this.bed || !this.bellBus) return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
     this.filter.frequency.cancelScheduledValues(now);
@@ -403,98 +403,58 @@ export class BackgroundMusicEngine {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(this.profile.root * 2, now);
-    osc.frequency.exponentialRampToValueAtTime(this.profile.root * 8, now + 2.4);
+    osc.frequency.setValueAtTime(this.profile.root, now);
+    osc.frequency.exponentialRampToValueAtTime(this.profile.root * 4, now + 2.4);
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(0.06, now + 0.6);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.0);
     osc.connect(gain);
-    gain.connect(this.bed);
+    gain.connect(this.bellBus);
     osc.start(now);
     osc.stop(now + 3.1);
+    // A bell on the new root, the way each loop announces itself.
+    this.scheduleBell(semisToHz(this.profile, 24), now + 2.4, BELL_GAIN * 1.4);
   }
 
-  /** Game over: a resolved rise for a win, an unresolved fall for a loss, then out. */
+  /** Game over: bells — a resolved rise for a win, an unresolved fall for a loss — then out. */
   playCadence(kind: MusicCadence): void {
-    if (!this.running || !this.ctx || !this.bed) return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
+    if (!this.running || !this.ctx || !this.bellBus) return;
+    const now = this.ctx.currentTime;
     this.stopScheduler();
     this.setTension(0);
-    const p = this.profile;
-    const degrees = kind === 'victory' ? [0, 2, 4, 7] : [4, 2, 1, 1];
-    const octave = kind === 'victory' ? 1 : 0;
-    degrees.forEach((degree, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = kind === 'victory' ? 'triangle' : 'sine';
-      osc.frequency.value = degreeToHz(p, degree, octave);
-      const t = now + i * (kind === 'victory' ? 0.28 : 0.42);
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.07, t + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + (i === degrees.length - 1 ? 2.4 : 0.9));
-      osc.connect(gain);
-      gain.connect(this.bed as GainNode);
-      osc.start(t);
-      osc.stop(t + 2.6);
-    });
+    const chord = this.profile.progression[0];
+    const semis = kind === 'victory'
+      ? [chord[0] + 12, chord[1] + 12, chord[2] + 12, chord[0] + 24]
+      : [chord[2] + 12, chord[1] + 12, chord[0] + 14, chord[0] + 14];
+    const gap = kind === 'victory' ? 0.28 : 0.46;
+    semis.forEach((s, i) => this.scheduleBell(semisToHz(this.profile, s), now + i * gap, BELL_GAIN * 1.3));
     window.setTimeout(() => this.stop(2.5), 2600);
   }
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
+  private get beatSec(): number {
+    return 60 / this.profile.bpm;
+  }
+
   private filterTarget(): number {
-    const p = this.profile;
-    return p.filterRest + (p.filterTense - p.filterRest) * this.tension;
+    // Someone else's turn: the world is a little further away.
+    return this.tension < 0.2 ? this.profile.filterHz * 0.75 : this.profile.filterHz;
   }
 
-  private applyTension(t: number, rampSec: number): void {
-    if (!this.ctx || !this.filter || !this.pulseBus) return;
+  private applyTension(t: number, immediate: boolean): void {
+    if (!this.ctx || !this.filter || !this.presence || !this.combatBus) return;
     const now = this.ctx.currentTime;
-    this.filter.frequency.setTargetAtTime(this.filterTarget(), now, rampSec / 3);
-    // The pulse is inaudible at rest and only comes forward as tension rises.
-    const pulseLevel = t < 0.2 ? 0 : PULSE_GAIN * ((t - 0.2) / 0.8);
-    this.pulseBus.gain.setTargetAtTime(pulseLevel, now, rampSec / 3);
-  }
-
-  private buildVoices(): void {
-    if (!this.ctx || !this.padBus || !this.droneBus) return;
-    const ctx = this.ctx;
-    const p = this.profile;
-    const voiceCount = Math.max(...p.progression.map((c) => c.length));
-    const chord = p.progression[0];
-    this.padVoices = [];
-    for (let i = 0; i < voiceCount; i++) {
-      const hz = degreeToHz(p, chord[i % chord.length]);
-      const oscA = ctx.createOscillator();
-      const oscB = ctx.createOscillator();
-      oscA.type = p.padWave;
-      oscB.type = p.padWave;
-      oscA.frequency.value = hz;
-      oscB.frequency.value = hz;
-      oscA.detune.value = -p.padDetuneCents;
-      oscB.detune.value = p.padDetuneCents;
-      const gain = ctx.createGain();
-      gain.gain.value = PAD_VOICE_GAIN;
-      oscA.connect(gain);
-      oscB.connect(gain);
-      gain.connect(this.padBus);
-      oscA.start();
-      oscB.start();
-      this.padVoices.push({ oscA, oscB, gain });
-    }
-    const droneHz = p.root / Math.pow(2, p.droneOctavesDown);
-    this.droneOscs = [];
-    for (const detune of [-4, 4]) {
-      const osc = ctx.createOscillator();
-      osc.type = p.droneWave;
-      osc.frequency.value = droneHz;
-      osc.detune.value = detune;
-      osc.connect(this.droneBus);
-      osc.start();
-      this.droneOscs.push(osc);
-    }
-    this.chordIndex = 0;
+    const presence = t < 0.2 ? PRESENCE_DUCK : 1;
+    this.presence.gain.setTargetAtTime(presence, now, immediate ? 0.01 : 0.8);
+    this.filter.frequency.setTargetAtTime(this.filterTarget(), now, immediate ? 0.01 : 1.2);
+    // Asymmetric on purpose: combat arrives fast enough to feel like a
+    // reaction and leaves slowly enough that the last exchange does not snap
+    // the room back to calm.
+    const blend = combatBlendFor(t);
+    const rising = blend > this.combatBus.gain.value;
+    const tau = immediate ? 0.01 : (rising ? COMBAT_FADE_IN_SEC : COMBAT_FADE_OUT_SEC) / 3;
+    this.combatBus.gain.setTargetAtTime(blend, now, tau);
   }
 
   private startScheduler(): void {
@@ -511,55 +471,180 @@ export class BackgroundMusicEngine {
   /** Look-ahead scheduler: queue every 16th-note step that falls inside the window. */
   private tick(): void {
     if (!this.ctx || !this.running) return;
-    const stepSec = 60 / this.profile.bpm / 4;
+    const stepSec = this.beatSec / 4;
     while (this.nextStepTime < this.ctx.currentTime + SCHEDULE_AHEAD_SEC) {
       this.scheduleStep(this.step, this.nextStepTime);
       this.step += 1;
       this.nextStepTime += stepSec;
     }
+    // Forget voices whose stop time has passed.
+    const now = this.ctx.currentTime;
+    this.live = this.live.filter((v) => v.until > now);
   }
 
   private scheduleStep(step: number, time: number): void {
     const p = this.profile;
-    const stepsPerChord = p.barsPerChord * 16;
-    const chordIdx = Math.floor(step / stepsPerChord) % p.progression.length;
-    if (chordIdx !== this.chordIndex) {
-      this.chordIndex = chordIdx;
-      this.glideToChord(p.progression[chordIdx], time);
+    const stepsPerBar = 16;
+    const loopSteps = BARS * stepsPerBar;
+    const s = step % loopSteps;
+    const bar = Math.floor(s / stepsPerBar);
+    const inBar = s % stepsPerBar;
+    const chord = p.progression[Math.floor(bar / CHORD_BARS) % p.progression.length];
+
+    if (inBar === 0 && bar % CHORD_BARS === 0) this.scheduleChord(chord, time);
+    if (inBar === 0) {
+      for (const bell of p.bells) {
+        if (bell.bar === bar) this.scheduleBell(semisToHz(p, bell.semis), time, BELL_GAIN);
+      }
     }
-    const hit = p.pulsePattern[step % 16];
-    if (hit > 0 && this.tension >= 0.2) {
-      this.schedulePulse(degreeToHz(p, hit - 1, 1), time);
+
+    // Combat layer — always scheduled, its bus decides whether it is heard.
+    // Skipping it while quiet would put the arpeggio a beat late when a fight
+    // starts, which is the whole thing the crossfade design avoids.
+    if (combatBlendFor(this.tension) > 0.001 || this.combatBus!.gain.value > 0.001) {
+      this.scheduleArpStep(chord, s, time);
+      if (p.kick && (inBar === 0 || inBar === 8)) this.scheduleKick(time);
+      if (p.hats && inBar % 2 === 0) this.scheduleHat(time, (inBar / 2) % 2 === 1 ? HAT_GAIN * 0.6 : HAT_GAIN);
     }
   }
 
-  /** Portamento pad: retune the standing voices rather than retrigger them. */
-  private glideToChord(chord: number[], time: number): void {
+  /** One chord: weighted detuned saw pairs plus a sine sub, under a slow ASR that overlaps the next. */
+  private scheduleChord(chord: number[], time: number): void {
+    if (!this.ctx || !this.padBus) return;
+    const ctx = this.ctx;
     const p = this.profile;
-    this.padVoices.forEach((voice, i) => {
-      const hz = degreeToHz(p, chord[i % chord.length]);
-      for (const osc of [voice.oscA, voice.oscB]) {
-        osc.frequency.cancelScheduledValues(time);
-        osc.frequency.setTargetAtTime(hz, time, 0.6);
+    const chordSec = this.beatSec * 4 * CHORD_BARS;
+    const dur = chordSec + 0.9;
+    const attack = 0.9;
+    const release = 1.3;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.linearRampToValueAtTime(1, time + attack);
+    env.gain.setValueAtTime(1, time + dur - release);
+    env.gain.linearRampToValueAtTime(0.0001, time + dur);
+    env.connect(this.padBus);
+
+    chord.forEach((semis, j) => {
+      const hz = semisToHz(p, semis);
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.3 / (j + 1);
+      voiceGain.connect(env);
+      for (const det of [-p.padDetune, p.padDetune]) {
+        const osc = ctx.createOscillator();
+        osc.type = p.padWave;
+        osc.frequency.value = hz * (1 + det);
+        osc.connect(voiceGain);
+        osc.start(time);
+        osc.stop(time + dur + 0.05);
+        this.track(osc, time + dur + 0.05);
       }
     });
+    // Root an octave down, sine: a floor without mud.
+    const sub = ctx.createOscillator();
+    const subGain = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.value = semisToHz(p, chord[0]) / 2;
+    subGain.gain.value = SUB_GAIN;
+    sub.connect(subGain);
+    subGain.connect(env);
+    sub.start(time);
+    sub.stop(time + dur + 0.05);
+    this.track(sub, time + dur + 0.05);
   }
 
-  private schedulePulse(hz: number, time: number): void {
-    if (!this.ctx || !this.pulseBus) return;
+  /** A struck partial-stack bell. */
+  private scheduleBell(hz: number, time: number, level: number): void {
+    if (!this.ctx || !this.bellBus) return;
     const ctx = this.ctx;
+    const p = this.profile;
+    const dur = Math.max(1.2, p.bellDecay * 5);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.linearRampToValueAtTime(level, time + 0.004);
+    env.gain.setTargetAtTime(0.0001, time + 0.004, p.bellDecay);
+    env.connect(this.bellBus);
+    for (const [ratio, gain] of p.bellPartials) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = hz * ratio;
+      g.gain.value = gain;
+      osc.connect(g);
+      g.connect(env);
+      osc.start(time);
+      osc.stop(time + dur);
+      this.track(osc, time + dur);
+    }
+  }
+
+  /** 16th-note arpeggio an octave up, up-down-up so it never turns into a siren. */
+  private scheduleArpStep(chord: number[], s: number, time: number): void {
+    if (!this.ctx || !this.combatBus) return;
+    const ctx = this.ctx;
+    const p = this.profile;
+    const pattern = [0, 1, 2, 1];
+    const idx = pattern[s % pattern.length] % chord.length;
+    let hz = semisToHz(p, chord[idx]) * 2;
+    if (s % 8 === 7) hz *= 2; // a small lift off the top of each beat pair
+    const noteDur = (this.beatSec / 4) * 1.8;
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = this.profile.pulseWave;
+    const g = ctx.createGain();
+    osc.type = p.arpWave;
     osc.frequency.value = hz;
-    const len = this.profile.pulseLength;
-    gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(1, time + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + len);
-    osc.connect(gain);
-    gain.connect(this.pulseBus);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(ARP_GAIN, time + 0.002);
+    g.gain.setTargetAtTime(0.0001, time + 0.002, 0.017);
+    osc.connect(g);
+    g.connect(this.combatBus);
     osc.start(time);
-    osc.stop(time + len + 0.05);
+    osc.stop(time + noteDur);
+  }
+
+  private scheduleKick(time: number): void {
+    if (!this.ctx || !this.combatBus) return;
+    const ctx = this.ctx;
+    const [f0, f1] = this.profile.kickSweep;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f0, time);
+    osc.frequency.exponentialRampToValueAtTime(f1, time + 0.12);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(KICK_GAIN, time + 0.001);
+    g.gain.setTargetAtTime(0.0001, time + 0.001, 0.05);
+    osc.connect(g);
+    g.connect(this.combatBus);
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  private scheduleHat(time: number, level: number): void {
+    if (!this.ctx || !this.combatBus) return;
+    const ctx = this.ctx;
+    if (!this.noiseBuffer) {
+      const n = Math.floor(ctx.sampleRate * 0.1);
+      this.noiseBuffer = ctx.createBuffer(1, n, ctx.sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 6000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(level, time + 0.0004);
+    g.gain.setTargetAtTime(0.0001, time + 0.0004, 0.01);
+    src.connect(hp);
+    hp.connect(g);
+    g.connect(this.combatBus);
+    src.start(time);
+    src.stop(time + 0.06);
+  }
+
+  private track(node: OscillatorNode, until: number): void {
+    this.live.push({ stop: (at: number) => node.stop(at), until });
   }
 }
 

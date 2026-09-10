@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BackgroundMusicEngine,
   ERA_MUSIC_PROFILES,
-  degreeToHz,
+  combatBlendFor,
   musicTensionFor,
   profileForEra,
+  semisToHz,
 } from './backgroundMusic';
 import { setLiteMode, setMusicMuted, setMusicVolume } from '../utils/userPreferences';
 
@@ -23,20 +24,38 @@ describe('profileForEra', () => {
     for (const [era, p] of Object.entries(ERA_MUSIC_PROFILES)) {
       expect(p.bpm, era).toBeGreaterThanOrEqual(50);
       expect(p.bpm, era).toBeLessThanOrEqual(100);
-      expect(p.pulsePattern, era).toHaveLength(16);
-      expect(p.filterTense, era).toBeGreaterThan(p.filterRest);
+      // Four chords, two bars each: one eight-bar phrase.
+      expect(p.progression, era).toHaveLength(4);
       for (const chord of p.progression) expect(chord.length, era).toBeGreaterThanOrEqual(3);
+      // Voiced around the third octave — below that the pad turns to mud
+      // through the low-pass, above it the bed stops sitting under the SFX.
+      expect(p.root, era).toBeGreaterThanOrEqual(125);
+      expect(p.root, era).toBeLessThanOrEqual(180);
+      for (const chord of p.progression) for (const s of chord) expect(Math.abs(s), era).toBeLessThanOrEqual(16);
+      // Two bells and only two: a third starts to sound like a melody.
+      expect(p.bells, era).toHaveLength(2);
+      expect(p.filterHz, era).toBeGreaterThanOrEqual(400);
+      expect(p.filterHz, era).toBeLessThanOrEqual(1400);
+      expect(p.bellPartials[0], era).toEqual([1, 1]);
     }
   });
 });
 
-describe('degreeToHz', () => {
-  it('walks the scale and climbs an octave past its end', () => {
-    const p = ERA_MUSIC_PROFILES.ancient; // A2 pentatonic minor
-    expect(degreeToHz(p, 0)).toBeCloseTo(110, 3);
-    expect(degreeToHz(p, 5)).toBeCloseTo(220, 3);   // wraps: degree 5 of a 5-note scale = root up an octave
-    expect(degreeToHz(p, 0, 1)).toBeCloseTo(220, 3);
-    expect(degreeToHz(p, 1)).toBeCloseTo(110 * Math.pow(2, 3 / 12), 3);
+describe('semisToHz', () => {
+  it('voices chords from the register root', () => {
+    const p = ERA_MUSIC_PROFILES.medieval; // D3
+    expect(semisToHz(p, 0)).toBeCloseTo(146.83, 2);
+    expect(semisToHz(p, 12)).toBeCloseTo(293.66, 2);
+    expect(semisToHz(p, -4)).toBeCloseTo(116.54, 1); // Bb2 under the D3 root
+  });
+});
+
+describe('combatBlendFor', () => {
+  it('keeps the combat layer silent on quiet turns and full under attack', () => {
+    expect(combatBlendFor(0.1)).toBe(0);
+    expect(combatBlendFor(0.25)).toBe(0);
+    expect(combatBlendFor(0.6)).toBeCloseTo(0.5);
+    expect(combatBlendFor(0.85)).toBe(1);
   });
 });
 
@@ -56,11 +75,12 @@ describe('musicTensionFor', () => {
 // ── Engine against a stub AudioContext ───────────────────────────────────────
 
 type Fn = ReturnType<typeof vi.fn>;
-interface StubParam { value: number; setValueAtTime: Fn; setTargetAtTime: Fn; exponentialRampToValueAtTime: Fn; cancelScheduledValues: Fn }
+const SCHEDULER_TICK = 100;
+interface StubParam { value: number; setValueAtTime: Fn; setTargetAtTime: Fn; linearRampToValueAtTime: Fn; exponentialRampToValueAtTime: Fn; cancelScheduledValues: Fn }
 function param(value = 0): StubParam {
   return {
     value,
-    setValueAtTime: vi.fn(), setTargetAtTime: vi.fn(),
+    setValueAtTime: vi.fn(), setTargetAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(),
     exponentialRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn(),
   };
 }
@@ -69,13 +89,19 @@ function stubNode(extra: Record<string, unknown> = {}) {
   return { connect: vi.fn(), disconnect: vi.fn(), ...extra };
 }
 class StubAudioContext {
-  currentTime = 0;
+  // Follows the fake timers (vitest fakes Date), so the look-ahead scheduler
+  // keeps finding new steps to queue as the test advances time.
+  private t0 = Date.now();
+  get currentTime() { return (Date.now() - this.t0) / 1000; }
   state = 'running';
   destination = {};
   resume = vi.fn(async () => { this.state = 'running'; });
   suspend = vi.fn(async () => { this.state = 'suspended'; });
   createGain() { return stubNode({ gain: param(1) }); }
   createBiquadFilter() { return stubNode({ type: 'lowpass', frequency: param(0), Q: param(1) }); }
+  createWaveShaper() { return stubNode({ curve: null }); }
+  createBuffer(_ch: number, n: number) { return { getChannelData: () => new Float32Array(n) }; }
+  createBufferSource() { return stubNode({ buffer: null, start: vi.fn(), stop: vi.fn() }); }
   createOscillator() {
     created.oscillators += 1;
     return stubNode({
@@ -104,17 +130,26 @@ describe('BackgroundMusicEngine', () => {
     const engine = new BackgroundMusicEngine();
     expect(engine.start('medieval')).toBe(true);
     expect(engine.isRunning).toBe(true);
-    // Pad voices (2 oscillators each) + 2 drones + the filter LFO.
-    const voices = Math.max(...ERA_MUSIC_PROFILES.medieval.progression.map((c) => c.length));
-    expect(created.started).toBe(voices * 2 + 2 + 1);
+    // Nothing sounds until the scheduler's first tick; then the first chord
+    // (two saws per voice + a sub) and the bar-0 bell are queued.
+    expect(created.started).toBe(0);
+    vi.advanceTimersByTime(SCHEDULER_TICK);
+    const voices = ERA_MUSIC_PROFILES.medieval.progression[0].length;
+    const bell = ERA_MUSIC_PROFILES.medieval.bellPartials.length;
+    expect(created.started).toBe(voices * 2 + 1 + bell);
 
-    // Under tension the scheduler queues pulses; below it, nothing extra.
-    engine.setTension(0.8);
+    // At rest the combat layer is not scheduled at all; under tension the
+    // arpeggio and drums are queued every 16th.
+    const quiet = created.oscillators;
+    vi.advanceTimersByTime(300);
+    const afterQuiet = created.oscillators - quiet;
+    engine.setTension(0.85);
     const before = created.oscillators;
-    vi.advanceTimersByTime(400);
-    expect(created.oscillators).toBeGreaterThan(before);
+    vi.advanceTimersByTime(300);
+    expect(created.oscillators - before).toBeGreaterThan(afterQuiet);
 
     engine.setEra('coldwar');
+    vi.advanceTimersByTime(2000); // crossfade lands, new palette starts
     engine.playEraSwell();
     engine.stop(0.5);
     expect(engine.isRunning).toBe(false);
