@@ -113,8 +113,8 @@ Run A also revises the number this era has been quoted against: at the pre-fix r
 Two further readings that shape the phases below:
 
 - **Moon presence already correlates with winning, weakly.** The end-game Moon-tile leader won 45.5% of run B against a 25% baseline — but that drops from 63.6% in run A, because a threshold win can be taken on Earth. The Moon is a good place to be, not a reason to win.
-- **Lunar Pioneers are not dominant.** Per-faction win rates in run C: Climate Alliance 35.0%, Solar Caliphate 30.0%, **Lunar Pioneers 27.5%**, Sino-Pacific 22.5%, Terran Federation 17.5%, Corporate Enclave 17.5% (baseline 25%). Pioneers sit +2.5 over baseline, well inside the ±8 band the Phase 1 gate allows. The outliers are Climate Alliance high and Terran/Corporate low — a faction-balance question, not a Moon one.
-- **Reaching the Moon is not the bottleneck; profiting from it is.** Corporate Enclave reaches the Moon in 95% of its games with the highest average holding (2.88 tiles) and wins 17.5%. That is the design thesis in one row.
+- **Lunar Pioneers are not dominant.** ~~Per-faction win rates in run C: Climate Alliance 35.0%, Solar Caliphate 30.0%, Lunar Pioneers 27.5%, Sino-Pacific 22.5%, Terran Federation 17.5%, Corporate Enclave 17.5%.~~ **These numbers came from the broken harness (see §2.2) and are inverted from the truth** — Corporate Enclave is the strongest faction, not the joint-weakest, and Climate Alliance is mid-pack, not top. Re-measured and fixed in §13; the conclusion that Pioneers are not dominant survives, but for the opposite reason: they were the *weakest*.
+- **Reaching the Moon is not the bottleneck; profiting from it is.** ~~Corporate Enclave reaches the Moon in 95% of its games with the highest average holding (2.88 tiles) and wins 17.5%.~~ Also a harness artefact: on the fixed harness Corporate reaches the Moon most often (56.5%) **and wins most often** (25.3%). The thesis this row was offered as evidence for is not supported — reaching the Moon and profiting from it went together all along.
 
 **Not yet measured:** whether a `turn_limit` winner was already leading at turn 40. The harness reports a turn-10 leader correlation but nothing at turn 40; adding it is a small change to the reporting block and is worth doing before Phase 3, whose gate is about whether the cap is truncating live contests.
 
@@ -606,3 +606,59 @@ Each phase is one PR off `main`, dark-launched, with its sim run and gate number
 ## 13. Measurement summary
 
 Every gate above compares against the **Phase 0 shipped-ruleset control** (§2.2), 60 games, fixed seed, `SIM_PLAYERS=4 SIM_DIFFICULTY=medium`, each phase run both with and without `SIM_FACTIONS=1`. A phase does not promote to ON without its gate numbers in the PR. If a gate fails, the tunables in §9 move first; the mechanic is cut only if two tuning passes fail.
+
+---
+
+## 13. The faction spread (re-measured and fixed)
+
+§2.1's per-faction table was measured on the **broken harness** (§2.2) and is inverted from the truth. Re-measured on the fixed one — 6 players so all six factions are seated every game, full shipped Moon Race, **10 replicates × 60 games per arm on two independent seed sets** — the real picture was:
+
+| faction | per-turn passive | kind | win% | elim% |
+|---|---|---|---|---|
+| Corporate Enclave | tech points +4 | compounding economy | 25.3% | 5.2 |
+| Sino-Pacific | reinforcements +2, production per tech building +1 | compounding military + economy | 21.8% | 3.0 |
+| Solar Caliphate | reinforcements +1 | half of Sino's | 16.8% | 6.2 |
+| Climate Alliance | population growth ×2, stability +4 | soft / defensive | 16.0% | 10.8 |
+| Terran Federation | +1 attack die, stability +2 | per-combat, no economy | 10.5% | **32.8** |
+| Lunar Pioneers | +2 defence dice on Moon tiles only | situational | 9.5% | **37.8** |
+
+Baseline 16.7%; spread **2.67×**.
+
+### 13.1 The mechanism
+
+Not what the old numbers implied. Three hypotheses died on the data:
+
+- **Home-region size.** Terran Federation has the *most* home tiles on the board (12) and was second-worst.
+- **Home-region exposure.** Terran also had the *lowest* foreign-border count per tile (1.33). Corporate Enclave had nearly the highest (2.83) and won most.
+- **Faction abilities.** Running with `SIM_FACTION_ABILITIES=0` left the spread unchanged (2.50×) — and slightly *widened* it, so the abilities were propping the weak factions up, not causing the gap.
+
+What the table actually shows is monotonic and structural: **a compounding per-turn resource beats a soft or defensive passive, which beats a situational or per-combat one.** Terran was the extreme case — a 4-tech-point ability with *zero* tech-point income to pay for it, so Satellite Uplink was very nearly unreachable. And the two losers were not merely losing, they were being **eliminated** in a third of games and finishing with half the territory of everyone else.
+
+### 13.2 The fix, and what it measured
+
+Two changes, both fitting lore the factions already had:
+
+- **Terran Federation `tech_point_income: 2`** — half of Corporate's. Satellite-backed democracies "bound together by shared orbital infrastructure and open data networks" now have an income to match, and their own ability becomes affordable.
+- **Lunar Pioneers `reinforce_bonus: 1`** — their whole identity is Moon access from turn one, and they were reaching the Moon in **17.4%** of games, the lowest of the six. Oceania is the smallest home on the board (4 tiles) and the most exposed (3.0 foreign borders per tile), so every unit sent up was a unit not defending the only ground they had.
+
+Pooled over both seed sets, matched baseline vs tuned:
+
+| faction | win% | elim% | reached Moon |
+|---|---|---|---|
+| Corporate Enclave | 25.3 → **20.5** | 5.2 → 9.8 | 56.5 → 51.8 |
+| Sino-Pacific | 21.8 → **17.3** | 3.0 → 5.2 | 42.0 → 38.2 |
+| Solar Caliphate | 16.8 → 17.7 | 6.2 → 6.7 | 33.7 → 38.3 |
+| Climate Alliance | 16.0 → 15.3 | 10.8 → 15.8 | 27.0 → 26.4 |
+| Terran Federation | 10.5 → **13.7** | **32.8 → 19.2** | **19.5 → 36.0** |
+| Lunar Pioneers | 9.5 → **15.5** | **37.8 → 25.0** | 17.4 → 26.3 |
+
+**Spread 2.67× → 1.50×**, every faction now within 3.8 points of the 16.7% baseline. The shape is what a targeted fix should look like: the two buffed factions rose, the two leaders paid for it, and the three untouched middle factions moved less than a point.
+
+### 13.3 Method note, and what is left
+
+A first pass measured 1.49× and it was **partly seed luck** — re-run on five fresh seeds it read 2.12×, and the ranking of the untouched middle reshuffled completely. The error was comparing tuned-on-new-seeds against baseline-on-old-seeds, which confounds the change with the seed set. Every number above is a matched pair on the same seeds; the per-faction ranking of the middle three is *not* stable at this sample size and should not be read as a result.
+
+Left open:
+
+- **Lunar Pioneers still reach the Moon in only 26.3% of games**, against Corporate Enclave's 51.8%. The Moon-native faction reaching the Moon half as often as the corporation is still an identity problem, even though the win rate is now fine.
+- **Climate Alliance** is the remaining soft/defensive faction and the natural next candidate by the §13.1 mechanism. It moved in *opposite* directions on the two seed sets (+4.3 and −5.8), so there is no evidence to act on yet — tuning it now would be chasing noise.

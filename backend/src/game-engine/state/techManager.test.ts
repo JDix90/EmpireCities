@@ -50,7 +50,12 @@ describe('getPlayerTechPointIncome faction income', () => {
   });
 
   it('adds nothing for a faction without tech_point_income', () => {
-    expect(getPlayerTechPointIncome(makeState(true, 'terran_federation'), 'p1')).toBe(0);
+    // Solar Caliphate, not Terran Federation: Terran was the example here until
+    // the Space Age faction-spread tuning gave them +2 TP/turn (their ability
+    // cost 4 tech points and they had no income to pay it with). The contract
+    // this test holds is unchanged — a faction with no tech_point_income adds
+    // nothing — so it wants a faction that still has none.
+    expect(getPlayerTechPointIncome(makeState(true, 'solar_caliphate'), 'p1')).toBe(0);
   });
 
   it('stacks faction income on top of researched tech income', () => {
