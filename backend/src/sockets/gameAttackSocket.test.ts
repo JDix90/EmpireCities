@@ -507,10 +507,12 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const client = await connect('p1');
     await joinRoom('p1', gameId);
 
-    const result = waitFor<{ fromId: string; toId: string; units: number }>(client, 'game:fortify_result');
+    const result = waitFor<{ fromId: string; toId: string; units: number; inTransit: boolean }>(client, 'game:fortify_result');
     client.emit('game:fortify', { gameId, fromId: 'a', toId: 'b', units: 2 });
 
-    expect(await result).toEqual({ fromId: 'a', toId: 'b', units: 2 });
+    // `inTransit` false: both ends are on the same world, so this is an ordinary
+    // instant fortify rather than a convoy (see state/transit.ts).
+    expect(await result).toEqual({ fromId: 'a', toId: 'b', units: 2, inTransit: false });
     await waitForRedisState(gameId, (s) => s.territories.a.unit_count === 2 && s.territories.b.unit_count === 3);
   });
 
