@@ -18,6 +18,7 @@ export interface ClientFeatureFlags {
   ranked_multi_size_enabled: boolean;
   match_alerts_enabled: boolean;
   attack_blitz_enabled: boolean;
+  background_music_enabled: boolean;
 }
 
 /**
@@ -52,6 +53,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   match_alerts_enabled: false,
   // "Attack until captured": one event resolves repeated exchanges server-side.
   attack_blitz_enabled: true,
+  // Generated ambient bed on the game page. On by default; admin kill switch.
+  background_music_enabled: true,
 };
 
 interface FeatureFlagsState {
@@ -134,4 +137,8 @@ export function useMatchAlertsEnabled(): boolean {
 
 export function useAttackBlitzEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.attack_blitz_enabled);
+}
+
+export function useBackgroundMusicEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.background_music_enabled);
 }

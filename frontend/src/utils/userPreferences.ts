@@ -12,6 +12,8 @@ const MAP_VIEW_KEY = 'cc-preferred-map-view';
 const CONNECTION_HINTS_KEY = 'cc-connection-hints';
 const SFX_VOLUME_KEY = 'cc-sfx-volume';
 const SFX_MUTED_KEY = 'cc-sfx-muted';
+const MUSIC_VOLUME_KEY = 'cc-music-volume';
+const MUSIC_MUTED_KEY = 'cc-music-muted';
 const COLORBLIND_MODE_KEY = 'cc-colorblind-mode';
 const HIGH_CONTRAST_KEY = 'cc-high-contrast';
 const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
@@ -234,6 +236,49 @@ export function setSfxMuted(muted: boolean): void {
 export function getSfxMasterGain(): number {
   if (isSfxMuted()) return 0;
   return getSfxVolume() / 100;
+}
+
+// Background music has its own volume and mute, independent of sound effects:
+// a player who wants combat cues but silence otherwise (or the reverse) should
+// not have to choose. Quiet by default — it is a bed under an hour-long
+// session, not a track.
+const DEFAULT_MUSIC_VOLUME = 35;
+
+export function getMusicVolume(): number {
+  if (typeof window === 'undefined') return DEFAULT_MUSIC_VOLUME;
+  try {
+    const raw = localStorage.getItem(MUSIC_VOLUME_KEY);
+    if (raw === null) return DEFAULT_MUSIC_VOLUME;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed)) return DEFAULT_MUSIC_VOLUME;
+    return Math.min(100, Math.max(0, parsed));
+  } catch {
+    return DEFAULT_MUSIC_VOLUME;
+  }
+}
+
+export function setMusicVolume(volume: number): void {
+  const clamped = Math.min(100, Math.max(0, Math.round(volume)));
+  try {
+    localStorage.setItem(MUSIC_VOLUME_KEY, String(clamped));
+    notify();
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isMusicMuted(): boolean {
+  return readBool(MUSIC_MUTED_KEY, false);
+}
+
+export function setMusicMuted(muted: boolean): void {
+  writeBool(MUSIC_MUTED_KEY, muted);
+}
+
+/** Music master gain 0–1 after user volume and mute. */
+export function getMusicMasterGain(): number {
+  if (isMusicMuted()) return 0;
+  return getMusicVolume() / 100;
 }
 
 // ── Accessibility ───────────────────────────────────────────────────────────

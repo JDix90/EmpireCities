@@ -11,6 +11,10 @@ import {
   setSfxMuted,
   setSfxVolume,
   getSfxMasterGain,
+  getMusicVolume,
+  setMusicVolume,
+  setMusicMuted,
+  getMusicMasterGain,
   getCameraFollowPreference,
   setCameraFollowPreference,
   readTutorialProgress,
@@ -136,5 +140,17 @@ describe('userPreferences', () => {
       localStorage.setItem('cc-preferred-map-view', 'isometric');
       expect(getInitialMapView()).toBe('globe');
     });
+  });
+
+  it('keeps music volume and mute separate from sound effects', () => {
+    expect(getMusicVolume()).toBe(35); // quiet by default: a bed, not a track
+    setMusicVolume(150);
+    expect(getMusicVolume()).toBe(100);
+    setMusicVolume(60);
+    expect(getMusicMasterGain()).toBeCloseTo(0.6);
+    setMusicMuted(true);
+    expect(getMusicMasterGain()).toBe(0);
+    // SFX untouched by the music mute.
+    expect(getSfxMasterGain()).toBeGreaterThan(0);
   });
 });

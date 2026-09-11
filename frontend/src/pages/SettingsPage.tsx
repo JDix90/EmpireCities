@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useBackgroundMusicEnabled } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Settings,
@@ -44,6 +45,10 @@ import {
   setSfxVolume,
   isSfxMuted,
   setSfxMuted,
+  getMusicVolume,
+  setMusicVolume,
+  isMusicMuted,
+  setMusicMuted,
   isColorblindMode,
   setColorblindMode,
   isHighContrastMode,
@@ -75,6 +80,9 @@ export default function SettingsPage() {
   const [connectionHints, setConnectionHints] = useState<ConnectionHintPreference>(getConnectionHintPreference);
   const [sfxVolume, setSfxVolumeState] = useState(getSfxVolume);
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted);
+  const musicEnabled = useBackgroundMusicEnabled();
+  const [musicVolume, setMusicVolumeState] = useState(getMusicVolume);
+  const [musicMuted, setMusicMutedState] = useState(isMusicMuted);
   const [colorblindMode, setColorblindModeState] = useState(isColorblindMode);
   const [highContrast, setHighContrastState] = useState(isHighContrastMode);
 
@@ -327,7 +335,7 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <SettingsRow
               label="Sound effects"
-              description="Combat and ability sounds (music not yet available)"
+              description="Combat and ability sounds"
             >
               <SettingsSlider
                 label="Sound effects volume"
@@ -349,6 +357,34 @@ export default function SettingsPage() {
                 }}
               />
             </SettingsRow>
+            {musicEnabled && (
+              <>
+                <SettingsRow
+                  label="Background music"
+                  description="A quiet ambient bed in-game that follows your era. Starts on your first click."
+                >
+                  <SettingsSlider
+                    label="Background music volume"
+                    value={musicVolume}
+                    disabled={musicMuted}
+                    onChange={(value) => {
+                      setMusicVolumeState(value);
+                      setMusicVolume(value);
+                    }}
+                  />
+                </SettingsRow>
+                <SettingsRow label="Mute background music">
+                  <SettingsToggle
+                    label="Mute background music"
+                    checked={musicMuted}
+                    onChange={(checked) => {
+                      setMusicMutedState(checked);
+                      setMusicMuted(checked);
+                    }}
+                  />
+                </SettingsRow>
+              </>
+            )}
           </div>
         </SettingsSection>
 

@@ -50,6 +50,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
+  background_music_enabled: () => envOptOut('BACKGROUND_MUSIC_ENABLED'),
   era_heritage_buildings_enabled: () => envOptIn('ERA_HERITAGE_BUILDINGS_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
@@ -303,6 +304,18 @@ export const featureFlags = {
    */
   get attackBlitzEnabled(): boolean {
     return overrideBool('attack_blitz_enabled');
+  },
+
+
+  /**
+   * When true, the game page plays a generated ambient bed (WebAudio, no
+   * audio files) that follows the viewing player's era and leans in during
+   * combat. Client-side only; the player's own music volume/mute and lite
+   * mode still win. Default ON; BACKGROUND_MUSIC_ENABLED=false or the Admin →
+   * Config override is the kill switch.
+   */
+  get backgroundMusicEnabled(): boolean {
+    return overrideBool('background_music_enabled');
   },
 
   /**
@@ -559,6 +572,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
+    background_music_enabled: featureFlags.backgroundMusicEnabled,
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
   };
 }
