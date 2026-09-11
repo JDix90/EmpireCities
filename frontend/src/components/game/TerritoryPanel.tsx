@@ -69,7 +69,15 @@ interface TerritoryPanelProps {
   onDraft: (territoryId: string, units: number) => void;
   /** Undo the last placement this turn. Absent = affordance hidden. */
   onDraftUndo?: () => void;
-  /** True when there is a placement this turn that `onDraftUndo` would revert. */
+  /**
+   * True when the LAST placement this turn landed on the selected territory,
+   * i.e. when `onDraftUndo` would revert units the player can see right here.
+   * The undo only ever reverses the most recent placement, so offering it on
+   * every territory during a multi-territory draft made a stray tap on the
+   * wrong panel silently pull units back out of somewhere else. When false the
+   * button is not rendered at all (the HUD keeps its global "Undo last
+   * placement" as the deliberate path).
+   */
   canDraftUndo?: boolean;
   onBuild?: (buildingType: string) => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
@@ -585,7 +593,11 @@ export default function TerritoryPanel({
             'fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up',
             snapClassName,
           )
-        : 'absolute bottom-4 left-4 w-72 border border-bf-border rounded-xl shadow-2xl',
+        // Capped to the map pane (it is positioned inside it) and scrolls
+        // internally: a territory with buildings, abilities, a neighbor picker
+        // and lore used to grow straight past the top of the viewport, leaving
+        // the header and close button unreachable.
+        : 'absolute bottom-4 left-4 w-72 max-h-[calc(100%-2rem)] overflow-y-auto overscroll-contain border border-bf-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only (swipe / snap) */}
       {isMobile && (
@@ -652,7 +664,7 @@ export default function TerritoryPanel({
               pool={draftPool}
               size="lg"
               onPlace={(n) => onDraft(selectedTerritory, n)}
-              onUndo={onDraftUndo}
+              onUndo={canDraftUndo ? onDraftUndo : undefined}
               canUndo={canDraftUndo}
             />
           </div>
@@ -1053,7 +1065,7 @@ export default function TerritoryPanel({
               <QuickPlace
                 pool={draftPool}
                 onPlace={(n) => onDraft(selectedTerritory, n)}
-                onUndo={onDraftUndo}
+                onUndo={canDraftUndo ? onDraftUndo : undefined}
                 canUndo={canDraftUndo}
               />
             </div>
