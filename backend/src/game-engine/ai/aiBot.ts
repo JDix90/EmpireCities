@@ -8,6 +8,7 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { isBuildingTechUnlocked } from '../eraAdvancement/buildingHeritage';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getEffectiveMilestoneGate, getMaxEraIndex } from '../eraAdvancement/spines';
 import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
@@ -957,13 +958,9 @@ export function selectAiBuildingPlacement(
     .map(([id]) => id);
   if (owned.length === 0) return null;
 
-  const checkTechUnlocked = (bType: BuildingType): boolean => {
-    if (!state.settings.tech_trees_enabled) return true;
-    const tree = getEraTechTree(resolvePlayerEraId(state, player));
-    const requiring = tree.find((n) => n.unlocks_building === bType);
-    if (!requiring) return true;
-    return (player.unlocked_techs ?? []).includes(requiring.tech_id);
-  };
+  // Same gate the human build handler uses — heritage rights included.
+  const checkTechUnlocked = (bType: BuildingType): boolean =>
+    isBuildingTechUnlocked(state, playerId, bType);
 
   const tryBuild = (
     bType: BuildingType,

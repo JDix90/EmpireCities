@@ -96,6 +96,9 @@ export function buildCombatMapVisual(params: {
     kind: 'combat',
     territoryId: params.toId,
     fromTerritoryId: params.fromId,
+    // The actor, so the globe can tell the viewer's own attacks apart from the
+    // ones it should follow.
+    playerId: params.attackerId,
     attackerLosses: params.attackerLosses,
     defenderLosses: params.defenderLosses,
     captured: params.territoryCaptured,
@@ -108,6 +111,8 @@ export function buildCombatMapVisual(params: {
 export function buildStrikeMapVisual(params: {
   territoryId: string;
   abilityId: string;
+  /** Acting player — lets the globe leave the viewer's own strikes uncentered. */
+  playerId?: string;
   attackerColor?: string;
   defenderLosses?: number;
   unitReduction?: number;
@@ -117,6 +122,7 @@ export function buildStrikeMapVisual(params: {
     kind: 'strike',
     territoryId: params.territoryId,
     fromTerritoryId: params.fromTerritoryId,
+    playerId: params.playerId,
     variant: params.abilityId,
     attackerColor: params.attackerColor,
     defenderLosses: params.defenderLosses,

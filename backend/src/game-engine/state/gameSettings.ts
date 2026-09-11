@@ -98,6 +98,11 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Galaxy worlds as characters. Default on; baked at create from the
   // galaxy_world_rules_enabled flag; persisted only when explicitly off.
   const worldRulesEnabled = typeof raw.world_rules_enabled === 'boolean' ? raw.world_rules_enabled : true;
+  // Heritage building rights (era advancement). Off by default — baked at
+  // create from the era_heritage_buildings_enabled feature flag so a mid-match
+  // flag flip can never change a running game's yield math.
+  const eraHeritageBuildingsEnabled = typeof raw.era_heritage_buildings_enabled === 'boolean'
+    ? raw.era_heritage_buildings_enabled : false;
   const eraDefaults = getDefaultEraAdvancementSettings();
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
@@ -203,6 +208,12 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     territory_selection: territorySelection || undefined,
     coaching_enabled: coachingEnabled || undefined,
     era_advancement_enabled: eraAdvancementEnabled || undefined,
+    // Heritage building rights + modernize. Baked at create from the
+    // era_heritage_buildings_enabled feature flag; persisted only when on, and
+    // only for era-advancement games (it is inert anywhere else). Dropping it
+    // from this whitelist would silently disable it on the next room load.
+    era_heritage_buildings_enabled:
+      eraAdvancementEnabled && eraHeritageBuildingsEnabled ? true : undefined,
     era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)

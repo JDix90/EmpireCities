@@ -13,6 +13,13 @@ import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import {
+  buildingModernization,
+  heritageEnabled,
+  isHeritageOnlyUnlock,
+  modernizingTech,
+  type BuildingModernization,
+} from '../../utils/buildingHeritage';
 import { isMobileViewport } from '../../utils/device';
 import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
@@ -69,7 +76,15 @@ interface TerritoryPanelProps {
   onDraft: (territoryId: string, units: number) => void;
   /** Undo the last placement this turn. Absent = affordance hidden. */
   onDraftUndo?: () => void;
-  /** True when there is a placement this turn that `onDraftUndo` would revert. */
+  /**
+   * True when the LAST placement this turn landed on the selected territory,
+   * i.e. when `onDraftUndo` would revert units the player can see right here.
+   * The undo only ever reverses the most recent placement, so offering it on
+   * every territory during a multi-territory draft made a stray tap on the
+   * wrong panel silently pull units back out of somewhere else. When false the
+   * button is not rendered at all (the HUD keeps its global "Undo last
+   * placement" as the deliberate path).
+   */
   canDraftUndo?: boolean;
   onBuild?: (buildingType: string) => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
@@ -585,7 +600,11 @@ export default function TerritoryPanel({
             'fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up',
             snapClassName,
           )
-        : 'absolute bottom-4 left-4 w-72 border border-bf-border rounded-xl shadow-2xl',
+        // Capped to the map pane (it is positioned inside it) and scrolls
+        // internally: a territory with buildings, abilities, a neighbor picker
+        // and lore used to grow straight past the top of the viewport, leaving
+        // the header and close button unreachable.
+        : 'absolute bottom-4 left-4 w-72 max-h-[calc(100%-2rem)] overflow-y-auto overscroll-contain border border-bf-border rounded-xl shadow-2xl',
     )}>
       {/* Drag handle — mobile only (swipe / snap) */}
       {isMobile && (
@@ -652,7 +671,7 @@ export default function TerritoryPanel({
               pool={draftPool}
               size="lg"
               onPlace={(n) => onDraft(selectedTerritory, n)}
-              onUndo={onDraftUndo}
+              onUndo={canDraftUndo ? onDraftUndo : undefined}
               canUndo={canDraftUndo}
             />
           </div>
@@ -1053,7 +1072,7 @@ export default function TerritoryPanel({
               <QuickPlace
                 pool={draftPool}
                 onPlace={(n) => onDraft(selectedTerritory, n)}
-                onUndo={onDraftUndo}
+                onUndo={canDraftUndo ? onDraftUndo : undefined}
                 canUndo={canDraftUndo}
               />
             </div>
@@ -1746,11 +1765,35 @@ export default function TerritoryPanel({
          * building nor the tech, after the player had already spent the click.
          */
         const techLocks: Record<string, string> = {};
+        // Heritage rights lift the lock: the server accepts these builds, so
+        // listing them as locked would be a lie the player can disprove by
+        // looking at the walls they already own.
+        const heritageRights = heritageEnabled(gameState.settings)
+          ? new Set(myPlayer?.legacy_building_unlocks ?? [])
+          : new Set<string>();
         for (const n of buildingUnlocks) {
           if (unlockedTechs.has(n.tech_id)) continue;
           const building = n.unlocks_building as string;
+          if (heritageRights.has(building)) continue;
           // Cheapest wording when two nodes unlock the same building: first wins.
           if (!(building in techLocks)) techLocks[building] = n.name ?? n.tech_id;
+        }
+        // Buildings offered ONLY because of an inherited right — labelled so an
+        // option the player never researched this era does not read as a bug.
+        const heritageUnlocks = [...heritageRights].filter(
+          (b) => isHeritageOnlyUnlock(gameState.settings, myPlayer, b, techTree),
+        );
+        // Age/modernization of what already stands here, and the research that
+        // would lift an aged one.
+        const buildingStates: Record<string, BuildingModernization> = {};
+        const modernizeTechFor: Record<string, string> = {};
+        for (const b of tState.buildings ?? []) {
+          const ageState = buildingModernization(gameState.settings, myPlayer, tState, b, techTree);
+          buildingStates[b] = ageState;
+          if (ageState === 'aged') {
+            const via = modernizingTech(techTree, myPlayer, b);
+            if (via) modernizeTechFor[b] = via.name ?? via.tech_id;
+          }
         }
         // Era-special buildings (e.g. the Space Age launch_pad). Locked ones are
         // listed too, so the panel shows what this era HAS rather than hiding it
@@ -1797,6 +1840,9 @@ export default function TerritoryPanel({
             eraWonder={eraWonderProp}
             extraBuildOptions={extraBuildOptions}
             techLocks={techLocks}
+            heritageUnlocks={heritageUnlocks}
+            buildingStates={buildingStates}
+            modernizeTechFor={modernizeTechFor}
             onOpenTechTree={onOpenTechTree}
           />
         );

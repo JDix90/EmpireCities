@@ -62,6 +62,7 @@ import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
 import MobileCombatBanner from '../components/game/MobileCombatBanner';
 import TerritoryPanel from '../components/game/TerritoryPanel';
+import { canUndoDraftOnTerritory } from '../utils/draftUndo';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
 import BonusesModal from '../components/game/BonusesModal';
 import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
@@ -4245,20 +4246,6 @@ export default function GamePage() {
         </div>
       )}
 
-      {puzzleFeedback && (
-        <div
-          className={`shrink-0 px-4 py-2 text-sm border-b ${
-            puzzleFeedback.tier === 'strong'
-              ? 'bg-emerald-950/35 border-emerald-700/45 text-emerald-100'
-              : puzzleFeedback.tier === 'risky'
-                ? 'bg-red-950/35 border-red-700/40 text-red-100'
-                : 'bg-bf-dark border-bf-border text-bf-text'
-          }`}
-        >
-          {puzzleFeedback.message}
-        </div>
-      )}
-
       {/* Main Game Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Map Canvas */}
@@ -4277,6 +4264,30 @@ export default function GamePage() {
                     )
               }
             />
+          )}
+          {/* Daily-challenge puzzle feedback. Floats over the map rather than
+              sitting in the column above it: as a layout strip it appeared for
+              8s and vanished again every phase, resizing the map pane each way
+              — the globe re-framed its camera and the 2D canvas rebuilt on
+              every one of those, which read as the map "jumping" between
+              phases. */}
+          {puzzleFeedback && (
+            <div
+              className={`pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 max-w-[min(90%,32rem)] rounded-lg border px-4 py-2 text-sm shadow-lg backdrop-blur-sm animate-fade-in ${
+                // Sit below the era-advancement banner when that occupies the top slot.
+                gameState?.settings.era_advancement_enabled ? 'top-16' : 'top-3'
+              } ${
+                puzzleFeedback.tier === 'strong'
+                  ? 'bg-emerald-950/80 border-emerald-700/60 text-emerald-100'
+                  : puzzleFeedback.tier === 'risky'
+                    ? 'bg-red-950/80 border-red-700/60 text-red-100'
+                    : 'bg-bf-dark/85 border-bf-border text-bf-text'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              {puzzleFeedback.message}
+            </div>
           )}
           {eraAdvanceVignette && (
             <EraAdvanceVignette
@@ -4505,7 +4516,7 @@ export default function GamePage() {
               onBlitzAttack={handleBlitzAttack}
               onDraft={handleDraft}
               onDraftUndo={handleDraftUndo}
-              canDraftUndo={(gameState?.draft_deployments_this_turn?.length ?? 0) > 0}
+              canDraftUndo={canUndoDraftOnTerritory(gameState?.draft_deployments_this_turn, selectedTerritory)}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
               onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
               onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}

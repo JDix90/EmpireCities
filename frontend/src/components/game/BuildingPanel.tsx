@@ -4,7 +4,8 @@
  */
 import React from 'react';
 import clsx from 'clsx';
-import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock } from 'lucide-react';
+import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock, History, Sparkles } from 'lucide-react';
+import type { BuildingModernization } from '../../utils/buildingHeritage';
 import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 
@@ -96,6 +97,16 @@ interface Props {
   techLocks?: Record<string, string>;
   /** Open the tech tree, so a locked row is a route rather than a dead end. */
   onOpenTechTree?: () => void;
+  /**
+   * Era-advancement heritage. `heritageUnlocks` are buildings offered only
+   * because the player earned the right in an era they have since left — worth
+   * labelling, or an inherited option reads as a bug. `buildingStates` marks
+   * each STANDING building as aged or modernized, and `modernizeTechFor` names
+   * the research that would lift an aged one.
+   */
+  heritageUnlocks?: string[];
+  buildingStates?: Record<string, BuildingModernization>;
+  modernizeTechFor?: Record<string, string>;
 }
 
 function BuildingPanel({
@@ -110,7 +121,11 @@ function BuildingPanel({
   extraBuildOptions = [],
   techLocks = {},
   onOpenTechTree,
+  heritageUnlocks = [],
+  buildingStates = {},
+  modernizeTechFor = {},
 }: Props) {
+  const heritageSet = new Set(heritageUnlocks);
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
 
   // Determine which building types the player already has (one slot per category)
@@ -196,14 +211,32 @@ function BuildingPanel({
               }
               return null;
             }
+            const ageState = buildingStates[b] ?? 'current';
+            const modernizeVia = modernizeTechFor[b];
             return (
               <span
                 key={b}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-700 text-gray-200"
-                title={meta.description}
+                className={clsx(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs',
+                  ageState === 'aged' && 'bg-amber-950/60 text-amber-200/90 border border-amber-700/50',
+                  ageState === 'modernized' && 'bg-emerald-950/60 text-emerald-200 border border-emerald-600/50',
+                  ageState === 'current' && 'bg-gray-700 text-gray-200',
+                )}
+                title={
+                  ageState === 'aged'
+                    ? `${meta.description} — built in an earlier era, so it yields less.${modernizeVia ? ` Research ${modernizeVia} to modernize it.` : ''}`
+                    : ageState === 'modernized'
+                      ? `${meta.description} — carried forward and modernized by this era's research, so it outperforms new construction.`
+                      : meta.description
+                }
               >
                 {meta.icon}
                 {meta.label}
+                {ageState === 'aged' && <History className="w-3 h-3 text-amber-400" aria-hidden="true" />}
+                {ageState === 'modernized' && <Sparkles className="w-3 h-3 text-emerald-300" aria-hidden="true" />}
+                {ageState !== 'current' && (
+                  <span className="sr-only">{ageState === 'aged' ? 'aged' : 'modernized'}</span>
+                )}
               </span>
             );
           })}
@@ -260,6 +293,12 @@ function BuildingPanel({
                     <span className="opacity-70">Research</span>
                     <span className="font-medium">{lockedBy}</span>
                     {onOpenTechTree && <span className="opacity-70">to unlock →</span>}
+                  </span>
+                )}
+                {!lockedBy && heritageSet.has(b) && (
+                  <span className="mt-0.5 flex items-center gap-1 text-emerald-300/90">
+                    <History className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    <span>Heritage — your empire already knows how to build this</span>
                   </span>
                 )}
               </button>

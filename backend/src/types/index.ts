@@ -113,6 +113,14 @@ export interface TerritoryState {
   unit_type: string;
   /** Buildings constructed on this territory (economy feature). */
   buildings?: BuildingType[];
+  /**
+   * Era index each building was constructed in (era-advancement heritage).
+   * Kept as a side table rather than turning `buildings` into objects, because
+   * every read path in the engine and UI treats `buildings` as a flat id list.
+   * A building with no entry is treated as belonging to its owner's current
+   * era, so games that predate the feature are never retroactively aged.
+   */
+  building_eras?: Partial<Record<BuildingType, number>>;
   /** Fleet count stationed in this territory (naval warfare feature). */
   naval_units?: number;
   /** Stability rating 0-100 (population/stability feature). */
@@ -207,6 +215,16 @@ export interface PlayerState {
    * though the unlocking tech is gone; consumed on use. Capped at one.
    */
   legacy_ability_charges?: Record<string, number>;
+  /**
+   * Building types this player earned the right to construct in earlier eras
+   * (era-advancement heritage). Advancing wipes `unlocked_techs`, which used to
+   * take the build rights with it — a player holding tier-3 walls could not
+   * place a tier-1 wall on freshly taken ground until they re-bought the new
+   * era's first wall tech. These rights persist instead; the arriving era's
+   * tech is what MODERNIZES the buildings, not what permits them. Wonders are
+   * excluded: they are era-unique by design.
+   */
+  legacy_building_unlocks?: BuildingType[];
   /** Active temporary modifiers from event cards (diminishes each turn). */
   temporary_modifiers?: TemporaryModifier[];
   /** Cumulative card sets redeemed this game (card_shark achievement). */
@@ -418,6 +436,13 @@ export interface GameSettings {
   coaching_enabled?: boolean;
   /** Mid-match per-player era advancement (PoC: Ancient → Medieval). */
   era_advancement_enabled?: boolean;
+  /**
+   * Heritage building rights + the modernize rule. Baked at create from the
+   * `era_heritage_buildings_enabled` feature flag so a game's yield math never
+   * changes under it mid-match. Inert unless era advancement AND tech trees are
+   * both on — with no research there is nothing to inherit or modernize.
+   */
+  era_heritage_buildings_enabled?: boolean;
   /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
   era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */

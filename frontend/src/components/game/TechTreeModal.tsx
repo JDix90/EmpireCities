@@ -1,6 +1,11 @@
 import React, { useMemo } from 'react';
 import clsx from 'clsx';
-import { X, Lock, CheckCircle, Zap } from 'lucide-react';
+import { X, Lock, CheckCircle, Zap, History } from 'lucide-react';
+import {
+  buildingLineageKey,
+  buildingModernization,
+  heritageEnabled,
+} from '../../utils/buildingHeritage';
 import type { GameState } from '../../store/gameStore';
 import TechTreeEraProgress from './TechTreeEraProgress';
 import { BUILDING_META } from './BuildingPanel';
@@ -89,6 +94,28 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   const unlocked = useMemo(() => new Set(player?.unlocked_techs ?? []), [player]);
   const techPoints = player?.tech_points ?? 0;
+
+  // Era-advancement heritage, for the per-node framing below.
+  const heritageRights = useMemo(
+    () => (heritageEnabled(gameState.settings)
+      ? new Set(player?.legacy_building_unlocks ?? [])
+      : new Set<string>()),
+    [gameState.settings, player],
+  );
+  /** Ladders with at least one aged building standing on the player's board. */
+  const agedLineages = useMemo(() => {
+    const lineages = new Set<string>();
+    if (!heritageEnabled(gameState.settings) || !player) return lineages;
+    for (const territory of Object.values(gameState.territories ?? {})) {
+      if (territory.owner_id !== player.player_id) continue;
+      for (const building of territory.buildings ?? []) {
+        if (buildingModernization(gameState.settings, player, territory, building, techTree) === 'aged') {
+          lineages.add(buildingLineageKey(building));
+        }
+      }
+    }
+    return lineages;
+  }, [gameState.settings, gameState.territories, player, techTree]);
 
   const tiers = [1, 2, 3, 4] as const;
 
@@ -181,6 +208,29 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
 
                         {/* Bonus tags */}
                         <NodeBonusTags node={node} />
+
+                        {/* Era-advancement heritage: a node re-gating a building
+                            the player already holds the right to raise is not a
+                            second unlock — it is what modernizes the ones they
+                            carried forward. Saying so is the difference between
+                            the node reading as a tax and reading as an upgrade. */}
+                        {!isUnlocked && node.unlocks_building && (() => {
+                          const inherited = heritageRights.has(node.unlocks_building);
+                          const wouldModernize = agedLineages.has(
+                            buildingLineageKey(node.unlocks_building),
+                          );
+                          if (!inherited && !wouldModernize) return null;
+                          return (
+                            <div className="mt-1 flex items-start gap-1.5 rounded-md border border-emerald-700/40 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-200">
+                              <History className="mt-0.5 w-3 h-3 shrink-0 text-emerald-300" aria-hidden="true" />
+                              <span>
+                                {wouldModernize
+                                  ? 'Modernizes the ones you carried forward — restores their full output and adds +1.'
+                                  : 'You already inherited the right to build this. Researching it modernizes what you carry forward.'}
+                              </span>
+                            </div>
+                          );
+                        })()}
 
                         {/* Unlock chain indicator */}
                         {unlockedByThis.length > 0 && (

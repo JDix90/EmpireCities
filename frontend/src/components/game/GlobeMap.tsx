@@ -87,6 +87,8 @@ export interface GlobeEvent {
   kind?: 'reinforce' | 'combat' | 'fortify' | 'strike' | 'capture' | 'naval' | 'influence' | 'event' | 'era_advance' | 'frontier_unlock' | 'board_transform';
   territoryId: string;
   fromTerritoryId?: string;
+  /** Acting player (server-stamped). Lets the camera leave the viewer's own moves alone. */
+  playerId?: string;
   units?: number;
   totalAfter?: number;
   attackerLosses?: number;
@@ -1009,6 +1011,25 @@ function GlobeMap({
   // the view out from under them.
   const userInteractingRef = useRef(false);
   const lastInteractionAtRef = useRef(0);
+  // Mirror of selfPlayerId for the same reason as cameraFollowPropRef.
+  const selfPlayerIdRef = useRef(selfPlayerId);
+  selfPlayerIdRef.current = selfPlayerId;
+  /**
+   * Two "has the camera moved" flags, reset at different points:
+   *  - cameraMovedSinceFrameRef: anything (player, auto-follow, idle spin) has
+   *    moved the camera since the authored view was last applied. Cleared when
+   *    it is applied. Gates the resize re-frame — see the framing effect.
+   *  - cameraAutomatedMoveRef: auto-follow or idle spin has moved the camera
+   *    since the player last drove it themselves (or since the last turn-start
+   *    framing). Cleared on player interaction and after the turn-start frame.
+   *    Gates the turn-start frame: nothing moved it, nothing to bring back.
+   */
+  const cameraMovedSinceFrameRef = useRef(false);
+  const cameraAutomatedMoveRef = useRef(false);
+  const noteAutomatedCameraMove = useCallback(() => {
+    cameraMovedSinceFrameRef.current = true;
+    cameraAutomatedMoveRef.current = true;
+  }, []);
 
   /** Galaxy drill-down: prefer each world's authored void color (parent may already pass it). */
   const effectiveBackgroundColor = useMemo(() => {
@@ -1050,8 +1071,9 @@ function GlobeMap({
   }, []);
 
   const panCamera = useCallback((lat: number, lng: number, altitude: number, ms = 800) => {
+    noteAutomatedCameraMove();
     globeRef.current?.pointOfView({ lat, lng, altitude }, ms);
-  }, []);
+  }, [noteAutomatedCameraMove]);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -1086,6 +1108,7 @@ function GlobeMap({
     autoRotateTimerRef.current = setTimeout(() => {
       const ctrl = globeRef.current?.controls?.();
       if (ctrl && !regionalGlobeRef.current.lockRotation && autoSpin && !spinSuppressedRef.current) {
+        noteAutomatedCameraMove();
         ctrl.autoRotate = true;
         ctrl.autoRotateSpeed = 0.4;
         // The render loop may have idled (paused) while waiting; spinning needs
@@ -1093,7 +1116,7 @@ function GlobeMap({
         globeRef.current?.resumeAnimation?.();
       }
     }, 2500);
-  }, [reducedEffects, autoSpin]);
+  }, [reducedEffects, autoSpin, noteAutomatedCameraMove]);
 
   // How long after the user stops dragging/zooming before auto-follow may move
   // the camera again. Matches the auto-rotate resume delay so the globe settles
@@ -1106,13 +1129,19 @@ function GlobeMap({
    * rules live in one place:
    *  - regional/locked maps never pan (unchanged behavior),
    *  - the "Follow the action" preference can fully disable it,
-   *  - and it always yields while the user is interacting or just did.
+   *  - it always yields while the user is interacting or just did,
+   *  - and it never chases the viewer's OWN moves. The player just clicked
+   *    that territory: it is on screen, at the zoom they chose. Panning and
+   *    re-zooming to every placement, attack and fortify of their own turn is
+   *    what made the globe feel like it lurched between phases. "Follow the
+   *    action" is for the other players' turns.
    */
-  const shouldAutoFollow = useCallback(() => {
+  const shouldAutoFollow = useCallback((event?: Pick<GlobeEvent, 'playerId'>) => {
     if (regionalGlobeRef.current.lockRotation) return false;
     if (!cameraFollowPropRef.current) return false;
     if (userInteractingRef.current) return false;
     if (Date.now() - lastInteractionAtRef.current < FOLLOW_INTERACTION_COOLDOWN_MS) return false;
+    if (event?.playerId && selfPlayerIdRef.current && event.playerId === selfPlayerIdRef.current) return false;
     return true;
   }, []);
 
@@ -1130,6 +1159,10 @@ function GlobeMap({
     const onEnd = () => {
       userInteractingRef.current = false;
       lastInteractionAtRef.current = Date.now();
+      // The player has placed the camera themselves: nothing automated is
+      // pending to be undone, and a resize must not throw this view away.
+      cameraMovedSinceFrameRef.current = true;
+      cameraAutomatedMoveRef.current = false;
       scheduleAutoRotateResume();
     };
     ctrl.addEventListener('start', onStart);
@@ -1150,9 +1183,10 @@ function GlobeMap({
     const ctrl = globeRef.current?.controls?.();
     if (!ctrl) return;
     const lock = regionalGlobe.lockRotation || reducedEffects || !autoSpin || spinSuppressedRef.current;
+    if (!lock) noteAutomatedCameraMove();
     ctrl.autoRotate = !lock;
     ctrl.autoRotateSpeed = lock ? 0 : 0.4;
-  }, [regionalGlobe.lockRotation, reducedEffects, autoSpin, globeReadyTick]);
+  }, [regionalGlobe.lockRotation, reducedEffects, autoSpin, globeReadyTick, noteAutomatedCameraMove]);
 
   // Frame the authored view — on the values, not the `regionalGlobe` object.
   //
@@ -1170,10 +1204,25 @@ function GlobeMap({
   // left regional maps framed too far out. Re-running on resize is also the
   // right behavior for a fixed regional camera — and unlike the old deps, a
   // state broadcast or a spin toggle is not a resize.
+  //
+  // But a resize is NOT a reason to discard a camera someone has since moved.
+  // The map pane resizes whenever a banner above or beside it comes and goes
+  // (the daily challenge's puzzle feedback used to do that every phase), and
+  // re-applying the authored view at 0 ms on each one snapped the player back
+  // out of whatever they had zoomed or panned to — the "jumpy globe". So a
+  // size-only change re-frames only while the camera still sits at the
+  // authored view (then it is a pure FOV correction and nothing visibly
+  // moves); once anything has moved it, a resize leaves it alone. A new
+  // authored view or a re-created globe still frames unconditionally.
+  const lastAuthoredFrameKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe) return;
     if (width <= 0 || height <= 0) return;
+    const key = `${regionalGlobe.centerLat}:${regionalGlobe.centerLng}:${regionalGlobe.altitude}:${globeReadyTick}`;
+    const sizeOnlyChange = lastAuthoredFrameKeyRef.current === key;
+    if (sizeOnlyChange && cameraMovedSinceFrameRef.current) return;
+    lastAuthoredFrameKeyRef.current = key;
     globe.pointOfView(
       {
         lat: regionalGlobe.centerLat,
@@ -1182,6 +1231,9 @@ function GlobeMap({
       },
       0,
     );
+    // Freshly framed — unless the idle spin is already running, in which case
+    // the camera is drifting off this view from the next frame on.
+    cameraMovedSinceFrameRef.current = !!globe.controls?.()?.autoRotate;
   }, [
     regionalGlobe.centerLat,
     regionalGlobe.centerLng,
@@ -1206,10 +1258,11 @@ function GlobeMap({
       clearTimeout(autoRotateTimerRef.current);
       ctrl.autoRotate = false;
     } else if (!(regionalGlobeRef.current.lockRotation || reducedEffects || !autoSpin)) {
+      noteAutomatedCameraMove();
       ctrl.autoRotate = true;
       ctrl.autoRotateSpeed = 0.4;
     }
-  }, [gameState?.current_player_index, gameState?.players, selfPlayerId, autoSpin, reducedEffects, globeReadyTick]);
+  }, [gameState?.current_player_index, gameState?.players, selfPlayerId, autoSpin, reducedEffects, globeReadyTick, noteAutomatedCameraMove]);
 
   // WI2 — frame the viewing player's owned territories at the start of their
   // turn/phase so they're centered and on-screen. Reuses panCamera +
@@ -1232,6 +1285,12 @@ function GlobeMap({
     if (lastFramedKeyRef.current === key) return;
     if (!shouldAutoFollow()) return;
     lastFramedKeyRef.current = key;
+    // Only bring the camera back if something automated took it away — the
+    // idle spin during the other players' turns, or a follow-the-action pan
+    // to their attacks. If the player set this view themselves and nothing
+    // has touched it since, re-framing would just yank it out from under
+    // them at the start of every turn.
+    if (!cameraAutomatedMoveRef.current) return;
     const owned: { lat: number; lng: number }[] = [];
     for (const [tid, t] of Object.entries(gameState.territories)) {
       if (t.owner_id !== selfPlayerId) continue;
@@ -1246,6 +1305,8 @@ function GlobeMap({
       { lat: Math.max(...lats), lng: Math.max(...lngs) },
     );
     panCamera(view.lat, view.lng, view.altitude, 1200);
+    // The frame itself counts as "settled": the next turn starts clean.
+    cameraAutomatedMoveRef.current = false;
   }, [gameState, selfPlayerId, shouldAutoFollow, panCamera]);
 
   /**
@@ -1429,7 +1490,7 @@ function GlobeMap({
     if (!center) { playNextRef.current(); return; }
 
     pauseAutoRotate();
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       panCamera(center.lat, center.lng, 1.5);
     }
 
@@ -1481,7 +1542,7 @@ function GlobeMap({
     pauseAutoRotate();
 
     // World maps: frame the action. Regional (locked) maps: keep the user’s camera.
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       if (sourceCenter) {
         const view = cameraViewForTwo(sourceCenter, targetCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -1611,7 +1672,7 @@ function GlobeMap({
 
     pauseAutoRotate();
 
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       if (srcCenter) {
         const view = cameraViewForTwo(srcCenter, destCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -1691,7 +1752,7 @@ function GlobeMap({
     }
 
     pauseAutoRotate();
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       panCamera(targetCenter.lat, targetCenter.lng, abilityId === 'atom_bomb' ? 2.0 : 1.7);
     }
     startPolygonStrikeFlash(event.territoryId, abilityId);
@@ -2070,7 +2131,7 @@ function GlobeMap({
     if (!targetCenter) { playNextRef.current(); return; }
 
     pauseAutoRotate();
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       if (sourceCenter) {
         const view = cameraViewForTwo(sourceCenter, targetCenter);
         panCamera(view.lat, view.lng, view.altitude);
@@ -2171,7 +2232,7 @@ function GlobeMap({
 
     const blocked = event.variant === 'blocked';
     pauseAutoRotate();
-    if (shouldAutoFollow()) {
+    if (shouldAutoFollow(event)) {
       panCamera(targetCenter.lat, targetCenter.lng, 1.6);
     }
 
