@@ -52,6 +52,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   background_music_enabled: () => envOptOut('BACKGROUND_MUSIC_ENABLED'),
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
+  era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -334,6 +335,19 @@ export const featureFlags = {
   },
 
   /**
+   * When true, an era-advancement game holds one of EACH era's wonder instead
+   * of one wonder total, so advancing opens a new wonder to compete for.
+   * Stacking is bounded by the advance pace, by wonders competing with advance
+   * costs for the same production pool, and by the fact that wonders survive
+   * capture — a stacked leader is carrying capturable assets, not untouchable
+   * ones. Read only at game create. Dark-launched OFF: this is a balance
+   * change, not the bug fix that ships with it.
+   */
+  get eraWonderPerEraEnabled(): boolean {
+    return overrideBool('era_wonder_per_era_enabled');
+  },
+
+  /**
    * When true, the retention notification worker sends scheduled re-engagement
    * push/email (streak-at-risk, daily-challenge reminder, D2/D7 win-back).
    * Default ON **in production only** — outbound mail must never fire from a
@@ -577,5 +591,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
     background_music_enabled: featureFlags.backgroundMusicEnabled,
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
+    era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
   };
 }

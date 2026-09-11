@@ -419,6 +419,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // in the normalizer, which re-runs on every room load) keeps a running
           // game on the rules it started under.
           era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
+          era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
         },
         {
           isOrbitGated: isGalacticAge || isSpaceAge,

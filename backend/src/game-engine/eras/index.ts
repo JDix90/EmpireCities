@@ -79,6 +79,21 @@ export function getEraWonder(era: EraId): EraWonder | undefined {
   return ERA_WONDERS[era];
 }
 
+/**
+ * A wonder by its building id, regardless of which era defines it. Needed once
+ * a game can hold more than one wonder: a wonder standing on the board has to
+ * be read back without already knowing whose era it came from.
+ */
+export function getWonderById(wonderId: string): EraWonder | undefined {
+  return Object.values(ERA_WONDERS).find((w) => w?.wonder_id === wonderId);
+}
+
+/** Era id that defines `wonderId`, or undefined if no era does. */
+export function getWonderEraId(wonderId: string): EraId | undefined {
+  const hit = Object.entries(ERA_WONDERS).find(([, w]) => w?.wonder_id === wonderId);
+  return hit ? (hit[0] as EraId) : undefined;
+}
+
 export function getFactionById(era: EraId, factionId: string): Faction | undefined {
   return (ERA_FACTIONS[era] ?? []).find((f) => f.faction_id === factionId);
 }

@@ -379,6 +379,7 @@ async function createRankedGameTx(
     // Baked at create like the lobby path, so a ranked match keeps the yield
     // rules it started under even if the flag flips mid-season.
     settings.era_heritage_buildings_enabled = featureFlags.eraHeritageBuildingsEnabled;
+    settings.era_wonder_per_era_enabled = featureFlags.eraWonderPerEraEnabled;
   }
 
   const eraMapIds: Record<string, string> = {

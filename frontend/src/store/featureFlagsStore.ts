@@ -20,6 +20,7 @@ export interface ClientFeatureFlags {
   attack_blitz_enabled: boolean;
   background_music_enabled: boolean;
   era_heritage_buildings_enabled: boolean;
+  era_wonder_per_era_enabled: boolean;
 }
 
 /**
@@ -59,6 +60,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Heritage build rights + modernize, baked into era-advancement games at
   // create. On by default; admin kill switch.
   era_heritage_buildings_enabled: true,
+  // One wonder per era rather than per game. Default off (dark-launch).
+  era_wonder_per_era_enabled: false,
 };
 
 interface FeatureFlagsState {
