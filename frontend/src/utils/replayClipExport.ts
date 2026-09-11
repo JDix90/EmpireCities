@@ -3,6 +3,12 @@
  *
  * Video: a real-time `MediaRecorder` capture of an offscreen 2D canvas
  * (`canvas.captureStream`). GIF: frame-by-frame encoding with `gifenc`.
+ *
+ * Both exporters take an optional `AbortSignal`. Video capture runs in REAL
+ * TIME (up to MAX_CLIP_MS), so switching format or aspect mid-generation has
+ * to be able to cut the run short — otherwise the superseded run keeps the
+ * canvas busy and, worse, eventually resolves with a blob for a format the
+ * player is no longer asking for.
  */
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { drawClipFrame, type ClipFrameState, type ClipMapData } from './replayClipRenderer';
@@ -35,6 +41,24 @@ export interface ClipExportInput {
   eraLabel: string;
   aspect: ClipAspect;
   onProgress?: (p: number) => void;
+  /** Cancels an in-flight export; the returned promise rejects with {@link isClipAbortError}. */
+  signal?: AbortSignal;
+}
+
+/** Thrown when an export is cancelled through its {@link ClipExportInput.signal}. */
+export class ClipAbortError extends Error {
+  constructor() {
+    super('Clip export cancelled');
+    this.name = 'ClipAbortError';
+  }
+}
+
+export function isClipAbortError(err: unknown): boolean {
+  return err instanceof ClipAbortError || (err instanceof DOMException && err.name === 'AbortError');
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new ClipAbortError();
 }
 
 interface FramePlan {
@@ -78,9 +102,17 @@ export interface ClipResult {
   blob: Blob;
   ext: string;
   mime: string;
+  /**
+   * Which exporter produced this blob. The UI previews a video in a <video>
+   * and a GIF in an <img>, and it must key that off the RESULT rather than off
+   * whichever format button is currently lit — they can disagree while a run
+   * is being superseded, and an mp4 in an <img> renders as a broken image.
+   */
+  format: ClipFormat;
 }
 
 export async function exportClipVideo(input: ClipExportInput): Promise<ClipResult> {
+  throwIfAborted(input.signal);
   const picked = pickVideoMime();
   if (!picked) throw new Error('Video recording is not supported in this browser. Try GIF instead.');
 
@@ -117,9 +149,13 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
   drawClipFrame({ ctx, width: w, height: h, mapData: input.mapData, state: plan[0].state, eraLabel: input.eraLabel, caption: plan[0].caption, progress: 0 });
   recorder.start();
 
-  await new Promise<void>((resolve) => {
+  const aborted = await new Promise<boolean>((resolve) => {
     const t0 = performance.now();
     const tick = () => {
+      if (input.signal?.aborted) {
+        resolve(true);
+        return;
+      }
       const elapsed = performance.now() - t0;
       // Find the current frame for this timestamp.
       let idx = 0;
@@ -139,7 +175,7 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
       });
       input.onProgress?.(Math.min(1, elapsed / totalMs));
       if (elapsed >= totalMs) {
-        resolve();
+        resolve(false);
         return;
       }
       requestAnimationFrame(tick);
@@ -147,13 +183,17 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
     requestAnimationFrame(tick);
   });
 
-  // Flush any tail data then stop.
+  // Flush any tail data then stop. Always release the capture tracks — an
+  // abandoned run must not leave a live stream pinned to the offscreen canvas.
   recorder.stop();
   const blob = await finished;
-  return { blob, ext: picked.ext, mime: picked.mime };
+  for (const track of stream.getTracks()) track.stop();
+  if (aborted) throw new ClipAbortError();
+  return { blob, ext: picked.ext, mime: picked.mime, format: 'video' };
 }
 
 export async function exportClipGif(input: ClipExportInput): Promise<ClipResult> {
+  throwIfAborted(input.signal);
   const { w, h } = GIF_DIMS[input.aspect];
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -186,12 +226,13 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
     input.onProgress?.((i + 1) / plan.length);
     // Yield so the UI/progress bar can update between frames.
     await new Promise((r) => setTimeout(r, 0));
+    throwIfAborted(input.signal);
   }
   gif.finish();
   // `gif.bytes()` is a Uint8Array; cast to BlobPart to sidestep the lib's
   // SharedArrayBuffer-vs-ArrayBuffer typing on Uint8Array.
   const blob = new Blob([gif.bytes() as unknown as BlobPart], { type: 'image/gif' });
-  return { blob, ext: 'gif', mime: 'image/gif' };
+  return { blob, ext: 'gif', mime: 'image/gif', format: 'gif' };
 }
 
 /** Trigger a browser download for a generated clip. */

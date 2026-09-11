@@ -1,10 +1,10 @@
 /**
- * Quick Match preferences — opponent count + AI difficulty.
+ * Quick Match preferences — opponent count, AI difficulty, and win criteria.
  *
  * Quick Match stays one-click: the button starts immediately with whatever was
- * used last (default 3 medium AI). The options popover writes here so an
- * experienced player can play Hard/Expert or a different table size without
- * building a Custom Game every time.
+ * used last (default 3 medium AI, Majority). The options popover writes here so
+ * an experienced player can play Hard/Expert, a different table size, or a
+ * different ending without building a Custom Game every time.
  */
 
 export const QUICK_MATCH_AI_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'] as const;
@@ -13,15 +13,94 @@ export type QuickMatchAiDifficulty = (typeof QUICK_MATCH_AI_DIFFICULTIES)[number
 export const QUICK_MATCH_MIN_AI = 1;
 export const QUICK_MATCH_MAX_AI = 7;
 
+/**
+ * How a Quick Match is won.
+ *
+ * Quick Match has always ended at 65% of the board, but nothing said so, and a
+ * match stopping while a third of the map was still contested read as a bug
+ * rather than a rule. These are the endings offered, cheapest to longest;
+ * `majority` is the historical behavior and stays the default so an existing
+ * player's games do not silently change length — it is just visible now.
+ */
+export const QUICK_MATCH_VICTORY_MODES = ['blitz', 'majority', 'capitals', 'conquest'] as const;
+export type QuickMatchVictoryMode = (typeof QUICK_MATCH_VICTORY_MODES)[number];
+
+/** The subset of the create-API victory conditions Quick Match ever sends. */
+export type QuickMatchVictoryCondition = 'domination' | 'threshold' | 'capital';
+
+export interface QuickMatchVictoryPlan {
+  /** OR semantics server-side; `last_standing` always wins regardless. */
+  allowed_victory_conditions: QuickMatchVictoryCondition[];
+  /** Percent of the board; only sent when `threshold` is in the list. */
+  victory_threshold?: number;
+  /**
+   * Leader-wins backstop, scaled to the ending. A 60-turn cap under Conquest
+   * would mean every Conquest match ended on the cap instead of the criterion
+   * the player picked — which is the confusion this whole picker exists to fix.
+   */
+  max_turns: number;
+  /**
+   * Whether winning requires holding the ENTIRE board. Quick Match rolls a
+   * random era and Space Age keeps a third of its tiles behind an orbit gate,
+   * so a full-board ending has to steer the roll away from it.
+   */
+  requiresFullBoard: boolean;
+}
+
+export const QUICK_MATCH_VICTORY_PLANS: Record<QuickMatchVictoryMode, QuickMatchVictoryPlan> = {
+  blitz: {
+    allowed_victory_conditions: ['domination', 'threshold'],
+    victory_threshold: 50,
+    max_turns: 45,
+    requiresFullBoard: false,
+  },
+  majority: {
+    allowed_victory_conditions: ['domination', 'threshold'],
+    victory_threshold: 65,
+    max_turns: 60,
+    requiresFullBoard: false,
+  },
+  capitals: {
+    // Domination rides along as the decisive fallback: capitals move when a
+    // rival is eliminated, and a player who has taken the whole board has
+    // plainly won either way.
+    allowed_victory_conditions: ['capital', 'domination'],
+    max_turns: 90,
+    requiresFullBoard: false,
+  },
+  conquest: {
+    allowed_victory_conditions: ['domination'],
+    max_turns: 120,
+    requiresFullBoard: true,
+  },
+};
+
+export const QUICK_MATCH_VICTORY_LABELS: Record<QuickMatchVictoryMode, string> = {
+  blitz: 'Blitz',
+  majority: 'Majority',
+  capitals: 'Capitals',
+  conquest: 'Conquest',
+};
+
+/** One-line "what ends this match", shown under the picker and on the start button. */
+export const QUICK_MATCH_VICTORY_HINTS: Record<QuickMatchVictoryMode, string> = {
+  blitz: 'Hold 50% of the map — the shortest match.',
+  majority: 'Hold 65% of the map. The Quick Match classic.',
+  capitals: 'Capture every rival capital — your own must still be yours.',
+  conquest: 'Hold every territory on the map. Expect a long match.',
+};
+
 export interface QuickMatchPrefs {
   /** Number of AI opponents (max_players is aiCount + 1 — auto-start requires a full table). */
   aiCount: number;
   aiDifficulty: QuickMatchAiDifficulty;
+  victory: QuickMatchVictoryMode;
 }
 
 export const DEFAULT_QUICK_MATCH_PREFS: QuickMatchPrefs = {
   aiCount: 3,
   aiDifficulty: 'medium',
+  victory: 'majority',
 };
 
 export const QUICK_MATCH_DIFFICULTY_LABELS: Record<QuickMatchAiDifficulty, string> = {
@@ -56,6 +135,10 @@ export function sanitizeQuickMatchPrefs(raw: unknown): QuickMatchPrefs {
   const difficulty = candidate.aiDifficulty;
   if (typeof difficulty === 'string' && (QUICK_MATCH_AI_DIFFICULTIES as readonly string[]).includes(difficulty)) {
     prefs.aiDifficulty = difficulty as QuickMatchAiDifficulty;
+  }
+  const victory = candidate.victory;
+  if (typeof victory === 'string' && (QUICK_MATCH_VICTORY_MODES as readonly string[]).includes(victory)) {
+    prefs.victory = victory as QuickMatchVictoryMode;
   }
   return prefs;
 }
@@ -98,4 +181,36 @@ export function saveFullGamePrefs(prefs: QuickMatchPrefs): void {
 /** Short human description, e.g. "3 Medium AI" — used on the lobby buttons. */
 export function describeQuickMatchPrefs(prefs: QuickMatchPrefs): string {
   return `${prefs.aiCount} ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]} AI`;
+}
+
+/**
+ * The create-game settings fragment for the chosen ending. Kept beside the
+ * prefs (rather than inline in the lobby) so the payload and the copy the
+ * player read in the picker can never drift apart.
+ */
+export function quickMatchVictorySettings(prefs: QuickMatchPrefs): {
+  allowed_victory_conditions: QuickMatchVictoryCondition[];
+  victory_threshold?: number;
+  max_turns: number;
+} {
+  const plan = QUICK_MATCH_VICTORY_PLANS[prefs.victory] ?? QUICK_MATCH_VICTORY_PLANS.majority;
+  const settings: {
+    allowed_victory_conditions: QuickMatchVictoryCondition[];
+    victory_threshold?: number;
+    max_turns: number;
+  } = {
+    allowed_victory_conditions: [...plan.allowed_victory_conditions],
+    max_turns: plan.max_turns,
+  };
+  // The create schema REJECTS a threshold list without a percentage, and
+  // silently ignores a percentage without the list — send it only in step.
+  if (plan.allowed_victory_conditions.includes('threshold') && plan.victory_threshold != null) {
+    settings.victory_threshold = plan.victory_threshold;
+  }
+  return settings;
+}
+
+/** Whether the chosen ending needs the whole board (i.e. no orbit-gated era). */
+export function quickMatchRequiresFullBoard(prefs: QuickMatchPrefs): boolean {
+  return (QUICK_MATCH_VICTORY_PLANS[prefs.victory] ?? QUICK_MATCH_VICTORY_PLANS.majority).requiresFullBoard;
 }

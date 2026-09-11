@@ -1,5 +1,6 @@
 import { Bot } from 'lucide-react';
 import AiOpponentPicker from './AiOpponentPicker';
+import VictoryCriteriaPicker from './VictoryCriteriaPicker';
 import {
   QUICK_MATCH_DIFFICULTY_LABELS,
   type QuickMatchPrefs,
@@ -13,15 +14,17 @@ interface QuickMatchOptionsProps {
 }
 
 /**
- * Compact Quick Match setup panel (opponent count + AI difficulty). Rendered
- * as a popover from the lobby's Quick Match split button; the parent owns
- * open/close. Choices persist (see quickMatchPrefs) so the main button stays
- * a one-click start with the player's last setup.
+ * Compact Quick Match setup panel (opponent count + AI difficulty + win
+ * condition). Rendered as a popover from the lobby's Quick Match split button;
+ * the parent owns open/close. Choices persist (see quickMatchPrefs) so the main
+ * button stays a one-click start with the player's last setup.
  */
 export default function QuickMatchOptions({ prefs, onChange, onStart, starting }: QuickMatchOptionsProps) {
   return (
     <div className="w-full rounded-xl border border-bf-border bg-bf-surface p-4 shadow-xl space-y-4 text-left">
       <AiOpponentPicker prefs={prefs} onChange={onChange} />
+
+      <VictoryCriteriaPicker prefs={prefs} onChange={onChange} />
 
       <button
         type="button"
@@ -32,6 +35,8 @@ export default function QuickMatchOptions({ prefs, onChange, onStart, starting }
         <Bot className="w-4 h-4 mr-2" aria-hidden />
         {starting ? 'Starting…' : `Start vs ${prefs.aiCount} ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]}`}
       </button>
+      {/* The win condition is spelled out by the picker's own hint line just
+          above, so this stays the short "what else is fixed" note. */}
       <p className="text-[11px] text-bf-muted -mt-2">Random era map · your setup is remembered.</p>
     </div>
   );

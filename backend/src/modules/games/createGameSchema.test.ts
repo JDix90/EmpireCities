@@ -52,6 +52,95 @@ describe('CreateGameSchema settings whitelist', () => {
   });
 });
 
+/**
+ * Quick Match's win-condition picker (frontend `quickMatchVictorySettings`)
+ * sends one of these four settings fragments. They cross the create boundary as
+ * plain JSON, so nothing on the frontend can catch a shape zod rejects — or,
+ * worse, silently strips. Mirrored here rather than imported: the backend does
+ * not build against the frontend package, and a divergence is exactly what this
+ * guards.
+ */
+describe('Quick Match win-condition payloads', () => {
+  const QUICK_MATCH_VICTORY_FRAGMENTS = {
+    blitz: { allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 50, max_turns: 45 },
+    majority: { allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 65, max_turns: 60 },
+    capitals: { allowed_victory_conditions: ['capital', 'domination'], max_turns: 90 },
+    conquest: { allowed_victory_conditions: ['domination'], max_turns: 120 },
+  } as const;
+
+  const payloadFor = (fragment: Record<string, unknown>, eraId = 'ancient', mapId = 'era_ancient') => ({
+    era_id: eraId,
+    map_id: mapId,
+    max_players: 4,
+    ai_count: 3,
+    ai_difficulty: 'medium',
+    auto_start: true,
+    settings: {
+      turn_timer_seconds: 300,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: true,
+      ...fragment,
+    },
+  });
+
+  it('accepts every fragment and keeps its conditions, threshold and turn cap', () => {
+    for (const [mode, fragment] of Object.entries(QUICK_MATCH_VICTORY_FRAGMENTS)) {
+      const parsed = CreateGameSchema.safeParse(payloadFor(fragment));
+      expect(parsed.success, `${mode} payload rejected`).toBe(true);
+      if (!parsed.success) continue;
+      const s = parsed.data.settings;
+      expect(s.allowed_victory_conditions).toEqual([...fragment.allowed_victory_conditions]);
+      expect(s.max_turns).toBe(fragment.max_turns);
+      expect(s.victory_threshold).toBe(
+        'victory_threshold' in fragment ? fragment.victory_threshold : undefined,
+      );
+    }
+  });
+
+  it('survives normalization with the picked conditions intact', () => {
+    for (const [mode, fragment] of Object.entries(QUICK_MATCH_VICTORY_FRAGMENTS)) {
+      const parsed = CreateGameSchema.safeParse(payloadFor(fragment));
+      if (!parsed.success) throw new Error(`${mode} payload rejected`);
+      const normalized = normalizeGameSettings(parsed.data.settings);
+      expect(normalized.allowed_victory_conditions, mode).toEqual([...fragment.allowed_victory_conditions]);
+      expect(normalized.max_turns, mode).toBe(fragment.max_turns);
+    }
+  });
+
+  it('rejects a threshold list sent without its percentage', () => {
+    // The picker's threshold modes must always send both; superRefine enforces
+    // it, so a fragment that ever lost the percentage fails loudly here.
+    const bad = payloadFor({ allowed_victory_conditions: ['domination', 'threshold'], max_turns: 60 });
+    expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('accepts the Capitals fragment on Space Age, which Conquest never rolls', () => {
+    // Capital victory is reachable on the Earth tiles, so Space Age stays in
+    // the rotation for it; only the full-board ending narrows the pool
+    // (frontend quickMatchEraPool).
+    const parsed = CreateGameSchema.safeParse(
+      payloadFor(
+        { ...QUICK_MATCH_VICTORY_FRAGMENTS.capitals, economy_enabled: true, tech_trees_enabled: true },
+        'space_age',
+        'era_space_age',
+      ),
+    );
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      // An explicit caller choice — applyOrbitGatedVictoryDefaults must not
+      // paste a 60% threshold over it and end the match early anyway.
+      const out = applyOrbitGatedVictoryDefaults(parsed.data.settings, {
+        isOrbitGated: true,
+        callerChoseVictory: true,
+      });
+      expect(out.allowed_victory_conditions).toEqual(['capital', 'domination']);
+      expect(out.victory_threshold).toBeUndefined();
+      expect(out.max_turns).toBe(90);
+    }
+  });
+});
+
 describe('Galactic Age lobby payload', () => {
   // LobbyPage sends these four alongside the base bundle (LobbyPage.tsx
   // handleCreateGame); before they were whitelisted, zod stripped them and the
