@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Download, Share2, Film, Loader2, Clapperboard } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -6,6 +6,7 @@ import { api } from '../../services/api';
 import type { GameState } from '../../store/gameStore';
 import type { CondensedFrame } from '../../utils/replayCondense';
 import type { ClipMapData } from '../../utils/replayClipRenderer';
+import { useClipGlobeData, type ClipGlobeMapInput } from '../../hooks/useClipGlobeData';
 import {
   exportClipVideo,
   exportClipGif,
@@ -23,7 +24,8 @@ interface ReplayClipExporterProps {
   onClose: () => void;
   frames: CondensedFrame[];
   snapshots: GameState[];
-  mapData: ClipMapData;
+  /** The replay's map. Carries the geo hints the globe board is resolved from. */
+  mapData: ClipMapData & ClipGlobeMapInput;
   eraLabel: string;
   gameId: string;
   /** Records a share analytics event for the chosen platform. */
@@ -72,6 +74,17 @@ export default function ReplayClipExporter({
   const runIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  /**
+   * Real globe geometry for the board. Resolved only while the exporter is
+   * open — it is the same (cached) Natural Earth fetch the replay's own globe
+   * makes, but a viewer who never exports should not trigger it.
+   *
+   * `null` until it resolves, and for maps that have no globe geometry at all;
+   * the renderer then draws the flat authored polygons instead of nothing.
+   */
+  const { globe, pending: globePending } = useClipGlobeData(mapData, open);
+  const clipMapData = useMemo<ClipMapData>(() => ({ ...mapData, globe }), [mapData, globe]);
+
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -111,7 +124,7 @@ export default function ReplayClipExporter({
       const input = {
         frames,
         snapshots,
-        mapData,
+        mapData: clipMapData,
         eraLabel,
         aspect,
         signal: controller.signal,
@@ -148,11 +161,11 @@ export default function ReplayClipExporter({
       autoStartedRef.current = false;
       return;
     }
-    if (autoStart && frames.length > 0 && !autoStartedRef.current) {
+    if (autoStart && frames.length > 0 && !globePending && !autoStartedRef.current) {
       autoStartedRef.current = true;
       void generateRef.current();
     }
-  }, [open, autoStart, frames.length]);
+  }, [open, autoStart, frames.length, globePending]);
 
   if (!open) return null;
 
@@ -305,11 +318,13 @@ export default function ReplayClipExporter({
         ) : (
           <button
             onClick={handleGenerate}
-            disabled={busy}
+            disabled={busy || globePending}
             className="rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30 border border-bf-gold/30 px-3 py-3 text-sm font-semibold text-bf-gold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-            {busy ? 'Generating…' : 'Generate Clip'}
+            {/* Held until the globe geometry lands: generating now would quietly
+                produce the flat fallback board instead. */}
+            {busy || globePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
+            {globePending ? 'Preparing globe…' : busy ? 'Generating…' : 'Generate Clip'}
           </button>
         )}
       </div>
