@@ -12,6 +12,7 @@ import {
   downloadClip,
   shareClipFile,
   pickVideoMime,
+  isClipAbortError,
   type ClipAspect,
   type ClipFormat,
   type ClipResult,
@@ -49,18 +50,27 @@ export default function ReplayClipExporter({
   autoStart = false,
 }: ReplayClipExporterProps) {
   const [aspect, setAspect] = useState<ClipAspect>('9:16');
-  const [format, setFormat] = useState<ClipFormat>('video');
+  // Lazy one-time detection; pickVideoMime() probes MediaRecorder support.
+  const [videoSupported] = useState(() => pickVideoMime() !== null);
+  // Seeded from support rather than corrected by an effect afterwards: the
+  // deep-linked auto-start fires in the same effect pass, so a later
+  // correction would have left it generating a video the browser can't record.
+  const [format, setFormat] = useState<ClipFormat>(videoSupported ? 'video' : 'gif');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ClipResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  // Lazy one-time detection; pickVideoMime() probes MediaRecorder support.
-  const [videoSupported] = useState(() => pickVideoMime() !== null);
 
-  // Default to GIF when the browser can't record video.
-  useEffect(() => {
-    if (open && !videoSupported) setFormat('gif');
-  }, [open, videoSupported]);
+  /**
+   * Generation is asynchronous and video capture runs in REAL TIME (up to 20s),
+   * so a run can easily outlive the settings it was started with — the player
+   * switches 9:16 -> 1:1, or Video -> GIF, while the recorder is still going.
+   * Every run carries a token; only the newest one may touch state, and
+   * starting or superseding a run aborts the previous one. Without this the
+   * finished mp4 landed under a lit GIF button and rendered as a broken image.
+   */
+  const runIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
@@ -68,8 +78,13 @@ export default function ReplayClipExporter({
     };
   }, [previewUrl]);
 
-  // Reset generated output whenever the inputs change.
+  // Reset generated output whenever the inputs change — and cancel whatever is
+  // still rendering for the superseded settings.
   useEffect(() => {
+    runIdRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
     setResult(null);
     setPreviewUrl((url) => {
       if (url) URL.revokeObjectURL(url);
@@ -78,8 +93,17 @@ export default function ReplayClipExporter({
     setProgress(0);
   }, [aspect, format, open]);
 
+  // Cancel an in-flight run if the modal unmounts mid-generation.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const handleGenerate = async () => {
-    if (busy) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
+    const isCurrent = () => runIdRef.current === runId;
+
     setBusy(true);
     setProgress(0);
     setResult(null);
@@ -90,9 +114,15 @@ export default function ReplayClipExporter({
         mapData,
         eraLabel,
         aspect,
-        onProgress: setProgress,
+        signal: controller.signal,
+        onProgress: (p: number) => {
+          if (isCurrent()) setProgress(p);
+        },
       };
       const out = format === 'video' ? await exportClipVideo(input) : await exportClipGif(input);
+      // Superseded while we were rendering: drop the blob on the floor rather
+      // than showing it under settings it doesn't match.
+      if (!isCurrent()) return;
       const url = URL.createObjectURL(out.blob);
       setResult(out);
       setPreviewUrl((prev) => {
@@ -100,9 +130,10 @@ export default function ReplayClipExporter({
         return url;
       });
     } catch (err) {
+      if (isClipAbortError(err) || !isCurrent()) return;
       toast.error(err instanceof Error ? err.message : 'Failed to generate clip');
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   };
   const generateRef = useRef(handleGenerate);
@@ -225,8 +256,11 @@ export default function ReplayClipExporter({
 
         {/* Preview / progress */}
         <div className="rounded-xl border border-bf-border bg-black/30 min-h-[160px] flex items-center justify-center overflow-hidden">
-          {previewUrl ? (
-            format === 'video' ? (
+          {previewUrl && result ? (
+            // Keyed off the RESULT's format, never the lit button: an mp4 in an
+            // <img> is a broken-image icon, which is exactly what a superseded
+            // run used to produce.
+            result.format === 'video' ? (
               <video src={previewUrl} controls autoPlay loop muted className="max-h-[40vh] w-auto" />
             ) : (
               <img src={previewUrl} alt="Replay clip preview" className="max-h-[40vh] w-auto" />
