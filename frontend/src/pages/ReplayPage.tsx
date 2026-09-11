@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
 import ChroniclePanel from '../components/game/ChroniclePanel';
@@ -28,6 +28,7 @@ import {
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { loadReplaySnapshots, ReplayNotPublicError } from '../utils/replayLoader';
+import { replayBackTarget } from '../utils/replayBackTarget';
 import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCondense';
 import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
@@ -109,6 +110,12 @@ export default function ReplayPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  /**
+   * React Router stamps 'default' on an entry the app did not navigate to —
+   * a fresh tab, a pasted link, a hard refresh. There is nothing in-app behind
+   * it, so history.back() either does nothing or leaves the site entirely.
+   */
+  const isFirstAppEntry = useLocation().key === 'default';
   const fromDaily = searchParams.get('source') === 'daily';
   // `source=match` is set by GamePage's "Watch Replay" CTA on GameOverView.
   // Match replays still open on the globe by default; playback stays 1x (not
@@ -134,8 +141,12 @@ export default function ReplayPage() {
   const [speed, setSpeed] = useState<Speed>(fromDaily ? 4 : 1);
   // Playback cadence: 'all' walks every frame, 'timelapse' one frame per
   // turn-player pair, 'highlights' the condensed reel with variable dwell.
+  // The clip IS the condensed reel, so a clip deep-link opens on it whatever
+  // brought the viewer here — that used to ride on `source=share`, which also
+  // decided where Back goes and so could not be used by a player leaving their
+  // own match.
   const [playbackMode, setPlaybackMode] = useState<'all' | 'timelapse' | 'highlights'>(
-    fromShare ? 'highlights' : fromDaily ? 'timelapse' : 'all',
+    fromShare || autoClip ? 'highlights' : fromDaily ? 'timelapse' : 'all',
   );
   // Replays default to the 3D globe; viewers can switch to 2D from the toolbar.
   const [mapView, setMapView] = useState<'2d' | 'globe'>('globe');
@@ -744,6 +755,13 @@ export default function ReplayPage() {
   const totalFrames = replaySnapshots.length;
   const currentState = gameState ?? replaySnapshots[replayFrame];
   const currentTurn = currentState?.turn_number ?? replayFrame;
+  const backTarget = replayBackTarget({
+    fromDaily,
+    fromMatch,
+    loadedPublic,
+    isAuthenticated,
+    isFirstAppEntry,
+  });
   const headerLabel = fromDaily
     ? 'Daily Challenge Replay'
     : fromMatch
@@ -771,29 +789,12 @@ export default function ReplayPage() {
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bf-border bg-bf-surface">
         <button
           onClick={() => {
-            // Daily and match replays both have well-defined return targets.
-            // Generic replays fall back to history.back() so deep-links and
-            // shared replays don't strand the user on /lobby unexpectedly.
-            if (fromDaily) {
-              navigate('/daily');
-              return;
-            }
-            if (fromMatch) {
-              navigate('/lobby');
-              return;
-            }
-            // Public viewers arriving from a shared link have no in-app history
-            // to fall back on — send them somewhere sensible instead of off-site.
-            if (loadedPublic && !isAuthenticated) {
-              navigate('/');
-              return;
-            }
-            navigate(-1);
+            if (backTarget.to === 'back') navigate(-1);
+            else navigate(backTarget.to);
           }}
           className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm"
         >
-          <ChevronLeft className="w-4 h-4" />{' '}
-          {fromDaily ? 'Back to Daily' : fromMatch ? 'Back to Lobby' : loadedPublic && !isAuthenticated ? 'Home' : 'Back'}
+          <ChevronLeft className="w-4 h-4" /> {backTarget.label}
         </button>
         <div className="h-4 w-px bg-bf-border" />
         <span className="text-bf-gold font-display text-sm tracking-wide">{headerLabel}</span>

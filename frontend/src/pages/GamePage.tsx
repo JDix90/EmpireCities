@@ -53,6 +53,7 @@ import {
 import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import GameStartModal from '../components/game/GameStartModal';
+import GameEndedNotice from '../components/game/GameEndedNotice';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
@@ -3166,9 +3167,16 @@ export default function GamePage() {
 
   // "Clip": straight into the replay's exporter with generation running —
   // the share-a-clip path in two clicks instead of six.
+  //
+  // `source=match`, not `source=share`: this is the player's own match, and
+  // ReplayPage reads the source to decide where Back goes. Under `share` — the
+  // param meant for a stranger arriving from a shared link — Back fell through
+  // to history.back(), which sent the player who had just finished a game to
+  // `/game/:id` for a game that no longer had a board. The condensed reel that
+  // `share` also selected now rides on `clip=auto` instead, where it belongs.
   const handleShareClip = useCallback(
     (id: string) => {
-      navigate(`/replay/${id}?source=share&clip=auto`);
+      navigate(`/replay/${id}?source=match&clip=auto`);
     },
     [navigate],
   );
@@ -3647,6 +3655,23 @@ export default function GamePage() {
       );
     }
 
+    /**
+     * The match is over. `/game/:id` keeps resolving for a finished game — the
+     * game-over modal's own CTAs leave through it, and browser Back lands on
+     * it — but there is no board to show and no lobby to wait in, so the
+     * Pre-Game Room below would be a lie with no way out of it. Offer the two
+     * things a player actually wants from here.
+     */
+    if (lobbySnapshot?.status === 'completed' || lobbySnapshot?.status === 'abandoned') {
+      return (
+        <GameEndedNotice
+          abandoned={lobbySnapshot.status === 'abandoned'}
+          onWatchReplay={() => navigate(`/replay/${gameId}?source=match`)}
+          onBackToLobby={() => navigate('/lobby')}
+        />
+      );
+    }
+
     const shareUrl = gameId ? `${window.location.origin}/game/${gameId}` : '';
     const lobby = lobbySnapshot;
     const settings = lobby?.settings_json ?? {};
@@ -3718,6 +3743,12 @@ export default function GamePage() {
     return (
       <div className="min-h-screen bg-bf-dark px-4 py-6 sm:px-6 lg:py-8">
         <div className="max-w-6xl mx-auto">
+          {/* Every other control on this screen sits inside `{lobby && …}`, so
+              while the snapshot is still loading the wordmark is the only way
+              off it. */}
+          <div className="mb-4">
+            <BrandWordmark to="/lobby" className="text-sm" />
+          </div>
           <div className="card mb-6 overflow-hidden border-bf-gold/10 bg-gradient-to-br from-bf-surface to-bf-dark/90">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
               <div>

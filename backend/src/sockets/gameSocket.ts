@@ -537,10 +537,20 @@ function serializeLobbyProposals(gameId: string, humanPlayers: WaitingLobbyPlaye
   }));
 }
 
-async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: WaitingLobbyDetails): Promise<void> {
-  const lobby = details ?? await loadWaitingLobbyDetails(gameId);
-  if (!lobby) return;
-  io.to(gameId).emit('game:lobby_updated', {
+/**
+ * Statuses a game can be in once it is over.
+ *
+ * Both answer a `game:join` with a lobby snapshot: neither has a waiting lobby
+ * or a live room, so without one the join replies with silence and the client
+ * cannot tell a finished game from an unreachable server. Exported for tests.
+ */
+export function isEndedGameStatus(status: string): boolean {
+  return status === 'completed' || status === 'abandoned';
+}
+
+/** The `game:lobby_updated` payload. Exported for tests. */
+export function buildLobbySnapshotPayload(lobby: WaitingLobbyDetails) {
+  return {
     game_id: lobby.game.game_id,
     era_id: lobby.game.era_id,
     map_id: lobby.game.map_id,
@@ -558,7 +568,13 @@ async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: Wa
       final_rank: null as number | null,
       faction_id: player.faction_id ?? null,
     })),
-  });
+  };
+}
+
+async function emitWaitingLobbySnapshot(io: Server, gameId: string, details?: WaitingLobbyDetails): Promise<void> {
+  const lobby = details ?? await loadWaitingLobbyDetails(gameId);
+  if (!lobby) return;
+  io.to(gameId).emit('game:lobby_updated', buildLobbySnapshotPayload(lobby));
 }
 
 async function emitLobbyProposalUpdates(io: Server, gameId: string, details?: WaitingLobbyDetails): Promise<void> {
@@ -1173,6 +1189,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
               : 0;
             socket.emit('game:map', { mapId: game.map_id, map: projectMapToEraFloor(waitingMap, previewFloor) });
           }
+        }
+
+        // A finished game has no waiting lobby and no live room, so neither
+        // branch above nor below fired and the join used to answer with
+        // silence. The client cannot tell that apart from a server that never
+        // replied: it sat on "Loading lobby…" — a Pre-Game Room screen whose
+        // every navigation control is inside `{lobby && …}` and so never
+        // rendered — until a 15s timeout replaced it with "the game may no
+        // longer exist". Send the snapshot; its `status` is what lets the
+        // client say the match is over and offer the replay and the way back.
+        // Emitted to this socket alone: nobody else in the room needs it.
+        if (isEndedGameStatus(game.status)) {
+          socket.emit('game:lobby_updated', buildLobbySnapshotPayload({
+            game,
+            players,
+            settings: parseLobbySettings(game.settings_json),
+            humanPlayers: players.filter((player) => !player.is_ai && !!player.user_id),
+          }));
         }
 
         // Load in-progress state from Redis (never serve a stale per-instance cache on join/reconnect).
