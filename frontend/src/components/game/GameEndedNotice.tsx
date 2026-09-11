@@ -3,6 +3,8 @@ import BrandWordmark from '../ui/BrandWordmark';
 interface GameEndedNoticeProps {
   /** 'abandoned' has no result to show; 'completed' has a replay worth watching. */
   abandoned: boolean;
+  /** Who won, already phrased for this viewer ("You won this one."); see describeEndedOutcome. */
+  resultLine?: string | null;
   onWatchReplay: () => void;
   onBackToLobby: () => void;
 }
@@ -17,7 +19,7 @@ interface GameEndedNoticeProps {
  * rendered without a lobby snapshot: the player was left on "Loading lobby…"
  * with no way out but the browser's address bar.
  */
-export default function GameEndedNotice({ abandoned, onWatchReplay, onBackToLobby }: GameEndedNoticeProps) {
+export default function GameEndedNotice({ abandoned, resultLine, onWatchReplay, onBackToLobby }: GameEndedNoticeProps) {
   return (
     <div className="min-h-screen bg-bf-dark flex flex-col pt-safe pb-safe">
       <nav className="border-b border-bf-border px-6 py-3 flex justify-between items-center">
@@ -31,7 +33,9 @@ export default function GameEndedNotice({ abandoned, onWatchReplay, onBackToLobb
           <p className="text-bf-muted text-sm">
             {abandoned
               ? 'Nobody finished it, so there is no result to show.'
-              : 'The board is gone, but the replay keeps every turn of it.'}
+              : resultLine
+                ? `${resultLine} The replay keeps every turn of it.`
+                : 'The board is gone, but the replay keeps every turn of it.'}
           </p>
           {/* An abandoned match has no result worth reviewing, so leading with
               "Watch replay" there would contradict the line above it. */}

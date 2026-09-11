@@ -41,6 +41,12 @@ describe('GameEndedNotice', () => {
     expect(screen.getByText(/no result to show/i)).toBeInTheDocument();
   });
 
+  it('names the outcome when it is known, and still points at the replay', () => {
+    renderNotice({ resultLine: 'You won this one.' });
+    expect(screen.getByText(/You won this one\./)).toBeInTheDocument();
+    expect(screen.getByText(/replay keeps every turn/i)).toBeInTheDocument();
+  });
+
   it('keeps the wordmark pointing home', () => {
     renderNotice();
     expect(screen.getByRole('link')).toHaveAttribute('href', '/lobby');

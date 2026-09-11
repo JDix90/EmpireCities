@@ -353,6 +353,11 @@ type WaitingLobbyGameRow = {
   settings_json: string | Record<string, unknown>;
   join_code: string | null;
   is_ranked: boolean;
+  /**
+   * `games.winner_id` — a users.user_id, so NULL when a bot won (bot ids are
+   * not UUIDs; see finalizeGame). Only meaningful once status is 'completed'.
+   */
+  winner_id?: string | null;
 };
 
 type WaitingLobbyDetails = {
@@ -455,7 +460,7 @@ function parseLobbySettings(raw: string | Record<string, unknown>): Record<strin
 
 async function loadWaitingLobbyDetails(gameId: string): Promise<WaitingLobbyDetails | null> {
   const game = await queryOne<WaitingLobbyGameRow>(
-    `SELECT game_id, era_id, map_id, status, settings_json, join_code,
+    `SELECT game_id, era_id, map_id, status, settings_json, join_code, winner_id,
             COALESCE(is_ranked, false) AS is_ranked
      FROM games WHERE game_id = $1`,
     [gameId],
@@ -556,6 +561,9 @@ export function buildLobbySnapshotPayload(lobby: WaitingLobbyDetails) {
     map_id: lobby.game.map_id,
     status: lobby.game.status,
     join_code: lobby.game.join_code ?? null,
+    // Lets the ended-game screen name the winner. NULL for a bot win, and
+    // the client reads it as exactly that rather than as "unknown".
+    winner_id: lobby.game.winner_id ?? null,
     settings_json: redactSettingsForClient(lobby.settings),
     players: lobby.players.map((player) => ({
       player_index: player.player_index,
@@ -1132,7 +1140,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
       try {
         const game = await queryOne<WaitingLobbyGameRow>(
-          `SELECT game_id, era_id, map_id, status, settings_json, join_code,
+          `SELECT game_id, era_id, map_id, status, settings_json, join_code, winner_id,
                   COALESCE(is_ranked, false) AS is_ranked
            FROM games WHERE game_id = $1`,
           [gameId],
