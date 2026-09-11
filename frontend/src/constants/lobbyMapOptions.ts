@@ -63,10 +63,33 @@ export const QUICK_MATCH_ERAS = [
 ] as const;
 export type QuickMatchEra = (typeof QUICK_MATCH_ERAS)[number];
 
-/** Random Quick Match era; `random` is injectable for tests. */
-export function pickQuickMatchEra(random: () => number = Math.random): QuickMatchEra {
-  const i = Math.min(QUICK_MATCH_ERAS.length - 1, Math.max(0, Math.floor(random() * QUICK_MATCH_ERAS.length)));
-  return QUICK_MATCH_ERAS[i];
+/**
+ * Pool eras where a large share of the board sits behind an orbit gate.
+ *
+ * Space Age's nine lunar tiles are reached only through the Lunar Expansion
+ * tech ladder plus a Launch Pad, and in the engine's own sims domination never
+ * once completed there. A Quick Match whose chosen ending is "hold every
+ * territory" therefore must not roll it, or the player's explicit choice would
+ * be guaranteed to end on the turn cap instead. Endings that ask for a share of
+ * the board (Blitz, Majority) and Capitals are all reachable on the Earth tiles,
+ * so they keep the full rotation.
+ */
+export const ORBIT_GATED_QUICK_MATCH_ERAS: readonly QuickMatchEra[] = ['space_age'];
+
+/** The rotation a Quick Match rolls from, narrowed when the ending needs the whole board. */
+export function quickMatchEraPool(opts: { requiresFullBoard: boolean } = { requiresFullBoard: false }): readonly QuickMatchEra[] {
+  if (!opts.requiresFullBoard) return QUICK_MATCH_ERAS;
+  return QUICK_MATCH_ERAS.filter((era) => !ORBIT_GATED_QUICK_MATCH_ERAS.includes(era));
+}
+
+/** Random Quick Match era; `random` and the pool are injectable for tests. */
+export function pickQuickMatchEra(
+  random: () => number = Math.random,
+  pool: readonly QuickMatchEra[] = QUICK_MATCH_ERAS,
+): QuickMatchEra {
+  const eras = pool.length > 0 ? pool : QUICK_MATCH_ERAS;
+  const i = Math.min(eras.length - 1, Math.max(0, Math.floor(random() * eras.length)));
+  return eras[i];
 }
 
 export const CURATED_COMMUNITY_MAP_IDS = [

@@ -29,11 +29,15 @@ import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
-import { isCommunityTheaterMap, pickQuickMatchEra } from '../constants/lobbyMapOptions';
+import { isCommunityTheaterMap, pickQuickMatchEra, quickMatchEraPool } from '../constants/lobbyMapOptions';
 import QuickMatchOptions from '../components/lobby/QuickMatchOptions';
 import AiOpponentPicker from '../components/lobby/AiOpponentPicker';
 import {
   describeQuickMatchPrefs,
+  quickMatchRequiresFullBoard,
+  quickMatchVictorySettings,
+  QUICK_MATCH_VICTORY_HINTS,
+  QUICK_MATCH_VICTORY_LABELS,
   loadFullGamePrefs,
   loadQuickMatchPrefs,
   QUICK_MATCH_DIFFICULTY_LABELS,
@@ -1333,7 +1337,13 @@ export default function LobbyPage() {
     try {
       // Random era each match — always-Ancient got repetitive (player
       // feedback). Pool: the seven global world maps; see QUICK_MATCH_ERAS.
-      const era = pickQuickMatchEra();
+      // Conquest ("hold every territory") narrows the pool: Space Age keeps a
+      // third of its board behind an orbit gate, so rolling it would guarantee
+      // the match ended on the turn cap instead of the chosen condition.
+      const era = pickQuickMatchEra(
+        Math.random,
+        quickMatchEraPool({ requiresFullBoard: quickMatchRequiresFullBoard(quickMatchPrefs) }),
+      );
       const res = await api.post('/games', {
         era_id: era,
         map_id: ERA_MAP_IDS[era],
@@ -1351,19 +1361,15 @@ export default function LobbyPage() {
         // Classic eras pass through unchanged.
         settings: withRequiredEraSystems(era, {
           turn_timer_seconds: 300,
-          // Threshold alongside domination so there is a reachable WIN rather
-          // than only a cap: Space Age is 1 of 7 eras in the rotation and
-          // cannot be won by domination at all (the Moon is orbit-gated), so
-          // domination-only guaranteed it ended on the turn limit.
-          allowed_victory_conditions: ['domination', 'threshold'],
-          victory_threshold: 65,
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: true,
-          // Backstop, not the intended ending: the dice cap and the card-set
-          // ceiling are what make a decisive result reachable. Measured before
-          // those landed, 3 of 3 matches ran to the cap with 400+ unit stacks.
-          max_turns: 60,
+          // The win condition the player picked, plus its own turn cap — the
+          // cap is a backstop, not the intended ending, so it scales with the
+          // condition (a 60-turn cap under Conquest would BE the ending). The
+          // default, Majority, is the historical domination+threshold-65/60.
+          // See quickMatchVictorySettings for the per-condition payloads.
+          ...quickMatchVictorySettings(quickMatchPrefs),
         }),
       });
       navigate(`/game/${res.data.game_id}`);
@@ -1579,7 +1585,7 @@ export default function LobbyPage() {
                   {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  Classic Risk vs {quickMatchPrefs.aiCount} AI
+                  Classic Risk vs {quickMatchPrefs.aiCount} AI · {QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]}
                 </span>
               </button>
               <button
@@ -1589,7 +1595,7 @@ export default function LobbyPage() {
                 aria-haspopup="true"
                 aria-expanded={quickOptionsOpen}
                 aria-controls="quick-match-options"
-                title="Choose opponents & AI difficulty"
+                title="Choose opponents, AI difficulty & win condition"
                 className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} rounded-l-none border-l border-l-black/20 px-2 sm:px-2.5 disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${quickOptionsOpen ? 'rotate-180' : ''}`} aria-hidden />
@@ -1909,6 +1915,9 @@ export default function LobbyPage() {
                     </p>
                     <p className="text-bf-muted text-xs mt-1">
                       {describeQuickMatchPrefs(quickMatchPrefs)} opponents ready — start now. Random era map.
+                    </p>
+                    <p className="text-bf-muted text-xs mt-1">
+                      Win by: {QUICK_MATCH_VICTORY_HINTS[quickMatchPrefs.victory]}
                     </p>
                   </button>
                   <button
