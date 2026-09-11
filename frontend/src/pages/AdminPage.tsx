@@ -89,7 +89,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'era_heritage_buildings_enabled',
     label: 'Heritage buildings (era advancement)',
     description:
-      'In era-advancement games, build rights earned by research survive the era tech wipe, so a player who held tier-3 walls can still raise a basic wall after advancing. Buildings raised in an earlier era yield 75% (never below 1) until that era\u2019s research covers their line of work, which restores them and adds +1. Read only when a game is CREATED, so flipping this never changes a match already in progress. Off by default.',
+      'In era-advancement games, build rights earned by research survive the era tech wipe, so a player who held tier-3 walls can still raise a basic wall after advancing. Buildings raised in an earlier era yield 75% (never below 1) until that era\u2019s research covers their line of work, which restores them and adds +1. Read only when a game is CREATED, so flipping this never changes a match already in progress \u2014 turning it off stops NEW games from using it and leaves running ones alone. On by default.',
   },
   {
     key: 'map_editor_enabled',

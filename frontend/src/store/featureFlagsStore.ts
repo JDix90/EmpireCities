@@ -19,6 +19,7 @@ export interface ClientFeatureFlags {
   match_alerts_enabled: boolean;
   attack_blitz_enabled: boolean;
   background_music_enabled: boolean;
+  era_heritage_buildings_enabled: boolean;
 }
 
 /**
@@ -55,6 +56,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   attack_blitz_enabled: true,
   // Generated ambient bed on the game page. On by default; admin kill switch.
   background_music_enabled: true,
+  // Heritage build rights + modernize, baked into era-advancement games at
+  // create. On by default; admin kill switch.
+  era_heritage_buildings_enabled: true,
 };
 
 interface FeatureFlagsState {

@@ -51,7 +51,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   background_music_enabled: () => envOptOut('BACKGROUND_MUSIC_ENABLED'),
-  era_heritage_buildings_enabled: () => envOptIn('ERA_HERITAGE_BUILDINGS_ENABLED'),
+  era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -324,7 +324,10 @@ export const featureFlags = {
    * a building raised in an earlier era yields less until the current era's
    * tech for it is researched, and researching that restores it with a premium.
    * Read only at game create (baked into settings), so a flip never changes the
-   * yield math of a game already in progress. Dark-launched OFF.
+   * yield math of a game already in progress — this promotion reaches new games
+   * only, and every match already running keeps the rules it started under.
+   * Default ON; ERA_HERITAGE_BUILDINGS_ENABLED=false or the Admin → Config
+   * override is the kill switch.
    */
   get eraHeritageBuildingsEnabled(): boolean {
     return overrideBool('era_heritage_buildings_enabled');
