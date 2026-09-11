@@ -252,6 +252,10 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   })();
 
   // ── Active era modifiers ────────────────────────────────────────────────────
+  // Every era's wonder by building id — a wonder outlives the era that minted it.
+  const WONDER_BY_ID: Record<string, (typeof ERA_WONDERS)[keyof typeof ERA_WONDERS]> =
+    Object.fromEntries(Object.values(ERA_WONDERS).map((w) => [w.wonder_id, w]));
+
   const activeEraRules = MODIFIER_INFO.filter(
     (m) => gameState.era_modifiers && (gameState.era_modifiers as Record<string, unknown>)[m.key],
   );
@@ -259,15 +263,17 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   // ── Temporary event buffs ───────────────────────────────────────────────────
   const tempMods = myPlayer.temporary_modifiers ?? [];
 
-  // ── Wonder the player owns ──────────────────────────────────────────────────
-  // Use the viewer's CURRENT era (era advancement), not the game's base era, so
-  // an advanced player sees their own era's wonder.
-  const eraWonder = ERA_WONDERS[resolvePlayerTechEraId(gameState, myPlayer)];
-  const ownsWonder = eraWonder
-    ? Object.values(gameState.territories).some(
-        (t) => t.owner_id === user?.user_id && t.buildings?.includes(eraWonder.wonder_id),
-      )
-    : false;
+  // ── Wonders the player owns ─────────────────────────────────────────────────
+  // Read from the BOARD, not from an era: a wonder keeps paying out after its
+  // owner advances, and under the per-era rule a player can hold more than one.
+  // Resolving by the viewer's current era hid a wonder they still owned from an
+  // era they had left.
+  const ownedWonders = Object.values(gameState.territories)
+    .filter((t) => t.owner_id === user?.user_id)
+    .flatMap((t) => (t.buildings ?? []).filter((b) => b.startsWith('wonder_')))
+    .map((id) => WONDER_BY_ID[id])
+    .filter(Boolean);
+  const ownsWonder = ownedWonders.length > 0;
 
   // ── Researched techs ────────────────────────────────────────────────────────
   const unlockedTechs = techTree.filter((n) => myPlayer.unlocked_techs?.includes(n.tech_id));
@@ -496,17 +502,17 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
           )}
 
           {/* ── Wonder ─────────────────────────────────────────────── */}
-          {ownsWonder && eraWonder && (
+          {ownsWonder && (
             <section>
-              <SectionHeader icon="🏛️" title="Era Wonder" />
+              <SectionHeader icon="🏛️" title={ownedWonders.length > 1 ? 'Era Wonders' : 'Era Wonder'} />
               <BonusTable
-                rows={[{
+                rows={ownedWonders.map((w) => ({
                   icon: '✨',
-                  label: eraWonder.name,
+                  label: w.name,
                   value: 'Owned',
-                  description: eraWonder.description,
+                  description: w.description,
                   valueColor: 'text-bf-gold',
-                }]}
+                }))}
               />
             </section>
           )}

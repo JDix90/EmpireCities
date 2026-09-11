@@ -443,6 +443,14 @@ export interface GameSettings {
    * both on — with no research there is nothing to inherit or modernize.
    */
   era_heritage_buildings_enabled?: boolean;
+  /**
+   * Wonder uniqueness scope. Off (default) = one wonder per GAME, the rule the
+   * game shipped with. On = one of EACH era's wonder, so advancing opens a new
+   * wonder to compete for. Identical either way when era advancement is off,
+   * since only one era's wonder is reachable. Baked at create so a flag flip
+   * never re-rules a game already running.
+   */
+  era_wonder_per_era_enabled?: boolean;
   /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
   era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */

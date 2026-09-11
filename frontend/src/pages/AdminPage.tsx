@@ -86,6 +86,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Play a generated ambient bed on the game page (synthesized in the browser, no audio files). It follows the viewing player\u2019s era, leans in during combat, swells on an era advance and resolves at game over. Starts on the player\u2019s first click (browser autoplay rules). Players keep their own music volume and mute in Settings; lite mode and reduce-motion silence it. On by default.',
   },
   {
+    key: 'era_wonder_per_era_enabled',
+    label: 'Wonders: one per era',
+    description:
+      'In era-advancement games, hold one of EACH era\u2019s Wonder instead of one Wonder per game, so advancing opens a new Wonder to compete for and the older ones keep working. Wonders survive capture, so a player holding several is carrying capturable assets. Read only when a game is CREATED. Off by default \u2014 this is a balance change, separate from the bug fix that ships with it.',
+  },
+  {
     key: 'era_heritage_buildings_enabled',
     label: 'Heritage buildings (era advancement)',
     description:

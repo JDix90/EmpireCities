@@ -5,7 +5,7 @@
 import type { GameState, BuildingType } from '../../types';
 import { getStabilityMultiplier, getPopulationMultiplier } from './stabilityManager';
 import { getTemporaryModifierValue } from '../events/eventCardManager';
-import { isWonderId, isWonderBuilt } from './wonderManager';
+import { isWonderId, isWonderBuilt, getWonderForPlayer, wonderUniquenessScope } from './wonderManager';
 import { getEconomyConfig } from '../../services/adminConfig';
 import { getWorldModifier, applyWorldBuildCost } from './worldModifiers';
 import { vaultTechIncome, worldDefenseBuildingBonusDice } from './worldRules';
@@ -218,10 +218,25 @@ export function validateBuild(
   const existingBuildings = territory.buildings ?? [];
   const category = buildingCategory(buildingType);
 
-  // Wonders are globally unique per era per game
   if (category === 'wonder') {
-    if (isWonderBuilt(state)) {
-      return { valid: false, error: 'The Wonder for this era has already been built' };
+    // A player may only raise the wonder their OWN era defines. Nothing used to
+    // check this at all — no tech node gates a wonder, so `game:build` accepted
+    // any wonder id from any player, including eras nobody in the game had
+    // reached. The client only ever offers the right one; the server now agrees.
+    const ownWonder = getWonderForPlayer(state, player);
+    if (!ownWonder) {
+      return { valid: false, error: 'This era has no Wonder to build' };
+    }
+    if (buildingType !== ownWonder.wonder_id) {
+      return { valid: false, error: `You can only build your era's Wonder (${ownWonder.name})` };
+    }
+    if (isWonderBuilt(state, buildingType)) {
+      return {
+        valid: false,
+        error: wonderUniquenessScope(state) === 'era'
+          ? `${ownWonder.name} has already been built`
+          : 'The Wonder for this game has already been built',
+      };
     }
     // Only 1 wonder slot per territory (no two wonders can share a territory)
     if (existingBuildings.some((b) => isWonderId(b))) {

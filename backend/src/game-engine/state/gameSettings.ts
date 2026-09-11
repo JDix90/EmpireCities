@@ -103,6 +103,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // flag flip can never change a running game's yield math.
   const eraHeritageBuildingsEnabled = typeof raw.era_heritage_buildings_enabled === 'boolean'
     ? raw.era_heritage_buildings_enabled : false;
+  // Wonder uniqueness scope. Off by default — baked at create from the
+  // era_wonder_per_era_enabled feature flag, like the heritage setting.
+  const eraWonderPerEraEnabled = typeof raw.era_wonder_per_era_enabled === 'boolean'
+    ? raw.era_wonder_per_era_enabled : false;
   const eraDefaults = getDefaultEraAdvancementSettings();
   const eraAdvancementEnabled = typeof raw.era_advancement_enabled === 'boolean'
     ? raw.era_advancement_enabled
@@ -214,6 +218,11 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // from this whitelist would silently disable it on the next room load.
     era_heritage_buildings_enabled:
       eraAdvancementEnabled && eraHeritageBuildingsEnabled ? true : undefined,
+    // One wonder per era rather than per game. Only meaningful with era
+    // advancement on; dropping it from this whitelist would silently disable it
+    // on the next room load.
+    era_wonder_per_era_enabled:
+      eraAdvancementEnabled && eraWonderPerEraEnabled ? true : undefined,
     era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)
