@@ -3,6 +3,7 @@ import {
   BackgroundMusicEngine,
   ERA_MUSIC_PROFILES,
   combatBlendFor,
+  musicBedFor,
   musicTensionFor,
   profileForEra,
   semisToHz,
@@ -38,6 +39,24 @@ describe('profileForEra', () => {
       expect(p.filterHz, era).toBeLessThanOrEqual(1400);
       expect(p.bellPartials[0], era).toEqual([1, 1]);
     }
+  });
+});
+
+describe('musicBedFor', () => {
+  it('follows the era on era maps, and shares one bed per map family otherwise', () => {
+    expect(musicBedFor('era_medieval', 'medieval')).toBe('medieval');
+    // Era advancement: the map stays, the viewer's era moves, the bed follows.
+    expect(musicBedFor('era_ancient', 'discovery')).toBe('discovery');
+    // The curated regional theaters (Rome 117, Sengoku…) share one bed…
+    expect(musicBedFor('community_roman_empire_117', 'ancient')).toBe('regional');
+    expect(musicBedFor('community_balkanized_usa', 'modern')).toBe('regional');
+    // …and player-published editor maps (uuid ids) share another.
+    expect(musicBedFor('3f2a9c1e-7b44-4d0e-9a1b-2c6d8e0f1a23', 'ancient')).toBe('community');
+    // Both resolve to real palettes.
+    expect(ERA_MUSIC_PROFILES[musicBedFor('community_x', 'ancient')]).toBeDefined();
+    expect(ERA_MUSIC_PROFILES[musicBedFor('anything', 'ancient')]).toBeDefined();
+    // Before the map document arrives, fall back to the era.
+    expect(musicBedFor(undefined, 'ww2')).toBe('ww2');
   });
 });
 

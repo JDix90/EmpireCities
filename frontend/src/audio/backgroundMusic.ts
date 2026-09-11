@@ -23,9 +23,11 @@
  *    music should not snap.
  *
  * What Borderfall adds is the era axis: the same machine, re-voiced per era
- * (key, mode, progression, pad and bell timbre, which drums exist). Everything
- * here is display-side and disposable, and every method is a no-op until
- * `start()` has run inside a user gesture.
+ * (key, mode, progression, pad and bell timbre, which drums exist). Era maps
+ * get their own palette each; the curated regional maps share one bed and
+ * player-made maps share another (`musicBedFor`), so a new map never needs a
+ * new score. Everything here is display-side and disposable, and every method
+ * is a no-op until `start()` has run inside a user gesture.
  */
 import { prefersReducedMotion } from '../utils/device';
 import { getMusicMasterGain, isLiteMode } from '../utils/userPreferences';
@@ -61,6 +63,8 @@ const D3 = 146.83;
 const E3 = 164.81;
 const F3 = 174.61;
 const C3 = 130.81;
+const CS3 = 138.59;
+const EF3 = 155.56;
 
 const BRONZE_BELL: Array<[number, number]> = [[1, 1], [2.76, 0.3], [5.4, 0.1]];
 const CHAPEL_BELL: Array<[number, number]> = [[1, 1], [2.01, 0.42], [3.02, 0.16]];
@@ -143,7 +147,42 @@ export const ERA_MUSIC_PROFILES: Record<string, EraMusicProfile> = {
     bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 28 }], bellPartials: GLASS_BELL, bellDecay: 1.1,
     arpWave: 'sine', kick: true, kickSweep: [80, 36], hats: false,
   },
+  // ONE bed for every curated regional theater (Rome 117, Charlemagne, Sengoku,
+  // the balkanized moderns…): a campaign-map mood that belongs to no century.
+  // Eb minor, i – VII – VI – VII: Ebm – Db – Cb – Db. Round bells, full kit.
+  regional: {
+    root: EF3, progression: [[0, 3, 7], [-2, 2, 5], [-4, 0, 3], [-2, 2, 5]], bpm: 82,
+    padWave: 'sawtooth', padDetune: 0.004, filterHz: 760,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 22 }], bellPartials: ROUND_BELL, bellDecay: 0.45,
+    arpWave: 'square', kick: true, kickSweep: [124, 46], hats: true,
+  },
+  // ONE bed for every player-made map. Anything might be drawn there, so this
+  // is the neutral, slightly hopeful one: C# major, I – V – vi – IV, a soft
+  // triangle pad, glass bells.
+  community: {
+    root: CS3, progression: [[0, 4, 7], [7, 11, 14], [-3, 0, 4], [5, 9, 12]], bpm: 84,
+    padWave: 'triangle', padDetune: 0.0035, filterHz: 950,
+    bells: [{ bar: 0, semis: 24 }, { bar: 4, semis: 31 }], bellPartials: GLASS_BELL, bellDecay: 0.6,
+    arpWave: 'triangle', kick: true, kickSweep: [118, 46], hats: true,
+  },
 };
+
+/** Bed ids that are not eras. */
+export const REGIONAL_BED = 'regional';
+export const COMMUNITY_BED = 'community';
+
+/**
+ * Which bed a game plays. Era maps (`era_*`) follow the viewing player's era,
+ * so advancing changes the music. The curated regional theaters (`community_*`
+ * in the map catalog) share one bed and player-published editor maps (uuid
+ * ids) share another — a new map never needs a new score.
+ */
+export function musicBedFor(mapId: string | null | undefined, eraId: string | null | undefined): string {
+  if (!mapId) return eraId ?? 'ancient';
+  if (mapId.startsWith('era_')) return eraId ?? 'ancient';
+  if (mapId.startsWith('community_')) return REGIONAL_BED;
+  return COMMUNITY_BED;
+}
 
 export function profileForEra(eraId: string | null | undefined): EraMusicProfile {
   return (eraId && ERA_MUSIC_PROFILES[eraId]) || ERA_MUSIC_PROFILES.ancient;

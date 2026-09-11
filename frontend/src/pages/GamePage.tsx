@@ -24,7 +24,7 @@ import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
-import { backgroundMusic, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
+import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
@@ -857,7 +857,9 @@ export default function GamePage() {
   }, [gameState?.phase, gameState?.players, gameState?.current_player_index, viewerPlayer?.player_id, defenderTheaterQueue.length]);
   useBackgroundMusic({
     enabled: backgroundMusicEnabled && gameStarted,
-    eraId: playerTechEra,
+    // Era maps follow the viewer's era; regional theaters and player-made maps
+    // each share one bed, so a new map never needs a new score.
+    bed: musicBedFor(mapData?.map_id, playerTechEra),
     tension: musicTension,
     outcome: musicOutcome,
   });

@@ -6,8 +6,8 @@ import { usePageVisibilityEffect } from '../utils/usePageVisible';
 interface Options {
   /** Feature flag AND page-level opt-in (a spectator page may pass false). */
   enabled: boolean;
-  /** The viewing player's era — the palette follows it, so advancing changes the music. */
-  eraId: string | null | undefined;
+  /** Which bed to play (`musicBedFor`): an era id on era maps, or the shared regional / community bed. */
+  bed: string | null | undefined;
   /** 0..1, from `musicTensionFor`. */
   tension: number;
   /** Set once when the game ends; plays the cadence and lets the bed fade out. */
@@ -23,9 +23,9 @@ interface Options {
  * the map. Everything after that — era palette, tension, volume, tab
  * visibility, the game-over cadence — follows state.
  */
-export function useBackgroundMusic({ enabled, eraId, tension, outcome }: Options): void {
-  const eraRef = useRef(eraId);
-  eraRef.current = eraId;
+export function useBackgroundMusic({ enabled, bed, tension, outcome }: Options): void {
+  const eraRef = useRef(bed);
+  eraRef.current = bed;
   const tensionRef = useRef(tension);
   tensionRef.current = tension;
 
@@ -59,8 +59,8 @@ export function useBackgroundMusic({ enabled, eraId, tension, outcome }: Options
   }, [enabled]);
 
   useEffect(() => {
-    backgroundMusic.setEra(eraId);
-  }, [eraId]);
+    backgroundMusic.setEra(bed);
+  }, [bed]);
 
   useEffect(() => {
     backgroundMusic.setTension(tension);
