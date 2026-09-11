@@ -82,7 +82,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'background_music_enabled',
     label: 'Background music',
     description:
-      'Play a generated ambient bed on the game page (synthesized in the browser, no audio files). It follows the viewing player\u2019s era, leans in during combat, swells on an era advance and resolves at game over. Starts on the player\u2019s first click (browser autoplay rules). Players keep their own music volume and mute in Settings; lite mode and reduce-motion silence it. Off by default.',
+      'Play a generated ambient bed on the game page (synthesized in the browser, no audio files). It follows the viewing player\u2019s era, leans in during combat, swells on an era advance and resolves at game over. Starts on the player\u2019s first click (browser autoplay rules). Players keep their own music volume and mute in Settings; lite mode and reduce-motion silence it. On by default.',
   },
   {
     key: 'map_editor_enabled',

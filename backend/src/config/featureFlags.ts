@@ -50,7 +50,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
-  background_music_enabled: () => envOptIn('BACKGROUND_MUSIC_ENABLED'),
+  background_music_enabled: () => envOptOut('BACKGROUND_MUSIC_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -310,7 +310,8 @@ export const featureFlags = {
    * When true, the game page plays a generated ambient bed (WebAudio, no
    * audio files) that follows the viewing player's era and leans in during
    * combat. Client-side only; the player's own music volume/mute and lite
-   * mode still win. Dark-launched OFF.
+   * mode still win. Default ON; BACKGROUND_MUSIC_ENABLED=false or the Admin →
+   * Config override is the kill switch.
    */
   get backgroundMusicEnabled(): boolean {
     return overrideBool('background_music_enabled');

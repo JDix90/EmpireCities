@@ -53,8 +53,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   match_alerts_enabled: false,
   // "Attack until captured": one event resolves repeated exchanges server-side.
   attack_blitz_enabled: true,
-  // Generated ambient bed on the game page. Default off (dark-launch).
-  background_music_enabled: false,
+  // Generated ambient bed on the game page. On by default; admin kill switch.
+  background_music_enabled: true,
 };
 
 interface FeatureFlagsState {
