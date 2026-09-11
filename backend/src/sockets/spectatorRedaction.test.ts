@@ -9,7 +9,7 @@
  *     while ownership (board control) stays visible.
  *
  * Needs BOTH Redis and Postgres, so it's gated on REDIS_TEST=1 && PG_TEST=1
- * (CI provides only Redis, so this skips there — run it locally/staging):
+ * (CI provides both — see .github/workflows/ci.yml; to run it locally):
  *   REDIS_TEST=1 PG_TEST=1 POSTGRES_HOST=localhost POSTGRES_PORT=5499 \
  *     POSTGRES_USER=postgres POSTGRES_DB=borderfall POSTGRES_PASSWORD=x \
  *     pnpm exec vitest run src/sockets/spectatorRedaction.test.ts

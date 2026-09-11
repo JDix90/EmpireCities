@@ -41,6 +41,36 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Backs the PG_TEST integration tier below. Before this service existed
+      # the six PG_TEST-gated files (auth multi-account, matchmaking, daily
+      # guest, map moderation, spectator redaction, daily reconcile) skipped
+      # on every CI run and only ever executed on a developer machine.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: chronouser
+          POSTGRES_PASSWORD: chronopass
+          POSTGRES_DB: borderfall
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chronouser -d borderfall"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    # Connection settings shared by the migrate, seed and test steps. The
+    # opt-in flags (REDIS_TEST / PG_TEST) stay on the test step itself so it is
+    # obvious which run exercises the integration tiers.
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: chronouser
+      # Non-empty on purpose: config falls back to the docker-compose default
+      # for an empty value, and the service above authenticates for real.
+      POSTGRES_PASSWORD: chronopass
+      POSTGRES_DB: borderfall
+      REDIS_HOST: localhost
+      REDIS_PASSWORD: ''
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -58,14 +88,25 @@ jobs:
       - name: Backend type-check
         run: pnpm -C backend exec tsc --noEmit
 
+      # The PG_TEST tier runs against a migrated schema with the era and
+      # community maps seeded — the same two commands the local throwaway
+      # recipe in CLAUDE.md uses. Migrations are idempotent (tracked in the
+      # `_migrations` table), so this is safe to re-run.
+      - name: Migrate test database
+        run: pnpm -C backend exec tsx src/db/postgres/migrate.ts
+
+      - name: Seed maps into test database
+        run: pnpm -C backend exec tsx ../database/seedMaps.ts
+
       - name: Backend tests
         run: pnpm run test:backend
         env:
-          # Opt into the real-Redis integration tier in redisGameStore.test.ts
-          # (unit tests mock Redis/Postgres and need no services).
+          # Opt into the integration tiers. Unit tests mock Redis/Postgres and
+          # need neither service; these flags switch on the files that talk to
+          # the real ones (redisGameStore.test.ts for Redis; the six
+          # PG_TEST-gated files, and spectatorRedaction which needs both).
           REDIS_TEST: '1'
-          REDIS_HOST: localhost
-          REDIS_PASSWORD: ''
+          PG_TEST: '1'
 
       - name: Validate maps
         run: pnpm run validate:maps
