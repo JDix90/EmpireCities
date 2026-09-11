@@ -112,7 +112,7 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on every PR and push to `main` (branch protection requires both jobs):
 
-- **backend job** — Redis 7 service container; shared build → `tsc` → full vitest suite with `REDIS_TEST=1` (enables the real-Redis integration tier in `redisGameStore.test.ts`) → `validate:maps` → ESLint.
+- **backend job** — Redis 7 and Postgres 16 service containers; shared build → `tsc` → migrate + seed maps into the Postgres service → full vitest suite with `REDIS_TEST=1` and `PG_TEST=1` (the real-Redis tier in `redisGameStore.test.ts`, plus the six Postgres-backed integration files: auth multi-account, matchmaking, daily guest, map moderation, spectator redaction, daily reconcile) → `validate:maps` → ESLint. Nothing in the suite is skipped in CI.
 - **frontend job** — shared build → `tsc` → ESLint → vitest → production build → Playwright (`chromium-smoke` + `chromium-map-visual` against `vite preview`).
 
 Other test surfaces: Playwright projects `mobile-safari-size` (iPhone 13 / WebKit) and `chromium-mobile-touch` (Pixel 5 tap regression) run locally via `npx playwright test`. **Load testing**: `pnpm -C backend exec tsx scripts/loadTestSoloBurst.ts [games] [turns]` spins up N concurrent guest quick-matches over real sockets and reports latency percentiles + lock/persistence failure deltas from `/metrics/json` — run it against a local stack before capacity-sensitive changes.
