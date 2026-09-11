@@ -16,7 +16,32 @@
  *   REDIS_TEST=1 REDIS_HOST=localhost REDIS_PORT=6390 \
  *     pnpm exec vitest run src/sockets/spaceAgeMoonLadderSocket.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+
+// Hermetic to Postgres, like gameAttackSocket.test.ts — see the note there.
+// Every Postgres call these tests provoke (state backup, win-path `games`
+// update, quest-progress read) is incidental and unasserted, and the fixture
+// ids are not UUIDs.
+vi.mock('../db/postgres', () => {
+  const result = { rows: [] as unknown[], rowCount: 0 };
+  const client = { query: async () => result, release: () => {} };
+  return {
+    query: async () => [],
+    queryOne: async () => null,
+    withTransaction: async (fn: (c: typeof client) => Promise<unknown>) => fn(client),
+    connectPostgres: async () => {},
+    pgConnectionHint: () => null,
+    pgPool: {
+      query: async () => result,
+      connect: async () => client,
+      end: async () => {},
+      on: () => {},
+      waitingCount: 0,
+      totalCount: 0,
+      idleCount: 0,
+    },
+  };
+});
 import { createServer, type Server as HttpServer } from 'http';
 import type { AddressInfo } from 'net';
 import type { Server as IOServer } from 'socket.io';

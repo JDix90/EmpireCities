@@ -16,7 +16,38 @@
  *   REDIS_TEST=1 REDIS_HOST=localhost REDIS_PORT=6390 \
  *     pnpm exec vitest run src/sockets/gameAttackSocket.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+
+// These tests drive a real socket.io server against a real Redis room. The
+// Postgres side is incidental — the debounced state backup, the win path's
+// `games` update, a quest-progress read — and none of it is asserted on.
+// Before CI had a Postgres service the calls failed with ECONNREFUSED and were
+// swallowed; with one (#301) they fail because the fixture ids are not UUIDs,
+// and `game_states.game_id` also carries a foreign key to `games`, so valid
+// ids alone would only trade a uuid error for an FK one. A no-op Postgres keeps
+// the test hermetic and the CI log quiet. Same shape as
+// gameCleanupService.test.ts; mirrored in galacticAgeHyperspaceSocket.test.ts
+// and spaceAgeMoonLadderSocket.test.ts.
+vi.mock('../db/postgres', () => {
+  const result = { rows: [] as unknown[], rowCount: 0 };
+  const client = { query: async () => result, release: () => {} };
+  return {
+    query: async () => [],
+    queryOne: async () => null,
+    withTransaction: async (fn: (c: typeof client) => Promise<unknown>) => fn(client),
+    connectPostgres: async () => {},
+    pgConnectionHint: () => null,
+    pgPool: {
+      query: async () => result,
+      connect: async () => client,
+      end: async () => {},
+      on: () => {},
+      waitingCount: 0,
+      totalCount: 0,
+      idleCount: 0,
+    },
+  };
+});
 import { createServer, type Server as HttpServer } from 'http';
 import type { AddressInfo } from 'net';
 import type { Server as IOServer } from 'socket.io';
