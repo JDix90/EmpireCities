@@ -35,6 +35,7 @@ describe('buildLobbySnapshotPayload', () => {
       settings_json: null,
       join_code: null,
       is_ranked: false,
+      winner_id: 'u1',
     },
     players: [
       {
@@ -64,6 +65,19 @@ describe('buildLobbySnapshotPayload', () => {
 
   it('carries the status through — it is what tells the client the match is over', () => {
     expect(buildLobbySnapshotPayload(lobby).status).toBe('completed');
+  });
+
+  it('carries the winner so the ended screen can say who won', () => {
+    expect(buildLobbySnapshotPayload(lobby).winner_id).toBe('u1');
+  });
+
+  it('sends a bot win as null rather than inventing an id', () => {
+    // finalizeGame persists NULL for AI winners (bot ids are not UUIDs); the
+    // client is told that plainly instead of being handed a made-up value.
+    const botWin = { ...lobby, game: { ...lobby.game, winner_id: null } };
+    expect(buildLobbySnapshotPayload(botWin).winner_id).toBeNull();
+    const legacyRow = { ...lobby, game: { ...lobby.game, winner_id: undefined } };
+    expect(buildLobbySnapshotPayload(legacyRow).winner_id).toBeNull();
   });
 
   it('carries the roster so the ended screen can name who played', () => {

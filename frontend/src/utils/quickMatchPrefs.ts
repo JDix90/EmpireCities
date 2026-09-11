@@ -103,6 +103,18 @@ export const DEFAULT_QUICK_MATCH_PREFS: QuickMatchPrefs = {
   victory: 'majority',
 };
 
+/**
+ * Full Game has always been domination-only, so its default ending is
+ * Conquest. Sharing Quick Match's Majority default would have silently turned
+ * every Full Game that never touched the picker — including every player whose
+ * saved prefs predate it — into a 65% match: the same silent change of match
+ * length Quick Match's own default was chosen to avoid.
+ */
+export const DEFAULT_FULL_GAME_PREFS: QuickMatchPrefs = {
+  ...DEFAULT_QUICK_MATCH_PREFS,
+  victory: 'conquest',
+};
+
 export const QUICK_MATCH_DIFFICULTY_LABELS: Record<QuickMatchAiDifficulty, string> = {
   easy: 'Easy',
   medium: 'Medium',
@@ -122,9 +134,16 @@ export const QUICK_MATCH_DIFFICULTY_HINTS: Record<QuickMatchAiDifficulty, string
 const QUICK_MATCH_STORAGE_KEY = 'cc-quick-match-prefs';
 const FULL_GAME_STORAGE_KEY = 'cc-full-game-prefs';
 
-/** Coerce anything (bad JSON shapes, stale values) into valid prefs, field by field. */
-export function sanitizeQuickMatchPrefs(raw: unknown): QuickMatchPrefs {
-  const prefs = { ...DEFAULT_QUICK_MATCH_PREFS };
+/**
+ * Coerce anything (bad JSON shapes, stale values) into valid prefs, field by
+ * field. `defaults` fills what is missing or invalid — each surface passes its
+ * own, so a pre-picker saved shape lands on that surface's historical ending.
+ */
+export function sanitizeQuickMatchPrefs(
+  raw: unknown,
+  defaults: QuickMatchPrefs = DEFAULT_QUICK_MATCH_PREFS,
+): QuickMatchPrefs {
+  const prefs = { ...defaults };
   if (typeof raw !== 'object' || raw === null) return prefs;
 
   const candidate = raw as Record<string, unknown>;
@@ -143,39 +162,39 @@ export function sanitizeQuickMatchPrefs(raw: unknown): QuickMatchPrefs {
   return prefs;
 }
 
-function loadPrefs(storageKey: string): QuickMatchPrefs {
-  if (typeof window === 'undefined') return { ...DEFAULT_QUICK_MATCH_PREFS };
+function loadPrefs(storageKey: string, defaults: QuickMatchPrefs): QuickMatchPrefs {
+  if (typeof window === 'undefined') return { ...defaults };
   try {
     const stored = localStorage.getItem(storageKey);
-    if (!stored) return { ...DEFAULT_QUICK_MATCH_PREFS };
-    return sanitizeQuickMatchPrefs(JSON.parse(stored));
+    if (!stored) return { ...defaults };
+    return sanitizeQuickMatchPrefs(JSON.parse(stored), defaults);
   } catch {
-    return { ...DEFAULT_QUICK_MATCH_PREFS };
+    return { ...defaults };
   }
 }
 
-function savePrefs(storageKey: string, prefs: QuickMatchPrefs): void {
+function savePrefs(storageKey: string, prefs: QuickMatchPrefs, defaults: QuickMatchPrefs): void {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(sanitizeQuickMatchPrefs(prefs)));
+    localStorage.setItem(storageKey, JSON.stringify(sanitizeQuickMatchPrefs(prefs, defaults)));
   } catch {
     // Storage unavailable (private mode etc.) — prefs just won't persist.
   }
 }
 
 export function loadQuickMatchPrefs(): QuickMatchPrefs {
-  return loadPrefs(QUICK_MATCH_STORAGE_KEY);
+  return loadPrefs(QUICK_MATCH_STORAGE_KEY, DEFAULT_QUICK_MATCH_PREFS);
 }
 
 export function saveQuickMatchPrefs(prefs: QuickMatchPrefs): void {
-  savePrefs(QUICK_MATCH_STORAGE_KEY, prefs);
+  savePrefs(QUICK_MATCH_STORAGE_KEY, prefs, DEFAULT_QUICK_MATCH_PREFS);
 }
 
 export function loadFullGamePrefs(): QuickMatchPrefs {
-  return loadPrefs(FULL_GAME_STORAGE_KEY);
+  return loadPrefs(FULL_GAME_STORAGE_KEY, DEFAULT_FULL_GAME_PREFS);
 }
 
 export function saveFullGamePrefs(prefs: QuickMatchPrefs): void {
-  savePrefs(FULL_GAME_STORAGE_KEY, prefs);
+  savePrefs(FULL_GAME_STORAGE_KEY, prefs, DEFAULT_FULL_GAME_PREFS);
 }
 
 /** Short human description, e.g. "3 Medium AI" — used on the lobby buttons. */

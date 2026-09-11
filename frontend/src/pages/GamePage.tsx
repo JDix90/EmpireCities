@@ -54,6 +54,7 @@ import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import GameStartModal from '../components/game/GameStartModal';
 import GameEndedNotice from '../components/game/GameEndedNotice';
+import { describeEndedOutcome } from '../utils/gameEndedOutcome';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
@@ -269,6 +270,7 @@ function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
     map_id: String(d.map_id ?? ''),
     status: String(d.status ?? ''),
     join_code: (d.join_code as string | null | undefined) ?? null,
+    winner_id: typeof d.winner_id === 'string' ? d.winner_id : null,
     settings_json: settings,
     players: d.players as GameLobbyPlayerRow[],
   };
@@ -3666,6 +3668,13 @@ export default function GamePage() {
       return (
         <GameEndedNotice
           abandoned={lobbySnapshot.status === 'abandoned'}
+          resultLine={describeEndedOutcome({
+            status: lobbySnapshot.status,
+            winnerId: lobbySnapshot.winner_id ?? null,
+            players: lobbySnapshot.players,
+            viewerId: user?.user_id ?? null,
+            displayName: playerLobbyDisplayName,
+          })}
           onWatchReplay={() => navigate(`/replay/${gameId}?source=match`)}
           onBackToLobby={() => navigate('/lobby')}
         />

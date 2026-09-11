@@ -108,6 +108,31 @@ describe('Quick Match win-condition payloads', () => {
     }
   });
 
+  it('keeps the Full Game 150-turn cap under every ending', () => {
+    // LobbyPage's startFullGame spreads the chosen fragment and then sets
+    // max_turns: 150 after it; the era-advancement marathon keeps its own cap.
+    const fullGameBase = {
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      stability_enabled: true,
+      naval_enabled: true,
+      events_enabled: true,
+      era_advancement_enabled: true,
+      era_advancement_preset: 'standard',
+      era_advancement_max_lead: 2,
+    };
+    for (const [mode, fragment] of Object.entries(QUICK_MATCH_VICTORY_FRAGMENTS)) {
+      const parsed = CreateGameSchema.safeParse(
+        payloadFor({ ...fullGameBase, ...fragment, max_turns: 150 }),
+      );
+      expect(parsed.success, `${mode} full-game payload rejected`).toBe(true);
+      if (!parsed.success) continue;
+      expect(parsed.data.settings.max_turns, mode).toBe(150);
+      expect(parsed.data.settings.allowed_victory_conditions, mode).toEqual([...fragment.allowed_victory_conditions]);
+      expect(parsed.data.settings.era_advancement_enabled, mode).toBe(true);
+    }
+  });
+
   it('rejects a threshold list sent without its percentage', () => {
     // The picker's threshold modes must always send both; superRefine enforces
     // it, so a fragment that ever lost the percentage fails loudly here.

@@ -61,6 +61,8 @@ export interface GameLobbySnapshot {
   map_id: string;
   status: string;
   join_code?: string | null;
+  /** `games.winner_id` once completed; null when a bot won (bot ids are not UUIDs). */
+  winner_id?: string | null;
   settings_json: GameLobbySettingsJson | null;
   players: GameLobbyPlayerRow[];
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  DEFAULT_FULL_GAME_PREFS,
   DEFAULT_QUICK_MATCH_PREFS,
   describeQuickMatchPrefs,
   loadFullGamePrefs,
@@ -83,7 +84,28 @@ describe('quickMatchPrefs', () => {
 
     it('defaults when only quick match prefs exist', () => {
       saveQuickMatchPrefs({ aiCount: 7, aiDifficulty: 'easy', victory: 'blitz' });
-      expect(loadFullGamePrefs()).toEqual(DEFAULT_QUICK_MATCH_PREFS);
+      expect(loadFullGamePrefs()).toEqual(DEFAULT_FULL_GAME_PREFS);
+    });
+
+    it('defaults Full Game to Conquest, never to Quick Match\'s Majority', () => {
+      // Full Game has always been domination-only. Inheriting Quick Match's
+      // 65% default would have silently shortened every Full Game whose player
+      // never opened the picker.
+      expect(DEFAULT_FULL_GAME_PREFS.victory).toBe('conquest');
+      expect(loadFullGamePrefs().victory).toBe('conquest');
+    });
+
+    it('lands a pre-picker saved shape on each surface\'s own historical ending', () => {
+      // Prefs saved before `victory` existed carry only count + difficulty.
+      localStorage.setItem('cc-full-game-prefs', JSON.stringify({ aiCount: 2, aiDifficulty: 'hard' }));
+      localStorage.setItem('cc-quick-match-prefs', JSON.stringify({ aiCount: 2, aiDifficulty: 'hard' }));
+      expect(loadFullGamePrefs()).toEqual({ aiCount: 2, aiDifficulty: 'hard', victory: 'conquest' });
+      expect(loadQuickMatchPrefs()).toEqual({ aiCount: 2, aiDifficulty: 'hard', victory: 'majority' });
+    });
+
+    it('keeps a Full Game ending the player chose', () => {
+      saveFullGamePrefs({ aiCount: 4, aiDifficulty: 'expert', victory: 'blitz' });
+      expect(loadFullGamePrefs().victory).toBe('blitz');
     });
   });
 
