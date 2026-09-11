@@ -19,6 +19,8 @@ export interface TerritoryState {
   unit_count: number;
   unit_type: string;
   buildings?: string[];
+  /** Era index each building was raised in (era-advancement heritage). */
+  building_eras?: Record<string, number>;
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -76,6 +78,8 @@ export interface PlayerState {
   used_game_abilities?: string[];
   /** Once-per-game abilities carried forward from a prior era as one-time charges (e.g. Atom Bomb). */
   legacy_ability_charges?: Record<string, number>;
+  /** Building types this player may still raise from eras they have left behind. */
+  legacy_building_unlocks?: string[];
   /** Pending retaliation bonuses: +dice_bonus attack dice on next land attack vs against_player_id. */
   truce_break_retaliations?: Array<{ against_player_id: string; dice_bonus: number }>;
   /** Space Age: true when the player has triggered launch_space_station ability (gates moon access). */
@@ -231,6 +235,8 @@ export interface GameState {
     stability_enabled?: boolean;
     coaching_enabled?: boolean;
     era_advancement_enabled?: boolean;
+    /** Heritage build rights + the modernize rule (baked at create). */
+    era_heritage_buildings_enabled?: boolean;
     era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
     era_advancement_cost_mult?: number;
     era_advancement_cost_escalation?: number;

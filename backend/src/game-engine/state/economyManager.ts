@@ -16,6 +16,12 @@ import {
   recordJumpGateLinks,
 } from './jumpGates';
 import { getPlayerFaction } from '../eras/factionLineage';
+import {
+  clearAllBuildingEras,
+  clearBuildingEra,
+  effectiveBuildingYield,
+  stampBuildingEra,
+} from '../eraAdvancement/buildingHeritage';
 import { buildingDisplayName } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
@@ -319,6 +325,7 @@ export function applyBuild(
   const prevTier = prevTierMap[buildingType];
   if (prevTier) {
     territory.buildings = territory.buildings.filter((b) => b !== prevTier);
+    clearBuildingEra(territory, prevTier);
   }
 
   territory.buildings.push(buildingType);
@@ -327,6 +334,9 @@ export function applyBuild(
   // world. Recorded here, in the one place every build path runs through (socket,
   // AI, sim), so no caller can open a gate without its lane.
   if (buildingType === JUMP_GATE_BUILDING) recordJumpGateLinks(state, playerId, territoryId);
+  // An upgrade is new construction: the replacement tier belongs to the era it
+  // was raised in, not to the tier it replaced.
+  stampBuildingEra(state, player, territory, buildingType);
 }
 
 // ── Production tick ───────────────────────────────────────────────────────────
@@ -375,8 +385,17 @@ export function collectProduction(
       ? getPopulationMultiplier(territory.population)
       : 1;
     for (const building of territory.buildings ?? []) {
-      buildingProdAccum += (resolveProductionIncome(state)[building] ?? 0) * stabilityScale * popScale;
-      buildingTechAccum += (BUILDING_TECH_INCOME[building] ?? 0) * stabilityScale * popScale;
+      // Heritage aging/modernization is applied to the base table value BEFORE
+      // the stability and population scales, so a building's shown yield is the
+      // number that then gets scaled — one rule, one place.
+      const prodBase = effectiveBuildingYield(
+        state, player, territory, building, resolveProductionIncome(state)[building] ?? 0,
+      );
+      const techBase = effectiveBuildingYield(
+        state, player, territory, building, BUILDING_TECH_INCOME[building] ?? 0,
+      );
+      buildingProdAccum += prodBase * stabilityScale * popScale;
+      buildingTechAccum += techBase * stabilityScale * popScale;
       if (factionTechBuildingProd > 0 && building.startsWith('tech_gen')) {
         buildingProdAccum += factionTechBuildingProd * stabilityScale * popScale;
       }
@@ -443,9 +462,14 @@ export function countPlayerBuildings(state: GameState, playerId: string): number
 export function getBuildingDefenseBonus(state: GameState, territoryId: string): number {
   const territory = state.territories[territoryId];
   if (!territory || !state.settings.economy_enabled) return 0;
+  const owner = territory.owner_id
+    ? state.players.find((p) => p.player_id === territory.owner_id)
+    : undefined;
   let bonus = 0;
   for (const building of territory.buildings ?? []) {
-    bonus += BUILDING_DEFENSE_BONUS[building] ?? 0;
+    bonus += effectiveBuildingYield(
+      state, owner, territory, building, BUILDING_DEFENSE_BONUS[building] ?? 0,
+    );
   }
   // Galaxy worlds as characters (Rust): a defended tile here rolls extra dice.
   if (bonus > 0) bonus += worldDefenseBuildingBonusDice(state, territory.world_id);
@@ -485,6 +509,7 @@ export function onTerritoryCapture(state: GameState, territoryId: string): void 
   if (state.settings.economy_enabled) {
     // Preserve wonders — raze everything else
     territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));
+    clearAllBuildingEras(territory);
   }
   // Raze fleet on capture regardless of economy toggle — port is destroyed
   if (territory.naval_units != null) {

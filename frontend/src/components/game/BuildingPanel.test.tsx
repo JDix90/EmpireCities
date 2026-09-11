@@ -151,3 +151,54 @@ describe('buildings gated behind an unresearched tech', () => {
 function meaningful(text: string): boolean {
   return text.length > 0 && !/^[a-z_]+[0-9]?$/.test(text);
 }
+
+describe('BuildingPanel — era heritage & modernize', () => {
+  it('labels a build option offered only by an inherited right, and keeps it live', () => {
+    // The reported case: tier-3 walls in the old era, so a basic wall must stay
+    // buildable in the new one rather than reading as locked.
+    const onBuild = vi.fn();
+    render(
+      <BuildingPanel
+        {...baseProps}
+        onBuild={onBuild}
+        heritageUnlocks={['defense_1']}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: /Heritage/ });
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onBuild).toHaveBeenCalledWith('defense_1');
+  });
+
+  it('marks a carried-forward building as aged and names the research that lifts it', () => {
+    render(
+      <BuildingPanel
+        {...baseProps}
+        buildings={['defense_3']}
+        buildingStates={{ defense_3: 'aged' }}
+        modernizeTechFor={{ defense_3: 'Castle Keep' }}
+      />,
+    );
+    expect(screen.getByText('aged')).toBeInTheDocument();
+    expect(screen.getByTitle(/Research Castle Keep to modernize it/)).toBeInTheDocument();
+  });
+
+  it('marks a modernized building as outperforming new construction', () => {
+    render(
+      <BuildingPanel
+        {...baseProps}
+        buildings={['defense_3']}
+        buildingStates={{ defense_3: 'modernized' }}
+      />,
+    );
+    expect(screen.getByText('modernized')).toBeInTheDocument();
+    expect(screen.getByTitle(/outperforms new construction/)).toBeInTheDocument();
+  });
+
+  it('says nothing about age when the feature is off (no state passed)', () => {
+    render(<BuildingPanel {...baseProps} buildings={['defense_3']} />);
+    expect(screen.queryByText('aged')).toBeNull();
+    expect(screen.queryByText('modernized')).toBeNull();
+    expect(screen.queryByText(/Heritage/)).toBeNull();
+  });
+});

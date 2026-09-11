@@ -40,6 +40,7 @@ import {
   getSeaDefenseBonus,
 } from '../game-engine/state/economyManager';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
+import { isBuildingTechUnlocked } from '../game-engine/eraAdvancement/buildingHeritage';
 import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
 import { buildAdvanceEraClientPreview, executeAdvanceEra, isEraAdvancePhase } from '../game-engine/eraAdvancement/advanceEra';
 import { projectMapToEraFloor, unlockTerritoriesForFloor, seedsFullBoardAtStart, maxUnlockEra } from '../game-engine/eraAdvancement/territoryUnlock';
@@ -2557,16 +2558,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return socket.emit('error', { message: 'Buildings can only be constructed during draft or fortify phase' });
       }
 
-      // Check whether the building type is unlocked via tech tree (if enabled)
-      const unlockedTechs = currentPlayer.unlocked_techs ?? [];
-      let techUnlocked = true;
-      if (state.settings.tech_trees_enabled) {
-        const techTree = getEraTechTreeForPlayer(state, userId);
-        const requiringNode = techTree.find((node) => node.unlocks_building === buildingType);
-        if (requiringNode) {
-          techUnlocked = unlockedTechs.includes(requiringNode.tech_id);
-        }
-      }
+      // Tech gate (current-era research, or an inherited right from an era the
+      // player has already left). Shared with the AI build loop so the two can
+      // never drift apart.
+      const techUnlocked = isBuildingTechUnlocked(state, userId, buildingType);
 
       const validation = validateBuild(state, userId, territoryId, buildingType, techUnlocked);
       if (!validation.valid) {
