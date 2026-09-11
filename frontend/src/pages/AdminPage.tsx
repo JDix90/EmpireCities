@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   Area,
   AreaChart,
@@ -400,6 +401,54 @@ function Kpi({
   );
 }
 
+type UserSortColumn = 'created_at' | 'last_login_at';
+
+/**
+ * A sortable column header for the user table. The server does the ordering
+ * (the list is capped by LIMIT, so sorting only the rows already fetched would
+ * reorder a slice rather than choosing which rows the slice contains), so
+ * clicking re-runs the query.
+ */
+function SortableUserHeader({
+  label,
+  column,
+  sort,
+  order,
+  onSort,
+}: {
+  label: string;
+  column: UserSortColumn;
+  sort: UserSortColumn;
+  order: 'asc' | 'desc';
+  onSort: (column: UserSortColumn) => void;
+}) {
+  const active = sort === column;
+  return (
+    <th className="px-3 py-2" aria-sort={active ? (order === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`group inline-flex items-center gap-1 uppercase tracking-wide transition-colors ${
+          active ? 'text-bf-gold' : 'hover:text-bf-text'
+        }`}
+        title={
+          active
+            ? `Sorted by ${label.toLowerCase()}, ${order === 'asc' ? 'oldest' : 'newest'} first — click to reverse`
+            : `Sort by ${label.toLowerCase()}`
+        }
+      >
+        {label}
+        {active ? (
+          order === 'asc' ? <ArrowUp className="h-3 w-3" aria-hidden="true" />
+            : <ArrowDown className="h-3 w-3" aria-hidden="true" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" aria-hidden="true" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 export default function AdminPage() {
   type ResetScope = 'all' | 'era' | 'map' | 'era_map';
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -454,6 +503,16 @@ export default function AdminPage() {
     }>
   >([]);
   const [search, setSearch] = useState('');
+  // Admin user list ordering. Newest accounts first is the existing default;
+  // "Last login" answers the other question the table is opened to answer —
+  // who is actually still playing.
+  const [userSort, setUserSort] = useState<UserSortColumn>('created_at');
+  const [userOrder, setUserOrder] = useState<'asc' | 'desc'>('desc');
+  /** Same column toggles direction; a new column starts newest-first. */
+  const sortUsersBy = useCallback((column: UserSortColumn) => {
+    if (column === userSort) setUserOrder((o) => (o === 'desc' ? 'asc' : 'desc'));
+    else { setUserSort(column); setUserOrder('desc'); }
+  }, [userSort]);
   const [patchKey, setPatchKey] = useState('xp');
   const [patchValue, setPatchValue] = useState('{}');
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
@@ -529,7 +588,7 @@ export default function AdminPage() {
           setConfig(res.data ?? null);
         } else if (tab === 'users') {
           const [usersRes, optionsRes] = await Promise.all([
-            api.get('/admin/users', { params: { search } }),
+            api.get('/admin/users', { params: { search, sort: userSort, order: userOrder } }),
             api.get<{ era_ids: string[]; map_ids: string[] }>('/admin/metrics/stat-options'),
           ]);
           setUsers(usersRes.data ?? []);
@@ -556,7 +615,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     },
-    [overviewParams, search, trendDays, mapsStatusFilter],
+    [overviewParams, search, trendDays, mapsStatusFilter, userSort, userOrder],
   );
 
   useEffect(() => {
@@ -1362,8 +1421,20 @@ export default function AdminPage() {
                     <th className="px-3 py-2">XP / MMR</th>
                     <th className="px-3 py-2">Games</th>
                     <th className="px-3 py-2">Flags</th>
-                    <th className="px-3 py-2">Joined</th>
-                    <th className="px-3 py-2">Last login</th>
+                    <SortableUserHeader
+                      label="Joined"
+                      column="created_at"
+                      sort={userSort}
+                      order={userOrder}
+                      onSort={sortUsersBy}
+                    />
+                    <SortableUserHeader
+                      label="Last login"
+                      column="last_login_at"
+                      sort={userSort}
+                      order={userOrder}
+                      onSort={sortUsersBy}
+                    />
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
