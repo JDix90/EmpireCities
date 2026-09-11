@@ -64,9 +64,27 @@ const ResetUserStatsSchema = z
     }
   });
 
+/**
+ * Sortable columns for the admin user list, mapped to the SQL that orders by
+ * them. A whitelist rather than interpolating the client's string: this is an
+ * ORDER BY clause, which cannot be parameterized.
+ *
+ * `last_login_at` is nullable (the column arrived in migration 033 and is only
+ * stamped from that deploy onward), and NULLS LAST in BOTH directions is
+ * deliberate — ascending would otherwise open on a page of accounts that have
+ * never been seen, which is the one thing this sort is not for. `user_id`
+ * breaks ties so equal timestamps keep a stable order between requests.
+ */
+const USER_SORT_COLUMNS = {
+  created_at: 'u.created_at',
+  last_login_at: 'u.last_login_at',
+} as const;
+
 const UserSearchSchema = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  sort: z.enum(['created_at', 'last_login_at']).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
 });
 
 async function writeAuditLog(adminUserId: string, action: string, payload: unknown): Promise<void> {
@@ -668,6 +686,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
     const limit = parsed.data.limit ?? 25;
     const search = `%${(parsed.data.search ?? '').trim()}%`;
+    const sortColumn = USER_SORT_COLUMNS[parsed.data.sort ?? 'created_at'];
+    const direction = parsed.data.order === 'asc' ? 'ASC' : 'DESC';
     const rows = await query(
       `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
               COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
@@ -679,7 +699,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
          GROUP BY user_id
        ) gp ON gp.user_id = u.user_id
        WHERE ($1 = '%%' OR u.username ILIKE $1 OR u.email ILIKE $1)
-       ORDER BY u.created_at DESC
+       ORDER BY ${sortColumn} ${direction} NULLS LAST, u.user_id ASC
        LIMIT $2`,
       [search, limit],
     );
