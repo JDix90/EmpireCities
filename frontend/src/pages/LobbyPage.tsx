@@ -31,6 +31,7 @@ import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
 import { isCommunityTheaterMap, pickQuickMatchEra, quickMatchEraPool } from '../constants/lobbyMapOptions';
 import QuickMatchOptions from '../components/lobby/QuickMatchOptions';
+import VictoryCriteriaPicker from '../components/lobby/VictoryCriteriaPicker';
 import AiOpponentPicker from '../components/lobby/AiOpponentPicker';
 import {
   describeQuickMatchPrefs,
@@ -274,7 +275,7 @@ const ERA_MAP_IDS: Record<string, string> = {
 const fullGameSummaryChips = (prefs: QuickMatchPrefs): string[] => [
   'Ancient World',
   `${prefs.aiCount} AI · ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]}`,
-  'Domination',
+  QUICK_MATCH_VICTORY_LABELS[prefs.victory],
   '5-min turns',
 ];
 const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
@@ -1403,7 +1404,11 @@ export default function LobbyPage() {
         auto_start: true,
         settings: {
           turn_timer_seconds: 300,
-          allowed_victory_conditions: ['domination'],
+          // The chosen ending — conditions and threshold. Its per-condition
+          // turn cap is overridden by the `max_turns: 150` below: Full Game is
+          // an era-advancement marathon with its own cap, and Blitz's 45 turns
+          // would end most Full Games on the cap instead of on the criterion.
+          ...quickMatchVictorySettings(fullGamePrefs),
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: true,
@@ -1490,8 +1495,9 @@ export default function LobbyPage() {
             </li>
           ))}
         </ul>
-        <div className="mb-6 rounded-xl border border-bf-border bg-bf-dark/40 p-3">
+        <div className="mb-6 rounded-xl border border-bf-border bg-bf-dark/40 p-3 space-y-4">
           <AiOpponentPicker prefs={fullGamePrefs} onChange={updateFullGamePrefs} />
+          <VictoryCriteriaPicker prefs={fullGamePrefs} onChange={updateFullGamePrefs} />
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={() => setShowFullGameModal(false)}>
@@ -1570,7 +1576,7 @@ export default function LobbyPage() {
                   Full Game Start
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  Every system on · vs {describeQuickMatchPrefs(fullGamePrefs)}
+                  Every system on · vs {describeQuickMatchPrefs(fullGamePrefs)} · {QUICK_MATCH_VICTORY_LABELS[fullGamePrefs.victory]}
                 </span>
               </button>
             )}
