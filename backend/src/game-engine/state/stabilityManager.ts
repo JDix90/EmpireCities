@@ -66,10 +66,16 @@ export function initializeStability(state: GameState): void {
  * for the active player. Called once per turn in advanceToNextPlayer.
  *
  * Returns a list of territory IDs that rebelled (lost units or went unowned).
+ *
+ * `rng` defaults to the CSPRNG because these rolls change game state —
+ * rebellions destroy units and can flip a territory to unowned — and must stay
+ * unpredictable to clients. A balance harness passes a seeded source so a sweep
+ * replays identically; see InitializeGameStateOptions.rng.
  */
 export function applyStabilityTick(
   state: GameState,
   playerId: string,
+  rng: () => number = cryptoFraction,
 ): string[] {
   const rebellions: string[] = [];
   const factionBonus = getFactionStabilityBonus(state, playerId);
@@ -80,7 +86,7 @@ export function applyStabilityTick(
 
     // ── Rebellion check (before recovery) ──
     if (t.stability <= REBELLION_THRESHOLD && t.unit_count > 0) {
-      if (cryptoFraction() < REBELLION_CHANCE) {
+      if (rng() < REBELLION_CHANCE) {
         t.unit_count -= 1;
         rebellions.push(tid);
         if (t.unit_count <= 0) {
@@ -128,14 +134,14 @@ export function applyStabilityTick(
       // Population grows +1 every POPULATION_GROWTH_INTERVAL turns of sustained stability.
       // We use a simple probabilistic approach: 1/INTERVAL chance per tick.
       // Galaxy worlds as characters (Sol): the cradle breeds faster.
-      if (cryptoFraction() < Math.min(1, growthChance * worldPopulationGrowthMult(state, t.world_id))) {
+      if (rng() < Math.min(1, growthChance * worldPopulationGrowthMult(state, t.world_id))) {
         t.population = Math.min(MAX_POPULATION, t.population + 1);
       }
     }
     // Instability shrinks population slowly
     if (t.stability < 30 && t.population > 1) {
       // 10% chance to lose 1 population per tick when unstable
-      if (cryptoFraction() < 0.1) {
+      if (rng() < 0.1) {
         t.population -= 1;
       }
     }

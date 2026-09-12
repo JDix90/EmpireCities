@@ -69,6 +69,17 @@ export function pickStartingPlayerIndex(
 export interface InitializeGameStateOptions {
   /** Test/dev override — skips random draw when set. */
   forceStartingPlayerIndex?: number;
+  /**
+   * Randomness used while building the opening position — starting territory
+   * distribution, faction tie-breaks, and the initial card deck order.
+   *
+   * Defaults to the CSPRNG, so production is unchanged: those draws must stay
+   * unpredictable to colluding observers. Balance harnesses pass a seeded RNG
+   * instead, because a sweep whose opening positions are redrawn on every run
+   * cannot compare two rulesets — the starting position dominates the outcome,
+   * and the difference being measured drowns in it.
+   */
+  rng?: StartingPlayerRng;
 }
 
 /** Resolved starting seat for draft/territory-select transitions (persists after init). */
@@ -107,6 +118,10 @@ export function initializeGameState(
   settings: GameSettings,
   initOptions?: InitializeGameStateOptions,
 ): GameState {
+  // Opening-position randomness. CSPRNG in production; a balance harness passes
+  // a seeded RNG so two sweeps can start from the same board (see the `rng`
+  // note on InitializeGameStateOptions).
+  const initRng: StartingPlayerRng = initOptions?.rng ?? randomInt;
   const settingsNorm = normalizeGameSettings(settings);
   // Galaxy per-world identity: snapshot the map's per-world modifiers onto settings
   // so per-turn calc sites (which only have `state`) can apply them by world_id.
@@ -164,7 +179,7 @@ export function initializeGameState(
       } else {
         // CSPRNG tie-break — Math.random would be deterministic across the
         // V8 instance and could be predicted by colluding observers.
-        const winnerIdx = indices[randomInt(0, indices.length)];
+        const winnerIdx = indices[initRng(0, indices.length)];
         players[winnerIdx].faction_id = factionId;
         assignedFactions.add(factionId);
         indices.forEach((idx) => {
@@ -176,7 +191,7 @@ export function initializeGameState(
     const availableFactions = eraFactions.map(f => f.faction_id).filter(f => !assignedFactions.has(f));
     // Fisher–Yates with a CSPRNG so the faction order cannot be predicted.
     for (let i = availableFactions.length - 1; i > 0; i--) {
-      const j = randomInt(0, i + 1);
+      const j = initRng(0, i + 1);
       [availableFactions[i], availableFactions[j]] = [availableFactions[j], availableFactions[i]];
     }
     unassignedPlayers.forEach((idx, i) => {
@@ -249,7 +264,7 @@ export function initializeGameState(
       distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
     }
   } else {
-    const shuffled = shuffleArray([...earthTerritoryIds]);
+    const shuffled = shuffleArray([...earthTerritoryIds], initRng);
     shuffled.forEach((tid, idx) => {
       const playerIndex = idx % players.length;
       territories[tid].owner_id = players[playerIndex].player_id;
@@ -293,7 +308,7 @@ export function initializeGameState(
   }
 
   // Build card deck
-  const cardDeck = buildCardDeck(map.territories.map((t) => t.territory_id));
+  const cardDeck = buildCardDeck(map.territories.map((t) => t.territory_id), initRng);
 
   // Build diplomacy matrix (all neutral)
   const diplomacy: DiplomacyEntry[] = [];
@@ -723,7 +738,15 @@ export function calculateContinentBonuses(
  * Advance to the next player's turn.
  * Skips eliminated players and wraps around.
  */
-export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
+/**
+ * `options.rng` is threaded into the stability tick only, for seeded balance
+ * sweeps; production omits it and keeps the CSPRNG.
+ */
+export function advanceToNextPlayer(
+  state: GameState,
+  map?: GameMap,
+  options?: { rng?: () => number },
+): void {
   // Lunar Hegemony (Phase 3): the outgoing player's turn is ending, which is
   // exactly when "hold the whole Moon at the end of your turn" is judged.
   // `checkVictory` reads the completed clock; the callers all run it right
@@ -867,7 +890,7 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
 
   // Apply stability recovery tick
   if (state.settings.stability_enabled) {
-    applyStabilityTick(state, nextPlayer.player_id);
+    applyStabilityTick(state, nextPlayer.player_id, options?.rng);
   }
 
   // Tick temporary modifiers from event cards
@@ -1327,7 +1350,7 @@ export function findRedeemableCardIds(cards: TerritoryCard[]): string[] | null {
   return null;
 }
 
-export function buildCardDeck(territoryIds: string[]): TerritoryCard[] {
+export function buildCardDeck(territoryIds: string[], rng?: StartingPlayerRng): TerritoryCard[] {
   const symbols: Array<'infantry' | 'cavalry' | 'artillery'> = ['infantry', 'cavalry', 'artillery'];
   const deck: TerritoryCard[] = territoryIds.map((tid, i) => ({
     card_id: uuidv4(),
@@ -1337,14 +1360,15 @@ export function buildCardDeck(territoryIds: string[]): TerritoryCard[] {
   // Add 2 wild cards
   deck.push({ card_id: uuidv4(), territory_id: null, symbol: 'wild' });
   deck.push({ card_id: uuidv4(), territory_id: null, symbol: 'wild' });
-  return shuffleArray(deck);
+  return shuffleArray(deck, rng);
 }
 
-function shuffleArray<T>(arr: T[]): T[] {
+function shuffleArray<T>(arr: T[], rng: StartingPlayerRng = randomInt): T[] {
   // Cards in the territory deck affect game outcomes (set bonuses), so the
-  // shuffle uses a CSPRNG to keep the order unpredictable to all clients.
+  // shuffle uses a CSPRNG by default to keep the order unpredictable to all
+  // clients. Only a seeded harness passes `rng` (see InitializeGameStateOptions).
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = randomInt(0, i + 1);
+    const j = rng(0, i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
