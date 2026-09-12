@@ -97,6 +97,13 @@ describe.runIf(enabled)('map moderation state machine (Postgres)', () => {
       await query('DELETE FROM map_ratings WHERE map_id = ANY($1)', [mapIds]).catch(() => {});
       await query('DELETE FROM maps WHERE map_id = ANY($1)', [mapIds]).catch(() => {});
     }
+    // The approve/reject calls above run as an admin, and every admin action
+    // writes an admin_audit_log row whose admin_user_id references users with
+    // no cascade. Deleting the users first therefore failed on that foreign
+    // key — silently, thanks to the catch below — and left the fixture users
+    // and their audit rows behind on any reused database. Clear the audit
+    // rows first; the remaining tables that reference users all cascade.
+    if (userIds.length) await query('DELETE FROM admin_audit_log WHERE admin_user_id = ANY($1)', [userIds]).catch(() => {});
     if (userIds.length) await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
   });
 
