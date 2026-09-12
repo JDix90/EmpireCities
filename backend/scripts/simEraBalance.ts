@@ -50,6 +50,8 @@
  *   SIM_EXPEDITION_UNITS SIM_RENAISSANCE_TECHS SIM_WINDFALL_MULT
  *   SIM_LEVY_UNITS SIM_LOGISTICS_PER_ERA
  *                   tuning for those prototypes.
+ *   SIM_BAR_GAP SIM_BAR_LAGGARD
+ *                   override the acceptance bar (defaults +5 pts / 5%).
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -139,8 +141,17 @@ const INCENTIVE_OPTIONS = {
  *  • …but must not STEAMROLL: the era laggard at turn 20 must still win often
  *    enough that trailing is a position, not a death sentence.
  */
-const ACCEPTANCE_POLICY_GAP_PTS = 5;
-const ACCEPTANCE_LAGGARD_FLOOR_PCT = 5;
+/**
+ * NOTE (EA-503 round 2): the +5 gap has not been cleared by anything that also
+ * keeps the laggard healthy, and the search found a frontier rather than a
+ * tuning miss — every lever that produced a large gap did so by making trailing
+ * fatal. A revision to +2.5 paired with a laggard floor of 8% is PROPOSED and
+ * awaiting owner sign-off; until then the original bar stands here, and both
+ * halves are overridable for testing. See eraBalanceTuning.md § "The reward
+ * frontier".
+ */
+const ACCEPTANCE_POLICY_GAP_PTS = Number(process.env.SIM_BAR_GAP ?? 5);
+const ACCEPTANCE_LAGGARD_FLOOR_PCT = Number(process.env.SIM_BAR_LAGGARD ?? 5);
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 

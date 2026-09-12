@@ -238,20 +238,130 @@ Read carefully, because the interaction matters more than any single row:
   snowball floor. Rewards without the gate concentrate advantage without
   making advancement worth choosing — the worst of both.
 
-### Status: the problem is confirmed, the fix is not
+### The reward frontier (round 2) — why +5 has not been reached
 
-The candidate package swings the gap by ~13 points and flips the sign, but
-lands at **+2.0 mean and negative on one of three seeds** — short of the +5
-acceptance bar. **It is not ready to implement as specified.** What is
+Round 1 left the candidate at +2.0 against a +5 bar, so round 2 searched the
+reward side: `windfall` (gold, a multiple of own income), `levy` (a one-off
+reinforcement wave), `logistics` (permanent +N reinforcements per era, the only
+compounding reward) and a scalable `renaissance`. All economic or territorial by
+design — era-gap dice +2 cleared the bar easily in round 1 and was rejected for
+turning the era lead into a steamroll, so reward must not come from combat.
+
+Screen, one seed, each lever alone on top of conv 1.0 + `gate` (baseline −0.2):
+
+| lever | gap | laggard@t20 |
+|---|---|---|
+| `renaissance` x2 | +4.4 | **3.2%** |
+| `levy` 4 | +3.6 | **12.6%** |
+| `windfall` 2x income | +2.2 | 7.0% |
+| `logistics` +2/era | +2.2 | 10.1% |
+| `expedition` 5 | +2.2 | 8.3% |
+| `renaissance` x1 | +0.6 | 10.4% |
+| `logistics` +1/era | +0.4 | 11.1% |
+| `windfall` 1x income | −1.8 | 8.3% |
+
+**Gap and laggard health are not the same axis, and they trade against each
+other.** `renaissance` x2 has the best gap of any non-combat lever and buys it
+by pushing the era laggard to 3.2%, under the floor — the same failure mode as
+era-gap dice +2, just quieter. `levy` has a statistically indistinguishable gap
+with the laggard *improving* to 12.6%: a levy hands the advancer armies without
+taking anything from anyone, and trailing players collect their own when they
+climb, so it acts as reward and catch-up at once.
+
+Stacking does not add. `levy` 4 alone screened +3.6; `levy`+`logistics` +2.2;
+`levy` 6 +2.2; all four levers together **−1.2** (laggard 18.5%). These rewards
+are symmetric — every opponent advances too and collects the same bonus — so a
+bigger gift raises the tide instead of differentially rewarding the seat under
+test. The only way to make advancing differentially valuable is power over
+players who have *not* advanced, which is precisely the snowball lever.
+
+Four-seed confirmation (500 games/arm each, conv 1.0 + `gate`):
+
+| package | s1 | default | s2 | s3 | mean gap | mean laggard |
+|---|---|---|---|---|---|---|
+| no reward (control) | −0.2 | +2.8 | −0.6 | +1.6 | **+0.9** | 8.5% |
+| + `levy` 4 | +3.6 | +2.8 | +0.8 | +4.0 | **+2.8** | 8.2% |
+| + `levy` 4 + `windfall` 2x | +4.8 | +1.4 | +0.4 | +5.4 | **+3.0** | 10.6% |
+| + `expedition` + `renaissance` (round 1) | +3.4 | +3.0 | −0.4 | — | +2.0 | 6.8% |
+
+Per-seed spread is ~±2, so on four seeds the standard error on a mean gap is
+~1. Read accordingly: `levy`'s marginal contribution over the control is +1.9
+(paired per seed: +3.8, 0.0, +1.4, +2.4) — directionally real, modestly sized,
+and at the edge of what this harness resolves.
+
+`windfall` adds nothing to the **gap** beyond `levy` (+3.0 vs +2.8, well inside
+noise) — but the gap is not the only axis, and judging it on that alone is the
+mistake this whole section exists to warn about. Per-seed laggard health:
+
+| package | laggard by seed | mean | seeds clearing an 8% floor |
+|---|---|---|---|
+| `levy` 4 | 12.6 · 6.2 · 8.2 · 5.7 | 8.2% | **2 / 4** |
+| `levy` 4 + `windfall` 2x | 8.0 · 9.8 · 12.9 · 11.6 | 10.6% | **4 / 4** |
+
+`levy` alone only reaches an 8% mean by averaging two seeds that dip to 5.7%
+and 6.2%. Adding `windfall` buys no extra gap but lifts the floor on every
+seed — gold helps a trailing player recover as much as a leading one — so it
+widens the package's margin on the axis where it was thin. The extra part earns
+its place; the simpler package does not.
+
+### Where the fix actually comes from
+
+| step | mean gap | change |
+|---|---|---|
+| shipped | −10.7 | — |
+| conversion → 1.0 | ~−5.4 (1 seed) | +5 |
+| + era-gated frontier | +0.9 | +6 |
+| + `levy` 4 | +2.8 | +2 |
+
+**Removing the two costs does ~90% of the work.** Conversion and the open
+frontier account for a swing of ~11.6 points on their own; every reward lever
+tested together is worth about 2 more. That inverts the round-1 framing: this
+is not a problem of under-rewarding advancement, it is a problem of charging
+for it twice.
+
+### Proposed: revise the acceptance bar (needs owner sign-off)
+
+The +5 gap was picked before the achievable range was known, and the frontier
+above suggests it can only be cleared by breaking the laggard floor. The bar
+should encode "stalling is no longer the dominant strategy", and +2.8 does
+that: it moves the stall advantage from **+10.7 to −2.8**, a 13.5-point swing,
+which is the decision the original playtest complaint was about.
+
+Proposed replacement — a pair, so neither half can be bought with the other:
+
+- gap **>= +2.5** (about 2 standard errors above zero on four seeds), and
+- era-laggard@turn20 **>= 8%**.
+
+`SIM_BAR_GAP` / `SIM_BAR_LAGGARD` override the constants for testing. The code
+still ships the original +5 / 5% until this is signed off.
+
+### Recommended package
+
+`era_advancement_conversion_ratio` -> **1.0**, **era-gated frontier**, a
+**levy** on advancing (~4 armies, round-robin; the `mobilization` era signature
+is the existing precedent), and a **windfall** (~2x the player's last
+production income in gold).
+
+Four parts, but not round 1's four: `expedition` showed no measurable value in
+either round, and `renaissance` x1 does nothing while x2 buys its gap by
+pushing the laggard to 3.2%. `windfall` earns its place on the laggard axis,
+not the gap axis — it is what holds the package above an 8% floor on every
+seed rather than two of four. `logistics` is inside noise on both axes.
+
+### Status: confirmed problem, sized fix, bar in question
+
+The recommended package reaches **+2.8 mean over four seeds with a healthy
+laggard** — clearing the proposed bar, not the original one. What is
 established:
 
 - The stall is real, large, and reproducible (three seeds, all strongly negative).
-- Direction of travel is right: conversion and the open frontier are the costs
-  that do the damage, and the gate is what makes any reward stick.
-- Sizing is not established. The next round belongs in this harness, not in the
-  engine: search the reward side (era-scoped territorial abilities, expedition
-  sizing, a stronger renaissance) against the bar, on 3+ seeds, before writing
-  a line of feature code.
+- Cost removal is the fix: conversion 1.0 + the gate carry ~90% of the swing.
+- A modest reward (`levy`) tips it positive; larger rewards do not help, and
+  the ones that do buy the gap from the laggard. `windfall` pays for itself on
+  the laggard axis alone.
+- What is NOT established is that any non-combat design reaches +5. The
+  evidence says that target trades against the snowball floor, which is a
+  decision for the owner rather than another sweep.
 
 ### The acceptance bar
 
@@ -261,6 +371,9 @@ SIM_POLICY_AB=1 SIM_GAMES=500 SIM_MAX_TURNS=100 pnpm exec tsx scripts/simEraBala
 
 - **Advancing must pay** — seat-0 `always` beats `never` by **≥ +5 points** in 4p.
 - **…but must not steamroll** — era-laggard@turn20 win rate **≥ 5%**.
+
+Both halves are overridable (`SIM_BAR_GAP`, `SIM_BAR_LAGGARD`) — see the
+proposed revision to +2.5 / 8% above, which is pending sign-off.
 
 The script prints PASS/FAIL on both. Confirm on **at least three `SIM_SEED`
 values**: the deterministic harness removes run-to-run noise, but seed-to-seed

@@ -16,7 +16,15 @@
  * opens neutral frontier land that mostly benefits your penned-in rivals. See
  * eraBalanceTuning.md § "The stall problem" for the full table.
  *
- * ADOPTED (measured to flip the sign, recommended for implementation):
+ * RECOMMENDED after the round-2 search (eraBalanceTuning.md): `gate` + `levy`
+ * + `windfall`, on top of conversion ratio 1.0. Cost removal carries ~90% of
+ * the swing; `levy` supplies most of the rest; `windfall` adds no gap but lifts
+ * the era laggard above an 8% floor on every seed instead of two of four.
+ * `expedition` showed no measurable value and `renaissance` only pays by
+ * breaking that floor — both are kept below for reproducibility, not as
+ * recommendations.
+ *
+ * CORE LEVERS:
  *   gate        Era-gated frontier. A neutral frontier territory tagged
  *               `unlock_era_index = k` can only be attacked by a player whose
  *               own era index is >= k. The land the advance reveals belongs to
@@ -25,7 +33,8 @@
  *               signature, which seals lanes to unreached worlds for its owner.)
  *   expedition  On advancing, settle one adjacent frontier of the arriving era
  *               for free — 3 armies walk over from the neighbouring stack. No
- *               dice. The visible, thematic payoff for the advance.
+ *               dice. Thematic, but measured at or below zero marginal value
+ *               in both rounds; not recommended.
  *   renaissance On advancing, free technologies of the arriving era (cheapest
  *               first, tier-1 then tier-2; count = `renaissanceTechs`),
  *               softening the `unlocked_techs = []` wipe. Only pays when the
