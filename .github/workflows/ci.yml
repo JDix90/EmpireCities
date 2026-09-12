@@ -25,6 +25,19 @@ jobs:
       - name: Scan tracked files for committed credentials
         run: bash scripts/check-secrets.sh
 
+  # Same shape as `secrets`: pure bash over tracked files, no toolchain, so it
+  # reports in seconds alongside the install/build jobs rather than after them.
+  # It ran only when a developer remembered to type the command, which is how
+  # two claims sat wrong for months — an undocumented VITE_LAB_ROUTES and a
+  # migration count of 32 against 40 files on disk. As a job, the next drift
+  # fails on the PR that introduces it.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check documentation claims against the code
+        run: bash scripts/check-docs.sh
+
   backend:
     runs-on: ubuntu-latest
     # NOTE: `services` is a JOB-level key. It was previously nested under the
