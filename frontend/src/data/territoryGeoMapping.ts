@@ -44,7 +44,10 @@ export type TerritoryGeoConfig = GeoConfigItem[];
  * `possessions`: a dropped polygon whose bbox centre falls in one of these boxes
  * is registered under that code (only if the GeoJSON has no feature for it), so
  * `{ iso: 'GF' }` resolves French Guiana even though the file ships it inside
- * France. Pieces with no ISO code of their own (the Azores, the Galápagos,
+ * France. The era boards below claim these codes from the NEIGHBOURING
+ * territory rather than the colonial parent — that is the whole point of the
+ * trim, so Guadeloupe belongs to whoever holds the Caribbean, not to whoever
+ * holds Paris. Pieces with no ISO code of their own (the Azores, the Galápagos,
  * Easter Island) are simply dropped.
  *
  * Authored `clip_bbox` references are NOT trimmed: the box already states which
@@ -174,11 +177,13 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // presets below; gran_colombia (northern SA) is new here.
   gran_colombia: [
     { iso: 'CO' }, { iso: 'VE' }, { iso: 'EC' }, { iso: 'GY' }, { iso: 'SR' }, { iso: 'GF' },
+    // Leeward/Windward specks off the same coast; no Caribbean tile is nearer.
+    { iso: 'BQ' }, { iso: 'GP' }, { iso: 'MQ' },
   ],
   // SE-Asian archipelago split: philippines REUSES the shared preset below; insulindia
   // (Indonesia) and malaya (Malaysia/Brunei/Singapore) are new. No overlap with the
   // `indochina` frontier (TH/VN/KH/LA/MM).
-  insulindia: [{ iso: 'ID' }],
+  insulindia: [{ iso: 'ID' }, { iso: 'CX' }, { iso: 'CC' }],
   malaya: [{ iso: 'MY' }, { iso: 'BN' }, { iso: 'SG' }],
   // SW Pacific / Melanesia — same island set the WWII `pacific_islands` uses (minus
   // PG, which sits west of this frontier's extent). Islands need no clip.
@@ -533,6 +538,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'TT' },
     { iso: 'CO', clip_bbox: [-78, 8, -71, 13] }, // Colombia north coast
     { iso: 'VE', clip_bbox: [-72, 8, -60, 13] }, // Venezuela north coast
+    { iso: 'BQ' }, { iso: 'GP' }, { iso: 'MQ' }, // Antilles
   ],
 
   // Europe
@@ -563,6 +569,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'LV' },
     { iso: 'LT' },
     { iso: 'DE', clip_bbox: [5, 52, 16, 56] }, // N Germany
+    { iso: 'SJ' }, // Svalbard + Jan Mayen
   ],
   euro_balkan: [
     { iso: 'IT', clip_bbox: [6, 36, 19, 41] }, // S Italy (N caught by spaceport)
@@ -624,6 +631,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'LY', clip_bbox: [-17, 22, 18, 37] },
     { iso: 'EH' },
     { iso: 'MR', clip_bbox: [-17, 22, 0, 28] }, // N Mauritania
+    { iso: 'IC' }, // Canaries
   ],
   mena_nile: [
     { iso: 'EG' },
@@ -696,6 +704,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'LS' },
     { iso: 'SZ' },
     { iso: 'MG' },
+    { iso: 'YT' }, { iso: 'RE' }, // Mayotte + Réunion, with Madagascar
   ],
 
   // Central Asia
@@ -781,6 +790,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'TL' },
     { iso: 'PG' },
     { iso: 'SG' },
+    { iso: 'CX' }, { iso: 'CC' }, // Christmas + Cocos (Keeling)
   ],
   asia_japan_islands: [{ iso: 'JP' }],
   asia_siberia_belt: [
@@ -812,6 +822,7 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'NU' },
     { iso: 'CK' },
     { iso: 'PF' },
+    { iso: 'TK' }, // Tokelau
   ],
 
   // Coastal Megacities — E China coast: Shanghai + Shandong + Hebei + Tianjin
@@ -838,7 +849,17 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   antarctic_interior_2100: [{ iso: 'AQ', clip_bbox: [40, -88, 120, -72] }], // Space Age
 };
 
-/** Simple territory → ISO codes (no clipping). Used when TERRITORY_GEO_CONFIG has no entry. */
+/**
+ * Simple territory → ISO codes (no clipping). Used when TERRITORY_GEO_CONFIG has no entry.
+ *
+ * Possession codes (`GF GP MQ YT RE BQ IC SJ TK CX CC`, see COUNTRY_HOMELANDS)
+ * sit on the nearest territory that models their neighbourhood, guarded by
+ * territoryPossessions.test.ts. A few stay unclaimed because no era tile is
+ * near enough: Réunion outside the Medieval/Modern/2100 boards (the nearest
+ * land is ~1700 km away), Tokelau on the Ancient, WWII and Cold War boards,
+ * and Mayotte on the Ancient board, whose Southern Africa preset is shared
+ * with the Medieval one where Madagascar is the better owner.
+ */
 export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   // ═══════════════════════════════════════════════════════════════════════════
   // ANCIENT (entries NOT in TERRITORY_GEO_CONFIG)
@@ -847,7 +868,7 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   gaul: ['FR', 'BE', 'NL', 'LU', 'CH'],
   hispania: ['ES', 'PT'],
   italia: ['IT'],
-  north_africa: ['MA', 'DZ', 'TN', 'LY'],
+  north_africa: ['MA', 'DZ', 'TN', 'LY', 'IC'],
   greece: ['GR', 'AL', 'MK', 'BA', 'ME', 'RS', 'HR', 'SI', 'BG'],
   anatolia: ['TR'],
   levant: ['SY', 'LB', 'IL', 'JO', 'PS'],
@@ -875,7 +896,7 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   france: ['FR'],
   iberia: ['ES', 'PT'],
   italy_states: ['IT'],
-  scandinavia: ['NO', 'SE', 'FI', 'DK'],
+  scandinavia: ['NO', 'SE', 'FI', 'DK', 'SJ'],
   poland_bohemia: ['PL', 'CZ'],
   hungary: ['HU', 'SK', 'HR', 'RS', 'RO'],
   anatolia_med: ['TR'],
@@ -887,8 +908,8 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   mongolia: ['MN'],
   central_asia: ['KZ', 'UZ', 'TM', 'TJ', 'AF', 'KG'],
   korea_japan: ['KP', 'KR', 'JP'],
-  southeast_asia: ['MM', 'TH', 'LA', 'VN', 'KH', 'MY', 'ID', 'BN'],
-  mali_empire: ['MR', 'SN', 'GM', 'ML', 'BF', 'GN', 'SL'],
+  southeast_asia: ['MM', 'TH', 'LA', 'VN', 'KH', 'MY', 'ID', 'BN', 'CX', 'CC'],
+  mali_empire: ['MR', 'SN', 'GM', 'ML', 'BF', 'GN', 'SL', 'IC'],
   east_africa_med: ['ET', 'ER', 'DJ', 'SO', 'KE', 'UG'],
   central_africa_med: ['TD', 'CF', 'CM', 'GA', 'CG', 'GQ'],
 
@@ -900,11 +921,11 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   germany: ['DE'],
   italy_ww2: ['IT'],
   iberia_ww2: ['ES', 'PT'],
-  scandinavia_ww2: ['NO', 'SE', 'FI', 'DK'],
+  scandinavia_ww2: ['NO', 'SE', 'FI', 'DK', 'SJ'],
   eastern_europe_ww2: ['PL', 'RO', 'HU', 'BG', 'HR', 'SI', 'BA', 'RS', 'ME', 'MK', 'AL', 'GR', 'CZ', 'SK'],
   ukraine: ['UA'],
   caucasus: ['GE', 'AM', 'AZ'],
-  morocco_ww2: ['MA', 'DZ'],
+  morocco_ww2: ['MA', 'DZ', 'IC'],
   libya_egypt: ['LY', 'EG'],
   ethiopia_ww2: ['ET', 'ER', 'DJ', 'SO', 'UG', 'KE'],
   west_africa_ww2: ['MR', 'SN', 'GM', 'GN', 'SL', 'LR', 'CI', 'BF', 'GH', 'TG', 'BJ', 'NG', 'NE'],
@@ -914,14 +935,14 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   arabia_ww2: ['SA', 'YE', 'OM', 'AE', 'KW', 'QA', 'BH'],
   japan_ww2: ['JP'],
   philippines: ['PH'],
-  dutch_east_indies: ['ID'],
+  dutch_east_indies: ['ID', 'CX', 'CC'],
   australia_ww2: ['AU'],
   pacific_islands: ['FJ', 'PG', 'VU', 'NC', 'SB'],
   burma_indochina: ['MM', 'TH', 'LA', 'VN', 'KH', 'MY', 'BN'],
   india_ww2: ['IN', 'PK', 'BD'],
-  caribbean: ['CU', 'HT', 'DO', 'JM', 'TT', 'BS', 'PR', 'BZ', 'GT', 'HN', 'SV', 'NI', 'CR', 'PA'],
+  caribbean: ['CU', 'HT', 'DO', 'JM', 'TT', 'BS', 'PR', 'BZ', 'GT', 'HN', 'SV', 'NI', 'CR', 'PA', 'BQ', 'GP', 'MQ', 'GF'],
   central_africa_ww2: ['TD', 'CF', 'CM', 'GA', 'CG', 'GQ'],
-  south_africa_ww2: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'MW', 'LS', 'SZ'],
+  south_africa_ww2: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'MW', 'LS', 'SZ', 'YT'],
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DISCOVERY (entries NOT in TERRITORY_GEO_CONFIG)
@@ -938,18 +959,18 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   persia_disc: ['IR'],
   arabia_disc: ['SA', 'YE', 'OM', 'AE', 'KW', 'QA', 'BH'],
   new_spain: ['MX', 'GT', 'HN', 'SV', 'NI', 'CR', 'PA', 'BZ'],
-  new_granada: ['CO', 'VE', 'EC'],
+  new_granada: ['CO', 'VE', 'EC', 'BQ', 'GP', 'MQ', 'GF'],
   brazil: ['BR'],
   peru_chile: ['PE', 'CL', 'BO'],
   rio_plata: ['AR', 'UY', 'PY'],
-  morocco: ['MA', 'DZ'],
+  morocco: ['MA', 'DZ', 'IC'],
   west_africa_disc: ['MR', 'SN', 'GM', 'GN', 'SL', 'LR', 'CI', 'BF', 'GH', 'TG', 'BJ', 'NG', 'NE'],
   central_africa_disc: ['TD', 'CF', 'CM', 'GA', 'CG', 'GQ'],
-  east_africa_disc: ['ET', 'ER', 'DJ', 'SO', 'KE', 'UG', 'TZ'],
+  east_africa_disc: ['ET', 'ER', 'DJ', 'SO', 'KE', 'UG', 'TZ', 'YT'],
   south_africa: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'MW', 'LS', 'SZ'],
   ceylon_spice: ['LK'],
   japan_disc: ['JP'],
-  southeast_asia_disc: ['MM', 'TH', 'LA', 'VN', 'KH', 'MY', 'ID', 'BN'],
+  southeast_asia_disc: ['MM', 'TH', 'LA', 'VN', 'KH', 'MY', 'ID', 'BN', 'CX', 'CC'],
 
   // ═══════════════════════════════════════════════════════════════════════════
   // COLD WAR (entries NOT in TERRITORY_GEO_CONFIG)
@@ -958,16 +979,16 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   france_benelux: ['FR', 'BE', 'NL', 'LU'],
   iberia_cw: ['ES', 'PT'],
   italy_cw: ['IT', 'GR'],
-  scandinavia_cw: ['NO', 'SE', 'FI', 'DK'],
+  scandinavia_cw: ['NO', 'SE', 'FI', 'DK', 'SJ'],
   turkey_cw: ['TR'],
   czechoslovakia: ['CZ', 'SK', 'HU'],
   romania_bulgaria: ['RO', 'BG'],
   ukraine_cw: ['UA', 'BY'],
   caucasus_cw: ['GE', 'AM', 'AZ', 'KZ', 'UZ', 'TM', 'TJ', 'KG'],
   mexico_ca: ['MX', 'GT', 'HN', 'SV', 'NI', 'CR', 'PA', 'BZ'],
-  caribbean_cw: ['CU', 'HT', 'DO', 'JM', 'TT', 'BS', 'PR'],
-  colombia_venezuela: ['CO', 'VE'],
-  brazil_cw: ['BR'],
+  caribbean_cw: ['CU', 'HT', 'DO', 'JM', 'TT', 'BS', 'PR', 'GP', 'MQ'],
+  colombia_venezuela: ['CO', 'VE', 'BQ'],
+  brazil_cw: ['BR', 'GF'], // French Guiana shares Brazil's border here
   southern_cone: ['AR', 'CL', 'UY', 'PY', 'BO', 'PE'],
   israel_jordan: ['IL', 'JO', 'PS'],
   egypt_cw: ['EG'],
@@ -975,14 +996,14 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   iran_cw: ['IR'],
   arabia_cw: ['SA', 'YE', 'OM', 'AE', 'KW', 'QA', 'BH'],
   afghanistan: ['AF'],
-  north_africa_cw: ['MA', 'DZ', 'TN', 'LY'],
+  north_africa_cw: ['MA', 'DZ', 'TN', 'LY', 'IC'],
   west_africa_cw: ['MR', 'SN', 'GM', 'GN', 'SL', 'LR', 'CI', 'BF', 'GH', 'TG', 'BJ', 'NG', 'NE'],
   horn_africa: ['ET', 'ER', 'DJ', 'SO', 'KE'],
   central_africa_cw: ['TD', 'CF', 'CM', 'GA', 'CG', 'GQ'],
-  southern_africa_cw: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'MW', 'LS', 'SZ'],
+  southern_africa_cw: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'MW', 'LS', 'SZ', 'YT'],
   india_cw: ['IN', 'PK', 'BD'],
   vietnam_korea: ['VN', 'LA', 'KH', 'TH', 'MM', 'BN'],
-  indonesia_cw: ['ID'],
+  indonesia_cw: ['ID', 'CX', 'CC'],
   australia_cw: ['AU', 'NZ'],
   korea_cw: ['KP', 'KR'],
   japan_cw: ['JP'],
@@ -993,8 +1014,8 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   // ═══════════════════════════════════════════════════════════════════════════
   canada_mod: ['CA'],
   mexico_mod: ['MX'],
-  central_america_mod: ['GT', 'BZ', 'HN', 'SV', 'NI', 'CR', 'PA', 'CU', 'JM', 'HT', 'DO', 'TT', 'BS', 'PR'],
-  colombia_mod: ['CO', 'VE', 'GY', 'SR'],
+  central_america_mod: ['GT', 'BZ', 'HN', 'SV', 'NI', 'CR', 'PA', 'CU', 'JM', 'HT', 'DO', 'TT', 'BS', 'PR', 'GP', 'MQ'],
+  colombia_mod: ['CO', 'VE', 'GY', 'SR', 'GF', 'BQ'],
   brazil_mod: ['BR'],
   peru_mod: ['PE', 'EC', 'BO'],
   argentina_mod: ['AR', 'UY'],
@@ -1002,7 +1023,7 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   uk_mod: ['GB', 'IE'],
   france_mod: ['FR', 'BE', 'NL', 'LU'],
   germany_mod: ['DE', 'AT', 'CZ', 'CH'],
-  scandinavia_mod: ['NO', 'SE', 'FI', 'DK', 'IS'],
+  scandinavia_mod: ['NO', 'SE', 'FI', 'DK', 'IS', 'SJ'],
   iberia_mod: ['ES', 'PT'],
   italy_mod: ['IT', 'SI', 'HR'],
   balkans_mod: ['GR', 'AL', 'MK', 'BG', 'RO', 'RS', 'BA', 'ME', 'HU', 'SK'],
@@ -1014,33 +1035,33 @@ export const TERRITORY_ISO_MAP: Record<string, string[]> = {
   iran_mod: ['IR'],
   saudi_mod: ['SA', 'AE', 'OM', 'YE', 'KW', 'QA', 'BH'],
   egypt_mod: ['EG'],
-  maghreb_mod: ['MA', 'DZ', 'TN', 'LY'],
+  maghreb_mod: ['MA', 'DZ', 'TN', 'LY', 'IC'],
   west_africa_mod: ['SN', 'GM', 'GN', 'GW', 'SL', 'LR', 'CI', 'GH', 'TG', 'BJ', 'BF', 'ML', 'NE', 'MR'],
   nigeria_mod: ['NG', 'CM', 'GQ'],
   central_africa_mod: ['CD', 'CG', 'GA', 'CF', 'TD', 'AO'],
   sudan_horn_mod: ['SD', 'SS', 'ER', 'DJ', 'SO'],
-  east_africa_mod: ['ET', 'KE', 'TZ', 'UG', 'RW', 'BI', 'MG'],
+  east_africa_mod: ['ET', 'KE', 'TZ', 'UG', 'RW', 'BI', 'MG', 'YT', 'RE'],
   southern_africa_mod: ['ZA', 'NA', 'BW', 'ZW', 'ZM', 'MW', 'MZ', 'SZ', 'LS'],
   india_mod: ['IN', 'NP', 'BD', 'LK', 'BT'],
   pakistan_afghan_mod: ['PK', 'AF'],
   japan_mod: ['JP'],
   korea_mod: ['KR', 'KP'],
   southeast_asia_mod: ['TH', 'VN', 'KH', 'LA', 'MM', 'MY', 'SG', 'BN'],
-  indonesia_mod: ['ID', 'PH', 'TL', 'PG'],
-  australia_mod: ['AU', 'NZ', 'FJ'],
+  indonesia_mod: ['ID', 'PH', 'TL', 'PG', 'CX', 'CC'],
+  australia_mod: ['AU', 'NZ', 'FJ', 'TK'], // NZ administers Tokelau
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ERA-GROWTH FRONTIERS (real land/island geometry). Shared ids (australia,
   // southern_africa) also upgrade those frontiers on any other era that uses them.
   // ═══════════════════════════════════════════════════════════════════════════
-  caribbean_isles: ['CU', 'DO', 'HT', 'JM', 'BS', 'PR', 'TT'], // Medieval
+  caribbean_isles: ['CU', 'DO', 'HT', 'JM', 'BS', 'PR', 'TT', 'BQ', 'GP', 'MQ', 'GF'], // Medieval
   southern_africa: ['ZA', 'NA', 'BW', 'ZW', 'MZ', 'LS', 'SZ', 'AO', 'ZM'], // Medieval (+Ancient)
-  madagascar: ['MG', 'MU', 'SC', 'KM'], // Medieval
+  madagascar: ['MG', 'MU', 'SC', 'KM', 'YT', 'RE'], // Medieval
   australia: ['AU'], // Medieval + Discovery
-  polynesia: ['PF', 'WS', 'TO', 'CK', 'NU', 'TV'], // Medieval
-  micronesia: ['FM', 'MH', 'PW', 'GU', 'MP', 'KI'], // Discovery
+  polynesia: ['PF', 'WS', 'TO', 'CK', 'NU', 'TV', 'TK'], // Medieval
+  micronesia: ['FM', 'MH', 'PW', 'GU', 'MP', 'KI', 'TK'], // Discovery
   new_zealand: ['NZ'], // Discovery
-  polar_north: ['GL'], // Discovery (Greenland)
+  polar_north: ['GL', 'SJ'], // Discovery (Greenland + Svalbard)
   falklands_ww2: ['FK', 'GS'], // WWII
 };
 

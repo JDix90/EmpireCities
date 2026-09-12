@@ -74,6 +74,14 @@ so a Caribbean territory can list `{ "iso": "GF" }` directly. An entry **with** 
 `clip_bbox` is never trimmed: the box already says which part is meant. The table
 lives in `COUNTRY_HOMELANDS` (`frontend/src/data/territoryGeoMapping.ts`).
 
+On the built-in era boards these codes are claimed by the **nearest territory**,
+not by the colonial parent: Guadeloupe and Martinique go to whoever holds the
+Caribbean, the Canaries to North Africa, Svalbard to Scandinavia, Mayotte and
+Réunion to Madagascar or East Africa, Tokelau to Polynesia, and Christmas and
+the Cocos Islands to the Malay archipelago. `territoryPossessions.test.ts`
+enforces that: a claimed possession must sit within 1300 km of the rest of the
+claiming territory, so it can never be assigned across an ocean.
+
 ### Alternative: `iso_codes` + `clip_bbox`
 
 For clipping the **entire merged** geometry:
