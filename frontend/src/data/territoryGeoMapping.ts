@@ -11,7 +11,14 @@
  * territory. If two territories share a country, use clip_bbox in GEO_CONFIG to
  * split the polygon. Failing to do so causes overlapping renders on the globe.
  *
- * Source: Natural Earth ne_110m_admin_0_countries.geojson
+ * A bare country reference (no clip_bbox) means the country's HOMELAND. Natural
+ * Earth folds integral overseas territory into the parent feature — France
+ * carries French Guiana, the Antilles, Mayotte and Réunion — so an unclipped
+ * `FR` drew Gaul in South America and the Indian Ocean. COUNTRY_HOMELANDS below
+ * trims those pieces off and re-registers them under their conventional codes
+ * (`GF`, `GP`, `MQ`, …) so a territory can still claim them by name.
+ *
+ * Source: Natural Earth ne_50m_admin_0_countries (frontend/public/geo)
  */
 
 /** [minLng, minLat, maxLng, maxLat] - clips country polygon to this bbox */
@@ -25,6 +32,75 @@ export interface GeoConfigItem {
 
 /** Full geo config for a territory: list of countries, each optionally clipped */
 export type TerritoryGeoConfig = GeoConfigItem[];
+
+/**
+ * Where a country's homeland is, and which far-flung polygons of its Natural
+ * Earth feature belong to a possession that deserves its own ISO code.
+ *
+ * `homeland`: a polygon of the feature is kept for a bare (unclipped) reference
+ * when its bounding box touches ANY of these boxes. Whole polygons are kept or
+ * dropped — never cut — so coastlines stay exact and no clipping runs.
+ *
+ * `possessions`: a dropped polygon whose bbox centre falls in one of these boxes
+ * is registered under that code (only if the GeoJSON has no feature for it), so
+ * `{ iso: 'GF' }` resolves French Guiana even though the file ships it inside
+ * France. Pieces with no ISO code of their own (the Azores, the Galápagos,
+ * Easter Island) are simply dropped.
+ *
+ * Authored `clip_bbox` references are NOT trimmed: the box already states which
+ * part of the country is meant, and community maps rely on that to reach the
+ * Antilles through `FR` with a Caribbean box.
+ */
+export interface CountryHomeland {
+  homeland: ClipBbox[];
+  possessions?: Record<string, ClipBbox>;
+}
+
+export const COUNTRY_HOMELANDS: Record<string, CountryHomeland> = {
+  // Metropolitan France + Corsica. Drops the Antilles, French Guiana, Mayotte, Réunion.
+  FR: {
+    homeland: [[-6, 41, 10, 52]],
+    possessions: {
+      GP: [-62, 15.8, -61.1, 16.6], // Guadeloupe (Basse-Terre, Grande-Terre, Marie-Galante)
+      MQ: [-61.3, 14.3, -60.7, 15], // Martinique
+      GF: [-55, 1.5, -51, 6.5], // French Guiana
+      YT: [44.5, -13.5, 45.5, -12.5], // Mayotte
+      RE: [55, -21.5, 56, -20.5], // Réunion
+    },
+  },
+  // European Netherlands. Drops Bonaire, Saba and Sint Eustatius.
+  NL: {
+    homeland: [[2, 50, 8, 54]],
+    possessions: { BQ: [-69, 11.5, -62.5, 18] }, // Caribbean Netherlands
+  },
+  // Peninsula + Balearics. Drops the Canaries.
+  ES: {
+    homeland: [[-10, 35, 5, 44]],
+    possessions: { IC: [-19, 27, -13, 30] }, // Canary Islands (ISO 3166-1 reserved code)
+  },
+  // Mainland. Drops the Azores and Madeira (no ISO 3166-1 codes of their own).
+  PT: { homeland: [[-10, 36, -6, 43]] },
+  // Mainland + coastal islands. Drops Svalbard, Bear Island and Jan Mayen.
+  NO: {
+    homeland: [[3, 57, 32, 72]],
+    possessions: { SJ: [-10, 70, 36, 81] }, // Svalbard and Jan Mayen
+  },
+  // North/South Island, the subantarctic islands and the Chathams. Drops Tokelau.
+  NZ: {
+    homeland: [[165, -53, 180, -33], [-177, -45, -175, -43]],
+    possessions: { TK: [-173, -10, -170, -8] }, // Tokelau
+  },
+  // Continent + Tasmania + Macquarie. Drops Christmas and the Cocos (Keeling) Islands,
+  // which Natural Earth ships as a separate "Indian Ocean Ter." feature under AU.
+  AU: {
+    homeland: [[110, -56, 160, -9]],
+    possessions: { CX: [105, -11, 106, -10], CC: [96, -13, 98, -11] },
+  },
+  // Mainland + Juan Fernández. Drops Easter Island.
+  CL: { homeland: [[-82, -57, -65, -17]] },
+  // Mainland. Drops the Galápagos.
+  EC: { homeland: [[-82, -6, -74, 2]] },
+};
 
 /**
  * Territories with split regions (clipped by bbox).
