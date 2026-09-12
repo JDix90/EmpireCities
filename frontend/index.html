@@ -10,11 +10,20 @@
     <meta name="theme-color" content="#0f1117" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="Borderfall — turn-based territory strategy across eras from ancient kingdoms to galactic fronts." />
+    <!-- Marketing <head> values. The production build OVERWRITES title, description,
+         og:*, twitter:* and canonical for every marketing route from
+         src/marketing/seoContent.mjs (scripts/prerender-marketing.mjs) — that file is
+         the source of truth, not this one. These are kept byte-identical to the landing
+         page's values so the dev server, local OG previews and production all agree,
+         and so nobody reads this file and believes the site describes itself
+         differently than it does. src/marketing/seoContent.test.ts fails on drift, and
+         also pins the attribute order the prerender script's regexes require: reorder
+         these attributes and it silently appends a second tag instead of replacing. -->
+    <meta name="description" content="Borderfall is a free, turn-based territory strategy game you play in your browser. Classic Risk-style conquest, except the world advances through the ages while you play it, from ancient legions to fleets among the stars." />
     <link rel="canonical" href="https://borderfall.gg/" />
     <meta property="og:site_name" content="Borderfall" />
-    <meta property="og:title" content="Borderfall" />
-    <meta property="og:description" content="Every border is temporary." />
+    <meta property="og:title" content="Borderfall — Turn-Based Territory Strategy Across the Ages" />
+    <meta property="og:description" content="Borderfall is a free, turn-based territory strategy game you play in your browser. Classic Risk-style conquest, except the world advances through the ages while you play it, from ancient legions to fleets among the stars." />
     <meta property="og:url" content="https://borderfall.gg/" />
     <!-- PNG is the primary social image: Twitter/X, Facebook, Discord, iMessage and
          LinkedIn don't reliably render SVG previews. Absolute URL is required by every
@@ -25,10 +34,10 @@
     <meta property="og:image:type" content="image/png" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Borderfall" />
-    <meta name="twitter:description" content="Every border is temporary." />
+    <meta name="twitter:title" content="Borderfall — Turn-Based Territory Strategy Across the Ages" />
+    <meta name="twitter:description" content="Borderfall is a free, turn-based territory strategy game you play in your browser. Classic Risk-style conquest, except the world advances through the ages while you play it, from ancient legions to fleets among the stars." />
     <meta name="twitter:image" content="https://borderfall.gg/og-image.png" />
-    <title>Borderfall</title>
+    <title>Borderfall — Turn-Based Territory Strategy Across the Ages</title>
     <!-- Lightweight styling for the prerendered marketing HTML (injected into
          #root at build time by scripts/prerender-marketing.mjs). The SPA replaces
          #root on boot, so this only governs the brief pre-hydration paint and the
