@@ -18,7 +18,7 @@ Borderfall is a turn-based territory-conquest strategy game (think Risk, across 
 
 ## All documents
 
-Status: **current** (maintained, carries source-of-truth pointers) · **point-in-time** (accurate when written, dated, not continuously updated) · **design-archive** (planning/design records; never updated).
+Status: **current** (maintained, carries source-of-truth pointers) · **point-in-time** (accurate when written, dated, not continuously updated) · **design-archive** (planning/design records; never updated) · **experimental** (exploration of something not committed to building; nothing in it exists in the codebase).
 
 | Document | Purpose | Status |
 |---|---|---|
@@ -45,9 +45,10 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [STORE_RELEASE.md](STORE_RELEASE.md) | App-store submission checklist | design-archive |
 | [GLOBE_2D_CHECKLIST.md](GLOBE_2D_CHECKLIST.md) | 2D/globe parity checklist | design-archive |
 | [era-advancement/](era-advancement/README.md) | Era Advancement feature design (stages 0–3) | design-archive |
+| [WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md) | Warfront: real-time-strategy mode on the globe — design exploration, unbuilt | experimental |
 
 Root-level: [README.md](../README.md) (canonical setup), [DEPLOYMENT.md](../DEPLOYMENT.md), [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), [TERMS_AND_CONDITIONS.md](../TERMS_AND_CONDITIONS.md).
 
 ## Keeping docs accurate
 
-The *current* docs trade completeness for honesty: every table cites its source-of-truth file, and `bash scripts/check-docs.sh` re-verifies the load-bearing claims (env var names against `config/index.ts`, ports against compose files, migration count, and a sweep for retired state-model phrasing). Run it after architecture-level changes; if it flags drift, fix the doc in the same PR as the code. Design-archive docs are intentionally never updated — they record what was planned, not what is.
+The *current* docs trade completeness for honesty: every table cites its source-of-truth file, and `bash scripts/check-docs.sh` re-verifies the load-bearing claims (env var names against `config/index.ts`, ports against compose files, migration count, and a sweep for retired state-model phrasing). Run it after architecture-level changes; if it flags drift, fix the doc in the same PR as the code. Design-archive docs are intentionally never updated — they record what was planned, not what is. The same applies to *experimental* docs, with one extra caveat: they describe systems that do not exist, so never read one as a description of the codebase.
