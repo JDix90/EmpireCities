@@ -108,6 +108,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Web push (requires `firebase-messaging-sw.js`); native builds use Capacitor instead |
 | `VITE_TENOR_API_KEY` | In-chat GIF search (feature hidden without it) |
 | `VITE_TUTORIAL_V2` | Set `0` to fall back to the legacy tutorial (default: on) |
+| `VITE_LAB_ROUTES` | Set `1` **at build time** to expose the `/__modal-lab` and `/__map-visual-lab` QA harnesses the Playwright specs drive. CI sets it for the e2e build only ([ci.yml](../.github/workflows/ci.yml)); the production image never passes it ([Dockerfile.frontend](../docker/Dockerfile.frontend)), so those routes do not exist in a shipped build |
 
 ## Ports & networking
 
