@@ -62,6 +62,18 @@ Use `geo_config` to clip specific countries to a bounding box:
 
 The first entry clips the US to the eastern half; Canada is included in full.
 
+### Bare codes mean the homeland
+
+An entry with no `clip_bbox` draws the country's **homeland** only. Natural Earth
+folds integral overseas territory into the parent feature (France carries French
+Guiana, Guadeloupe, Martinique, Mayotte and Réunion; Spain the Canaries; Norway
+Svalbard), and a bare `FR` used to paint a French blob on the coast of Brazil. The
+trimmed pieces are available under their own codes instead — `GF`, `GP`, `MQ`,
+`YT`, `RE`, `BQ` (Caribbean Netherlands), `IC` (Canaries), `SJ`, `TK`, `CX`, `CC` —
+so a Caribbean territory can list `{ "iso": "GF" }` directly. An entry **with** a
+`clip_bbox` is never trimmed: the box already says which part is meant. The table
+lives in `COUNTRY_HOMELANDS` (`frontend/src/data/territoryGeoMapping.ts`).
+
 ### Alternative: `iso_codes` + `clip_bbox`
 
 For clipping the **entire merged** geometry:
@@ -122,6 +134,6 @@ TERRITORY_GEO_CONFIG['my_territory'] = [
 
 ## Reference
 
-- **Source:** Natural Earth `ne_110m_admin_0_countries.geojson` (ISO_A2)
+- **Source:** Natural Earth `ne_50m_admin_0_countries` (`frontend/public/geo`, ISO_A2 / ISO_A2_EH)
 - **Bbox format:** `[minLng, minLat, maxLng, maxLat]` (degrees)
 - **ISO_A2:** 2-letter codes (e.g. `FR`, `US`, `RU`)

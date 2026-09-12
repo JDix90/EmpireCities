@@ -6,6 +6,7 @@
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
+import { homelandGeometry } from '../../utils/countryHomeland';
 
 const COUNTRIES_GEOJSON_URL =
   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
@@ -185,7 +186,9 @@ export default function GlobeMapEditor({
           for (const f of features) {
             const g = f.geometry;
             if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
-              geometries.push(g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+              // Preview what the game draws: a bare code is the homeland only.
+              const homeland = homelandGeometry(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+              if (homeland) geometries.push(homeland);
             }
           }
         }

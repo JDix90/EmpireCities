@@ -18,6 +18,7 @@ import {
 import { ACW_TERRITORY_STATES } from '../data/acwStateMap';
 import { RISORGIMENTO_TERRITORY_PARTS } from '../data/risorgimentoRegionMap';
 import { clipToBbox, type ClipBbox } from './geoClip';
+import { homelandGeometry, registerPossessionFeatures } from './countryHomeland';
 import { unionGeoJsonGeometries } from './geoUnion';
 import { COMMUNITY_14N_TERRITORY_GEO } from '../data/community14nAdmin1Map';
 import { COMMUNITY_STRAIT_HORMUZ_TERRITORY_GEO } from '../data/communityStraitHormuzGeo';
@@ -369,6 +370,9 @@ export function buildTerritoryGlobeGeometries(
         }
       }
     }
+    // French Guiana, Svalbard, the Canaries… ship inside their parent feature;
+    // give them their own codes so maps can name them (see COUNTRY_HOMELANDS).
+    registerPossessionFeatures(isoToFeatures);
   }
 
   const postalToGeom = new Map<string, GeoJSON.Polygon | GeoJSON.MultiPolygon>();
@@ -961,6 +965,10 @@ export function buildTerritoryGlobeGeometries(
 
     if (hasData) {
       let geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
+      // A territory-level clip (bbox or polygon, applied below) already says
+      // which part of each country is meant, so bare codes stay whole for it.
+      const territoryClipped =
+        Boolean(territory.clip_bbox) || (territory.clip_polygon?.length ?? 0) > 0;
 
       if (geoConfig && geoConfig.length > 0) {
         for (const item of geoConfig) {
@@ -972,8 +980,13 @@ export function buildTerritoryGlobeGeometries(
             if (item.clip_bbox) {
               const clipped = clipToBbox(g, item.clip_bbox);
               if (clipped) geometries.push(clipped);
-            } else {
+            } else if (territoryClipped) {
               geometries.push(g);
+            } else {
+              // A bare reference means the homeland: an unclipped FR must not
+              // paint Gaul across French Guiana and the Antilles.
+              const homeland = homelandGeometry(item.iso, g);
+              if (homeland) geometries.push(homeland);
             }
           }
         }
@@ -983,7 +996,10 @@ export function buildTerritoryGlobeGeometries(
           for (const f of features) {
             const geom = f.geometry;
             if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
-              geometries.push(geom as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+              const g = geom as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+              // Same homeland rule as geo_config.
+              const piece = territoryClipped ? g : homelandGeometry(code, g);
+              if (piece) geometries.push(piece);
             }
           }
         }
