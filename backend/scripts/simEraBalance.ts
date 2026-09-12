@@ -47,6 +47,8 @@
  *                   scripts/eraIncentivePrototypes.ts. Sim-only, not engine
  *                   behaviour. e.g. SIM_RULES=gate,expedition,renaissance
  *   SIM_GRACE SIM_GARRISON_CAP SIM_HEG_PCT SIM_HEG_TURNS SIM_HEG_MIN_ERA
+ *   SIM_EXPEDITION_UNITS SIM_RENAISSANCE_TECHS SIM_WINDFALL_MULT
+ *   SIM_LEVY_UNITS SIM_LOGISTICS_PER_ERA
  *                   tuning for those prototypes.
  */
 import { readFileSync, writeFileSync } from 'fs';
@@ -124,6 +126,10 @@ const INCENTIVE_OPTIONS = {
   hegemonyTurns: Number(process.env.SIM_HEG_TURNS ?? DEFAULT_INCENTIVE_OPTIONS.hegemonyTurns),
   hegemonyMinEra: Number(process.env.SIM_HEG_MIN_ERA ?? DEFAULT_INCENTIVE_OPTIONS.hegemonyMinEra),
   expeditionUnits: Number(process.env.SIM_EXPEDITION_UNITS ?? DEFAULT_INCENTIVE_OPTIONS.expeditionUnits),
+  renaissanceTechs: Number(process.env.SIM_RENAISSANCE_TECHS ?? DEFAULT_INCENTIVE_OPTIONS.renaissanceTechs),
+  windfallMult: Number(process.env.SIM_WINDFALL_MULT ?? DEFAULT_INCENTIVE_OPTIONS.windfallMult),
+  levyUnits: Number(process.env.SIM_LEVY_UNITS ?? DEFAULT_INCENTIVE_OPTIONS.levyUnits),
+  logisticsPerEra: Number(process.env.SIM_LOGISTICS_PER_ERA ?? DEFAULT_INCENTIVE_OPTIONS.logisticsPerEra),
 };
 
 /**
@@ -308,6 +314,7 @@ async function playAiTurn(
     }
   }
 
+  incentives.onDraft(state, pid);
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';

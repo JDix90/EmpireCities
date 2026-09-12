@@ -26,9 +26,27 @@
  *   expedition  On advancing, settle one adjacent frontier of the arriving era
  *               for free — 3 armies walk over from the neighbouring stack. No
  *               dice. The visible, thematic payoff for the advance.
- *   renaissance On advancing, one free tier-1 technology of the arriving era,
- *               softening the `unlocked_techs = []` wipe. Largest single mover
- *               of the three, because a free tier-1 shortens the NEXT gate too.
+ *   renaissance On advancing, free technologies of the arriving era (cheapest
+ *               first, tier-1 then tier-2; count = `renaissanceTechs`),
+ *               softening the `unlocked_techs = []` wipe. Only pays when the
+ *               frontier is gated: alone it measured indistinguishable from
+ *               nothing, and on top of a gate it was worth ~5 points.
+ *
+ * REWARD-SIDE SEARCH (EA-503 round 2). The candidate above reached only +2.0
+ * mean against a +5 bar, so these probe whether a larger, NON-COMBAT reward
+ * closes the gap. All three are economic or territorial by design: era-gap
+ * dice +2 cleared the bar easily and was rejected outright for turning the era
+ * lead into a steamroll, so reward must not come from combat multipliers.
+ *   windfall    A one-off treasury grant on advancing, `windfallMult` × the
+ *               player's last production income — repaying part of the fare so
+ *               the advance does not also cost a full development cycle.
+ *   levy        `levyUnits` armies, distributed round-robin on advancing. The
+ *               `mobilization` era signature already does this for one era;
+ *               this asks what it is worth at every step.
+ *   logistics   Permanent: +`logisticsPerEra` reinforcements per turn for each
+ *               era advanced. The only COMPOUNDING reward tested, and the one
+ *               that most resembles "era-scoped territorial ability" rather
+ *               than a one-off gift.
  *
  * VARIANT (plumbed, off by default, kept as the de-escalation dial):
  *   grace       Makes `gate` temporary: a frontier opens to everyone
@@ -58,6 +76,9 @@ export const INCENTIVE_RULES = [
   'grace',
   'expedition',
   'renaissance',
+  'windfall',
+  'levy',
+  'logistics',
   'garrison',
   'hegemony',
 ] as const;
@@ -76,6 +97,14 @@ export interface IncentiveOptions {
   hegemonyMinEra: number;
   /** Armies an `expedition` walks onto the settled frontier. */
   expeditionUnits: number;
+  /** Free techs granted by `renaissance`, cheapest-first, tier-1 then tier-2. */
+  renaissanceTechs: number;
+  /** `windfall` gold = this multiple of the player's last production income. */
+  windfallMult: number;
+  /** Armies granted round-robin by `levy`. */
+  levyUnits: number;
+  /** `logistics` adds this many reinforcements per turn, per era advanced. */
+  logisticsPerEra: number;
 }
 
 export const DEFAULT_INCENTIVE_OPTIONS: IncentiveOptions = {
@@ -85,6 +114,10 @@ export const DEFAULT_INCENTIVE_OPTIONS: IncentiveOptions = {
   hegemonyTurns: 3,
   hegemonyMinEra: 1,
   expeditionUnits: 3,
+  renaissanceTechs: 1,
+  windfallMult: 1,
+  levyUnits: 4,
+  logisticsPerEra: 1,
 };
 
 /** Parse `SIM_RULES=gate,expedition,renaissance`. Throws on an unknown name. */
@@ -172,10 +205,46 @@ export class IncentiveModel {
     return false;
   }
 
-  /** `expedition` + `renaissance`, applied immediately after a successful advance. */
+  /** Everything that fires on a successful advance. */
   onAdvance(state: GameState, pid: string): void {
     if (this.rules.has('expedition')) this.expedition(state, pid);
     if (this.rules.has('renaissance')) this.renaissance(state, pid);
+    if (this.rules.has('windfall')) this.windfall(state, pid);
+    if (this.rules.has('levy')) this.levy(state, pid);
+  }
+
+  /**
+   * `logistics`: extra reinforcements at the start of each draft, scaling with
+   * how far the player has climbed. Called after the engine has set
+   * `draft_units_remaining` for the turn.
+   */
+  onDraft(state: GameState, pid: string): void {
+    if (!this.rules.has('logistics')) return;
+    const player = state.players.find((p) => p.player_id === pid);
+    const era = player?.current_era_index ?? 0;
+    if (era <= 0) return;
+    state.draft_units_remaining = (state.draft_units_remaining ?? 0)
+      + this.opts.logisticsPerEra * era;
+  }
+
+  /** One-off treasury grant, sized off the player's own economy. */
+  private windfall(state: GameState, pid: string): void {
+    const player = state.players.find((p) => p.player_id === pid);
+    if (!player) return;
+    const income = Math.max(player.last_turn_production_income ?? 0, 1);
+    player.special_resource = (player.special_resource ?? 0)
+      + Math.round(this.opts.windfallMult * income);
+  }
+
+  /** One-off reinforcement wave, round-robin over owned territories. */
+  private levy(state: GameState, pid: string): void {
+    const owned = Object.values(state.territories)
+      .filter((t) => t.owner_id === pid)
+      .sort((a, b) => a.territory_id.localeCompare(b.territory_id));
+    if (owned.length === 0) return;
+    for (let i = 0; i < this.opts.levyUnits; i++) {
+      owned[i % owned.length].unit_count += 1;
+    }
   }
 
   /**
@@ -225,14 +294,18 @@ export class IncentiveModel {
     const player = state.players.find((p) => p.player_id === pid);
     if (!player) return;
     const tree = getEraTechTree(resolvePlayerEraId(state, player));
-    const held = new Set(player.unlocked_techs ?? []);
-    const pick = tree
-      .filter((n) => n.tier === 1 && !held.has(n.tech_id))
-      .sort((a, b) => a.cost - b.cost)[0];
-    if (!pick) return;
     const points = player.tech_points ?? 0;
     const discount = player.pending_tech_discount;
-    applyResearch(state, pid, pick);
+    for (let granted = 0; granted < this.opts.renaissanceTechs; granted++) {
+      const held = new Set(player.unlocked_techs ?? []);
+      // Cheapest first, tier-1 before tier-2 — a grant should shorten the climb,
+      // not hand over the top of the tree.
+      const pick = tree
+        .filter((n) => (n.tier === 1 || n.tier === 2) && !held.has(n.tech_id))
+        .sort((a, b) => (a.tier - b.tier) || (a.cost - b.cost))[0];
+      if (!pick) break;
+      applyResearch(state, pid, pick);
+    }
     // Free: restore what applyResearch spent, and any discount it consumed.
     player.tech_points = points;
     player.pending_tech_discount = discount;
