@@ -1,0 +1,85 @@
+{
+  "name": "western twenty: a Belgic tribe raids Gaul's border farm, and nobody clicked anything",
+  "ticks": 3600,
+  "expectedHash": "4342b63f521cb806",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 3,
+    "seed": 2262,
+    "scenario": {
+      "players": [
+        {
+          "index": 1,
+          "food": 2000,
+          "timber": 200,
+          "silver": 200
+        }
+      ],
+      "buildings": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "cell": 161819
+        },
+        {
+          "owner": 1,
+          "kind": 3,
+          "cell": 110694
+        }
+      ],
+      "units": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 17661952,
+          "y": 11501568,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 17661952,
+          "y": 11501568,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 17661952,
+          "y": 11501568,
+          "speed": 3932
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "assign",
+          "unit": 1,
+          "building": 2
+        }
+      },
+      {
+        "tick": 3,
+        "seq": 1,
+        "command": {
+          "type": "assign",
+          "unit": 2,
+          "building": 2
+        }
+      },
+      {
+        "tick": 4,
+        "seq": 2,
+        "command": {
+          "type": "assign",
+          "unit": 3,
+          "building": 2
+        }
+      }
+    ],
+    "terrain_checksum": "7a6d1f7b99f8936f"
+  }
+}
