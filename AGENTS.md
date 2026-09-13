@@ -34,4 +34,5 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 - Maps and games both live in **PostgreSQL** — map geometry in the `maps` table (JSONB); game sessions in `games` / `game_states`. When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
 - Globe: respect **GeoJSON winding** and **`projection_bounds` / `geo_polygon`**; map data changes may affect **both** 2D and globe.
 - Do not add new markdown docs unless the user asks.
+- **Warfront** (experimental RTS mode) must never affect the live Borderfall game and is **admin-only until further notice** — see the isolation rule in [CLAUDE.md](CLAUDE.md) before touching anything under `packages/warfront-sim/`, `database/warfront/`, or any Warfront route.
 - **0→1 feature work:** when the user asks to add a new building, tech, wonder, event card, faction ability, combat/economy rule, or any new gameplay capability, load and follow `.cursor/skills/feature-integration-playbook/SKILL.md` before touching code.

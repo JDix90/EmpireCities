@@ -51,6 +51,41 @@ prompt for Claude Console/Projects, not agent instructions.)
   `npx tsx ../database/seedMaps.ts`. Never touch the developer's own clusters
   on ports 5432/5433/5434.
 
+## Warfront: the isolation rule
+
+**Nothing built, modified, or removed for Warfront may change the live Borderfall
+game in any way.** Warfront is a second mode, not a refactor of the first. It is
+**admin-only until further notice** — there is no player-facing Warfront surface,
+and "we'll gate it later" is not a plan. This rule is definitive and outranks
+convenience; if a Warfront task seems to require touching live game behaviour, stop
+and say so rather than working around it.
+
+What that means in practice:
+
+- **Server:** every Warfront endpoint and socket path carries
+  `preHandler: [authenticate, requireAdmin]`. Enforced server-side, never only by
+  hiding a control in the client — this repo's own `spectate_enabled` comment says
+  exactly that, and its QA lab routes once shipped unauthenticated to production.
+- **Client:** every Warfront route is wrapped `<PrivateRoute><AdminRoute>…` like
+  `/admin` in `App.tsx`, which checks the JWT claim via `selectIsAdminFromToken`
+  rather than the attacker-mutable localStorage user. Warfront UI is lazy-loaded so
+  it never lands in a player's bundle.
+- **Flag:** `warfront_enabled` (`envOptIn`, OFF) gates it on top of the admin check.
+  Two gates in series, admin first.
+- **Shared files:** touching `featureFlags.ts`, `AdminPage.tsx`, `App.tsx`,
+  `package.json`, the Dockerfiles or CI is allowed only additively. Adding a line is
+  fine; changing or deleting an existing one that the live game reads is not.
+- **Assets and packages:** Warfront code lives in `packages/warfront-sim` and
+  `database/warfront/`; the sim package is deliberately not a dependency of the
+  backend. Nothing Warfront goes in `frontend/public/`, which is served to every
+  anonymous visitor.
+- **Prove it per PR:** state in the PR body which existing files were touched and
+  why each change is additive. `git diff --name-status main` plus a check that no
+  live-path line was removed is the evidence, not an assurance.
+
+Design brief: [docs/WARFRONT_RTS_MODE.md](docs/WARFRONT_RTS_MODE.md). Simulation
+core: [packages/warfront-sim](packages/warfront-sim/README.md).
+
 ## Conventions
 
 - New player-facing features ship dark-launched behind a flag: an entry in
