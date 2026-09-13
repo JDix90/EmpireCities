@@ -50,6 +50,9 @@ const MapVisualLabPage = lazyWithChunkRetry(() => import('./pages/MapVisualLabPa
 /** Build-time gate for the QA harness routes below. Never set in production. */
 const LAB_ROUTES_ENABLED = import.meta.env.VITE_LAB_ROUTES === '1';
 const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
+// Warfront (experimental RTS mode) — admin-only, and lazy like every other route so
+// the PixiJS tactical view never lands in a player's bundle.
+const WarfrontPage = lazyWithChunkRetry(() => import('./pages/WarfrontPage'));
 const UpgradePage = lazyWithChunkRetry(() => import('./pages/UpgradePage'));
 const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
@@ -374,6 +377,7 @@ export default function App() {
         <Route path="/live" element={<Navigate to="/live-games" replace />} />
         <Route path="/spectate/:gameId" element={<PrivateRoute><SpectatorPage /></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><AdminRoute><AdminPage /></AdminRoute></PrivateRoute>} />
+        <Route path="/admin/warfront" element={<PrivateRoute><AdminRoute><WarfrontPage /></AdminRoute></PrivateRoute>} />
         <Route path="/codex" element={<CodexPage />} />
         <Route path="/war-room" element={<PrivateRoute><WarRoomPage /></PrivateRoute>} />
 

@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@borderfall/shared": ["../packages/shared/src/index.ts"]
+      "@borderfall/shared": ["../packages/shared/src/index.ts"],
+      "@borderfall/warfront-sim": ["../packages/warfront-sim/src/index.ts"]
     }
   },
   "include": ["src"],

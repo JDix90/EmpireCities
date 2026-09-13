@@ -135,6 +135,9 @@ importers:
       '@borderfall/shared':
         specifier: workspace:*
         version: link:../packages/shared
+      '@borderfall/warfront-sim':
+        specifier: workspace:*
+        version: link:../packages/warfront-sim
       '@capacitor/haptics':
         specifier: ^6.0.3
         version: 6.0.3(@capacitor/core@6.2.1)

@@ -1763,6 +1763,17 @@ export default function AdminPage() {
                   {warfront.enabled ? 'warfront_enabled · on' : 'warfront_enabled · off'}
                 </span>
               </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Link
+                  to="/admin/warfront"
+                  className="rounded border border-bf-gold/60 bg-bf-gold/10 px-3 py-1.5 text-xs font-medium text-bf-gold hover:bg-bf-gold/20"
+                >
+                  Open the tactical view
+                </Link>
+                <span className="text-[11px] text-bf-muted">
+                  Terrain renderer with pan and zoom. Admin-only; no units or orders yet.
+                </span>
+              </div>
               {!warfront.enabled ? (
                 <p className="mt-3 text-xs text-bf-muted">
                   The terrain endpoint answers 404 while the flag is off. Switch it on under{' '}
