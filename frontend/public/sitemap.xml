@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Borderfall public marketing + legal pages. Update lastmod when content
      materially changes. The game/app routes are intentionally excluded — they
-     are auth-gated, client-rendered, and not useful as search landing pages. -->
+     are auth-gated, client-rendered, and not useful as search landing pages.
+     The per-day Daily archive URLs are generated from the database instead
+     (sitemap-daily.xml, declared in robots.txt) because they grow daily. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://borderfall.gg/</loc>
@@ -17,6 +19,41 @@
     <loc>https://borderfall.gg/eras</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers/free-risk-like-browser-games</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers/play-risk-style-game-with-friends-online</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers/browser-strategy-games-without-signup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers/turn-based-strategy-on-phone-browser</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/answers/short-strategy-games-under-15-minutes</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/daily/archive</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://borderfall.gg/about</loc>

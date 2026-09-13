@@ -27,6 +27,8 @@ import { runReadinessChecks } from './health/readiness';
 import { featureFlags, getClientFeatureFlags } from './config/featureFlags';
 import { matchmakingRoutes, setMatchmakingIo, startMatchmakingSweep, stopMatchmakingSweep } from './modules/matchmaking/matchmaking.routes';
 import { dailyRoutes } from './modules/daily/daily.routes';
+import { dailyArchiveRoutes } from './modules/daily/dailyArchive.routes';
+import { registerDailyArchivePreviewRoutes } from './modules/daily/dailyArchivePreview';
 import { storeRoutes } from './modules/store/store.routes';
 import { campaignRoutes } from './modules/campaign/campaign.routes';
 import { progressionRoutes } from './modules/progression/progression.routes';
@@ -274,6 +276,10 @@ async function bootstrap(): Promise<void> {
   await app.register(mapsRoutes, { prefix: '/api/maps' });
   await app.register(matchmakingRoutes, { prefix: '/api/matchmaking' });
   await app.register(dailyRoutes, { prefix: '/api/daily' });
+  // Public read-only archive of settled Daily puzzles. Same prefix, separate
+  // plugin: daily.routes.ts is authenticated end to end and a public route
+  // hiding in that list is the kind of thing review skims past.
+  await app.register(dailyArchiveRoutes, { prefix: '/api/daily' });
   await app.register(storeRoutes, { prefix: '/api/store' });
   await app.register(campaignRoutes, { prefix: '/api/campaign' });
   await app.register(progressionRoutes, { prefix: '/api/progression' });
@@ -281,6 +287,9 @@ async function bootstrap(): Promise<void> {
   // Top-level (no /api prefix) crawler HTML shell for /replay/:id. nginx routes
   // only social/chat crawler user-agents here; humans get the SPA.
   registerReplayPreviewRoutes(app);
+  // Same split for /daily/archive and /daily/:date — crawlers get server-rendered
+  // HTML carrying the real puzzle and results; humans get the SPA.
+  registerDailyArchivePreviewRoutes(app);
   await app.register(leaderboardRoutes, { prefix: '/api/leaderboards' });
   await app.register(feedRoutes, { prefix: '/api/feed' });
   await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });

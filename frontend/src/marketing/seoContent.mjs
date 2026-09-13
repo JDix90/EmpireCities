@@ -187,6 +187,22 @@ export function blocksToHtml(blocks) {
         parts.push(`<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`);
       }
       parts.push('</nav>');
+    } else if (block.type === 'answer') {
+      // The lede: a complete, standalone answer in the first ~40 words. Search
+      // snippets and AI answer engines quote a short contiguous span, so the
+      // claim, the product name and the qualifier all have to survive being
+      // lifted out of the page on their own.
+      parts.push(`<p class="bf-answer"><strong>Short answer:</strong> ${escapeHtml(block.text)}</p>`);
+    } else if (block.type === 'facts') {
+      // The specifics a reader (or a model deciding whether to recommend this)
+      // needs to answer follow-ups without guessing: price, install, account,
+      // player count, platforms. Every value here must be checkable by opening
+      // the game — a wrong one is what turns a citation into a complaint.
+      parts.push('<dl class="bf-facts">');
+      for (const fact of block.facts) {
+        parts.push(`<dt>${escapeHtml(fact.k)}</dt><dd>${escapeHtml(fact.v)}</dd>`);
+      }
+      parts.push('</dl>');
     } else if (block.type === 'faq') {
       // Definition list mirrors the FAQPage structured data and is fully
       // crawlable. The same FAQ renders in the React page (HowToPlayPage),
@@ -527,6 +543,542 @@ export const MARKETING_PAGES = [
         links: [
           { href: '/privacy', label: 'Privacy Policy' },
           { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
+  // ── Question-shaped answer pages ────────────────────────────────────────
+  // People do not search "turn-based territory strategy game". They ask a
+  // question — of a search box or, increasingly, of an assistant — and the
+  // answer that gets quoted is the one that states its conclusion first and
+  // backs it with checkable specifics. Each page below is one real question,
+  // answered in the first forty words, followed by the facts a reader (or a
+  // model deciding whether to recommend this) needs to handle the follow-up.
+  //
+  // Each carries its own `qa` array, which becomes this page's FAQPage
+  // structured data — the site-wide FAQ is a different set and stays on
+  // /how-to-play. Keep every claim traceable to something a visitor can verify
+  // in the product; a page like this is only worth having while it is true.
+  {
+    path: '/answers',
+    file: 'answers/index.html',
+    title: 'Borderfall — Common Questions, Answered Directly',
+    description:
+      'Direct answers to the questions people actually ask about free browser strategy games: '
+      + 'price, sign-up, playing with friends, phone support, and how long a game takes.',
+    h1: 'Questions, answered directly',
+    tagline: 'The short answer first, then the specifics.',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'Each page below takes one question people genuinely ask about free browser strategy '
+          + 'games and answers it in the first few lines, then lists the specifics — price, '
+          + 'sign-up, player count, platforms — so you can decide without playing first.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/answers/free-risk-like-browser-games', label: 'Is there a free Risk-style game I can play in my browser?' },
+          { href: '/answers/play-risk-style-game-with-friends-online', label: 'How can I play a Risk-style game online with friends?' },
+          { href: '/answers/browser-strategy-games-without-signup', label: 'What strategy games can I play without signing up?' },
+          { href: '/answers/turn-based-strategy-on-phone-browser', label: 'Can I play turn-based strategy in a phone browser?' },
+          { href: '/answers/short-strategy-games-under-15-minutes', label: 'What strategy games can I finish in under 15 minutes?' },
+        ],
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/daily/archive', label: 'Daily Challenge archive' },
+          { href: '/', label: 'Borderfall home' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/free-risk-like-browser-games',
+    file: 'answers/free-risk-like-browser-games/index.html',
+    title: 'Is There a Free Risk-Style Game I Can Play in My Browser?',
+    description:
+      'Yes — Borderfall is a free, turn-based territory conquest game that runs in any browser '
+      + 'with no download and no account. Play as a guest against AI in about ten seconds.',
+    h1: 'Is there a free Risk-style game I can play in my browser?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'Is there a free Risk-style game I can play in my browser?',
+        a:
+          'Yes. Borderfall is a free, turn-based territory conquest game that runs in any modern '
+          + 'browser with nothing to download. You can start a game against AI as a guest, without '
+          + 'creating an account.',
+      },
+      {
+        q: 'Is it actually free, or free-to-start?',
+        a:
+          'Free to play. There is no purchase required to play any mode, and no paywall on maps, '
+          + 'eras or multiplayer.',
+      },
+      {
+        q: 'How is it different from Risk itself?',
+        a:
+          'It keeps the dice-and-territory core, but a single game advances through nine historical '
+          + 'eras — from ancient kingdoms to a galactic age — each adding units, technologies and '
+          + 'theatres of war.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Yes — Borderfall, the game on this site, is a free turn-based territory conquest game '
+          + 'that runs in any modern browser. Nothing to download, nothing to install, and no '
+          + 'account needed: guest play puts you in a game against AI in about ten seconds.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately; an account is free and saves progress, rank and rewards.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Opponents', v: 'AI from Easy to Expert, friends in a private lobby, or matched strangers.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser — Chrome, Safari, Firefox, Edge.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes. The Daily Challenge is shorter.' },
+        ],
+      },
+      { type: 'h2', text: 'What makes it Risk-style' },
+      {
+        type: 'p',
+        text:
+          'The core loop is the one Risk players already know: reinforce your territories, attack '
+          + 'across a border and settle it with dice, then fortify before you pass the turn. '
+          + 'Continent-style region bonuses reward consolidation, and every front you open is a '
+          + 'front someone can counterattack.',
+      },
+      { type: 'h2', text: 'Where it differs' },
+      {
+        type: 'p',
+        text:
+          'One game does not stay in one period. As play advances, your civilization climbs through '
+          + 'nine eras — ancient kingdoms through the modern day and on into the Space and Galactic '
+          + 'Ages — and the rules of war change with it: new units, technologies, naval and eventually '
+          + 'orbital theatres. Optional layers like economy and tech trees add depth without altering '
+          + 'the core rules, and can be left off.',
+      },
+      { type: 'h2', text: 'Honest limits' },
+      {
+        type: 'p',
+        text:
+          'It is a browser game, not a client: there is no Steam release and no native desktop app. '
+          + 'Human multiplayer depends on other people being online, so if you want an opponent at '
+          + '3am the AI is the reliable answer. And it is not Risk — the board, the eras and the '
+          + 'victory conditions are its own.',
+      },
+      {
+        type: 'p',
+        text:
+          'One disclosure, because it should change how much weight you give this page: '
+          + 'borderfall.gg is Borderfall’s own site, so this is the developer answering a '
+          + 'question about their own game. Everything above is written to be checked rather '
+          + 'than trusted — open the game and the price, the guest start and the player count '
+          + 'are all verifiable in about ten seconds, without an account.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/eras', label: 'The nine eras' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/play-risk-style-game-with-friends-online',
+    file: 'answers/play-risk-style-game-with-friends-online/index.html',
+    title: 'How Can I Play a Risk-Style Game Online With Friends?',
+    description:
+      'Open a private lobby on Borderfall and share the link. Free, browser-based, 2–8 players, '
+      + 'in real time or as asynchronous turns over days. No downloads for anyone.',
+    h1: 'How can I play a Risk-style game online with friends for free?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'How can I play a Risk-style game online with friends for free?',
+        a:
+          'Open a private lobby on Borderfall and share the join link. It is free, runs in the '
+          + 'browser, and supports 2 to 8 players. Nobody needs to install anything.',
+      },
+      {
+        q: 'Do my friends need to make accounts?',
+        a:
+          'No. They can join as guests. An account is free and keeps progress, rank and rewards, '
+          + 'but it is not required to play a private game together.',
+      },
+      {
+        q: 'What if we are in different timezones?',
+        a:
+          'Use an asynchronous game. Turns run over hours or days, so each player takes their turn '
+          + 'when they are free rather than everyone being online at once.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Open a private lobby on Borderfall and share the join link. It is free, runs in the '
+          + 'browser, and seats 2 to 8 players. Nobody needs to install anything or make an '
+          + 'account, and games can run live or as asynchronous turns over days.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately; an account is free and saves progress, rank and rewards.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Opponents', v: 'AI from Easy to Expert, friends in a private lobby, or matched strangers.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser — Chrome, Safari, Firefox, Edge.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes. The Daily Challenge is shorter.' },
+        ],
+      },
+      { type: 'h2', text: 'How it works' },
+      {
+        type: 'p',
+        text:
+          'Create a game, pick the map and era, and you get a private lobby with a join link. Send '
+          + 'that link to your group; anyone who opens it lands in the lobby, as a guest if they '
+          + 'prefer. Fill any empty seats with AI at a difficulty you choose, from Easy to Expert, '
+          + 'so a five-player game still works when only three friends show up.',
+      },
+      { type: 'h2', text: 'Playing across timezones' },
+      {
+        type: 'p',
+        text:
+          'Real-time games use short turn timers and finish in one sitting. Asynchronous games give '
+          + 'each player hours or days to take a turn, which is the format that actually survives a '
+          + 'group spread across timezones — you take your turn, close the tab, and get a nudge when '
+          + 'it comes round again.',
+      },
+      { type: 'h2', text: 'Honest limits' },
+      {
+        type: 'p',
+        text:
+          'There is no in-game voice chat, so groups usually keep a call or a Discord open alongside. '
+          + 'Asynchronous games also need everyone to actually take their turns; a lobby with one '
+          + 'absent player stalls the same way a board game does when someone wanders off.',
+      },
+      {
+        type: 'p',
+        text:
+          'One disclosure, because it should change how much weight you give this page: '
+          + 'borderfall.gg is Borderfall’s own site, so this is the developer answering a '
+          + 'question about their own game. Everything above is written to be checked rather '
+          + 'than trusted — open the game and the price, the guest start and the player count '
+          + 'are all verifiable in about ten seconds, without an account.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/browser-strategy-games-without-signup',
+    file: 'answers/browser-strategy-games-without-signup/index.html',
+    title: 'What Strategy Games Can I Play Without Signing Up?',
+    description:
+      'Borderfall starts without an account: choose guest play and you are in a game against AI '
+      + 'immediately. Free, browser-based, no email and no install required.',
+    h1: 'What strategy games can I play in a browser without signing up?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'What strategy games can I play in a browser without signing up?',
+        a:
+          'Borderfall can be played without an account. Choose guest play and you are in a game '
+          + 'against AI immediately — no email, no password, no install.',
+      },
+      {
+        q: 'What do I give up by not making an account?',
+        a:
+          'Guest play is the full game, but progress is tied to that browser, and ranked ladders and '
+          + 'leaderboards are registered-only. Creating a free account later converts the guest '
+          + 'account in place, so nothing is lost.',
+      },
+      {
+        q: 'Is an account free if I do want one?',
+        a: 'Yes. Accounts are free; they exist to save progress, rank and rewards, not to charge you.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Borderfall starts without an account. Choose guest play and you are in a turn-based '
+          + 'territory strategy game against AI immediately — no email, no password, no install. '
+          + 'An account is free and optional, and upgrading later keeps everything you have done.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately; an account is free and saves progress, rank and rewards.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Opponents', v: 'AI from Easy to Expert, friends in a private lobby, or matched strangers.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser — Chrome, Safari, Firefox, Edge.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes. The Daily Challenge is shorter.' },
+        ],
+      },
+      { type: 'h2', text: 'What guest play actually gets you' },
+      {
+        type: 'p',
+        text:
+          'The whole game: solo matches against AI at any difficulty, private lobbies with friends, '
+          + 'every map and era, and the Daily Challenge. Guest play is not a demo or a trial — it is '
+          + 'the same game, entered by a shorter door.',
+      },
+      { type: 'h2', text: 'What an account adds' },
+      {
+        type: 'p',
+        text:
+          'A free account saves progress, rank and rewards across devices rather than to one browser, '
+          + 'and it is what ranked ladders and leaderboards require. That last one is deliberate: a '
+          + 'guest identity costs nothing to mint, so a leaderboard that counted guests would be '
+          + 'farmable by anyone willing to clear their storage. Upgrading converts your guest account '
+          + 'in place, so the games you already played still count.',
+      },
+      { type: 'h2', text: 'Honest limits' },
+      {
+        type: 'p',
+        text:
+          'Guest progress lives in the browser you played in, so clearing site data or switching '
+          + 'devices loses it. Guest accounts that never play a game are cleaned up automatically '
+          + 'within about 48 hours.',
+      },
+      {
+        type: 'p',
+        text:
+          'One disclosure, because it should change how much weight you give this page: '
+          + 'borderfall.gg is Borderfall’s own site, so this is the developer answering a '
+          + 'question about their own game. Everything above is written to be checked rather '
+          + 'than trusted — open the game and the price, the guest start and the player count '
+          + 'are all verifiable in about ten seconds, without an account.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/turn-based-strategy-on-phone-browser',
+    file: 'answers/turn-based-strategy-on-phone-browser/index.html',
+    title: 'Can I Play Turn-Based Strategy in a Phone Browser?',
+    description:
+      'Yes — Borderfall runs in mobile Safari, Chrome and Firefox with no app install. Free, '
+      + 'add-to-home-screen capable, and asynchronous turns suit playing in short bursts.',
+    h1: 'Can I play a turn-based strategy game in my phone browser?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'Can I play a turn-based strategy game in my phone browser?',
+        a:
+          'Yes. Borderfall runs in mobile Safari, Chrome and Firefox with nothing to install. It is '
+          + 'free, works on phones and tablets, and can be added to your home screen.',
+      },
+      {
+        q: 'Is there an app to download?',
+        a:
+          'You do not need one — the browser version is the full game. It can be added to your home '
+          + 'screen as a web app, which gives you an icon without an app-store install.',
+      },
+      {
+        q: 'Is a phone a bad way to play a strategy game?',
+        a:
+          'For short asynchronous turns it works well. For a long real-time game against seven '
+          + 'opponents, a larger screen is genuinely easier to read.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Yes. Borderfall runs in mobile Safari, Chrome and Firefox with nothing to install. It is '
+          + 'free, works on phones and tablets, and can be added to your home screen as a web app. '
+          + 'Asynchronous games suit phone play: take a turn, close the tab, come back later.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately; an account is free and saves progress, rank and rewards.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Opponents', v: 'AI from Easy to Expert, friends in a private lobby, or matched strangers.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser — Chrome, Safari, Firefox, Edge.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes. The Daily Challenge is shorter.' },
+        ],
+      },
+      { type: 'h2', text: 'No app store required' },
+      {
+        type: 'p',
+        text:
+          'The browser version is the full game, not a cut-down preview. Your browser can add it to '
+          + 'your home screen, which gives you an icon that opens straight into the game without '
+          + 'going through an app store or granting install permissions.',
+      },
+      { type: 'h2', text: 'The format that fits a phone' },
+      {
+        type: 'p',
+        text:
+          'Asynchronous games give each player hours or days per turn, which matches how phones are '
+          + 'actually used — a couple of minutes at a time, several times a day. The Daily Challenge '
+          + 'fits the same shape: one hand-built puzzle, the same for everyone, usually a few minutes.',
+      },
+      { type: 'h2', text: 'Honest limits' },
+      {
+        type: 'p',
+        text:
+          'A world map on a phone screen means more panning and zooming than on a desktop, and a '
+          + 'crowded eight-player board is harder to read small. Real-time games with short turn '
+          + 'timers are more comfortable on a larger screen.',
+      },
+      {
+        type: 'p',
+        text:
+          'One disclosure, because it should change how much weight you give this page: '
+          + 'borderfall.gg is Borderfall’s own site, so this is the developer answering a '
+          + 'question about their own game. Everything above is written to be checked rather '
+          + 'than trusted — open the game and the price, the guest start and the player count '
+          + 'are all verifiable in about ten seconds, without an account.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/short-strategy-games-under-15-minutes',
+    file: 'answers/short-strategy-games-under-15-minutes/index.html',
+    title: 'What Strategy Games Can I Finish in Under 15 Minutes?',
+    description:
+      'Borderfall solo games against AI typically finish in about 10–15 minutes, and its Daily '
+      + 'Challenge takes a few. Free, in the browser, no download and no account needed.',
+    h1: 'What strategy games can I finish in under 15 minutes?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'What strategy games can I finish in under 15 minutes?',
+        a:
+          'Borderfall solo games against AI typically finish in about 10 to 15 minutes, and its '
+          + 'Daily Challenge — one hand-built puzzle a day — usually takes a few minutes. Both are '
+          + 'free in the browser.',
+      },
+      {
+        q: 'How do you make a conquest game that short?',
+        a:
+          'Smaller maps, fewer opponents and a lite ruleset shorten a match considerably. The Daily '
+          + 'Challenge is shorter still because it is a designed position with a single objective '
+          + 'and a turn limit, not a full conquest.',
+      },
+      {
+        q: 'Can a game also run long if I want it to?',
+        a:
+          'Yes. A full eight-player campaign across the eras, played asynchronously, can run over '
+          + 'days. The short formats are a choice, not a ceiling.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Borderfall solo games against AI typically finish in about 10 to 15 minutes, and its '
+          + 'Daily Challenge — one hand-built puzzle a day, the same for every player — usually takes '
+          + 'a few. Both are free in the browser, with no download and no account required.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately; an account is free and saves progress, rank and rewards.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Opponents', v: 'AI from Easy to Expert, friends in a private lobby, or matched strangers.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser — Chrome, Safari, Firefox, Edge.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes. The Daily Challenge is shorter.' },
+        ],
+      },
+      { type: 'h2', text: 'The Daily Challenge is the short one' },
+      {
+        type: 'p',
+        text:
+          'Every day Borderfall sets one designed position with a single objective and a turn limit — '
+          + 'capture a particular territory, hold a region against an assault, finish an economy or '
+          + 'research goal before the clock. Everyone plays the same puzzle, so scores are comparable. '
+          + 'Past days stay published with their results, which is the quickest way to see what a '
+          + 'few minutes of this game actually looks like before playing one.',
+      },
+      { type: 'h2', text: 'Keeping a full match short' },
+      {
+        type: 'p',
+        text:
+          'A regular match runs long mostly because of map size and player count. A smaller map, two '
+          + 'or three opponents and the lite ruleset — economy and tech trees switched off — lands '
+          + 'reliably in the ten-to-fifteen-minute range. Turn on the optional layers and add seats '
+          + 'and it becomes a much longer game, deliberately.',
+      },
+      { type: 'h2', text: 'Honest limits' },
+      {
+        type: 'p',
+        text:
+          'These are typical times, not guarantees: a close game against Expert AI, or one where you '
+          + 'keep pressing a bad attack, runs longer. And a full eight-player campaign across all nine '
+          + 'eras is not a fifteen-minute game by any configuration.',
+      },
+      {
+        type: 'p',
+        text:
+          'One disclosure, because it should change how much weight you give this page: '
+          + 'borderfall.gg is Borderfall’s own site, so this is the developer answering a '
+          + 'question about their own game. Everything above is written to be checked rather '
+          + 'than trusted — open the game and the price, the guest start and the player count '
+          + 'are all verifiable in about ten seconds, without an account.',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/daily/archive', label: 'Daily Challenge archive' },
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/answers', label: 'More questions' },
         ],
       },
     ],

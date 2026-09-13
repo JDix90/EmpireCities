@@ -24,8 +24,23 @@ Two parts, both shipped in this change set:
    use the tagged links below.
 
 **Read results:**
-- CLI: `cd backend && pnpm exec tsx scripts/funnelReport.ts 30` → now includes an
-  **ACQUISITION BY SOURCE** table (signups · accounts · activated, per source).
+- CLI: `cd backend && pnpm exec tsx scripts/funnelReport.ts 30` → includes an
+  **ACQUISITION BY CHANNEL** table (AI assistants / search / social / referral /
+  direct) above the per-source one, plus the self-reported **REFERRAL SURVEY**
+  answers.
+
+  > **Read the AI-assistant row as a floor, not a measurement.** ChatGPT stamps
+  > `utm_source=chatgpt.com` on links it serves, so it is counted. Assistant
+  > desktop and mobile apps, and several web assistants, send no referrer at
+  > all — those visits are indistinguishable from a typed URL and land in
+  > **Direct**. Google's AI Overviews refer as `google.com` and count as
+  > **Search**. So read AI assistants and Direct together, and trust the
+  > referral survey over both. Classification lives in
+  > `backend/src/services/acquisitionChannel.ts`.
+
+- Whether assistants actually recommend us — and whether what they say is true —
+  is a separate, hand-run monthly check: `docs/GEO-PROMPT-PANEL.md`, read with
+  `pnpm -C backend exec tsx scripts/geoPanelReport.ts`.
 - Admin API: `GET /api/admin/metrics/funnel?days=30` (same shape, `acquisition[]` added).
 
 Decision rule after week 1: keep spend on the source with the lowest **cost per account**
@@ -101,6 +116,12 @@ Priority order:
 3. **Show HN** — "browser strategy game, no download, plays vs AI instantly" angle; can spike hard.
 4. **Web-game portals (free, huge built-in traffic):** CrazyGames, Poki, itch.io, Newgrounds,
    AlternativeTo. A single feature here dwarfs the current funnel.
+   These are also **retrieval corpus**, not just traffic. When someone asks an
+   assistant for "a free browser game like Risk", the model usually synthesizes
+   from listicles and aggregator entries rather than from borderfall.gg — so an
+   AlternativeTo entry under "Risk alternatives" can be worth more
+   recommendation surface than another page on our own domain. See
+   `docs/GEO-PROMPT-PANEL.md` for which questions we currently lose.
 5. **Native vertical social** — post the 9:16 cuts organically to TikTok / Reels / Shorts
    ("painting the map" content performs).
 6. **Activate the built-in loops** — surface the **referral bonus** (50/25 gold) and the
