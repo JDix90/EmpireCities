@@ -10,6 +10,7 @@ import { RaiderBot } from '../bots/raider';
 import { TurtleBot } from '../bots/turtle';
 import { RusherBot } from '../bots/rusher';
 import { matchCapTicks } from '../scoring';
+import { SEATS } from '../openings';
 import { TICKS_PER_MINUTE } from '../rules';
 
 /**
@@ -63,6 +64,53 @@ describe('every policy can play a match without breaking the simulation', () => 
         }
       }
     });
+  }
+});
+
+/**
+ * Every policy, from every seat on the roster, actually runs an economy.
+ *
+ * This is an invariant and not a balance target, which is why it is here rather than in
+ * the report: a policy that raises nothing is not playing badly, it is not playing. The
+ * distinction had teeth. Nothing in this suite used to look at what a bot BUILT — the
+ * golden fixtures are frozen command logs, so they reproduce a recording of the bots
+ * rather than the bots, and the reproducibility tests compare a run to itself. A policy
+ * could therefore go completely inert and all of CI stayed green, which is exactly what
+ * happened: the committed map gives Rome and Carthage no forest anywhere in their home
+ * province, the build order stalled on a lumber camp that had nowhere to go, and both
+ * seats played whole matches without raising one building — banking their opening food
+ * for a colony they had no income to pay for, then starving.
+ *
+ * Seat-by-seat rather than once, because that failure was a property of the GROUND. A
+ * check that only ever opened Gaul would have passed every time.
+ */
+describe('every policy runs an economy, from every seat', () => {
+  // Long enough for the opening build to be finished and worked, short enough for CI:
+  // the first producing building is up inside a minute from any seat on this map.
+  const HORIZON = TICKS_PER_MINUTE * 2;
+
+  for (const name of Object.keys(FACTORIES)) {
+    for (const seat of SEATS) {
+      it(`${name} raises a producing building from ${seat.name}`, () => {
+        // The policy under test sits in seat 1 and the roster's first OTHER seat fills
+        // the second chair, so the match is a real two-seat game whichever seat is being
+        // examined.
+        const other = SEATS.find((s) => s.territoryId !== seat.territoryId)!;
+        const { metrics } = playOne(
+          {
+            terrain: grid,
+            geography,
+            policies: twoSeats(name, name),
+            seeds: [],
+            territoryIds: [seat.territoryId, other.territoryId],
+            maxTicks: HORIZON,
+          },
+          29,
+        );
+        expect(metrics.producingAtEnd[1]).toBeGreaterThan(0);
+        expect(metrics.firstProducingTick[1]).not.toBeNull();
+      });
+    }
   }
 });
 

@@ -60,6 +60,11 @@ function printSummary(label: string, summary: Summary): void {
       ? 'none'
       : `${summary.earliestEliminationSeconds}s  (brief wants none before 720s outside rushes)`,
   );
+  line('seats that raised no economy', `${summary.seatMatchesWithoutEconomy}  (must be 0: a seat that built nothing is not playing)`);
+  line(
+    'seats that colonised at all',
+    `${summary.colonisedPercent}%  (${summary.seatMatchesThatColonised}/${summary.seatMatches} — rule I is untested at 0%)`,
+  );
   line('matches where every economy died', String(summary.economicWipeouts));
   line(
     'earliest economy wiped out',

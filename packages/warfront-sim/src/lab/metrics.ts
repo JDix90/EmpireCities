@@ -1,5 +1,5 @@
 import { idiv } from '../fixed';
-import { TICKS_PER_MINUTE, UNIT_SPECS, UnitKind } from '../rules';
+import { BUILDING_SPECS, Resource, TICKS_PER_MINUTE, UNIT_SPECS, UnitKind } from '../rules';
 import type { Sim } from '../sim';
 import type { MatchResult } from '../scoring';
 
@@ -51,6 +51,21 @@ export interface MatchMetrics {
   economyWipedAt: Record<number, number | null>;
   /** The largest villager drawdown each seat suffered — mostly to tribes. */
   villagersLost: Record<number, number>;
+  /**
+   * Seat index → completed buildings that produce a resource, at the end.
+   *
+   * The bluntest question the lab can ask of a policy — did it run an economy at all? —
+   * and it is here because for a while nothing asked it. A policy whose build order
+   * stalls raises nothing, banks its opening food and starves, and every other number on
+   * this record still looks like an ordinary quiet draw: it holds its province, it is
+   * not eliminated, its army is zero like everybody else's. Two of the four seats on the
+   * committed map played entire matches that way without a single test noticing.
+   */
+  producingAtEnd: Record<number, number>;
+  /** Seat index → the tick its first producing building was completed, or null. */
+  firstProducingTick: Record<number, number | null>;
+  /** Seat index → provinces held at the end. One means it never paid rule I's price. */
+  provincesAtEnd: Record<number, number>;
 }
 
 /** How close two units must be, in cells, to count as having found each other. */
@@ -67,6 +82,8 @@ export class MetricsCollector {
   private readonly peakVillagers = new Map<number, number>();
   private readonly lostVillagers = new Map<number, number>();
   private readonly wipedAt = new Map<number, number | null>();
+  private readonly producing = new Map<number, number>();
+  private readonly firstProducing = new Map<number, number | null>();
   private ratio15 = 0;
 
   constructor(seats: number[]) {
@@ -77,6 +94,8 @@ export class MetricsCollector {
       this.peakVillagers.set(seat, 0);
       this.lostVillagers.set(seat, 0);
       this.wipedAt.set(seat, null);
+      this.producing.set(seat, 0);
+      this.firstProducing.set(seat, null);
     }
   }
 
@@ -98,8 +117,18 @@ export class MetricsCollector {
       }
     }
 
+    const producing = new Map<number, number>();
+    for (const building of sim.buildings.all()) {
+      if (building.owner === 0 || !building.complete) continue;
+      if ((BUILDING_SPECS[building.kind]?.produces ?? Resource.None) === Resource.None) continue;
+      producing.set(building.owner, (producing.get(building.owner) ?? 0) + 1);
+    }
+
     const standings = sim.standings;
     for (const seat of this.seats) {
+      const raised = producing.get(seat) ?? 0;
+      this.producing.set(seat, raised);
+      if (raised > 0 && this.firstProducing.get(seat) === null) this.firstProducing.set(seat, sim.tick);
       const now = villagers.get(seat) ?? 0;
       const peak = this.peakVillagers.get(seat) ?? 0;
       if (now > peak) this.peakVillagers.set(seat, now);
@@ -159,6 +188,9 @@ export class MetricsCollector {
       eliminatedAt: Object.fromEntries(this.eliminated),
       economyWipedAt: Object.fromEntries(this.wipedAt),
       villagersLost: Object.fromEntries(this.lostVillagers),
+      producingAtEnd: Object.fromEntries(this.producing),
+      firstProducingTick: Object.fromEntries(this.firstProducing),
+      provincesAtEnd: Object.fromEntries(result.standings.map((s) => [s.seat, s.provinces])),
     };
   }
 }
@@ -187,6 +219,19 @@ export interface Summary {
   economicWipeouts: number;
   /** Earliest tick any seat's economy was wiped out, in whole seconds, or null. */
   earliestWipeoutSeconds: number | null;
+  /**
+   * Seat-matches that ended without one completed producing building — a policy that
+   * never got an economy off the ground at all. Should be zero, always, for any policy
+   * worth measuring: everything else in this summary is a statement about how seats that
+   * are PLAYING compare, and a seat that raised nothing is not playing.
+   */
+  seatMatchesWithoutEconomy: number;
+  /** Seat-matches that ended holding more than the province they started in. */
+  seatMatchesThatColonised: number;
+  /** Seats summed over matches — the denominator of the two counts above. */
+  seatMatches: number;
+  /** Share of seat-matches that colonised at least once, as a percent. */
+  colonisedPercent: number;
 }
 
 function median(values: number[]): number {
@@ -213,6 +258,9 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
   const bySeat: Record<number, Tally> = {};
   let onClock = 0;
   let totalWipeouts = 0;
+  let noEconomy = 0;
+  let colonised = 0;
+  let seatMatches = 0;
   const contacts: number[] = [];
   const ratios: number[] = [];
   const eliminations: number[] = [];
@@ -235,6 +283,11 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
         bySeat[seat].won += 1;
       }
     }
+    for (const [key, count] of Object.entries(m.producingAtEnd)) {
+      seatMatches += 1;
+      if (count === 0) noEconomy += 1;
+      if ((m.provincesAtEnd[Number(key)] ?? 0) > 1) colonised += 1;
+    }
     const wiped = Object.values(m.economyWipedAt);
     for (const t of wiped) if (t !== null) wipeouts.push(idiv(t, 15));
     if (wiped.length > 0 && wiped.every((t) => t !== null)) totalWipeouts += 1;
@@ -254,5 +307,9 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
     earliestEliminationSeconds: eliminations.length > 0 ? Math.min(...eliminations) : null,
     economicWipeouts: totalWipeouts,
     earliestWipeoutSeconds: wipeouts.length > 0 ? Math.min(...wipeouts) : null,
+    seatMatchesWithoutEconomy: noEconomy,
+    seatMatchesThatColonised: colonised,
+    seatMatches,
+    colonisedPercent: percentOf(colonised, seatMatches),
   };
 }

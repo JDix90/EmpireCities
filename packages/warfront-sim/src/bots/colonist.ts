@@ -300,21 +300,38 @@ export class ColonistBot implements Bot {
     return [{ type: 'assign', unit: chosen.id, building: -1 }, this.walkTo(chosen.id, target.cell, view)];
   }
 
-  /** The next building in the order, sited near the seat on ground that will take it. */
+  /**
+   * The next building in the order, sited near the seat on ground that will take it.
+   *
+   * The order is WALKED rather than indexed, because a kind whose ground does not exist
+   * in this province can never be built here however long the bot waits, and stalling on
+   * it stalls everything behind it. That is not hypothetical: the committed map gives
+   * Rome and Carthage no forest at all inside their home province, so their lumber camp
+   * has no site — and the lab measured the consequence. Both seats raised not one
+   * building in a whole match, banked their opening food against a colonisation price
+   * they had no income to reach, and starved to death by minute nine.
+   *
+   * Affordability is deliberately NOT skipped the same way, and the difference is the
+   * point: a kind that is merely unpaid-for is the thing the bot is saving towards, and
+   * stepping past it to something cheaper is exactly how the order collapses into all
+   * the farms first. Waiting for timber is a plan; waiting for forest to appear is not.
+   */
   private buildNext(view: BotView, seatCell: number): Command[] | null {
-    const kind = this.nextBuilding(view);
-    if (kind === null || !canAfford(view, kind)) return null;
-    const site = findBuildSite(view, kind, seatCell, this.params.buildRadius);
-    if (site < 0) return null;
-    // A villager already at work is the right builder: it is nearest, and construction
-    // finishing frees it straight back onto a job.
-    const builder = this.pickBuilder(view, site);
-    if (!builder) return null;
-    return [{ type: 'build', unit: builder, kind, cell: site }];
+    for (const kind of this.wantedBuildings(view)) {
+      const site = findBuildSite(view, kind, seatCell, this.params.buildRadius);
+      if (site < 0) continue;
+      if (!canAfford(view, kind)) return null;
+      // A villager already at work is the right builder: it is nearest, and construction
+      // finishing frees it straight back onto a job.
+      const builder = this.pickBuilder(view, site);
+      if (!builder) return null;
+      return [{ type: 'build', unit: builder, kind, cell: site }];
+    }
+    return null;
   }
 
   /**
-   * What to raise next: the first slot in the order that is not yet filled.
+   * What this policy still wants to raise, in the order it wants it.
    *
    * The ORDER is the policy, so it is walked in sequence and each kind already standing
    * consumes one slot of its own kind as it goes. Tallying the list by kind instead —
@@ -326,9 +343,10 @@ export class ColonistBot implements Bot {
    * A house jumps the queue when population is the binding constraint: the brief's own
    * pop rule makes a house the cheapest unit you can buy.
    */
-  private nextBuilding(view: BotView): BuildingKindValue | null {
+  private wantedBuildings(view: BotView): BuildingKindValue[] {
+    const wanted: BuildingKindValue[] = [];
     if (popRoom(view) <= this.params.houseAtRoom && canAfford(view, BuildingKind.House)) {
-      return BuildingKind.House;
+      wanted.push(BuildingKind.House);
     }
     const spare = new Map<BuildingKindValue, number>();
     for (const kind of this.buildOrder()) {
@@ -338,9 +356,9 @@ export class ColonistBot implements Bot {
         spare.set(kind, have - 1);
         continue;
       }
-      return kind;
+      wanted.push(kind);
     }
-    return null;
+    return wanted;
   }
 
   /** The villager nearest a site, preferring one that is not mid-construction elsewhere. */
