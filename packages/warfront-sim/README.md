@@ -8,8 +8,8 @@ at 100× speed. Nothing in here touches the existing turn-based game.
 
 Step 1 of Slice A ships exactly this much: 16.16 fixed-point maths, a seeded generator,
 a 15 tick/s loop with commands stamped two ticks ahead, a small entity store, one
-command (`move`) and a straight-line mover. Combat, economy, buildings, bots, rendering
-and netcode are later steps and are not started here.
+command (`move`), a terrain cell grid and flow-field pathing over it. Combat, economy,
+buildings, bots, rendering and netcode are later steps and are not started here.
 
 ## The one convention: every simulated quantity is an integer
 
@@ -76,6 +76,40 @@ The hash (`src/hash.ts`) digests tick, RNG state, every entity and every pending
 command — the complete state — so two sims that agree on the hash agree on everything a
 replay can observe.
 
+## Terrain and pathing
+
+`src/terrain.ts` decodes the cell-grid asset the offline pipeline produces
+(`frontend/scripts/buildWarfrontTerrain.ts` → `database/warfront/western_twenty.terrain.json`,
+run with `pnpm run build:warfront-terrain` from the repo root). One uint16 per cell:
+owner province, elevation tier, passability, biome, and ford / beach / pass flags; rows
+are run-length encoded and the file carries a checksum from this package's own hasher,
+re-checked on decode. `TerrainGrid.cellForLngLatE6` maps micro-degree lon/lat to a cell
+with exact integer arithmetic, for hosts that need to place things geographically.
+
+**Where the asset lives, and why:** `database/warfront/`. Three consumers read it — the
+match host (the backend already resolves `database/` by path for map documents), the lab
+(Node), and the client. `frontend/public/` would have been the obvious place for the
+client, but everything under it is served to every anonymous visitor, and every Warfront
+surface is admin-only until further notice. The client therefore fetches the asset
+through an admin-guarded endpoint, and nothing Warfront sits on the public web root.
+Only `database/warfront/curated/` is hand-edited (passes, forest mask, river list);
+`sources/` holds bbox-trimmed Natural Earth extracts the script fetches once, and the
+terrain file itself is generated — never edit it by hand.
+
+`src/flowField.ts` is Dijkstra from the target cell over passable cells (orthogonal 10,
+diagonal 14, no corner cutting past a blocked orthogonal), **resumable**: a field runs
+only until the cells its followers stand on are settled. The heap breaks ties by cell
+index, so every `next` pointer is a pure function of (grid, target) and a field extended
+later agrees with one built in a single sweep — the property that lets the match host and
+a replaying client share nothing but the seed and the log. A unit ordered onto an
+impassable cell is redirected to the nearest passable one by a fixed ring scan; an order
+nothing can reach is dropped, and a unit whose goal proves unreachable simply stops.
+
+The terrain golden fixture (`golden/terrain-alps-pass-and-loire-ford.json`) runs on the
+committed asset and names its checksum; `Sim.fromReplay` refuses any other grid.
+`src/sim.terrain.test.ts` asserts what the hash only pins: the Milan → Augsburg unit
+walks a Brenner pass cell and the Le Mans → Poitiers unit crosses the Loire on a ford.
+
 ## API sketch
 
 ```ts
@@ -91,8 +125,9 @@ sim.hash();        // '…16 hex chars…'
 sim.toReplay();    // { version, seed, scenario, commands } — plain integers, JSON-safe
 ```
 
-`Sim.fromReplay(replay)` rebuilds the match at tick 0 with every command pre-scheduled;
-`replayHash(replay, ticks)` is the one-liner the golden tests use.
+`Sim.fromReplay(replay, terrain?)` rebuilds the match at tick 0 with every command
+pre-scheduled; `replayHash(replay, ticks, terrain?)` is the one-liner the golden tests use.
+Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement.
 
 ## Working on it
 

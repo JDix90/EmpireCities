@@ -1,0 +1,50 @@
+{
+  "_comment": "HAND-CURATED inputs for frontend/scripts/buildWarfrontTerrain.ts (Warfront decision 28: passes and the forest mask are curated; elevation ranges and rivers come from data). This is the ONLY hand-edited file under database/warfront/ — everything else there is generated. Coordinates are [lng, lat] in degrees. First pass for the slice: every polygon here is a rough sketch to be repainted once the renderer exists.",
+  "map_id": "community_roman_empire_117",
+  "cell_km": 4,
+  "provinces": [
+    "italia_north", "italia_central", "italia_south", "sicilia", "sardinia_corsica",
+    "tarraconensis", "baetica", "lusitania", "narbonensis", "aquitania", "lugdunensis",
+    "belgica", "britannia", "germania_inferior", "germania_superior", "raetia", "noricum",
+    "mauretania", "numidia", "africa_proconsularis"
+  ],
+  "rivers": [
+    { "name": "Rhine", "match": ["Rhine", "Rhein"] },
+    { "name": "Danube", "match": ["Danube", "Donau"] },
+    { "name": "Rhone", "match": ["Rhône", "Rhone", "Rhne"] },
+    { "name": "Po", "match": ["Po"] },
+    { "name": "Ebro", "match": ["Ebro"] },
+    { "name": "Loire", "match": ["Loire"] },
+    { "name": "Seine", "match": ["Seine"] }
+  ],
+  "ford_spacing_km": 45,
+  "extra_fords": [],
+  "barrier_ranges": ["ALPS", "PYRENEES"],
+  "highland_plateaus": ["Massif Central"],
+  "passes": [
+    { "name": "Montgenevre", "width_km": 10, "line": [[6.08, 44.56], [6.64, 44.90], [6.73, 44.93], [6.83, 45.03], [7.05, 45.14], [7.68, 45.07]] },
+    { "name": "Great St Bernard", "width_km": 10, "line": [[6.95, 46.30], [7.07, 46.10], [7.17, 45.87], [7.32, 45.74], [7.87, 45.47]] },
+    { "name": "Splugen", "width_km": 10, "line": [[9.53, 47.05], [9.53, 46.85], [9.33, 46.50], [9.40, 46.32], [9.09, 45.81]] },
+    { "name": "Brenner", "width_km": 10, "line": [[11.40, 47.45], [11.40, 47.27], [11.51, 47.00], [11.35, 46.50], [11.12, 46.07], [10.99, 45.44]] },
+    { "name": "Tarvisio", "width_km": 10, "line": [[13.23, 46.06], [13.58, 46.50], [13.85, 46.61], [14.30, 46.62]] },
+    { "name": "Roncesvalles", "width_km": 10, "line": [[-1.47, 43.49], [-1.24, 43.16], [-1.32, 43.01], [-1.64, 42.81], [-1.70, 42.60]] },
+    { "name": "Somport", "width_km": 10, "line": [[-0.61, 43.35], [-0.61, 43.19], [-0.53, 42.80], [-0.55, 42.57], [-0.41, 42.14]] },
+    { "name": "Le Perthus", "width_km": 12, "line": [[2.90, 42.85], [2.90, 42.70], [2.87, 42.47], [2.96, 42.27], [2.82, 41.98]] }
+  ],
+  "forests": [
+    { "name": "Ardennes and Eifel", "ring": [[4.0, 49.6], [6.8, 49.6], [7.2, 50.6], [5.0, 50.7], [4.0, 50.2]] },
+    { "name": "Black Forest", "ring": [[7.6, 47.6], [8.6, 47.6], [8.9, 48.9], [7.8, 49.0]] },
+    { "name": "Vosges", "ring": [[6.6, 47.7], [7.4, 47.9], [7.4, 48.9], [6.7, 48.9]] },
+    { "name": "Hercynian (Bohemian) forest", "ring": [[11.5, 48.5], [13.8, 48.5], [13.9, 49.6], [12.0, 49.6]] },
+    { "name": "Alpine foothills", "ring": [[9.8, 47.4], [12.6, 47.4], [12.6, 48.2], [9.8, 48.0]] },
+    { "name": "Landes", "ring": [[-1.4, 43.6], [-0.4, 43.7], [-0.5, 44.9], [-1.3, 44.9]] },
+    { "name": "Massif Central woods", "ring": [[2.0, 44.4], [4.0, 44.4], [4.2, 45.9], [2.2, 45.9]] },
+    { "name": "Morvan", "ring": [[3.6, 46.6], [4.6, 46.6], [4.6, 47.5], [3.6, 47.5]] },
+    { "name": "Anderida (Weald)", "ring": [[-0.9, 50.8], [1.2, 50.9], [1.0, 51.4], [-0.8, 51.4]] },
+    { "name": "Arden and Sherwood", "ring": [[-1.9, 52.2], [-0.9, 52.3], [-1.0, 53.4], [-1.9, 53.4]] },
+    { "name": "Sila", "ring": [[16.2, 39.0], [16.8, 39.0], [16.8, 39.6], [16.2, 39.6]] },
+    { "name": "Cantabrian forests", "ring": [[-7.5, 42.8], [-4.0, 42.9], [-4.0, 43.5], [-7.6, 43.6]] },
+    { "name": "Lusitanian pine woods", "ring": [[-8.6, 39.6], [-7.6, 39.6], [-7.6, 40.8], [-8.6, 40.8]] },
+    { "name": "Kroumirie", "ring": [[8.0, 36.3], [9.5, 36.4], [9.4, 37.0], [8.0, 37.0]] }
+  ]
+}
