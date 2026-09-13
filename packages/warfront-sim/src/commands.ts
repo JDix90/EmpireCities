@@ -17,7 +17,13 @@ export type Command =
    */
   | { type: 'assign'; unit: number; building: number }
   /** Start a construction. Timber is spent when the command applies. */
-  | { type: 'build'; unit: number; kind: number; cell: number };
+  | { type: 'build'; unit: number; kind: number; cell: number }
+  /**
+   * Rule I: a villager plants a seat in the neutral province it is standing in and pays
+   * the rising price. `province` is carried for the record even though the simulation
+   * reads the villager's own position, so a replay says what the order meant.
+   */
+  | { type: 'colonise'; unit: number; province: number };
 
 /** A command stamped with the tick it executes on and its issue order within that tick. */
 export interface ScheduledCommand {
@@ -45,6 +51,11 @@ export function validateCommand(raw: unknown): Command {
       const unit = assertInt(c.unit as number, 'assign.unit');
       const building = assertInt(c.building as number, 'assign.building');
       return { type: 'assign', unit, building };
+    }
+    case 'colonise': {
+      const unit = assertInt(c.unit as number, 'colonise.unit');
+      const province = assertInt(c.province as number, 'colonise.province');
+      return { type: 'colonise', unit, province };
     }
     case 'build': {
       const unit = assertInt(c.unit as number, 'build.unit');
@@ -105,7 +116,7 @@ export class CommandQueue {
       // Hash every numeric field a command carries, whatever its shape, so a pending
       // command cannot differ between hosts in a field this forgot to read.
       const c = p.command as unknown as Record<string, unknown>;
-      for (const key of ['unit', 'building', 'kind', 'cell', 'x', 'y']) {
+      for (const key of ['unit', 'building', 'kind', 'cell', 'province', 'x', 'y']) {
         const value = c[key];
         h.int(typeof value === 'number' ? value : 0);
       }

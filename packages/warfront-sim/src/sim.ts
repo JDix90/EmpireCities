@@ -9,6 +9,8 @@ import { CommandQueue, validateCommand, type Command, type ScheduledCommand } fr
 import { BuildingStore, type Building } from './buildings';
 import { PlayerStore } from './players';
 import { stepEconomy, type EconomyContext } from './economy';
+import { ProvinceStore } from './provinces';
+import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
 import {
   BUILDER_SLOTS,
   BUILDING_SPECS,
@@ -108,6 +110,7 @@ export class Sim {
   readonly queue = new CommandQueue();
   readonly players = new PlayerStore();
   readonly buildings = new BuildingStore();
+  readonly provinces: ProvinceStore;
   readonly terrain: TerrainGrid | null;
   private readonly fields: FlowFieldCache | null;
   private currentTick = 0;
@@ -119,6 +122,7 @@ export class Sim {
     this.rng = new Rng(this.seed);
     this.terrain = opts.terrain ?? null;
     this.fields = this.terrain ? new FlowFieldCache(this.terrain) : null;
+    this.provinces = new ProvinceStore(this.terrain ? this.terrain.provinces.map((p) => p.index) : []);
     for (const u of this.scenario.units) this.entities.spawn(u);
 
     // The economy is opt-in: a scenario with no seats is a movement-only scenario, which
@@ -129,7 +133,9 @@ export class Sim {
       for (const p of this.scenario.players ?? []) this.players.add(p);
       for (const b of this.scenario.buildings ?? []) {
         if (!this.players.get(b.owner)) throw new Error(`warfront-sim: building for unknown seat ${b.owner}`);
-        this.buildings.place({ ...b, complete: true });
+        const placed = this.buildings.place({ ...b, complete: true });
+        // A starting seat takes the province it stands in — rule III from tick zero.
+        if (placed.kind === BuildingKind.Seat) this.claimProvinceForSeat(placed.id, placed.owner, placed.cell);
       }
     }
   }
@@ -141,6 +147,51 @@ export class Sim {
 
   private economyContext(): EconomyContext {
     return { players: this.players, buildings: this.buildings, entities: this.entities, grid: this.terrain! };
+  }
+
+  private territoryContext(): TerritoryContext {
+    return { provinces: this.provinces, buildings: this.buildings, entities: this.entities, grid: this.terrain! };
+  }
+
+  /** Binds a seat building to the province its cell sits in. */
+  private claimProvinceForSeat(buildingId: number, owner: number, cell: number): void {
+    const index = this.terrain!.owner(cell);
+    const province = this.provinces.get(index);
+    if (!province) return;
+    province.seat = buildingId;
+    province.owner = owner;
+    province.everSettled = true;
+    province.claimant = 0;
+    province.claimTicks = 0;
+  }
+
+  /** The food this seat must pay to colonise its next province (rule I). */
+  colonisePriceFor(owner: number): number {
+    return colonisePrice(this.provinces.heldBy(owner));
+  }
+
+  /**
+   * Damage a building. This is a RULE path, not a command: rams and towers call it from
+   * inside the simulation, and tests drive it directly. It is deterministic because the
+   * rules that call it are.
+   */
+  damageBuilding(id: number, amount: number): void {
+    const building = this.buildings.get(id);
+    if (!building) return;
+    building.hp -= assertInt(amount, 'damage');
+    if (building.hp > 0) return;
+    this.destroyBuilding(id);
+  }
+
+  /** Removes a building and every reference to it, so nothing points at rubble. */
+  private destroyBuilding(id: number): void {
+    const building = this.buildings.get(id);
+    if (!building) return;
+    for (const workerId of building.workers) {
+      const worker = this.entities.get(workerId);
+      if (worker && worker.job === id) worker.job = -1;
+    }
+    this.buildings.remove(id);
   }
 
   /** Current tick. State is "as of the end of this tick". */
@@ -183,6 +234,12 @@ export class Sim {
       if (unit.moving) this.moveUnit(unit);
     }
     if (this.hasEconomy) {
+      // Territory before the economy: a province that changed hands this tick should be
+      // owned by its new holder when the economy reads ownership.
+      stepTerritory(this.territoryContext(), (owner, cell) => {
+        const seat = this.buildings.place({ kind: BuildingKind.Seat, owner, cell, complete: true });
+        return seat.id;
+      });
       stepEconomy(
         this.economyContext(),
         (building, kind) => this.spawnTrained(building, kind as UnitKindValue),
@@ -236,6 +293,7 @@ export class Sim {
     this.entities.hashInto(h);
     this.players.hashInto(h);
     this.buildings.hashInto(h);
+    this.provinces.hashInto(h);
     this.queue.hashInto(h);
     return h.digest();
   }
@@ -358,6 +416,30 @@ export class Sim {
         unit.job = building.id;
         // Assigned, not clicked: the villager takes itself to the job.
         this.orderToCell(unit, building.cell);
+        return;
+      }
+
+      case 'colonise': {
+        const grid = this.terrain;
+        if (!grid) return;
+        const unit = this.entities.get(command.unit);
+        // Rule I: a VILLAGER plants the seat. Nothing else settles land.
+        if (!unit || unit.kind !== UnitKind.Villager) return;
+        const player = this.players.get(unit.owner);
+        if (!player) return;
+        const index = provinceAtUnit(this.territoryContext(), unit.id);
+        if (index === 0) return;
+        const province = this.provinces.get(index);
+        if (!province || province.seat >= 0) return;
+        // A province whose seat was razed is CLAIMED, never bought — see provinces.ts.
+        if (province.everSettled) return;
+        const price = colonisePrice(this.provinces.heldBy(unit.owner));
+        if (player.food < price) return;
+        const cell = grid.index(toIntFloor(unit.x), toIntFloor(unit.y));
+        if (!grid.isPassable(cell) || this.buildings.atCell(cell)) return;
+        player.food -= price;
+        const seat = this.buildings.place({ kind: BuildingKind.Seat, owner: unit.owner, cell, complete: true });
+        this.claimProvinceForSeat(seat.id, unit.owner, cell);
         return;
       }
 
