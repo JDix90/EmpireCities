@@ -214,3 +214,20 @@ export const BUILDER_SLOTS = 4;
 export const TRAINS_AT: Record<number, readonly UnitKindValue[]> = {
   [BuildingKind.Seat]: [UnitKind.Villager, UnitKind.Scout],
 };
+
+/**
+ * Rule I: colonisation costs more each time. The brief's figure is 80 food × 1.4 per
+ * province already held.
+ *
+ * 1.4 is not an integer, so the price compounds as ×7÷5 with `idiv` at each step rather
+ * than as a power of a float. That floors a little at each multiplication — 80, 112, 156,
+ * 218 instead of 80, 112, 156.8, 219.5 — which is deterministic, monotonic, and slightly
+ * cheaper for the leader than the brief's arithmetic. Worth the lab's attention, and
+ * worth knowing it is a floor and not a rounding.
+ */
+export const COLONISE_BASE_FOOD = 80;
+export const COLONISE_NUMERATOR = 7;
+export const COLONISE_DENOMINATOR = 5;
+
+/** Rule III: a fallen seat is claimed in 45 seconds with a villager present. */
+export const CLAIM_TICKS = seconds(45);

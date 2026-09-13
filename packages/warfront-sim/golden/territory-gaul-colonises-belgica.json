@@ -1,0 +1,65 @@
+{
+  "name": "western twenty: a Gaulish villager walks into Belgica and colonises it",
+  "ticks": 4600,
+  "expectedHash": "3bdae6029efce415",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 2,
+    "seed": 1177,
+    "scenario": {
+      "players": [
+        {
+          "index": 1,
+          "food": 400,
+          "timber": 100,
+          "silver": 0
+        }
+      ],
+      "buildings": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "cell": 161819
+        }
+      ],
+      "units": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "move",
+          "unit": 1,
+          "x": 20480000,
+          "y": 15040512
+        }
+      },
+      {
+        "tick": 4400,
+        "seq": 1,
+        "command": {
+          "type": "colonise",
+          "unit": 1,
+          "province": 12
+        }
+      }
+    ],
+    "terrain_checksum": "7a6d1f7b99f8936f"
+  }
+}
