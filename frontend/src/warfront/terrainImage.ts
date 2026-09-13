@@ -18,6 +18,7 @@ import {
   cellFord,
   cellOwner,
   cellPass,
+  cellPassable,
   type BiomeValue,
   type TerrainGrid,
 } from '@borderfall/warfront-sim';
@@ -48,6 +49,19 @@ export const PASS_COLOR: Rgb = [168, 111, 208];
 export const BEACH_LIFT = 26;
 /** Province borders darken the base colour rather than overprint a line. */
 export const BORDER_DARKEN = 0.55;
+/**
+ * Walkable-looking ground that cannot actually be walked.
+ *
+ * Mountain, desert and sea already read as blocked by their own colour, but plains,
+ * forest and highland do not — and the asset contains impassable cells of all three where
+ * the terrain pipeline severs a contact the map's connection graph does not call a land
+ * border (Britannia's polygon spilling onto Normandy, and nine more like it). Without
+ * this, a player would see open ground their units silently refuse to cross, which reads
+ * as a bug rather than a border.
+ */
+export const BLOCKED_DARKEN = 0.42;
+/** Biomes whose colour would otherwise promise a walk. */
+const WALKABLE_LOOKING: ReadonlySet<number> = new Set<number>([Biome.Plains, Biome.Forest, Biome.Highland]);
 
 export interface TerrainImage {
   rgba: Uint8Array;
@@ -63,7 +77,15 @@ function clamp255(n: number): number {
 export function colorForCell(value: number): Rgb {
   if (cellFord(value)) return FORD_COLOR;
   if (cellPass(value)) return PASS_COLOR;
-  const base = BIOME_COLORS[cellBiome(value)] ?? BIOME_COLORS[Biome.Void];
+  const biome = cellBiome(value);
+  const base = BIOME_COLORS[biome] ?? BIOME_COLORS[Biome.Void];
+  if (!cellPassable(value) && WALKABLE_LOOKING.has(biome)) {
+    return [
+      clamp255(base[0] * BLOCKED_DARKEN),
+      clamp255(base[1] * BLOCKED_DARKEN),
+      clamp255(base[2] * BLOCKED_DARKEN),
+    ];
+  }
   if (cellBeach(value)) {
     return [clamp255(base[0] + BEACH_LIFT), clamp255(base[1] + BEACH_LIFT), clamp255(base[2] + BEACH_LIFT)];
   }
