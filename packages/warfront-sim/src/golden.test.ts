@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { replayHash, type Replay } from './sim';
+import { REPLAY_VERSION, replayHash, type Replay } from './sim';
 import { TerrainGrid, type TerrainAsset } from './terrain';
 
 /**
@@ -52,10 +52,26 @@ describe('golden replays', () => {
       const terrain = fixture.terrain ? loadTerrain(fixture.terrain) : null;
       const replay: Replay = { ...fixture.replay };
       if (terrain && UPDATE) replay.terrain_checksum = terrain.checksum();
+      // Carry the fixture across a deliberate REPLAY_VERSION bump, the same way the
+      // terrain checksum is carried. Without this the updater cannot do the one job it
+      // exists for: `replayHash` refuses an older version outright, so a hashed-state
+      // change fails every fixture AND fails to regenerate any of them, and the only way
+      // through is editing seven JSON files by hand.
+      //
+      // Safe only because the bump guards the shape of the HASHED STATE, not the shape of
+      // the stored replay — a seed, a scenario and a command log, none of which this
+      // change touches. A future version that alters the replay's own shape cannot be
+      // migrated like this: those fixtures have to be re-recorded, and this line would be
+      // quietly wrong about it.
+      if (UPDATE) replay.version = REPLAY_VERSION;
       const first = replayHash(replay, fixture.ticks, terrain);
       const second = replayHash(replay, fixture.ticks, terrain);
       expect(second).toBe(first);
-      if (UPDATE && (first !== fixture.expectedHash || replay.terrain_checksum !== fixture.replay.terrain_checksum)) {
+      const changed =
+        first !== fixture.expectedHash ||
+        replay.terrain_checksum !== fixture.replay.terrain_checksum ||
+        replay.version !== fixture.replay.version;
+      if (UPDATE && changed) {
         writeFileSync(
           join(GOLDEN_DIR, file),
           JSON.stringify({ ...fixture, expectedHash: first, replay }, null, 2) + '\n',

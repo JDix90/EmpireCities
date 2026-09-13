@@ -96,6 +96,7 @@ export const BuildingKind = {
   Mine: 5,
   Barracks: 6,
   Tower: 7,
+  Camp: 8,
 } as const;
 export type BuildingKindValue = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -107,6 +108,7 @@ export const BUILDING_KIND_NAMES: Record<number, string> = {
   [BuildingKind.Mine]: 'mine',
   [BuildingKind.Barracks]: 'barracks',
   [BuildingKind.Tower]: 'tower',
+  [BuildingKind.Camp]: 'camp',
 };
 
 /** Which resource a worked building produces. */
@@ -222,6 +224,32 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
     workerSlots: 0,
     biomes: [],
   },
+  /**
+   * Rule VII's marching camp, and the only building that costs no resources.
+   *
+   * That is deliberate, not an oversight: an army deep in someone else's land has no
+   * supply line to spend from, and the brief's price is stated in soldiers rather than
+   * timber — "five+ soldiers can build a camp". The five standing there ARE the cost,
+   * and they are not fighting while they raise it.
+   *
+   * What stops a free camp from cancelling the rule is the other two numbers. It takes
+   * thirty seconds to raise, which is three bleeds at the attrition interval, and it has
+   * a quarter of a seat's health so the defender can burn it — "the defender can burn it"
+   * needs no mechanism of its own, because a camp is a building and rams and soldiers
+   * already know how to knock those down. An army that keeps marching outruns its own
+   * camp radius and bleeds again, which is the whole of "camp first, then rams".
+   */
+  [BuildingKind.Camp]: {
+    timber: 0,
+    silver: 0,
+    buildTicks: seconds(30),
+    hp: 375,
+    pop: 0,
+    produces: Resource.None,
+    yieldPerMinute: 0,
+    workerSlots: 0,
+    biomes: [],
+  },
 };
 
 /**
@@ -300,6 +328,59 @@ export const COLONISE_DENOMINATOR = 5;
 
 /** Rule III: a fallen seat is claimed in 45 seconds with a villager present. */
 export const CLAIM_TICKS = seconds(45);
+
+/* ── Attrition and the marching camp (rule VII) ───────────────────────────────── */
+
+/**
+ * The bleed. The brief fixes both numbers: "Attrition 1% of health per 10s outside your
+ * borders and outside a camp."
+ *
+ * Percent of MAX health rather than current, so the bleed stays linear instead of going
+ * asymptotic and never killing anything: a spear that marches out at minute two is dead
+ * ten minutes later wherever it is standing, and an army abroad is a clock its owner can
+ * read.
+ *
+ * Worth knowing that at TODAY'S roster the choice is invisible. Nothing fields more than
+ * 120 health, 1% of which floors to zero, so the one-point minimum in `stepAttrition` is
+ * what actually sets the rate and every unit in the game bleeds the same single point per
+ * interval — a ram simply takes twice as long to die as a spear because it has twice the
+ * health. A mutation swapping max for current is therefore undetectable, which is how this
+ * note came to be written: the test suite could not tell the two apart, and the honest
+ * thing is to say so rather than to claim a distinction the numbers do not yet support.
+ * It starts to matter the moment anything fields 200 health or more.
+ */
+export const ATTRITION_INTERVAL_TICKS = seconds(10);
+export const ATTRITION_PERCENT_PER_INTERVAL = 1;
+
+/**
+ * WHERE the bleed applies, and the one place the brief contradicts itself.
+ *
+ * Rule VII's own line is "Inside enemy borders your army bleeds". The economy section's
+ * line, which is the one carrying the numbers, is "outside your borders and outside a
+ * camp". Those are different sets, and the difference is every neutral province — which
+ * at minute zero is the entire map bar four cells.
+ *
+ * `ATTRITION_IN_NEUTRAL` is the switch between the two readings, and it is a constant
+ * rather than a decision because it is exactly the sort of question the lab exists to
+ * answer: a match is already dangerous in neutral land (rule VI puts a tribe in every
+ * province of it), so taxing it twice may punish leaving home rather than punishing deep
+ * invasion, which is what rule VII is for. Measured, then set — see the PR.
+ */
+export const ATTRITION_IN_NEUTRAL = false;
+
+/**
+ * Soldiers needed within `CAMP_MUSTER_CELLS` of the site before a camp may be raised, and
+ * how far its protection reaches.
+ *
+ * Five is the brief's figure. The two distances are not — they are first guesses, and the
+ * radius is the more interesting of the two: too small and an army cannot shelter under
+ * its own camp, too large and one camp covers the siege, the reinforcements and the road
+ * home. A radius a little over the muster distance means the army that built it is
+ * covered and the next province is not.
+ */
+export const CAMP_MIN_SOLDIERS = 5;
+export const CAMP_MUSTER_CELLS = 6;
+export const CAMP_RADIUS_CELLS = 8;
 
 /* ── Combat (rule VI's enabler, and rule III's ram) ───────────────────────────── */
 

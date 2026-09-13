@@ -1,0 +1,87 @@
+{
+  "name": "western twenty: five of Rome’s spears bleed inside Gaul, then raise a camp and stop",
+  "ticks": 1125,
+  "expectedHash": "6176614ecc33336c",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 5,
+    "seed": 20260913,
+    "scenario": {
+      "players": [
+        {
+          "index": 1,
+          "food": 5000,
+          "timber": 500,
+          "silver": 500
+        },
+        {
+          "index": 2,
+          "food": 5000,
+          "timber": 500,
+          "silver": 500
+        }
+      ],
+      "buildings": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "cell": 253539
+        },
+        {
+          "owner": 2,
+          "kind": 1,
+          "cell": 161819
+        }
+      ],
+      "units": [
+        {
+          "owner": 1,
+          "kind": 3,
+          "x": 13991936,
+          "y": 16023552,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 3,
+          "x": 14057472,
+          "y": 16023552,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 3,
+          "x": 14123008,
+          "y": 16023552,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 3,
+          "x": 14188544,
+          "y": 16023552,
+          "speed": 3932
+        },
+        {
+          "owner": 1,
+          "kind": 3,
+          "x": 14254080,
+          "y": 16023552,
+          "speed": 3932
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 375,
+        "seq": 0,
+        "command": {
+          "type": "camp",
+          "unit": 1,
+          "cell": 154177
+        }
+      }
+    ],
+    "terrain_checksum": "b284032b67916456"
+  }
+}

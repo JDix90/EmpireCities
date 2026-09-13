@@ -21,6 +21,16 @@ export interface Unit {
   job: number;
   /** Ticks until this unit may strike again. Combat is a cadence, not a stream. */
   cooldown: number;
+  /**
+   * Ticks this unit has spent exposed to attrition (rule VII), reset whenever it is safe.
+   *
+   * Per unit rather than per player, unlike starvation: a player's army is not all in one
+   * place, and the half of it that is home should not be on the same clock as the half
+   * besieging somebody. Reset on reaching safety rather than merely paused, so a soldier
+   * that steps home for a moment starts its next bleed from a full interval — walking out
+   * of enemy land has to be worth something.
+   */
+  attritionTimer: number;
   x: Fixed;
   y: Fixed;
   /** Cells per tick, fixed. */
@@ -67,6 +77,7 @@ export class EntityStore {
       maxHp,
       job: -1,
       cooldown: 0,
+      attritionTimer: 0,
       x: init.x,
       y: init.y,
       speed: init.speed,
@@ -115,6 +126,7 @@ export class EntityStore {
     h.int(this.nextId).int(this.units.length);
     for (const u of this.units) {
       h.int(u.id).int(u.owner).int(u.kind).int(u.hp).int(u.maxHp).int(u.job).int(u.cooldown);
+      h.int(u.attritionTimer);
       h.int(u.x).int(u.y).int(u.speed).int(u.goalX).int(u.goalY).bool(u.moving);
     }
   }

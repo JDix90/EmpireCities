@@ -23,7 +23,17 @@ export type Command =
    * the rising price. `province` is carried for the record even though the simulation
    * reads the villager's own position, so a replay says what the order meant.
    */
-  | { type: 'colonise'; unit: number; province: number };
+  | { type: 'colonise'; unit: number; province: number }
+  /**
+   * Rule VII: soldiers raise a marching camp where they stand.
+   *
+   * A separate command rather than a `build` with a different kind, because almost
+   * nothing about it is a build: the builder is a soldier rather than a villager, the
+   * price is paid in bodies mustered rather than in timber, and nobody is assigned to it
+   * afterwards. `unit` is the soldier who gives the order; the muster is counted from
+   * the site, so which one of the five it is does not matter.
+   */
+  | { type: 'camp'; unit: number; cell: number };
 
 /** A command stamped with the tick it executes on and its issue order within that tick. */
 export interface ScheduledCommand {
@@ -62,6 +72,11 @@ export function validateCommand(raw: unknown): Command {
       const kind = assertInt(c.kind as number, 'build.kind');
       const cell = assertInt(c.cell as number, 'build.cell');
       return { type: 'build', unit, kind, cell };
+    }
+    case 'camp': {
+      const unit = assertInt(c.unit as number, 'camp.unit');
+      const cell = assertInt(c.cell as number, 'camp.cell');
+      return { type: 'camp', unit, cell };
     }
     default:
       throw new Error(`warfront-sim: unknown command type ${String(c.type)}`);
