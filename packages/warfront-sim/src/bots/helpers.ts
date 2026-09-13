@@ -107,6 +107,10 @@ export function stableSortBy<T>(items: readonly T[], key: (item: T) => number): 
  * anything again.
  */
 function sitePasses(view: BotView, kind: BuildingKindValue, cell: number): boolean {
+  // A light is coastal and nothing else — the simulation refuses an inland one and
+  // accepts every other, and this function's job is to agree with it exactly. Whether a
+  // particular shore is WORTH watching is a policy's question, not a siting rule.
+  if (kind === BuildingKind.Lighthouse) return isCoastal(view.grid, cell);
   if (kind !== BuildingKind.Port) return true;
   return isCoastal(view.grid, cell) && view.sea.lanesFrom(view.grid.owner(cell)).length > 0;
 }

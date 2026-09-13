@@ -99,6 +99,7 @@ export const BuildingKind = {
   Tower: 7,
   Camp: 8,
   Port: 9,
+  Lighthouse: 10,
 } as const;
 export type BuildingKindValue = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -112,6 +113,7 @@ export const BUILDING_KIND_NAMES: Record<number, string> = {
   [BuildingKind.Tower]: 'tower',
   [BuildingKind.Camp]: 'camp',
   [BuildingKind.Port]: 'port',
+  [BuildingKind.Lighthouse]: 'lighthouse',
 };
 
 /** Which resource a worked building produces. */
@@ -228,21 +230,6 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
     biomes: [],
   },
   /**
-   * Rule VII's marching camp, and the only building that costs no resources.
-   *
-   * That is deliberate, not an oversight: an army deep in someone else's land has no
-   * supply line to spend from, and the brief's price is stated in soldiers rather than
-   * timber — "five+ soldiers can build a camp". The five standing there ARE the cost,
-   * and they are not fighting while they raise it.
-   *
-   * What stops a free camp from cancelling the rule is the other two numbers. It takes
-   * thirty seconds to raise, which is three bleeds at the attrition interval, and it has
-   * a quarter of a seat's health so the defender can burn it — "the defender can burn it"
-   * needs no mechanism of its own, because a camp is a building and rams and soldiers
-   * already know how to knock those down. An army that keeps marching outruns its own
-   * camp radius and bleeds again, which is the whole of "camp first, then rams".
-   */
-  /**
    * Rule V's port. The one building that must stand on a COAST, which the terrain decides
    * — see coast.ts, where a coast is derived rather than stored because the asset has no
    * coast biome to read.
@@ -264,11 +251,54 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
     workerSlots: 0,
     biomes: [],
   },
+  /**
+   * Rule VII's marching camp, and the only building that costs no resources.
+   *
+   * That is deliberate, not an oversight: an army deep in someone else's land has no
+   * supply line to spend from, and the brief's price is stated in soldiers rather than
+   * timber — "five+ soldiers can build a camp". The five standing there ARE the cost,
+   * and they are not fighting while they raise it.
+   *
+   * What stops a free camp from cancelling the rule is the other two numbers. It takes
+   * thirty seconds to raise, which is three bleeds at the attrition interval, and it has
+   * a quarter of a seat's health so the defender can burn it — "the defender can burn it"
+   * needs no mechanism of its own, because a camp is a building and rams and soldiers
+   * already know how to knock those down. An army that keeps marching outruns its own
+   * camp radius and bleeds again, which is the whole of "camp first, then rams".
+   */
   [BuildingKind.Camp]: {
     timber: 0,
     silver: 0,
     buildTicks: seconds(30),
     hp: 375,
+    pop: 0,
+    produces: Resource.None,
+    yieldPerMinute: 0,
+    workerSlots: 0,
+    biomes: [],
+  },
+  /**
+   * Rule V's lighthouse: the cheap answer to a convoy nobody can see.
+   *
+   * Half a port's timber and it moves nobody, which is the trade — the brief's minute-six
+   * advice is "towers on the shared border, lighthouse on the exposed coast", and a coast
+   * you cannot afford a harbour on is exactly where one goes. It is also the reason the
+   * brief can keep convoys hidden at all: the stated fix for a landing that felt unfair
+   * is "the lighthouse must be cheap, obvious and taught in the first minute — not a
+   * visible convoy".
+   *
+   * Coastal like a port, and for the same reason a port is: a light watches water. Unlike
+   * a port it does NOT need a lane in its own province, because its whole point is the
+   * reach — see `LIGHTHOUSE_REVEAL_HOPS`.
+   *
+   * Two hundred health and no walls: burnable by anything that lands next to it, which
+   * keeps blinding a defender a thing an attacker can actually do.
+   */
+  [BuildingKind.Lighthouse]: {
+    timber: 40,
+    silver: 20,
+    buildTicks: seconds(20),
+    hp: 200,
     pop: 0,
     produces: Resource.None,
     yieldPerMinute: 0,
@@ -470,6 +500,43 @@ export const DISEMBARK_DAMAGE_PERCENT = 200;
  */
 export const BEACHES_PER_PROVINCE = 4;
 export const BEACH_SEPARATION_CELLS = 15;
+
+/**
+ * How far a watcher's sight reaches along the lane graph, counted in PROVINCES.
+ *
+ * The brief's sentence is "a lighthouse reveals lanes within one province; a port reveals
+ * its own lanes", and the difference between those two clauses is the whole reason both
+ * buildings exist. A lane is not *in* a province — it joins two — so "within one province"
+ * cannot be describing where the lane lies. It is describing reach: lanes within one
+ * province of the light. A port, by contrast, reveals "its own", which is hop zero.
+ *
+ * That reading is what makes forty timber and twenty silver worth spending next to a
+ * harbour that already watches: the port sees the water it sails from, and the light sees
+ * one province further along the coast — including the lanes of a neighbour you have not
+ * settled and cannot build in. The other reading (both at hop zero) would make the
+ * lighthouse a strictly worse port on any coast you hold, and the brief would not have
+ * needed a second building to say it. If it turns out to play too generously, this is the
+ * one number to change.
+ */
+export const LIGHTHOUSE_REVEAL_HOPS = 1;
+export const PORT_REVEAL_HOPS = 0;
+
+/**
+ * A scout on a beach watches that beach's lanes, and only while it is standing there.
+ *
+ * Hop zero like a port, but it is the ATTACKER'S instrument rather than the defender's:
+ * "the attacker is blind too — scout the beach or land into a garrison", and a scout is
+ * the only watcher that can stand on ground somebody else owns. Thirty food, no
+ * construction, and it dies to anything, which is the price of seeing into a coast you
+ * have no buildings on.
+ *
+ * Any coastal cell rather than one of `beachesOf`'s four, because a beach's identity
+ * depends on where a convoy sails FROM — the same shore yields different landing sites to
+ * different ports, so "is this cell a beach" has no answer without naming an attacker.
+ * What a scout on the shore can see is the water, and what comes over it lands somewhere
+ * on that province's coast.
+ */
+export const SCOUT_REVEAL_HOPS = 0;
 
 export const CAMP_MIN_SOLDIERS = 5;
 export const CAMP_MUSTER_CELLS = 6;

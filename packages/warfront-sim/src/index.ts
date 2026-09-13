@@ -29,6 +29,14 @@ export { ProvinceStore, type Province } from './provinces';
 export { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
 export { stepCombat, effectiveRange, type CombatContext } from './combat';
 export {
+  laneKey,
+  revealedLanes,
+  sightingsFor,
+  withinHops,
+  type ConvoySighting,
+  type RevealContext,
+} from './reveal';
+export {
   TribeStore,
   buildProvinceGeography,
   firstRaidTick,
