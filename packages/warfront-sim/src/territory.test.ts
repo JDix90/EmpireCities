@@ -228,8 +228,11 @@ describe('determinism', () => {
 
     const replayed = Sim.fromReplay(live.toReplay(), testGrid());
     // The raze is a rules path rather than a command, so the replay re-applies it at the
-    // same tick — which is exactly how a ram will drive it in the next step.
-    replayed.run(50 + 2);
+    // SAME TICK — which is exactly how a ram will drive it. `fromReplay` pre-schedules
+    // the colonise at its recorded tick, so there is no delay to compensate for here:
+    // this read `run(50 + 2)` until province-ticks joined the hash and showed that the
+    // two runs had been razing the seat two ticks apart and agreeing anyway.
+    replayed.runTo(50);
     replayed.damageBuilding(1, 99999);
     replayed.runTo(live.tick);
     expect(replayed.hash()).toBe(live.hash());

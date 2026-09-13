@@ -13,6 +13,8 @@ import {
   RAID_INTERVAL_TICKS,
   RAID_MARCH_LIMIT_TICKS,
   RAID_MAX_SIZE,
+  RAID_STAGGER_TICKS,
+  RAID_STAGGER_WRAP,
   RAID_SIZE_PER_MINUTE,
   RAID_SIZE_PER_PROVINCE,
   Resource,
@@ -107,6 +109,18 @@ export function buildProvinceGeography(grid: TerrainGrid): ProvinceGeography {
   return { neighbours, border };
 }
 
+/**
+ * The tick a given tribe first musters.
+ *
+ * Staggered by the tribe's own province index so that minute two brings ONE raid and the
+ * whole frontier is raiding by minute four, which is what the brief's timeline describes.
+ * Exported because it is the honest way for a caller — or a test — to ask when a
+ * particular tribe is due, rather than assuming every tribe shares one clock.
+ */
+export function firstRaidTick(provinceIndex: number): number {
+  return FIRST_RAID_TICK + (provinceIndex % RAID_STAGGER_WRAP) * RAID_STAGGER_TICKS;
+}
+
 /** Every province is a tribe's home until somebody settles it. */
 export class TribeStore {
   private readonly homes: TribeHome[] = [];
@@ -115,7 +129,9 @@ export class TribeStore {
 
   constructor(indices: readonly number[]) {
     for (const index of [...indices].sort((a, b) => a - b)) {
-      const home: TribeHome = { index, nextRaidTick: FIRST_RAID_TICK };
+      // Staggered first raids: minute two brings ONE raid, and the whole frontier is
+      // raiding by minute four. See RAID_STAGGER_TICKS for why that matters.
+      const home: TribeHome = { index, nextRaidTick: firstRaidTick(index) };
       this.homes.push(home);
       this.byIndex.set(index, home);
     }
@@ -165,10 +181,20 @@ export interface TribeContext {
   rng: Rng;
 }
 
-/** Raiders sent this raid: bigger with the clock, and bigger against a bigger empire. */
+/**
+ * Raiders sent this raid: bigger with the clock, and bigger against a bigger empire.
+ *
+ * Holdings count from the SECOND province, not the first. The rule is anti-turtle — "the
+ * biggest empire is raided hardest" — and a seat that still holds only the province it
+ * started in has not expanded at all, so charging it the expansion tax is backwards. It
+ * also made the very first raid twice the size it should be: the brief's minute-two beat
+ * is one raid on one lumber camp, and a doubled opening raid against an economy that
+ * cannot yet have bought a spear killed every villager in the lab's first Colonist mirror.
+ */
 export function raidSize(tick: number, victimProvinces: number): number {
   const byClock = idiv(tick, TICKS_PER_MINUTE * RAID_SIZE_PER_MINUTE);
-  const byHoldings = idiv(victimProvinces, RAID_SIZE_PER_PROVINCE);
+  const expanded = victimProvinces > 1 ? victimProvinces - 1 : 0;
+  const byHoldings = idiv(expanded, RAID_SIZE_PER_PROVINCE);
   const size = RAID_BASE_SIZE + byClock + byHoldings;
   return size > RAID_MAX_SIZE ? RAID_MAX_SIZE : size;
 }

@@ -9,7 +9,7 @@ import {
   toIntFloor,
   type TerrainAsset,
 } from '@borderfall/warfront-sim';
-import { BuildingKind, UnitKind } from '@borderfall/warfront-sim';
+import { BuildingKind, START_FOOD, START_SILVER, START_TIMBER, UnitKind } from '@borderfall/warfront-sim';
 import type { SimRunner } from '../warfront/simRunner';
 import { TICK_MS } from '../warfront/simRunner';
 import WarfrontPage from './WarfrontPage';
@@ -352,8 +352,9 @@ describe('WarfrontPage economy', () => {
   it("opens with the brief's stock on the resource bar", async () => {
     await ready();
     const bar = await screen.findByTestId('warfront-resources');
-    expect(bar).toHaveTextContent('Food200');
-    expect(bar).toHaveTextContent('Timber100');
+    expect(bar).toHaveTextContent(`Food${START_FOOD}`);
+    expect(bar).toHaveTextContent(`Timber${START_TIMBER}`);
+    expect(bar).toHaveTextContent(`Silver${START_SILVER}`);
     // Four villagers and a scout at 3 food a minute each.
     expect(bar).toHaveTextContent('Upkeep15/min');
     expect(bar).toHaveTextContent('Provinces1');
@@ -416,7 +417,7 @@ describe('WarfrontPage economy', () => {
     await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('no'));
     // Escape cancelled the placement, not the selection: the villagers are still picked.
     expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0');
-    expect(runner.sim.players.get(1)!.timber).toBe(100);
+    expect(runner.sim.players.get(1)!.timber).toBe(START_TIMBER);
   });
 
   it('selects a building when it is clicked, and offers what it trains', async () => {

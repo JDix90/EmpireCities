@@ -1,10 +1,10 @@
 {
   "name": "western twenty: Milan to Augsburg through the Brenner, Le Mans to Poitiers over a Loire ford",
   "ticks": 600,
-  "expectedHash": "4982049dfd6c5b93",
+  "expectedHash": "7125cbcde00f036a",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
-    "version": 3,
+    "version": 4,
     "seed": 117,
     "scenario": {
       "units": [
