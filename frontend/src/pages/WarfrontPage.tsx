@@ -6,6 +6,7 @@ import {
   NEAREST_PASSABLE_RADIUS,
   Sim,
   UnitKind,
+  type MatchResult,
   cellBeach,
   cellFord,
   cellPass,
@@ -44,7 +45,9 @@ import {
   type WorldRect,
 } from '../warfront/selection';
 import { moveTarget } from '../warfront/orders';
-import { buildOpeningScenario } from '../warfront/matchScenario';
+import { buildSoloMatch, type SoloSetup } from '../warfront/soloMatch';
+import WarfrontMatchSetup from '../components/warfront/WarfrontMatchSetup';
+import WarfrontResult from '../components/warfront/WarfrontResult';
 import { fetchWarfrontTerrain } from '../services/warfrontApi';
 
 /**
@@ -62,9 +65,7 @@ import { fetchWarfrontTerrain } from '../services/warfrontApi';
  * the sea, attrition and camps, doctrines, and any opponent but the tribes.
  */
 
-/** Seat province the opening is played from — Gaul, the widest land frontier. */
-const OPENING_PROVINCE = 'lugdunensis';
-/** The seat the local player is playing. One seat until there are bots to play the rest. */
+/** The seat the local player takes. The rest are played by the lab's own policies. */
 const VIEWER_OWNER = 1;
 /** Click tolerance when picking a single unit, in cells. */
 const PICK_RADIUS_CELLS = 3;
@@ -82,7 +83,16 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'disabled' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; grid: TerrainGrid; runner: SimRunner; originCell: number; stats: ProvinceStats[] };
+  /** Terrain is in; the player is choosing who to play against. */
+  | { kind: 'setup'; grid: TerrainGrid; stats: ProvinceStats[] }
+  | {
+      kind: 'ready';
+      grid: TerrainGrid;
+      runner: SimRunner;
+      originCell: number;
+      stats: ProvinceStats[];
+      seatNames: Record<number, string>;
+    };
 
 const ALERT_TONE: Record<string, string> = {
   raid: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
@@ -107,26 +117,19 @@ export default function WarfrontPage() {
   const [alerts, setAlerts] = useState<readonly Alert[]>([]);
   const [focus, setFocus] = useState<{ cell: number; nonce: number } | null>(null);
   const focusNonceRef = useRef(0);
+  /** Set once the match ends, which is also what stops the simulation advancing. */
+  const [result, setResult] = useState<MatchResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const grid = await fetchWarfrontTerrain();
-        const { scenario, seatCell } = buildOpeningScenario(grid, {
-          territoryId: OPENING_PROVINCE,
-          owner: VIEWER_OWNER,
-        });
-        // A fixed seed: this view is a lab, and a stable seed makes what you see
-        // reproducible from one reload to the next — including which tribe raids first.
-        const runner = new SimRunner(new Sim({ seed: 20260913, scenario, terrain: grid }));
         // Computed once: the panel needs per-province counts, and recomputing them on
         // every pointer move would rescan ~600k cells.
         const stats = computeProvinceStats(grid);
-        if (!cancelled) {
-          setState({ kind: 'ready', grid, runner, originCell: seatCell, stats });
-          setFocus({ cell: seatCell, nonce: ++focusNonceRef.current });
-        }
+        // The match itself waits for the player to choose opponents.
+        if (!cancelled) setState({ kind: 'setup', grid, stats });
       } catch (e: unknown) {
         if (cancelled) return;
         const err = e as { response?: { status?: number; data?: { error?: string } }; message?: string };
@@ -143,6 +146,47 @@ export default function WarfrontPage() {
       cancelled = true;
     };
   }, []);
+
+  /**
+   * Opens a match against the chosen policies.
+   *
+   * A fixed seed makes a match reproducible from one reload to the next — including which
+   * tribe raids first, and what the opponents do, because their orders go through the
+   * same command path a human's do and so land in the replay with everything else.
+   */
+  const startMatch = useCallback(
+    (setup: SoloSetup) => {
+      if (state.kind !== 'setup' && state.kind !== 'ready') return;
+      const grid = state.grid;
+      const solo = buildSoloMatch(grid, 20260913, setup);
+      const runner = new SimRunner(new Sim({ seed: 20260913, scenario: solo.scenario, terrain: grid }));
+      // The opposing policies decide here, on the same cadence and at the same point in
+      // the tick the headless lab uses. Same driver, same answers.
+      runner.beforeTick = (sim, nextTick) => solo.driver.beforeTick(sim, nextTick);
+
+      alertsRef.current.clear();
+      watchRef.current = new MatchWatch();
+      pendingBuildRef.current = null;
+      groupsRef.current = new ControlGroups();
+      setAlerts([]);
+      setSelected(new Set());
+      setSelectedBuilding(null);
+      setPlacingKind(null);
+      setGroupSlots([]);
+      setHud({ ticks: 0, units: 0 });
+      setResult(null);
+      setState({
+        kind: 'ready',
+        grid,
+        runner,
+        originCell: solo.playerSeatCell,
+        stats: state.stats,
+        seatNames: solo.seatNames,
+      });
+      setFocus({ cell: solo.playerSeatCell, nonce: ++focusNonceRef.current });
+    },
+    [state],
+  );
 
   const runner = state.kind === 'ready' ? state.runner : null;
   const grid = state.kind === 'ready' ? state.grid : null;
@@ -213,7 +257,10 @@ export default function WarfrontPage() {
         return;
       }
 
-      const hit = unitAtPoint(currentUnits(), wx, wy, PICK_RADIUS_CELLS);
+      // Your own units only. With a live opponent on the map an unfiltered pick would
+      // hand you their army — and the simulation does not check who issued a command, so
+      // the order would be carried out.
+      const hit = unitAtPoint(currentUnits(), wx, wy, PICK_RADIUS_CELLS, VIEWER_OWNER);
       if (hit !== null) setSelectedBuilding(null);
       setSelected((prev) => applySelection(prev, hit == null ? [] : [hit], additive));
     },
@@ -223,7 +270,7 @@ export default function WarfrontPage() {
   const onSelectRect = useCallback(
     (rect: WorldRect, additive: boolean) => {
       setSelectedBuilding(null);
-      setSelected((prev) => applySelection(prev, unitsInRect(currentUnits(), rect), additive));
+      setSelected((prev) => applySelection(prev, unitsInRect(currentUnits(), rect, VIEWER_OWNER), additive));
     },
     [currentUnits],
   );
@@ -343,6 +390,15 @@ export default function WarfrontPage() {
         raise(pending.kind, pending.message, pending.cell, runner.ticks);
       }
 
+      // The match is over when the format says so — a majority, the last seat standing,
+      // or the clock. Clearing beforeTick stops the opponents thinking; the runner is
+      // left alone so the plane keeps drawing the final position behind the standings.
+      const current = runner.sim.result;
+      if (current.over) {
+        runner.beforeTick = null;
+        setResult((prev) => prev ?? current);
+      }
+
       // A building site that has appeared gets the rest of its builders.
       const pending = pendingBuildRef.current;
       if (pending) {
@@ -360,7 +416,7 @@ export default function WarfrontPage() {
 
   const statsByIndex = useMemo(() => {
     const map = new Map<number, ProvinceStats>();
-    if (state.kind === 'ready') for (const entry of state.stats) map.set(entry.index, entry);
+    if (state.kind === 'ready' || state.kind === 'setup') for (const entry of state.stats) map.set(entry.index, entry);
     return map;
   }, [state]);
 
@@ -502,6 +558,8 @@ export default function WarfrontPage() {
           </div>
         ) : null}
 
+        {state.kind === 'setup' ? <WarfrontMatchSetup onStart={startMatch} /> : null}
+
         {state.kind === 'error' ? (
           <div className="flex h-full w-full items-center justify-center px-6">
             <div className="max-w-md rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -574,6 +632,15 @@ export default function WarfrontPage() {
                   ) : null}
                 </div>
               </div>
+
+              {result ? (
+                <WarfrontResult
+                  result={result}
+                  seatNames={state.seatNames}
+                  playerSeat={VIEWER_OWNER}
+                  onRestart={() => setState({ kind: 'setup', grid: state.grid, stats: state.stats })}
+                />
+              ) : null}
             </div>
 
             <WarfrontProvincePanel

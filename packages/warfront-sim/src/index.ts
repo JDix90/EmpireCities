@@ -65,6 +65,7 @@ export {
   type BotView,
 } from './bot';
 export { runMatch, type MatchOptions, type MatchOutcome } from './match';
+export { BotDriver } from './botDriver';
 export { ColonistBot, COLONIST_DEFAULTS, type ColonistParams } from './bots/colonist';
 export { RaiderBot } from './bots/raider';
 export { TurtleBot } from './bots/turtle';

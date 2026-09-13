@@ -59,7 +59,7 @@ vi.mock('../components/warfront/WarfrontTerrainCanvas', () => ({
         <button onClick={() => props.onSelectPoint(EMPTY_LAND.x, EMPTY_LAND.y, false)}>click empty land</button>
         <button onClick={() => props.onOrder(5.5, 1.5)}>order east</button>
         <button onClick={() => props.onOrder(FAR_SEA_CELL.x, FAR_SEA_CELL.y)}>order into the deep</button>
-        <button onClick={() => props.onHoverCell(1 * 40 + 2)}>hover gaul</button>
+        <button onClick={() => props.onHoverCell(1 * 40 + 2)}>hover home</button>
         <button onClick={() => props.onHoverCell(-1)}>hover nothing</button>
         <button onClick={() => props.onFrame({ ticks: props.runner?.ticks ?? 0, units: props.runner?.positions().length ?? 0 })}>
           pump frame
@@ -78,13 +78,16 @@ function axiosError(status: number, data: unknown) {
 }
 
 const sea = packCell({ owner: 0, tier: 0, passable: false, biome: Biome.Sea });
-const gaul = packCell({ owner: 1, tier: 0, passable: true, biome: Biome.Plains });
+/** Province 1 is Rome's, because `buildOpening` seats Rome first and the player is seat 1. */
+const rome = packCell({ owner: 1, tier: 0, passable: true, biome: Biome.Plains });
+const gaul = packCell({ owner: 2, tier: 0, passable: true, biome: Biome.Plains });
 
 /**
- * A checksum-valid asset with a walkable band of Lugdunensis — the province the sandbox
- * musters in — and a lot of open sea to its east. The width matters: the far corner has
- * to be further from land than the simulation's redirect radius, or an order there would
- * be quietly rescued to the nearest shore instead of refused.
+ * A checksum-valid asset with two walkable bands — one per seat, because a solo match
+ * seats an opponent as well as the player — and a lot of open sea to their east. The
+ * width matters: the far corner has to be further from land than the simulation's
+ * redirect radius, or an order there would be quietly rescued to the nearest shore
+ * instead of refused.
  */
 const FAR_SEA_CELL = { x: 38.5, y: 3.5 };
 /** Walkable Lugdunensis with nothing standing on it — a site for a new building. */
@@ -94,7 +97,8 @@ function tinyAsset(): TerrainAsset {
   const width = 40;
   const height = 4;
   const cells = new Uint16Array(width * height).fill(sea);
-  for (let r = 1; r < 3; r++) for (let c = 1; c < 7; c++) cells[r * width + c] = gaul;
+  for (let r = 1; r < 3; r++) for (let c = 1; c < 7; c++) cells[r * width + c] = rome;
+  for (let r = 1; r < 3; r++) for (let c = 9; c < 15; c++) cells[r * width + c] = gaul;
   return {
     format: 'warfront-terrain',
     version: 1,
@@ -105,8 +109,11 @@ function tinyAsset(): TerrainAsset {
     height,
     bounds_e6: { min_lng_e6: 0, max_lng_e6: 1000000, min_lat_e6: 0, max_lat_e6: 1000000 },
     lat0_e6: 500000,
-    provinces: [{ index: 1, territory_id: 'lugdunensis', name: 'Gallia Lugdunensis' }],
-    lanes: [{ from: 'lugdunensis', to: 'britannia' }],
+    provinces: [
+      { index: 1, territory_id: 'italia_central', name: 'Italia & Roma' },
+      { index: 2, territory_id: 'lugdunensis', name: 'Gallia Lugdunensis' },
+    ],
+    lanes: [{ from: 'italia_central', to: 'britannia' }],
     rows: encodeTerrainRows(cells, width, height),
     checksum: terrainChecksum(cells, width, height),
   };
@@ -120,6 +127,29 @@ function renderPage() {
   );
 }
 
+/**
+ * Renders, waits for the setup screen, and takes the field.
+ *
+ * The page no longer opens a match on load: decision 32 puts the lab's policies in as the
+ * live opponent, so the first thing a player does is choose who to play against.
+ */
+/**
+ * The player's own units. There is a live opponent on the map now, so a test counting
+ * `positions()` would be counting both armies — and an opponent that trained a villager
+ * mid-test would quietly change the answer.
+ */
+const PLAYER_SEAT = 1;
+function ownUnits(runner: SimRunner): number {
+  return runner.positions().filter((u) => u.owner === PLAYER_SEAT).length;
+}
+
+async function startMatch() {
+  renderPage();
+  await screen.findByTestId('warfront-setup');
+  fireEvent.click(screen.getByRole('button', { name: /Take the field/ }));
+  await screen.findByTestId('mock-plane');
+}
+
 beforeEach(() => {
   // Block body on purpose: `() => apiGet.mockReset()` returns the mock, and vitest treats
   // a function returned from beforeEach as a teardown hook — it would then CALL the mock
@@ -130,10 +160,9 @@ beforeEach(() => {
 });
 
 describe('WarfrontPage loading', () => {
-  it('loads terrain from the admin-guarded endpoint and musters a squad', async () => {
+  it('loads terrain from the admin-guarded endpoint and opens a match on it', async () => {
     apiGet.mockResolvedValue({ data: tinyAsset() });
-    renderPage();
-    await screen.findByTestId('mock-plane');
+    await startMatch();
     expect(apiGet).toHaveBeenCalledWith('/admin/warfront/terrain');
     expect(captured).not.toBeNull();
     expect(captured!.positions().length).toBeGreaterThan(0);
@@ -161,7 +190,7 @@ describe('WarfrontPage loading', () => {
   it('offers a way back to the admin console', async () => {
     apiGet.mockResolvedValue({ data: tinyAsset() });
     renderPage();
-    await waitFor(() => expect(screen.getByTestId('mock-plane')).toBeInTheDocument());
+    await screen.findByTestId('warfront-setup');
     expect(screen.getByRole('link', { name: /Back to Admin/ })).toHaveAttribute('href', '/admin');
   });
 });
@@ -169,16 +198,18 @@ describe('WarfrontPage loading', () => {
 describe('WarfrontPage selection and orders', () => {
   async function ready() {
     apiGet.mockResolvedValue({ data: tinyAsset() });
-    renderPage();
-    await screen.findByTestId('mock-plane');
+    await startMatch();
     return captured!;
   }
 
   it('box selection selects the squad, and clicking bare ground clears it', async () => {
     const runner = await ready();
-    const total = runner.positions().length;
+    const total = ownUnits(runner);
     fireEvent.click(screen.getByText('select all'));
+    // Your own units only: a box drawn across the whole map must not hand you the
+    // opponent's army.
     await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent(String(total)));
+    expect(total).toBeLessThan(runner.positions().length);
     fireEvent.click(screen.getByText('click empty ground'));
     await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('0'));
   });
@@ -186,7 +217,7 @@ describe('WarfrontPage selection and orders', () => {
   it('an order moves the selected units, and the simulation actually advances them', async () => {
     const runner = await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
 
     const before = runner.positions().map((u) => ({ id: u.id, x: u.x }));
     fireEvent.click(screen.getByText('order east'));
@@ -211,7 +242,7 @@ describe('WarfrontPage selection and orders', () => {
   it('orders land as whole-integer fixed commands the simulation accepts', async () => {
     const runner = await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
     fireEvent.click(screen.getByText('order east'));
     const replay = runner.sim.toReplay();
     // Narrowed to move commands on purpose: the command union is wider than this page
@@ -231,8 +262,7 @@ describe('WarfrontPage selection and orders', () => {
 describe('WarfrontPage province panel', () => {
   async function ready() {
     apiGet.mockResolvedValue({ data: tinyAsset() });
-    renderPage();
-    await screen.findByTestId('mock-plane');
+    await startMatch();
   }
 
   it('prompts before anything is hovered', async () => {
@@ -242,9 +272,9 @@ describe('WarfrontPage province panel', () => {
 
   it('shows the hovered province, its terrain make-up and its lanes', async () => {
     await ready();
-    fireEvent.click(screen.getByText('hover gaul'));
-    expect(await screen.findByText('Gallia Lugdunensis')).toBeInTheDocument();
-    expect(screen.getByText('lugdunensis')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('hover home'));
+    expect(await screen.findByText('Italia & Roma')).toBeInTheDocument();
+    expect(screen.getByText('italia_central')).toBeInTheDocument();
     // 12 walkable cells, all plains.
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('plains')).toBeInTheDocument();
@@ -254,8 +284,8 @@ describe('WarfrontPage province panel', () => {
 
   it('drops back to the prompt when the pointer leaves the map', async () => {
     await ready();
-    fireEvent.click(screen.getByText('hover gaul'));
-    await screen.findByText('Gallia Lugdunensis');
+    fireEvent.click(screen.getByText('hover home'));
+    await screen.findByText('Italia & Roma');
     fireEvent.click(screen.getByText('hover nothing'));
     await waitFor(() => expect(screen.getByText(/Hover the map for province/)).toBeInTheDocument());
   });
@@ -263,15 +293,15 @@ describe('WarfrontPage province panel', () => {
   it('counts the selected units standing in the hovered province', async () => {
     await ready();
     fireEvent.click(screen.getByText('select all'));
-    fireEvent.click(screen.getByText('hover gaul'));
+    fireEvent.click(screen.getByText('hover home'));
     expect(await screen.findByText(/selected units here/)).toBeInTheDocument();
   });
 
   it('centres the camera on the province on request', async () => {
     await ready();
-    fireEvent.click(screen.getByText('hover gaul'));
+    fireEvent.click(screen.getByText('hover home'));
     const before = screen.getByTestId('focus-nonce').textContent;
-    fireEvent.click(await screen.findByRole('button', { name: /Centre on Gallia Lugdunensis/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Centre on Italia & Roma/ }));
     await waitFor(() => expect(screen.getByTestId('focus-nonce').textContent).not.toBe(before));
   });
 });
@@ -279,15 +309,14 @@ describe('WarfrontPage province panel', () => {
 describe('WarfrontPage alerts', () => {
   async function ready() {
     apiGet.mockResolvedValue({ data: tinyAsset() });
-    renderPage();
-    await screen.findByTestId('mock-plane');
+    await startMatch();
     return captured!;
   }
 
   it('refuses an order with no walkable ground anywhere near it, and says so', async () => {
     const runner = await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
     const before = runner.sim.toReplay().commands.length;
 
     fireEvent.click(screen.getByText('order into the deep'));
@@ -300,7 +329,7 @@ describe('WarfrontPage alerts', () => {
   it('does not raise that alert for an order it can actually carry out', async () => {
     await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
     fireEvent.click(screen.getByText('order east'));
     await waitFor(() => expect(screen.queryByText(/Nothing can march there/)).not.toBeInTheDocument());
   });
@@ -308,7 +337,7 @@ describe('WarfrontPage alerts', () => {
   it('the jump key centres on the latest alert', async () => {
     await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
     fireEvent.click(screen.getByText('order into the deep'));
     await screen.findByText(/Nothing can march there/);
 
@@ -322,7 +351,7 @@ describe('WarfrontPage alerts', () => {
   it('clears the alert list on request', async () => {
     await ready();
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
     fireEvent.click(screen.getByText('order into the deep'));
     await screen.findByText(/Nothing can march there/);
     fireEvent.click(screen.getByRole('button', { name: /Clear alerts/ }));
@@ -333,8 +362,7 @@ describe('WarfrontPage alerts', () => {
 describe('WarfrontPage economy', () => {
   async function ready() {
     apiGet.mockResolvedValue({ data: tinyAsset() });
-    renderPage();
-    await screen.findByTestId('mock-plane');
+    await startMatch();
     return captured!;
   }
 
@@ -416,7 +444,7 @@ describe('WarfrontPage economy', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('no'));
     // Escape cancelled the placement, not the selection: the villagers are still picked.
-    expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0');
+    expect(screen.getByTestId('selected-count').textContent).not.toBe('0');
     expect(runner.sim.players.get(1)!.timber).toBe(START_TIMBER);
   });
 
@@ -431,14 +459,15 @@ describe('WarfrontPage economy', () => {
 
   it('trains from the selected building, and the unit actually arrives', async () => {
     const runner = await ready();
-    const before = runner.positions().length;
+    const before = ownUnits(runner);
     fireEvent.click(screen.getByText('click the seat'));
     await waitFor(() => expect(screen.getByTestId('selected-building')).toHaveTextContent('1'));
     fireEvent.click(screen.getByRole('button', { name: /^villager/ }));
 
-    // Twenty seconds of training, plus the two-tick command delay.
+    // Twenty seconds of training, plus the two-tick command delay. Counting only this
+    // seat's units, because the opponent is training on its own clock throughout.
     pump(runner, 15 * 21);
-    expect(runner.positions().length).toBe(before + 1);
+    expect(ownUnits(runner)).toBe(before + 1);
     expect(runner.sim.players.get(1)!.food).toBeLessThan(200);
   });
 
@@ -452,7 +481,7 @@ describe('WarfrontPage economy', () => {
       complete: true,
     });
     fireEvent.click(screen.getByText('select all'));
-    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
 
     fireEvent.click(screen.getByText('click empty land'));
     pump(runner, 5);
@@ -467,8 +496,9 @@ describe('WarfrontPage economy', () => {
   it('counts only villagers as builders — the scout in the selection is not labour', () => {
     // The opening is four villagers and a scout, and "select all" takes the lot.
     return ready().then(async (runner) => {
-      const scouts = [...runner.sim.entities.all()].filter((u) => u.kind === UnitKind.Scout).length;
-      const villagers = [...runner.sim.entities.all()].filter((u) => u.kind === UnitKind.Villager).length;
+      const mine = [...runner.sim.entities.all()].filter((u) => u.owner === PLAYER_SEAT);
+      const scouts = mine.filter((u) => u.kind === UnitKind.Scout).length;
+      const villagers = mine.filter((u) => u.kind === UnitKind.Villager).length;
       expect(scouts).toBeGreaterThan(0);
       fireEvent.click(screen.getByText('select all'));
       const commands = await screen.findByTestId('warfront-commands');
@@ -495,7 +525,7 @@ describe('WarfrontPage economy', () => {
 
   it('shows the province holding and what stands in it', async () => {
     await ready();
-    fireEvent.click(screen.getByText('hover gaul'));
+    fireEvent.click(screen.getByText('hover home'));
     expect(await screen.findByText('Held by')).toBeInTheDocument();
     expect(screen.getByText('you')).toBeInTheDocument();
     expect(screen.getByText('seat')).toBeInTheDocument();

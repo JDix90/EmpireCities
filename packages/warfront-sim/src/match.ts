@@ -1,5 +1,6 @@
 import { Sim, type Replay, type Scenario } from './sim';
-import { BOT_THINK_INTERVAL_TICKS, rngFor, shouldThink, viewFor, type Bot } from './bot';
+import { BOT_THINK_INTERVAL_TICKS, type Bot } from './bot';
+import { BotDriver } from './botDriver';
 import { buildProvinceGeography, type ProvinceGeography } from './tribes';
 import { matchCapTicks, type MatchResult } from './scoring';
 import { assertInt } from './fixed';
@@ -67,23 +68,13 @@ export function runMatch(options: MatchOptions): MatchOutcome {
   const interval = options.thinkInterval ?? BOT_THINK_INTERVAL_TICKS;
   const cap = options.maxTicks ?? matchCapTicks(sim.players.size);
 
-  const rngs = new Map<number, ReturnType<typeof rngFor>>();
-  const policies: Record<number, string> = {};
-  for (const [seat, bot] of options.bots) {
-    rngs.set(seat, rngFor(seed, seat));
-    policies[seat] = bot.name;
-  }
+  // The same driver the live game uses, so a bot cannot behave one way in the lab and
+  // another when somebody is watching.
+  const driver = new BotDriver(seed, options.bots, geography, interval);
 
   let result = sim.result;
   while (!result.over && sim.tick < cap) {
-    const next = sim.tick + 1;
-    for (const [seat, bot] of options.bots) {
-      if (!shouldThink(seat, next, interval)) continue;
-      const view = viewFor(sim, seat, rngs.get(seat)!, geography);
-      // A seat whose player is gone from the match has nothing to order.
-      if (!view) continue;
-      for (const command of bot.think(view)) sim.issue(command);
-    }
+    driver.beforeTick(sim, sim.tick + 1);
     sim.step();
     options.observe?.(sim);
     result = sim.result;
@@ -93,7 +84,7 @@ export function runMatch(options: MatchOptions): MatchOutcome {
     result,
     ticks: sim.tick,
     decided: result.over,
-    policies,
+    policies: driver.policies,
     hash: sim.hash(),
     replay: sim.toReplay(),
   };
