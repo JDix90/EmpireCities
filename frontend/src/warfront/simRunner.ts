@@ -46,6 +46,15 @@ export class SimRunner {
   private accumulatorMs = 0;
   private previous = new Map<number, Snapshot>();
   private steppedTicks = 0;
+  /**
+   * Called immediately before each tick is simulated, with the tick about to run.
+   *
+   * This is where the solo opponent's policies are asked for orders, so that they act on
+   * exactly the cadence and at exactly the point in the tick that the headless lab uses.
+   * A bot that decided somewhere else in the loop would make every number the lab
+   * produces a statement about a game nobody plays.
+   */
+  beforeTick: ((sim: Sim, nextTick: number) => void) | null = null;
 
   constructor(sim: Sim) {
     this.sim = sim;
@@ -74,6 +83,7 @@ export class SimRunner {
     let steps = 0;
     while (this.accumulatorMs >= TICK_MS && steps < MAX_STEPS_PER_FRAME) {
       this.snapshot();
+      this.beforeTick?.(this.sim, this.sim.tick + 1);
       this.sim.step();
       this.accumulatorMs -= TICK_MS;
       steps += 1;

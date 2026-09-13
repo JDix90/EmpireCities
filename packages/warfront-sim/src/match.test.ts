@@ -153,6 +153,31 @@ describe('runMatch', () => {
     expect(out.replay.commands.map((c) => c.command)).toContainEqual(order);
   });
 
+  it("keeps a bot's generator out of the simulation's own stream", () => {
+    // No policy draws from `view.rng` today, so this is forward-looking — but it is the
+    // invariant that matters when one does: the tribes read the SIMULATION's stream to
+    // pick raid targets, so a bot pulling from it would make raids depend on how many
+    // decisions its opponents happened to make that tick.
+    class Greedy implements Bot {
+      readonly name = 'greedy';
+      think(view: BotView): Command[] {
+        for (let i = 0; i < 50; i++) view.rng.nextU32();
+        return [];
+      }
+    }
+    const quiet = stripOpening();
+    const noisy = stripOpening();
+    const a = runMatch({ seed: 21, scenario: quiet.scenario, terrain: quiet.grid, bots: new Map(), maxTicks: 300 });
+    const b = runMatch({
+      seed: 21,
+      scenario: noisy.scenario,
+      terrain: noisy.grid,
+      bots: new Map<number, Bot>([[1, new Greedy()]]),
+      maxTicks: 300,
+    });
+    expect(b.hash).toBe(a.hash);
+  });
+
   it('records which policy played which seat', () => {
     const { grid, scenario } = stripOpening();
     const out = runMatch({
