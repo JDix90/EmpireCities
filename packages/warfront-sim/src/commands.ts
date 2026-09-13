@@ -2,11 +2,22 @@ import { assertFixed, assertInt } from './fixed';
 import type { StateHasher } from './hash';
 
 /**
- * Player commands. Step 1 has exactly one: `move`. Coordinates are 16.16 fixed cell
- * units. Anything that reaches the sim from outside (a socket, a replay file, a bot)
- * goes through `validateCommand`, which rejects floats and out-of-range values.
+ * Player commands. Coordinates are 16.16 fixed cell units, and every other field is a
+ * plain integer — kinds are numeric enums rather than strings precisely so a command is
+ * all-integer. Anything that reaches the sim from outside (a socket, a replay file, a
+ * bot) goes through `validateCommand`, which rejects floats and out-of-range values.
  */
-export type Command = { type: 'move'; unit: number; x: number; y: number };
+export type Command =
+  | { type: 'move'; unit: number; x: number; y: number }
+  /** Enqueue a unit at a building. Resources are spent when the command applies. */
+  | { type: 'train'; building: number; unit: number }
+  /**
+   * Rule II: villagers are assigned, never clicked. `building` of -1 unassigns, which
+   * is the only way to take a villager off a job.
+   */
+  | { type: 'assign'; unit: number; building: number }
+  /** Start a construction. Timber is spent when the command applies. */
+  | { type: 'build'; unit: number; kind: number; cell: number };
 
 /** A command stamped with the tick it executes on and its issue order within that tick. */
 export interface ScheduledCommand {
@@ -24,6 +35,22 @@ export function validateCommand(raw: unknown): Command {
       const x = assertFixed(c.x as number, 'move.x');
       const y = assertFixed(c.y as number, 'move.y');
       return { type: 'move', unit, x, y };
+    }
+    case 'train': {
+      const building = assertInt(c.building as number, 'train.building');
+      const unit = assertInt(c.unit as number, 'train.unit');
+      return { type: 'train', building, unit };
+    }
+    case 'assign': {
+      const unit = assertInt(c.unit as number, 'assign.unit');
+      const building = assertInt(c.building as number, 'assign.building');
+      return { type: 'assign', unit, building };
+    }
+    case 'build': {
+      const unit = assertInt(c.unit as number, 'build.unit');
+      const kind = assertInt(c.kind as number, 'build.kind');
+      const cell = assertInt(c.cell as number, 'build.cell');
+      return { type: 'build', unit, kind, cell };
     }
     default:
       throw new Error(`warfront-sim: unknown command type ${String(c.type)}`);
@@ -75,7 +102,13 @@ export class CommandQueue {
     h.int(this.seq).int(pending.length);
     for (const p of pending) {
       h.int(p.tick).int(p.seq).ascii(p.command.type);
-      h.int(p.command.unit).int(p.command.x).int(p.command.y);
+      // Hash every numeric field a command carries, whatever its shape, so a pending
+      // command cannot differ between hosts in a field this forgot to read.
+      const c = p.command as unknown as Record<string, unknown>;
+      for (const key of ['unit', 'building', 'kind', 'cell', 'x', 'y']) {
+        const value = c[key];
+        h.int(typeof value === 'number' ? value : 0);
+      }
     }
   }
 }

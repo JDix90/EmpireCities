@@ -198,10 +198,16 @@ describe('WarfrontPage selection and orders', () => {
     await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
     fireEvent.click(screen.getByText('order east'));
     const replay = runner.sim.toReplay();
-    expect(replay.commands.length).toBeGreaterThan(0);
-    for (const c of replay.commands) {
-      expect(Number.isInteger(c.command.x)).toBe(true);
-      expect(Number.isInteger(c.command.y)).toBe(true);
+    // Narrowed to move commands on purpose: the command union is wider than this page
+    // uses, and the claim being tested is specifically that pointer positions reach the
+    // simulation as whole-integer fixed values.
+    const moves = replay.commands.filter((c) => c.command.type === 'move');
+    expect(moves.length).toBeGreaterThan(0);
+    expect(moves.length).toBe(replay.commands.length);
+    for (const c of moves) {
+      const move = c.command as { type: 'move'; x: number; y: number };
+      expect(Number.isInteger(move.x)).toBe(true);
+      expect(Number.isInteger(move.y)).toBe(true);
     }
   });
 });

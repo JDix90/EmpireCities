@@ -1,9 +1,9 @@
 {
   "name": "no commands: the seed alone fixes the state",
   "ticks": 900,
-  "expectedHash": "cf058e5aa381e9dd",
+  "expectedHash": "6cb76b2254fbdfe9",
   "replay": {
-    "version": 1,
+    "version": 2,
     "seed": 1,
     "scenario": {
       "units": [

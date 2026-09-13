@@ -6,10 +6,11 @@ TypeScript: no DOM, no Node APIs, no runtime dependencies. One package, three ho
 the match host runs it, a browser re-runs it for replays, and the headless lab runs it
 at 100× speed. Nothing in here touches the existing turn-based game.
 
-Step 1 of Slice A ships exactly this much: 16.16 fixed-point maths, a seeded generator,
-a 15 tick/s loop with commands stamped two ticks ahead, a small entity store, one
-command (`move`), a terrain cell grid and flow-field pathing over it. Combat, economy,
-buildings, bots, rendering and netcode are later steps and are not started here.
+What exists: 16.16 fixed-point maths, a seeded generator, a 15 tick/s loop with commands
+stamped two ticks ahead, an entity store, a terrain cell grid with flow-field pathing
+over it, and from step 3 an economy — resources, buildings, villagers assigned to jobs,
+upkeep and starvation. Combat, colonisation, tribes, bots and netcode are later steps and
+are not started here.
 
 ## The one convention: every simulated quantity is an integer
 
@@ -110,6 +111,29 @@ committed asset and names its checksum; `Sim.fromReplay` refuses any other grid.
 `src/sim.terrain.test.ts` asserts what the hash only pins: the Milan → Augsburg unit
 walks a Brenner pass cell and the Le Mans → Poitiers unit crosses the Loire on a ford.
 
+## The economy (step 3, rule II)
+
+`rules.ts` holds **every tunable number in one place**, because the brief is explicit
+that its economy figures exist so a harness has something to disagree with and that none
+should survive a thousand simulated matches unchanged. The lab sweeps that file; it does
+not hunt through the rules code.
+
+Rates are written **per minute**, never per tick. A farmer's 12 food a minute is 12/900 a
+tick, which is not an integer and so cannot live in state. Instead each tick adds the
+per-minute rate to an accumulator and whole units are flushed at `TICKS_PER_MINUTE`. Over
+900 ticks a farmer delivers exactly 12 food on every machine, and there is no rounding
+residue to drift a replay apart. A test asserts the brief's own arithmetic: one farmer
+nets exactly 9 food a minute after eating.
+
+`economy.ts` runs a fixed order every tick — construction, gathering, training, upkeep,
+population — and the order is part of the rules, not an accident: gathering before upkeep
+means a farm can feed the villager working it within the same tick.
+
+Two things terrain decides, which is rule IV feeding rule II: a farm needs plains, a
+lumber camp forest, a mine hills, so **where** you settle decides **what** you can build;
+and a worker earns only while it is standing at its building, so walking there costs real
+time.
+
 ## API sketch
 
 ```ts
@@ -127,7 +151,13 @@ sim.toReplay();    // { version, seed, scenario, commands } — plain integers, 
 
 `Sim.fromReplay(replay, terrain?)` rebuilds the match at tick 0 with every command
 pre-scheduled; `replayHash(replay, ticks, terrain?)` is the one-liner the golden tests use.
-Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement.
+Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement, and a
+scenario carrying `players` and `buildings` to give the match an economy.
+
+**Replay format version 2.** Step 3 grew the hashed state, so a version 1 replay would
+hash differently than it recorded. `fromReplay` refuses it with a clear error rather than
+replaying it to a quietly different answer — a replay that disagrees with itself is
+exactly the failure this package exists to prevent.
 
 ## Working on it
 

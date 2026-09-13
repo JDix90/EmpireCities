@@ -1,0 +1,141 @@
+{
+  "name": "western twenty: Gaul raises a farm on real plains, works it, and trains villagers",
+  "ticks": 2700,
+  "expectedHash": "a4e95d455cabd192",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 2,
+    "seed": 117,
+    "scenario": {
+      "players": [
+        {
+          "index": 1,
+          "food": 200,
+          "timber": 100,
+          "silver": 0
+        }
+      ],
+      "buildings": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "cell": 161819
+        }
+      ],
+      "units": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        },
+        {
+          "owner": 1,
+          "kind": 1,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 655
+        },
+        {
+          "owner": 1,
+          "kind": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 1456
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "build",
+          "unit": 1,
+          "kind": 3,
+          "cell": 161818
+        }
+      },
+      {
+        "tick": 2,
+        "seq": 1,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 400,
+        "seq": 2,
+        "command": {
+          "type": "assign",
+          "unit": 2,
+          "building": 2
+        }
+      },
+      {
+        "tick": 500,
+        "seq": 3,
+        "command": {
+          "type": "assign",
+          "unit": 3,
+          "building": 2
+        }
+      },
+      {
+        "tick": 900,
+        "seq": 4,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 1400,
+        "seq": 5,
+        "command": {
+          "type": "assign",
+          "unit": 4,
+          "building": 2
+        }
+      },
+      {
+        "tick": 1800,
+        "seq": 6,
+        "command": {
+          "type": "assign",
+          "unit": 2,
+          "building": -1
+        }
+      },
+      {
+        "tick": 2000,
+        "seq": 7,
+        "command": {
+          "type": "move",
+          "unit": 5,
+          "x": 18644992,
+          "y": 16809984
+        }
+      }
+    ],
+    "terrain_checksum": "7a6d1f7b99f8936f"
+  }
+}

@@ -1,14 +1,24 @@
 import type { Fixed } from './fixed';
 import type { StateHasher } from './hash';
+import { UNIT_SPECS, UnitKind, type UnitKindValue } from './rules';
 
 /**
- * A mover. The only entity kind in step 1: it has a position, a speed and (optionally) a
- * goal it is walking toward. Every field is an integer; positions and speed are 16.16
+ * A unit: a position, a speed, optionally a goal it is walking toward, and from step 3
+ * a kind, health and a job. Every field is an integer; positions and speed are 16.16
  * fixed in CELL units (so x = 3 << 16 is the left edge of cell column 3).
  */
 export interface Unit {
   readonly id: number;
   owner: number;
+  kind: UnitKindValue;
+  hp: number;
+  maxHp: number;
+  /**
+   * Building this unit is assigned to, or -1. Rule II: villagers are assigned, never
+   * clicked — the job outlives any single move order, so it lives on the unit rather
+   * than being inferred from where it happens to be standing.
+   */
+  job: number;
   x: Fixed;
   y: Fixed;
   /** Cells per tick, fixed. */
@@ -29,6 +39,9 @@ export interface UnitInit {
   x: Fixed;
   y: Fixed;
   speed: Fixed;
+  /** Defaults to a villager, which is what a scenario without a roster means. */
+  kind?: UnitKindValue;
+  hp?: number;
 }
 
 /**
@@ -42,9 +55,15 @@ export class EntityStore {
   private nextId = 1;
 
   spawn(init: UnitInit): Unit {
+    const kind = init.kind ?? UnitKind.Villager;
+    const maxHp = UNIT_SPECS[kind]?.hp ?? 1;
     const unit: Unit = {
       id: this.nextId++,
       owner: init.owner,
+      kind,
+      hp: init.hp ?? maxHp,
+      maxHp,
+      job: -1,
       x: init.x,
       y: init.y,
       speed: init.speed,
@@ -84,10 +103,16 @@ export class EntityStore {
     return this.units;
   }
 
+  /** Units of one owner, ascending id. */
+  ownedBy(owner: number): Unit[] {
+    return this.units.filter((u) => u.owner === owner);
+  }
+
   hashInto(h: StateHasher): void {
     h.int(this.nextId).int(this.units.length);
     for (const u of this.units) {
-      h.int(u.id).int(u.owner).int(u.x).int(u.y).int(u.speed).int(u.goalX).int(u.goalY).bool(u.moving);
+      h.int(u.id).int(u.owner).int(u.kind).int(u.hp).int(u.maxHp).int(u.job);
+      h.int(u.x).int(u.y).int(u.speed).int(u.goalX).int(u.goalY).bool(u.moving);
     }
   }
 }
