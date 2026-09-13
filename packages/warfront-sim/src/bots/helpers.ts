@@ -7,6 +7,8 @@ import {
   BUILDER_SLOTS,
   BUILDING_SPECS,
   BuildingKind,
+  CAMP_RADIUS_CELLS,
+  COMBAT_SPECS,
   Resource,
   TICKS_PER_MINUTE,
   UnitKind,
@@ -201,4 +203,33 @@ export function spareFood(view: BotView, reserve: number): number {
 /** Minutes elapsed, floored — how a policy reads the clock. */
 export function minutes(view: BotView): number {
   return idiv(view.tick, TICKS_PER_MINUTE);
+}
+
+/**
+ * Soldiers of this seat that have arrived and are standing on somebody else's ground.
+ *
+ * The bot decides this for itself from the province list rather than being told, which
+ * keeps rule VII out of `BotView`: the view is the fog seam, and who owns a province is
+ * public information in this game — "ownership is public on the overview" — so a policy
+ * reading it needs no new privilege.
+ */
+export function soldiersOnForeignGround(view: BotView): Unit[] {
+  const owner = new Map(view.provinces.map((p) => [p.index, p.owner]));
+  return view.units.filter((u) => {
+    if (u.owner !== view.seat || u.moving || !COMBAT_SPECS[u.kind]) return false;
+    const cell = cellOf(u, view.grid);
+    if (cell < 0) return false;
+    const holder = owner.get(view.grid.owner(cell)) ?? 0;
+    return holder !== 0 && holder !== view.seat;
+  });
+}
+
+/** A camp of this seat's, standing or rising, within its radius of a cell. */
+export function campCovers(view: BotView, cell: number): boolean {
+  return view.buildings.some(
+    (b) =>
+      b.kind === BuildingKind.Camp &&
+      b.owner === view.seat &&
+      cellDistance(view.grid, b.cell, cell) <= CAMP_RADIUS_CELLS,
+  );
 }

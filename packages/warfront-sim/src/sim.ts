@@ -12,6 +12,7 @@ import { PlayerStore } from './players';
 import { stepEconomy, type EconomyContext } from './economy';
 import { ProvinceStore } from './provinces';
 import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
+import { musterAt, stepAttrition, stepCamps, type AttritionContext } from './attrition';
 import { stepCombat, type CombatContext } from './combat';
 import { matchResult, standings, stepScoring, type MatchResult, type Standing } from './scoring';
 import {
@@ -25,6 +26,8 @@ import {
   BUILDER_SLOTS,
   BUILDING_SPECS,
   BuildingKind,
+  CAMP_MIN_SOLDIERS,
+  COMBAT_SPECS,
   RAID_LOOT_SILVER,
   RAIDER_KIND,
   TICKS_PER_MINUTE,
@@ -72,7 +75,7 @@ export interface SimOptions {
  * that silently disagrees with itself is the failure mode the determinism rules exist to
  * prevent, and a loud error beats a quiet divergence.
  */
-export const REPLAY_VERSION = 4;
+export const REPLAY_VERSION = 5;
 
 /** A match, fully described: from this the final state is reproducible on any machine. */
 export interface Replay {
@@ -178,6 +181,15 @@ export class Sim {
 
   private combatContext(): CombatContext {
     return { entities: this.entities, buildings: this.buildings, grid: this.terrain! };
+  }
+
+  private attritionContext(): AttritionContext {
+    return {
+      entities: this.entities,
+      buildings: this.buildings,
+      provinces: this.provinces,
+      grid: this.terrain!,
+    };
   }
 
   private tribeContext(): TribeContext {
@@ -315,6 +327,11 @@ export class Sim {
         (target, amount, attacker) => this.hurtUnit(target, amount, attacker),
         (target, amount) => this.damageBuilding(target.id, amount),
       );
+      // Rule VII, after combat and before scoring. Camps rise first so one finished this
+      // tick shelters the army that finished it, rather than letting it bleed once more
+      // for the tick it was already standing complete.
+      stepCamps(this.attritionContext());
+      stepAttrition(this.attritionContext(), (unit, amount) => this.hurtUnit(unit, amount, 0));
       // Scoring last, after ownership has settled for this tick: a province taken this
       // tick banks this tick, and one lost this tick does not.
       stepScoring({ players: this.players, provinces: this.provinces });
@@ -578,6 +595,22 @@ export class Sim {
         building.workers.push(unit.id);
         unit.job = building.id;
         this.orderToCell(unit, command.cell);
+        return;
+      }
+      case 'camp': {
+        const grid = this.terrain;
+        if (!grid) return;
+        const unit = this.entities.get(command.unit);
+        // Soldiers only, and the roster says who those are. A villager cannot raise a
+        // camp for the same reason a soldier cannot raise a farm: rule VII prices a camp
+        // in the army that stands around it, and an army is what has a combat entry.
+        if (!unit || !COMBAT_SPECS[unit.kind]) return;
+        if (command.cell < 0 || command.cell >= grid.size) return;
+        if (!grid.isPassable(command.cell) || this.buildings.atCell(command.cell)) return;
+        // The muster is the price. Counted at the moment the order applies, so five
+        // soldiers who have already scattered cannot leave a camp rising behind them.
+        if (musterAt(this.attritionContext(), unit.owner, command.cell) < CAMP_MIN_SOLDIERS) return;
+        this.buildings.place({ kind: BuildingKind.Camp, owner: unit.owner, cell: command.cell });
         return;
       }
     }

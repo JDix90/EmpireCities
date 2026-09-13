@@ -1,9 +1,9 @@
 {
   "name": "two movers, straight-line, goals overridden mid-walk",
   "ticks": 450,
-  "expectedHash": "c4f547b761fada74",
+  "expectedHash": "57afdf774bfa5675",
   "replay": {
-    "version": 4,
+    "version": 5,
     "seed": 20260913,
     "scenario": {
       "units": [
