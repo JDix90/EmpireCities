@@ -11,9 +11,16 @@ export interface FaqEntry {
   a: string;
 }
 
+export interface FactEntry {
+  k: string;
+  v: string;
+}
+
 export type MarketingBlock =
   | { type: 'h2'; text: string }
   | { type: 'p'; text: string }
+  | { type: 'answer'; text: string }
+  | { type: 'facts'; facts: FactEntry[] }
   | { type: 'eras' }
   | { type: 'faq' }
   | { type: 'links'; links: Array<{ href: string; label: string }> };
@@ -26,7 +33,10 @@ export interface MarketingPage {
   h1: string;
   tagline: string;
   jsonLd: boolean;
+  /** Emit the site-wide FAQ as FAQPage structured data. */
   faq?: boolean;
+  /** This page's own questions, emitted as its FAQPage structured data. */
+  qa?: FaqEntry[];
   blocks: MarketingBlock[];
 }
 

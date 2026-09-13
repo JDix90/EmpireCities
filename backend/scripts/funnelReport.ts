@@ -13,7 +13,7 @@
  *
  * Read-only. Requires the normal backend Postgres env (DATABASE_URL / PG*).
  */
-import { connectPostgres, pgPool } from '../src/db/postgres';
+import { connectPostgres, pgPool, query } from '../src/db/postgres';
 import { getAnalyticsReport } from '../src/services/analyticsQueries';
 
 const DAYS = Math.max(1, Number(process.argv[2]) || 30);
@@ -68,6 +68,34 @@ async function main(): Promise<void> {
   console.log(`  finishes ${g.finishes} · wins ${g.wins} · tutorial ${g.tutorial_finishes}`);
   console.log(`  avg length ${g.avg_minutes ?? '—'} min · avg ${g.avg_turns ?? '—'} turns\n`);
 
+  console.log('ACQUISITION BY CHANNEL (first-touch, new users in window)');
+  if (r.acquisition_channels.length === 0) {
+    console.log('  (no attributed signups in window)');
+  } else {
+    const total = r.acquisition_channels.reduce((n, c) => n + c.signups, 0);
+    console.log(
+      `  ${'channel'.padEnd(22)} ${'signups'.padStart(8)} ${'share'.padStart(7)}`
+      + ` ${'accounts'.padStart(9)} ${'activated'.padStart(10)}`,
+    );
+    for (const c of r.acquisition_channels) {
+      console.log(
+        `  ${c.label.padEnd(22)} ${String(c.signups).padStart(8)} ${pct(c.signups, total).padStart(7)}`
+        + ` ${String(c.accounts).padStart(9)} ${String(c.activated).padStart(10)}`,
+      );
+      console.log(`  ${''.padEnd(22)} ${c.sources.slice(0, 6).join(', ')}`);
+    }
+    // Without this caveat the table reads as a measurement of the AI channel.
+    // It isn't: it's a floor, and the gap is sitting in the row below it.
+    console.log(
+      '\n  NOTE: assistants that send no referrer (desktop/mobile apps, several web\n'
+      + '  assistants) are indistinguishable from a typed URL and land in Direct, so\n'
+      + '  "AI assistants" is a FLOOR. Google\'s AI Overviews refer as google.com and\n'
+      + '  count as Search. Read AI assistants and Direct together, and trust the\n'
+      + '  referral survey (referral_survey_answered) over both.',
+    );
+  }
+  console.log('');
+
   console.log('ACQUISITION BY SOURCE (first-touch, new users in window)');
   if (r.acquisition.length === 0) {
     console.log('  (no signups in window)');
@@ -79,6 +107,29 @@ async function main(): Promise<void> {
       );
     }
     console.log('  (sources are utm_source → referrer host → "direct"; attribution rides on the signup event)');
+  }
+  console.log('');
+
+  // Self-reported attribution — the only signal that sees referrer-less
+  // assistant traffic at all. Low N by nature; read it as anecdote with a
+  // denominator, not as a channel split.
+  const survey = await query<{ answer: string; n: number }>(
+    `SELECT COALESCE(NULLIF(properties->>'answer', ''), 'unknown') AS answer, COUNT(*)::int AS n
+     FROM analytics_events
+     WHERE event = 'referral_survey_answered'
+       AND created_at >= NOW() - make_interval(days => $1::int)
+     GROUP BY answer
+     ORDER BY n DESC`,
+    [DAYS],
+  );
+  console.log('REFERRAL SURVEY ("how did you hear about us?", self-reported)');
+  if (survey.length === 0) {
+    console.log('  (no answers yet — the prompt ships behind referral_survey_enabled, default OFF)');
+  } else {
+    const total = survey.reduce((n, row) => n + Number(row.n), 0);
+    for (const row of survey) {
+      console.log(`  ${row.answer.padEnd(22)} ${String(row.n).padStart(6)}  ${pct(Number(row.n), total).padStart(6)}`);
+    }
   }
   console.log('');
 

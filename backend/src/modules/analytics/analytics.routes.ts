@@ -9,7 +9,13 @@ import { recordServerEvent } from '../../services/analyticsEvents';
  * being opened) need this one endpoint. The event name is a strict allowlist
  * and property values are size-capped — this must never become a generic
  * write-anything channel.
+ *
+ * REFERRAL_SURVEY_ANSWERS below mirrors REFERRAL_SURVEY_OPTIONS in
+ * frontend/src/utils/referralSurvey.ts — adding an option there means adding
+ * its id here, or the answer is rejected.
  */
+const REFERRAL_SURVEY_ANSWERS = new Set(['ai_assistant', 'search', 'social', 'friend', 'other']);
+
 const UiEventSchema = z.object({
   event: z.enum([
     'retention_notification_clicked',
@@ -25,9 +31,24 @@ const UiEventSchema = z.object({
     'map_rendered',
     'first_attack',
     'first_territory_captured',
+    // Self-reported acquisition. The only signal that sees assistants which
+    // send no referrer — those visits are indistinguishable from a typed URL
+    // and otherwise count as 'direct'. See services/acquisitionChannel.ts.
+    'referral_survey_answered',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
+}).superRefine((value, ctx) => {
+  // The survey's `answer` is a dimension we group by, so it is a closed set,
+  // not free text. The generic `properties` schema would happily accept 200
+  // characters of anything — which would both pollute the grouping and turn a
+  // measurement field into an unmoderated user-content channel.
+  if (value.event !== 'referral_survey_answered') return;
+  const answer = value.properties?.answer;
+  if (!answer || !REFERRAL_SURVEY_ANSWERS.has(answer)) {
+    ctx.addIssue({ code: 'custom', path: ['properties', 'answer'], message: 'Unknown answer' });
+  }
 });
+
 
 /**
  * Pre-auth visitor beacons. Deliberately UNAUTHENTICATED — landing_viewed /
