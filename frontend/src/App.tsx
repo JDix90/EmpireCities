@@ -36,6 +36,12 @@ const TermsPage = lazyWithChunkRetry(() => import('./pages/TermsPage'));
 const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const ErasPage = lazyWithChunkRetry(() => import('./pages/ErasPage'));
+// Public Daily archive (one page per settled day). Named export for the index
+// so both share a chunk — they are always reached from one another.
+const AnswerPage = lazyWithChunkRetry(() => import('./pages/AnswerPage'));
+const DailyArchivePage = lazyWithChunkRetry(() => import('./pages/DailyArchivePage'));
+const DailyArchiveIndexPage = lazyWithChunkRetry(() =>
+  import('./pages/DailyArchivePage').then((m) => ({ default: m.DailyArchiveIndexPage })));
 const AboutPage = lazyWithChunkRetry(() => import('./pages/AboutPage'));
 const DailyChallengePage = lazyWithChunkRetry(() => import('./pages/DailyChallengePage'));
 const StorePage = lazyWithChunkRetry(() => import('./pages/StorePage'));
@@ -340,6 +346,16 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/eras" element={<ErasPage />} />
+        {/* Settled Daily puzzles are public and crawlable; /daily itself stays
+            private. A static segment outranks the dynamic one in React Router,
+            so /daily/archive never falls through to /daily/:date. */}
+        {/* Question-shaped answer pages. One component for all of them — it
+            resolves its content from seoContent.mjs by pathname, the same
+            module the build prerenders the crawlable HTML from. */}
+        <Route path="/answers" element={<AnswerPage />} />
+        <Route path="/answers/:slug" element={<AnswerPage />} />
+        <Route path="/daily/archive" element={<DailyArchiveIndexPage />} />
+        <Route path="/daily/:date" element={<DailyArchivePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/join/:code" element={<JoinGamePage />} />

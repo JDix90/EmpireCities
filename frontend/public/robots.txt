@@ -6,4 +6,40 @@
 User-agent: *
 Allow: /
 
+# AI answer-engine crawlers are welcome, explicitly. A large share of our
+# signups already arrive from assistant referrals, and these pages exist partly
+# to be read and cited by them. Each group below only restates the `*` policy —
+# it is here so the stance is greppable, and so that turning one off later is a
+# deliberate edit rather than a silent omission. (Google-Extended and
+# Applebot-Extended are opt-out tokens only; they never appear as a User-Agent.)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
 Sitemap: https://borderfall.gg/sitemap.xml
+# Generated from the database: one URL per settled Daily puzzle. A sitemap
+# declared here may live at any path on the same host.
+Sitemap: https://borderfall.gg/sitemap-daily.xml

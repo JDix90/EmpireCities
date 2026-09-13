@@ -159,6 +159,12 @@ async function run() {
     if (page.faq) {
       html = html.replace('</head>', `${faqPageJsonLd(FAQ)}  </head>`);
     }
+    // An answer page carries its own question set rather than the site-wide FAQ:
+    // the whole point of the page is that one specific question, and pointing
+    // FAQPage at the generic list would describe the page as something it isn't.
+    if (page.qa) {
+      html = html.replace('</head>', `${faqPageJsonLd(page.qa)}  </head>`);
+    }
 
     // Body: inject crawlable content into #root.
     html = html.replace('<div id="root"></div>', bodyHtml(page));

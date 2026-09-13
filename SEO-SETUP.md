@@ -7,7 +7,15 @@ covers the parts that require account access only you have.
 
 **Canonical domain:** `https://borderfall.gg`
 **Sitemap URL:** `https://borderfall.gg/sitemap.xml`
+**Daily-archive sitemap:** `https://borderfall.gg/sitemap-daily.xml` (generated
+from the database — one URL per settled Daily puzzle; declared in `robots.txt`)
 **Robots URL:** `https://borderfall.gg/robots.txt`
+
+> **Bing is the priority, not Google.** ChatGPT's search leans on Bing's index,
+> and roughly half our attributed signups already arrive from assistant
+> referrals — so Bing Webmaster Tools is a direct pipe into the retrieval layer
+> that is sending us users, and it is the cheapest thing on this page. Do §2
+> before §1 if you only have time for one.
 
 > Project note: any file placed in `frontend/public/` is served at the site
 > root (Vite copies `public/` into `dist/`, and nginx serves `dist/` — see
@@ -73,3 +81,37 @@ covers the parts that require account access only you have.
   `pnpm -C frontend run generate:og`, then commit `public/og-image.png`.
 - When you add or remove a public page, update `frontend/public/sitemap.xml`
   (and `MARKETING_PAGES` in `seoContent.mjs` if it should be prerendered).
+- The Daily archive needs no sitemap maintenance: `/sitemap-daily.xml` is built
+  from `daily_challenges` on request, and a day appears the moment it settles.
+
+## 5. What is published, and how it reaches a crawler
+
+Three different mechanisms, worth keeping straight when something doesn't show
+up in an index:
+
+| Surface | Route | How a crawler gets HTML |
+|---|---|---|
+| Landing, how-to-play, eras, about, legal | `/`, `/how-to-play`, … | Prerendered at build time into `dist/` by `scripts/prerender-marketing.mjs` |
+| Answer pages | `/answers`, `/answers/*` | Same prerender — they are entries in `MARKETING_PAGES` |
+| Daily archive | `/daily/archive`, `/daily/YYYY-MM-DD` | Server-rendered per request by the backend; nginx routes crawler user-agents there and humans to the SPA |
+
+The Daily archive is server-rendered rather than prerendered because its content
+changes daily and depends on the database, which the frontend build has no
+access to. nginx sends crawler user-agents (search, social, **and the AI
+answer-engine crawlers**) to the backend shell, and everyone else to the SPA —
+the same split `/replay/:gameId` already used. Both render the same puzzle,
+objective and results from the same public API, which is what keeps dynamic
+serving from being cloaking; the backend sends `Vary: User-Agent`.
+
+## 6. Measuring whether assistants recommend us
+
+Indexing is only half of it. `docs/GEO-PROMPT-PANEL.md` is the monthly check on
+the other half — whether an assistant asked "free browser game like Risk?"
+actually names Borderfall, and whether what it says about us is true. The funnel
+cannot answer either question (assistants that send no referrer land in
+`direct`), so the panel is hand-run and its results live in
+`docs/geo-panel/observations.json`:
+
+```
+pnpm -C backend exec tsx scripts/geoPanelReport.ts
+```
