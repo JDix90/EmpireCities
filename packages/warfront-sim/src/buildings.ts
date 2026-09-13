@@ -27,6 +27,8 @@ export interface Building {
   queue: number[];
   /** Ticks remaining on the unit at the head of the queue. */
   queueRemaining: number;
+  /** Ticks until a tower may fire again. */
+  cooldown: number;
 }
 
 export interface BuildingInit {
@@ -61,6 +63,7 @@ export class BuildingStore {
       workers: [],
       queue: [],
       queueRemaining: 0,
+      cooldown: 0,
     };
     this.items.push(building);
     this.byId.set(building.id, building);
@@ -108,7 +111,7 @@ export class BuildingStore {
       for (const w of b.workers) h.int(w);
       h.int(b.queue.length);
       for (const q of b.queue) h.int(q);
-      h.int(b.queueRemaining);
+      h.int(b.queueRemaining).int(b.cooldown);
     }
   }
 }

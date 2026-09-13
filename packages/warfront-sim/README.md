@@ -134,6 +134,36 @@ lumber camp forest, a mine hills, so **where** you settle decides **what** you c
 and a worker earns only while it is standing at its building, so walking there costs real
 time.
 
+## Combat and tribes (step 3, rules III and VI)
+
+Combat is **auto-attack, not ordered attack**: anything in range of an enemy strikes it on
+its own cadence. That is what lets rule VI work at all — raiders reach your villagers and
+the fighting starts without anyone clicking. The triangle is spear → cavalry → archer →
+spear at double damage, the skirmisher doubles on villagers and halves on every soldier,
+and a ram damages buildings and nothing else. Terrain *modifies* the triangle rather than
+adding to it: an archer on high ground reaches one cell further, and that is the whole of
+it. No formations, no morale, no healing.
+
+Seats and towers **fire on their own** at the brief's 8 damage a second over 6 cells,
+which is what makes rule III more than bookkeeping: a lone ram walking up to a seat dies
+at tick 211 having taken 450 off 1500, so a seat costs about four rams or one ram with an
+escort to pull the tower.
+
+`tribes.ts` is rule VI. Every province is a tribe's home until somebody settles it;
+colonising the home ends that source for free, because a settled province is not neutral
+and so musters nothing. Raids **muster on the frontier** — `buildProvinceGeography` derives
+land adjacency and per-pair border cells from the grid in one pass, needing no map
+document — and aim at the victim's nearest producing building, which is where the
+villagers are. They loot, they retreat, and the tribe keeps no standing army between
+raids. Raid size grows with the clock *and* with the victim's holdings, which is the
+anti-turtle half of the rule.
+
+**Pace is not cosmetic.** `UNIT_SPECS.speedPerMinute` is derived from the committed asset,
+not guessed: at 4 km cells a seat sits 53-82 cells from its frontiers, and the brief wants
+a first colony around minute two, which fixes a villager at ~54 cells a minute. The first
+pass was six times slower and rule VI was a dead letter — raiders could not reach anything
+before their raid expired, so they piled up on the map and no villager was ever in danger.
+
 ## API sketch
 
 ```ts
@@ -154,10 +184,11 @@ pre-scheduled; `replayHash(replay, ticks, terrain?)` is the one-liner the golden
 Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement, and a
 scenario carrying `players` and `buildings` to give the match an economy.
 
-**Replay format version 2.** Step 3 grew the hashed state, so a version 1 replay would
-hash differently than it recorded. `fromReplay` refuses it with a clear error rather than
-replaying it to a quietly different answer — a replay that disagrees with itself is
-exactly the failure this package exists to prevent.
+**Replay format version 3.** The version is bumped whenever the hashed state changes
+shape — 2 added the economy, 3 added combat cooldowns and the tribes — because an older
+replay would hash differently than it recorded. `fromReplay` refuses it with a clear error
+rather than replaying it to a quietly different answer: a replay that disagrees with
+itself is exactly the failure this package exists to prevent.
 
 ## Working on it
 
