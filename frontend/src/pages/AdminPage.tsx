@@ -44,6 +44,12 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
+    key: 'referral_survey_enabled',
+    label: 'Referral survey ("how did you hear about us?")',
+    description:
+      'Ask a player once, after their first finished game, where they heard about Borderfall. Off by default. This is the only attribution signal that sees assistants which send no referrer — those visits are otherwise indistinguishable from a typed URL and count as Direct.',
+  },
+  {
     key: 'daily_guest_play_enabled',
     label: 'Daily Challenge for guests',
     description:

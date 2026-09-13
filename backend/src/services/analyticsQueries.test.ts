@@ -87,8 +87,8 @@ describe('analyticsQueries', () => {
     expect(sql).toContain("event IN ('guest_created', 'user_registered')");
     expect(params).toEqual([14]);
     expect(a).toEqual([
-      { source: 'reddit', signups: 6, accounts: 2, activated: 1 },
-      { source: 'direct', signups: 4, accounts: 0, activated: 0 },
+      { source: 'reddit', channel: 'social', signups: 6, accounts: 2, activated: 1 },
+      { source: 'direct', channel: 'direct', signups: 4, accounts: 0, activated: 0 },
     ]);
   });
 
@@ -128,7 +128,21 @@ describe('analyticsQueries', () => {
     expect(r.funnel.finished_game).toBe(1);
     expect(r.retention.d1).toBe(1);
     expect(r.completion.avg_minutes).toBe(15);
-    expect(r.acquisition).toEqual([{ source: 'reddit', signups: 3, accounts: 1, activated: 1 }]);
+    expect(r.acquisition).toEqual([
+      { source: 'reddit', channel: 'social', signups: 3, accounts: 1, activated: 1 },
+    ]);
+    // The same signups folded up by channel — the grain that answers "is the
+    // assistant-referral channel growing?" rather than "how did this campaign do?".
+    expect(r.acquisition_channels).toEqual([
+      {
+        channel: 'social',
+        label: 'Social / community',
+        signups: 3,
+        accounts: 1,
+        activated: 1,
+        sources: ['reddit'],
+      },
+    ]);
     expect(r.volume).toEqual([{ event: 'game_finished', n: 1 }]);
   });
 });

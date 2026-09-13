@@ -7,6 +7,9 @@ import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, Ch
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
+import ReferralSurvey from './ReferralSurvey';
+import { useReferralSurveyEnabled } from '../../store/featureFlagsStore';
+import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
 import { bankedGoldNote } from '../../utils/signupNudge';
 import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
@@ -1129,6 +1132,20 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const hasChronicle = (chronicle?.length ?? 0) > 0;
 
   const { user } = useAuthStore();
+
+  // Whether to ask where this player heard about Borderfall. Computed once on
+  // mount: reading localStorage during render would re-evaluate mid-session and
+  // could yank the prompt out from under a player who just answered.
+  const referralSurveyFlag = useReferralSurveyEnabled();
+  const [showReferralSurvey] = useState(() =>
+    shouldShowReferralSurvey({
+      flagEnabled: referralSurveyFlag,
+      isTutorial: Boolean(data.rematchConfig?.settings?.tutorial),
+      isDailyChallenge: Boolean(data.rematchConfig?.settings?.daily_challenge_date),
+      alreadyAnswered: hasAnsweredReferralSurvey(window.localStorage),
+    }),
+  );
+
   const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareBlob, setShareBlob] = useState<Blob | null>(null);
@@ -1442,6 +1459,19 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             Create Free Account
           </button>
         </div>
+      )}
+
+      {/* Attribution we cannot measure any other way. Placed last on purpose:
+          the come-back panel and the guest-conversion block above are the
+          funnel, and neither may lose a reader to a survey. Asked at most once
+          per browser, and skipping counts as asked. */}
+      {showReferralSurvey && (
+        <ReferralSurvey
+          className={clsx(
+            'mb-6 transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+        />
       )}
 
       {probHistory && probHistory.length >= 2 && (

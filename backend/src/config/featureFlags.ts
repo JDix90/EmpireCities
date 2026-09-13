@@ -54,6 +54,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
@@ -253,6 +254,24 @@ export const featureFlags = {
    */
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled');
+  },
+
+  /**
+   * When true, a player who just finished their first game is asked, once,
+   * where they heard about Borderfall.
+   *
+   * This exists because referrer-based attribution has a hole it cannot close:
+   * assistants that send no referrer are indistinguishable from a typed URL and
+   * land in the `direct` bucket, so the measured AI-referral share is a floor
+   * rather than a number (see services/acquisitionChannel.ts). One self-reported
+   * answer per player is the only signal that sees into that bucket.
+   *
+   * Dark-launched OFF: it adds a prompt to the end of a first session, which is
+   * the most fragile moment in the funnel, so it goes on deliberately and gets
+   * watched rather than shipping on by default.
+   */
+  get referralSurveyEnabled(): boolean {
+    return overrideBool('referral_survey_enabled');
   },
 
   /**
@@ -595,6 +614,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,

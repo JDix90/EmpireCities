@@ -8,6 +8,12 @@
  * there's no retroactive history, by design.
  */
 import { query, queryOne } from '../db/postgres';
+import {
+  classifyAcquisitionSource,
+  CHANNEL_ORDER,
+  CHANNEL_LABELS,
+  type AcquisitionChannel,
+} from './acquisitionChannel';
 
 export interface FunnelMetrics {
   signups: number;
@@ -42,6 +48,8 @@ export interface EventVolumeRow {
 }
 
 export interface AcquisitionRow {
+  /** Which kind of place this source is — see services/acquisitionChannel.ts. */
+  channel: AcquisitionChannel;
   /** First-touch utm_source, else referrer host, else 'direct'. */
   source: string;
   signups: number;
@@ -49,6 +57,21 @@ export interface AcquisitionRow {
   accounts: number;
   /** Finished at least one game (activated). */
   activated: number;
+}
+
+/**
+ * The same signups folded up by channel. Every signup lands in exactly one
+ * source bucket (the query is DISTINCT ON user_id), so summing across the
+ * sources in a channel double-counts nobody.
+ */
+export interface AcquisitionChannelRow {
+  channel: AcquisitionChannel;
+  label: string;
+  signups: number;
+  accounts: number;
+  activated: number;
+  /** The sources folded into this channel, biggest first — for "which assistant?". */
+  sources: string[];
 }
 
 export interface VisitorFunnelMetrics {
@@ -68,6 +91,7 @@ export interface AnalyticsReport {
   retention: RetentionMetrics;
   completion: CompletionStats;
   acquisition: AcquisitionRow[];
+  acquisition_channels: AcquisitionChannelRow[];
   volume: EventVolumeRow[];
 }
 
@@ -219,10 +243,44 @@ export async function getAcquisitionBySource(days: number): Promise<AcquisitionR
   );
   return rows.map((r) => ({
     source: String(r.source),
+    channel: classifyAcquisitionSource(String(r.source)),
     signups: num(r.signups),
     accounts: num(r.accounts),
     activated: num(r.activated),
   }));
+}
+
+/**
+ * Fold per-source signups into channels. Derived from the rows we already have
+ * rather than a second query — the source grain answers "which campaign?", this
+ * one answers "is the assistant-referral channel growing?", and that second
+ * question is the one the current acquisition mix makes urgent.
+ *
+ * Read `llm` and `direct` together: assistants that send no referrer land in
+ * `direct`, so `llm` is a floor. See services/acquisitionChannel.ts.
+ */
+export function foldAcquisitionByChannel(rows: AcquisitionRow[]): AcquisitionChannelRow[] {
+  const byChannel = new Map<AcquisitionChannel, AcquisitionChannelRow>();
+  for (const channel of CHANNEL_ORDER) {
+    byChannel.set(channel, {
+      channel,
+      label: CHANNEL_LABELS[channel],
+      signups: 0,
+      accounts: 0,
+      activated: 0,
+      sources: [],
+    });
+  }
+  // Biggest source first so `sources` reads as a ranking.
+  for (const row of [...rows].sort((a, b) => b.signups - a.signups || a.source.localeCompare(b.source))) {
+    const bucket = byChannel.get(row.channel);
+    if (!bucket) continue;
+    bucket.signups += row.signups;
+    bucket.accounts += row.accounts;
+    bucket.activated += row.activated;
+    bucket.sources.push(row.source);
+  }
+  return CHANNEL_ORDER.map((c) => byChannel.get(c)!).filter((r) => r.signups > 0);
 }
 
 /**
@@ -279,6 +337,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     retention,
     completion,
     acquisition,
+    acquisition_channels: foldAcquisitionByChannel(acquisition),
     volume,
   };
 }

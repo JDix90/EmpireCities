@@ -81,6 +81,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |
 | `rankedEraAdvancementEnabled` | `RANKED_ERA_ADVANCEMENT_ENABLED` | off | Ranked matchmaking creates Era Advancement games (pending balance review) |
 | `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | **on** | One-time guest → create-account nudge after a finished game |
+| `referralSurveyEnabled` | `REFERRAL_SURVEY_ENABLED` | off | One-time "how did you hear about us?" prompt after a finished game. The only attribution signal that sees assistants which send no referrer — those otherwise count as Direct |
 | `aiAttackGrindEnabled` | `AI_ATTACK_GRIND_ENABLED` | **on** | AI spends its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls (off, a 3+ unit garrison is uncapturable by the AI). Turn length is unchanged |
 | `aiCaptureOddsEnabled` | `AI_CAPTURE_ODDS_ENABLED` | **on** | AI ranks attack candidates by exact capture probability fed with the real dice modifiers, instead of the legacy dice differential. Changes target choice only, never combat resolution |
 | `aiDecidedGamePressEnabled` | `AI_DECIDED_GAME_PRESS_ENABLED` | **on** | An AI past 70% heuristic win probability doubles its exchange budget and attack cap to finish a decided game (never Easy/tutorial). Kill switch if the endgame press plays badly |
