@@ -12,11 +12,19 @@
 #
 # The whole class is cheap to catch: run `nginx -t` over the real file.
 #
-# Two substitutions make it testable outside compose — neither changes the
+# Three substitutions make it testable outside compose — none changes the
 # syntax under test:
 #   * `backend:3001` is a compose service name that only resolves on the
 #     compose network; nginx fails config tests on an unresolvable upstream.
 #   * `root` points at an image path that does not exist on a CI runner.
+#   * `listen 80` becomes an unprivileged port, because `nginx -t` test-binds
+#     the listen sockets and CI does not run as root.
+#
+# The verdict is nginx's "syntax is ok" line, NOT the exit code. `nginx -t`
+# exits non-zero when it cannot bind — which says nothing about the config and
+# is guaranteed on any unprivileged runner. Parsing is what we are testing, and
+# a config nginx cannot parse never reaches the bind step: the regex bug above
+# printed `[emerg] pcre2_compile() failed` with no "syntax is ok" at all.
 set -euo pipefail
 
 CONF="$(dirname "$0")/../docker/nginx.prod.conf"
@@ -30,6 +38,7 @@ fi
 
 mkdir -p "$WORK/html" "$WORK/logs"
 sed -e 's/server backend:3001;/server 127.0.0.1:3001;/' \
+    -e 's/listen 80;/listen 8199;/' \
     -e "s#root /usr/share/nginx/html;#root $WORK/html;#" \
     "$CONF" > "$WORK/site.conf"
 
@@ -48,7 +57,9 @@ http {
 }
 NGINX
 
-if ! nginx -t -c "$WORK/main.conf" 2>"$WORK/out"; then
+nginx -t -c "$WORK/main.conf" >"$WORK/out" 2>&1 || true
+
+if ! grep -q "syntax is ok" "$WORK/out"; then
   echo "check-nginx-conf: FAILED — docker/nginx.prod.conf would not start nginx."
   echo "  A config nginx cannot parse takes down the entire site, not one route."
   echo "  Note: a regex containing { } (e.g. [0-9]{4}) must be QUOTED in a"
