@@ -6,9 +6,11 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/warfront-sim/package.json ./packages/warfront-sim/
 RUN corepack enable && corepack prepare pnpm@10.9.0 --activate && pnpm install --frozen-lockfile
 COPY frontend ./frontend
 COPY packages/shared ./packages/shared
+COPY packages/warfront-sim ./packages/warfront-sim
 WORKDIR /app/frontend
 ARG VITE_API_URL=
 ARG VITE_SOCKET_URL=

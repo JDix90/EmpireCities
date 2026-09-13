@@ -24,6 +24,7 @@ export default defineConfig({
     dedupe: ['three'],
     alias: {
       '@borderfall/shared': path.resolve(__dirname, '../packages/shared/src/index.ts'),
+      '@borderfall/warfront-sim': path.resolve(__dirname, '../packages/warfront-sim/src/index.ts'),
     },
   },
   server: {
