@@ -1,5 +1,6 @@
 import { idiv } from '../fixed';
 import { cellOf, type BotView } from '../bot';
+import { isCoastal } from '../coast';
 import type { Building } from '../buildings';
 import type { Unit } from '../entities';
 import type { TerrainGrid } from '../terrain';
@@ -89,6 +90,27 @@ export function stableSortBy<T>(items: readonly T[], key: (item: T) => number): 
  * the state — and bounded by `maxRadius`, because this runs once a second per bot for
  * thousands of matches. Returns -1 when nothing inside the radius will take it.
  */
+/**
+ * Ground rules the `biomes` table cannot express.
+ *
+ * A port must stand on a coast, and being coastal is a property of a cell's NEIGHBOURS
+ * rather than of the cell, so the biome list — a whole-cell test — cannot say it. The
+ * simulation checks it on the way in and silently refuses a build that fails, which is a
+ * fine rule and a terrible thing for a bot to discover by trial: without this, a policy
+ * whose order contains a port proposes the first passable cell it finds, is refused, and
+ * proposes the same cell again a second later for the rest of the match. Measured before
+ * this existed: fourteen thousand refused build commands across twelve matches, three
+ * convoys, and a build order that never got past the harbour it could not raise.
+ *
+ * The lane test is here for the same reason — the simulation refuses a harbour in a
+ * province with no lane out of it, so a bot that keeps asking is a bot that never builds
+ * anything again.
+ */
+function sitePasses(view: BotView, kind: BuildingKindValue, cell: number): boolean {
+  if (kind !== BuildingKind.Port) return true;
+  return isCoastal(view.grid, cell) && view.sea.lanesFrom(view.grid.owner(cell)).length > 0;
+}
+
 export function findBuildSite(
   view: BotView,
   kind: BuildingKindValue,
@@ -114,6 +136,7 @@ export function findBuildSite(
         if (!grid.isPassable(cell) || occupied.has(cell)) continue;
         if (grid.owner(cell) !== wanted) continue;
         if (spec.biomes.length > 0 && !spec.biomes.includes(grid.biome(cell))) continue;
+        if (!sitePasses(view, kind, cell)) continue;
         return cell;
       }
     }

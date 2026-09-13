@@ -9,6 +9,7 @@ import { ColonistBot } from '../bots/colonist';
 import { RaiderBot } from '../bots/raider';
 import { TurtleBot } from '../bots/turtle';
 import { RusherBot } from '../bots/rusher';
+import { IslanderBot, MarinerBot } from '../bots/seafarer';
 import { matchCapTicks } from '../scoring';
 import { SEATS } from '../openings';
 import { TICKS_PER_MINUTE } from '../rules';
@@ -38,6 +39,8 @@ const FACTORIES: Record<string, BotFactory> = {
   raider: () => new RaiderBot(),
   turtle: () => new TurtleBot(),
   rusher: () => new RusherBot(),
+  islander: () => new IslanderBot(),
+  mariner: () => new MarinerBot(),
 };
 
 function twoSeats(a: string, b: string): ReadonlyMap<number, BotFactory> {

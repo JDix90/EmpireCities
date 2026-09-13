@@ -57,6 +57,20 @@ export interface BotView {
    * the simulation it plays, so it asks this instead.
    */
   readonly geography: ProvinceGeography;
+  /**
+   * Rule V's sea, as the two questions a policy actually asks of it.
+   *
+   * Both are public information and neither widens the fog seam: the lane graph is map
+   * data every player can read, and a beach is terrain. Functions rather than prebuilt
+   * lists because the coastline costs a pass over six hundred thousand cells and most
+   * policies never ask — a bot that never builds a port never pays for one.
+   */
+  readonly sea: {
+    /** Provinces this one has a lane to, ascending. */
+    lanesFrom(province: number): number[];
+    /** Landing sites in a province, as seen from a departure cell. */
+    beaches(province: number, from: number): number[];
+  };
 }
 
 export interface Bot {
@@ -116,6 +130,10 @@ export function viewFor(sim: Sim, seat: number, rng: Rng, geography: ProvinceGeo
     colonisePrice: sim.colonisePriceFor(seat),
     provinceCount: sim.provinces.all().length,
     geography,
+    sea: {
+      lanesFrom: (province) => sim.lanesFrom(province),
+      beaches: (province, from) => sim.beaches(province, from),
+    },
   };
 }
 
