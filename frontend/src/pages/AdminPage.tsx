@@ -204,6 +204,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Alert players when their ranked match is found, wherever they are: app-wide socket listener (toast + auto-navigate from any page), OS notification on hidden tabs, FCM push when the tab is closed (respects each player’s Push setting), and a missed-match catch-up check on return. Off by default (dark-launch) — this is also the kill switch for the always-on per-tab websocket.',
   },
+  {
+    key: 'warfront_enabled',
+    label: 'Warfront (experimental RTS mode)',
+    description:
+      'Second gate on the Warfront surfaces: the Admin → Warfront tab’s terrain endpoint now, the match host and the lab in later steps. Every one of them is admin-only regardless of this flag (server-enforced), so switching it on exposes nothing to players. Off by default — this is the kill switch for an experiment.',
+  },
 ] as const;
 
 /** Per-flag resolution from GET /admin/config — mirrors the backend's FeatureFlagState. */
@@ -213,7 +219,17 @@ interface FeatureFlagState {
   effective: boolean;
 }
 
-type TabKey = 'overview' | 'analytics' | 'balance' | 'ranked' | 'config' | 'users' | 'maps' | 'dependencies' | 'audit';
+type TabKey =
+  | 'overview'
+  | 'analytics'
+  | 'balance'
+  | 'ranked'
+  | 'config'
+  | 'users'
+  | 'maps'
+  | 'dependencies'
+  | 'audit'
+  | 'warfront';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
@@ -225,7 +241,29 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'maps', label: 'Maps', description: 'Community map review' },
   { key: 'dependencies', label: 'Dependencies', description: 'Services, keys, renewals' },
   { key: 'audit', label: 'Audit', description: 'Admin actions log' },
+  { key: 'warfront', label: 'Warfront', description: 'Experimental RTS mode (admin-only)' },
 ];
+
+// --- Warfront tab: experimental RTS mode, admin-only (backend: GET /admin/warfront/status) ---
+interface WarfrontTerrainSummaryView {
+  id: string;
+  map_id: string;
+  generator: string;
+  cell_km: number;
+  width: number;
+  height: number;
+  cells: number;
+  provinces: number;
+  lanes: number;
+  checksum: string;
+}
+
+interface WarfrontStatusView {
+  enabled: boolean;
+  flag: string;
+  terrain: WarfrontTerrainSummaryView | null;
+  terrain_error: string | null;
+}
 
 // --- Maps tab: community map moderation queue (backend: GET /admin/maps) ---
 interface ModerationMapRow {
@@ -524,6 +562,7 @@ export default function AdminPage() {
   const [flagSaving, setFlagSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deps, setDeps] = useState<DependencyReport | null>(null);
+  const [warfront, setWarfront] = useState<WarfrontStatusView | null>(null);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -613,6 +652,9 @@ export default function AdminPage() {
         } else if (tab === 'dependencies') {
           const res = await api.get<DependencyReport>('/admin/dependencies');
           setDeps(res.data ?? null);
+        } else if (tab === 'warfront') {
+          const res = await api.get<WarfrontStatusView>('/admin/warfront/status');
+          setWarfront(res.data ?? null);
         }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
@@ -1698,6 +1740,64 @@ export default function AdminPage() {
                 <p className="p-4 text-center text-sm text-bf-muted">Registry is empty.</p>
               ) : null}
             </div>
+          </div>
+        )}
+
+        {!loading && activeTab === 'warfront' && warfront && (
+          <div className="mt-6 space-y-4">
+            <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-bf-text">Warfront — experimental real-time mode</p>
+                  <p className="mt-1 text-xs leading-relaxed text-bf-muted">
+                    Slice A, step 1: the deterministic simulation package and the terrain grid exist; nothing
+                    is playable yet. This tab is the only Warfront surface and it is admin-only on the server —
+                    the flag below is a second gate, not the first.
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    warfront.enabled ? 'bg-emerald-500/20 text-emerald-200' : 'bg-amber-500/20 text-amber-200'
+                  }`}
+                >
+                  {warfront.enabled ? 'warfront_enabled · on' : 'warfront_enabled · off'}
+                </span>
+              </div>
+              {!warfront.enabled ? (
+                <p className="mt-3 text-xs text-bf-muted">
+                  The terrain endpoint answers 404 while the flag is off. Switch it on under{' '}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('config')}
+                    className="text-bf-gold hover:underline"
+                  >
+                    Config → Feature flags
+                  </button>{' '}
+                  (“Warfront (experimental RTS mode)”) or set <span className="font-mono">WARFRONT_ENABLED=true</span>.
+                </p>
+              ) : null}
+            </div>
+
+            {warfront.terrain ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <Kpi label="Grid" value={`${warfront.terrain.width} × ${warfront.terrain.height}`} hint={`${warfront.terrain.cell_km} km cells`} />
+                <Kpi label="Cells" value={warfront.terrain.cells.toLocaleString()} />
+                <Kpi label="Provinces" value={warfront.terrain.provinces} hint="western twenty" />
+                <Kpi label="Sea lanes" value={warfront.terrain.lanes} hint="from the map" />
+                <Kpi label="Map" value={warfront.terrain.map_id} />
+                <Kpi label="Checksum" value={warfront.terrain.checksum} hint="replays pin this" />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                Terrain asset unavailable: {warfront.terrain_error ?? 'unknown error'}
+              </div>
+            )}
+
+            <p className="text-xs leading-relaxed text-bf-muted">
+              Asset: <span className="font-mono text-[11px] text-bf-text">database/warfront/western_twenty.terrain.json</span>
+              {' '}— generated by <span className="font-mono text-[11px] text-bf-text">pnpm run build:warfront-terrain</span>, never edited by hand.
+              Design brief: <span className="font-mono text-[11px] text-bf-text">docs/WARFRONT_RTS_MODE.md</span>.
+            </p>
           </div>
         )}
       </div>

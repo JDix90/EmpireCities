@@ -183,4 +183,13 @@ describe('featureFlags', () => {
     expect(featureFlags.matchAlertsEnabled).toBe(true);
     expect(getClientFeatureFlags().match_alerts_enabled).toBe(true);
   });
+
+  it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
+    expect(featureFlags.warfrontEnabled).toBe(false);
+    expect(getClientFeatureFlags().warfront_enabled).toBe(false);
+    expect(getFeatureFlagStates().warfront_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { warfront_enabled: true } });
+    expect(featureFlags.warfrontEnabled).toBe(true);
+    expect(getClientFeatureFlags().warfront_enabled).toBe(true);
+  });
 });

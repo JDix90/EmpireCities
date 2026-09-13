@@ -73,6 +73,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
+  // Experimental Warfront RTS mode (docs/WARFRONT_RTS_MODE.md). Admin-only on top
+  // of this flag, so the flag gates a surface only admins can reach anyway.
+  warfront_enabled: () => envOptIn('WARFRONT_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -560,6 +563,17 @@ export const featureFlags = {
   get matchAlertsEnabled(): boolean {
     return overrideBool('match_alerts_enabled');
   },
+
+  /**
+   * When true, the Warfront admin surfaces answer: the Admin → Warfront tab's
+   * terrain endpoint and, in later steps, the match host and the lab. Every one of
+   * them ALSO requires an admin (`preHandler: [authenticate, requireAdmin]`), so
+   * this flag is a second gate, not the first. Default OFF — dark-launch of an
+   * experimental mode; `WARFRONT_ENABLED=true` or the admin override switches it on.
+   */
+  get warfrontEnabled(): boolean {
+    return overrideBool('warfront_enabled');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -592,5 +606,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     background_music_enabled: featureFlags.backgroundMusicEnabled,
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
     era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
+    warfront_enabled: featureFlags.warfrontEnabled,
   };
 }
