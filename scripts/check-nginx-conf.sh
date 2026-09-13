@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Prove docker/nginx.prod.conf can actually start nginx.
+#
+# This exists because a config nginx refuses to parse does not degrade — it
+# takes the WHOLE SITE down, static assets included, and the failure looks
+# nothing like its cause. A `location ~ ^/daily/(archive|[0-9]{4}-...)$` line
+# shipped unquoted: nginx's lexer read the `{` of `{4}` as the opening brace of
+# the location block, truncated the regex, failed to compile it, and refused to
+# start. Every request then 502'd from the proxy in front. `docker compose up`
+# reported the web container as "Started", and the backend's own /ready was
+# fine, so nothing upstream of the smoke test noticed.
+#
+# The whole class is cheap to catch: run `nginx -t` over the real file.
+#
+# Two substitutions make it testable outside compose — neither changes the
+# syntax under test:
+#   * `backend:3001` is a compose service name that only resolves on the
+#     compose network; nginx fails config tests on an unresolvable upstream.
+#   * `root` points at an image path that does not exist on a CI runner.
+set -euo pipefail
+
+CONF="$(dirname "$0")/../docker/nginx.prod.conf"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+if ! command -v nginx >/dev/null 2>&1; then
+  echo "check-nginx-conf: nginx not installed — skipping (install nginx-light to run locally)"
+  exit 0
+fi
+
+mkdir -p "$WORK/html" "$WORK/logs"
+sed -e 's/server backend:3001;/server 127.0.0.1:3001;/' \
+    -e "s#root /usr/share/nginx/html;#root $WORK/html;#" \
+    "$CONF" > "$WORK/site.conf"
+
+cat > "$WORK/main.conf" <<NGINX
+events {}
+pid $WORK/nginx.pid;
+error_log $WORK/logs/error.log;
+http {
+  access_log off;
+  client_body_temp_path $WORK/logs;
+  proxy_temp_path $WORK/logs;
+  fastcgi_temp_path $WORK/logs;
+  uwsgi_temp_path $WORK/logs;
+  scgi_temp_path $WORK/logs;
+  include $WORK/site.conf;
+}
+NGINX
+
+if ! nginx -t -c "$WORK/main.conf" 2>"$WORK/out"; then
+  echo "check-nginx-conf: FAILED — docker/nginx.prod.conf would not start nginx."
+  echo "  A config nginx cannot parse takes down the entire site, not one route."
+  echo "  Note: a regex containing { } (e.g. [0-9]{4}) must be QUOTED in a"
+  echo "  location directive, or nginx reads the brace as the block opener."
+  echo
+  sed 's/^/  /' "$WORK/out"
+  exit 1
+fi
+
+echo "check-nginx-conf: ok — nginx accepts docker/nginx.prod.conf"

@@ -37,6 +37,12 @@ jobs:
       - uses: actions/checkout@v5
       - name: Check documentation claims against the code
         run: bash scripts/check-docs.sh
+      # A config nginx refuses to parse takes the whole site down, not one
+      # route — and compose still reports the container as "Started".
+      - name: Install nginx (config syntax check)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nginx-light
+      - name: Check the production nginx config actually starts nginx
+        run: bash scripts/check-nginx-conf.sh
 
   backend:
     runs-on: ubuntu-latest
