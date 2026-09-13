@@ -140,7 +140,22 @@ function renderPage() {
  */
 const PLAYER_SEAT = 1;
 function ownUnits(runner: SimRunner): number {
-  return runner.positions().filter((u) => u.owner === PLAYER_SEAT).length;
+  return ownPositions(runner).length;
+}
+
+/**
+ * The player's own units, in a stable order, for before-and-after comparison.
+ *
+ * Movement assertions have to be scoped this way or they are not about the page at all:
+ * the opponent is a live policy that walks its own villagers to their jobs from the first
+ * second, so "something moved" is true of any twenty ticks whether or not an order was
+ * ever issued, and "nothing moved" is false of them.
+ */
+function ownPositions(runner: SimRunner): { id: number; x: number }[] {
+  return runner
+    .positions()
+    .filter((u) => u.owner === PLAYER_SEAT)
+    .map((u) => ({ id: u.id, x: u.x }));
 }
 
 async function startMatch() {
@@ -219,12 +234,12 @@ describe('WarfrontPage selection and orders', () => {
     fireEvent.click(screen.getByText('select all'));
     await waitFor(() => expect(screen.getByTestId('selected-count').textContent).not.toBe('0'));
 
-    const before = runner.positions().map((u) => ({ id: u.id, x: u.x }));
+    const before = ownPositions(runner);
     fireEvent.click(screen.getByText('order east'));
 
     // Commands are stamped two ticks ahead, so nothing moves on the very next tick.
     runner.advance(TICK_MS * 40);
-    const after = runner.positions();
+    const after = ownPositions(runner);
     expect(after.some((u, i) => u.x !== before[i].x)).toBe(true);
     // And they head east, toward the ordered point.
     const movedEast = after.filter((u, i) => u.x > before[i].x).length;
@@ -233,10 +248,10 @@ describe('WarfrontPage selection and orders', () => {
 
   it('issues nothing when nothing is selected', async () => {
     const runner = await ready();
-    const before = runner.positions().map((u) => u.x);
+    const before = ownPositions(runner);
     fireEvent.click(screen.getByText('order east'));
     runner.advance(TICK_MS * 20);
-    expect(runner.positions().map((u) => u.x)).toEqual(before);
+    expect(ownPositions(runner)).toEqual(before);
   });
 
   it('orders land as whole-integer fixed commands the simulation accepts', async () => {
