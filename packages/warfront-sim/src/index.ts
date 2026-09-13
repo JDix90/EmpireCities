@@ -13,12 +13,16 @@ export {
   Sim,
   replayHash,
   cellCentre,
-  TICK_RATE,
-  COMMAND_DELAY_TICKS,
+  REPLAY_VERSION,
   NEAREST_PASSABLE_RADIUS,
   type Scenario,
   type SimOptions,
   type Replay,
 } from './sim';
 export * from './terrain';
+export * from './rules';
+export { TICK_RATE, COMMAND_DELAY_TICKS } from './constants';
+export { BuildingStore, type Building, type BuildingInit } from './buildings';
+export { PlayerStore, type Player, type PlayerInit } from './players';
+export { stepEconomy, isAtWork, unitCellDistance, type EconomyContext } from './economy';
 export { FlowField, FlowFieldCache, COST_ORTHOGONAL, COST_DIAGONAL } from './flowField';
