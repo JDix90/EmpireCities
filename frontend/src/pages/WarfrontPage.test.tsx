@@ -35,14 +35,21 @@ vi.mock('../components/warfront/WarfrontTerrainCanvas', () => ({
     onSelectRect: (r: { x0: number; y0: number; x1: number; y1: number }, additive: boolean) => void;
     onSelectPoint: (x: number, y: number, additive: boolean) => void;
     onOrder: (x: number, y: number) => void;
+    onHoverCell: (cell: number) => void;
+    focus: { cell: number; nonce: number } | null;
   }) => {
     captured = props.runner;
     return (
       <div data-testid="mock-plane">
         <span data-testid="selected-count">{props.selectedIds.size}</span>
+        <span data-testid="focus-cell">{props.focus ? props.focus.cell : 'none'}</span>
+        <span data-testid="focus-nonce">{props.focus ? props.focus.nonce : 0}</span>
         <button onClick={() => props.onSelectRect({ x0: -1, y0: -1, x1: 1e6, y1: 1e6 }, false)}>select all</button>
         <button onClick={() => props.onSelectPoint(-99, -99, false)}>click empty ground</button>
-        <button onClick={() => props.onOrder(6.5, 2.5)}>order east</button>
+        <button onClick={() => props.onOrder(5.5, 1.5)}>order east</button>
+        <button onClick={() => props.onOrder(FAR_SEA_CELL.x, FAR_SEA_CELL.y)}>order into the deep</button>
+        <button onClick={() => props.onHoverCell(1 * 40 + 2)}>hover gaul</button>
+        <button onClick={() => props.onHoverCell(-1)}>hover nothing</button>
       </div>
     );
   },
@@ -60,11 +67,15 @@ const sea = packCell({ owner: 0, tier: 0, passable: false, biome: Biome.Sea });
 const gaul = packCell({ owner: 1, tier: 0, passable: true, biome: Biome.Plains });
 
 /**
- * A checksum-valid 8x4 asset with a walkable band of Lugdunensis — the province the
- * sandbox scenario musters in.
+ * A checksum-valid asset with a walkable band of Lugdunensis — the province the sandbox
+ * musters in — and a lot of open sea to its east. The width matters: the far corner has
+ * to be further from land than the simulation's redirect radius, or an order there would
+ * be quietly rescued to the nearest shore instead of refused.
  */
+const FAR_SEA_CELL = { x: 38.5, y: 3.5 };
+
 function tinyAsset(): TerrainAsset {
-  const width = 8;
+  const width = 40;
   const height = 4;
   const cells = new Uint16Array(width * height).fill(sea);
   for (let r = 1; r < 3; r++) for (let c = 1; c < 7; c++) cells[r * width + c] = gaul;
@@ -79,7 +90,7 @@ function tinyAsset(): TerrainAsset {
     bounds_e6: { min_lng_e6: 0, max_lng_e6: 1000000, min_lat_e6: 0, max_lat_e6: 1000000 },
     lat0_e6: 500000,
     provinces: [{ index: 1, territory_id: 'lugdunensis', name: 'Gallia Lugdunensis' }],
-    lanes: [],
+    lanes: [{ from: 'lugdunensis', to: 'britannia' }],
     rows: encodeTerrainRows(cells, width, height),
     checksum: terrainChecksum(cells, width, height),
   };
@@ -192,5 +203,107 @@ describe('WarfrontPage selection and orders', () => {
       expect(Number.isInteger(c.command.x)).toBe(true);
       expect(Number.isInteger(c.command.y)).toBe(true);
     }
+  });
+});
+
+describe('WarfrontPage province panel', () => {
+  async function ready() {
+    apiGet.mockResolvedValue({ data: tinyAsset() });
+    renderPage();
+    await screen.findByTestId('mock-plane');
+  }
+
+  it('prompts before anything is hovered', async () => {
+    await ready();
+    expect(screen.getByText(/Hover the map for province and terrain detail/)).toBeInTheDocument();
+  });
+
+  it('shows the hovered province, its terrain make-up and its lanes', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('hover gaul'));
+    expect(await screen.findByText('Gallia Lugdunensis')).toBeInTheDocument();
+    expect(screen.getByText('lugdunensis')).toBeInTheDocument();
+    // 12 walkable cells, all plains.
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('plains')).toBeInTheDocument();
+    // The lane comes from the map's own typed sea links, carried in the asset.
+    expect(screen.getByText('britannia')).toBeInTheDocument();
+  });
+
+  it('drops back to the prompt when the pointer leaves the map', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('hover gaul'));
+    await screen.findByText('Gallia Lugdunensis');
+    fireEvent.click(screen.getByText('hover nothing'));
+    await waitFor(() => expect(screen.getByText(/Hover the map for province/)).toBeInTheDocument());
+  });
+
+  it('counts the selected units standing in the hovered province', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    fireEvent.click(screen.getByText('hover gaul'));
+    expect(await screen.findByText(/selected units here/)).toBeInTheDocument();
+  });
+
+  it('centres the camera on the province on request', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('hover gaul'));
+    const before = screen.getByTestId('focus-nonce').textContent;
+    fireEvent.click(await screen.findByRole('button', { name: /Centre on Gallia Lugdunensis/ }));
+    await waitFor(() => expect(screen.getByTestId('focus-nonce').textContent).not.toBe(before));
+  });
+});
+
+describe('WarfrontPage alerts', () => {
+  async function ready() {
+    apiGet.mockResolvedValue({ data: tinyAsset() });
+    renderPage();
+    await screen.findByTestId('mock-plane');
+    return captured!;
+  }
+
+  it('refuses an order with no walkable ground anywhere near it, and says so', async () => {
+    const runner = await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    const before = runner.sim.toReplay().commands.length;
+
+    fireEvent.click(screen.getByText('order into the deep'));
+
+    expect(await screen.findByText(/Nothing can march there/)).toBeInTheDocument();
+    // The order is refused outright rather than issued and silently dropped.
+    expect(runner.sim.toReplay().commands.length).toBe(before);
+  });
+
+  it('does not raise that alert for an order it can actually carry out', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    fireEvent.click(screen.getByText('order east'));
+    await waitFor(() => expect(screen.queryByText(/Nothing can march there/)).not.toBeInTheDocument());
+  });
+
+  it('the jump key centres on the latest alert', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    fireEvent.click(screen.getByText('order into the deep'));
+    await screen.findByText(/Nothing can march there/);
+
+    const before = screen.getByTestId('focus-nonce').textContent;
+    fireEvent.keyDown(window, { key: ' ' });
+    await waitFor(() => expect(screen.getByTestId('focus-nonce').textContent).not.toBe(before));
+    // And it centres on the refused spot, not on wherever the camera happened to be.
+    expect(screen.getByTestId('focus-cell')).toHaveTextContent(String(3 * 40 + 38));
+  });
+
+  it('clears the alert list on request', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+    fireEvent.click(screen.getByText('order into the deep'));
+    await screen.findByText(/Nothing can march there/);
+    fireEvent.click(screen.getByRole('button', { name: /Clear alerts/ }));
+    await waitFor(() => expect(screen.queryByText(/Nothing can march there/)).not.toBeInTheDocument());
   });
 });
