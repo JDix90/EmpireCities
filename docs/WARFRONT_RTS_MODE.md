@@ -68,8 +68,9 @@ overnight against the repo's own map data and ratified the following morning.
 7. AI commanders will command and build. Bots begin as scripted policies driving the
    same command API as humans.
 8. Free-for-all as the core, with placement scoring. Teams later, as a format.
-9. Vertical slice on Europe, **two to four humans from day one** — a 1v1 cannot prove the
-   FFA.
+9. Vertical slice on Europe, **supporting two to four humans** — a 1v1 cannot prove the
+   FFA. (Originally "from day one". Decision 32 keeps the requirement and moves the
+   netcode that delivers it behind the solo fun test.)
 10. Fixed historical seats per matchup.
 11. Sea lanes as the permanent first-release abstraction. No ships.
 12. Hidden convoys; lighthouses, ports and scouts are the counter.
@@ -103,6 +104,20 @@ overnight against the repo's own map data and ratified the following morning.
     ahead. *(confirmed 12 Sep)*
 30. Match cap **25 minutes at four seats, 20 at two**. *(confirmed 12 Sep)*
 31. Working title **Warfront**. *(confirmed 12 Sep)*
+
+### Revised on measured evidence
+
+32. **The lab's bots move into Slice A as the live solo opponent, and netcode moves
+    after them.** *(13 Sep)* Slice A originally specified two to four humans from day
+    one with no bots. A production funnel report made that unsatisfiable: over thirty
+    days Borderfall saw 82 landing views, 25 signups, and **D1 retention of 0 out of
+    33**. Concurrent players are effectively zero, so every Warfront playtest would
+    require recruiting and scheduling people, and the fun question would be answered
+    weekly at best. The six policy bots were already scheduled inside Slice A for the
+    lab and already drive the same command API a human does, so wiring them in as
+    opponents costs almost nothing and turns playtesting into a daily solo loop. Netcode
+    is the largest item in the slice and the least urgent while there is nobody to play
+    against, so it moves behind them. Nothing is cut; the order changes.
 
 ---
 
@@ -456,8 +471,10 @@ renderer**. Scripted bots play thousands of matches overnight, and the numbers i
 corrected before a human ever sees them.
 
 **Bots are policies, not intelligence** — fixed build orders with a few timing
-parameters, driving the same command API a human does. They are also the seed of the AI
-commanders (policy + seat traits + difficulty cheats):
+parameters, driving the same command API a human does. Because they drive that API, the
+same six are wired into the running game as the **solo opponent** (decision 32), which is
+what lets one person play a full match before any netcode exists. They are also the seed
+of the AI commanders (policy + seat traits + difficulty cheats):
 
 `Colonist` (baseline: expand as fast as price allows, defend) · `Raider` (early
 skirmishers, harass lumber camps) · `Turtle` (walls and towers, never past 3 provinces) ·
@@ -492,28 +509,45 @@ and nothing after it is scheduled until that answer exists.
 
 ### Slice A — the fun test
 
+Reordered 13 September against decision 32. The steps are the same work; what changed is
+that a **playable single-player Warfront arrives at step 4 instead of after step 6**, and
+the largest item in the slice stops blocking the only question the slice exists to answer.
+
 1. **Simulation core and terrain pipeline** (large) — the package, determinism tooling,
    the cell grid for the western twenty, golden replay tests.
 2. **Renderer, input, province panel** (medium) — PixiJS plane, selection, control groups,
    assignment by click, alerts with a jump key.
-3. **Netcode for 2–4 humans** (large) — match host worker, fog-filtered deltas, reconnect,
-   seat assignment through the existing lobby.
-4. **Economy, colonisation, tribes, capture loop** (medium) — rules I, II, III, VI.
+3. **Economy, colonisation, tribes, capture loop** (medium) — rules I, II, III, VI. This is
+   the game; everything before it is scaffolding and everything after it is reach.
+4. **The lab, and its bots as the live opponent** (medium) — runner, six policy bots,
+   metrics, seat self-play, pacing invariants in CI. The same bots are wired into the
+   running game, so **one person can play a full match from here on**. This is the step
+   that changes the schedule: the fun question becomes a daily loop instead of a
+   scheduling problem, and the bots are needed for launch regardless (see Liquidity under
+   Risks), so none of it is throwaway.
 5. **Lanes, hidden convoys, lighthouses, beaches, camps, truce** (medium) — rules V, VII,
    VIII, and the Tin Route.
-6. **The lab** (medium) — runner, six bots, metrics, seat self-play, pacing invariants in
-   CI.
+6. **Netcode for 2–4 humans** (large) — match host worker, fog-filtered deltas, reconnect,
+   seat assignment through the existing lobby. Last because it is the biggest piece and
+   the least urgent while there is nobody to play against.
 7. **Twenty playtests** (small in code, decisive in outcome) — ten at two seats, ten at
-   four. The metric is whether people ask to play again, and whether geography showed up
-   in their decisions: did anyone hold a pass, ford a river, or take Britannia by lane
-   because the mainland was walled.
+   four, with **recruited** humans rather than organic ones, because there are none. The
+   metric is whether people ask to play again, and whether geography showed up in their
+   decisions: did anyone hold a pass, ford a river, or take Britannia by lane because the
+   mainland was walled.
+
+Steps 1 through 4 are a complete solo game and the real go/no-go. If it is not fun against
+a bot on real European terrain, steps 5 and 6 will not rescue it, and the slice should stop
+there having cost the smaller half of its budget.
 
 ### Slice B — unique becomes unmistakable
 
 The council pulse and doctrines, the trait library, the four seat hands · Britannia as a
 six-province region with incremental rewards and loot · province traits (Tarraconensis
-mines faster, Belgica breeds horses) · a scripted dummy defender so one person can test
-alone.
+mines faster, Belgica breeds horses).
+
+*(The scripted dummy defender that used to sit here is gone: decision 32 puts the real
+policy bots in Slice A, which does the same job better and earlier.)*
 
 ### Beyond the slice, in rough order
 
@@ -539,7 +573,10 @@ exists.
 
 **Design**
 - **The slice cannot prove the FFA at two seats.** Four-human playtests are mandated for
-  this reason, and gathering four people is the slowest part of the schedule.
+  this reason, and gathering four people is the slowest part of the schedule — now more
+  so, since the funnel report says there is no organic pool to draw them from and every
+  session has to be recruited. Decision 32 does not fix this. It only stops the *solo*
+  fun question from waiting on it.
 - **Assigned workers may be dull at two seats.** The pace that saves six-seat FFA can bore
   a 1v1. The fix is faster tribes and cheaper raids, **never** a drift back to worker
   micro.
@@ -560,8 +597,10 @@ exists.
 - **Deterministic fixed-point in TypeScript is unforgiving.** One float, one unseeded
   random, and replays and the lab both silently diverge. Expect the early divergence bugs
   to be miserable to find.
-- **Four humans from day one roughly triples netcode scope** before fun is proven. It is
-  the single biggest reason the slice is months rather than weeks.
+- **Four humans from day one roughly triples netcode scope.** It is the single biggest
+  reason the slice is months rather than weeks. Decision 32 moves that cost behind the
+  fun test rather than removing it, which means a no-go verdict at step 4 avoids paying
+  it at all.
 - **The lab tunes for scripts, not people.** Over-trust it and you ship a game balanced for
   build-order bots that humans immediately break. It sets the starting point; the
   playtests set the game.
@@ -572,7 +611,9 @@ exists.
 
 ## Provenance
 
-Drafted from the design thread of 11–12 September 2026. Map data, centre points and typed
+Drafted from the design thread of 11–12 September 2026, with the Slice A ordering revised
+on 13 September (decision 32) after a production funnel report measured D1 retention at 0
+of 33 and 82 landing views in thirty days. Map data, centre points and typed
 connections come from
 [`database/maps/community_roman_empire_117.json`](../database/maps/community_roman_empire_117.json)
 and [`community_britain_925.json`](../database/maps/community_britain_925.json); province
