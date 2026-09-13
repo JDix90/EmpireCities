@@ -1,10 +1,10 @@
 {
   "name": "lab: a Colonist mirror opens Rome against Gaul, five minutes, nobody watching",
   "ticks": 4500,
-  "expectedHash": "f6807a00db957cda",
+  "expectedHash": "0f665cf1b93fd1d2",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
-    "version": 5,
+    "version": 6,
     "seed": 20260913,
     "scenario": {
       "units": [

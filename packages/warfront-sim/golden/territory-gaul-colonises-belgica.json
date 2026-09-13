@@ -1,10 +1,10 @@
 {
   "name": "western twenty: a Gaulish villager walks into Belgica and colonises it",
   "ticks": 4600,
-  "expectedHash": "a1ca038820c2f72e",
+  "expectedHash": "f1ebd7813322ba8c",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
-    "version": 5,
+    "version": 6,
     "seed": 1177,
     "scenario": {
       "players": [

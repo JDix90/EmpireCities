@@ -113,7 +113,7 @@ export function stepCamps(ctx: AttritionContext): void {
 export function musterAt(ctx: AttritionContext, owner: number, cell: number): number {
   let mustered = 0;
   for (const unit of ctx.entities.all()) {
-    if (unit.owner !== owner || unit.hp <= 0 || !bleeds(unit)) continue;
+    if (unit.owner !== owner || unit.hp <= 0 || unit.convoy >= 0 || !bleeds(unit)) continue;
     const at = cellOf(ctx.grid, unit);
     if (at >= 0 && chebyshevCells(ctx.grid, at, cell) <= CAMP_MUSTER_CELLS) mustered += 1;
   }
@@ -133,7 +133,9 @@ export function stepAttrition(ctx: AttritionContext, hurt: (unit: Unit, amount: 
     // Owner 0 is the tribes. Rule VI already sends raiders home on their own clock, and a
     // tribe that bled in everybody's land would be fighting a second rule it never opted
     // into.
-    if (unit.owner === 0 || unit.hp <= 0 || !bleeds(unit)) continue;
+    // At sea a unit is nowhere, so it is not in anybody's borders. Rule V's convoy is
+    // out of reach of rule VII as well as of the archers.
+    if (unit.owner === 0 || unit.hp <= 0 || unit.convoy >= 0 || !bleeds(unit)) continue;
 
     const cell = cellOf(ctx.grid, unit);
     if (cell < 0 || !exposedAt(ctx, unit.owner, cell)) {

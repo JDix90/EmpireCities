@@ -1,5 +1,5 @@
 import { FP_ONE, assertFixed, assertInt, fpDiv, fpLength, fpMul, idiv, toIntFloor, type Fixed } from './fixed';
-import { cellCentre } from './geometry';
+import { cellCentre, chebyshevCells } from './geometry';
 import { COMMAND_DELAY_TICKS } from './constants';
 import { TerrainGrid } from './terrain';
 import { FlowFieldCache } from './flowField';
@@ -13,6 +13,8 @@ import { stepEconomy, type EconomyContext } from './economy';
 import { ProvinceStore } from './provinces';
 import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
 import { musterAt, stepAttrition, stepCamps, type AttritionContext } from './attrition';
+import { ConvoyStore, stepConvoys, type Convoy } from './convoys';
+import { beachesOf, buildCoastIndex, isCoastal, type CoastIndex } from './coast';
 import { stepCombat, type CombatContext } from './combat';
 import { matchResult, standings, stepScoring, type MatchResult, type Standing } from './scoring';
 import {
@@ -23,15 +25,21 @@ import {
   type TribeContext,
 } from './tribes';
 import {
+  BEACHES_PER_PROVINCE,
+  BEACH_SEPARATION_CELLS,
   BUILDER_SLOTS,
   BUILDING_SPECS,
   BuildingKind,
   CAMP_MIN_SOLDIERS,
   COMBAT_SPECS,
+  DISEMBARK_TICKS,
+  EMBARK_RANGE_CELLS,
+  PORT_CONVOY_CAP,
   RAID_LOOT_SILVER,
   RAIDER_KIND,
   TICKS_PER_MINUTE,
   TRAINS_AT,
+  transitTicks,
   UNIT_SPECS,
   UnitKind,
   type BuildingKindValue,
@@ -75,7 +83,7 @@ export interface SimOptions {
  * that silently disagrees with itself is the failure mode the determinism rules exist to
  * prevent, and a loud error beats a quiet divergence.
  */
-export const REPLAY_VERSION = 5;
+export const REPLAY_VERSION = 6;
 
 /** A match, fully described: from this the final state is reproducible on any machine. */
 export interface Replay {
@@ -131,6 +139,7 @@ export class Sim {
   readonly buildings = new BuildingStore();
   readonly provinces: ProvinceStore;
   readonly tribes: TribeStore;
+  readonly convoys = new ConvoyStore();
   readonly terrain: TerrainGrid | null;
   private readonly fields: FlowFieldCache | null;
   /** Land adjacency and muster cells, derived from the grid once. Only an economy needs it. */
@@ -181,6 +190,73 @@ export class Sim {
 
   private combatContext(): CombatContext {
     return { entities: this.entities, buildings: this.buildings, grid: this.terrain! };
+  }
+
+  /**
+   * The coastline, computed on first use and kept.
+   *
+   * A pass over six hundred thousand cells, and rule V is the only thing that wants it —
+   * so a match that never builds a port never pays for it.
+   */
+  private coastIndex: CoastIndex | null = null;
+  private coast(): CoastIndex {
+    if (!this.coastIndex) this.coastIndex = buildCoastIndex(this.terrain!);
+    return this.coastIndex;
+  }
+
+  /** Provinces this one has a sea lane to, ascending. */
+  lanesFrom(province: number): number[] {
+    const grid = this.terrain;
+    if (!grid) return [];
+    const id = grid.provinces.find((p) => p.index === province)?.territory_id;
+    if (!id) return [];
+    const out = new Set<number>();
+    for (const lane of grid.lanes) {
+      const other = lane.from === id ? lane.to : lane.to === id ? lane.from : null;
+      if (other === null) continue;
+      const index = grid.provinces.find((p) => p.territory_id === other)?.index;
+      if (index !== undefined) out.add(index);
+    }
+    return [...out].sort((a, b) => a - b);
+  }
+
+  /** Rule V's landing sites for a province, as seen from a departure cell. */
+  beaches(province: number, from: number): number[] {
+    return beachesOf(this.terrain!, this.coast(), province, from, BEACHES_PER_PROVINCE, BEACH_SEPARATION_CELLS);
+  }
+
+  /**
+   * Puts a convoy's units ashore.
+   *
+   * They land ON the cell, spread by the same flow the rest of the game uses when several
+   * units share a goal — nothing here stacks them, because a landing that arrived as one
+   * point would be one archer's dream.
+   */
+  private landConvoy(convoy: Convoy): void {
+    const grid = this.terrain!;
+    for (const id of convoy.units) {
+      const unit = this.entities.get(id);
+      if (!unit) continue;
+      unit.convoy = -1;
+      unit.x = cellCentre(grid.colOf(convoy.toCell));
+      unit.y = cellCentre(grid.rowOf(convoy.toCell));
+      unit.moving = false;
+      // Rule V's opposed landing. Only over a beach: walking off your own quay is not a
+      // landing under fire, and the brief prices exactly one of the two.
+      unit.disembarkTimer = convoy.overBeach ? DISEMBARK_TICKS : 0;
+      // A fresh interval of rule VII either way — it has not been standing here.
+      unit.attritionTimer = 0;
+    }
+  }
+
+  /** The cell a unit stands in, or -1 when it is off the grid or at sea. */
+  private cellOfUnit(unit: Unit): number {
+    if (unit.convoy >= 0) return -1;
+    const grid = this.terrain;
+    if (!grid) return -1;
+    const col = toIntFloor(unit.x);
+    const row = toIntFloor(unit.y);
+    return grid.inBounds(col, row) ? grid.index(col, row) : -1;
   }
 
   private attritionContext(): AttritionContext {
@@ -305,9 +381,13 @@ export class Sim {
    */
   step(): void {
     const next = this.currentTick + 1;
-    for (const entry of this.queue.take(next)) this.apply(entry.command);
+    for (const entry of this.queue.take(next)) this.apply(entry.command, next);
     // Snapshot: a unit killed by starvation must not be stepped after it dies.
     for (const unit of [...this.entities.all()]) {
+      // Rule V: a unit at sea is not on the grid at all. It does not walk, and further
+      // down it is not shot at, does not bleed, and cannot shoot.
+      if (unit.convoy >= 0) continue;
+      if (unit.disembarkTimer > 0) unit.disembarkTimer -= 1;
       if (unit.moving) this.moveUnit(unit);
     }
     if (this.hasEconomy) {
@@ -322,6 +402,9 @@ export class Sim {
         (building, kind) => this.spawnAt(building.owner, kind as UnitKindValue, building.cell),
         (unit) => this.killUnit(unit),
       );
+      // Rule V: convoys land before the fighting, so a force that arrives this tick can be
+      // met on the beach this tick rather than getting a free second ashore.
+      stepConvoys(this.convoys, next, (convoy) => this.landConvoy(convoy));
       stepCombat(
         this.combatContext(),
         (target, amount, attacker) => this.hurtUnit(target, amount, attacker),
@@ -419,6 +502,7 @@ export class Sim {
     this.buildings.hashInto(h);
     this.provinces.hashInto(h);
     this.tribes.hashInto(h);
+    this.convoys.hashInto(h);
     this.queue.hashInto(h);
     return h.digest();
   }
@@ -455,7 +539,12 @@ export class Sim {
     return sim;
   }
 
-  private apply(command: Command): void {
+  /**
+   * `tick` is the tick the command executes ON, which is not `currentTick` — commands are
+   * applied at the top of `step` before the clock advances. Rule V needs it: a convoy is
+   * stamped with the tick it sails, and the units boarding it this tick find it by that.
+   */
+  private apply(command: Command, tick: number): void {
     switch (command.type) {
       case 'move': {
         // Commands for units that no longer exist are dropped deterministically: the
@@ -587,6 +676,13 @@ export class Sim {
         // plains, a lumber camp forest, a mine hills — which is why WHERE you settle
         // decides WHAT you can build.
         if (spec.biomes.length > 0 && !spec.biomes.includes(grid.biome(command.cell))) return;
+        // Rule V's port, whose ground rule the biome list cannot express: being coastal is
+        // a property of a cell's NEIGHBOURS. And a harbour facing a sea with no lane out
+        // of it is eighty timber for nothing, so the province must actually have one.
+        if (kind === BuildingKind.Port) {
+          if (!isCoastal(grid, command.cell)) return;
+          if (this.lanesFrom(grid.owner(command.cell)).length === 0) return;
+        }
         if (player.timber < spec.timber || player.silver < spec.silver) return;
         player.timber -= spec.timber;
         player.silver -= spec.silver;
@@ -595,6 +691,65 @@ export class Sim {
         building.workers.push(unit.id);
         unit.job = building.id;
         this.orderToCell(unit, command.cell);
+        return;
+      }
+      case 'embark': {
+        const grid = this.terrain;
+        if (!grid) return;
+        const unit = this.entities.get(command.unit);
+        if (!unit || unit.convoy >= 0) return;
+        const port = this.buildings.get(command.port);
+        // Your own port, finished. A half-built harbour puts nobody to sea.
+        if (!port || port.kind !== BuildingKind.Port || port.owner !== unit.owner || !port.complete) return;
+        // Standing at the quay. Rule V is "units embark at a port you own", and a unit
+        // three provinces away boarding it would make the port a teleport rather than a
+        // harbour.
+        const at = this.cellOfUnit(unit);
+        if (at < 0 || chebyshevCells(grid, at, port.cell) > EMBARK_RANGE_CELLS) return;
+
+        if (command.cell < 0 || command.cell >= grid.size) return;
+        const fromProvince = grid.owner(port.cell);
+        const toProvince = grid.owner(command.cell);
+        // A lane, not a swim: the destination province must be linked to this one in the
+        // map's own typed sea links, which is what makes the lane graph the rule.
+        if (toProvince === fromProvince || !this.lanesFrom(fromProvince).includes(toProvince)) return;
+
+        // Where it may land: a port of ours on the far side, or one of that province's
+        // beaches. Anywhere else is a cliff.
+        const farPort = this.buildings
+          .all()
+          .find(
+            (b) =>
+              b.kind === BuildingKind.Port &&
+              b.owner === unit.owner &&
+              b.complete &&
+              b.cell === command.cell,
+          );
+        const overBeach = !farPort;
+        if (overBeach && !this.beaches(toProvince, port.cell).includes(command.cell)) return;
+
+        let convoy = this.convoys.loadingAt(unit.owner, port.cell, command.cell, tick);
+        if (convoy && convoy.units.length >= PORT_CONVOY_CAP) return;
+        if (!convoy) {
+          convoy = this.convoys.launch({
+            owner: unit.owner,
+            fromCell: port.cell,
+            fromProvince,
+            toCell: command.cell,
+            toProvince,
+            departTick: tick,
+            arriveTick: tick + transitTicks(chebyshevCells(grid, port.cell, command.cell)),
+            overBeach,
+            units: [],
+          });
+        }
+        convoy.units.push(unit.id);
+        convoy.units.sort((a, b) => a - b);
+        unit.convoy = convoy.id;
+        // Off its job and off its feet. A villager still on a farm's worker list would be
+        // counted as labour while it is at sea.
+        this.unassign(unit);
+        unit.moving = false;
         return;
       }
       case 'camp': {
