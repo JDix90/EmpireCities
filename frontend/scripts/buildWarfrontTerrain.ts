@@ -74,6 +74,12 @@ interface Curation {
   highland_plateaus: string[];
   passes: Array<{ name: string; width_km: number; line: Position[] }>;
   forests: Array<{ name: string; ring: Ring }>;
+  /**
+   * Land borders the map document declares that the rasterised province polygons cannot
+   * express. Each one is an accepted divergence with its reason written down, not a class
+   * of error waved through: anything not listed here fails the build.
+   */
+  accepted_missing_land?: Array<{ pair: string; reason: string }>;
 }
 
 interface GridSpec {
@@ -557,9 +563,105 @@ async function main(): Promise<void> {
     }
   }
 
+  // 8b. Reconcile land adjacency with the map's own connection graph.
+  //
+  //     THE MAP DOCUMENT IS THE AUTHORITY, not the raster. Borderfall's territories and
+  //     their typed connections ARE the board; the cell grid is a movement substrate for
+  //     it. Where the two disagree, the raster is wrong by construction.
+  //
+  //     And they do disagree. The province polygons come from buildTerritoryGlobeGeometries
+  //     — the same builder the live globe renders with — and at this resolution several of
+  //     them spill onto ground they do not own: Britannia's polygon covers a strip of
+  //     Normandy, Sicilia's reaches into Tunisia, Sardinia's touches Tuscany. Left alone
+  //     that makes Britannia WALKABLE FROM GAUL, which quietly deletes rule V: the sea
+  //     stops being a lane, the Tin Route stops being a route, and Carthage stops being a
+  //     sea power. The globe builder cannot be changed from here — it is live-game code,
+  //     and the Warfront isolation rule in CLAUDE.md is definitive — so the fix belongs
+  //     here, where Warfront's own asset is produced.
+  //
+  //     A contact the map does not call a land border is severed: the cell keeps its owner
+  //     and its biome and loses only its passability, because "you cannot march between
+  //     these two provinces" is exactly what the board says and all it says. Nothing is
+  //     invented — no sea is drawn through Normandy, no mountains raised in the Channel.
+  const territoryOf = new Map(provinces.map((p) => [p.index, p.territory_id]));
+  const pairKey = (a: number, b: number): string =>
+    [territoryOf.get(a) as string, territoryOf.get(b) as string].sort().join(' | ');
+  const declaredLand = new Set<string>();
+  for (const c of map.connections) {
+    if (c.type !== 'land' || !wanted.has(c.from) || !wanted.has(c.to)) continue;
+    declaredLand.add([c.from, c.to].sort().join(' | '));
+  }
+
+  /** Every pair of provinces that touch across two PASSABLE cells, with the cells. */
+  const contacts = (): Map<string, number[]> => {
+    const found = new Map<string, number[]>();
+    for (let i = 0; i < n; i++) {
+      if (!sim.cellPassable(cells[i])) continue;
+      const a = sim.cellOwner(cells[i]);
+      if (a === 0) continue;
+      const c = i % width;
+      const r = Math.floor(i / width);
+      for (const j of [c + 1 < width ? i + 1 : -1, r + 1 < height ? i + width : -1]) {
+        if (j < 0 || !sim.cellPassable(cells[j])) continue;
+        const b = sim.cellOwner(cells[j]);
+        if (b === 0 || b === a) continue;
+        const key = pairKey(a, b);
+        const list = found.get(key);
+        if (list) list.push(i, j);
+        else found.set(key, [i, j]);
+      }
+    }
+    return found;
+  };
+
+  // Severing can expose a fresh contact one cell behind the one just removed, so this
+  // runs to a fixed point rather than once. On the western twenty it settles in a single
+  // round; the bound is here so a pathological asset fails loudly instead of hanging.
+  const severedByPair = new Map<string, number>();
+  let severedCells = 0;
+  let rounds = 0;
+  for (;;) {
+    const bogus = [...contacts()].filter(([key]) => !declaredLand.has(key));
+    if (bogus.length === 0) break;
+    if (++rounds > 20) throw new Error('land-adjacency reconciliation did not settle in 20 rounds');
+    for (const [key, list] of bogus) {
+      severedByPair.set(key, (severedByPair.get(key) ?? 0) + list.length / 2);
+      for (const i of list) {
+        if (!sim.cellPassable(cells[i])) continue;
+        // Passability only. A ford or a pass here was a crossing of a border that does
+        // not exist, so those bits go with it.
+        cells[i] = cells[i] & ~sim.PASSABLE_BIT & ~sim.FORD_BIT & ~sim.PASS_BIT;
+        severedCells += 1;
+      }
+    }
+  }
+
   // 9. Validate against the map's own land graph: every typed land border between two of
   //    the twenty must be walkable on the grid, or a pass / ford is missing from curation.
   const grid2 = new sim.TerrainGrid(width, height, cells, { provinces });
+
+  // 9a. The reconciliation's own invariant, both directions. An EXTRA contact means the
+  //     severing failed and is a build error. A MISSING one means the map claims a land
+  //     border the geometry cannot express — which is a real thing on this map, so those
+  //     are listed in curation one by one with a reason rather than waved through as a
+  //     class.
+  const derivedPairs = new Set(contacts().keys());
+  const extra = [...derivedPairs].filter((k) => !declaredLand.has(k));
+  if (extra.length > 0) {
+    throw new Error(`land adjacency still disagrees with the map after severing: ${extra.join(', ')}`);
+  }
+  const acceptedMissing = new Set((curation.accepted_missing_land ?? []).map((e) => e.pair));
+  const missing = [...declaredLand].filter((k) => !derivedPairs.has(k));
+  const unexpected = missing.filter((k) => !acceptedMissing.has(k));
+  if (unexpected.length > 0) {
+    throw new Error(
+      `the map declares land borders the grid does not realise, and curation does not accept them: ${unexpected.join(', ')}`,
+    );
+  }
+  const staleAccepted = [...acceptedMissing].filter((k) => derivedPairs.has(k));
+  if (staleAccepted.length > 0) {
+    throw new Error(`curation accepts missing land borders that now exist — remove them: ${staleAccepted.join(', ')}`);
+  }
   const landPairs = map.connections.filter((c) => c.type === 'land' && wanted.has(c.from) && wanted.has(c.to));
   const lanes: TerrainLane[] = map.connections
     .filter((c) => c.type === 'sea' && wanted.has(c.from) && wanted.has(c.to))
@@ -595,6 +697,16 @@ async function main(): Promise<void> {
 
   // 10. Report.
   log(`overlapping province cells: ${overlaps}`);
+  log(
+    `land adjacency reconciled with the map graph in ${rounds} round(s): ` +
+      `${severedCells} cells made impassable across ${severedByPair.size} undeclared contacts`,
+  );
+  for (const [key, count] of [...severedByPair].sort((a, b) => b[1] - a[1])) {
+    log(`  severed ${key}: ${count} contacts`);
+  }
+  for (const entry of curation.accepted_missing_land ?? []) {
+    log(`  accepted missing land border ${entry.pair}: ${entry.reason}`);
+  }
   log(`ranges/deserts rasterised: ${rangesSeen.join(', ')}`);
   log(`rivers: ${riverNames.join(', ')}; fords placed at ${fordsPlaced} of ${fordPoints.length} points; beaches ${beaches}`);
   log(`pass cells: ${Object.entries(passHits).map(([k, v]) => `${k}=${v}`).join(', ')}`);

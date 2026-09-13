@@ -93,7 +93,11 @@ describe('flow-field movement on real terrain', () => {
 
   it('redirects an order onto a mountain to the nearest walkable cell', () => {
     const start = centreOf(grid, MILAN);
-    const bernese = cellOf(grid, 7.5, 46.2);
+    // Monte Rosa rather than the Bernese Alps, because the redirect has to land somewhere
+    // the unit can actually WALK to: Monte Rosa's nearest walkable cell is in Italia
+    // Cisalpina, while the Bernese one is in Germania Superior — and the map document does
+    // not connect those two by land, so the asset (correctly) offers no route between them.
+    const bernese = cellOf(grid, 7.9, 45.9);
     const sim = new Sim({ seed: 1, scenario: { units: [{ owner: 1, ...start, speed: fpRatio(1, 2) }] }, terrain: grid });
     const target = centreOf(grid, bernese);
     sim.issue({ type: 'move', unit: 1, x: target.x, y: target.y });
