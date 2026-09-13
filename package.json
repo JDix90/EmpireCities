@@ -26,6 +26,7 @@
     "test:backend": "pnpm -C backend run test",
     "test:frontend": "pnpm -C frontend exec vitest run",
     "test:warfront": "pnpm -C packages/warfront-sim run test",
+    "build:warfront-terrain": "pnpm -C packages/warfront-sim run build && pnpm -C frontend run build:warfront-terrain",
     "check:secrets": "bash scripts/check-secrets.sh",
     "lint": "pnpm run lint:backend && pnpm run lint:frontend && pnpm run lint:warfront",
     "lint:backend": "pnpm exec eslint backend/src --max-warnings 0",

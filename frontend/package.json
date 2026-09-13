@@ -14,6 +14,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "compute-map-connections": "tsx scripts/computeMapConnections.ts",
     "compute-era-lineage": "tsx scripts/computeEraLineage.ts",
+    "build:warfront-terrain": "tsx --tsconfig tsconfig.node.json scripts/buildWarfrontTerrain.ts",
     "cap:sync": "npm run build && pnpm exec cap sync",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"

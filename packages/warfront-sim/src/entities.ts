@@ -18,11 +18,10 @@ export interface Unit {
   goalY: Fixed;
   moving: boolean;
   /**
-   * Flow field the unit is following (a `moveTo` on a terrain grid), or -1 when the
-   * unit walks a straight line. Owned by the sim's field cache; never serialised
-   * (the hash covers the goal instead).
+   * Target cell of the flow field the unit follows, or -1 when it walks a straight
+   * line (no terrain). Derived from the goal, so it is not hashed.
    */
-  fieldId: number;
+  fieldKey: number;
 }
 
 export interface UnitInit {
@@ -52,7 +51,7 @@ export class EntityStore {
       goalX: init.x,
       goalY: init.y,
       moving: false,
-      fieldId: -1,
+      fieldKey: -1,
     };
     this.units.push(unit);
     this.byId.set(unit.id, unit);

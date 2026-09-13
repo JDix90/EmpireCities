@@ -1,0 +1,85 @@
+{
+  "name": "western twenty: Milan to Augsburg through the Brenner, Le Mans to Poitiers over a Loire ford",
+  "ticks": 600,
+  "expectedHash": "c89971250f7c29a5",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 1,
+    "seed": 117,
+    "scenario": {
+      "units": [
+        {
+          "owner": 1,
+          "x": 28278784,
+          "y": 21135360,
+          "speed": 32768
+        },
+        {
+          "owner": 2,
+          "x": 15695872,
+          "y": 16482304,
+          "speed": 26214
+        },
+        {
+          "owner": 3,
+          "x": 21594112,
+          "y": 20611072,
+          "speed": 19661
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "move",
+          "unit": 1,
+          "x": 30638080,
+          "y": 15826944
+        }
+      },
+      {
+        "tick": 2,
+        "seq": 1,
+        "command": {
+          "type": "move",
+          "unit": 2,
+          "x": 15892480,
+          "y": 19038208
+        }
+      },
+      {
+        "tick": 30,
+        "seq": 2,
+        "command": {
+          "type": "move",
+          "unit": 3,
+          "x": 22773760,
+          "y": 20873216
+        }
+      },
+      {
+        "tick": 250,
+        "seq": 3,
+        "command": {
+          "type": "move",
+          "unit": 3,
+          "x": 23658496,
+          "y": 20938752
+        }
+      },
+      {
+        "tick": 400,
+        "seq": 4,
+        "command": {
+          "type": "move",
+          "unit": 1,
+          "x": 28278784,
+          "y": 21135360
+        }
+      }
+    ],
+    "terrain_checksum": "7a6d1f7b99f8936f"
+  }
+}
