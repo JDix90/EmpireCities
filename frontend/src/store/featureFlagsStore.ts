@@ -21,6 +21,7 @@ export interface ClientFeatureFlags {
   background_music_enabled: boolean;
   era_heritage_buildings_enabled: boolean;
   era_wonder_per_era_enabled: boolean;
+  warfront_enabled: boolean;
 }
 
 /**
@@ -62,6 +63,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_heritage_buildings_enabled: true,
   // One wonder per era rather than per game. Default off (dark-launch).
   era_wonder_per_era_enabled: false,
+  // Experimental Warfront RTS mode: admin-only surfaces, and off by default on top.
+  warfront_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -140,6 +143,14 @@ export function useRankedMultiSizeEnabled(): boolean {
 
 export function useMatchAlertsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.match_alerts_enabled);
+}
+
+/**
+ * Warfront (experimental RTS mode). Client-side this only decides what the
+ * Admin → Warfront tab says; the server enforces admin + flag on every request.
+ */
+export function useWarfrontEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.warfront_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

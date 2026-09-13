@@ -26,6 +26,8 @@ import {
 import { invalidateMapCache } from '../maps/mapService';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport } from '../../services/analyticsQueries';
+import { featureFlags } from '../../config/featureFlags';
+import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
 
 const DateFilterSchema = z.object({
   from: z.string().optional(),
@@ -126,6 +128,22 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   // Curated in dependencyRegistry.ts; no DB, no mutation, so no audit-log entry.
   fastify.get('/dependencies', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
     return reply.send(buildDependencyReport());
+  });
+
+  // Warfront (experimental RTS mode) — admin-only until further notice, enforced HERE,
+  // never only by hiding the tab. /status always answers an admin (it is how the tab
+  // says "flip warfront_enabled in Config"); everything functional, starting with the
+  // terrain asset, is 404 until the flag is on. See modules/admin/warfrontStatus.ts.
+  fastify.get('/warfront/status', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+    return reply.send(await buildWarfrontStatus());
+  });
+
+  fastify.get('/warfront/terrain', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+    if (!featureFlags.warfrontEnabled) {
+      return reply.status(404).send({ error: 'Warfront is not enabled' });
+    }
+    const { text } = await loadWarfrontTerrain();
+    return reply.header('content-type', 'application/json; charset=utf-8').send(text);
   });
 
   fastify.get('/metrics/overview', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {

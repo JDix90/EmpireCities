@@ -1,11 +1,16 @@
 # Warfront — real-time strategy mode (experimental design)
 
-> **Status: experimental.** Nothing in this document is built, scheduled, or committed to.
+> **Status: experimental.** Nothing in this document is scheduled or committed to.
 > It records a design exploration from 11–12 September 2026 for a possible second game
-> mode. No code exists. Do not treat any number here as a spec — the economy figures are
-> deliberate first guesses for a simulation harness to correct. If you are an agent
-> looking for how Borderfall works today, you want
-> [ARCHITECTURE.md](ARCHITECTURE.md), not this file.
+> mode. Do not treat any number here as a spec — the economy figures are deliberate
+> first guesses for a simulation harness to correct. If you are an agent looking for how
+> Borderfall works today, you want [ARCHITECTURE.md](ARCHITECTURE.md), not this file.
+>
+> **What exists (Slice A, step 1 only):** the simulation core
+> [`packages/warfront-sim`](../packages/warfront-sim/README.md), the terrain pipeline
+> (`pnpm run build:warfront-terrain` → `database/warfront/`), and the admin gate: the
+> `warfront_enabled` flag (off) behind an Admin → Warfront tab whose endpoints require an
+> admin server-side. Nothing is playable; steps 2–7 below are not started.
 >
 > Companion artifact (private, interactive: hoverable map, draggable match timeline):
 > <https://claude.ai/code/artifact/a905db1e-90e7-4242-89a3-5fe5c9bc28df>
