@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sim, type TerrainGrid } from '@borderfall/warfront-sim';
+import { NEAREST_PASSABLE_RADIUS, Sim, toIntFloor, type TerrainGrid } from '@borderfall/warfront-sim';
 import { BIOME_NAMES, cellBeach, cellFord, cellPass } from '@borderfall/warfront-sim';
 import WarfrontTerrainCanvas from '../components/warfront/WarfrontTerrainCanvas';
+import WarfrontProvincePanel from '../components/warfront/WarfrontProvincePanel';
+import { AlertQueue, blockedUnitIds, type Alert } from '../warfront/alerts';
+import { computeProvinceStats, type ProvinceStats } from '../warfront/provinceStats';
 import type { Camera } from '../warfront/camera';
 import { SimRunner, type UnitView } from '../warfront/simRunner';
 import {
@@ -45,7 +48,7 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'disabled' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; grid: TerrainGrid; runner: SimRunner; focusCell: number };
+  | { kind: 'ready'; grid: TerrainGrid; runner: SimRunner; originCell: number; stats: ProvinceStats[] };
 
 export default function WarfrontPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -55,6 +58,10 @@ export default function WarfrontPage() {
   const [hud, setHud] = useState({ ticks: 0, units: 0 });
   const groupsRef = useRef(new ControlGroups());
   const [groupSlots, setGroupSlots] = useState<number[]>([]);
+  const alertsRef = useRef(new AlertQueue());
+  const [alerts, setAlerts] = useState<readonly Alert[]>([]);
+  const [focus, setFocus] = useState<{ cell: number; nonce: number } | null>(null);
+  const focusNonceRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +75,13 @@ export default function WarfrontPage() {
         // A fixed seed: this view is a sandbox, and a stable seed makes what you see
         // reproducible from one reload to the next.
         const runner = new SimRunner(new Sim({ seed: 20260913, scenario, terrain: grid }));
-        if (!cancelled) setState({ kind: 'ready', grid, runner, focusCell: originCell });
+        // Computed once: the panel needs per-province counts, and recomputing them on
+        // every pointer move would rescan ~600k cells.
+        const stats = computeProvinceStats(grid);
+        if (!cancelled) {
+          setState({ kind: 'ready', grid, runner, originCell, stats });
+          setFocus({ cell: originCell, nonce: ++focusNonceRef.current });
+        }
       } catch (e: unknown) {
         if (cancelled) return;
         const err = e as { response?: { status?: number; data?: { error?: string } }; message?: string };
@@ -92,6 +105,16 @@ export default function WarfrontPage() {
   /** Live unit views for hit tests. Read on demand rather than kept in React state. */
   const currentUnits = useCallback((): UnitView[] => (runner ? runner.positions() : []), [runner]);
 
+  /** Centres the camera on a cell. The nonce makes a repeated jump to the same cell work. */
+  const jumpTo = useCallback((cell: number) => {
+    if (cell < 0) return;
+    setFocus({ cell, nonce: ++focusNonceRef.current });
+  }, []);
+
+  const raise = useCallback((kind: Alert['kind'], message: string, cell: number, tick: number) => {
+    if (alertsRef.current.push(kind, message, cell, tick)) setAlerts([...alertsRef.current.list()]);
+  }, []);
+
   const onSelectPoint = useCallback(
     (wx: number, wy: number, additive: boolean) => {
       const units = currentUnits();
@@ -111,6 +134,17 @@ export default function WarfrontPage() {
   const onOrder = useCallback(
     (wx: number, wy: number) => {
       if (!runner || !grid || selected.size === 0) return;
+      // The simulation redirects an order onto impassable ground to the nearest walkable
+      // cell, and drops it entirely when there is none within that radius. Checking the
+      // same rule here is what lets the player be told, rather than watching an order
+      // vanish silently.
+      const col = Math.min(Math.max(Math.floor(wx), 0), grid.width - 1);
+      const row = Math.min(Math.max(Math.floor(wy), 0), grid.height - 1);
+      const target = grid.index(col, row);
+      if (grid.nearestPassable(target, NEAREST_PASSABLE_RADIUS) < 0) {
+        raise('no-route', 'Nothing can march there — no walkable ground nearby.', target, runner.ticks);
+        return;
+      }
       // Stable order so the same click always assigns the same unit to the same slot.
       const ids = [...selected].sort((a, b) => a - b);
       const targets = formationTargets(ids.length, wx, wy, FORMATION_SPACING_CELLS);
@@ -119,7 +153,7 @@ export default function WarfrontPage() {
         runner.sim.issue({ type: 'move', unit: id, x: t.x, y: t.y });
       });
     },
-    [runner, grid, selected],
+    [runner, grid, selected, raise],
   );
 
   // Selection keys. The plane owns the camera keys; this owns the selection, so control
@@ -132,6 +166,14 @@ export default function WarfrontPage() {
       const key = e.key;
       if (key === 'Escape') {
         setSelected(new Set());
+        return;
+      }
+      // The jump key: the design gives every alert one, so nobody hunts for the thing
+      // demanding attention.
+      if (key === ' ') {
+        e.preventDefault();
+        const latest = alertsRef.current.latest();
+        if (latest) jumpTo(latest.cell);
         return;
       }
       const slot = CONTROL_GROUP_KEYS.indexOf(key as (typeof CONTROL_GROUP_KEYS)[number]);
@@ -147,7 +189,7 @@ export default function WarfrontPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [runner, selected]);
+  }, [runner, selected, jumpTo]);
 
   // Never let a selection outlive its units (nothing removes units yet, but combat will).
   useEffect(() => {
@@ -160,7 +202,45 @@ export default function WarfrontPage() {
 
   const onCameraChange = useCallback((next: Camera) => setCamera(next), []);
   const onHoverCell = useCallback((cell: number) => setHoverCell(cell), []);
-  const onFrame = useCallback((info: { ticks: number; units: number }) => setHud(info), []);
+  const onFrame = useCallback(
+    (info: { ticks: number; units: number }) => {
+      setHud(info);
+      if (!runner || !grid) return;
+      // A unit that has stopped short of its goal is the simulation reporting that no
+      // land route exists — worth saying out loud on a map whose whole point is terrain.
+      for (const id of blockedUnitIds(runner.sim)) {
+        const unit = runner.sim.entities.get(id);
+        if (!unit) continue;
+        const cell = grid.index(toIntFloor(unit.x), toIntFloor(unit.y));
+        raise('blocked', 'A unit stopped: terrain blocks the route.', cell, runner.ticks);
+      }
+    },
+    [runner, grid, raise],
+  );
+
+  const statsByIndex = useMemo(() => {
+    const map = new Map<number, ProvinceStats>();
+    if (state.kind === 'ready') for (const entry of state.stats) map.set(entry.index, entry);
+    return map;
+  }, [state]);
+
+  const hoveredProvince = useMemo(
+    () => (grid && hoverCell >= 0 ? (statsByIndex.get(grid.owner(hoverCell)) ?? null) : null),
+    [grid, hoverCell, statsByIndex],
+  );
+
+  /** Selected units standing in the hovered province. Refreshes with the HUD tick. */
+  const unitsHere = useMemo(() => {
+    if (!runner || !grid || !hoveredProvince) return 0;
+    let count = 0;
+    for (const id of selected) {
+      const unit = runner.sim.entities.get(id);
+      if (!unit) continue;
+      if (grid.owner(grid.index(toIntFloor(unit.x), toIntFloor(unit.y))) === hoveredProvince.index) count += 1;
+    }
+    return count;
+    // hud.ticks is a deliberate dependency: units move, so this must not be frozen.
+  }, [runner, grid, hoveredProvince, selected, hud.ticks]);
 
   const hover = useMemo(() => {
     if (!grid || hoverCell < 0) return null;
@@ -214,13 +294,13 @@ export default function WarfrontPage() {
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1">
+      <main className="flex min-h-0 flex-1">
         {state.kind === 'loading' ? (
-          <div className="flex h-full items-center justify-center text-sm text-bf-muted">Loading terrain…</div>
+          <div className="flex h-full w-full items-center justify-center text-sm text-bf-muted">Loading terrain…</div>
         ) : null}
 
         {state.kind === 'disabled' ? (
-          <div className="flex h-full items-center justify-center px-6">
+          <div className="flex h-full w-full items-center justify-center px-6">
             <div className="max-w-md rounded-xl border border-bf-border bg-cc-panel/50 p-5 text-center">
               <p className="text-sm font-semibold">Warfront is switched off</p>
               <p className="mt-2 text-xs leading-relaxed text-bf-muted">
@@ -239,7 +319,7 @@ export default function WarfrontPage() {
         ) : null}
 
         {state.kind === 'error' ? (
-          <div className="flex h-full items-center justify-center px-6">
+          <div className="flex h-full w-full items-center justify-center px-6">
             <div className="max-w-md rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {state.message}
             </div>
@@ -248,48 +328,71 @@ export default function WarfrontPage() {
 
         {state.kind === 'ready' ? (
           <>
-            <WarfrontTerrainCanvas
-              grid={state.grid}
-              runner={state.runner}
-              selectedIds={selected}
-              focusCell={state.focusCell}
-              onSelectPoint={onSelectPoint}
-              onSelectRect={onSelectRect}
-              onOrder={onOrder}
-              onCameraChange={onCameraChange}
-              onHoverCell={onHoverCell}
-              onFrame={onFrame}
+            <div className="relative min-w-0 flex-1">
+              <WarfrontTerrainCanvas
+                grid={state.grid}
+                runner={state.runner}
+                selectedIds={selected}
+                focus={focus}
+                onSelectPoint={onSelectPoint}
+                onSelectRect={onSelectRect}
+                onOrder={onOrder}
+                onCameraChange={onCameraChange}
+                onHoverCell={onHoverCell}
+                onFrame={onFrame}
+              />
+
+              {alerts.length > 0 ? (
+                <div className="absolute right-3 top-3 w-64 space-y-1">
+                  {alerts.map((alert) => (
+                    <button
+                      key={alert.id}
+                      type="button"
+                      onClick={() => jumpTo(alert.cell)}
+                      className="block w-full rounded border border-bf-gold/50 bg-bf-dark/90 px-2 py-1 text-left text-[11px] text-bf-gold hover:bg-bf-gold/10"
+                    >
+                      {alert.message}
+                      <span className="ml-1 text-bf-muted">jump</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alertsRef.current.clear();
+                      setAlerts([]);
+                    }}
+                    className="block w-full rounded border border-bf-border bg-bf-dark/80 px-2 py-1 text-[10px] text-bf-muted hover:border-bf-gold"
+                  >
+                    Clear alerts
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-bf-border bg-bf-dark/85 px-3 py-2 text-[11px] leading-relaxed text-bf-muted">
+                <div>
+                  <span className="text-bf-text">Left</span> select, drag to box ·{' '}
+                  <span className="text-bf-text">Right</span> move · <span className="text-bf-text">Shift</span> add
+                </div>
+                <div>
+                  <span className="text-bf-text">Middle-drag</span> or <span className="text-bf-text">WASD</span> pan ·{' '}
+                  <span className="text-bf-text">Wheel</span> zoom · <span className="text-bf-text">Esc</span> clear
+                </div>
+                <div>
+                  <span className="text-bf-text">Ctrl+1–9</span> set group · <span className="text-bf-text">1–9</span>{' '}
+                  recall · <span className="text-bf-text">Space</span> jump to alert
+                  {groupSlots.length > 0 ? (
+                    <span className="text-bf-gold"> · groups {groupSlots.map((slot) => slot + 1).join(', ')}</span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <WarfrontProvincePanel
+              province={hoveredProvince}
+              cell={hover}
+              unitsHere={unitsHere}
+              onJump={jumpTo}
             />
-            <div className="pointer-events-none absolute left-3 top-3 rounded-lg border border-bf-border bg-bf-dark/85 px-3 py-2 text-[11px] leading-relaxed">
-              {hover ? (
-                <>
-                  <div className="font-semibold text-bf-text">{hover.province}</div>
-                  <div className="text-bf-muted">
-                    cell {hover.col},{hover.row} · {hover.biome} · tier {hover.tier} ·{' '}
-                    {hover.passable ? 'passable' : 'blocked'}
-                  </div>
-                  {hover.flags.length > 0 ? <div className="text-bf-gold">{hover.flags.join(' · ')}</div> : null}
-                </>
-              ) : (
-                <span className="text-bf-muted">Hover a cell for terrain</span>
-              )}
-            </div>
-            <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-bf-border bg-bf-dark/85 px-3 py-2 text-[11px] leading-relaxed text-bf-muted">
-              <div>
-                <span className="text-bf-text">Left</span> select, drag to box · <span className="text-bf-text">Right</span>{' '}
-                move · <span className="text-bf-text">Shift</span> add
-              </div>
-              <div>
-                <span className="text-bf-text">Middle-drag</span> or <span className="text-bf-text">WASD</span> pan ·{' '}
-                <span className="text-bf-text">Wheel</span> zoom · <span className="text-bf-text">Esc</span> clear
-              </div>
-              <div>
-                <span className="text-bf-text">Ctrl+1–9</span> set group · <span className="text-bf-text">1–9</span> recall
-                {groupSlots.length > 0 ? (
-                  <span className="text-bf-gold"> · groups {groupSlots.map((s) => s + 1).join(', ')}</span>
-                ) : null}
-              </div>
-            </div>
           </>
         ) : null}
       </main>

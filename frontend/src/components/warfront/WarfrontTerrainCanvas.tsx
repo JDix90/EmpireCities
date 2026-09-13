@@ -43,8 +43,12 @@ export interface WarfrontTerrainCanvasProps {
   onHoverCell?: (cellIndex: number) => void;
   /** Reports simulation progress for the HUD, at most a few times a second. */
   onFrame?: (info: { ticks: number; units: number }) => void;
-  /** Cell to centre on when the plane first mounts. */
-  focusCell?: number | null;
+  /**
+   * Cell to centre on. Carries a nonce because jumping to the SAME cell twice — the
+   * alert key pressed repeatedly — must move the camera back each time, which a bare
+   * cell number cannot express.
+   */
+  focus?: { cell: number; nonce: number } | null;
 }
 
 const BACKGROUND = 0x0a0e1a;
@@ -72,7 +76,7 @@ export default function WarfrontTerrainCanvas({
   onCameraChange,
   onHoverCell,
   onFrame,
-  focusCell = null,
+  focus = null,
 }: WarfrontTerrainCanvasProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<PIXI.Application | null>(null);
@@ -176,6 +180,8 @@ export default function WarfrontTerrainCanvas({
   }, [grid, applyCamera]);
 
   // Centre on the requested cell once the plane exists (the mustering point, an alert).
+  const focusCell = focus?.cell ?? null;
+  const focusNonce = focus?.nonce ?? 0;
   useEffect(() => {
     if (!ready || focusCell == null || focusCell < 0) return;
     setCamera(
@@ -187,7 +193,7 @@ export default function WarfrontTerrainCanvas({
         grid.rowOf(focusCell) + 0.5,
       ),
     );
-  }, [ready, focusCell, grid, setCamera]);
+  }, [ready, focusCell, focusNonce, grid, setCamera]);
 
   // The render loop: advance the simulation by real elapsed time, then draw.
   useEffect(() => {
