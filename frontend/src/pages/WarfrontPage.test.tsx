@@ -9,6 +9,7 @@ import {
   toIntFloor,
   type TerrainAsset,
 } from '@borderfall/warfront-sim';
+import { BuildingKind, UnitKind } from '@borderfall/warfront-sim';
 import type { SimRunner } from '../warfront/simRunner';
 import { TICK_MS } from '../warfront/simRunner';
 import WarfrontPage from './WarfrontPage';
@@ -32,24 +33,37 @@ vi.mock('../components/warfront/WarfrontTerrainCanvas', () => ({
     grid: { width: number; height: number };
     runner: SimRunner | null;
     selectedIds: ReadonlySet<number>;
+    selectedBuildingId: number | null;
+    placing: boolean;
     onSelectRect: (r: { x0: number; y0: number; x1: number; y1: number }, additive: boolean) => void;
     onSelectPoint: (x: number, y: number, additive: boolean) => void;
     onOrder: (x: number, y: number) => void;
     onHoverCell: (cell: number) => void;
+    onFrame: (info: { ticks: number; units: number }) => void;
     focus: { cell: number; nonce: number } | null;
   }) => {
     captured = props.runner;
+    const seat = props.runner?.sim.buildings.all()[0];
+    const grid = props.runner?.sim.terrain;
+    const seatPoint = seat && grid ? { x: grid.colOf(seat.cell) + 0.5, y: grid.rowOf(seat.cell) + 0.5 } : null;
     return (
       <div data-testid="mock-plane">
         <span data-testid="selected-count">{props.selectedIds.size}</span>
+        <span data-testid="selected-building">{props.selectedBuildingId ?? 'none'}</span>
+        <span data-testid="placing">{props.placing ? 'yes' : 'no'}</span>
         <span data-testid="focus-cell">{props.focus ? props.focus.cell : 'none'}</span>
         <span data-testid="focus-nonce">{props.focus ? props.focus.nonce : 0}</span>
         <button onClick={() => props.onSelectRect({ x0: -1, y0: -1, x1: 1e6, y1: 1e6 }, false)}>select all</button>
         <button onClick={() => props.onSelectPoint(-99, -99, false)}>click empty ground</button>
+        <button onClick={() => seatPoint && props.onSelectPoint(seatPoint.x, seatPoint.y, false)}>click the seat</button>
+        <button onClick={() => props.onSelectPoint(EMPTY_LAND.x, EMPTY_LAND.y, false)}>click empty land</button>
         <button onClick={() => props.onOrder(5.5, 1.5)}>order east</button>
         <button onClick={() => props.onOrder(FAR_SEA_CELL.x, FAR_SEA_CELL.y)}>order into the deep</button>
         <button onClick={() => props.onHoverCell(1 * 40 + 2)}>hover gaul</button>
         <button onClick={() => props.onHoverCell(-1)}>hover nothing</button>
+        <button onClick={() => props.onFrame({ ticks: props.runner?.ticks ?? 0, units: props.runner?.positions().length ?? 0 })}>
+          pump frame
+        </button>
       </div>
     );
   },
@@ -73,6 +87,8 @@ const gaul = packCell({ owner: 1, tier: 0, passable: true, biome: Biome.Plains }
  * be quietly rescued to the nearest shore instead of refused.
  */
 const FAR_SEA_CELL = { x: 38.5, y: 3.5 };
+/** Walkable Lugdunensis with nothing standing on it — a site for a new building. */
+const EMPTY_LAND = { x: 5.5, y: 2.5 };
 
 function tinyAsset(): TerrainAsset {
   const width = 40;
@@ -311,5 +327,184 @@ describe('WarfrontPage alerts', () => {
     await screen.findByText(/Nothing can march there/);
     fireEvent.click(screen.getByRole('button', { name: /Clear alerts/ }));
     await waitFor(() => expect(screen.queryByText(/Nothing can march there/)).not.toBeInTheDocument());
+  });
+});
+
+describe('WarfrontPage economy', () => {
+  async function ready() {
+    apiGet.mockResolvedValue({ data: tinyAsset() });
+    renderPage();
+    await screen.findByTestId('mock-plane');
+    return captured!;
+  }
+
+  /**
+   * Advances the simulation a frame at a time, then pushes one frame report — the way the
+   * render loop does. One `advance` per tick on purpose: the runner caps a single call at
+   * MAX_STEPS_PER_FRAME so a backgrounded tab cannot simulate a minute inside one frame,
+   * and a test that handed it a big number would quietly advance five ticks.
+   */
+  function pump(runner: SimRunner, ticks: number) {
+    for (let i = 0; i < ticks; i++) runner.advance(TICK_MS);
+    fireEvent.click(screen.getByText('pump frame'));
+  }
+
+  it("opens with the brief's stock on the resource bar", async () => {
+    await ready();
+    const bar = await screen.findByTestId('warfront-resources');
+    expect(bar).toHaveTextContent('Food200');
+    expect(bar).toHaveTextContent('Timber100');
+    // Four villagers and a scout at 3 food a minute each.
+    expect(bar).toHaveTextContent('Upkeep15/min');
+    expect(bar).toHaveTextContent('Provinces1');
+  });
+
+  it('shows the rising colonisation price, and marks it when it cannot be paid', async () => {
+    const runner = await ready();
+    const bar = screen.getByTestId('warfront-resources');
+    const price = runner.sim.colonisePriceFor(1);
+    expect(bar).toHaveTextContent(`Next colony${price} food`);
+    runner.sim.players.get(1)!.food = 0;
+    pump(runner, 1);
+    await waitFor(() => expect(screen.getByText(`${price} food`)).toHaveClass('text-red-300'));
+  });
+
+  it('prompts for a selection before offering any command', async () => {
+    await ready();
+    expect(screen.getByText(/Select villagers to build or colonise/)).toBeInTheDocument();
+  });
+
+  it('offers the build palette once villagers are selected, and no seat in it', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    const commands = await screen.findByTestId('warfront-commands');
+    expect(commands).toHaveTextContent('farm');
+    expect(commands).toHaveTextContent('lumber camp');
+    expect(commands).toHaveTextContent('barracks');
+    // A seat is planted by colonising, never built — rule I. (The colonise button says
+    // "Plant a seat", so this asks about the BUILD buttons rather than the whole bar.)
+    expect(screen.queryAllByRole('button', { name: /^seat/ })).toEqual([]);
+  });
+
+  it('sites a building where the next click lands, and puts the villagers on it', async () => {
+    const runner = await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await screen.findByTestId('warfront-commands');
+    fireEvent.click(screen.getByRole('button', { name: /^house/ }));
+    await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('yes'));
+
+    fireEvent.click(screen.getByText('click empty land'));
+    await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('no'));
+
+    pump(runner, 6);
+    const site = runner.sim.buildings.all().find((b) => b.kind === BuildingKind.House);
+    expect(site).toBeDefined();
+    // The villager that sited it is on it, and the rest of the selection joined — two
+    // builders halve the time, which is the whole reason the others are sent.
+    pump(runner, 10);
+    expect(site!.workers.length).toBeGreaterThan(1);
+  });
+
+  it('cancels a placement on Escape without spending anything', async () => {
+    const runner = await ready();
+    fireEvent.click(screen.getByText('select all'));
+    await screen.findByTestId('warfront-commands');
+    fireEvent.click(screen.getByRole('button', { name: /^house/ }));
+    await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('yes'));
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.getByTestId('placing')).toHaveTextContent('no'));
+    // Escape cancelled the placement, not the selection: the villagers are still picked.
+    expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0');
+    expect(runner.sim.players.get(1)!.timber).toBe(100);
+  });
+
+  it('selects a building when it is clicked, and offers what it trains', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('click the seat'));
+    await waitFor(() => expect(screen.getByTestId('selected-building')).toHaveTextContent('1'));
+    const commands = screen.getByTestId('warfront-commands');
+    expect(commands).toHaveTextContent('villager');
+    expect(commands).toHaveTextContent('scout');
+  });
+
+  it('trains from the selected building, and the unit actually arrives', async () => {
+    const runner = await ready();
+    const before = runner.positions().length;
+    fireEvent.click(screen.getByText('click the seat'));
+    await waitFor(() => expect(screen.getByTestId('selected-building')).toHaveTextContent('1'));
+    fireEvent.click(screen.getByRole('button', { name: /^villager/ }));
+
+    // Twenty seconds of training, plus the two-tick command delay.
+    pump(runner, 15 * 21);
+    expect(runner.positions().length).toBe(before + 1);
+    expect(runner.sim.players.get(1)!.food).toBeLessThan(200);
+  });
+
+  it('assigns selected villagers by clicking the building they are to work', async () => {
+    const runner = await ready();
+    const grid = runner.sim.terrain!;
+    const farm = runner.sim.buildings.place({
+      owner: 1,
+      kind: BuildingKind.Farm,
+      cell: grid.index(5, 2),
+      complete: true,
+    });
+    fireEvent.click(screen.getByText('select all'));
+    await waitFor(() => expect(screen.getByTestId('selected-count')).not.toHaveTextContent('0'));
+
+    fireEvent.click(screen.getByText('click empty land'));
+    pump(runner, 5);
+
+    // Rule II: villagers are assigned, never clicked.
+    expect(farm.workers.length).toBeGreaterThan(0);
+    for (const id of farm.workers) {
+      expect(runner.sim.entities.get(id)!.kind).toBe(UnitKind.Villager);
+    }
+  });
+
+  it('counts only villagers as builders — the scout in the selection is not labour', () => {
+    // The opening is four villagers and a scout, and "select all" takes the lot.
+    return ready().then(async (runner) => {
+      const scouts = [...runner.sim.entities.all()].filter((u) => u.kind === UnitKind.Scout).length;
+      const villagers = [...runner.sim.entities.all()].filter((u) => u.kind === UnitKind.Villager).length;
+      expect(scouts).toBeGreaterThan(0);
+      fireEvent.click(screen.getByText('select all'));
+      const commands = await screen.findByTestId('warfront-commands');
+      expect(commands).toHaveTextContent(`Build (${villagers} villagers)`);
+    });
+  });
+
+  it('raises an alert when a seat falls, and the jump key goes to it', async () => {
+    const runner = await ready();
+    const seatCell = runner.sim.buildings.get(1)!.cell;
+    // One frame first, so the watch has seen the match standing before it falls: the
+    // opening position is not news, and reporting it would greet every player with an
+    // alert about the seat they just started with.
+    pump(runner, 1);
+    runner.sim.damageBuilding(1, 99999);
+    pump(runner, 3);
+
+    expect(await screen.findByText(/has fallen/)).toBeInTheDocument();
+    const before = screen.getByTestId('focus-nonce').textContent;
+    fireEvent.keyDown(window, { key: ' ' });
+    await waitFor(() => expect(screen.getByTestId('focus-nonce').textContent).not.toBe(before));
+    expect(screen.getByTestId('focus-cell')).toHaveTextContent(String(seatCell));
+  });
+
+  it('shows the province holding and what stands in it', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('hover gaul'));
+    expect(await screen.findByText('Held by')).toBeInTheDocument();
+    expect(screen.getByText('you')).toBeInTheDocument();
+    expect(screen.getByText('seat')).toBeInTheDocument();
+  });
+
+  it('refuses to colonise a province that is already yours, and says why', async () => {
+    await ready();
+    fireEvent.click(screen.getByText('select all'));
+    const colonise = await screen.findByRole('button', { name: /Plant a seat/ });
+    expect(colonise).toBeDisabled();
+    expect(screen.getByText('Already yours.')).toBeInTheDocument();
   });
 });

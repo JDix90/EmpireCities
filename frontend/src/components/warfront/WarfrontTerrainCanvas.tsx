@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
-import type { TerrainGrid } from '@borderfall/warfront-sim';
+import { BUILDING_SPECS, BuildingKind, UnitKind, type TerrainGrid } from '@borderfall/warfront-sim';
 import { buildTerrainImage } from '../../warfront/terrainImage';
 import type { SimRunner, UnitView } from '../../warfront/simRunner';
 import { DRAG_THRESHOLD_PX, normalizeRect, type WorldRect } from '../../warfront/selection';
@@ -36,6 +36,10 @@ export interface WarfrontTerrainCanvasProps {
   /** Drives the simulation; null renders terrain only. */
   runner?: SimRunner | null;
   selectedIds?: ReadonlySet<number>;
+  /** Building currently selected, drawn with a ring like a selected unit. */
+  selectedBuildingId?: number | null;
+  /** True while the player is choosing where to put a building: the cursor becomes a site. */
+  placing?: boolean;
   onSelectPoint?: (worldX: number, worldY: number, additive: boolean) => void;
   onSelectRect?: (rect: WorldRect, additive: boolean) => void;
   onOrder?: (worldX: number, worldY: number) => void;
@@ -53,23 +57,39 @@ export interface WarfrontTerrainCanvasProps {
 
 const BACKGROUND = 0x0a0e1a;
 const WHEEL_ZOOM_STEP = 1.0015;
-const UNIT_RADIUS_PX = 5;
 const KEY_PAN_PX_PER_FRAME = 12;
 /** Reporting every frame would re-render React 60 times a second for a tick counter. */
 const FRAMES_PER_HUD_UPDATE = 10;
 
 const OWNER_COLORS = [0xe8c46a, 0x6aa9e8, 0xe86a6a, 0x7fe86a, 0xc99ae8, 0x6ae8d2];
+/** Owner 0 is nobody — the tribes. Rule VI wants raiders unmistakable inside your land. */
+const RAIDER_COLOR = 0xb3402f;
 const SELECTION_RING = 0xffffff;
 const GOAL_MARKER = 0xffffff;
+const HEALTH_BAR_WIDTH_PX = 14;
+const BUILDING_HALF_PX = 6;
 
 function ownerColor(owner: number): number {
-  return OWNER_COLORS[(owner - 1 + OWNER_COLORS.length) % OWNER_COLORS.length];
+  if (owner === 0) return RAIDER_COLOR;
+  return OWNER_COLORS[(owner - 1) % OWNER_COLORS.length];
+}
+
+/**
+ * Screen radius by kind, so a glance tells a villager from a ram without a label. These
+ * are drawing sizes only — nothing here feeds back into the simulation.
+ */
+function unitRadius(kind: number): number {
+  if (kind === UnitKind.Villager || kind === UnitKind.Scout) return 4;
+  if (kind === UnitKind.Ram) return 7;
+  return 5;
 }
 
 export default function WarfrontTerrainCanvas({
   grid,
   runner = null,
   selectedIds,
+  selectedBuildingId = null,
+  placing = false,
   onSelectPoint,
   onSelectRect,
   onOrder,
@@ -84,6 +104,8 @@ export default function WarfrontTerrainCanvas({
   const unitLayerRef = useRef<PIXI.Container | null>(null);
   const overlayRef = useRef<PIXI.Graphics | null>(null);
   const unitGraphicsRef = useRef(new Map<number, PIXI.Graphics>());
+  const buildingLayerRef = useRef<PIXI.Container | null>(null);
+  const buildingGraphicsRef = useRef(new Map<number, PIXI.Graphics>());
   const cameraRef = useRef<Camera>({ x: grid.width / 2, y: grid.height / 2, scale: 1 });
   const viewportRef = useRef({ width: 1, height: 1 });
   const worldRef = useRef({ width: grid.width, height: grid.height });
@@ -95,10 +117,12 @@ export default function WarfrontTerrainCanvas({
   // change (restarting it would tear down the GPU context every render).
   const runnerRef = useRef(runner);
   const selectedRef = useRef<ReadonlySet<number>>(selectedIds ?? new Set());
+  const selectedBuildingRef = useRef<number | null>(selectedBuildingId ?? null);
   const onFrameRef = useRef(onFrame);
   const onCameraChangeRef = useRef(onCameraChange);
   runnerRef.current = runner;
   selectedRef.current = selectedIds ?? new Set();
+  selectedBuildingRef.current = selectedBuildingId ?? null;
   onFrameRef.current = onFrame;
   onCameraChangeRef.current = onCameraChange;
 
@@ -151,6 +175,12 @@ export default function WarfrontTerrainCanvas({
     app.stage.addChild(sprite);
     spriteRef.current = sprite;
 
+    // Buildings under units: a villager standing on its farm must stay visible.
+    const buildingLayer = new PIXI.Container();
+    buildingLayer.eventMode = 'none';
+    app.stage.addChild(buildingLayer);
+    buildingLayerRef.current = buildingLayer;
+
     const unitLayer = new PIXI.Container();
     unitLayer.eventMode = 'none';
     app.stage.addChild(unitLayer);
@@ -168,8 +198,10 @@ export default function WarfrontTerrainCanvas({
     return () => {
       setReady(false);
       unitGraphicsRef.current.clear();
+      buildingGraphicsRef.current.clear();
       spriteRef.current = null;
       unitLayerRef.current = null;
+      buildingLayerRef.current = null;
       overlayRef.current = null;
       appRef.current = null;
       texture.destroy(true);
@@ -214,6 +246,69 @@ export default function WarfrontTerrainCanvas({
       const selected = selectedRef.current;
       const graphics = unitGraphicsRef.current;
 
+      // Buildings first, read straight from the simulation: they change rarely, so a
+      // graphic is rebuilt only when its LOOK changes, not every frame.
+      const buildingLayer = buildingLayerRef.current;
+      if (buildingLayer && sim) {
+        const graphics = buildingGraphicsRef.current;
+        const seenBuildings = new Set<number>();
+        const selectedBuilding = selectedBuildingRef.current;
+        for (const building of sim.sim.buildings.all()) {
+          seenBuildings.add(building.id);
+          let g = graphics.get(building.id);
+          if (!g) {
+            g = new PIXI.Graphics();
+            graphics.set(building.id, g);
+            buildingLayer.addChild(g);
+          }
+          const maxHp = BUILDING_SPECS[building.kind]?.hp ?? 1;
+          const hurt = building.hp < maxHp;
+          const key = [
+            building.owner,
+            building.kind,
+            building.complete ? 1 : 0,
+            selectedBuilding === building.id ? 1 : 0,
+            hurt ? Math.round((building.hp * 10) / maxHp) : -1,
+          ].join(':');
+          if (g.name !== key) {
+            g.name = key;
+            g.clear();
+            const half = building.kind === BuildingKind.Seat ? BUILDING_HALF_PX + 2 : BUILDING_HALF_PX;
+            if (selectedBuilding === building.id) {
+              g.lineStyle(2, SELECTION_RING, 1).drawRect(-half - 3, -half - 3, (half + 3) * 2, (half + 3) * 2);
+            }
+            // A site under construction is an outline; a finished building is solid.
+            if (building.complete) {
+              g.lineStyle(1, 0x101418, 1).beginFill(ownerColor(building.owner), 1);
+            } else {
+              g.lineStyle(1, ownerColor(building.owner), 0.9).beginFill(ownerColor(building.owner), 0.2);
+            }
+            g.drawRect(-half, -half, half * 2, half * 2).endFill();
+            // A seat carries its tower: a diamond on top, so rule III is legible at a glance.
+            if (building.kind === BuildingKind.Seat || building.kind === BuildingKind.Tower) {
+              g.lineStyle(1, 0x101418, 1)
+                .beginFill(0xffffff, 0.85)
+                .drawPolygon([0, -half - 5, 4, -half - 1, 0, -half + 3, -4, -half - 1])
+                .endFill();
+            }
+            if (hurt) {
+              g.beginFill(0x000000, 0.6).drawRect(-HEALTH_BAR_WIDTH_PX / 2, half + 2, HEALTH_BAR_WIDTH_PX, 2).endFill();
+              g.beginFill(0x6ae87f, 1)
+                .drawRect(-HEALTH_BAR_WIDTH_PX / 2, half + 2, (HEALTH_BAR_WIDTH_PX * building.hp) / maxHp, 2)
+                .endFill();
+            }
+          }
+          const bp = worldToScreen(camera, viewport, grid.colOf(building.cell) + 0.5, grid.rowOf(building.cell) + 0.5);
+          g.position.set(bp.x, bp.y);
+          g.visible = bp.x >= -20 && bp.y >= -20 && bp.x <= viewport.width + 20 && bp.y <= viewport.height + 20;
+        }
+        for (const [id, g] of graphics) {
+          if (seenBuildings.has(id)) continue;
+          g.destroy();
+          graphics.delete(id);
+        }
+      }
+
       const seen = new Set<number>();
       for (const unit of units) {
         seen.add(unit.id);
@@ -224,21 +319,32 @@ export default function WarfrontTerrainCanvas({
           unitLayer.addChild(g);
         }
         const isSelected = selected.has(unit.id);
-        // Redraw only when the look changes; position is set every frame.
-        const key = `${unit.owner}:${isSelected ? 1 : 0}`;
+        const radius = unitRadius(unit.kind);
+        const hurt = unit.hp < unit.maxHp;
+        // Redraw only when the look changes; position is set every frame. Health is
+        // bucketed to tenths so a unit under fire does not rebuild its graphic per tick.
+        const key = [
+          unit.owner,
+          unit.kind,
+          isSelected ? 1 : 0,
+          hurt ? Math.round((unit.hp * 10) / unit.maxHp) : -1,
+        ].join(':');
         if (g.name !== key) {
           g.name = key;
           g.clear();
-          if (isSelected) g.lineStyle(2, SELECTION_RING, 1).drawCircle(0, 0, UNIT_RADIUS_PX + 3);
-          g.lineStyle(1, 0x101418, 1).beginFill(ownerColor(unit.owner), 1).drawCircle(0, 0, UNIT_RADIUS_PX).endFill();
+          if (isSelected) g.lineStyle(2, SELECTION_RING, 1).drawCircle(0, 0, radius + 3);
+          g.lineStyle(1, 0x101418, 1).beginFill(ownerColor(unit.owner), 1).drawCircle(0, 0, radius).endFill();
+          if (hurt) {
+            g.beginFill(0x000000, 0.6).drawRect(-HEALTH_BAR_WIDTH_PX / 2, radius + 2, HEALTH_BAR_WIDTH_PX, 2).endFill();
+            g.beginFill(0x6ae87f, 1)
+              .drawRect(-HEALTH_BAR_WIDTH_PX / 2, radius + 2, (HEALTH_BAR_WIDTH_PX * unit.hp) / unit.maxHp, 2)
+              .endFill();
+          }
         }
         const p = worldToScreen(camera, viewport, unit.x, unit.y);
         g.position.set(p.x, p.y);
         g.visible =
-          p.x >= -UNIT_RADIUS_PX &&
-          p.y >= -UNIT_RADIUS_PX &&
-          p.x <= viewport.width + UNIT_RADIUS_PX &&
-          p.y <= viewport.height + UNIT_RADIUS_PX;
+          p.x >= -radius && p.y >= -radius && p.x <= viewport.width + radius && p.y <= viewport.height + radius;
       }
       for (const [id, g] of graphics) {
         if (seen.has(id)) continue;
@@ -425,7 +531,7 @@ export default function WarfrontTerrainCanvas({
       <div
         ref={hostRef}
         data-testid="warfront-plane"
-        className="h-full w-full touch-none"
+        className={`h-full w-full touch-none ${placing ? 'cursor-crosshair' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishPointer}

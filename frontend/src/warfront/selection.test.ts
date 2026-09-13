@@ -10,11 +10,18 @@ import {
 } from './selection';
 import type { UnitView } from './simRunner';
 
-const units: UnitView[] = [
-  { id: 1, owner: 1, x: 10, y: 10, moving: false },
-  { id: 2, owner: 1, x: 12, y: 11, moving: false },
-  { id: 3, owner: 2, x: 40, y: 40, moving: false },
-];
+const at = (id: number, owner: number, x: number, y: number): UnitView => ({
+  id,
+  owner,
+  kind: 1,
+  hp: 40,
+  maxHp: 40,
+  x,
+  y,
+  moving: false,
+});
+
+const units: UnitView[] = [at(1, 1, 10, 10), at(2, 1, 12, 11), at(3, 2, 40, 40)];
 
 describe('rects', () => {
   it('normalises a drag in any direction', () => {
