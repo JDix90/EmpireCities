@@ -31,6 +31,7 @@ export { stepCombat, effectiveRange, type CombatContext } from './combat';
 export {
   TribeStore,
   buildProvinceGeography,
+  firstRaidTick,
   raidSize,
   stepTribes,
   type Raider,
@@ -39,3 +40,29 @@ export {
   type ProvinceGeography,
 } from './tribes';
 export { FlowField, FlowFieldCache, COST_ORTHOGONAL, COST_DIAGONAL } from './flowField';
+export {
+  matchCapTicks,
+  majorityOf,
+  matchResult,
+  standings,
+  stepScoring,
+  MATCH_CAP_MINUTES_TWO,
+  MATCH_CAP_MINUTES_FOUR,
+  type MatchResult,
+  type MatchEnd,
+  type Standing,
+} from './scoring';
+export { SEATS, buildOpening, seatCellOf, speedOf, type Opening, type OpeningOptions, type SeatDefinition } from './openings';
+export {
+  BOT_THINK_INTERVAL_TICKS,
+  botSeed,
+  botThinkOffset,
+  cellOf,
+  rngFor,
+  shouldThink,
+  viewFor,
+  type Bot,
+  type BotView,
+} from './bot';
+export { runMatch, type MatchOptions, type MatchOutcome } from './match';
+export { ColonistBot, COLONIST_DEFAULTS, type ColonistParams } from './bots/colonist';

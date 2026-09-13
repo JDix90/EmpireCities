@@ -1,4 +1,5 @@
-import { FP_HALF, FP_ONE, assertFixed, assertInt, fpDiv, fpLength, fpMul, idiv, toIntFloor, type Fixed } from './fixed';
+import { FP_ONE, assertFixed, assertInt, fpDiv, fpLength, fpMul, idiv, toIntFloor, type Fixed } from './fixed';
+import { cellCentre } from './geometry';
 import { COMMAND_DELAY_TICKS } from './constants';
 import { TerrainGrid } from './terrain';
 import { FlowFieldCache } from './flowField';
@@ -12,6 +13,7 @@ import { stepEconomy, type EconomyContext } from './economy';
 import { ProvinceStore } from './provinces';
 import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
 import { stepCombat, type CombatContext } from './combat';
+import { matchResult, standings, stepScoring, type MatchResult, type Standing } from './scoring';
 import {
   TribeStore,
   buildProvinceGeography,
@@ -36,6 +38,9 @@ import {
 // Re-exported so every existing importer of `sim` keeps working; they live in
 // constants.ts so the rules and economy modules can read them without a cycle.
 export { TICK_RATE, COMMAND_DELAY_TICKS } from './constants';
+// Lives in geometry.ts so combat and the bots can have it without importing this module;
+// re-exported here because every existing importer reads it from `sim`.
+export { cellCentre } from './geometry';
 /** How far (in cells, Chebyshev) a move onto impassable terrain is redirected to the nearest passable cell. */
 export const NEAREST_PASSABLE_RADIUS = 12;
 /** Waypoints a unit may pass in one tick (keeps the per-tick loop bounded). */
@@ -60,14 +65,14 @@ export interface SimOptions {
 /**
  * The replay format version.
  *
- * Bumped whenever the hashed state changes shape: version 2 added the economy, and
- * version 3 adds combat cooldowns and the tribes. Every one of those fields is hashed, so
- * an older replay REPLAYS to a different hash than it recorded. Refusing it outright is
- * the whole point of this package: a replay that silently disagrees with itself is the
- * failure mode the determinism rules exist to prevent, and a loud error beats a quiet
- * divergence.
+ * Bumped whenever the hashed state changes shape: version 2 added the economy, version 3
+ * combat cooldowns and the tribes, version 4 the province-ticks a match is scored on.
+ * Every one of those fields is hashed, so an older replay REPLAYS to a different hash
+ * than it recorded. Refusing it outright is the whole point of this package: a replay
+ * that silently disagrees with itself is the failure mode the determinism rules exist to
+ * prevent, and a loud error beats a quiet divergence.
  */
-export const REPLAY_VERSION = 3;
+export const REPLAY_VERSION = 4;
 
 /** A match, fully described: from this the final state is reproducible on any machine. */
 export interface Replay {
@@ -204,6 +209,26 @@ export class Sim {
     return colonisePrice(this.provinces.heldBy(owner));
   }
 
+  /** The match as it stands: who is where, and whether it is over. */
+  get result(): MatchResult {
+    return matchResult({
+      tick: this.currentTick,
+      players: this.players,
+      provinces: this.provinces,
+      entities: this.entities,
+    });
+  }
+
+  /** Placings as they stand, without asking whether the match has ended. */
+  get standings(): Standing[] {
+    return standings({
+      tick: this.currentTick,
+      players: this.players,
+      provinces: this.provinces,
+      entities: this.entities,
+    });
+  }
+
   /**
    * Damage a building. This is a RULE path, not a command: rams and towers call it from
    * inside the simulation, and tests drive it directly. It is deterministic because the
@@ -290,6 +315,9 @@ export class Sim {
         (target, amount, attacker) => this.hurtUnit(target, amount, attacker),
         (target, amount) => this.damageBuilding(target.id, amount),
       );
+      // Scoring last, after ownership has settled for this tick: a province taken this
+      // tick banks this tick, and one lost this tick does not.
+      stepScoring({ players: this.players, provinces: this.provinces });
       stepTribes(
         this.tribeContext(),
         next,
@@ -651,11 +679,6 @@ export class Sim {
       budget = 0;
     }
   }
-}
-
-/** Fixed position of the centre of cell column/row `i`. */
-export function cellCentre(i: number): Fixed {
-  return i * FP_ONE + FP_HALF;
 }
 
 /** Runs a replay to `ticks` and returns the final hash — the golden-test primitive. */

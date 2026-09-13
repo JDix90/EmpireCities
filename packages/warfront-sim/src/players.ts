@@ -30,6 +30,13 @@ export interface Player {
   starving: boolean;
   /** Ticks since the last starvation bite. */
   starveTimer: number;
+  /**
+   * One tick banked for every province held, every tick. Cumulative province-minutes are
+   * the cap's tiebreak, which is what makes ground held EARLY worth something even after
+   * you lose it — and therefore what keeps a losing seat playing. It decides the outcome,
+   * so it is hashed like any other state.
+   */
+  provinceTicks: number;
 }
 
 export interface PlayerInit {
@@ -58,6 +65,7 @@ export class PlayerStore {
       upkeepAcc: 0,
       starving: false,
       starveTimer: 0,
+      provinceTicks: 0,
     };
     this.items.push(player);
     this.items.sort((a, b) => a.index - b.index);
@@ -83,7 +91,7 @@ export class PlayerStore {
     for (const p of this.items) {
       h.int(p.index).int(p.food).int(p.timber).int(p.silver).int(p.pop).int(p.popCap);
       h.int(p.foodAcc).int(p.timberAcc).int(p.silverAcc).int(p.upkeepAcc);
-      h.bool(p.starving).int(p.starveTimer);
+      h.bool(p.starving).int(p.starveTimer).int(p.provinceTicks);
     }
   }
 }

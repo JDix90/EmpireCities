@@ -224,10 +224,39 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
   },
 };
 
-/** Starting stock, per the brief: seat, 4 villagers, 1 scout, 200 food, 100 timber. */
+/**
+ * Starting stock, per the brief: seat, 4 villagers, 1 scout, 200 food, 100 timber.
+ *
+ * The silver is NOT from the brief, and it is here because the brief's own minute-two
+ * beat cannot be played without it. That line reads "Two spears at the seat, then a
+ * second colony" — but a spear costs 15 silver, silver comes only from a mine, a mine
+ * needs hills, and no seat on this map has hills inside its opening build range. Starting
+ * at zero silver makes the first defensive unit in the game unbuildable until several
+ * minutes after the raids that need it, and the lab measured the result: in a Colonist
+ * mirror every villager on the map was dead by minute five and neither seat recovered.
+ *
+ * Thirty is exactly the two spears the brief tells you to build, and not a silver more,
+ * so the mine stays the thing that pays for a third.
+ */
 export const START_FOOD = 200;
-export const START_TIMBER = 100;
-export const START_SILVER = 0;
+/**
+ * 160, not the brief's 100, for the same reason as the silver above: the brief's own
+ * opening does not fit in 100.
+ *
+ * The arithmetic. Only a lumber camp produces timber, so everything raised before one
+ * comes out of the starting purse. The brief's minute-two board is a lumber camp (30), a
+ * farm (40) and "two spears at the seat" — and spears need a barracks (80). That is 150
+ * of a 100-timber start, so with the brief's figures the very first raid arrives against
+ * a seat that cannot have built the thing that answers it, whatever the player does.
+ * 160 covers the three and leaves ten over, which keeps the second farm a decision rather
+ * than a formality.
+ *
+ * The alternative — a cheaper barracks — was not taken because the brief fixes that
+ * number in its own building list, while the starting stock is a line the lab was
+ * explicitly built to correct.
+ */
+export const START_TIMBER = 160;
+export const START_SILVER = 30;
 export const START_VILLAGERS = 4;
 export const START_SCOUTS = 1;
 
@@ -350,6 +379,24 @@ export const HIGH_GROUND_ARCHER_RANGE_BONUS = 1;
 export const FIRST_RAID_TICK = seconds(120);
 /** Ticks between a tribe's raids. The brief's minute-four line says "every 90s". */
 export const RAID_INTERVAL_TICKS = seconds(90);
+/**
+ * How far apart two tribes' FIRST raids fall.
+ *
+ * The brief's timeline is precise about this and the first build was not: minute two is
+ * "first tribal raid on a border lumber camp" — one raid — and it is minute FOUR that
+ * brings "raids every 90s from each neutral border". Starting every tribe on the same
+ * clock instead meant a seat with four neutral frontiers met four simultaneous raids at
+ * minute two, against an economy that by the brief's own roster cannot have bought a
+ * single spear yet (a spear costs silver, seats start with none, and silver comes only
+ * from a mine). Measured in the lab, that wiped every villager off the map by minute
+ * five in a Colonist mirror and neither seat ever recovered.
+ *
+ * Staggering by the tribe's own province index spreads the frontier up over the first
+ * few minutes, which is what the timeline describes, and is deterministic.
+ */
+export const RAID_STAGGER_TICKS = seconds(30);
+/** Tribes past this many are folded back onto the same offsets rather than raiding later. */
+export const RAID_STAGGER_WRAP = 8;
 /** Raiders in the first raid of a match. */
 export const RAID_BASE_SIZE = 1;
 /** One more raider per this many provinces the victim holds — raids scale with holdings. */

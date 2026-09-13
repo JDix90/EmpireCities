@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   Biome,
   BuildingKind,
-  FIRST_RAID_TICK,
   RAID_DURATION_TICKS,
   Sim,
   TerrainGrid,
   UnitKind,
   cellCentre,
+  firstRaidTick,
   packCell,
 } from '@borderfall/warfront-sim';
 import { MatchWatch } from './watch';
@@ -41,6 +41,13 @@ function testGrid(): TerrainGrid {
 }
 
 const cellAt = (col: number) => ROW * WIDTH + col;
+
+/**
+ * When province 2 — the only tribe bordering settled Gaul here — first musters. Tribes
+ * are staggered so that minute two brings one raid rather than one per frontier, so a
+ * test waiting for "the raid" waits on a particular tribe's clock.
+ */
+const RAIDER_TRIBE_DUE = firstRaidTick(2);
 
 function matchSim(options: { villagerCols?: number[]; farm?: boolean; food?: number } = {}) {
   return new Sim({
@@ -82,7 +89,7 @@ describe('MatchWatch', () => {
 
   it('reports raiders the moment they cross into your land, once each', () => {
     const sim = matchSim({ farm: true });
-    const alerts = watchTo(sim, new MatchWatch(), FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    const alerts = watchTo(sim, new MatchWatch(), RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     const raids = alerts.filter((a) => a.kind === 'raid');
     expect(raids.length).toBeGreaterThan(0);
     expect(raids[0].message).toMatch(/Raiders in Gallia Lugdunensis/);
@@ -99,14 +106,14 @@ describe('MatchWatch', () => {
 
   it('points the jump key at the cell the raiders are actually on', () => {
     const sim = matchSim({ farm: true });
-    const alerts = watchTo(sim, new MatchWatch(), FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    const alerts = watchTo(sim, new MatchWatch(), RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     const raid = alerts.find((a) => a.kind === 'raid')!;
     expect(sim.terrain!.owner(raid.cell)).toBe(1);
   });
 
   it('reports villagers killed, and where they fell', () => {
     const sim = matchSim({ farm: true, villagerCols: [8] });
-    const alerts = watchTo(sim, new MatchWatch(), FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    const alerts = watchTo(sim, new MatchWatch(), RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     const loss = alerts.find((a) => a.kind === 'loss');
     expect(loss).toBeDefined();
     expect(loss!.cell).toBe(cellAt(8));
@@ -140,7 +147,7 @@ describe('MatchWatch', () => {
     // A watch built mid-match — which is what step 4's lab will do — must report what
     // happens NEXT, not greet the player with every raider already standing in their land.
     const sim = matchSim({ farm: true });
-    sim.runTo(FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     expect([...sim.entities.all()].some((u) => u.owner === 0)).toBe(true);
     const late = new MatchWatch();
     expect(late.poll(sim, 1)).toEqual([]);
@@ -152,6 +159,6 @@ describe('MatchWatch', () => {
 
   it('says nothing about a quiet match', () => {
     const sim = matchSim({ villagerCols: [1] });
-    expect(watchTo(sim, new MatchWatch(), FIRST_RAID_TICK - 1)).toEqual([]);
+    expect(watchTo(sim, new MatchWatch(), RAIDER_TRIBE_DUE - 1)).toEqual([]);
   });
 });

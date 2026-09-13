@@ -1,10 +1,10 @@
 {
   "name": "western twenty: a Belgic tribe raids Gaul's border farm, and nobody clicked anything",
   "ticks": 3600,
-  "expectedHash": "aa3ce5234d700f52",
+  "expectedHash": "d64ce2c9fc8e6c18",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
-    "version": 3,
+    "version": 4,
     "seed": 2262,
     "scenario": {
       "players": [

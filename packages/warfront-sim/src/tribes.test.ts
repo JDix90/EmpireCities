@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Sim, cellCentre } from './sim';
 import { TerrainGrid, Biome, packCell } from './terrain';
-import { buildProvinceGeography, raidSize } from './tribes';
+import { buildProvinceGeography, firstRaidTick, raidSize } from './tribes';
 import {
   BuildingKind,
-  FIRST_RAID_TICK,
   RAID_BASE_SIZE,
   RAID_DURATION_TICKS,
   RAID_INTERVAL_TICKS,
@@ -96,6 +95,13 @@ function raidSim(
 
 const raiders = (sim: Sim) => [...sim.entities.all()].filter((u) => u.owner === 0);
 
+/**
+ * When province 2 — the only tribe that borders settled Gaul on this map — first musters.
+ * Tribes are staggered so minute two brings one raid rather than one per frontier, so a
+ * test asking "has the raid landed" must ask about a PARTICULAR tribe's clock.
+ */
+const RAIDER_TRIBE_DUE = firstRaidTick(2);
+
 describe('buildProvinceGeography', () => {
   const geography = buildProvinceGeography(testGrid());
 
@@ -126,7 +132,10 @@ describe('raidSize', () => {
   });
 
   it('grows with the victim, which is the half that punishes a turtle', () => {
-    expect(raidSize(0, 3)).toBe(RAID_BASE_SIZE + 3);
+    // Counted from the SECOND province: holding the one you started in is not expansion,
+    // and taxing it doubled the very first raid of every match.
+    expect(raidSize(0, 1)).toBe(RAID_BASE_SIZE);
+    expect(raidSize(0, 3)).toBe(RAID_BASE_SIZE + 2);
     expect(raidSize(0, 3)).toBeGreaterThan(raidSize(0, 1));
   });
 
@@ -138,18 +147,18 @@ describe('raidSize', () => {
 describe('raids (rule VI)', () => {
   it('sends nobody before minute two', () => {
     const sim = raidSim();
-    sim.runTo(FIRST_RAID_TICK - 1);
+    sim.runTo(RAIDER_TRIBE_DUE - 1);
     expect(raiders(sim)).toHaveLength(0);
     expect(sim.tribes.activeRaiders()).toHaveLength(0);
   });
 
   it('musters on the frontier at minute two, from the settled neighbour only', () => {
     const sim = raidSim();
-    sim.runTo(FIRST_RAID_TICK);
+    sim.runTo(RAIDER_TRIBE_DUE);
     const out = raiders(sim);
     // Province 2 borders settled Gaul and raids it. Province 3 borders only neutral
     // ground and province 4 is an island, so neither sends anybody.
-    expect(out).toHaveLength(raidSize(FIRST_RAID_TICK, 1));
+    expect(out).toHaveLength(raidSize(RAIDER_TRIBE_DUE, 1));
     for (const raider of out) expect(raider.kind).toBe(RAIDER_KIND);
     // Mustered on province 2's own side of the frontier, not somewhere in its interior.
     expect(sim.tribes.activeRaiders().every((r) => r.homeCell === cellAt(10))).toBe(true);
@@ -158,20 +167,20 @@ describe('raids (rule VI)', () => {
 
   it('waits the full interval before mustering the next one', () => {
     const sim = raidSim();
-    sim.runTo(FIRST_RAID_TICK);
+    sim.runTo(RAIDER_TRIBE_DUE);
     expect(raiders(sim).length).toBeGreaterThan(0);
-    expect(sim.tribes.home(2)!.nextRaidTick).toBe(FIRST_RAID_TICK + RAID_INTERVAL_TICKS);
+    expect(sim.tribes.home(2)!.nextRaidTick).toBe(RAIDER_TRIBE_DUE + RAID_INTERVAL_TICKS);
     // The first raid is home and disbanded by now (see the retreat test below), so the
     // map is empty right up to the tick the next one is due.
-    sim.runTo(FIRST_RAID_TICK + RAID_INTERVAL_TICKS - 1);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_INTERVAL_TICKS - 1);
     expect(raiders(sim)).toHaveLength(0);
-    sim.runTo(FIRST_RAID_TICK + RAID_INTERVAL_TICKS);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_INTERVAL_TICKS);
     expect(raiders(sim).length).toBeGreaterThan(0);
   });
 
   it("aims at the border farm — the brief's own beat — and not at the seat behind it", () => {
     const sim = raidSim({ farmCol: 8, villagerCols: [8], silver: 100 });
-    sim.runTo(FIRST_RAID_TICK + 1);
+    sim.runTo(RAIDER_TRIBE_DUE + 1);
     const farmCentre = cellCentre(8);
     // Every raider is walking at the farm, which is nearer the frontier than the seat.
     expect(sim.tribes.activeRaiders().length).toBeGreaterThan(0);
@@ -182,39 +191,39 @@ describe('raids (rule VI)', () => {
     // The tower sits on the frontier and the farm four cells behind it. A raid is after
     // villagers, not walls: "skirmishers on your lumber camps" is the brief's own beat.
     const sim = raidSim({ farmCol: 4, extra: [{ kind: BuildingKind.Tower, col: 9 }] });
-    sim.runTo(FIRST_RAID_TICK + 1);
+    sim.runTo(RAIDER_TRIBE_DUE + 1);
     expect(sim.tribes.activeRaiders().length).toBeGreaterThan(0);
     for (const raider of raiders(sim)) expect(raider.goalX).toBe(cellCentre(4));
   });
 
   it('takes the nearest of several equal targets', () => {
     const sim = raidSim({ farmCol: 4, extra: [{ kind: BuildingKind.Farm, col: 8 }] });
-    sim.runTo(FIRST_RAID_TICK + 1);
+    sim.runTo(RAIDER_TRIBE_DUE + 1);
     expect(sim.tribes.activeRaiders().length).toBeGreaterThan(0);
     for (const raider of raiders(sim)) expect(raider.goalX).toBe(cellCentre(8));
   });
 
   it('kills the villagers working it, and takes loot', () => {
     const sim = raidSim({ farmCol: 8, villagerCols: [8], silver: 100 });
-    sim.runTo(FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     expect(sim.entities.get(1)).toBeUndefined();
     expect(sim.players.get(1)!.silver).toBe(100 - RAID_LOOT_SILVER);
   });
 
   it('never takes more loot than the victim has', () => {
     const sim = raidSim({ farmCol: 8, villagerCols: [8], silver: 0 });
-    sim.runTo(FIRST_RAID_TICK + RAID_DURATION_TICKS);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_DURATION_TICKS);
     expect(sim.entities.get(1)).toBeUndefined();
     expect(sim.players.get(1)!.silver).toBe(0);
   });
 
   it('retreats: every raider goes home and the tribe keeps no standing army', () => {
     const sim = raidSim({ farmCol: 8 });
-    sim.runTo(FIRST_RAID_TICK + 1);
+    sim.runTo(RAIDER_TRIBE_DUE + 1);
     expect(raiders(sim).length).toBeGreaterThan(0);
     // March in, loot for a minute, march out — comfortably inside one raid interval on
     // this map, and none of them shot: the farm is beyond the seat's six cells.
-    sim.runTo(FIRST_RAID_TICK + RAID_INTERVAL_TICKS - 1);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_INTERVAL_TICKS - 1);
     expect(raiders(sim)).toHaveLength(0);
     expect(sim.tribes.activeRaiders()).toHaveLength(0);
   });
@@ -222,7 +231,7 @@ describe('raids (rule VI)', () => {
   it('walks into the guns when the seat is the only thing to raid', () => {
     // No farm: the nearest thing worth hitting is the seat itself, which is armed.
     const sim = raidSim();
-    sim.runTo(FIRST_RAID_TICK + RAID_MARCH_LIMIT_TICKS);
+    sim.runTo(RAIDER_TRIBE_DUE + RAID_MARCH_LIMIT_TICKS);
     expect(raiders(sim)).toHaveLength(0);
     expect(sim.buildings.get(1)!.hp).toBe(1500);
   });
@@ -237,7 +246,9 @@ describe('raids (rule VI)', () => {
     sim.runTo(210);
     expect(sim.provinces.get(2)!.owner).toBe(1);
 
-    sim.runTo(FIRST_RAID_TICK + 1);
+    // Province 3's own clock, not province 2's: tribes are staggered, and province 3 is
+    // the one that raids now.
+    sim.runTo(firstRaidTick(3) + 1);
     // Province 2 is settled, so it musters nothing. Province 3 now borders settled land,
     // so the frontier has simply moved — which is the rule working, not failing.
     expect(sim.tribes.activeRaiders().length).toBeGreaterThan(0);
@@ -248,14 +259,14 @@ describe('raids (rule VI)', () => {
     const sim = raidSim({ farmCol: 8 });
     // Let the raid get under way, then freeze one raider partway across — out of its own
     // muster cell, out of the seat's reach, and unable ever to arrive or walk back.
-    sim.runTo(FIRST_RAID_TICK + 20);
+    sim.runTo(RAIDER_TRIBE_DUE + 20);
     const stranded = raiders(sim)[0];
     stranded.speed = 0;
     const record = sim.tribes.activeRaiders().find((r) => r.unit === stranded.id)!;
     expect(sim.terrain!.index(stranded.x >> 16, ROW)).not.toBe(record.homeCell);
     // It gives up marching in at one limit and is written off a limit after that. Without
     // the second deadline it would haunt the map for the rest of the match.
-    sim.runTo(FIRST_RAID_TICK + 2 * RAID_MARCH_LIMIT_TICKS - 1);
+    sim.runTo(RAIDER_TRIBE_DUE + 2 * RAID_MARCH_LIMIT_TICKS - 1);
     expect(sim.entities.get(stranded.id)).toBeDefined();
     sim.step();
     expect(sim.entities.get(stranded.id)).toBeUndefined();
@@ -267,7 +278,7 @@ describe('determinism', () => {
   it('replays a raid to the same hash, twice', () => {
     const run = () => {
       const sim = raidSim({ farmCol: 8, villagerCols: [8, 9], silver: 100 });
-      sim.runTo(FIRST_RAID_TICK + RAID_INTERVAL_TICKS);
+      sim.runTo(RAIDER_TRIBE_DUE + RAID_INTERVAL_TICKS);
       return sim.hash();
     };
     expect(run()).toBe(run());
@@ -275,7 +286,7 @@ describe('determinism', () => {
 
   it('hashes the raid itself, so a lost raider is a divergence and not a rounding error', () => {
     const sim = raidSim();
-    sim.runTo(FIRST_RAID_TICK);
+    sim.runTo(RAIDER_TRIBE_DUE);
     const before = sim.hash();
     sim.tribes.dropRaider(sim.tribes.activeRaiders()[0].unit);
     expect(sim.hash()).not.toBe(before);

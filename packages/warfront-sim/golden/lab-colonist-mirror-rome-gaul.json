@@ -1,0 +1,389 @@
+{
+  "name": "lab: a Colonist mirror opens Rome against Gaul, five minutes, nobody watching",
+  "ticks": 4500,
+  "expectedHash": "194c0ca0483985d3",
+  "terrain": "database/warfront/western_twenty.terrain.json",
+  "replay": {
+    "version": 4,
+    "seed": 20260913,
+    "scenario": {
+      "units": [
+        {
+          "owner": 1,
+          "x": 33325056,
+          "y": 26312704,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 1,
+          "x": 33325056,
+          "y": 26312704,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 1,
+          "x": 33325056,
+          "y": 26312704,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 1,
+          "x": 33325056,
+          "y": 26312704,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 1,
+          "x": 33325056,
+          "y": 26312704,
+          "speed": 8738,
+          "kind": 2
+        },
+        {
+          "owner": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 3932,
+          "kind": 1
+        },
+        {
+          "owner": 2,
+          "x": 18579456,
+          "y": 16809984,
+          "speed": 8738,
+          "kind": 2
+        }
+      ],
+      "players": [
+        {
+          "index": 1,
+          "food": 200,
+          "timber": 160,
+          "silver": 30
+        },
+        {
+          "index": 2,
+          "food": 200,
+          "timber": 160,
+          "silver": 30
+        }
+      ],
+      "buildings": [
+        {
+          "owner": 1,
+          "kind": 1,
+          "cell": 253539
+        },
+        {
+          "owner": 2,
+          "kind": 1,
+          "cell": 161819
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "build",
+          "unit": 1,
+          "kind": 2,
+          "cell": 252907
+        }
+      },
+      {
+        "tick": 3,
+        "seq": 1,
+        "command": {
+          "type": "build",
+          "unit": 6,
+          "kind": 4,
+          "cell": 167527
+        }
+      },
+      {
+        "tick": 17,
+        "seq": 2,
+        "command": {
+          "type": "assign",
+          "unit": 2,
+          "building": 3
+        }
+      },
+      {
+        "tick": 17,
+        "seq": 3,
+        "command": {
+          "type": "assign",
+          "unit": 3,
+          "building": 3
+        }
+      },
+      {
+        "tick": 17,
+        "seq": 4,
+        "command": {
+          "type": "assign",
+          "unit": 4,
+          "building": 3
+        }
+      },
+      {
+        "tick": 18,
+        "seq": 5,
+        "command": {
+          "type": "assign",
+          "unit": 7,
+          "building": 4
+        }
+      },
+      {
+        "tick": 18,
+        "seq": 6,
+        "command": {
+          "type": "assign",
+          "unit": 8,
+          "building": 4
+        }
+      },
+      {
+        "tick": 18,
+        "seq": 7,
+        "command": {
+          "type": "assign",
+          "unit": 9,
+          "building": 4
+        }
+      },
+      {
+        "tick": 32,
+        "seq": 8,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 33,
+        "seq": 9,
+        "command": {
+          "type": "build",
+          "unit": 7,
+          "kind": 3,
+          "cell": 161189
+        }
+      },
+      {
+        "tick": 48,
+        "seq": 10,
+        "command": {
+          "type": "build",
+          "unit": 7,
+          "kind": 6,
+          "cell": 161187
+        }
+      },
+      {
+        "tick": 63,
+        "seq": 11,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 347,
+        "seq": 12,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 378,
+        "seq": 13,
+        "command": {
+          "type": "assign",
+          "unit": 12,
+          "building": 5
+        }
+      },
+      {
+        "tick": 393,
+        "seq": 14,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 588,
+        "seq": 15,
+        "command": {
+          "type": "assign",
+          "unit": 7,
+          "building": 5
+        }
+      },
+      {
+        "tick": 603,
+        "seq": 16,
+        "command": {
+          "type": "train",
+          "building": 6,
+          "unit": 3
+        }
+      },
+      {
+        "tick": 662,
+        "seq": 17,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 708,
+        "seq": 18,
+        "command": {
+          "type": "assign",
+          "unit": 14,
+          "building": 5
+        }
+      },
+      {
+        "tick": 723,
+        "seq": 19,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 977,
+        "seq": 20,
+        "command": {
+          "type": "train",
+          "building": 1,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 1038,
+        "seq": 21,
+        "command": {
+          "type": "assign",
+          "unit": 17,
+          "building": 5
+        }
+      },
+      {
+        "tick": 1323,
+        "seq": 22,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 1638,
+        "seq": 23,
+        "command": {
+          "type": "assign",
+          "unit": 19,
+          "building": 4
+        }
+      },
+      {
+        "tick": 1773,
+        "seq": 24,
+        "command": {
+          "type": "build",
+          "unit": 7,
+          "kind": 2,
+          "cell": 161188
+        }
+      },
+      {
+        "tick": 2013,
+        "seq": 25,
+        "command": {
+          "type": "assign",
+          "unit": 7,
+          "building": 5
+        }
+      },
+      {
+        "tick": 3003,
+        "seq": 26,
+        "command": {
+          "type": "build",
+          "unit": 7,
+          "kind": 3,
+          "cell": 161818
+        }
+      },
+      {
+        "tick": 3483,
+        "seq": 27,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      },
+      {
+        "tick": 3798,
+        "seq": 28,
+        "command": {
+          "type": "assign",
+          "unit": 30,
+          "building": 5
+        }
+      },
+      {
+        "tick": 4488,
+        "seq": 29,
+        "command": {
+          "type": "train",
+          "building": 2,
+          "unit": 1
+        }
+      }
+    ],
+    "terrain_checksum": "b284032b67916456"
+  }
+}
