@@ -1,0 +1,103 @@
+{
+  "name": "two movers, straight-line, goals overridden mid-walk",
+  "ticks": 450,
+  "expectedHash": "84b110fbadcb3a54",
+  "replay": {
+    "version": 1,
+    "seed": 20260913,
+    "scenario": {
+      "units": [
+        {
+          "owner": 1,
+          "x": 131072,
+          "y": 131072,
+          "speed": 16384
+        },
+        {
+          "owner": 2,
+          "x": 1966080,
+          "y": 655360,
+          "speed": 26214
+        },
+        {
+          "owner": 1,
+          "x": 3276800,
+          "y": 3276800,
+          "speed": 9830
+        }
+      ]
+    },
+    "commands": [
+      {
+        "tick": 2,
+        "seq": 0,
+        "command": {
+          "type": "move",
+          "unit": 1,
+          "x": 1310720,
+          "y": 917504
+        }
+      },
+      {
+        "tick": 2,
+        "seq": 1,
+        "command": {
+          "type": "move",
+          "unit": 2,
+          "x": 65536,
+          "y": 65536
+        }
+      },
+      {
+        "tick": 47,
+        "seq": 2,
+        "command": {
+          "type": "move",
+          "unit": 1,
+          "x": 2621440,
+          "y": 131072
+        }
+      },
+      {
+        "tick": 47,
+        "seq": 3,
+        "command": {
+          "type": "move",
+          "unit": 3,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "tick": 120,
+        "seq": 4,
+        "command": {
+          "type": "move",
+          "unit": 2,
+          "x": 1966080,
+          "y": 1966080
+        }
+      },
+      {
+        "tick": 300,
+        "seq": 5,
+        "command": {
+          "type": "move",
+          "unit": 99,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "tick": 449,
+        "seq": 6,
+        "command": {
+          "type": "move",
+          "unit": 3,
+          "x": 3276800,
+          "y": 0
+        }
+      }
+    ]
+  }
+}

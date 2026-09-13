@@ -1,0 +1,20 @@
+{
+  "name": "no commands: the seed alone fixes the state",
+  "ticks": 900,
+  "expectedHash": "cf058e5aa381e9dd",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "scenario": {
+      "units": [
+        {
+          "owner": 1,
+          "x": 655360,
+          "y": 655360,
+          "speed": 16384
+        }
+      ]
+    },
+    "commands": []
+  }
+}

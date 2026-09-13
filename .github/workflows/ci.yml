@@ -127,6 +127,35 @@ jobs:
       - name: ESLint (backend)
         run: pnpm run lint:backend
 
+  # The Warfront simulation package (packages/warfront-sim) has no service
+  # dependencies and its golden replay tests are the regression net for the
+  # experimental RTS mode, so it gets its own fast job rather than riding the
+  # backend one. Lint here is what enforces the package's determinism rules.
+  warfront-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build warfront-sim package
+        run: pnpm -C packages/warfront-sim run build
+
+      - name: warfront-sim type-check (sources and tests)
+        run: pnpm -C packages/warfront-sim run typecheck
+
+      - name: ESLint (warfront-sim determinism rules)
+        run: pnpm run lint:warfront
+
+      - name: warfront-sim tests (golden replays)
+        run: pnpm run test:warfront
+
   frontend:
     runs-on: ubuntu-latest
     steps:
