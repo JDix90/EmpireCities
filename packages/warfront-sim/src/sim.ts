@@ -6,15 +6,25 @@ import { Rng } from './rng';
 import { StateHasher } from './hash';
 import { EntityStore, type Unit } from './entities';
 import { CommandQueue, validateCommand, type Command, type ScheduledCommand } from './commands';
-import { BuildingStore, type Building } from './buildings';
+import { BuildingStore } from './buildings';
 import { PlayerStore } from './players';
 import { stepEconomy, type EconomyContext } from './economy';
 import { ProvinceStore } from './provinces';
 import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } from './territory';
+import { stepCombat, type CombatContext } from './combat';
+import {
+  TribeStore,
+  buildProvinceGeography,
+  stepTribes,
+  type ProvinceGeography,
+  type TribeContext,
+} from './tribes';
 import {
   BUILDER_SLOTS,
   BUILDING_SPECS,
   BuildingKind,
+  RAID_LOOT_SILVER,
+  RAIDER_KIND,
   TICKS_PER_MINUTE,
   TRAINS_AT,
   UNIT_SPECS,
@@ -50,13 +60,14 @@ export interface SimOptions {
 /**
  * The replay format version.
  *
- * Bumped to 2 in step 3. The simulation state grew an economy — resources, buildings,
- * population, upkeep — and every one of those fields is hashed, so a version 1 replay
- * REPLAYS to a different hash than it recorded. Refusing it outright is the whole point
- * of this package: a replay that silently disagrees with itself is the failure mode the
- * determinism rules exist to prevent, and a loud error beats a quiet divergence.
+ * Bumped whenever the hashed state changes shape: version 2 added the economy, and
+ * version 3 adds combat cooldowns and the tribes. Every one of those fields is hashed, so
+ * an older replay REPLAYS to a different hash than it recorded. Refusing it outright is
+ * the whole point of this package: a replay that silently disagrees with itself is the
+ * failure mode the determinism rules exist to prevent, and a loud error beats a quiet
+ * divergence.
  */
-export const REPLAY_VERSION = 2;
+export const REPLAY_VERSION = 3;
 
 /** A match, fully described: from this the final state is reproducible on any machine. */
 export interface Replay {
@@ -111,8 +122,11 @@ export class Sim {
   readonly players = new PlayerStore();
   readonly buildings = new BuildingStore();
   readonly provinces: ProvinceStore;
+  readonly tribes: TribeStore;
   readonly terrain: TerrainGrid | null;
   private readonly fields: FlowFieldCache | null;
+  /** Land adjacency and muster cells, derived from the grid once. Only an economy needs it. */
+  private geography: ProvinceGeography | null = null;
   private currentTick = 0;
   private readonly log: ScheduledCommand[] = [];
 
@@ -122,7 +136,10 @@ export class Sim {
     this.rng = new Rng(this.seed);
     this.terrain = opts.terrain ?? null;
     this.fields = this.terrain ? new FlowFieldCache(this.terrain) : null;
-    this.provinces = new ProvinceStore(this.terrain ? this.terrain.provinces.map((p) => p.index) : []);
+    const provinceIndices = this.terrain ? this.terrain.provinces.map((p) => p.index) : [];
+    this.provinces = new ProvinceStore(provinceIndices);
+    // Rule VI: every province is a tribe's home until somebody settles it.
+    this.tribes = new TribeStore(provinceIndices);
     for (const u of this.scenario.units) this.entities.spawn(u);
 
     // The economy is opt-in: a scenario with no seats is a movement-only scenario, which
@@ -130,6 +147,7 @@ export class Sim {
     // cells and a cell index means nothing without one.
     if (this.scenario.players?.length || this.scenario.buildings?.length) {
       if (!this.terrain) throw new Error('warfront-sim: an economy scenario needs terrain');
+      this.geography = buildProvinceGeography(this.terrain);
       for (const p of this.scenario.players ?? []) this.players.add(p);
       for (const b of this.scenario.buildings ?? []) {
         if (!this.players.get(b.owner)) throw new Error(`warfront-sim: building for unknown seat ${b.owner}`);
@@ -151,6 +169,22 @@ export class Sim {
 
   private territoryContext(): TerritoryContext {
     return { provinces: this.provinces, buildings: this.buildings, entities: this.entities, grid: this.terrain! };
+  }
+
+  private combatContext(): CombatContext {
+    return { entities: this.entities, buildings: this.buildings, grid: this.terrain! };
+  }
+
+  private tribeContext(): TribeContext {
+    return {
+      tribes: this.tribes,
+      provinces: this.provinces,
+      buildings: this.buildings,
+      entities: this.entities,
+      grid: this.terrain!,
+      geography: this.geography!,
+      rng: this.rng,
+    };
   }
 
   /** Binds a seat building to the province its cell sits in. */
@@ -221,10 +255,16 @@ export class Sim {
   }
 
   /**
-   * Advances one tick: this tick's commands, then movement, then the economy.
+   * Advances one tick: this tick's commands, movement, territory, economy, combat, tribes.
    *
-   * Movement before the economy is deliberate: a villager that arrives at its farm this
-   * tick starts earning this tick, rather than idling for one.
+   * The order is observable, so it is part of the rules rather than an implementation
+   * detail. Movement first, so a villager that arrives at its farm this tick starts
+   * earning this tick rather than idling for one, and a soldier that walks into range
+   * strikes this tick. Territory before the economy, so a province that changed hands is
+   * owned by its new holder when the economy reads ownership. Combat after the economy,
+   * so a villager cut down by a raider still delivered the work it did while alive.
+   * Tribes last, so a raid mustered this tick first moves on the next — the same
+   * one-tick delay every player order gets.
    */
   step(): void {
     const next = this.currentTick + 1;
@@ -242,22 +282,43 @@ export class Sim {
       });
       stepEconomy(
         this.economyContext(),
-        (building, kind) => this.spawnTrained(building, kind as UnitKindValue),
+        (building, kind) => this.spawnAt(building.owner, kind as UnitKindValue, building.cell),
         (unit) => this.killUnit(unit),
+      );
+      stepCombat(
+        this.combatContext(),
+        (target, amount, attacker) => this.hurtUnit(target, amount, attacker),
+        (target, amount) => this.damageBuilding(target.id, amount),
+      );
+      stepTribes(
+        this.tribeContext(),
+        next,
+        (cell) => this.spawnAt(0, RAIDER_KIND, cell).id,
+        (unitId, cell) => {
+          const unit = this.entities.get(unitId);
+          if (unit) this.orderToCell(unit, cell);
+        },
+        (unitId) => {
+          const unit = this.entities.get(unitId);
+          if (unit) this.killUnit(unit);
+        },
       );
     }
     this.currentTick = next;
   }
 
-  /** Places a freshly trained unit at its building, ready to be given a job. */
-  private spawnTrained(building: Building, kind: UnitKindValue): void {
+  /**
+   * Places a unit at the centre of a cell, at its kind's pace: a trained unit at its
+   * building, or a raider at its tribe's muster cell. Owner 0 is nobody — a tribe.
+   */
+  private spawnAt(owner: number, kind: UnitKindValue, cell: number): Unit {
     const grid = this.terrain!;
     const spec = UNIT_SPECS[kind];
-    this.entities.spawn({
-      owner: building.owner,
+    return this.entities.spawn({
+      owner,
       kind,
-      x: cellCentre(grid.colOf(building.cell)),
-      y: cellCentre(grid.rowOf(building.cell)),
+      x: cellCentre(grid.colOf(cell)),
+      y: cellCentre(grid.rowOf(cell)),
       // Cells per minute → fixed cells per tick, through idiv so it is exact: the table
       // is per-minute so it stays readable, and the conversion happens once here rather
       // than every tick. A unit slower than one fixed step a tick would never move, so
@@ -266,12 +327,30 @@ export class Sim {
     });
   }
 
+  /**
+   * Applies combat damage to a unit. This is a RULE path like `damageBuilding`, not a
+   * command: combat calls it, and the simulation owns what follows from a death.
+   */
+  private hurtUnit(target: Unit, amount: number, attackerOwner: number): void {
+    target.hp -= assertInt(amount, 'damage');
+    if (target.hp > 0) return;
+    // Rule VI: raiders "take villagers and loot". The tribe has no stockpile, so the loot
+    // is exactly what the victim loses — which is why a raid costs more than the villager.
+    if (attackerOwner === 0 && target.kind === UnitKind.Villager) {
+      const victim = this.players.get(target.owner);
+      if (victim) victim.silver = Math.max(0, victim.silver - RAID_LOOT_SILVER);
+    }
+    this.killUnit(target);
+  }
+
   /** Removes a unit and every reference to it, so nothing points at a corpse. */
   private killUnit(unit: Unit): void {
     for (const building of this.buildings.all()) {
       const index = building.workers.indexOf(unit.id);
       if (index >= 0) building.workers.splice(index, 1);
     }
+    // A raider that dies on the way in never comes home; forget the raid record with it.
+    this.tribes.dropRaider(unit.id);
     this.entities.remove(unit.id);
   }
 
@@ -294,6 +373,7 @@ export class Sim {
     this.players.hashInto(h);
     this.buildings.hashInto(h);
     this.provinces.hashInto(h);
+    this.tribes.hashInto(h);
     this.queue.hashInto(h);
     return h.digest();
   }

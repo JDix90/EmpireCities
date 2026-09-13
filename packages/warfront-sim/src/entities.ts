@@ -19,6 +19,8 @@ export interface Unit {
    * than being inferred from where it happens to be standing.
    */
   job: number;
+  /** Ticks until this unit may strike again. Combat is a cadence, not a stream. */
+  cooldown: number;
   x: Fixed;
   y: Fixed;
   /** Cells per tick, fixed. */
@@ -64,6 +66,7 @@ export class EntityStore {
       hp: init.hp ?? maxHp,
       maxHp,
       job: -1,
+      cooldown: 0,
       x: init.x,
       y: init.y,
       speed: init.speed,
@@ -111,7 +114,7 @@ export class EntityStore {
   hashInto(h: StateHasher): void {
     h.int(this.nextId).int(this.units.length);
     for (const u of this.units) {
-      h.int(u.id).int(u.owner).int(u.kind).int(u.hp).int(u.maxHp).int(u.job);
+      h.int(u.id).int(u.owner).int(u.kind).int(u.hp).int(u.maxHp).int(u.job).int(u.cooldown);
       h.int(u.x).int(u.y).int(u.speed).int(u.goalX).int(u.goalY).bool(u.moving);
     }
   }

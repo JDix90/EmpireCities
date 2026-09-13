@@ -27,6 +27,10 @@ export const MAX_STEPS_PER_FRAME = 5;
 export interface UnitView {
   id: number;
   owner: number;
+  /** Unit kind, so the plane can draw a villager differently from a ram. */
+  kind: number;
+  hp: number;
+  maxHp: number;
   x: number;
   y: number;
   moving: boolean;
@@ -96,6 +100,9 @@ export class SimRunner {
       out.push({
         id: unit.id,
         owner: unit.owner,
+        kind: unit.kind,
+        hp: unit.hp,
+        maxHp: unit.maxHp,
         x: (px + (unit.x - px) * a) / FP_ONE,
         y: (py + (unit.y - py) * a) / FP_ONE,
         moving: unit.moving,
