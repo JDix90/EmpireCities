@@ -26,7 +26,7 @@
 └─────────────────┘         └──────────────────┘
 ```
 
-Monorepo (pnpm workspaces): `frontend/` (SPA), `backend/` (API + realtime), `packages/shared/` (types shared across both — `GamePhase`, map types), `database/` (SQL migrations + seeds + map documents), `docker/` (dev + prod compose), `scripts/` (ops).
+Monorepo (pnpm workspaces): `frontend/` (SPA), `backend/` (API + realtime), `packages/shared/` (types shared across both — `GamePhase`, map types), `packages/warfront-sim/` (deterministic simulation core for the experimental Warfront mode; see its README), `database/` (SQL migrations + seeds + map documents), `docker/` (dev + prod compose), `scripts/` (ops).
 
 ## Game state authority model
 
@@ -107,6 +107,8 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 **backend** — fastify 4 + @fastify/{cors,cookie,helmet,rate-limit} · socket.io 4 + @socket.io/redis-adapter · pg 8 (Postgres) · ioredis 5 · bullmq 5 (queues) · redlock (per-game locks) · jsonwebtoken / bcryptjs / zod / zxcvbn (auth & validation) · nodemailer + firebase-admin (email & push) · @sentry/node · pino.
 
 **packages/shared** — types only (`GamePhase`, map/world types); no runtime deps. Built before either app (`pnpm -C packages/shared run build`).
+
+**packages/warfront-sim** — integer-only deterministic sim core for the experimental Warfront RTS mode (16.16 fixed point, seeded RNG, golden replay tests); no runtime deps, lint-enforced determinism rules in the root `eslint.config.mjs`. Not used by either app yet.
 
 ## CI & testing
 

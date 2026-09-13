@@ -311,6 +311,18 @@ importers:
         specifier: ^5.4.5
         version: 5.9.3
 
+  packages/warfront-sim:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.12.12
+        version: 20.19.37
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.4(@types/node@20.19.37)(jsdom@29.0.2)
+
 packages:
 
   '@adobe/css-tools@4.4.4':

@@ -1,0 +1,26 @@
+{
+  "name": "@borderfall/warfront-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic, headless simulation core for the experimental Warfront RTS mode. Pure TypeScript, integer-only, no DOM, no runtime dependencies.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "golden:update": "WARFRONT_GOLDEN_UPDATE=1 vitest run src/golden.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "typescript": "^5.4.5",
+    "vitest": "^3.0.5"
+  }
+}
