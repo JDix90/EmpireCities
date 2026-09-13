@@ -1,11 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { NEAREST_PASSABLE_RADIUS, Sim, toIntFloor, type TerrainGrid } from '@borderfall/warfront-sim';
-import { BIOME_NAMES, cellBeach, cellFord, cellPass } from '@borderfall/warfront-sim';
+import {
+  BIOME_NAMES,
+  BUILDING_SPECS,
+  NEAREST_PASSABLE_RADIUS,
+  Sim,
+  UnitKind,
+  cellBeach,
+  cellFord,
+  cellPass,
+  toIntFloor,
+  type BuildingKindValue,
+  type TerrainGrid,
+  type UnitKindValue,
+} from '@borderfall/warfront-sim';
 import WarfrontTerrainCanvas from '../components/warfront/WarfrontTerrainCanvas';
 import WarfrontProvincePanel from '../components/warfront/WarfrontProvincePanel';
-import { AlertQueue, blockedUnitIds, type Alert } from '../warfront/alerts';
+import WarfrontResourceBar from '../components/warfront/WarfrontResourceBar';
+import WarfrontCommandBar from '../components/warfront/WarfrontCommandBar';
+import { AlertQueue, URGENT_ALERTS, blockedUnitIds, type Alert } from '../warfront/alerts';
+import { MatchWatch } from '../warfront/watch';
 import { computeProvinceStats, type ProvinceStats } from '../warfront/provinceStats';
+import {
+  buildOptions as buildOptionsFor,
+  buildingView,
+  buildingsInProvince,
+  coloniseView,
+  provinceHolding,
+  resourceView,
+  trainOptions as trainOptionsFor,
+} from '../warfront/economyView';
+import { buildingAtPoint, cellAtPoint } from '../warfront/picking';
 import type { Camera } from '../warfront/camera';
 import { SimRunner, type UnitView } from '../warfront/simRunner';
 import {
@@ -19,30 +44,39 @@ import {
   type WorldRect,
 } from '../warfront/selection';
 import { moveTarget } from '../warfront/orders';
-import { buildSandboxScenario } from '../warfront/sandboxScenario';
+import { buildOpeningScenario } from '../warfront/matchScenario';
 import { fetchWarfrontTerrain } from '../services/warfrontApi';
 
 /**
- * Warfront tactical view — Slice A step 2.
+ * Warfront tactical view — Slice A step 3.
  *
  * Admin-only. The route is wrapped `<PrivateRoute><AdminRoute>` in App.tsx and the
  * endpoint it calls is admin-guarded server-side; the terrain endpoint also 404s while
  * `warfront_enabled` is off, which is the "flag is off" state below. See the isolation
  * rule in CLAUDE.md: nothing here may affect the live Borderfall game.
  *
- * What works: a deterministic simulation running at 15 ticks/s over the real western
- * twenty, units you can select and order across terrain that actually blocks them. What
- * does not exist yet: economy, buildings, combat, bots — step 3 onward. The starting
- * units come from a throwaway deterministic scenario, not a real match setup.
+ * What works now: the whole economy loop. A seat, villagers you assign to buildings
+ * rather than order about (rule II), buildings the terrain decides you may raise (rule
+ * IV), provinces colonised at a rising price (rule I) and lost with their seat (rule
+ * III), and tribes that raid you from minute two (rule VI). What does not exist yet:
+ * the sea, attrition and camps, doctrines, and any opponent but the tribes.
  */
 
-/** Seat province the sandbox squad musters in — Gaul, the widest land frontier. */
-const SANDBOX_PROVINCE = 'lugdunensis';
-const SANDBOX_UNITS = 8;
+/** Seat province the opening is played from — Gaul, the widest land frontier. */
+const OPENING_PROVINCE = 'lugdunensis';
+/** The seat the local player is playing. One seat until there are bots to play the rest. */
+const VIEWER_OWNER = 1;
 /** Click tolerance when picking a single unit, in cells. */
 const PICK_RADIUS_CELLS = 3;
 /** Spacing between units in a group order, in cells. */
 const FORMATION_SPACING_CELLS = 2;
+/**
+ * How long to keep watching for a building site to appear before giving up on sending
+ * the rest of the selected villagers to help. A build the simulation refused never
+ * appears, and a promise left waiting forever would eventually assign villagers to some
+ * unrelated building that happened to be raised on the same cell later.
+ */
+const PENDING_BUILD_TICKS = 30;
 
 type LoadState =
   | { kind: 'loading' }
@@ -50,15 +84,26 @@ type LoadState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; grid: TerrainGrid; runner: SimRunner; originCell: number; stats: ProvinceStats[] };
 
+const ALERT_TONE: Record<string, string> = {
+  raid: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
+  loss: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
+  seat: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
+  hunger: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
+};
+
 export default function WarfrontPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [camera, setCamera] = useState<Camera | null>(null);
   const [hoverCell, setHoverCell] = useState(-1);
   const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const [selectedBuilding, setSelectedBuilding] = useState<number | null>(null);
+  const [placingKind, setPlacingKind] = useState<BuildingKindValue | null>(null);
   const [hud, setHud] = useState({ ticks: 0, units: 0 });
   const groupsRef = useRef(new ControlGroups());
   const [groupSlots, setGroupSlots] = useState<number[]>([]);
   const alertsRef = useRef(new AlertQueue());
+  const watchRef = useRef(new MatchWatch());
+  const pendingBuildRef = useRef<{ cell: number; helpers: number[]; until: number } | null>(null);
   const [alerts, setAlerts] = useState<readonly Alert[]>([]);
   const [focus, setFocus] = useState<{ cell: number; nonce: number } | null>(null);
   const focusNonceRef = useRef(0);
@@ -68,19 +113,19 @@ export default function WarfrontPage() {
     (async () => {
       try {
         const grid = await fetchWarfrontTerrain();
-        const { scenario, originCell } = buildSandboxScenario(grid, {
-          territoryId: SANDBOX_PROVINCE,
-          count: SANDBOX_UNITS,
+        const { scenario, seatCell } = buildOpeningScenario(grid, {
+          territoryId: OPENING_PROVINCE,
+          owner: VIEWER_OWNER,
         });
-        // A fixed seed: this view is a sandbox, and a stable seed makes what you see
-        // reproducible from one reload to the next.
+        // A fixed seed: this view is a lab, and a stable seed makes what you see
+        // reproducible from one reload to the next — including which tribe raids first.
         const runner = new SimRunner(new Sim({ seed: 20260913, scenario, terrain: grid }));
         // Computed once: the panel needs per-province counts, and recomputing them on
         // every pointer move would rescan ~600k cells.
         const stats = computeProvinceStats(grid);
         if (!cancelled) {
-          setState({ kind: 'ready', grid, runner, originCell, stats });
-          setFocus({ cell: originCell, nonce: ++focusNonceRef.current });
+          setState({ kind: 'ready', grid, runner, originCell: seatCell, stats });
+          setFocus({ cell: seatCell, nonce: ++focusNonceRef.current });
         }
       } catch (e: unknown) {
         if (cancelled) return;
@@ -115,17 +160,69 @@ export default function WarfrontPage() {
     if (alertsRef.current.push(kind, message, cell, tick)) setAlerts([...alertsRef.current.list()]);
   }, []);
 
+  /** Villagers of yours in the current selection — the only units rule II lets you employ. */
+  const selectedVillagers = useMemo(() => {
+    if (!runner) return [];
+    const out: number[] = [];
+    for (const id of selected) {
+      const unit = runner.sim.entities.get(id);
+      if (unit && unit.owner === VIEWER_OWNER && unit.kind === UnitKind.Villager) out.push(id);
+    }
+    return out.sort((a, b) => a - b);
+  }, [runner, selected]);
+
+  /** Sends every selected villager to work a building. Rule II in one call. */
+  const assignTo = useCallback(
+    (buildingId: number, villagers: readonly number[]) => {
+      if (!runner || villagers.length === 0) return;
+      for (const id of villagers) runner.sim.issue({ type: 'assign', unit: id, building: buildingId });
+    },
+    [runner],
+  );
+
   const onSelectPoint = useCallback(
     (wx: number, wy: number, additive: boolean) => {
-      const units = currentUnits();
-      const hit = unitAtPoint(units, wx, wy, PICK_RADIUS_CELLS);
+      if (!runner || !grid) return;
+
+      // Siting a building takes precedence over everything: the player asked for a spot.
+      if (placingKind !== null) {
+        const cell = cellAtPoint(grid, wx, wy);
+        const builder = selectedVillagers[0];
+        if (cell >= 0 && builder !== undefined) {
+          runner.sim.issue({ type: 'build', unit: builder, kind: placingKind, cell });
+          // The rest of the selection joins as builders once the site actually exists —
+          // its id cannot be known until the command lands, two ticks from now.
+          pendingBuildRef.current = {
+            cell,
+            helpers: selectedVillagers.slice(1),
+            until: runner.ticks + PENDING_BUILD_TICKS,
+          };
+        }
+        setPlacingKind(null);
+        return;
+      }
+
+      const hitBuilding = buildingAtPoint(runner.sim, grid, wx, wy);
+      if (hitBuilding !== null) {
+        const building = runner.sim.buildings.get(hitBuilding)!;
+        setSelectedBuilding(hitBuilding);
+        // Rule II: villagers are assigned by clicking the building they are to work.
+        if (building.owner === VIEWER_OWNER && BUILDING_SPECS[building.kind].workerSlots > 0) {
+          assignTo(hitBuilding, selectedVillagers);
+        }
+        return;
+      }
+
+      const hit = unitAtPoint(currentUnits(), wx, wy, PICK_RADIUS_CELLS);
+      if (hit !== null) setSelectedBuilding(null);
       setSelected((prev) => applySelection(prev, hit == null ? [] : [hit], additive));
     },
-    [currentUnits],
+    [runner, grid, placingKind, selectedVillagers, assignTo, currentUnits],
   );
 
   const onSelectRect = useCallback(
     (rect: WorldRect, additive: boolean) => {
+      setSelectedBuilding(null);
       setSelected((prev) => applySelection(prev, unitsInRect(currentUnits(), rect), additive));
     },
     [currentUnits],
@@ -156,6 +253,23 @@ export default function WarfrontPage() {
     [runner, grid, selected, raise],
   );
 
+  const onColonise = useCallback(() => {
+    if (!runner) return;
+    const unit = selectedVillagers[0];
+    if (unit === undefined) return;
+    const view = coloniseView(runner.sim, unit);
+    if (!view.ready) return;
+    runner.sim.issue({ type: 'colonise', unit, province: view.provinceIndex });
+  }, [runner, selectedVillagers]);
+
+  const onTrain = useCallback(
+    (kind: UnitKindValue) => {
+      if (!runner || selectedBuilding === null) return;
+      runner.sim.issue({ type: 'train', building: selectedBuilding, unit: kind });
+    },
+    [runner, selectedBuilding],
+  );
+
   // Selection keys. The plane owns the camera keys; this owns the selection, so control
   // groups live here.
   useEffect(() => {
@@ -165,7 +279,14 @@ export default function WarfrontPage() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       const key = e.key;
       if (key === 'Escape') {
+        // Cancel the pending placement first: Escape means "not that", and clearing the
+        // selection instead would leave the player siting a building with nobody to build it.
+        if (placingKind !== null) {
+          setPlacingKind(null);
+          return;
+        }
         setSelected(new Set());
+        setSelectedBuilding(null);
         return;
       }
       // The jump key: the design gives every alert one, so nobody hunts for the thing
@@ -189,16 +310,17 @@ export default function WarfrontPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [runner, selected, jumpTo]);
+  }, [runner, selected, placingKind, jumpTo]);
 
-  // Never let a selection outlive its units (nothing removes units yet, but combat will).
+  // Never let a selection outlive its units — raids kill villagers, so this now bites.
   useEffect(() => {
     if (!runner) return;
     setSelected((prev) => {
       const pruned = pruneSelection(prev, runner.positions());
       return pruned.size === prev.size ? prev : pruned;
     });
-  }, [runner, hud.units]);
+    setSelectedBuilding((prev) => (prev !== null && !runner.sim.buildings.get(prev) ? null : prev));
+  }, [runner, hud.units, hud.ticks]);
 
   const onCameraChange = useCallback((next: Camera) => setCamera(next), []);
   const onHoverCell = useCallback((cell: number) => setHoverCell(cell), []);
@@ -206,16 +328,34 @@ export default function WarfrontPage() {
     (info: { ticks: number; units: number }) => {
       setHud(info);
       if (!runner || !grid) return;
+
       // A unit that has stopped short of its goal is the simulation reporting that no
       // land route exists — worth saying out loud on a map whose whole point is terrain.
       for (const id of blockedUnitIds(runner.sim)) {
         const unit = runner.sim.entities.get(id);
-        if (!unit) continue;
+        if (!unit || unit.owner !== VIEWER_OWNER) continue;
         const cell = grid.index(toIntFloor(unit.x), toIntFloor(unit.y));
         raise('blocked', 'A unit stopped: terrain blocks the route.', cell, runner.ticks);
       }
+
+      // Raids, losses, fallen seats and hunger, derived from the state itself.
+      for (const pending of watchRef.current.poll(runner.sim, VIEWER_OWNER)) {
+        raise(pending.kind, pending.message, pending.cell, runner.ticks);
+      }
+
+      // A building site that has appeared gets the rest of its builders.
+      const pending = pendingBuildRef.current;
+      if (pending) {
+        const site = runner.sim.buildings.atCell(pending.cell);
+        if (site && site.owner === VIEWER_OWNER) {
+          assignTo(site.id, pending.helpers);
+          pendingBuildRef.current = null;
+        } else if (runner.ticks > pending.until) {
+          pendingBuildRef.current = null;
+        }
+      }
     },
-    [runner, grid, raise],
+    [runner, grid, raise, assignTo],
   );
 
   const statsByIndex = useMemo(() => {
@@ -241,6 +381,48 @@ export default function WarfrontPage() {
     return count;
     // hud.ticks is a deliberate dependency: units move, so this must not be frozen.
   }, [runner, grid, hoveredProvince, selected, hud.ticks]);
+
+  // Everything below is read fresh from the simulation on every HUD tick, because the
+  // simulation is the only copy of this state that exists. `hud.ticks` is therefore a
+  // deliberate dependency of each memo below rather than an accident: nothing else
+  // changes identity when the simulation advances, so without it these would freeze at
+  // the opening position and the panels would quietly lie.
+  const resources = useMemo(
+    () => (runner ? resourceView(runner.sim, VIEWER_OWNER) : null),
+    [runner, hud.ticks],
+  );
+
+  const provinceBuildings = useMemo(
+    () => (runner && hoveredProvince ? buildingsInProvince(runner.sim, hoveredProvince.index) : []),
+    [runner, hoveredProvince, hud.ticks],
+  );
+
+  const holding = useMemo(
+    () => (runner && hoveredProvince ? provinceHolding(runner.sim, hoveredProvince.index) : null),
+    [runner, hoveredProvince, hud.ticks],
+  );
+
+  const buildOptions = useMemo(
+    () => (runner ? buildOptionsFor(runner.sim, VIEWER_OWNER, placingKind === null ? -1 : hoverCell) : []),
+    [runner, placingKind, hoverCell, hud.ticks],
+  );
+
+  const colonise = useMemo(
+    () => (runner && selectedVillagers.length > 0 ? coloniseView(runner.sim, selectedVillagers[0]) : null),
+    [runner, selectedVillagers, hud.ticks],
+  );
+
+  const selectedBuildingView = useMemo(() => {
+    if (!runner || selectedBuilding === null) return null;
+    const building = runner.sim.buildings.get(selectedBuilding);
+    return building ? buildingView(runner.sim, building) : null;
+  }, [runner, selectedBuilding, hud.ticks]);
+
+  const trainOptions = useMemo(() => {
+    if (!runner || selectedBuilding === null) return [];
+    const building = runner.sim.buildings.get(selectedBuilding);
+    return building && building.owner === VIEWER_OWNER ? trainOptionsFor(runner.sim, building) : [];
+  }, [runner, selectedBuilding, hud.ticks]);
 
   const hover = useMemo(() => {
     if (!grid || hoverCell < 0) return null;
@@ -273,7 +455,7 @@ export default function WarfrontPage() {
             Warfront <span className="text-bf-muted">· tactical view</span>
           </h1>
           <p className="text-[11px] text-bf-muted">
-            Experimental RTS mode, admin-only. Sandbox units on real terrain — no economy, buildings or combat yet.
+            Experimental RTS mode, admin-only. One seat on real terrain — economy, colonisation and tribal raids.
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -293,6 +475,8 @@ export default function WarfrontPage() {
           </Link>
         </div>
       </header>
+
+      {state.kind === 'ready' ? <WarfrontResourceBar resources={resources} /> : null}
 
       <main className="flex min-h-0 flex-1">
         {state.kind === 'loading' ? (
@@ -333,6 +517,8 @@ export default function WarfrontPage() {
                 grid={state.grid}
                 runner={state.runner}
                 selectedIds={selected}
+                selectedBuildingId={selectedBuilding}
+                placing={placingKind !== null}
                 focus={focus}
                 onSelectPoint={onSelectPoint}
                 onSelectRect={onSelectRect}
@@ -349,8 +535,11 @@ export default function WarfrontPage() {
                       key={alert.id}
                       type="button"
                       onClick={() => jumpTo(alert.cell)}
-                      className="block w-full rounded border border-bf-gold/50 bg-bf-dark/90 px-2 py-1 text-left text-[11px] text-bf-gold hover:bg-bf-gold/10"
+                      className={`block w-full rounded border px-2 py-1 text-left text-[11px] ${
+                        ALERT_TONE[alert.kind] ?? 'border-bf-gold/50 bg-bf-dark/90 text-bf-gold hover:bg-bf-gold/10'
+                      }`}
                     >
+                      {URGENT_ALERTS.has(alert.kind) ? '⚑ ' : ''}
                       {alert.message}
                       <span className="ml-1 text-bf-muted">jump</span>
                     </button>
@@ -370,12 +559,12 @@ export default function WarfrontPage() {
 
               <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-bf-border bg-bf-dark/85 px-3 py-2 text-[11px] leading-relaxed text-bf-muted">
                 <div>
-                  <span className="text-bf-text">Left</span> select, drag to box ·{' '}
-                  <span className="text-bf-text">Right</span> move · <span className="text-bf-text">Shift</span> add
+                  <span className="text-bf-text">Left</span> select, drag to box, click a building to assign ·{' '}
+                  <span className="text-bf-text">Right</span> move
                 </div>
                 <div>
                   <span className="text-bf-text">Middle-drag</span> or <span className="text-bf-text">WASD</span> pan ·{' '}
-                  <span className="text-bf-text">Wheel</span> zoom · <span className="text-bf-text">Esc</span> clear
+                  <span className="text-bf-text">Wheel</span> zoom · <span className="text-bf-text">Esc</span> cancel
                 </div>
                 <div>
                   <span className="text-bf-text">Ctrl+1–9</span> set group · <span className="text-bf-text">1–9</span>{' '}
@@ -391,11 +580,33 @@ export default function WarfrontPage() {
               province={hoveredProvince}
               cell={hover}
               unitsHere={unitsHere}
+              holding={holding}
+              buildings={provinceBuildings}
+              viewerOwner={VIEWER_OWNER}
+              selectedBuildingId={selectedBuilding}
+              onSelectBuilding={setSelectedBuilding}
               onJump={jumpTo}
             />
           </>
         ) : null}
       </main>
+
+      {state.kind === 'ready' ? (
+        <WarfrontCommandBar
+          villagerCount={selectedVillagers.length}
+          buildOptions={buildOptions}
+          placingKind={placingKind}
+          onPickBuild={setPlacingKind}
+          colonise={colonise}
+          onColonise={onColonise}
+          building={selectedBuildingView}
+          trainOptions={trainOptions}
+          onTrain={onTrain}
+          onAssignSelected={() => {
+            if (selectedBuilding !== null) assignTo(selectedBuilding, selectedVillagers);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

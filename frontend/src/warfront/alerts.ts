@@ -2,19 +2,25 @@
  * The alert queue behind the jump key.
  *
  * Slice A's design gives alerts a key that jumps the camera to what they are about, so
- * a player never has to hunt for the thing demanding attention. The events it eventually
- * carries — raids, sieges, a truce countdown — do not exist yet, so this ships with the
- * two that genuinely do on a terrain sandbox, both of which teach the map:
+ * a player never has to hunt for the thing demanding attention — it is the brief's own
+ * answer to the attention problem, alongside self-defending seats:
  *
  *   no-route  an order was given somewhere no land route can reach
  *   blocked   a unit stopped short of its goal, because terrain cut it off
+ *   raid      raiders have crossed into a province you hold (rule VI)
+ *   loss      a villager of yours was killed
+ *   seat      a province of yours fell, or one is being claimed off you (rule III)
+ *   hunger    your food ran out and your people have started to bleed
  *
  * Pure and tick-driven: nothing here reads a clock.
  */
 
 import type { Sim } from '@borderfall/warfront-sim';
 
-export type AlertKind = 'no-route' | 'blocked';
+export type AlertKind = 'no-route' | 'blocked' | 'raid' | 'loss' | 'seat' | 'hunger';
+
+/** Alerts that deserve to shout. The rest are informational. */
+export const URGENT_ALERTS: ReadonlySet<AlertKind> = new Set<AlertKind>(['raid', 'loss', 'seat', 'hunger']);
 
 export interface Alert {
   id: number;
