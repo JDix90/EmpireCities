@@ -1,4 +1,5 @@
 import { cellOf, type Bot, type BotView } from '../bot';
+import type { Building } from '../buildings';
 import type { Command } from '../commands';
 import { cellCentre } from '../geometry';
 import { BUILDING_SPECS, BuildingKind, UNIT_SPECS, UnitKind, type BuildingKindValue } from '../rules';
@@ -38,6 +39,15 @@ export interface ColonistParams {
   /** Spears kept at the seat once tribes start raiding (rule VI, from minute two). */
   garrison: number;
   /**
+   * How close a raider must be, in cells, before a villager drops its job and runs.
+   *
+   * Villagers cannot fight at all, so standing still is the same as dying. The brief's own
+   * answer to the attention problem is alerts, a jump key and "raiders always visible
+   * inside your borders" — that is, a player is expected to RESPOND, and a policy that
+   * does not respond is not playing the game the brief describes.
+   */
+  fleeCells: number;
+  /**
    * How far from a seat a new building may be sited, in cells.
    *
    * Province-sized, not neighbourhood-sized. At 4 km cells a province runs 100-250 cells
@@ -56,6 +66,7 @@ export const COLONIST_DEFAULTS: ColonistParams = {
   foodReserve: 60,
   houseAtRoom: 2,
   garrison: 2,
+  fleeCells: 8,
   buildRadius: 70,
 };
 
@@ -79,13 +90,23 @@ const BUILD_ORDER: readonly BuildingKindValue[] = [
   BuildingKind.Mine,
 ];
 
+/**
+ * The baseline, and the base class.
+ *
+ * Raider, Turtle and Rusher are variations on running an economy, not separate species —
+ * they all colonise, employ villagers and follow a build order, and differ in what they
+ * spend the surplus on and when they stop expanding. Subclassing says that, and means a
+ * fix to the economy is a fix to all four rather than to one of four copies.
+ */
 export class ColonistBot implements Bot {
-  readonly name = 'colonist';
-  private readonly params: ColonistParams;
+  readonly name: string = 'colonist';
+  protected readonly params: ColonistParams;
   /** The villager currently walking to found a colony, or -1. */
   private colonistId = -1;
   private colonistTarget = -1;
   private colonistProvince = 0;
+  /** Villagers running for the seat. They are not re-employed until they get there. */
+  private readonly fleeing = new Set<number>();
 
   constructor(params: Partial<ColonistParams> = {}) {
     this.params = { ...COLONIST_DEFAULTS, ...params };
@@ -98,14 +119,81 @@ export class ColonistBot implements Bot {
     if (!seat) return [];
 
     return (
+      // Running comes first. Everything else this policy might do is worth less than the
+      // villagers it would be doing it with.
+      this.fleeRaiders(view, seat) ??
       this.finishColonising(view) ??
       this.employIdleVillagers(view, seat.cell) ??
       this.raiseGarrison(view) ??
+      this.military(view, seat) ??
       this.expand(view, seat.cell) ??
       this.buildNext(view, seat.cell) ??
       this.trainVillager(view, seat) ??
       []
     );
+  }
+
+  /**
+   * Whatever this policy does with a surplus beyond defending itself. The Colonist does
+   * nothing — it is the baseline, and every other bot is measured as a delta from it.
+   */
+  protected military(view: BotView, seat: Building): Command[] | null {
+    void view;
+    void seat;
+    return null;
+  }
+
+  /** The build order this policy follows. Overridden by policies with other priorities. */
+  protected buildOrder(): readonly BuildingKindValue[] {
+    return BUILD_ORDER;
+  }
+
+  /** Provinces this policy is willing to hold. The Turtle stops short of the map. */
+  protected provinceCeiling(): number {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  /**
+   * Villagers near a raider drop their job and run for the seat, which is the one place
+   * with a tower over it.
+   *
+   * Each villager is ordered once per flight — re-issuing every second would reset its
+   * path and leave it walking on the spot — and the set is cleared when the raider is
+   * gone, so the same villager can flee again from the next raid.
+   */
+  private fleeRaiders(view: BotView, seat: Building): Command[] | null {
+    const raiders = view.units.filter((u) => u.owner === 0);
+    if (raiders.length === 0) {
+      this.fleeing.clear();
+      return null;
+    }
+    const raiderCells = raiders.map((r) => cellOf(r, view.grid)).filter((c) => c >= 0);
+    const commands: Command[] = [];
+
+    // A villager that has already run stays "fleeing" until it actually REACHES the seat,
+    // rather than until the raider happens to step out of range. Without that hysteresis
+    // it is re-employed the moment the raider turns away, walks back to the same farm, and
+    // runs again — a loop the lab caught as 268 assignment orders in one match, with the
+    // villagers spending the whole game walking and the economy never accumulating a thing.
+    for (const id of [...this.fleeing]) {
+      const unit = view.units.find((u) => u.id === id);
+      const at = unit ? cellOf(unit, view.grid) : -1;
+      if (!unit || at < 0 || chebyshev(view, at, seat.cell) <= 1) this.fleeing.delete(id);
+    }
+
+    for (const villager of view.units) {
+      if (villager.owner !== view.seat || villager.kind !== UnitKind.Villager) continue;
+      if (villager.id === this.colonistId || this.fleeing.has(villager.id)) continue;
+      const at = cellOf(villager, view.grid);
+      if (at < 0) continue;
+      if (!raiderCells.some((c) => chebyshev(view, c, at) <= this.params.fleeCells)) continue;
+      this.fleeing.add(villager.id);
+      // Off the job first: rule II says the only way off a job is onto another, and a
+      // villager still on a farm's worker list is counted as labour it is not doing.
+      commands.push({ type: 'assign', unit: villager.id, building: -1 });
+      commands.push(this.walkTo(villager.id, seat.cell, view));
+    }
+    return commands.length > 0 ? commands : null;
   }
 
   /** A colonist that has arrived plants its seat; one still walking is left alone. */
@@ -136,12 +224,21 @@ export class ColonistBot implements Bot {
 
   /** Rule II: an unemployed villager is put on a building, or on raising a new one. */
   private employIdleVillagers(view: BotView, seatCell: number): Command[] | null {
-    const idle = idleVillagers(view).filter((u) => u.id !== this.colonistId);
+    const idle = idleVillagers(view).filter((u) => u.id !== this.colonistId && !this.fleeing.has(u.id));
     if (idle.length === 0) return null;
     const commands: Command[] = [];
     // A local copy of the free slots, so several villagers in one tick do not all get
     // assigned to the same single opening.
-    const openings = hiring(view, seatCell).map((b) => {
+    // Never staff a building with raiders on it: that is feeding villagers to the raid
+    // one at a time, which is worse than leaving them idle at the seat.
+    const raiderCells = view.units
+      .filter((u) => u.owner === 0)
+      .map((u) => cellOf(u, view.grid))
+      .filter((c) => c >= 0);
+    const safe = hiring(view, seatCell).filter(
+      (b) => !raiderCells.some((c) => chebyshev(view, c, b.cell) <= this.params.fleeCells),
+    );
+    const openings = safe.map((b) => {
       const spec = BUILDING_SPECS[b.kind];
       const slots = b.complete ? spec.workerSlots : 4;
       return { id: b.id, free: slots - b.workers.length };
@@ -156,7 +253,7 @@ export class ColonistBot implements Bot {
   }
 
   /** Two spears at the seat once the tribes are due. Rule VI arrives at minute two. */
-  private raiseGarrison(view: BotView): Command[] | null {
+  protected raiseGarrison(view: BotView): Command[] | null {
     const barracks = ownBuildings(view, BuildingKind.Barracks).find((b) => b.complete);
     if (!barracks) return null;
     const spears = view.units.filter((u) => u.owner === view.seat && u.kind === UnitKind.Spear).length;
@@ -169,8 +266,9 @@ export class ColonistBot implements Bot {
   }
 
   /** Rule I: send one villager to found the nearest colony this seat can afford. */
-  private expand(view: BotView, seatCell: number): Command[] | null {
+  protected expand(view: BotView, seatCell: number): Command[] | null {
     if (this.colonistId >= 0) return null;
+    if (view.provinces.filter((p) => p.owner === view.seat).length >= this.provinceCeiling()) return null;
     const villagers = view.units.filter((u) => u.owner === view.seat && u.kind === UnitKind.Villager);
     if (villagers.length < this.params.villagersBeforeExpanding) return null;
     if (view.player.food < view.colonisePrice + this.params.foodReserve) return null;
@@ -233,7 +331,7 @@ export class ColonistBot implements Bot {
       return BuildingKind.House;
     }
     const spare = new Map<BuildingKindValue, number>();
-    for (const kind of BUILD_ORDER) {
+    for (const kind of this.buildOrder()) {
       if (!spare.has(kind)) spare.set(kind, countOwn(view, kind));
       const have = spare.get(kind)!;
       if (have > 0) {
@@ -246,7 +344,7 @@ export class ColonistBot implements Bot {
   }
 
   /** The villager nearest a site, preferring one that is not mid-construction elsewhere. */
-  private pickBuilder(view: BotView, site: number): number | null {
+  protected pickBuilder(view: BotView, site: number): number | null {
     const sites = new Set(view.buildings.filter((b) => !b.complete).map((b) => b.id));
     let best: number | null = null;
     let bestKey = Infinity;
@@ -279,10 +377,24 @@ export class ColonistBot implements Bot {
    * that would restart its income, forever. A villager pays for itself; a province does
    * not.
    */
-  private trainVillager(view: BotView, seat: { id: number }): Command[] | null {
+  protected trainVillager(view: BotView, seat: Building): Command[] | null {
     const spec = UNIT_SPECS[UnitKind.Villager];
     if (popRoom(view) < spec.pop) return null;
     if (view.player.food < spec.food) return null;
+    // Stop and BANK once there are enough hands and there is somewhere to put a colony.
+    // Rule I is the centre of the game — "colonise, and it costs more each time" — and a
+    // policy that spends every forty food the moment it arrives never accumulates the
+    // price, so it never colonises at all. The lab measured exactly that: twenty-four
+    // four-seat matches, every one a four-way tie on one province each, with the
+    // colonisation price never paid once and therefore never tested.
+    const villagers = view.units.filter((u) => u.owner === view.seat && u.kind === UnitKind.Villager).length;
+    if (
+      villagers >= this.params.villagersBeforeExpanding &&
+      view.player.food < view.colonisePrice + this.params.foodReserve &&
+      unsettledFrontiers(view, seat.cell, 1).length > 0
+    ) {
+      return null;
+    }
     const building = view.buildings.find((b) => b.id === seat.id);
     // One in the queue at a time: the food is spent on enqueue, and a seat with five
     // queued villagers has nothing left to pay a colonisation price with.
@@ -290,7 +402,7 @@ export class ColonistBot implements Bot {
     return [{ type: 'train', building: seat.id, unit: UnitKind.Villager }];
   }
 
-  private walkTo(unit: number, cell: number, view: BotView): Command {
+  protected walkTo(unit: number, cell: number, view: BotView): Command {
     return { type: 'move', unit, x: cellCentre(view.grid.colOf(cell)), y: cellCentre(view.grid.rowOf(cell)) };
   }
 
@@ -299,4 +411,11 @@ export class ColonistBot implements Bot {
     this.colonistTarget = -1;
     this.colonistProvince = 0;
   }
+}
+
+/** Chebyshev distance in cells between two cell indices. */
+function chebyshev(view: BotView, a: number, b: number): number {
+  const dc = Math.abs(view.grid.colOf(a) - view.grid.colOf(b));
+  const dr = Math.abs(view.grid.rowOf(a) - view.grid.rowOf(b));
+  return dc > dr ? dc : dr;
 }

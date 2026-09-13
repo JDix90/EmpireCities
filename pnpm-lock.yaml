@@ -319,6 +319,9 @@ importers:
       '@types/node':
         specifier: ^20.12.12
         version: 20.19.37
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^5.4.5
         version: 5.9.3

@@ -66,3 +66,26 @@ export {
 } from './bot';
 export { runMatch, type MatchOptions, type MatchOutcome } from './match';
 export { ColonistBot, COLONIST_DEFAULTS, type ColonistParams } from './bots/colonist';
+export { RaiderBot } from './bots/raider';
+export { TurtleBot } from './bots/turtle';
+export { RusherBot } from './bots/rusher';
+export {
+  MetricsCollector,
+  summarise,
+  CONTACT_CELLS,
+  type MatchMetrics,
+  type Summary,
+  type Tally,
+} from './lab/metrics';
+export {
+  playOne,
+  playBatch,
+  permutations,
+  seatFairness,
+  type BatchOptions,
+  type BatchResult,
+  type BotFactory,
+  type FairnessOptions,
+  type FairnessResult,
+  type FairnessRow,
+} from './lab/run';

@@ -159,7 +159,7 @@ jobs:
       - name: ESLint (warfront-sim determinism rules)
         run: pnpm run lint:warfront
 
-      - name: warfront-sim tests (golden replays)
+      - name: warfront-sim tests (golden replays and lab invariants)
         run: pnpm run test:warfront
 
   frontend:

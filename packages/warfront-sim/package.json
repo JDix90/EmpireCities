@@ -16,10 +16,12 @@
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "golden:update": "WARFRONT_GOLDEN_UPDATE=1 vitest run src/golden.test.ts"
+    "golden:update": "WARFRONT_GOLDEN_UPDATE=1 vitest run src/golden.test.ts",
+    "lab": "tsx scripts/lab.ts"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5",
     "vitest": "^3.0.5"
   }
