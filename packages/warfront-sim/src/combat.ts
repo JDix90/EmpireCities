@@ -5,6 +5,7 @@ import type { TerrainGrid } from './terrain';
 import {
   BUILDING_COMBAT,
   COMBAT_SPECS,
+  DISEMBARK_DAMAGE_PERCENT,
   HIGH_GROUND_ARCHER_RANGE_BONUS,
   UnitKind,
   damageMultiplier,
@@ -83,6 +84,10 @@ function nearestEnemyUnit(
   let bestDist = 0;
   for (const other of ctx.entities.all()) {
     if (other.owner === owner || other.hp <= 0) continue;
+    // A convoy is unreachable from the shore as well as from the sea: its units still
+    // carry the coordinates they sailed from, so without this a tower would keep firing
+    // at a boat that left ten seconds ago.
+    if (other.convoy >= 0) continue;
     const d = distSq(x, y, other.x, other.y);
     if (d > limit) continue;
     // Strictly nearer only: the store iterates in ascending id, so an equal distance
@@ -93,6 +98,18 @@ function nearestEnemyUnit(
     }
   }
   return best;
+}
+
+/**
+ * Rule V's opposed landing, as a percentage multiplier.
+ *
+ * A unit still coming ashore over somebody else's beach takes double. Applied to the
+ * DEFENDER of a strike rather than the attacker, because it is a property of the unit
+ * being hit — everyone shooting at it gets the benefit, which is what makes landing into
+ * a garrison the mistake the brief says it is.
+ */
+export function landingPenalty(target: Unit): number {
+  return target.disembarkTimer > 0 ? DISEMBARK_DAMAGE_PERCENT : 100;
 }
 
 /** Nearest enemy building within reach of a point, or null. Lowest id breaks a tie. */
@@ -135,6 +152,9 @@ export function stepCombat(
   // A snapshot, because a strike can remove a unit from the store mid-loop.
   for (const unit of [...ctx.entities.all()]) {
     if (unit.hp <= 0) continue;
+    // Rule V: "a convoy at sea cannot be attacked — the fight is always on the shore." It
+    // cannot attack either; a unit in transit is not on the grid in any direction.
+    if (unit.convoy >= 0) continue;
     const spec = COMBAT_SPECS[unit.kind];
     // Villagers and scouts have no entry: they do not fight. Rule VI wants villagers to
     // die to raids, and a villager that fought back would make a robbery a skirmish.
@@ -154,8 +174,10 @@ export function stepCombat(
     }
     const target = nearestEnemyUnit(ctx, unit.owner, unit.x, unit.y, effectiveRange(unit, ctx.grid));
     if (!target) continue;
-    // The triangle is a percentage so the arithmetic stays integer; idiv floors it.
-    hurtUnit(target, idiv(spec.damage * damageMultiplier(unit.kind, target.kind), 100), unit.owner);
+    // The triangle is a percentage so the arithmetic stays integer; idiv floors it, and
+    // the landing penalty multiplies on top of it — rule V's "20s at half armour", which
+    // in a roster with no armour stat is double damage taken.
+    hurtUnit(target, idiv(spec.damage * damageMultiplier(unit.kind, target.kind) * landingPenalty(target), 10000), unit.owner);
     unit.cooldown = spec.interval - 1;
   }
 

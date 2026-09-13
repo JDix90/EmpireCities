@@ -31,6 +31,22 @@ export interface Unit {
    * of enemy land has to be worth something.
    */
   attritionTimer: number;
+  /**
+   * Convoy this unit is aboard (rule V), or -1 when it is ashore.
+   *
+   * A unit at sea is still in this store, with its id, health and job intact — it simply
+   * is not anywhere on the grid. Everything that reads positions has to skip it: combat,
+   * attrition, movement and the tower that would otherwise shoot at a boat.
+   */
+  convoy: number;
+  /**
+   * Ticks left of an opposed landing, during which the unit takes double damage.
+   *
+   * "Landing on a beach you don't own: 20s at half armour." Armour is not a stat in this
+   * roster, so half armour is double damage taken — the same statement in the vocabulary
+   * the simulation actually has.
+   */
+  disembarkTimer: number;
   x: Fixed;
   y: Fixed;
   /** Cells per tick, fixed. */
@@ -78,6 +94,8 @@ export class EntityStore {
       job: -1,
       cooldown: 0,
       attritionTimer: 0,
+      convoy: -1,
+      disembarkTimer: 0,
       x: init.x,
       y: init.y,
       speed: init.speed,
@@ -126,7 +144,7 @@ export class EntityStore {
     h.int(this.nextId).int(this.units.length);
     for (const u of this.units) {
       h.int(u.id).int(u.owner).int(u.kind).int(u.hp).int(u.maxHp).int(u.job).int(u.cooldown);
-      h.int(u.attritionTimer);
+      h.int(u.attritionTimer).int(u.convoy).int(u.disembarkTimer);
       h.int(u.x).int(u.y).int(u.speed).int(u.goalX).int(u.goalY).bool(u.moving);
     }
   }

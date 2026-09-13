@@ -1,7 +1,7 @@
 {
-  "name": "western twenty: five of Rome’s spears bleed inside Gaul, then raise a camp and stop",
-  "ticks": 1125,
-  "expectedHash": "63c068e75029addd",
+  "name": "western twenty: Rome ships a spear to Sardinia, caught still coming ashore",
+  "ticks": 1741,
+  "expectedHash": "965c507a1a6dc808",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
     "version": 6,
@@ -31,54 +31,32 @@
           "owner": 2,
           "kind": 1,
           "cell": 161819
+        },
+        {
+          "owner": 1,
+          "kind": 9,
+          "cell": 264249
         }
       ],
       "units": [
         {
           "owner": 1,
           "kind": 3,
-          "x": 13991936,
-          "y": 16023552,
-          "speed": 3932
-        },
-        {
-          "owner": 1,
-          "kind": 3,
-          "x": 14057472,
-          "y": 16023552,
-          "speed": 3932
-        },
-        {
-          "owner": 1,
-          "kind": 3,
-          "x": 14123008,
-          "y": 16023552,
-          "speed": 3932
-        },
-        {
-          "owner": 1,
-          "kind": 3,
-          "x": 14188544,
-          "y": 16023552,
-          "speed": 3932
-        },
-        {
-          "owner": 1,
-          "kind": 3,
-          "x": 14254080,
-          "y": 16023552,
+          "x": 32210944,
+          "y": 27426816,
           "speed": 3932
         }
       ]
     },
     "commands": [
       {
-        "tick": 375,
+        "tick": 2,
         "seq": 0,
         "command": {
-          "type": "camp",
+          "type": "embark",
           "unit": 1,
-          "cell": 154177
+          "port": 3,
+          "cell": 254731
         }
       }
     ],

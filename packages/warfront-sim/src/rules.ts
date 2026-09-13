@@ -14,6 +14,7 @@
  */
 
 import { TICK_RATE } from './constants';
+import { assertInt } from './fixed';
 
 /** 15 ticks/s × 60s. Every per-minute rate divides by this. */
 export const TICKS_PER_MINUTE = TICK_RATE * 60;
@@ -97,6 +98,7 @@ export const BuildingKind = {
   Barracks: 6,
   Tower: 7,
   Camp: 8,
+  Port: 9,
 } as const;
 export type BuildingKindValue = (typeof BuildingKind)[keyof typeof BuildingKind];
 
@@ -109,6 +111,7 @@ export const BUILDING_KIND_NAMES: Record<number, string> = {
   [BuildingKind.Barracks]: 'barracks',
   [BuildingKind.Tower]: 'tower',
   [BuildingKind.Camp]: 'camp',
+  [BuildingKind.Port]: 'port',
 };
 
 /** Which resource a worked building produces. */
@@ -239,6 +242,28 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
    * already know how to knock those down. An army that keeps marching outruns its own
    * camp radius and bleeds again, which is the whole of "camp first, then rams".
    */
+  /**
+   * Rule V's port. The one building that must stand on a COAST, which the terrain decides
+   * — see coast.ts, where a coast is derived rather than stored because the asset has no
+   * coast biome to read.
+   *
+   * `biomes` stays empty even so: this table's biome list is a whole-cell test, and being
+   * coastal is a property of a cell's NEIGHBOURS, not of the cell. The build path checks
+   * it separately, which is also where the "province must have a lane" rule lives — a
+   * harbour facing an empty sea is a waste of eighty timber, and the game should say so
+   * rather than let it be built.
+   */
+  [BuildingKind.Port]: {
+    timber: 80,
+    silver: 20,
+    buildTicks: seconds(30),
+    hp: 400,
+    pop: 0,
+    produces: Resource.None,
+    yieldPerMinute: 0,
+    workerSlots: 0,
+    biomes: [],
+  },
   [BuildingKind.Camp]: {
     timber: 0,
     silver: 0,
@@ -378,6 +403,74 @@ export const ATTRITION_IN_NEUTRAL = false;
  * home. A radius a little over the muster distance means the army that built it is
  * covered and the next province is not.
  */
+/* ── The sea lane (rule V) ────────────────────────────────────────────────────── */
+
+/**
+ * Units one convoy can carry. The brief says "port level caps convoy size", and there is
+ * no port LEVEL in the game — levels are not specified anywhere in the brief and nothing
+ * else in Slice A upgrades a building. So this is the cap of the only port there is, and
+ * the level mechanic is a Slice B question rather than a number invented here.
+ */
+export const PORT_CONVOY_CAP = 8;
+
+/**
+ * How close a unit must be to the quay to board. One cell of slack, the same tolerance
+ * rule II already uses for a worker standing at its building.
+ */
+export const EMBARK_RANGE_CELLS = 1;
+
+/**
+ * Transit time, and the place the brief's numbers meet the map and lose.
+ *
+ * The brief says "transit 1-2 minutes by lane length" and gives the Tin Route "three-
+ * minute transit". Measured on the committed asset, the fourteen lanes run from 2 cells
+ * (Italy to Sicily, 8 km) to 141 (Sardinia to Tarraconensis, 564 km) — a seventyfold
+ * spread. Anything strictly proportional across that range either makes the short
+ * crossings instant or the long ones enormous, and a flat 1-2 minutes would make an 8 km
+ * strait cost the same as a 564 km open-sea passage, which throws away the only thing
+ * lane length is for.
+ *
+ * So: a floor, a slope, and a ceiling. Sixty seconds for stepping across a strait, about
+ * four fifths of a second per cell after that, and no crossing longer than three minutes.
+ * Eleven of the fourteen lanes land inside the brief's 1-2 minute band, the two longest
+ * run over it because they genuinely are long, and the proposed Lusitania-Britannia tin
+ * route comes out at about 2.6 minutes rather than the brief's 3 — which is the map
+ * disagreeing with a figure written before anyone measured it, and the map is the thing
+ * players will actually sail.
+ */
+export const TRANSIT_BASE_TICKS = seconds(60);
+export const TRANSIT_TICKS_PER_CELL = 13;
+export const TRANSIT_MAX_TICKS = seconds(180);
+
+/** Whole ticks a convoy spends at sea crossing `cells` of open water. */
+export function transitTicks(cells: number): number {
+  const ticks = TRANSIT_BASE_TICKS + assertInt(cells, 'lane length') * TRANSIT_TICKS_PER_CELL;
+  return ticks > TRANSIT_MAX_TICKS ? TRANSIT_MAX_TICKS : ticks;
+}
+
+/**
+ * Landing where you are not welcome: "20s at half armour", the brief's own figures.
+ *
+ * Half armour is expressed as a damage MULTIPLIER because armour does not exist as a
+ * stat — the roster has health and damage and nothing between them — so halving armour
+ * is doubling what gets through, which is the same thing said in the vocabulary the
+ * simulation has.
+ */
+export const DISEMBARK_TICKS = seconds(20);
+export const DISEMBARK_DAMAGE_PERCENT = 200;
+
+/**
+ * How many beaches a province offers, and how far apart they must be.
+ *
+ * "Islands have several beaches so one tower can't seal them" is the requirement, and the
+ * separation is what delivers it: a tower reaches six cells, so beaches fifteen apart
+ * cannot be covered by one. Four of them because a defender with four places to watch has
+ * to choose, which is what makes the brief's decoy convoy a real play rather than a feint
+ * at the only door.
+ */
+export const BEACHES_PER_PROVINCE = 4;
+export const BEACH_SEPARATION_CELLS = 15;
+
 export const CAMP_MIN_SOLDIERS = 5;
 export const CAMP_MUSTER_CELLS = 6;
 export const CAMP_RADIUS_CELLS = 8;

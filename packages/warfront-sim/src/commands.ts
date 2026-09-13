@@ -33,7 +33,18 @@ export type Command =
    * afterwards. `unit` is the soldier who gives the order; the muster is counted from
    * the site, so which one of the five it is does not matter.
    */
-  | { type: 'camp'; unit: number; cell: number };
+  | { type: 'camp'; unit: number; cell: number }
+  /**
+   * Rule V: a unit boards a convoy at a port it owns, bound for `cell` across a lane.
+   *
+   * Per unit, like every other order here, because the page issues one command per
+   * selected unit and a convoy is assembled from the ones that board together on the same
+   * tick. `cell` is the LANDING site rather than a province, because which beach you
+   * choose is the decision the rule is about — "a decoy convoy toward one beach and the
+   * real force toward another is a genuine play" — and naming a province would take that
+   * choice away from the player.
+   */
+  | { type: 'embark'; unit: number; port: number; cell: number };
 
 /** A command stamped with the tick it executes on and its issue order within that tick. */
 export interface ScheduledCommand {
@@ -77,6 +88,12 @@ export function validateCommand(raw: unknown): Command {
       const unit = assertInt(c.unit as number, 'camp.unit');
       const cell = assertInt(c.cell as number, 'camp.cell');
       return { type: 'camp', unit, cell };
+    }
+    case 'embark': {
+      const unit = assertInt(c.unit as number, 'embark.unit');
+      const port = assertInt(c.port as number, 'embark.port');
+      const cell = assertInt(c.cell as number, 'embark.cell');
+      return { type: 'embark', unit, port, cell };
     }
     default:
       throw new Error(`warfront-sim: unknown command type ${String(c.type)}`);
@@ -131,7 +148,7 @@ export class CommandQueue {
       // Hash every numeric field a command carries, whatever its shape, so a pending
       // command cannot differ between hosts in a field this forgot to read.
       const c = p.command as unknown as Record<string, unknown>;
-      for (const key of ['unit', 'building', 'kind', 'cell', 'province', 'x', 'y']) {
+      for (const key of ['unit', 'building', 'kind', 'cell', 'province', 'port', 'x', 'y']) {
         const value = c[key];
         h.int(typeof value === 'number' ? value : 0);
       }
