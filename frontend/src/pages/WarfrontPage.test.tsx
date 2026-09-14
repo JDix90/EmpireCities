@@ -398,19 +398,21 @@ describe('WarfrontPage economy', () => {
     expect(bar).toHaveTextContent(`Food${START_FOOD}`);
     expect(bar).toHaveTextContent(`Timber${START_TIMBER}`);
     expect(bar).toHaveTextContent(`Silver${START_SILVER}`);
-    // Four villagers and a scout at 3 food a minute each.
-    expect(bar).toHaveTextContent('Upkeep15/min');
-    expect(bar).toHaveTextContent('Provinces1');
+    // Four villagers and a scout at 3 food a minute each, drawn under the food it drains.
+    expect(bar).toHaveTextContent('−15/min upkeep');
+    expect(bar).toHaveTextContent('1 held');
   });
 
   it('shows the rising colonisation price, and marks it when it cannot be paid', async () => {
     const runner = await ready();
     const bar = screen.getByTestId('warfront-resources');
     const price = runner.sim.colonisePriceFor(1);
-    expect(bar).toHaveTextContent(`Next colony${price} food`);
+    expect(bar).toHaveTextContent(`Next colony${price}`);
+    expect(bar).toHaveTextContent('affordable');
     runner.sim.players.get(1)!.food = 0;
     pump(runner, 1);
-    await waitFor(() => expect(screen.getByText(`${price} food`)).toHaveClass('text-red-300'));
+    // Not just the number: how far short, and in the colour that says it is a problem.
+    await waitFor(() => expect(screen.getByText(`1 held · ${price} short`)).toHaveClass('text-red-300'));
   });
 
   it('prompts for a selection before offering any command', async () => {

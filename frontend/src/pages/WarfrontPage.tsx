@@ -101,6 +101,26 @@ const ALERT_TONE: Record<string, string> = {
   hunger: 'border-red-500/60 bg-red-500/10 text-red-200 hover:bg-red-500/20',
 };
 
+/** One header figure: what it is, what it reads, and its unit. */
+function Readout({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="rounded border border-bf-border/70 bg-bf-dark/50 px-2 py-1 leading-tight">
+      <div className="text-[8px] uppercase tracking-wider text-bf-muted">{label}</div>
+      <div className="font-mono text-[11px] text-bf-text">{value}</div>
+      <div className="text-[8px] text-bf-muted">{note}</div>
+    </div>
+  );
+}
+
+/** A keycap. The control hints were a run-on sentence with the keys hidden inside it. */
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-bf-border bg-bf-surface px-1 py-px font-mono text-[10px] text-bf-text">
+      {children}
+    </kbd>
+  );
+}
+
 export default function WarfrontPage() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [camera, setCamera] = useState<Camera | null>(null);
@@ -505,28 +525,33 @@ export default function WarfrontPage() {
 
   return (
     <div className="flex h-screen flex-col bg-bf-dark text-bf-text">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-bf-border px-4 py-3">
-        <div>
-          <h1 className="text-sm font-semibold">
-            Warfront <span className="text-bf-muted">· tactical view</span>
-          </h1>
-          <p className="text-[11px] text-bf-muted">
-            Experimental RTS mode, admin-only. One seat on real terrain — economy, colonisation and tribal raids.
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-bf-border px-4 py-2.5">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="font-display text-[15px] font-semibold tracking-wide text-bf-gold">Warfront</h1>
+          <span className="rounded border border-bf-border px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-bf-muted">
+            Tactical view
+          </span>
+          <p className="hidden text-[11px] text-bf-muted lg:block">
+            Experimental RTS mode, admin-only — economy, colonisation and tribal raids on real terrain.
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          {grid ? (
-            <span className="text-bf-muted">
-              {grid.width} × {grid.height} · {grid.cellKm} km cells
-            </span>
+        <div className="flex items-center gap-1.5 text-[10px]">
+          {runner ? (
+            <Readout label="Clock" value={`${seconds}s`} note={`tick ${hud.ticks}`} />
           ) : null}
           {runner ? (
-            <span className="text-bf-muted">
-              tick {hud.ticks} · {seconds}s · {selected.size}/{hud.units} selected
-            </span>
+            <Readout label="Selected" value={`${selected.size}/${hud.units}`} note="units" />
           ) : null}
-          {camera ? <span className="text-bf-muted">{camera.scale.toFixed(2)} px/cell</span> : null}
-          <Link to="/admin" className="rounded border border-bf-border px-2 py-1 hover:border-bf-gold hover:text-bf-gold">
+          {camera ? (
+            <Readout label="Zoom" value={`${camera.scale.toFixed(2)}`} note="px/cell" />
+          ) : null}
+          {grid ? (
+            <Readout label="Grid" value={`${grid.width}×${grid.height}`} note={`${grid.cellKm} km cells`} />
+          ) : null}
+          <Link
+            to="/admin"
+            className="ml-1 rounded border border-bf-border px-2 py-1.5 text-[11px] hover:border-bf-gold hover:text-bf-gold"
+          >
             Back to Admin
           </Link>
         </div>
@@ -615,18 +640,17 @@ export default function WarfrontPage() {
                 </div>
               ) : null}
 
-              <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-bf-border bg-bf-dark/85 px-3 py-2 text-[11px] leading-relaxed text-bf-muted">
+              <div className="pointer-events-none absolute bottom-3 left-3 max-w-[22rem] rounded-lg border border-bf-border bg-bf-dark/90 px-3 py-2 text-[11px] leading-[1.7] text-bf-muted">
+                <div className="mb-1 text-[9px] uppercase tracking-wider text-bf-muted/70">Controls</div>
                 <div>
-                  <span className="text-bf-text">Left</span> select, drag to box, click a building to assign ·{' '}
-                  <span className="text-bf-text">Right</span> move
+                  <Key>Left</Key> select · drag to box · click a building to assign
                 </div>
                 <div>
-                  <span className="text-bf-text">Middle-drag</span> or <span className="text-bf-text">WASD</span> pan ·{' '}
-                  <span className="text-bf-text">Wheel</span> zoom · <span className="text-bf-text">Esc</span> cancel
+                  <Key>Right</Key> move · <Key>Middle</Key>/<Key>WASD</Key> pan · <Key>Wheel</Key> zoom ·{' '}
+                  <Key>Esc</Key> cancel
                 </div>
                 <div>
-                  <span className="text-bf-text">Ctrl+1–9</span> set group · <span className="text-bf-text">1–9</span>{' '}
-                  recall · <span className="text-bf-text">Space</span> jump to alert
+                  <Key>Ctrl</Key>+<Key>1–9</Key> set group · <Key>1–9</Key> recall · <Key>Space</Key> jump to alert
                   {groupSlots.length > 0 ? (
                     <span className="text-bf-gold"> · groups {groupSlots.map((slot) => slot + 1).join(', ')}</span>
                   ) : null}
