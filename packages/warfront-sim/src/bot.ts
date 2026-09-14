@@ -22,10 +22,18 @@ import type { Sim } from './sim';
  * ## What a bot may see
  *
  * Everything a human currently sees, and nothing more. Decision 26 is "ownership is
- * public; positions are fogged", but fog does not exist yet — the tactical view shows
- * every unit on the map — so a view that hid enemy positions from bots would handicap
- * them against a human who can see them. This interface is the ONE seam where fog will
- * be applied when it arrives, and the only place that will need to change.
+ * public; positions are fogged", and for units that fog does not exist yet — the tactical
+ * view shows every unit on the map — so a view that hid enemy positions from bots would
+ * handicap them against a human who can see them.
+ *
+ * SHIPPING is the exception, and rule V's hidden convoys are the first thing in the game
+ * that is genuinely fogged — see reveal.ts. Nothing of it reaches this interface: a bot
+ * sees no convoy at all, which is exactly what a human sees today, and the filtered list
+ * (`sim.sightings`) is one line away for the first policy that needs to react to a
+ * landing. Putting it here before then would be an interface field nothing reads.
+ *
+ * This interface remains the ONE seam where fog is applied, and the only place that will
+ * need to change.
  *
  * ## Determinism
  *

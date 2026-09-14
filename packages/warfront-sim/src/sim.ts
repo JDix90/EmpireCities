@@ -15,6 +15,7 @@ import { colonisePrice, provinceAtUnit, stepTerritory, type TerritoryContext } f
 import { musterAt, stepAttrition, stepCamps, type AttritionContext } from './attrition';
 import { ConvoyStore, stepConvoys, type Convoy } from './convoys';
 import { beachesOf, buildCoastIndex, isCoastal, type CoastIndex } from './coast';
+import { laneKey, revealedLanes, sightingsFor, type ConvoySighting, type RevealContext } from './reveal';
 import { stepCombat, type CombatContext } from './combat';
 import { matchResult, standings, stepScoring, type MatchResult, type Standing } from './scoring';
 import {
@@ -223,6 +224,35 @@ export class Sim {
   /** Rule V's landing sites for a province, as seen from a departure cell. */
   beaches(province: number, from: number): number[] {
     return beachesOf(this.terrain!, this.coast(), province, from, BEACHES_PER_PROVINCE, BEACH_SEPARATION_CELLS);
+  }
+
+  private revealContext(): RevealContext {
+    return {
+      entities: this.entities,
+      buildings: this.buildings,
+      grid: this.terrain!,
+      geography: this.geography!,
+      lanesFrom: (province) => this.lanesFrom(province),
+    };
+  }
+
+  /**
+   * Rule V's hidden convoys: what this seat can currently see at sea.
+   *
+   * A read of live state and never a record, so it is not hashed and not replayed — two
+   * builds that disagree about who could see what would still produce the same match,
+   * because nothing in the simulation acts on a sighting. What acts on one is a player,
+   * or a bot, which is exactly where the information is allowed to matter.
+   */
+  sightings(seat: number): ConvoySighting[] {
+    if (!this.terrain || !this.geography) return [];
+    return sightingsFor(this.revealContext(), seat, this.convoys);
+  }
+
+  /** Whether this seat is watching the lane between two provinces. */
+  seesLane(seat: number, a: number, b: number): boolean {
+    if (!this.terrain || !this.geography) return false;
+    return revealedLanes(this.revealContext(), seat).has(laneKey(a, b));
   }
 
   /**
@@ -683,6 +713,11 @@ export class Sim {
           if (!isCoastal(grid, command.cell)) return;
           if (this.lanesFrom(grid.owner(command.cell)).length === 0) return;
         }
+        // Rule V's lighthouse is coastal for the same reason and by the same test — a
+        // light watches water — but it is deliberately NOT held to the port's second
+        // rule. Its reach is a province wide, so a light on a lane-less shore watching a
+        // neighbour's crossing is the thing it is for, not a mistake to refuse.
+        if (kind === BuildingKind.Lighthouse && !isCoastal(grid, command.cell)) return;
         if (player.timber < spec.timber || player.silver < spec.silver) return;
         player.timber -= spec.timber;
         player.silver -= spec.silver;

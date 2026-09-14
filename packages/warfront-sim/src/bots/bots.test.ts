@@ -275,3 +275,123 @@ describe('the Rusher camps before it sieges (rule VII)', () => {
     expect(sim.buildings.all().filter((b) => b.kind === BuildingKind.Camp)).toHaveLength(0);
   });
 });
+
+/**
+ * Rule V's policy: the Turtle lights its coast.
+ *
+ * On its own grid for the same reason the Rusher's camp test is — and for one more. The
+ * committed map cannot pay for this: every policy in the roster stalls at seven
+ * population somewhere around minute six with an unstaffed lumber camp, so a Turtle on the
+ * western twenty spends its starting thirty silver on one tower and never sees twenty
+ * again. That is a real defect and it predates this test (the Colonist does it too), but
+ * it means a match on the real map cannot tell a policy that will not build a lighthouse
+ * from one that cannot afford one. A seat that can afford it can.
+ */
+describe('the Turtle lights its coast (rule V)', () => {
+  const COAST_WIDTH = 30;
+  const COAST_HEIGHT = 12;
+  const SHORE_LAST_COL = 9;
+  const ISLE_FIRST_COL = 20;
+  const SHORE = 1;
+  const QUIET = 2;
+
+  /**
+   * Two provinces on a shore and an island across the water.
+   *
+   * `Shore` is the northern half and has the lane; `Quiet` is the southern half, just as
+   * coastal and with no lane of its own. Which is the point: a light in Quiet is the only
+   * way to tell a policy that watches its own province from one that watches a province
+   * out, and the same shape is what makes `lanes: false` a fair test of "worth watching"
+   * rather than a test of "is there a coast".
+   */
+  function coastGrid(withLanes: boolean): TerrainGrid {
+    const sea = packCell({ owner: 0, tier: 0, passable: false, biome: Biome.Sea });
+    const cells = new Uint16Array(COAST_WIDTH * COAST_HEIGHT).fill(sea);
+    for (let row = 0; row < COAST_HEIGHT; row++) {
+      for (let col = 0; col < COAST_WIDTH; col++) {
+        const province = col >= ISLE_FIRST_COL ? 3 : col <= SHORE_LAST_COL ? (row < 6 ? SHORE : QUIET) : 0;
+        if (province === 0) continue;
+        cells[row * COAST_WIDTH + col] = packCell({ owner: province, tier: 0, passable: true, biome: Biome.Plains });
+      }
+    }
+    return new TerrainGrid(COAST_WIDTH, COAST_HEIGHT, cells, {
+      provinces: [
+        { index: SHORE, territory_id: 'shore', name: 'Shore' },
+        { index: QUIET, territory_id: 'quiet', name: 'Quiet' },
+        { index: 3, territory_id: 'isle', name: 'Isle' },
+      ],
+      ...(withLanes ? { lanes: [{ from: 'shore', to: 'isle' }] } : {}),
+    });
+  }
+
+  const cellAt = (col: number, row: number) => row * COAST_WIDTH + col;
+
+  /** A seat with villagers and a purse, played for a minute. Returns what it raised. */
+  function play(options: {
+    withLanes: boolean;
+    seatCell: number;
+    silver?: number;
+    towers?: number;
+  }): number[] {
+    const terrain = coastGrid(options.withLanes);
+    const sim = new Sim({
+      seed: 9,
+      terrain,
+      scenario: {
+        players: [{ index: 1, food: 1000, timber: 500, silver: options.silver ?? 500 }],
+        buildings: [{ owner: 1, kind: BuildingKind.Seat, cell: options.seatCell }],
+        units: [0, 1, 2].map((i) => ({
+          owner: 1,
+          kind: UnitKind.Villager,
+          x: cellCentre(terrain.colOf(options.seatCell) + i),
+          y: cellCentre(terrain.rowOf(options.seatCell)),
+          speed: 0,
+        })),
+      },
+    });
+    // Towers off unless a test is about them, so the light is the only thing the military
+    // branch can be reaching for and a pass cannot be a tower by another name.
+    const bot = new TurtleBot({ towers: options.towers ?? 0 });
+    const driver = new BotDriver(9, new Map([[1, bot]]), buildProvinceGeography(terrain));
+    const raised: number[] = [];
+    const seen = new Set<number>();
+    while (sim.tick < TICKS_PER_MINUTE) {
+      driver.beforeTick(sim, sim.tick + 1);
+      sim.step();
+      for (const b of sim.buildings.all()) {
+        if (b.owner !== 1 || seen.has(b.id) || b.kind === BuildingKind.Seat) continue;
+        seen.add(b.id);
+        raised.push(b.kind);
+      }
+    }
+    return raised;
+  }
+
+  it('raises one on a coast whose own province has a lane — and only one', () => {
+    // Exactly one. Without the cap the policy would find a different coastal cell every
+    // second and line the whole shore with lights, which is forty timber apiece for a
+    // province it already watches.
+    const raised = play({ withLanes: true, seatCell: cellAt(2, 2) });
+    expect(raised.filter((k) => k === BuildingKind.Lighthouse)).toHaveLength(1);
+  });
+
+  it('raises one on a coast a province away from the lane', () => {
+    // Quiet has no lane. A light there is worth forty timber only under the reading that
+    // gives it a province of reach, so this is the policy asserting the same thing
+    // `reveal.test.ts` asserts about the rule.
+    expect(play({ withLanes: true, seatCell: cellAt(2, 9) })).toContain(BuildingKind.Lighthouse);
+  });
+
+  it('does not light a coast nothing crosses', () => {
+    expect(play({ withLanes: false, seatCell: cellAt(2, 2) })).not.toContain(BuildingKind.Lighthouse);
+  });
+
+  it('spends its last silver on the tower, not the light', () => {
+    // The brief's order — "towers on the shared border, lighthouse on the exposed coast" —
+    // and both want the same twenty silver. Exactly one tower's worth in the purse, so
+    // whichever it reaches for first is the only one it gets.
+    const raised = play({ withLanes: true, seatCell: cellAt(2, 2), silver: 20, towers: 3 });
+    expect(raised).toContain(BuildingKind.Tower);
+    expect(raised).not.toContain(BuildingKind.Lighthouse);
+  });
+});
