@@ -17,6 +17,7 @@ import {
   TICKS_PER_MINUTE,
   UnitKind,
   seconds,
+  type BuildingKindValue,
 } from '../rules';
 import type { Bot } from '../bot';
 import { Sim, cellCentre } from '../sim';
@@ -468,7 +469,7 @@ describe('the economy holds up under raids', () => {
 
   function play(setup: Setup) {
     const terrain = twoProvinces();
-    const buildings: Array<{ owner: number; kind: BuildingKind[keyof BuildingKind]; cell: number }> = [
+    const buildings: Array<{ owner: number; kind: BuildingKindValue; cell: number }> = [
       { owner: 1, kind: BuildingKind.Seat, cell: SEAT_CELL },
     ];
     if (setup.camp !== undefined) buildings.push({ owner: 1, kind: BuildingKind.LumberCamp, cell: setup.camp });
