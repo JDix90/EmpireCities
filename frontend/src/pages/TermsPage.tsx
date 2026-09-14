@@ -8,6 +8,7 @@ import { APP_NAME, LEGAL_LAST_UPDATED, SUPPORT_EMAIL } from '../constants/brand'
 export default function TermsPage() {
   return (
     <SubpageShell
+      titleAs="div"
       title="TERMS OF SERVICE"
       icon={Scale}
       maxWidth="2xl"

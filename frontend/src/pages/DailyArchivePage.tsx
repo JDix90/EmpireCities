@@ -128,6 +128,7 @@ export function DailyArchiveIndexPage() {
 
   return (
     <SubpageShell
+      titleAs="div"
       title="DAILY ARCHIVE"
       icon={CalendarDays}
       maxWidth="2xl"
@@ -205,6 +206,7 @@ export default function DailyArchivePage() {
   if (missing) {
     return (
       <SubpageShell
+        titleAs="div"
         title="DAILY ARCHIVE"
         icon={CalendarDays}
         maxWidth="2xl"
@@ -226,6 +228,8 @@ export default function DailyArchivePage() {
 
   if (!entry) {
     return (
+      // This transient state renders no heading of its own, so the banner
+      // stays the page h1 rather than opting out like the states below.
       <SubpageShell
         title="DAILY ARCHIVE"
         icon={CalendarDays}
@@ -251,6 +255,7 @@ export default function DailyArchivePage() {
 
   return (
     <SubpageShell
+      titleAs="div"
       title="DAILY ARCHIVE"
       icon={CalendarDays}
       maxWidth="2xl"

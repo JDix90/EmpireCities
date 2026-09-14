@@ -8,6 +8,7 @@ import { APP_NAME, LEGAL_LAST_UPDATED, SUPPORT_EMAIL } from '../constants/brand'
 export default function PrivacyPage() {
   return (
     <SubpageShell
+      titleAs="div"
       title="PRIVACY POLICY"
       icon={Shield}
       maxWidth="2xl"
