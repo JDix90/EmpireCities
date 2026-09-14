@@ -99,7 +99,15 @@ describe('Warfront admin gate', () => {
       expect(body.enabled).toBe(false);
       expect(body.flag).toBe('warfront_enabled');
       expect(body.terrain_error).toBeNull();
-      expect(body.terrain).toMatchObject({ id: 'western_twenty', map_id: 'community_roman_empire_117', provinces: 20, lanes: 14 });
+      // Fifteen: fourteen sea connections the map document declares inside the slice, plus
+      // the Tin Route, which is Warfront-only and comes from the curation file rather than
+      // the live map. packages/warfront-sim/src/westernTwenty.test.ts pins that split.
+      expect(body.terrain).toMatchObject({
+        id: 'western_twenty',
+        map_id: 'community_roman_empire_117',
+        provinces: 20,
+        lanes: 15,
+      });
       expect(body.terrain.cells).toBe(body.terrain.width * body.terrain.height);
       expect(body.terrain.checksum).toMatch(/^[0-9a-f]{16}$/);
 

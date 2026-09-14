@@ -25,6 +25,11 @@ prompt for Claude Console/Projects, not agent instructions.)
   whose tests do not compile; CI runs `tsc -p tsconfig.test.json --noEmit` and
   fails. Also run `pnpm -C packages/warfront-sim run build` — CI builds the
   package before typechecking it.
+- A change to `database/warfront/western_twenty.terrain.json` needs
+  **`pnpm run test:backend`** as well: the admin status endpoint
+  (`backend/src/modules/admin/warfrontStatus.ts`) reads the committed asset and
+  its test asserts the province and lane counts. "I did not touch the backend"
+  is not the same as "the backend does not read what I touched".
 - CI truth is `gh api repos/<owner>/<repo>/commits/<EXACT-SHA>/check-runs`.
   `gh pr checks` and PR status rollups can show a stale superseded run — the CI
   workflow cancels in-progress runs on new pushes.
