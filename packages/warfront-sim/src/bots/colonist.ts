@@ -2,9 +2,18 @@ import { cellOf, type Bot, type BotView } from '../bot';
 import type { Building } from '../buildings';
 import type { Command } from '../commands';
 import { cellCentre } from '../geometry';
-import { BUILDING_SPECS, BuildingKind, UNIT_SPECS, UnitKind, type BuildingKindValue } from '../rules';
+import {
+  BUILDING_COMBAT,
+  BUILDING_SPECS,
+  BuildingKind,
+  Resource,
+  UNIT_SPECS,
+  UnitKind,
+  type BuildingKindValue,
+} from '../rules';
 import {
   canAfford,
+  cellDistance,
   countOwn,
   findBuildSite,
   hiring,
@@ -12,6 +21,7 @@ import {
   ownBuildings,
   popRoom,
   seatBuilding,
+  underGuard,
   unsettledFrontiers,
 } from './helpers';
 
@@ -60,6 +70,9 @@ export interface ColonistParams {
    */
   buildRadius: number;
 }
+
+/** The tower's own reach, from the table of buildings that shoot. See `underGuard`. */
+const TOWER_RANGE = BUILDING_COMBAT[BuildingKind.Tower].range;
 
 export const COLONIST_DEFAULTS: ColonistParams = {
   villagersBeforeExpanding: 6,
@@ -124,6 +137,7 @@ export class ColonistBot implements Bot {
       this.fleeRaiders(view, seat) ??
       this.finishColonising(view) ??
       this.employIdleVillagers(view, seat.cell) ??
+      this.guardTower(view) ??
       this.raiseGarrison(view) ??
       this.military(view, seat) ??
       this.expand(view, seat.cell) ??
@@ -187,6 +201,13 @@ export class ColonistBot implements Bot {
       const at = cellOf(villager, view.grid);
       if (at < 0) continue;
       if (!raiderCells.some((c) => chebyshev(view, c, at) <= this.params.fleeCells)) continue;
+      // A villager runs even from ground a tower is holding, and the lab is emphatic about
+      // it. Letting a defended villager stand its ground earns two more timber
+      // worker-minutes across the roster and costs 3.6 villagers per seat — a tower fires
+      // once a second at one target, rule VI's raids arrive every ninety seconds and
+      // stack, and twenty raiders kill everything under it while it works through them one
+      // at a time. What the tower buys is not a villager that stays; it is ground that is
+      // still worth COMING BACK to, which is `employIdleVillagers`' side of this.
       this.fleeing.add(villager.id);
       // Off the job first: rule II says the only way off a job is onto another, and a
       // villager still on a farm's worker list is counted as labour it is not doing.
@@ -235,8 +256,14 @@ export class ColonistBot implements Bot {
       .filter((u) => u.owner === 0)
       .map((u) => cellOf(u, view.grid))
       .filter((c) => c >= 0);
+    // Ground a tower covers is ground we have already paid to hold. Without this clause the
+    // safety test is "is a raider near?" alone, and since `raidTargetCell` aims raids AT
+    // producing buildings, an outlying lumber camp is near a raider essentially always —
+    // so it is never staffed again after the first raid finds it, tower or no tower.
     const safe = hiring(view, seatCell).filter(
-      (b) => !raiderCells.some((c) => chebyshev(view, c, b.cell) <= this.params.fleeCells),
+      (b) =>
+        underGuard(view, b.cell) ||
+        !raiderCells.some((c) => chebyshev(view, c, b.cell) <= this.params.fleeCells),
     );
     const openings = safe.map((b) => {
       const spec = BUILDING_SPECS[b.kind];
@@ -263,6 +290,44 @@ export class ColonistBot implements Bot {
     if (view.player.food < spec.food + this.params.foodReserve || view.player.silver < spec.silver) return null;
     if (popRoom(view) < spec.pop) return null;
     return [{ type: 'train', building: barracks.id, unit: UnitKind.Spear }];
+  }
+
+  /**
+   * A tower over the timber source, once one stands.
+   *
+   * The brief's answer to raids is "towers on the shared border" and a tower "fires on its
+   * own" — which is the whole point under rule VI. A lumber camp is not near the seat and
+   * cannot be: no seat on this map has forest inside fourteen cells, so the camp is tens of
+   * cells out, alone, and it is also precisely where raids are aimed (`raidTargetCell`
+   * prefers a producing building). A villager walks 54 cells a minute, so a raider passing
+   * within `fleeCells` costs the camp a round trip measured in minutes — and raids arrive
+   * every ninety seconds. Measured without this: the camp earned six worker-minutes out of
+   * forty, and timber income was zero from minute four to the end of the match.
+   *
+   * A tower answers it without spending attention, which is the one resource a policy
+   * cannot buy. It is deliberately the FIRST call on the opening silver, ahead of the
+   * garrison: thirty silver buys either one tower that defends the economy forever or two
+   * spears that die, and only one of those leaves a seat still earning at minute twenty.
+   */
+  protected guardTower(view: BotView): Command[] | null {
+    if (!canAfford(view, BuildingKind.Tower)) return null;
+    const towers = ownBuildings(view, BuildingKind.Tower);
+    for (const source of ownBuildings(view)) {
+      if (!source.complete) continue;
+      const spec = BUILDING_SPECS[source.kind];
+      if (!spec || spec.produces === Resource.None) continue;
+      // Already defended: by the seat's own guns, or by a tower that is finished. A tower
+      // still going up is counted separately, below — it shoots nothing yet, but a policy
+      // that ignored it would queue a fresh one every second until the timber ran out.
+      if (underGuard(view, source.cell)) continue;
+      if (towers.some((t) => cellDistance(view.grid, t.cell, source.cell) <= TOWER_RANGE)) continue;
+      const site = findBuildSite(view, BuildingKind.Tower, source.cell, TOWER_RANGE);
+      if (site < 0) continue;
+      const builder = this.pickBuilder(view, site);
+      if (builder === null) continue;
+      return [{ type: 'build', unit: builder, kind: BuildingKind.Tower, cell: site }];
+    }
+    return null;
   }
 
   /** Rule I: send one villager to found the nearest colony this seat can afford. */

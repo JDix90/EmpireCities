@@ -1,3 +1,4 @@
+import { isAtWork } from '../economy';
 import { idiv } from '../fixed';
 import { BUILDING_SPECS, Resource, TICKS_PER_MINUTE, UNIT_SPECS, UnitKind } from '../rules';
 import type { Sim } from '../sim';
@@ -64,6 +65,21 @@ export interface MatchMetrics {
   producingAtEnd: Record<number, number>;
   /** Seat index → the tick its first producing building was completed, or null. */
   firstProducingTick: Record<number, number | null>;
+  /**
+   * Seat index → seconds in which a TIMBER source actually had a worker standing on it.
+   *
+   * Timber specifically, and not producing buildings in general, because the general
+   * version cannot see the problem. Every seat keeps a farm beside its capital, under the
+   * seat's own guns, and works it almost the whole match — so "had somebody on a producing
+   * building" runs at 96% while the timber economy is dead and the seat has not been able
+   * to afford a building since minute four. The lumber camp is the one that sits tens of
+   * cells out in the forest, alone, and is exactly where rule VI aims its raids.
+   *
+   * Zero is the honest reading for Rome and Carthage: the committed asset gives Italy and
+   * Africa no forest at all, so those seats have no timber source to work. See
+   * westernTwenty.test.ts.
+   */
+  timberWorkedSeconds: Record<number, number>;
   /** Seat index → provinces held at the end. One means it never paid rule I's price. */
   provincesAtEnd: Record<number, number>;
 }
@@ -84,6 +100,7 @@ export class MetricsCollector {
   private readonly wipedAt = new Map<number, number | null>();
   private readonly producing = new Map<number, number>();
   private readonly firstProducing = new Map<number, number | null>();
+  private readonly timberWorked = new Map<number, number>();
   private ratio15 = 0;
 
   constructor(seats: number[]) {
@@ -118,11 +135,22 @@ export class MetricsCollector {
     }
 
     const producing = new Map<number, number>();
+    const width = sim.terrain?.width ?? 0;
+    const workedThisSecond = new Set<number>();
     for (const building of sim.buildings.all()) {
       if (building.owner === 0 || !building.complete) continue;
       if ((BUILDING_SPECS[building.kind]?.produces ?? Resource.None) === Resource.None) continue;
       producing.set(building.owner, (producing.get(building.owner) ?? 0) + 1);
+      if (width === 0 || BUILDING_SPECS[building.kind]?.produces !== Resource.Timber) continue;
+      for (const id of building.workers) {
+        const worker = sim.entities.get(id);
+        if (worker && isAtWork(worker, building, width)) {
+          workedThisSecond.add(building.owner);
+          break;
+        }
+      }
     }
+    for (const seat of workedThisSecond) this.timberWorked.set(seat, (this.timberWorked.get(seat) ?? 0) + 1);
 
     const standings = sim.standings;
     for (const seat of this.seats) {
@@ -190,6 +218,7 @@ export class MetricsCollector {
       villagersLost: Object.fromEntries(this.lostVillagers),
       producingAtEnd: Object.fromEntries(this.producing),
       firstProducingTick: Object.fromEntries(this.firstProducing),
+      timberWorkedSeconds: Object.fromEntries(this.timberWorked),
       provincesAtEnd: Object.fromEntries(result.standings.map((s) => [s.seat, s.provinces])),
     };
   }
@@ -228,6 +257,17 @@ export interface Summary {
   seatMatchesWithoutEconomy: number;
   /** Seat-matches that ended holding more than the province they started in. */
   seatMatchesThatColonised: number;
+  /**
+   * Median share of a match, as a percent, in which a seat's timber source was worked.
+   *
+   * The companion to `seatMatchesWithoutEconomy`, and the number that actually moves. That
+   * one counts seats that never RAISED a producing building; this counts how much of the
+   * match somebody was standing on the one building that pays for all the others. Every
+   * building in the game costs timber and only a lumber camp makes any, so a seat at zero
+   * here is a seat spending a fixed opening purse for twenty minutes however busy its
+   * farms look.
+   */
+  medianTimberWorkedPercent: number;
   /** Seats summed over matches — the denominator of the two counts above. */
   seatMatches: number;
   /** Share of seat-matches that colonised at least once, as a percent. */
@@ -261,6 +301,7 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
   let noEconomy = 0;
   let colonised = 0;
   let seatMatches = 0;
+  const workedShares: number[] = [];
   const contacts: number[] = [];
   const ratios: number[] = [];
   const eliminations: number[] = [];
@@ -282,6 +323,11 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
         byPolicy[policy].won += 1;
         bySeat[seat].won += 1;
       }
+    }
+    // `ticks` is the whole match; the collector samples once a second.
+    const seconds = idiv(m.ticks, 15);
+    if (seconds > 0) {
+      for (const worked of Object.values(m.timberWorkedSeconds)) workedShares.push(idiv(worked * 100, seconds));
     }
     for (const [key, count] of Object.entries(m.producingAtEnd)) {
       seatMatches += 1;
@@ -309,6 +355,7 @@ export function summarise(all: readonly MatchMetrics[]): Summary {
     earliestWipeoutSeconds: wipeouts.length > 0 ? Math.min(...wipeouts) : null,
     seatMatchesWithoutEconomy: noEconomy,
     seatMatchesThatColonised: colonised,
+    medianTimberWorkedPercent: workedShares.length > 0 ? median(workedShares) : 0,
     seatMatches,
     colonisedPercent: percentOf(colonised, seatMatches),
   };
