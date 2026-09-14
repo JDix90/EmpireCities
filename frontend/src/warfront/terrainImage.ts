@@ -19,6 +19,7 @@ import {
   cellOwner,
   cellPass,
   cellPassable,
+  cellWooded,
   type BiomeValue,
   type TerrainGrid,
 } from '@borderfall/warfront-sim';
@@ -43,6 +44,17 @@ export const BIOME_COLORS: Record<BiomeValue, Rgb> = {
 
 /** A ford is the only way across a river, so it gets its own colour rather than a tint. */
 export const FORD_COLOR: Rgb = [227, 192, 74];
+
+/**
+ * Wooded ground that is not the forest biome — a wooded hill — is tinted toward the
+ * forest green rather than recoloured.
+ *
+ * Tinted because it is BOTH things and the player needs both: it is highland for movement
+ * and the archer's high ground, and it is the only ground a lumber camp can stand on.
+ * Recolouring it green would hide the hill; leaving it bare hides the timber, which is
+ * what the map did while the composer was erasing every upland wood.
+ */
+export const WOODED_TINT = 0.45;
 /** A pass is the only way through a barrier range; same reasoning. */
 export const PASS_COLOR: Rgb = [168, 111, 208];
 /** Beaches are a landing surface, not a separate terrain: a lift of the base colour. */
@@ -78,7 +90,17 @@ export function colorForCell(value: number): Rgb {
   if (cellFord(value)) return FORD_COLOR;
   if (cellPass(value)) return PASS_COLOR;
   const biome = cellBiome(value);
-  const base = BIOME_COLORS[biome] ?? BIOME_COLORS[Biome.Void];
+  const plain = BIOME_COLORS[biome] ?? BIOME_COLORS[Biome.Void];
+  // Trees over ground that is not already forest-coloured: mix toward the forest green so
+  // a wooded hill reads as both the hill it is and the timber it holds.
+  const base: Rgb =
+    cellWooded(value) && biome !== Biome.Forest
+      ? [
+          clamp255(plain[0] + (BIOME_COLORS[Biome.Forest][0] - plain[0]) * WOODED_TINT),
+          clamp255(plain[1] + (BIOME_COLORS[Biome.Forest][1] - plain[1]) * WOODED_TINT),
+          clamp255(plain[2] + (BIOME_COLORS[Biome.Forest][2] - plain[2]) * WOODED_TINT),
+        ]
+      : plain;
   if (!cellPassable(value) && WALKABLE_LOOKING.has(biome)) {
     return [
       clamp255(base[0] * BLOCKED_DARKEN),

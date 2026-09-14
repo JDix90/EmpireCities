@@ -30,7 +30,30 @@ export const BIOME_MASK = 0x7;
 export const FORD_BIT = 1 << 10;
 export const BEACH_BIT = 1 << 11;
 export const PASS_BIT = 1 << 12;
-export const CELL_MAX = 0x1fff;
+/**
+ * Woodland, carried ALONGSIDE the biome rather than as one of its values.
+ *
+ * A forest and a hill are not alternatives in the world and should not be alternatives
+ * here. The pipeline composes a cell by precedence — mountain, desert, river, pass,
+ * highland, forest, plains — so before this bit existed, every wooded slope came out as
+ * bare highland and its trees were simply lost. Measured on the committed asset: the
+ * curated forest mask drew fourteen woods and the composer erased six of them, including
+ * ALL of Sila and ALL of Kroumirie, which are the only woodland in Italy and Africa
+ * respectively. That left two of the four seats in the roster unable to raise a lumber
+ * camp anywhere on the map, and since every building costs timber and only a lumber camp
+ * makes any, unable to build anything at all past their opening purse.
+ *
+ * A bit rather than a `WoodedHighland` biome because the biome is what a cell IS for
+ * movement, tier and the high-ground bonus, and a wooded hill is still a hill for every
+ * one of those. This is the same shape as `ford`, `beach` and `pass` above: a property
+ * the terrain carries in addition to what it is.
+ *
+ * Set on every cell the curated mask covers, plain forest included, so "can a lumber camp
+ * stand here" is ONE test rather than "forest, or highland that happens to be wooded" —
+ * two conditions that would eventually disagree.
+ */
+export const WOODED_BIT = 1 << 13;
+export const CELL_MAX = 0x3fff;
 
 export const Biome = {
   Void: 0,
@@ -95,6 +118,7 @@ export function packCell(fields: {
   ford?: boolean;
   beach?: boolean;
   pass?: boolean;
+  wooded?: boolean;
 }): number {
   return (
     (fields.owner & OWNER_MASK) |
@@ -103,7 +127,8 @@ export function packCell(fields: {
     ((fields.biome & BIOME_MASK) << BIOME_SHIFT) |
     (fields.ford ? FORD_BIT : 0) |
     (fields.beach ? BEACH_BIT : 0) |
-    (fields.pass ? PASS_BIT : 0)
+    (fields.pass ? PASS_BIT : 0) |
+    (fields.wooded ? WOODED_BIT : 0)
   );
 }
 
@@ -127,6 +152,9 @@ export function cellBeach(v: number): boolean {
 }
 export function cellPass(v: number): boolean {
   return (v & PASS_BIT) !== 0;
+}
+export function cellWooded(v: number): boolean {
+  return (v & WOODED_BIT) !== 0;
 }
 
 /** Run-length encodes one row per array: `[value, run, value, run, …]`. */
@@ -291,6 +319,11 @@ export class TerrainGrid {
 
   isPass(index: number): boolean {
     return cellPass(this.cells[index]);
+  }
+
+  /** Trees stand here: the one test for whether a lumber camp can. See `WOODED_BIT`. */
+  isWooded(index: number): boolean {
+    return cellWooded(this.cells[index]);
   }
 
   provinceIndex(territoryId: string): number {

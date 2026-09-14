@@ -44,8 +44,11 @@ function seaGrid(): TerrainGrid {
       if (province === 0) continue;
       // Plains everywhere but one forest column at home, so the build order can reach its
       // lumber camp and get to the port rather than stalling on ground that is not there.
-      const biome = col === 3 ? Biome.Forest : Biome.Plains;
-      cells[row * WIDTH + col] = packCell({ owner: province, tier: 0, passable: true, biome });
+      const wooded = col === 3;
+      const biome = wooded ? Biome.Forest : Biome.Plains;
+      // Wooded as well as forest-biomed: the lumber camp is sited by the flag now, and the
+      // real asset never carries one without the other.
+      cells[row * WIDTH + col] = packCell({ owner: province, tier: 0, passable: true, biome, wooded });
     }
   }
   return new TerrainGrid(WIDTH, HEIGHT, cells, {

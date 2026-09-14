@@ -31,6 +31,7 @@ interface MapDoc {
 interface Curation {
   provinces: string[];
   accepted_missing_land?: Array<{ pair: string; reason: string }>;
+  extra_lanes?: Array<{ from: string; to: string; reason: string }>;
 }
 
 const grid = TerrainGrid.decode(JSON.parse(readFileSync(ASSET, 'utf8')) as TerrainAsset);
@@ -104,35 +105,36 @@ describe('the committed western twenty asset agrees with its map document', () =
 /**
  * Can a seat on this map actually run an economy?
  *
- * Every building in the game costs timber, and the only thing that makes timber is a
- * lumber camp, which needs a forest cell to stand on. So "is there forest within reach"
- * is not a flavour question — it decides whether a seat has an economy at all after its
- * opening purse of 160 timber is spent.
+ * Every building in the game costs timber, the only thing that makes timber is a lumber
+ * camp, and a lumber camp needs wooded ground. So "is there woodland within reach" is not
+ * a flavour question — it decides whether a seat has an economy at all once its opening
+ * purse of 160 timber is spent.
  *
- * The committed asset answers NO for two of the four seats in the roster, and this is
- * where that is written down. It was found by chasing why every bot policy stops growing
- * around minute six: the bots were the suspect, and the bots were mostly innocent.
+ * This file used to record the answer NO for two of the four seats, because the pipeline
+ * composed a cell by precedence and highland outranked forest: six of the fourteen curated
+ * woods were erased outright, including all of Sila and all of Kroumirie, which are the
+ * only woodland in Italy and in Africa. Woodland is now a flag carried beside the biome
+ * (WOODED_BIT), so a wooded hill is highland to walk up and forest to fell.
  *
- * These assertions therefore pin a KNOWN GAP rather than a desired property. When the
- * terrain pipeline stops classifying the whole Mediterranean south as plains and highland,
- * these go red — and that is the point. A red test here means the map got better and the
- * seat roster, the lab's expectations and this file should be revisited together.
+ * These assertions are the guard on that. They are deliberately about REACH rather than
+ * exact cell counts, so repainting a polygon does not fail the build — only losing a
+ * seat's timber does.
  */
 describe('timber, and which seats the asset can support', () => {
-  const FOREST = 3;
-  const forestCells = new Map<number, number>();
+  /** Ground a lumber camp could actually stand on: wooded, walkable, owned. */
+  const sites = new Map<number, number>();
   for (let i = 0; i < grid.size; i++) {
     const owner = grid.owner(i);
-    if (owner > 0 && grid.isPassable(i) && grid.biome(i) === FOREST) {
-      forestCells.set(owner, (forestCells.get(owner) ?? 0) + 1);
+    if (owner > 0 && grid.isWooded(i) && grid.isPassable(i)) {
+      sites.set(owner, (sites.get(owner) ?? 0) + 1);
     }
   }
-  const forestIn = (territoryId: string) => forestCells.get(grid.provinceIndex(territoryId)) ?? 0;
+  const sitesIn = (territoryId: string) => sites.get(grid.provinceIndex(territoryId)) ?? 0;
 
   /** Land hops from a province to the nearest one that could hold a lumber camp. */
-  function hopsToForest(territoryId: string): number {
+  function hopsToTimber(territoryId: string): number {
     const start = grid.provinceIndex(territoryId);
-    if ((forestCells.get(start) ?? 0) > 0) return 0;
+    if ((sites.get(start) ?? 0) > 0) return 0;
     const seen = new Set([start]);
     let frontier = [start];
     for (let hop = 1; hop <= grid.provinces.length; hop++) {
@@ -141,7 +143,7 @@ describe('timber, and which seats the asset can support', () => {
         for (const neighbour of geography.neighbours.get(province) ?? []) {
           if (seen.has(neighbour)) continue;
           seen.add(neighbour);
-          if ((forestCells.get(neighbour) ?? 0) > 0) return hop;
+          if ((sites.get(neighbour) ?? 0) > 0) return hop;
           next.push(neighbour);
         }
       }
@@ -151,38 +153,77 @@ describe('timber, and which seats the asset can support', () => {
     return -1;
   }
 
-  it('gives Gaul and Hispania forest at home, so they can run an economy unaided', () => {
-    expect(forestIn('lugdunensis')).toBeGreaterThan(0);
-    expect(forestIn('tarraconensis')).toBeGreaterThan(0);
+  it('gives every seat in the roster timber it can actually reach', () => {
+    // The whole point. Carthage is the one that was impossible: africa_proconsularis,
+    // numidia and mauretania are one landmass and the composer had erased the only wood on
+    // it, so no lumber camp could be built in Africa at any distance, ever.
+    for (const seat of ['lugdunensis', 'tarraconensis', 'africa_proconsularis', 'italia_central']) {
+      expect(hopsToTimber(seat)).toBeGreaterThanOrEqual(0);
+    }
   });
 
-  it('leaves Carthage no timber reachable by land AT ALL', () => {
-    // africa_proconsularis, numidia and mauretania are one landmass and none of them has
-    // a forest cell. Carthage's entire match is funded by its opening 160 timber unless it
-    // ships a colonist over a lane — which is rule V, and which is the brief's own line
-    // that Carthage is "the sea power". The map makes that a requirement, not a style.
-    expect(forestIn('africa_proconsularis')).toBe(0);
-    expect(forestIn('numidia')).toBe(0);
-    expect(forestIn('mauretania')).toBe(0);
-    expect(hopsToForest('africa_proconsularis')).toBe(-1);
+  it('puts woodland at home for Gaul, Hispania and Carthage', () => {
+    expect(sitesIn('lugdunensis')).toBeGreaterThan(0);
+    expect(sitesIn('tarraconensis')).toBeGreaterThan(0);
+    expect(sitesIn('africa_proconsularis')).toBeGreaterThan(0);
   });
 
-  it('puts Rome two colonisations away from a province holding ONE forest cell', () => {
-    // The whole Italian peninsula is forestless, and the nearest province that is not —
-    // narbonensis, two hops out — has a single qualifying cell in it. Rome can technically
-    // reach timber by land; it cannot plausibly afford to.
-    expect(forestIn('italia_central')).toBe(0);
-    expect(forestIn('italia_north')).toBe(0);
-    expect(forestIn('italia_south')).toBe(0);
-    expect(hopsToForest('italia_central')).toBe(2);
-    expect(forestIn('narbonensis')).toBe(1);
+  it('leaves Rome one colonisation from timber, not two', () => {
+    // Italia_central itself is bare, but Sila is in italia_south next door. Before the
+    // fix the nearest wood was narbonensis, two hops out, and it held a single cell.
+    expect(sitesIn('italia_central')).toBe(0);
+    expect(sitesIn('italia_south')).toBeGreaterThan(0);
+    expect(hopsToTimber('italia_central')).toBe(1);
   });
 
-  it('leaves the islands rule V reaches without timber of their own', () => {
-    expect(forestIn('sicilia')).toBe(0);
-    expect(forestIn('sardinia_corsica')).toBe(0);
-    // Britannia is the exception, and the richest source on the map — which is why the
-    // brief's Tin Route matters and why the Islander wants it.
-    expect(forestIn('britannia')).toBeGreaterThan(1000);
+  it('keeps the curated mask honest about which woods survive composition', () => {
+    // Sila and Kroumirie are the two that were being erased. Narbonensis is the one that
+    // shows the scale of it: the Massif Central woods came through as a single cell.
+    expect(sitesIn('italia_south')).toBeGreaterThan(100);
+    expect(sitesIn('africa_proconsularis')).toBeGreaterThan(100);
+    expect(sitesIn('narbonensis')).toBeGreaterThan(100);
+  });
+
+  it('still leaves the small islands without timber of their own', () => {
+    // Not a defect — nobody has drawn a wood on either, and rule V is how you leave them.
+    // Here so that changing it is a decision rather than an accident.
+    expect(sitesIn('sicilia')).toBe(0);
+    expect(sitesIn('sardinia_corsica')).toBe(0);
+    // Britannia is the richest source on the map, which is what the Tin Route is about.
+    expect(sitesIn('britannia')).toBeGreaterThan(1000);
+  });
+});
+
+/**
+ * Sea lanes: the map document's own, plus the ones only Warfront wants.
+ *
+ * The document is live Borderfall data — seeded by seedMaps.ts, read by the live socket's
+ * map resolver, used by two daily set-pieces — so a lane this mode needs and that mode
+ * does not cannot be written there. `extra_lanes` in the curation file is the Warfront-only
+ * side of the same question, and this is the check that the asset is exactly the union and
+ * nothing has drifted into it from either direction.
+ */
+describe('the asset\'s lanes are the map document plus curation, exactly', () => {
+  const assetLanes = new Set(grid.lanes.map((l) => [l.from, l.to].sort().join(' | ')));
+  const curated = new Set((curation.extra_lanes ?? []).map((l) => [l.from, l.to].sort().join(' | ')));
+
+  it('carries every sea connection the map declares inside the slice', () => {
+    for (const key of declaredSea) expect(assetLanes.has(key)).toBe(true);
+  });
+
+  it('carries every lane the curation adds, and no others', () => {
+    for (const key of curated) expect(assetLanes.has(key)).toBe(true);
+    expect(assetLanes.size).toBe(declaredSea.size + curated.size);
+    for (const key of assetLanes) {
+      expect(declaredSea.has(key) || curated.has(key)).toBe(true);
+    }
+  });
+
+  it('adds the Tin Route, and keeps it out of the live map document', () => {
+    const tinRoute = ['lusitania', 'britannia'].sort().join(' | ');
+    expect(curated.has(tinRoute)).toBe(true);
+    expect(assetLanes.has(tinRoute)).toBe(true);
+    // The point of the whole arrangement: Borderfall's own map is untouched by it.
+    expect(declaredSea.has(tinRoute)).toBe(false);
   });
 });

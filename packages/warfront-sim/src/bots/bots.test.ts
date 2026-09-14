@@ -434,6 +434,11 @@ describe('the economy holds up under raids', () => {
           tier: 0,
           passable: true,
           biome: forest ? Biome.Forest : Biome.Plains,
+          // The pipeline sets the wooded flag on every cell the forest mask covers, plain
+          // forest included, so forest-without-trees is a state the real asset cannot be
+          // in. A synthetic grid that could would let a lumber-camp test pass on ground no
+          // camp may actually stand on.
+          wooded: forest,
         });
       }
     }
@@ -544,6 +549,23 @@ describe('the economy holds up under raids', () => {
    */
   const raiderCell = cellAt(FOREST_FIRST + 10, 5);
   const towerCell = cellAt(FOREST_FIRST + 3, 5);
+
+  it('only ever proposes a lumber camp on wooded ground', () => {
+    // Counts the ASKS, not the result. A build the simulation refuses is dropped in
+    // silence, so a policy whose siting rule disagrees with the simulation's does not
+    // fail — it just proposes the same impossible cell every second for the whole match.
+    // That is how the port shipped with fourteen thousand refused commands in #333, and
+    // the lumber camp's ground rule moved out of the biome list for the same reason the
+    // port's never fitted in it.
+    const { sim } = play({ seconds: 60, timber: BUILDING_SPECS[BuildingKind.LumberCamp].timber * 4 });
+    const asks = sim
+      .toReplay()
+      .commands.filter((c) => c.command.type === 'build' && c.command.kind === BuildingKind.LumberCamp);
+    expect(asks.length).toBeGreaterThan(0);
+    for (const ask of asks) {
+      expect(sim.terrain!.isWooded((ask.command as { cell: number }).cell)).toBe(true);
+    }
+  });
 
   it('writes off an outlying building a raider sits on, when nothing is defending it', () => {
     // Not "evacuates" — evacuating is right, and the policy still does it under a tower.

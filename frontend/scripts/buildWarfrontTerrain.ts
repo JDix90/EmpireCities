@@ -74,6 +74,7 @@ interface Curation {
   highland_plateaus: string[];
   passes: Array<{ name: string; width_km: number; line: Position[] }>;
   forests: Array<{ name: string; ring: Ring }>;
+  extra_lanes?: Array<{ from: string; to: string; reason: string }>;
   /**
    * Land borders the map document declares that the rasterised province polygons cannot
    * express. Each one is an accepted divergence with its reason written down, not a class
@@ -445,7 +446,16 @@ async function main(): Promise<void> {
   }
 
   // 7. Hand-curated forest mask and mountain passes.
-  for (const f of curation.forests) fillPolygon([f.ring], grid, (c, r) => (forest[idx(c, r)] = 1));
+  const forestHits = new Map<string, number[]>();
+  for (const f of curation.forests) {
+    const cells: number[] = [];
+    fillPolygon([f.ring], grid, (c, r) => {
+      const i = idx(c, r);
+      forest[i] = 1;
+      cells.push(i);
+    });
+    forestHits.set(f.name, cells);
+  }
   const isBarrierAt = (lng: number, lat: number): boolean => {
     const c = Math.floor((lng - grid.minLng) / grid.dLng);
     const r = Math.floor((grid.maxLat - lat) / grid.dLat);
@@ -529,19 +539,33 @@ async function main(): Promise<void> {
       continue;
     }
     const o = owner[i];
+    // Woodland rides ALONGSIDE the biome rather than competing with it for the cell.
+    // The precedence chain below is about what ground IS — a hill outranks a wood because
+    // a wooded hill is still a hill to walk up — but before this flag existed that chain
+    // also deleted the trees, and with them every lumber camp site on the slope. Six of
+    // the fourteen curated woods were being erased outright, Sila and Kroumirie among
+    // them, which are the only woodland in Italy and in Africa.
+    const wooded = forest[i] === 1;
     if (barrier[i] && !pass[i]) {
-      cells[i] = sim.packCell({ owner: o, tier: 1, passable: false, biome: B.Mountain });
+      cells[i] = sim.packCell({ owner: o, tier: 1, passable: false, biome: B.Mountain, wooded });
     } else if (desert[i]) {
-      cells[i] = sim.packCell({ owner: o, tier: 0, passable: false, biome: B.Desert });
+      cells[i] = sim.packCell({ owner: o, tier: 0, passable: false, biome: B.Desert, wooded });
     } else if (river[i]) {
       const tier = highland[i] || barrier[i] ? 1 : 0;
-      cells[i] = sim.packCell({ owner: o, tier, passable: ford[i] === 1, biome: B.River, ford: ford[i] === 1 });
+      cells[i] = sim.packCell({
+        owner: o,
+        tier,
+        passable: ford[i] === 1,
+        biome: B.River,
+        ford: ford[i] === 1,
+        wooded,
+      });
     } else if (pass[i]) {
-      cells[i] = sim.packCell({ owner: o, tier: 1, passable: true, biome: B.Highland, pass: true });
+      cells[i] = sim.packCell({ owner: o, tier: 1, passable: true, biome: B.Highland, pass: true, wooded });
     } else if (highland[i]) {
-      cells[i] = sim.packCell({ owner: o, tier: 1, passable: true, biome: B.Highland });
+      cells[i] = sim.packCell({ owner: o, tier: 1, passable: true, biome: B.Highland, wooded });
     } else if (forest[i]) {
-      cells[i] = sim.packCell({ owner: o, tier: 0, passable: true, biome: B.Forest });
+      cells[i] = sim.packCell({ owner: o, tier: 0, passable: true, biome: B.Forest, wooded });
     } else {
       cells[i] = sim.packCell({ owner: o, tier: 0, passable: true, biome: B.Plains });
     }
@@ -663,9 +687,32 @@ async function main(): Promise<void> {
     throw new Error(`curation accepts missing land borders that now exist — remove them: ${staleAccepted.join(', ')}`);
   }
   const landPairs = map.connections.filter((c) => c.type === 'land' && wanted.has(c.from) && wanted.has(c.to));
-  const lanes: TerrainLane[] = map.connections
+  // Lanes are the map document's own sea connections, PLUS any the curation adds.
+  //
+  // The curated ones exist because the map document is live Borderfall data — it is seeded
+  // by seedMaps.ts, read by the live socket's map resolver, and used by two daily
+  // set-pieces — so a lane Warfront wants but Borderfall does not must not be written
+  // there. The curation file is the Warfront-only side of the same question, which is
+  // exactly what it is for.
+  const declaredSea = map.connections
     .filter((c) => c.type === 'sea' && wanted.has(c.from) && wanted.has(c.to))
     .map((c) => ({ from: c.from, to: c.to }));
+  const seen = new Set(declaredSea.map((c) => [c.from, c.to].sort().join('|')));
+  const curatedLanes: TerrainLane[] = [];
+  for (const c of curation.extra_lanes ?? []) {
+    if (!wanted.has(c.from) || !wanted.has(c.to)) {
+      throw new Error(`curation extra_lane names a province outside the slice: ${c.from} → ${c.to}`);
+    }
+    const key = [c.from, c.to].sort().join('|');
+    // A curated lane the map document already declares is not additive, it is a duplicate
+    // that will quietly drift if the document ever changes. Say so rather than dedupe it.
+    if (seen.has(key)) {
+      throw new Error(`curation extra_lane duplicates a sea connection the map already declares: ${key}`);
+    }
+    seen.add(key);
+    curatedLanes.push({ from: c.from, to: c.to });
+  }
+  const lanes: TerrainLane[] = [...declaredSea, ...curatedLanes];
   const reach = new Map<string, Set<number>>();
   const unreachable: string[] = [];
   for (const pair of landPairs) {
@@ -710,14 +757,51 @@ async function main(): Promise<void> {
   log(`ranges/deserts rasterised: ${rangesSeen.join(', ')}`);
   log(`rivers: ${riverNames.join(', ')}; fords placed at ${fordsPlaced} of ${fordPoints.length} points; beaches ${beaches}`);
   log(`pass cells: ${Object.entries(passHits).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+
+  // Every curated wood must actually yield ground a lumber camp could stand on.
+  //
+  // This is the check that was missing. The forest mask is the ONE hand-drawn input to
+  // this pipeline, and for six of its fourteen polygons the composer was quietly throwing
+  // the result away — a curator could draw a wood, see the build succeed, and ship an
+  // asset where it did not exist. Two seats in the roster had no timber anywhere on the
+  // map as a result, which took a session to find and was invisible from the output above,
+  // because the forest column reads 0% whether you drew nothing or drew something that was
+  // erased.
+  //
+  // Passable and owned, not merely wooded: a wood composed entirely onto impassable
+  // mountain or onto unowned ground is just as useless to a lumber camp as no wood at all.
+  const barrenWoods: string[] = [];
+  for (const [name, cells] of forestHits) {
+    const usable = cells.filter((i) => grid2.isWooded(i) && grid2.isPassable(i) && grid2.owner(i) > 0).length;
+    if (usable === 0) barrenWoods.push(`${name} (${cells.length} cells, none usable)`);
+  }
+  if (barrenWoods.length > 0) {
+    throw new Error(
+      `curated woods that yield no buildable ground — the polygon is misplaced, or sits entirely on ` +
+        `impassable or unowned cells: ${barrenWoods.join('; ')}`,
+    );
+  }
+  log(
+    `forest mask: ${forestHits.size} curated woods, ` +
+      `${[...forestHits.values()].reduce((a, c) => a + c.length, 0).toLocaleString()} cells painted, ` +
+      `${(() => {
+        let n2 = 0;
+        for (let i = 0; i < n; i++) if (grid2.isWooded(i) && grid2.isPassable(i)) n2 += 1;
+        return n2.toLocaleString();
+      })()} wooded and walkable`,
+  );
   const extents: number[] = [];
-  log('province                cells  passable  plains  forest  highland  mountain  river  fords  beaches  extent');
+  log('province                cells  passable  plains  wooded  highland  mountain  river  fords  beaches  extent');
   for (const p of provinces) {
     let cellsN = 0;
     let passable = 0;
     const biomes = new Array<number>(8).fill(0);
     let fords = 0;
     let beachN = 0;
+    // Wooded, not the forest biome. A wooded hill reads as highland in the biome column
+    // and is still where a lumber camp goes, so a forest column would report zero for
+    // provinces full of timber — which is exactly how the gap hid for two whole steps.
+    let woodedN = 0;
     let cMin = Infinity;
     let cMax = -Infinity;
     let rMin = Infinity;
@@ -729,6 +813,7 @@ async function main(): Promise<void> {
       biomes[grid2.biome(i)] += 1;
       if (grid2.isFord(i)) fords += 1;
       if (grid2.isBeach(i)) beachN += 1;
+      if (grid2.isWooded(i) && grid2.isPassable(i)) woodedN += 1;
       const c = i % width;
       const r = Math.floor(i / width);
       cMin = Math.min(cMin, c);
@@ -740,7 +825,7 @@ async function main(): Promise<void> {
     extents.push(extent);
     const pct = (x: number): string => `${((100 * x) / Math.max(1, cellsN)).toFixed(0)}%`.padStart(6);
     log(
-      `${p.territory_id.padEnd(22)} ${String(cellsN).padStart(6)} ${pct(passable)}  ${pct(biomes[B.Plains])}  ${pct(biomes[B.Forest])}  ${pct(biomes[B.Highland]).padStart(8)}  ${pct(biomes[B.Mountain]).padStart(8)}  ${String(biomes[B.River]).padStart(5)}  ${String(fords).padStart(5)}  ${String(beachN).padStart(7)}  ${String(extent).padStart(6)}`,
+      `${p.territory_id.padEnd(22)} ${String(cellsN).padStart(6)} ${pct(passable)}  ${pct(biomes[B.Plains])}  ${pct(woodedN)}  ${pct(biomes[B.Highland]).padStart(8)}  ${pct(biomes[B.Mountain]).padStart(8)}  ${String(biomes[B.River]).padStart(5)}  ${String(fords).padStart(5)}  ${String(beachN).padStart(7)}  ${String(extent).padStart(6)}`,
     );
   }
   extents.sort((a, b) => a - b);
@@ -748,7 +833,10 @@ async function main(): Promise<void> {
   if (unreachable.length > 0) {
     throw new Error(`land borders with no walkable route (add a pass or ford to curation):\n  ${unreachable.join('\n  ')}`);
   }
-  log(`all ${landPairs.length} land borders among the twenty are walkable; ${lanes.length} sea lanes copied from the map`);
+  log(
+    `all ${landPairs.length} land borders among the twenty are walkable; ` +
+      `${declaredSea.length} sea lanes from the map document, ${curatedLanes.length} added by curation`,
+  );
 
   // 11. Write the asset: pretty header, one RLE row per line, checksum from the sim's own hasher.
   const rows = sim.encodeTerrainRows(cells, width, height);

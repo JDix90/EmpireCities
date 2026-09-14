@@ -157,6 +157,18 @@ export default function WarfrontProvincePanel({
               <span className="text-right text-bf-text">{percent(province.biomes[b], province.cells)}%</span>
             </span>
           ))}
+          {/*
+            Its own row, below the biomes, because woodland is not one of them. A wooded
+            hill counts as highland above and is still the only ground a lumber camp can
+            stand on — so a panel showing biomes alone would tell a player there is no
+            timber in a province full of it.
+          */}
+          {province.wooded > 0 && (
+            <>
+              <span>wooded</span>
+              <span className="text-right text-bf-text">{percent(province.wooded, province.cells)}%</span>
+            </>
+          )}
         </div>
       </div>
 
