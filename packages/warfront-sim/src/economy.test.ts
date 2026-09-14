@@ -30,7 +30,15 @@ function testGrid(): TerrainGrid {
     let biome: number = Biome.Plains;
     if (c === FOREST_COL) biome = Biome.Forest;
     else if (c === HIGHLAND_COL) biome = Biome.Highland;
-    cells[1 * WIDTH + c] = packCell({ owner: 1, tier: 0, passable: true, biome: biome as 2 | 3 | 4 });
+    // Woodland is a flag beside the biome now, not a biome value, so a forest cell has to
+    // carry it or no lumber camp will stand there. See WOODED_BIT in terrain.ts.
+    cells[1 * WIDTH + c] = packCell({
+      owner: 1,
+      tier: 0,
+      passable: true,
+      biome: biome as 2 | 3 | 4,
+      wooded: c === FOREST_COL,
+    });
   }
   return new TerrainGrid(WIDTH, height, cells, {
     provinces: [{ index: 1, territory_id: 'lugdunensis', name: 'Gallia Lugdunensis' }],
@@ -237,7 +245,7 @@ describe('construction', () => {
     expect(sim.buildings.atCell(cellAt(2))?.kind).toBe(BuildingKind.Farm);
   });
 
-  it('lets a lumber camp stand in forest and a mine in hills', () => {
+  it('lets a lumber camp stand on wooded ground and a mine in hills', () => {
     const sim = economySim({ villagers: 1, villagerCol: FOREST_COL, timber: 500 });
     sim.issue({ type: 'build', unit: 1, kind: BuildingKind.LumberCamp, cell: cellAt(FOREST_COL) });
     sim.run(3);
@@ -245,6 +253,18 @@ describe('construction', () => {
     sim.issue({ type: 'build', unit: 1, kind: BuildingKind.Mine, cell: cellAt(HIGHLAND_COL) });
     sim.run(3);
     expect(sim.buildings.atCell(cellAt(HIGHLAND_COL))?.kind).toBe(BuildingKind.Mine);
+  });
+
+  it('refuses a lumber camp on ground the forest mask never covered', () => {
+    // The rule is the wooded FLAG, not the forest biome — that is what lets a wooded hill
+    // hold a camp while staying highland for movement and the archer's high ground. The
+    // two came apart on the committed map, where the composer was erasing every upland
+    // wood and leaving two seats with no timber anywhere.
+    const sim = economySim({ villagers: 1, villagerCol: 2, timber: 500 });
+    sim.issue({ type: 'build', unit: 1, kind: BuildingKind.LumberCamp, cell: cellAt(2) });
+    sim.run(3);
+    expect(sim.buildings.atCell(cellAt(2))).toBeUndefined();
+    expect(sim.players.get(1)!.timber).toBe(500);
   });
 
   it('charges timber, and refuses when it cannot be paid', () => {

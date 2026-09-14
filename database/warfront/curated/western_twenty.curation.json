@@ -1,5 +1,5 @@
 {
-  "_comment": "HAND-CURATED inputs for frontend/scripts/buildWarfrontTerrain.ts (Warfront decision 28: passes and the forest mask are curated; elevation ranges and rivers come from data). This is the ONLY hand-edited file under database/warfront/ \u2014 everything else there is generated. Coordinates are [lng, lat] in degrees. First pass for the slice: every polygon here is a rough sketch to be repainted once the renderer exists.",
+  "_comment": "HAND-CURATED inputs for frontend/scripts/buildWarfrontTerrain.ts (Warfront decision 28: passes and the forest mask are curated; elevation ranges and rivers come from data). This is the ONLY hand-edited file under database/warfront/ — everything else there is generated. Coordinates are [lng, lat] in degrees. First pass for the slice: every polygon here is a rough sketch to be repainted once the renderer exists. extra_lanes are Warfront-only sea routes: the map document is live Borderfall data and must not carry a lane only this mode wants.",
   "map_id": "community_roman_empire_117",
   "cell_km": 4,
   "provinces": [
@@ -42,7 +42,7 @@
     {
       "name": "Rhone",
       "match": [
-        "Rh\u00f4ne",
+        "Rhône",
         "Rhone",
         "Rhne"
       ]
@@ -595,10 +595,17 @@
       ]
     }
   ],
+  "extra_lanes": [
+    {
+      "from": "lusitania",
+      "to": "britannia",
+      "reason": "The Tin Route. Today only Gaul is one hop from Britannia and everyone else must first take a Channel coast province, which makes the richest timber and the brief's tin a Gaulish monopoly. This is the long Atlantic crossing Carthaginian traders really sailed from Gades to Cornwall; transit is distance-based so it prices itself."
+    }
+  ],
   "accepted_missing_land": [
     {
       "pair": "narbonensis | tarraconensis",
-      "reason": "The map declares a Pyrenean land border, but in the rasterised province polygons Aquitania sits physically between the two \u2014 their nearest cells are 13 apart with 115 Aquitania cells in the corridor. Realising it would mean moving province boundaries, which come from buildTerritoryGlobeGeometries and are live-game geometry. Consequence: Hispania reaches Narbonensis through Aquitania, one hop longer than the board says."
+      "reason": "The map declares a Pyrenean land border, but in the rasterised province polygons Aquitania sits physically between the two — their nearest cells are 13 apart with 115 Aquitania cells in the corridor. Realising it would mean moving province boundaries, which come from buildTerritoryGlobeGeometries and are live-game geometry. Consequence: Hispania reaches Narbonensis through Aquitania, one hop longer than the board says."
     }
   ]
 }

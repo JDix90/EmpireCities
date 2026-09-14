@@ -147,8 +147,9 @@ export interface BuildingSpec {
 }
 
 // Biome values from terrain.ts, repeated as literals to keep this a pure data module.
+// No FOREST here any more: the lumber camp is sited by the wooded flag rather than by
+// biome, so nothing in this table names it. See the LumberCamp entry below.
 const PLAINS = 2;
-const FOREST = 3;
 const HIGHLAND = 4;
 
 export const BUILDING_SPECS: Record<number, BuildingSpec> = {
@@ -185,6 +186,21 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
     workerSlots: 4,
     biomes: [PLAINS],
   },
+  /**
+   * The only source of timber, and the one building whose ground the biome list cannot
+   * describe.
+   *
+   * `biomes` is empty and the rule lives in the build path instead, next to the port's and
+   * the lighthouse's, because a lumber camp wants WOODED ground and woodland is carried
+   * beside the biome rather than as one of its values — a wooded hill is a hill for
+   * movement, tier and the high-ground bonus, and still has trees on it. See `WOODED_BIT`
+   * in terrain.ts for why, and for the two seats that had no timber at all while this was
+   * a biome test.
+   *
+   * Leaving a `[FOREST]` biome list here as a cheap pre-filter and checking wooded separately was the
+   * other option, and is worse: it makes "can a camp stand here" two conditions in two
+   * files that agree only as long as nobody edits one of them.
+   */
   [BuildingKind.LumberCamp]: {
     timber: 30,
     silver: 0,
@@ -194,7 +210,7 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
     produces: Resource.Timber,
     yieldPerMinute: 8,
     workerSlots: 4,
-    biomes: [FOREST],
+    biomes: [],
   },
   [BuildingKind.Mine]: {
     timber: 60,

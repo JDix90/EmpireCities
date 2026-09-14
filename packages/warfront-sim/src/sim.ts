@@ -718,6 +718,11 @@ export class Sim {
         // rule. Its reach is a province wide, so a light on a lane-less shore watching a
         // neighbour's crossing is the thing it is for, not a mistake to refuse.
         if (kind === BuildingKind.Lighthouse && !isCoastal(grid, command.cell)) return;
+        // The lumber camp's ground, for the same reason the other two are here: woodland is
+        // carried beside the biome, not as one of its values, so the spec's biome list
+        // cannot say it. A wooded hill is a hill — highland for movement, tier and the
+        // archer's high ground — that also has trees on it.
+        if (kind === BuildingKind.LumberCamp && !grid.isWooded(command.cell)) return;
         if (player.timber < spec.timber || player.silver < spec.silver) return;
         player.timber -= spec.timber;
         player.silver -= spec.silver;

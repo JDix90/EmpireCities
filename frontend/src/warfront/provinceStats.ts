@@ -7,7 +7,7 @@
  * province's numbers together, which is both faster and simpler than caching per hover.
  */
 
-import { BIOME_NAMES, cellBeach, cellFord, cellPass, type TerrainGrid } from '@borderfall/warfront-sim';
+import { BIOME_NAMES, cellBeach, cellFord, cellPass, cellWooded, type TerrainGrid } from '@borderfall/warfront-sim';
 
 export interface ProvinceStats {
   index: number;
@@ -22,6 +22,14 @@ export interface ProvinceStats {
   passes: number;
   /** Highland (tier 1) cell count — the high ground that matters to the rules. */
   highland: number;
+  /**
+   * Walkable wooded cells — where a lumber camp can stand.
+   *
+   * Not the forest biome. Woodland is carried beside the biome, so a wooded hill reads as
+   * highland in `biomes` and is still timber; a panel that showed only the forest count
+   * would report none for a province full of it.
+   */
+  wooded: number;
   /** territory_ids this province has a sea lane to. */
   lanes: string[];
   /** Cell index nearest the province's centre of mass, for a camera jump. */
@@ -53,6 +61,7 @@ export function computeProvinceStats(grid: TerrainGrid): ProvinceStats[] {
       beaches: 0,
       passes: 0,
       highland: 0,
+      wooded: 0,
       lanes: [],
       centerCell: -1,
     });
@@ -72,6 +81,7 @@ export function computeProvinceStats(grid: TerrainGrid): ProvinceStats[] {
     if (cellFord(value)) stats.fords += 1;
     if (cellBeach(value)) stats.beaches += 1;
     if (cellPass(value)) stats.passes += 1;
+    if (cellWooded(value) && grid.isPassable(i)) stats.wooded += 1;
     const sum = sums.get(owner)!;
     sum.col += grid.colOf(i);
     sum.row += grid.rowOf(i);

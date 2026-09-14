@@ -108,6 +108,11 @@ export function stableSortBy<T>(items: readonly T[], key: (item: T) => number): 
  * anything again.
  */
 function sitePasses(view: BotView, kind: BuildingKindValue, cell: number): boolean {
+  // Woodland is a flag beside the biome, so the spec's biome list is empty for a lumber
+  // camp and this is the whole of its ground rule. Without the clause a policy proposes
+  // bare highland, the simulation silently refuses it, and the policy proposes it again a
+  // second later — the fourteen-thousand-refusal shape the port had before #333.
+  if (kind === BuildingKind.LumberCamp) return view.grid.isWooded(cell);
   // A light is coastal and nothing else — the simulation refuses an inland one and
   // accepts every other, and this function's job is to agree with it exactly. Whether a
   // particular shore is WORTH watching is a policy's question, not a siting rule.

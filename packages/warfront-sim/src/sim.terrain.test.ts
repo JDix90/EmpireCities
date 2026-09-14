@@ -41,10 +41,12 @@ const LE_MANS = cellOf(grid, 0.2, 48.0);
 const POITIERS = cellOf(grid, 0.34, 46.58);
 
 describe('the committed western-twenty asset', () => {
-  it("decodes with its checksum, twenty provinces and the map's fourteen lanes", () => {
+  it("decodes with its checksum, twenty provinces and fifteen lanes", () => {
     expect(grid.width).toBe(asset.width);
     expect(grid.provinces).toHaveLength(20);
-    expect(grid.lanes).toHaveLength(14);
+    // Fourteen from the map document, plus the curated Tin Route. westernTwenty.test.ts
+    // is where that split is pinned; this only asserts the total decodes.
+    expect(grid.lanes).toHaveLength(15);
     expect(grid.checksum()).toBe(asset.checksum);
     expect(grid.cellKm).toBe(4);
   });
