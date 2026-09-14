@@ -47,6 +47,7 @@ import { startChallengeSweep, stopChallengeSweep } from './game-engine/progressi
 import { ensureDailyChallengeForToday } from './game-engine/daily/dailyPuzzleService';
 import { describeDailySchedule } from './game-engine/daily/dailySchedule';
 import { startDailyPrewarm, stopDailyPrewarm } from './game-engine/daily/dailyPrewarmService';
+import { startIndexNowDailySweep, stopIndexNowDailySweep } from './services/indexNowDailySweep';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry, captureException } from './services/sentry';
@@ -495,6 +496,7 @@ async function bootstrap(): Promise<void> {
   startChallengeSweep();
   startOrphanedGameSweep();
   startDailyPrewarm();
+  startIndexNowDailySweep();
   startGuestCleanupSweep();
   // Hourly re-engagement sweep (streak reminders, win-back). Sends are gated
   // by the retention_notifications_enabled flag, so starting the worker with
@@ -545,6 +547,7 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
       stopChallengeSweep();
       stopOrphanedGameSweep();
       stopDailyPrewarm();
+      stopIndexNowDailySweep();
       stopGuestCleanupSweep();
       await import('./workers/retentionNotificationWorker')
         .then((m) => m.stopRetentionNotificationWorker())
