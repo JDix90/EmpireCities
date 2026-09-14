@@ -70,6 +70,7 @@ export { ColonistBot, COLONIST_DEFAULTS, type ColonistParams } from './bots/colo
 export { RaiderBot } from './bots/raider';
 export { TurtleBot } from './bots/turtle';
 export { RusherBot } from './bots/rusher';
+export { SeafarerBot, MarinerBot, IslanderBot } from './bots/seafarer';
 export {
   MetricsCollector,
   summarise,

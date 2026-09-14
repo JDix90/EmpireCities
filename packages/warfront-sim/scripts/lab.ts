@@ -20,6 +20,7 @@ import { ColonistBot } from '../src/bots/colonist';
 import { RaiderBot } from '../src/bots/raider';
 import { TurtleBot } from '../src/bots/turtle';
 import { RusherBot } from '../src/bots/rusher';
+import { IslanderBot, MarinerBot } from '../src/bots/seafarer';
 import { TICKS_PER_MINUTE } from '../src/rules';
 import type { Summary } from '../src/lab/metrics';
 
@@ -31,6 +32,8 @@ const FACTORIES: Record<string, BotFactory> = {
   raider: () => new RaiderBot(),
   turtle: () => new TurtleBot(),
   rusher: () => new RusherBot(),
+  islander: () => new IslanderBot(),
+  mariner: () => new MarinerBot(),
 };
 
 function arg(name: string, fallback?: string): string | undefined {
