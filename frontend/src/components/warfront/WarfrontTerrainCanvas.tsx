@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
-import { BUILDING_SPECS, BuildingKind, UnitKind, type TerrainGrid } from '@borderfall/warfront-sim';
+import { BUILDING_SPECS, type TerrainGrid } from '@borderfall/warfront-sim';
 import { buildTerrainImage } from '../../warfront/terrainImage';
+import {
+  HIGHLIGHT_ALPHA,
+  SHADOW_ALPHA,
+  SHADOW_DROP,
+  buildingGlyph,
+  healthBucket,
+  healthColor,
+  highlightOf,
+  ownerColor,
+  shade,
+  unitGlyph,
+  type Outline,
+} from '../../warfront/glyphs';
 import type { SimRunner, UnitView } from '../../warfront/simRunner';
 import { DRAG_THRESHOLD_PX, normalizeRect, type WorldRect } from '../../warfront/selection';
 import {
@@ -22,6 +35,12 @@ import {
  * why. Units are drawn in SCREEN space rather than as children of that sprite, so a unit
  * stays the same readable size at every zoom level instead of shrinking to a sub-pixel
  * speck when the whole of Gaul is on screen.
+ *
+ * What stands on the terrain is drawn the same way the terrain is: a contact shadow so it
+ * sits on the ground rather than over it, a silhouette per kind (see glyphs.ts), and a
+ * highlight thrown from the north-west, which is where the map's own light comes from.
+ * The shapes themselves live in glyphs.ts and are unit-tested there; this file is only
+ * the PixiJS that puts them on screen.
  *
  * Input follows the RTS convention rather than the map-viewer one: left selects (click
  * or box), right orders, middle-drag or WASD pans, wheel zooms. This component owns the
@@ -55,33 +74,100 @@ export interface WarfrontTerrainCanvasProps {
   focus?: { cell: number; nonce: number } | null;
 }
 
-const BACKGROUND = 0x0a0e1a;
+const BACKGROUND = 0x080c14;
 const WHEEL_ZOOM_STEP = 1.0015;
 const KEY_PAN_PX_PER_FRAME = 12;
 /** Reporting every frame would re-render React 60 times a second for a tick counter. */
 const FRAMES_PER_HUD_UPDATE = 10;
 
-const OWNER_COLORS = [0xe8c46a, 0x6aa9e8, 0xe86a6a, 0x7fe86a, 0xc99ae8, 0x6ae8d2];
-/** Owner 0 is nobody — the tribes. Rule VI wants raiders unmistakable inside your land. */
-const RAIDER_COLOR = 0xb3402f;
 const SELECTION_RING = 0xffffff;
+const SELECTION_SHADE = 0x0b0f16;
 const GOAL_MARKER = 0xffffff;
-const HEALTH_BAR_WIDTH_PX = 14;
-const BUILDING_HALF_PX = 6;
+const HEALTH_BAR_WIDTH_PX = 15;
+/** How dark a thing's own outline is, as a fraction of its owner's colour. */
+const OUTLINE_SHADE = 0.4;
+/** And its marks — the furrows, the shaft, the beam — a shade darker again. */
+const MARK_SHADE = 0.3;
 
-function ownerColor(owner: number): number {
-  if (owner === 0) return RAIDER_COLOR;
-  return OWNER_COLORS[(owner - 1) % OWNER_COLORS.length];
+/** Draws an open polyline from a glyph mark. */
+function stroke(g: PIXI.Graphics, mark: Outline): void {
+  g.moveTo(mark[0], mark[1]);
+  for (let i = 2; i < mark.length; i += 2) g.lineTo(mark[i], mark[i + 1]);
 }
 
-/**
- * Screen radius by kind, so a glance tells a villager from a ram without a label. These
- * are drawing sizes only — nothing here feeds back into the simulation.
- */
-function unitRadius(kind: number): number {
-  if (kind === UnitKind.Villager || kind === UnitKind.Scout) return 4;
-  if (kind === UnitKind.Ram) return 7;
-  return 5;
+/** The ellipse that stops a thing floating over the ground it is standing on. */
+function contactShadow(g: PIXI.Graphics, extent: number): void {
+  g.lineStyle(0);
+  g.beginFill(0x000000, SHADOW_ALPHA)
+    .drawEllipse(SHADOW_DROP, extent * 0.62, extent * 0.98, extent * 0.42)
+    .endFill();
+}
+
+/** A ring that reads on light mountain and dark sea alike: white outside, ink inside. */
+function selectionRing(g: PIXI.Graphics, extent: number): void {
+  g.lineStyle(1, SELECTION_SHADE, 0.9).drawCircle(0, 0, extent + 5);
+  g.lineStyle(2, SELECTION_RING, 0.95).drawCircle(0, 0, extent + 3.5);
+}
+
+/** Hit points, only ever drawn on something that has lost some. */
+function healthBar(g: PIXI.Graphics, top: number, fraction: number): void {
+  const width = HEALTH_BAR_WIDTH_PX;
+  g.lineStyle(0);
+  g.beginFill(0x000000, 0.7).drawRect(-width / 2 - 1, top - 1, width + 2, 4).endFill();
+  g.beginFill(healthColor(fraction), 1).drawRect(-width / 2, top, width * fraction, 2).endFill();
+}
+
+function drawUnit(g: PIXI.Graphics, kind: number, owner: number, selected: boolean, tenths: number): void {
+  const { outline, radius } = unitGlyph(kind);
+  const base = ownerColor(owner);
+  g.clear();
+  contactShadow(g, radius);
+  if (selected) selectionRing(g, radius);
+  g.lineStyle(1.25, shade(base, OUTLINE_SHADE), 1)
+    .beginFill(base, 1)
+    .drawPolygon([...outline])
+    .endFill();
+  g.lineStyle(0).beginFill(0xffffff, HIGHLIGHT_ALPHA).drawPolygon(highlightOf(outline, radius)).endFill();
+  if (tenths < 10) healthBar(g, radius + 3, tenths / 10);
+}
+
+function drawBuilding(
+  g: PIXI.Graphics,
+  kind: number,
+  owner: number,
+  complete: boolean,
+  selected: boolean,
+  tenths: number,
+  progress: number,
+): void {
+  const { outline, marks, half } = buildingGlyph(kind);
+  const base = ownerColor(owner);
+  g.clear();
+  contactShadow(g, half);
+  if (selected) selectionRing(g, half);
+  if (complete) {
+    g.lineStyle(1.25, shade(base, OUTLINE_SHADE), 1)
+      .beginFill(base, 1)
+      .drawPolygon([...outline])
+      .endFill();
+    g.lineStyle(0).beginFill(0xffffff, HIGHLIGHT_ALPHA).drawPolygon(highlightOf(outline, half)).endFill();
+    g.lineStyle(1.2, shade(base, MARK_SHADE), 0.95);
+    for (const mark of marks) stroke(g, mark);
+    if (tenths < 10) healthBar(g, half + 3, tenths / 10);
+    return;
+  }
+  // A site is the same footprint, hollow, with how far along it is drawn underneath —
+  // a builder needs to know whether to stay, and a percentage in a panel is not on the map.
+  g.lineStyle(1.25, base, 0.85)
+    .beginFill(base, 0.15)
+    .drawPolygon([...outline])
+    .endFill();
+  g.lineStyle(1.1, shade(base, 0.55), 0.6);
+  for (const mark of marks) stroke(g, mark);
+  const width = HEALTH_BAR_WIDTH_PX;
+  g.lineStyle(0);
+  g.beginFill(0x000000, 0.7).drawRect(-width / 2 - 1, half + 2, width + 2, 4).endFill();
+  g.beginFill(base, 0.95).drawRect(-width / 2, half + 3, (width * progress) / 100, 2).endFill();
 }
 
 export default function WarfrontTerrainCanvas({
@@ -261,42 +347,32 @@ export default function WarfrontTerrainCanvas({
             graphics.set(building.id, g);
             buildingLayer.addChild(g);
           }
-          const maxHp = BUILDING_SPECS[building.kind]?.hp ?? 1;
-          const hurt = building.hp < maxHp;
+          const spec = BUILDING_SPECS[building.kind];
+          const tenths = healthBucket(building.hp, spec?.hp ?? 0);
+          // Rebuilt only when the LOOK changes. Health and build progress are bucketed
+          // so a building under fire, or one being raised, does not rebuild per tick.
+          // `progress` is in TICKS in the simulation; the bar wants a percentage.
+          const progress =
+            building.complete || !spec ? 100 : Math.min(100, Math.floor((building.progress * 100) / spec.buildTicks));
           const key = [
             building.owner,
             building.kind,
             building.complete ? 1 : 0,
             selectedBuilding === building.id ? 1 : 0,
-            hurt ? Math.round((building.hp * 10) / maxHp) : -1,
+            tenths,
+            building.complete ? -1 : Math.round(progress / 5),
           ].join(':');
           if (g.name !== key) {
             g.name = key;
-            g.clear();
-            const half = building.kind === BuildingKind.Seat ? BUILDING_HALF_PX + 2 : BUILDING_HALF_PX;
-            if (selectedBuilding === building.id) {
-              g.lineStyle(2, SELECTION_RING, 1).drawRect(-half - 3, -half - 3, (half + 3) * 2, (half + 3) * 2);
-            }
-            // A site under construction is an outline; a finished building is solid.
-            if (building.complete) {
-              g.lineStyle(1, 0x101418, 1).beginFill(ownerColor(building.owner), 1);
-            } else {
-              g.lineStyle(1, ownerColor(building.owner), 0.9).beginFill(ownerColor(building.owner), 0.2);
-            }
-            g.drawRect(-half, -half, half * 2, half * 2).endFill();
-            // A seat carries its tower: a diamond on top, so rule III is legible at a glance.
-            if (building.kind === BuildingKind.Seat || building.kind === BuildingKind.Tower) {
-              g.lineStyle(1, 0x101418, 1)
-                .beginFill(0xffffff, 0.85)
-                .drawPolygon([0, -half - 5, 4, -half - 1, 0, -half + 3, -4, -half - 1])
-                .endFill();
-            }
-            if (hurt) {
-              g.beginFill(0x000000, 0.6).drawRect(-HEALTH_BAR_WIDTH_PX / 2, half + 2, HEALTH_BAR_WIDTH_PX, 2).endFill();
-              g.beginFill(0x6ae87f, 1)
-                .drawRect(-HEALTH_BAR_WIDTH_PX / 2, half + 2, (HEALTH_BAR_WIDTH_PX * building.hp) / maxHp, 2)
-                .endFill();
-            }
+            drawBuilding(
+              g,
+              building.kind,
+              building.owner,
+              building.complete,
+              selectedBuilding === building.id,
+              tenths,
+              progress,
+            );
           }
           const bp = worldToScreen(camera, viewport, grid.colOf(building.cell) + 0.5, grid.rowOf(building.cell) + 0.5);
           g.position.set(bp.x, bp.y);
@@ -319,27 +395,13 @@ export default function WarfrontTerrainCanvas({
           unitLayer.addChild(g);
         }
         const isSelected = selected.has(unit.id);
-        const radius = unitRadius(unit.kind);
-        const hurt = unit.hp < unit.maxHp;
-        // Redraw only when the look changes; position is set every frame. Health is
-        // bucketed to tenths so a unit under fire does not rebuild its graphic per tick.
-        const key = [
-          unit.owner,
-          unit.kind,
-          isSelected ? 1 : 0,
-          hurt ? Math.round((unit.hp * 10) / unit.maxHp) : -1,
-        ].join(':');
+        const { radius } = unitGlyph(unit.kind);
+        const tenths = healthBucket(unit.hp, unit.maxHp);
+        // Redraw only when the look changes; position is set every frame.
+        const key = [unit.owner, unit.kind, isSelected ? 1 : 0, tenths].join(':');
         if (g.name !== key) {
           g.name = key;
-          g.clear();
-          if (isSelected) g.lineStyle(2, SELECTION_RING, 1).drawCircle(0, 0, radius + 3);
-          g.lineStyle(1, 0x101418, 1).beginFill(ownerColor(unit.owner), 1).drawCircle(0, 0, radius).endFill();
-          if (hurt) {
-            g.beginFill(0x000000, 0.6).drawRect(-HEALTH_BAR_WIDTH_PX / 2, radius + 2, HEALTH_BAR_WIDTH_PX, 2).endFill();
-            g.beginFill(0x6ae87f, 1)
-              .drawRect(-HEALTH_BAR_WIDTH_PX / 2, radius + 2, (HEALTH_BAR_WIDTH_PX * unit.hp) / unit.maxHp, 2)
-              .endFill();
-          }
+          drawUnit(g, unit.kind, unit.owner, isSelected, tenths);
         }
         const p = worldToScreen(camera, viewport, unit.x, unit.y);
         g.position.set(p.x, p.y);
@@ -362,23 +424,27 @@ export default function WarfrontTerrainCanvas({
             const unit = sim.sim.entities.get(id);
             if (!unit || !unit.moving) continue;
             const gp = worldToScreen(camera, viewport, unit.goalX / 65536, unit.goalY / 65536);
-            overlay.lineStyle(1, GOAL_MARKER, 0.7);
-            overlay.moveTo(gp.x - 5, gp.y);
-            overlay.lineTo(gp.x + 5, gp.y);
-            overlay.moveTo(gp.x, gp.y - 5);
-            overlay.lineTo(gp.x, gp.y + 5);
+            // A ringed mark rather than a bare cross: a cross of hairlines disappears over
+            // the map's own detail, and an order the player cannot see is an order they
+            // give twice.
+            overlay.lineStyle(1.5, 0x000000, 0.45);
+            overlay.drawPolygon([gp.x, gp.y - 6, gp.x + 6, gp.y, gp.x, gp.y + 6, gp.x - 6, gp.y]);
+            overlay.lineStyle(1.5, GOAL_MARKER, 0.85);
+            overlay.drawPolygon([gp.x, gp.y - 5, gp.x + 5, gp.y, gp.x, gp.y + 5, gp.x - 5, gp.y]);
+            overlay.lineStyle(0).beginFill(GOAL_MARKER, 0.8).drawCircle(gp.x, gp.y, 1.4).endFill();
           }
         }
         const box = boxRef.current;
         if (box && box.active) {
-          overlay.lineStyle(1, SELECTION_RING, 0.9);
-          overlay.beginFill(SELECTION_RING, 0.08);
-          overlay.drawRect(
-            Math.min(box.x0, box.x1),
-            Math.min(box.y0, box.y1),
-            Math.abs(box.x1 - box.x0),
-            Math.abs(box.y1 - box.y0),
-          );
+          const x = Math.min(box.x0, box.x1);
+          const y = Math.min(box.y0, box.y1);
+          const w = Math.abs(box.x1 - box.x0);
+          const h = Math.abs(box.y1 - box.y0);
+          // Inked underneath, so the box reads over snow as well as over open sea.
+          overlay.lineStyle(2, SELECTION_SHADE, 0.55).drawRect(x, y, w, h);
+          overlay.lineStyle(1, SELECTION_RING, 0.95);
+          overlay.beginFill(SELECTION_RING, 0.07);
+          overlay.drawRect(x, y, w, h);
           overlay.endFill();
         }
       }
