@@ -229,9 +229,7 @@ export const MARKETING_PAGES = [
     file: 'index.html',
     title: 'Borderfall — Turn-Based Territory Strategy Across the Ages',
     description:
-      'Borderfall is a free, turn-based territory strategy game you play in your '
-      + 'browser. Classic Risk-style conquest, except the world advances through the '
-      + 'ages while you play it, from ancient legions to fleets among the stars.',
+      'A free, turn-based territory strategy game in your browser. Risk-style conquest, except the world climbs through the ages as you play it.',
     h1: 'Borderfall',
     tagline: 'Every border is temporary.',
     jsonLd: true,
@@ -293,9 +291,7 @@ export const MARKETING_PAGES = [
     file: 'how-to-play/index.html',
     title: 'How to Play Borderfall — Rules, Combat & Strategy Guide',
     description:
-      'Learn how to play Borderfall: reinforcements, attacking and defending, dice combat, '
-      + 'continent bonuses, fortifying, and advancing through the ages. A beginner-friendly '
-      + 'guide to turn-based territory strategy.',
+      'Learn Borderfall: reinforcing, attacking, dice combat, region bonuses, fortifying and advancing through the ages. A beginner\'s guide to the turn.',
     h1: 'How to Play Borderfall',
     tagline: 'Master the turn, then master the map.',
     jsonLd: false,
@@ -388,9 +384,7 @@ export const MARKETING_PAGES = [
     file: 'eras/index.html',
     title: 'The Eras of Borderfall — From the Ancient World to the Galaxy Age',
     description:
-      'Explore the nine-era arc of Borderfall: Ancient World, Medieval Era, Age of Discovery, '
-      + 'American Civil War, World War II, Cold War, the Modern Day, the Space Age, and the '
-      + 'Galactic Age. Each era changes the units, technology, and theaters of war.',
+      'The nine eras of Borderfall, from ancient kingdoms to a galactic age — and how each one changes the units, technologies and theatres of war.',
     h1: 'The Eras of Borderfall',
     tagline: 'One war, nine ages: from bronze spears to starfleets.',
     jsonLd: false,
@@ -564,8 +558,7 @@ export const MARKETING_PAGES = [
     file: 'answers/index.html',
     title: 'Borderfall — Common Questions, Answered Directly',
     description:
-      'Direct answers to the questions people actually ask about free browser strategy games: '
-      + 'price, sign-up, playing with friends, phone support, and how long a game takes.',
+      'Direct answers about free browser strategy games: price, sign-up, playing with friends, phone support, and how long a game actually takes.',
     h1: 'Questions, answered directly',
     tagline: 'The short answer first, then the specifics.',
     jsonLd: false,
@@ -602,8 +595,7 @@ export const MARKETING_PAGES = [
     file: 'answers/free-risk-like-browser-games/index.html',
     title: 'Is There a Free Risk-Style Game I Can Play in My Browser?',
     description:
-      'Yes — Borderfall is a free, turn-based territory conquest game that runs in any browser '
-      + 'with no download and no account. Play as a guest against AI in about ten seconds.',
+      'Yes — Borderfall is a free turn-based conquest game that runs in any browser. No download, no account: play as a guest against AI in seconds.',
     h1: 'Is there a free Risk-style game I can play in my browser?',
     tagline: '',
     jsonLd: false,
@@ -703,8 +695,7 @@ export const MARKETING_PAGES = [
     file: 'answers/play-risk-style-game-with-friends-online/index.html',
     title: 'How Can I Play a Risk-Style Game Online With Friends?',
     description:
-      'Open a private lobby on Borderfall and share the link. Free, browser-based, 2–8 players, '
-      + 'in real time or as asynchronous turns over days. No downloads for anyone.',
+      'Open a private lobby and share the link. Free, in the browser, 2–8 players, live or as asynchronous turns over days. Nobody installs anything.',
     h1: 'How can I play a Risk-style game online with friends for free?',
     tagline: '',
     jsonLd: false,
@@ -894,8 +885,7 @@ export const MARKETING_PAGES = [
     file: 'answers/turn-based-strategy-on-phone-browser/index.html',
     title: 'Can I Play Turn-Based Strategy in a Phone Browser?',
     description:
-      'Yes — Borderfall runs in mobile Safari, Chrome and Firefox with no app install. Free, '
-      + 'add-to-home-screen capable, and asynchronous turns suit playing in short bursts.',
+      'Yes — Borderfall runs in mobile Safari, Chrome and Firefox with no app install. Free, add-to-home-screen capable, and suited to short turns.',
     h1: 'Can I play a turn-based strategy game in my phone browser?',
     tagline: '',
     jsonLd: false,
@@ -988,8 +978,7 @@ export const MARKETING_PAGES = [
     file: 'answers/short-strategy-games-under-15-minutes/index.html',
     title: 'What Strategy Games Can I Finish in Under 15 Minutes?',
     description:
-      'Borderfall solo games against AI typically finish in about 10–15 minutes, and its Daily '
-      + 'Challenge takes a few. Free, in the browser, no download and no account needed.',
+      'Borderfall solo games usually finish in about 10–15 minutes, and its Daily Challenge takes a few. Free in the browser, no download needed.',
     h1: 'What strategy games can I finish in under 15 minutes?',
     tagline: '',
     jsonLd: false,

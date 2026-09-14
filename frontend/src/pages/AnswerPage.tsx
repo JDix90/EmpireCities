@@ -84,6 +84,7 @@ export default function AnswerPage() {
   if (!page) {
     return (
       <SubpageShell
+        titleAs="div"
         title="ANSWERS"
         icon={HelpCircle}
         maxWidth="2xl"
@@ -103,6 +104,7 @@ export default function AnswerPage() {
 
   return (
     <SubpageShell
+      titleAs="div"
       title="ANSWERS"
       icon={HelpCircle}
       maxWidth="2xl"

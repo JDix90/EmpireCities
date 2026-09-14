@@ -23,6 +23,17 @@ export interface SubpageShellProps {
   backHref?: string;
   backLabel?: string;
   maxWidth?: SubpageMaxWidth;
+  /**
+   * Element for the header title. Defaults to `h1`, which is right for the
+   * fourteen pages whose only heading IS this banner.
+   *
+   * Pass `'div'` on a page that renders its own `<h1>` in the body. The banner
+   * is page chrome — a short label like "ANSWERS" — while the body heading is
+   * the actual subject ("Is there a free Risk-style game…"). Two `h1`s on one
+   * page is a real SEO error (Bing's URL Inspection flags it), and of the two
+   * the body heading is the one that should win.
+   */
+  titleAs?: 'h1' | 'div';
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
@@ -37,6 +48,7 @@ export default function SubpageShell({
   backHref = '/lobby',
   backLabel = 'Lobby',
   maxWidth = '3xl',
+  titleAs: TitleTag = 'h1',
   children,
   className,
   contentClassName,
@@ -55,10 +67,10 @@ export default function SubpageShell({
             </Link>
           )}
         </div>
-        <h1 className="font-display text-xl text-bf-gold tracking-widest flex items-center justify-center gap-2 text-center min-w-0">
+        <TitleTag className="font-display text-xl text-bf-gold tracking-widest flex items-center justify-center gap-2 text-center min-w-0">
           {Icon && <Icon className="w-5 h-5 shrink-0" aria-hidden />}
           <span className="truncate">{title}</span>
-        </h1>
+        </TitleTag>
         <div className="w-16 sm:w-24 flex justify-end shrink-0 min-w-[4.5rem]">
           {headerRight}
         </div>

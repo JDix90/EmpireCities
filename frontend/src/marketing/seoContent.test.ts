@@ -80,6 +80,18 @@ describe('index.html agrees with the published marketing copy', () => {
     expect(html.includes('<div id="root"></div>'), 'prerender aborts without this exact div').toBe(true);
   });
 
+  it('every description is a length a search engine will actually show', () => {
+    // Bing's URL Inspection reports "Meta Description too long or too short" as
+    // an ERROR, and it flagged seven of these pages at once — the copy was
+    // written to read well without anyone counting characters. Google truncates
+    // around the same point. 160 is the ceiling both work to.
+    for (const page of MARKETING_PAGES) {
+      const n = page.description.length;
+      expect(n, `${page.path} description is ${n} chars`).toBeGreaterThanOrEqual(25);
+      expect(n, `${page.path} description is ${n} chars`).toBeLessThanOrEqual(160);
+    }
+  });
+
   it('no marketing tag is declared twice', () => {
     for (const [label, attr, key] of cases) {
       const all = html.match(new RegExp(`<meta\\s+${attr}="${key}"`, 'gi')) ?? [];
