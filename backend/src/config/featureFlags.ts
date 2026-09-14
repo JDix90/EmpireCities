@@ -62,6 +62,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
+  indexnow_enabled: () => envOptIn('INDEXNOW_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
   today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
   async_onboarding_enabled: () => envOptIn('ASYNC_ONBOARDING_ENABLED'),
@@ -272,6 +273,20 @@ export const featureFlags = {
    */
   get referralSurveyEnabled(): boolean {
     return overrideBool('referral_survey_enabled');
+  },
+
+  /**
+   * When true, a settled Daily archive page is announced to IndexNow (Bing and
+   * the other participating engines) instead of waiting for a sitemap re-crawl.
+   *
+   * Off by default and separate from INDEXNOW_KEY on purpose: the key says we
+   * CAN submit, this says we SHOULD. It is the operator kill switch for an
+   * outbound call to a third party — if IndexNow starts rejecting or rate
+   * limiting, this stops the traffic without pulling the key out of the
+   * environment and breaking the manual script too.
+   */
+  get indexNowEnabled(): boolean {
+    return overrideBool('indexnow_enabled');
   },
 
   /**

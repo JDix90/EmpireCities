@@ -103,7 +103,36 @@ the same split `/replay/:gameId` already used. Both render the same puzzle,
 objective and results from the same public API, which is what keeps dynamic
 serving from being cloaking; the backend sends `Vary: User-Agent`.
 
-## 6. Measuring whether assistants recommend us
+## 6. IndexNow — push URLs instead of waiting
+
+The Daily archive mints one new permanent URL a day, and the answer pages went
+live to a site with almost no crawl budget. A sitemap tells an engine a URL
+exists the next time it looks; IndexNow tells it now.
+
+The key file (`frontend/public/<key>.txt`) is committed and serves at the site
+root. **It must be deployed before any submission will be accepted** — IndexNow
+proves host control by fetching it, and until then every batch is rejected.
+
+One-off / bulk submission (preview by default):
+
+```
+export INDEXNOW_KEY=<the key from Bing Webmaster Tools>
+pnpm -C backend exec tsx scripts/indexNowSubmit.ts           # preview
+pnpm -C backend exec tsx scripts/indexNowSubmit.ts --apply   # send
+```
+
+With no arguments it reads both live sitemaps, so it submits exactly what the
+site currently claims to publish. It refuses to send unless the key file is
+reachable AND its contents match — worth knowing that a missing key file
+returns the SPA's HTML with HTTP 200 rather than a 404, so a status-only check
+would pass and every submission would then be rejected.
+
+Ongoing, per settled day: set `INDEXNOW_KEY` on the backend and turn on
+`indexnow_enabled` (Admin → Config). An hourly sweep announces each Daily
+archive page once it settles. Off by default; the flag is the kill switch for
+the outbound traffic, separate from the key.
+
+## 7. Measuring whether assistants recommend us
 
 Indexing is only half of it. `docs/GEO-PROMPT-PANEL.md` is the monthly check on
 the other half — whether an assistant asked "free browser game like Risk?"

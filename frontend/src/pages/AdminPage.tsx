@@ -44,6 +44,12 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
+    key: 'indexnow_enabled',
+    label: 'IndexNow submissions',
+    description:
+      'Announce each settled Daily archive page to IndexNow (Bing and the other participating engines) instead of waiting for a sitemap re-crawl. Off by default. Needs INDEXNOW_KEY set on the backend and the matching key file served at the site root; this switch only controls whether we send.',
+  },
+  {
     key: 'referral_survey_enabled',
     label: 'Referral survey ("how did you hear about us?")',
     description:
