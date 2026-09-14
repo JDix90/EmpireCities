@@ -99,10 +99,6 @@ export default function PrivacyPage() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold hover:underline">{SUPPORT_EMAIL}</a>
           </p>
         </section>
-
-        <p className="text-xs text-bf-muted pt-4 border-t border-bf-border">
-          Have legal counsel review this policy before a wide public launch or store submission in regulated markets.
-        </p>
       </article>
     </SubpageShell>
   );
