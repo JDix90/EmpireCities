@@ -136,6 +136,8 @@ What to do with it:
   at all. Check the page exists, is indexed in Bing, and answers the question in
   its first forty words.
 
-Ten prompts across four assistants is forty data points a month. That is enough
-to see a direction over a quarter and nowhere near enough to read a single
-month's wobble as a result. Treat one month as an anecdote.
+The panel is ten prompts per assistant, so a month is ten data points times
+however many assistants you actually ran it against — one is a legitimate run,
+not a partial one. Either way it is enough to see a direction over a quarter and
+nowhere near enough to read a single month's wobble as a result. Treat one month
+as an anecdote.
