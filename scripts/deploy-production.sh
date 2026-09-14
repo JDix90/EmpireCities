@@ -32,6 +32,25 @@ done
 
 echo "[deploy] Using env file: ${ENV_FILE}"
 
+# ── Validate the nginx config BEFORE anything is swapped ─────────────────────
+# A config nginx cannot parse does not degrade to a broken route — nginx
+# refuses to start, and every request 502s, static assets included. That
+# happened on 2026-09-13: `docker compose up` reported the web container
+# "Started" (it starts the container, and does not care that the process inside
+# exited), the backend healthcheck passed because the backend was genuinely
+# fine, and the only thing that noticed was the smoke test at the bottom of
+# this script — by which point the containers had already been replaced.
+#
+# Checking first turns that outage into a failed deploy that changes nothing.
+# The check runs the same nginx image the web container is built FROM, so a
+# config it accepts here is one the real container can boot.
+echo "[deploy] Validating docker/nginx.prod.conf before swapping containers..."
+if ! "${SCRIPT_DIR}/check-nginx-conf.sh"; then
+  echo "[deploy] ABORTED: docker/nginx.prod.conf would not start nginx." >&2
+  echo "[deploy] Nothing was deployed; the running stack is untouched." >&2
+  exit 1
+fi
+
 if [ "${NO_BUILD}" = true ]; then
   docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
 else

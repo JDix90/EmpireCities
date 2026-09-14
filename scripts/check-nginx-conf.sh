@@ -31,8 +31,21 @@ CONF="$(dirname "$0")/../docker/nginx.prod.conf"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-if ! command -v nginx >/dev/null 2>&1; then
-  echo "check-nginx-conf: nginx not installed — skipping (install nginx-light to run locally)"
+# The image the production web container is actually built FROM, so the check
+# runs the same nginx that will serve the config (docker/Dockerfile.frontend).
+NGINX_IMAGE="${NGINX_IMAGE:-nginx:alpine}"
+
+# CI installs nginx on the runner; the VPS has no host nginx but always has
+# docker and this image already pulled. Preferring the host binary keeps CI
+# fast; the docker path is what makes the deploy-time guard real rather than a
+# silent skip on the one machine where it matters most.
+if command -v nginx >/dev/null 2>&1; then
+  RUNNER="host"
+elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  RUNNER="docker"
+else
+  echo "check-nginx-conf: no nginx and no usable docker — SKIPPING."
+  echo "  This check did not run. Install nginx-light, or make docker available."
   exit 0
 fi
 
@@ -57,7 +70,15 @@ http {
 }
 NGINX
 
-nginx -t -c "$WORK/main.conf" >"$WORK/out" 2>&1 || true
+if [ "$RUNNER" = "host" ]; then
+  nginx -t -c "$WORK/main.conf" >"$WORK/out" 2>&1 || true
+else
+  # Mount at the same absolute path so the `include` line inside main.conf
+  # resolves identically inside the container. Writable because nginx -t
+  # checks its temp paths.
+  docker run --rm -v "$WORK:$WORK" "$NGINX_IMAGE" \
+    nginx -t -c "$WORK/main.conf" >"$WORK/out" 2>&1 || true
+fi
 
 if ! grep -q "syntax is ok" "$WORK/out"; then
   echo "check-nginx-conf: FAILED — docker/nginx.prod.conf would not start nginx."
@@ -69,4 +90,4 @@ if ! grep -q "syntax is ok" "$WORK/out"; then
   exit 1
 fi
 
-echo "check-nginx-conf: ok — nginx accepts docker/nginx.prod.conf"
+echo "check-nginx-conf: ok — nginx accepts docker/nginx.prod.conf (via $RUNNER)"
