@@ -351,3 +351,41 @@ describe('determinism', () => {
     expect(fight()).toEqual(fight());
   });
 });
+
+/**
+ * The two combat tables, and the collision between them.
+ *
+ * `COMBAT_SPECS` is keyed by unit kind and `BUILDING_COMBAT` by building kind — and the
+ * two enums share a numeric keyspace. `UnitKind.Ram` is 7 and `BuildingKind.Tower` is also
+ * 7, so `COMBAT_SPECS[BuildingKind.Tower]` returns a perfectly valid spec that belongs to
+ * the ram: range one instead of six, siege true instead of false, and no error anywhere to
+ * say so. A bot policy read it that way and quietly believed its towers reached a single
+ * cell.
+ *
+ * Renaming the keys apart is not free — a building's kind is hashed into every replay — so
+ * this pins the hazard instead: the tables stay disjoint in meaning, and anything that
+ * wants a building's guns reads `BUILDING_COMBAT`.
+ */
+describe('the combat tables do not lend each other their numbers', () => {
+  it('gives the tower the reach the brief measures, via the building table', () => {
+    // "Seat 1500 HP; its tower deals 8/s at 6 cells."
+    expect(BUILDING_COMBAT[BuildingKind.Tower]).toEqual({ damage: 8, range: 6, interval: seconds(1), siege: false });
+    expect(BUILDING_COMBAT[BuildingKind.Seat].range).toBe(6);
+  });
+
+  it('hands back the RAM when a building kind is looked up in the unit table', () => {
+    // Not a property worth having — a property worth knowing about. If this ever stops
+    // being true the collision has been designed away, and the warning above can go.
+    expect(UnitKind.Ram).toBe(BuildingKind.Tower);
+    expect(COMBAT_SPECS[BuildingKind.Tower]).toBe(COMBAT_SPECS[UnitKind.Ram]);
+    expect(COMBAT_SPECS[BuildingKind.Tower].range).not.toBe(BUILDING_COMBAT[BuildingKind.Tower].range);
+  });
+
+  it('keeps the unit table free of buildings, so "has a combat spec" still means "fights"', () => {
+    // attrition.ts asks exactly this question to decide who bleeds under rule VII.
+    for (const kind of Object.values(BuildingKind)) {
+      if (Object.values(UnitKind).includes(kind as never)) continue;
+      expect(COMBAT_SPECS[kind]).toBeUndefined();
+    }
+  });
+});

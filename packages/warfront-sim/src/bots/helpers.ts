@@ -6,6 +6,7 @@ import type { Unit } from '../entities';
 import type { TerrainGrid } from '../terrain';
 import {
   BUILDER_SLOTS,
+  BUILDING_COMBAT,
   BUILDING_SPECS,
   BuildingKind,
   CAMP_RADIUS_CELLS,
@@ -160,6 +161,30 @@ export function countOwn(view: BotView, kind: BuildingKindValue): number {
 }
 
 /** Producing buildings of this seat that still have a free worker slot. */
+/**
+ * Whether one of this seat's finished buildings has its guns on a cell.
+ *
+ * The counterpart to `campCovers`, and it is what lets a policy tell "a raider is near
+ * this" from "a raider is near this and something is shooting at it". Without the
+ * distinction a bot evacuates ground it has already paid to defend, which is how a tower
+ * ends up guarding an empty lumber camp.
+ *
+ * Reads `BUILDING_COMBAT`, which is the table of buildings that shoot — and NOT
+ * `COMBAT_SPECS`, which looks like it would work and does not. `COMBAT_SPECS` is keyed by
+ * unit kind, `UnitKind.Ram` is 7 and `BuildingKind.Tower` is also 7, so asking it for a
+ * tower silently hands back the ram: range one instead of six, with no error anywhere. It
+ * cost an afternoon. The seat is in this table too, which is the point of reading it
+ * rather than hard-coding a tower: rule III arms the capital, so work beside it is already
+ * defended and does not want a tower of its own.
+ */
+export function underGuard(view: BotView, cell: number): boolean {
+  return view.buildings.some((b) => {
+    if (b.owner !== view.seat || !b.complete) return false;
+    const spec = BUILDING_COMBAT[b.kind];
+    return spec !== undefined && cellDistance(view.grid, b.cell, cell) <= spec.range;
+  });
+}
+
 export function understaffed(view: BotView): Building[] {
   return view.buildings.filter((b) => {
     if (b.owner !== view.seat || !b.complete) return false;

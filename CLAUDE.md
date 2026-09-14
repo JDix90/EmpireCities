@@ -19,6 +19,12 @@ prompt for Claude Console/Projects, not agent instructions.)
   ERROR (TS5101) that aborts the run before a single file is checked. It exits
   non-zero having printed only that one line, which reads like the sole problem
   — so `npx tsc --noEmit` reports a clean tree while missing real errors.
+- For `packages/warfront-sim` the command is **`pnpm -C packages/warfront-sim
+  run typecheck`**, NOT `exec tsc --noEmit`. The package has two tsconfigs and
+  the default one excludes `*.test.ts`, so `exec tsc --noEmit` passes on a tree
+  whose tests do not compile; CI runs `tsc -p tsconfig.test.json --noEmit` and
+  fails. Also run `pnpm -C packages/warfront-sim run build` — CI builds the
+  package before typechecking it.
 - CI truth is `gh api repos/<owner>/<repo>/commits/<EXACT-SHA>/check-runs`.
   `gh pr checks` and PR status rollups can show a stale superseded run — the CI
   workflow cancels in-progress runs on new pushes.

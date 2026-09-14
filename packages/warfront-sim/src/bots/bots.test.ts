@@ -13,9 +13,11 @@ import {
   ATTRITION_INTERVAL_TICKS,
   BUILDING_SPECS,
   BuildingKind,
+  COMBAT_SPECS,
   TICKS_PER_MINUTE,
   UnitKind,
   seconds,
+  type BuildingKindValue,
 } from '../rules';
 import type { Bot } from '../bot';
 import { Sim, cellCentre } from '../sim';
@@ -394,4 +396,204 @@ describe('the Turtle lights its coast (rule V)', () => {
     expect(raised).toContain(BuildingKind.Tower);
     expect(raised).not.toContain(BuildingKind.Lighthouse);
   });
+});
+
+/**
+ * The economy under rule VI, which is where every policy in the roster used to stop.
+ *
+ * Measured before these: a Colonist at Gaul froze at 76 timber from minute nine to the end
+ * of a twenty-minute match, with six villagers and a lumber camp that earned six worker-
+ * minutes out of a possible forty. The cause is a proportion rather than a bug. A villager
+ * walks 54 cells a minute, no seat on the committed map has forest inside fourteen cells,
+ * and `raidTargetCell` aims raids AT producing buildings — so the camp is both far away and
+ * the thing raids go to, and a policy that evacuates on every sighting spends the match
+ * commuting.
+ *
+ * Their own grid, because the committed map cannot express the fixed behaviour from two of
+ * its four seats: Italy and Africa have no forest at all (see westernTwenty.test.ts), so a
+ * test of "keeps its timber source earning" seated at Rome would be asserting something the
+ * terrain makes impossible.
+ */
+describe('the economy holds up under raids', () => {
+  const W = 60;
+  const H = 24;
+  const SEAT_CELL = 5 * W + 2;
+  const FOREST_FIRST = 40;
+  const FOREST_LAST = 45;
+
+  /** Two provinces, with the forest far from the capital exactly as the real map has it. */
+  function twoProvinces(): TerrainGrid {
+    const cells = new Uint16Array(W * H);
+    for (let row = 0; row < H; row++) {
+      for (let col = 0; col < W; col++) {
+        const province = row < 12 ? 1 : 2;
+        const inPatch = col >= FOREST_FIRST && col <= FOREST_LAST;
+        const forest = inPatch;
+        cells[row * W + col] = packCell({
+          owner: province,
+          tier: 0,
+          passable: true,
+          biome: forest ? Biome.Forest : Biome.Plains,
+        });
+      }
+    }
+    return new TerrainGrid(W, H, cells, {
+      provinces: [
+        { index: 1, territory_id: 'home', name: 'Home' },
+        { index: 2, territory_id: 'yonder', name: 'Yonder' },
+      ],
+    });
+  }
+
+  const cellAt = (col: number, row: number) => row * W + col;
+
+  interface Setup {
+    /** A finished lumber camp at this cell, with these villagers already on it. */
+    camp?: number;
+    tower?: number;
+    /** Leave the tower as a construction site rather than a finished one. */
+    towerUnfinished?: boolean;
+    raider?: number;
+    villagers?: number;
+    seconds?: number;
+    /**
+     * The purse, kept deliberately tiny.
+     *
+     * A rich seat starts every building in its order at once and puts every villager on a
+     * site as a builder, so the camp is never staffed and a test of who works where
+     * measures the construction queue instead. Exactly one tower's worth, or nothing.
+     */
+    timber?: number;
+    silver?: number;
+  }
+
+  function play(setup: Setup) {
+    const terrain = twoProvinces();
+    const buildings: Array<{ owner: number; kind: BuildingKindValue; cell: number }> = [
+      { owner: 1, kind: BuildingKind.Seat, cell: SEAT_CELL },
+    ];
+    if (setup.camp !== undefined) buildings.push({ owner: 1, kind: BuildingKind.LumberCamp, cell: setup.camp });
+    if (setup.tower !== undefined) buildings.push({ owner: 1, kind: BuildingKind.Tower, cell: setup.tower });
+
+    const units = [];
+    const near = setup.camp ?? SEAT_CELL;
+    for (let i = 0; i < (setup.villagers ?? 3); i++) {
+      units.push({
+        owner: 1,
+        kind: UnitKind.Villager,
+        x: cellCentre(terrain.colOf(near) + i),
+        y: cellCentre(terrain.rowOf(near)),
+        speed: 0,
+      });
+    }
+    if (setup.raider !== undefined) {
+      units.push({
+        owner: 0,
+        kind: UnitKind.Skirmisher,
+        x: cellCentre(terrain.colOf(setup.raider)),
+        y: cellCentre(terrain.rowOf(setup.raider)),
+        speed: 0,
+      });
+    }
+
+    const sim = new Sim({
+      seed: 21,
+      terrain,
+      scenario: {
+        players: [{ index: 1, food: 2000, timber: setup.timber ?? 0, silver: setup.silver ?? 0 }],
+        buildings: buildings as never,
+        units,
+      },
+    });
+    if (setup.towerUnfinished) {
+      const tower = sim.buildings.all().find((b) => b.kind === BuildingKind.Tower)!;
+      tower.complete = false;
+      tower.progress = 0;
+    }
+    const bot = new ColonistBot();
+    const driver = new BotDriver(21, new Map([[1, bot]]), buildProvinceGeography(terrain));
+    const ticks = (setup.seconds ?? 20) * 15;
+    // Worked ticks rather than a closing snapshot. The behaviour under test is whether the
+    // camp KEEPS being worked across a match, and a snapshot lands arbitrarily inside the
+    // flee-and-return cycle — it would read zero on a defended camp whose villagers happen
+    // to be walking back at the final tick.
+    let campWorkerTicks = 0;
+    const SETTLE = 10 * 15;
+    while (sim.tick < ticks) {
+      driver.beforeTick(sim, sim.tick + 1);
+      sim.step();
+      if (sim.tick < SETTLE) continue;
+      for (const b of sim.buildings.all()) {
+        if (b.kind === BuildingKind.LumberCamp) campWorkerTicks += b.workers.length;
+      }
+    }
+    return { sim, campWorkerTicks };
+  }
+
+  const campCell = cellAt(FOREST_FIRST + 2, 5);
+  const TOWER_COST = BUILDING_SPECS[BuildingKind.Tower];
+  /**
+   * A raider the tower cannot reach, standing where the villagers can still see it.
+   *
+   * Eight cells from the camp and seven from the tower beside it: inside `fleeCells`, which
+   * is 8, and outside the tower's range, which is 6. The first draft put it two cells away
+   * and the tower shot it dead in six seconds — after which the camp was safe by the
+   * ordinary rule and every villager went back to work, so the test passed with the clause
+   * it was meant to be testing deleted. It was measuring the simulation's towers, not the
+   * policy's reading of them.
+   */
+  const raiderCell = cellAt(FOREST_FIRST + 10, 5);
+  const towerCell = cellAt(FOREST_FIRST + 3, 5);
+
+  it('writes off an outlying building a raider sits on, when nothing is defending it', () => {
+    // Not "evacuates" — evacuating is right, and the policy still does it under a tower.
+    // This is the part that was wrong: once the raid arrives, an undefended camp is never
+    // offered as a job again, so it is written off for the rest of the match.
+    const { campWorkerTicks } = play({ camp: campCell, raider: raiderCell, seconds: 60 });
+    expect(campWorkerTicks).toBe(0);
+  });
+
+  it('goes back to that same ground when a tower of its own is holding it', () => {
+    // The pair is the test. Same grid, same raider, same distance — the only difference is
+    // one tower, and it is the difference between a timber economy and none. The villagers
+    // still run; what changes is that the ground stays on the list of places worth working,
+    // so they return to it. Since `raidTargetCell` aims raids AT producing buildings, "is a
+    // raider near?" on its own answers yes essentially always, and the camp is abandoned
+    // permanently the first time a raid finds it.
+    const { campWorkerTicks } = play({ camp: campCell, tower: towerCell, raider: raiderCell, seconds: 60 });
+    expect(campWorkerTicks).toBeGreaterThan(0);
+  });
+
+  it('does not count a tower that is still going up', () => {
+    // A construction site shoots nothing — `stepCombat` skips any building that is not
+    // complete — so treating one as cover would send villagers back into a raid on the
+    // strength of a promise. Same rule the marching camp uses, for the same reason.
+    const { campWorkerTicks } = play({
+      camp: campCell,
+      tower: towerCell,
+      towerUnfinished: true,
+      raider: raiderCell,
+      seconds: 60,
+    });
+    expect(campWorkerTicks).toBe(0);
+  });
+
+  it('raises a tower over a timber source that is out on its own', () => {
+    const { sim } = play({ camp: campCell, seconds: 40, timber: TOWER_COST.timber, silver: TOWER_COST.silver });
+    const towers = sim.buildings.all().filter((b) => b.kind === BuildingKind.Tower);
+    expect(towers).toHaveLength(1);
+    const d = Math.max(
+      Math.abs(sim.terrain!.colOf(towers[0].cell) - sim.terrain!.colOf(campCell)),
+      Math.abs(sim.terrain!.rowOf(towers[0].cell) - sim.terrain!.rowOf(campCell)),
+    );
+    expect(d).toBeLessThanOrEqual(COMBAT_SPECS[BuildingKind.Tower]!.range);
+  });
+
+  it('does not spend a tower on work already under the seat', () => {
+    // A camp beside the capital is under the seat's own tower, and a second one there is
+    // eighty resources that buy nothing.
+    const { sim } = play({ camp: cellAt(4, 5), seconds: 40, timber: TOWER_COST.timber, silver: TOWER_COST.silver });
+    expect(sim.buildings.all().filter((b) => b.kind === BuildingKind.Tower)).toHaveLength(0);
+  });
+
 });

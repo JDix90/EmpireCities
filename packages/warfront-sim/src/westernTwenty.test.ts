@@ -100,3 +100,89 @@ describe('the committed western twenty asset agrees with its map document', () =
     }
   });
 });
+
+/**
+ * Can a seat on this map actually run an economy?
+ *
+ * Every building in the game costs timber, and the only thing that makes timber is a
+ * lumber camp, which needs a forest cell to stand on. So "is there forest within reach"
+ * is not a flavour question — it decides whether a seat has an economy at all after its
+ * opening purse of 160 timber is spent.
+ *
+ * The committed asset answers NO for two of the four seats in the roster, and this is
+ * where that is written down. It was found by chasing why every bot policy stops growing
+ * around minute six: the bots were the suspect, and the bots were mostly innocent.
+ *
+ * These assertions therefore pin a KNOWN GAP rather than a desired property. When the
+ * terrain pipeline stops classifying the whole Mediterranean south as plains and highland,
+ * these go red — and that is the point. A red test here means the map got better and the
+ * seat roster, the lab's expectations and this file should be revisited together.
+ */
+describe('timber, and which seats the asset can support', () => {
+  const FOREST = 3;
+  const forestCells = new Map<number, number>();
+  for (let i = 0; i < grid.size; i++) {
+    const owner = grid.owner(i);
+    if (owner > 0 && grid.isPassable(i) && grid.biome(i) === FOREST) {
+      forestCells.set(owner, (forestCells.get(owner) ?? 0) + 1);
+    }
+  }
+  const forestIn = (territoryId: string) => forestCells.get(grid.provinceIndex(territoryId)) ?? 0;
+
+  /** Land hops from a province to the nearest one that could hold a lumber camp. */
+  function hopsToForest(territoryId: string): number {
+    const start = grid.provinceIndex(territoryId);
+    if ((forestCells.get(start) ?? 0) > 0) return 0;
+    const seen = new Set([start]);
+    let frontier = [start];
+    for (let hop = 1; hop <= grid.provinces.length; hop++) {
+      const next: number[] = [];
+      for (const province of frontier) {
+        for (const neighbour of geography.neighbours.get(province) ?? []) {
+          if (seen.has(neighbour)) continue;
+          seen.add(neighbour);
+          if ((forestCells.get(neighbour) ?? 0) > 0) return hop;
+          next.push(neighbour);
+        }
+      }
+      if (next.length === 0) break;
+      frontier = next;
+    }
+    return -1;
+  }
+
+  it('gives Gaul and Hispania forest at home, so they can run an economy unaided', () => {
+    expect(forestIn('lugdunensis')).toBeGreaterThan(0);
+    expect(forestIn('tarraconensis')).toBeGreaterThan(0);
+  });
+
+  it('leaves Carthage no timber reachable by land AT ALL', () => {
+    // africa_proconsularis, numidia and mauretania are one landmass and none of them has
+    // a forest cell. Carthage's entire match is funded by its opening 160 timber unless it
+    // ships a colonist over a lane — which is rule V, and which is the brief's own line
+    // that Carthage is "the sea power". The map makes that a requirement, not a style.
+    expect(forestIn('africa_proconsularis')).toBe(0);
+    expect(forestIn('numidia')).toBe(0);
+    expect(forestIn('mauretania')).toBe(0);
+    expect(hopsToForest('africa_proconsularis')).toBe(-1);
+  });
+
+  it('puts Rome two colonisations away from a province holding ONE forest cell', () => {
+    // The whole Italian peninsula is forestless, and the nearest province that is not —
+    // narbonensis, two hops out — has a single qualifying cell in it. Rome can technically
+    // reach timber by land; it cannot plausibly afford to.
+    expect(forestIn('italia_central')).toBe(0);
+    expect(forestIn('italia_north')).toBe(0);
+    expect(forestIn('italia_south')).toBe(0);
+    expect(hopsToForest('italia_central')).toBe(2);
+    expect(forestIn('narbonensis')).toBe(1);
+  });
+
+  it('leaves the islands rule V reaches without timber of their own', () => {
+    expect(forestIn('sicilia')).toBe(0);
+    expect(forestIn('sardinia_corsica')).toBe(0);
+    // Britannia is the exception, and the richest source on the map — which is why the
+    // brief's Tin Route matters and why the Islander wants it.
+    expect(forestIn('britannia')).toBeGreaterThan(1000);
+  });
+});
