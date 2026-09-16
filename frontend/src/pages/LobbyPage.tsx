@@ -1553,8 +1553,8 @@ export default function LobbyPage() {
             <div className="flex items-center gap-2 mt-1">
               {user?.is_guest ? (
                 <p className="text-bf-muted text-sm">
-                  Level {user?.level} · {user?.xp} XP · Guest, this browser only{' '}
-                  <Link to="/upgrade" className="text-bf-gold hover:underline">— create an account to keep it</Link>
+                  Level {user?.level} · {user?.xp} XP · Guest accounts do not persist across sessions{' '}
+                  <Link to="/upgrade" className="text-bf-gold hover:underline">— create an account to keep your stats</Link>
                 </p>
               ) : (
                 <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>
