@@ -34,7 +34,11 @@ const navGroups: NavItem[][] = [
   // Ways to play.
   [
     { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily Challenge' },
-    { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true },
+    // Deliberately NOT hideForGuest. A guest may browse campaigns server-side
+    // (`rejectGuest` sits only on POST /campaign/start and /continue), and the
+    // account gate lives on the start action in CampaignPage. Hiding the entry
+    // is how a guest never learns the mode exists — see utils/guestGate.ts.
+    { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign' },
   ],
   // Where to play.
   [

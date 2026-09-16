@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Trophy, Flame, Star, TrendingUp, ChevronLeft, ChevronRight, Crown, CalendarDays, Bot } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
+import { LEADERBOARD_GUEST_NOTICE } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
 
 type LeaderboardTab = 'rating' | 'solo' | 'level' | 'season' | 'weekly' | 'streaks';
@@ -81,7 +83,18 @@ const PAGE_SIZE = 50;
 
 export default function LeaderboardsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get('tab') as LeaderboardTab) || 'rating';
+  const rankedEnabled = useRankedLeaderboardEnabled();
+  const tabs = useMemo(
+    () => TABS.filter(({ id }) => id !== 'rating' || rankedEnabled),
+    [rankedEnabled],
+  );
+  // Resolve against the visible tabs, not the raw param: 'rating' is both the
+  // default and the tab the flag can remove, so an unfiltered read would leave
+  // a hidden board selected — and a stale ?tab=rating link would still open it.
+  const requestedTab = (searchParams.get('tab') as LeaderboardTab) || 'rating';
+  const activeTab = tabs.some(({ id }) => id === requestedTab)
+    ? requestedTab
+    : tabs[0].id;
   const [page, setPage] = useState(0);
   const [data, setData] = useState<unknown[]>([]);
   const [seasonInfo, setSeasonInfo] = useState<{ season_id: string; label?: string; name?: string } | null>(null);
@@ -141,7 +154,7 @@ export default function LeaderboardsPage() {
     <SubpageShell title="LEADERBOARDS" icon={Trophy}>
         {/* Tabs */}
         <div className="flex gap-1 bg-bf-surface rounded-xl p-1 mb-6">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -165,7 +178,28 @@ export default function LeaderboardsPage() {
           </div>
         )}
 
-        {myRankCard && (
+        {/* A guest can read every board here but appears on none of them: each
+            query filters `u.is_guest = false`, so `myRankCard` is always null
+            for them and the slot would otherwise render nothing at all. Saying
+            so where their rank would be is the whole point. */}
+        {user?.is_guest ? (
+          <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-bf-muted">
+                {LEADERBOARD_GUEST_NOTICE.title}
+              </p>
+              <p className="text-sm text-bf-muted mt-1 leading-relaxed">
+                {LEADERBOARD_GUEST_NOTICE.body}
+              </p>
+            </div>
+            <Link
+              to="/upgrade"
+              className="btn-primary text-sm py-2 px-4 self-start whitespace-nowrap shrink-0 sm:self-auto"
+            >
+              Create Free Account
+            </Link>
+          </div>
+        ) : myRankCard ? (
           <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-bf-muted">{myRankCard.title}</p>
@@ -173,7 +207,7 @@ export default function LeaderboardsPage() {
             </div>
             <p className="text-lg font-display text-bf-gold">{myRankCard.value}</p>
           </div>
-        )}
+        ) : null}
 
         {/* Table */}
         <div className="card overflow-hidden">

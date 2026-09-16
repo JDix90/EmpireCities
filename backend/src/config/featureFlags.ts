@@ -54,6 +54,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -255,6 +256,17 @@ export const featureFlags = {
    */
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled');
+  },
+
+  /**
+   * When true, the ranked ladder is surfaced: the Ranked tab on /leaderboards
+   * and the "Top Commanders" lobby widget. Default OFF — both read a board
+   * that filters to `is_guest = false` ranked players, so with no ranked games
+   * played they render an empty podium, which reads as a dead game rather than
+   * a new one. Turn it on once the ladder has enough players to look alive.
+   */
+  get rankedLeaderboardEnabled(): boolean {
+    return overrideBool('ranked_leaderboard_enabled');
   },
 
   /**
@@ -629,6 +641,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,

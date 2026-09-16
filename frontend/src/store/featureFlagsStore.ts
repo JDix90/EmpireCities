@@ -10,6 +10,7 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
+  ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   daily_guest_play_enabled: boolean;
   streak_freezes_enabled: boolean;
@@ -42,6 +43,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
+  // OFF until the ranked ladder has enough players not to render empty.
+  ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
   referral_survey_enabled: false,
   // Guests may play the Daily (registered players are the only ones ranked).
@@ -122,6 +125,11 @@ export function useReferralSurveyEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
+}
+
+/** Ranked ladder surfaces: the Ranked leaderboard tab + lobby Top Commanders. */
+export function useRankedLeaderboardEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.ranked_leaderboard_enabled);
 }
 
 export function useDailyGuestPlayEnabled(): boolean {

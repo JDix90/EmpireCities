@@ -173,9 +173,14 @@ async function main(): Promise<void> {
     }
   }
 
+  const assistants = new Set(latestRows.map((r) => r.assistant)).size;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
   console.log(
-    '\nNOTE: ten prompts across four assistants is ~40 points a month — enough to see'
-    + '\na direction over a quarter, not enough to read one month as a result.\n',
+    `\nNOTE: ${latest} is ${plural(latestRows.length, 'observation')} across `
+    + `${plural(assistants, 'assistant')}.`
+    + '\nThe panel is ten prompts per assistant, so running it against more of them is'
+    + '\nhow this gets more signal. Either way, one month shows a direction over a'
+    + '\nquarter — never a result on its own.\n',
   );
 }
 

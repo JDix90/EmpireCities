@@ -14,9 +14,15 @@ interface MobileTabBarProps {
   onLogout: () => void;
 }
 
+/**
+ * Campaign is deliberately not `guestHidden`: a guest browses the page and meets
+ * the account gate on the start action inside it (CampaignPage). That gate is a
+ * dialog rather than a disabled tab with a tooltip, because `title` tooltips
+ * never fire on touch — and touch is the only way this bar renders at all.
+ */
 const PRIMARY_TABS = [
   { path: '/lobby', icon: Home, label: 'Home', guestHidden: false },
-  { path: '/campaign', icon: Swords, label: 'Campaign', guestHidden: true },
+  { path: '/campaign', icon: Swords, label: 'Campaign', guestHidden: false },
   { path: '/friends', icon: Users, label: 'Friends', guestHidden: true },
   { path: '/profile', icon: User, label: 'Profile', guestHidden: false },
 ] as const;
