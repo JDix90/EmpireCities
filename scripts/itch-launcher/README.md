@@ -48,30 +48,42 @@ Run. The only way out is a link the visitor chooses to click, in a new tab.
 
 ## What has to be true for inline play
 
-As of this writing, **framing is still blocked in production** and the shell
-falls back. Two things are needed, and only one of them is in this repo:
+**One of the two is done; the remaining one is not in this repository.**
 
-1. **`X-Frame-Options: SAMEORIGIN` must stop being sent on the HTML document.**
-   It is on `https://borderfall.gg/` today and it is not set by
-   `docker/nginx.prod.conf` or by helmet — it comes from the TLS-terminating
-   layer in front of nginx, which lives outside this repository. XFO has no
-   allowlist (`SAMEORIGIN` or `DENY` only), so the only move is to drop it and
-   let CSP `frame-ancestors` do the job, which is its modern replacement.
+✅ **The document now sends a CSP naming itch.** `docker/nginx.prod.conf` adds
+`frame-ancestors 'self' https://html-classic.itch.zone` at server level, so
+every response inherits it. Before this there was no CSP on static responses at
+all. Verified by running nginx over the real config and reading the header off
+a 200.
 
-2. **The document needs a CSP naming itch.** `https://borderfall.gg/` currently
-   sends no `Content-Security-Policy` at all — nginx serves the SPA statically
-   and adds none. The `EMBED_ORIGINS` work in `modules/auth/embedContext.ts`
-   governs helmet's CSP, which only rides on **API** responses; the API is not
-   what gets framed. nginx needs `add_header Content-Security-Policy
-   "frame-ancestors 'self' https://html-classic.itch.zone" always;` on the
-   static location. Note `nginx.prod.conf` is `COPY`d into the image at build
-   time with no envsubst, so wiring this to `EMBED_ORIGINS` means switching to
-   `/etc/nginx/templates/` first.
+   (The `EMBED_ORIGINS` work in `modules/auth/embedContext.ts` governs helmet's
+   CSP, which only rides on **API** responses — the API is not what gets framed.
+   It still matters for the refresh cookie, which is per-request.)
 
-itch serves HTML projects from `https://html-classic.itch.zone` (they retired
-the old `*.hwcdn.net` domain in 2023). Their own site-locking guidance suggests
-allowing `*.itch.zone` — but note `isEmbeddedOrigin` matches exactly, so a
-wildcard would satisfy CSP while silently failing the cookie side.
+❌ **`X-Frame-Options: SAMEORIGIN` must stop being sent on the document.** It is
+on `https://borderfall.gg/` today. It is not set by `nginx.prod.conf` and not by
+helmet — it comes from the **TLS-terminating layer in front of nginx**, which
+lives outside this repository (Caddy, a cloud load balancer, Cloudflare —
+whatever terminates TLS for borderfall.gg). Browsers honour XFO alongside CSP,
+and XFO has no allowlist (`SAMEORIGIN` or `DENY` only), so while it is sent the
+frame stays blocked no matter what the CSP says. Dropping it in favour of
+`frame-ancestors` is the intended modern path — CSP is its replacement, not a
+supplement.
+
+Until that happens the shell shows its fallback card, which is why it was built
+that way. Nothing needs re-uploading when it changes.
+
+To confirm the state at any time:
+
+```bash
+curl -sSI https://borderfall.gg/ | grep -iE 'x-frame-options|content-security-policy'
+```
+
+You want to see a `content-security-policy` line naming `html-classic.itch.zone`
+and **no** `x-frame-options` line.
+
+Note `isEmbeddedOrigin` matches origins exactly, so a CSP wildcard like
+`*.itch.zone` would satisfy framing while silently failing the cookie side.
 
 ## Caveat worth keeping in view
 
