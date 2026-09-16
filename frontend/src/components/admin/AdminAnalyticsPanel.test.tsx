@@ -40,6 +40,32 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText(/ANALYTICS_EVENTS_ENABLED/)).toBeTruthy();
   });
 
+  it('renders the guest/account retention split when the backend sends it', () => {
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          retention_by_cohort: [
+            { cohort: 'account', d1_cohort: 3, d1: 2, d7_cohort: 1, d7: 1 },
+            { cohort: 'guest', d1_cohort: 22, d1: 0, d7_cohort: 16, d7: 0 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText('Retention by account type')).toBeTruthy();
+    expect(screen.getByText('(2/3)')).toBeTruthy();
+    expect(screen.getByText('(0/22)')).toBeTruthy();
+  });
+
+  it('omits the split entirely when an older backend does not send it', () => {
+    // Mirrors the `visitors?` rollout pattern: a stale backend must not blank
+    // the whole panel.
+    render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Retention by account type')).toBeNull();
+    // The pooled tiles still render.
+    expect(screen.getByText('D1 retention')).toBeTruthy();
+  });
+
   it('renders funnel, retention, completion and volume from the report', () => {
     render(<AdminAnalyticsPanel data={report} />);
     // funnel

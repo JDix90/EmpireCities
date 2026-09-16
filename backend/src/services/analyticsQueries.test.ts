@@ -8,6 +8,7 @@ vi.mock('../db/postgres', () => ({
 }));
 
 import {
+  getRetentionByCohort,
   getFunnelMetrics,
   getVisitorFunnel,
   getCompletionStats,
@@ -50,6 +51,51 @@ describe('analyticsQueries', () => {
       finished_game: 0,
       upgraded: 0,
     });
+  });
+
+  it('getRetentionByCohort splits on the same account test the acquisition table uses', async () => {
+    queryMock.mockResolvedValueOnce([
+      { is_account: true, d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 },
+      { is_account: false, d1_cohort: 21, d1: 0, d7_cohort: 16, d7: 0 },
+    ]);
+    const rows = await getRetentionByCohort();
+    const [sql] = queryMock.mock.calls[0] as [string];
+    // Same predicate as getAcquisitionBySource's `accounts` column — if these
+    // ever diverge the two readouts disagree about who has an account.
+    expect(sql).toContain("e.event IN ('user_registered', 'guest_upgraded')");
+    expect(sql).toContain("event IN ('guest_created', 'user_registered')");
+    expect(rows).toEqual([
+      { cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 },
+      { cohort: 'guest', d1_cohort: 21, d1: 0, d7_cohort: 16, d7: 0 },
+    ]);
+  });
+
+  it('getRetentionByCohort always returns both cohorts, account first', async () => {
+    // Postgres GROUP BY emits no row for an empty cohort; callers render a
+    // fixed two-row table, so the zero-fill has to happen here.
+    queryMock.mockResolvedValueOnce([
+      { is_account: false, d1_cohort: 9, d1: 0, d7_cohort: 5, d7: 0 },
+    ]);
+    expect(await getRetentionByCohort()).toEqual([
+      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
+      { cohort: 'guest', d1_cohort: 9, d1: 0, d7_cohort: 5, d7: 0 },
+    ]);
+  });
+
+  it('getRetentionByCohort zero-fills an empty table', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    expect(await getRetentionByCohort()).toEqual([
+      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
+      { cohort: 'guest', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
+    ]);
+  });
+
+  it('getRetentionByCohort coerces numeric strings from the driver', async () => {
+    queryMock.mockResolvedValueOnce([
+      { is_account: true, d1_cohort: '4', d1: '3', d7_cohort: '2', d7: '1' },
+    ]);
+    const [account] = await getRetentionByCohort();
+    expect(account).toEqual({ cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 });
   });
 
   it('getCompletionStats coerces numeric strings and preserves null averages', async () => {
@@ -110,12 +156,18 @@ describe('analyticsQueries', () => {
   });
 
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
-    // Promise.all invokes the section queries in array order:
-    // visitors, funnel, retention, completion, acquisition, volume — then queryOne(total).
+    // Promise.all invokes the section queries in array order: visitors, funnel,
+    // retention, retention-by-cohort, completion, acquisition, volume — then
+    // queryOne(total). The order is positional, so inserting a section here
+    // without adding its row shifts every later mock onto the wrong query.
     queryMock
       .mockResolvedValueOnce([{ landed: 10, clicked_play: 4, signed_up: 3 }])
       .mockResolvedValueOnce([{ signups: 3, created_game: 2, started_game: 2, finished_game: 1, upgraded: 0 }])
       .mockResolvedValueOnce([{ d1_cohort: 3, d1: 1, d7_cohort: 0, d7: 0 }])
+      .mockResolvedValueOnce([
+        { is_account: true, d1_cohort: 1, d1: 1, d7_cohort: 0, d7: 0 },
+        { is_account: false, d1_cohort: 2, d1: 0, d7_cohort: 0, d7: 0 },
+      ])
       .mockResolvedValueOnce([{ finishes: 1, wins: 1, tutorial_finishes: 0, avg_minutes: '15.0', avg_turns: '20.0' }])
       .mockResolvedValueOnce([{ source: 'reddit', signups: 3, accounts: 1, activated: 1 }])
       .mockResolvedValueOnce([{ event: 'game_finished', n: 1 }]);
@@ -127,6 +179,12 @@ describe('analyticsQueries', () => {
     expect(r.visitors).toEqual({ landed: 10, clicked_play: 4, signed_up: 3 });
     expect(r.funnel.finished_game).toBe(1);
     expect(r.retention.d1).toBe(1);
+    // The pooled row and the split must describe the same cohort: 1 of 3 back
+    // on day one, and all of that one is the account side.
+    expect(r.retention_by_cohort).toEqual([
+      { cohort: 'account', d1_cohort: 1, d1: 1, d7_cohort: 0, d7: 0 },
+      { cohort: 'guest', d1_cohort: 2, d1: 0, d7_cohort: 0, d7: 0 },
+    ]);
     expect(r.completion.avg_minutes).toBe(15);
     expect(r.acquisition).toEqual([
       { source: 'reddit', channel: 'social', signups: 3, accounts: 1, activated: 1 },

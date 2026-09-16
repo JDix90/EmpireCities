@@ -34,6 +34,13 @@ export interface RetentionMetrics {
   d7: number;
 }
 
+/** Which side of the guest/account line a signup cohort sits on. */
+export type RetentionCohort = 'account' | 'guest';
+
+export interface RetentionCohortRow extends RetentionMetrics {
+  cohort: RetentionCohort;
+}
+
 export interface CompletionStats {
   finishes: number;
   wins: number;
@@ -89,6 +96,8 @@ export interface AnalyticsReport {
   visitors: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
   retention: RetentionMetrics;
+  /** The same D1/D7 measure, split by whether the signup ever became an account. */
+  retention_by_cohort: RetentionCohortRow[];
   completion: CompletionStats;
   acquisition: AcquisitionRow[];
   acquisition_channels: AcquisitionChannelRow[];
@@ -171,6 +180,82 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
     d7_cohort: num(row?.d7_cohort),
     d7: num(row?.d7),
   };
+}
+
+/**
+ * D1 / D7 split by whether the signup ever became a real account.
+ *
+ * `getRetentionMetrics` pools guests and accounts into one number, and the two
+ * behave nothing alike, so the pooled rate mostly reports the guest/account mix
+ * rather than whether anyone came back. "Account" here is the SAME test the
+ * acquisition table uses for its `accounts` column — a `user_registered` or
+ * `guest_upgraded` event — so the two readouts cannot disagree.
+ *
+ * Reading the guest row needs two caveats, neither of which applies to accounts:
+ *
+ * 1. A guest has no way to sign back in (no email, no password they know; login
+ *    and password reset both exclude the `@guest.local` domain). Returning on
+ *    another device or browser creates a NEW guest row with a new `user_id`,
+ *    counted as a fresh signup and never as a return. Cross-device returns are
+ *    therefore invisible for guests and visible for accounts.
+ * 2. `deleteStaleGuestUsers` removes guests older than 48h who never joined a
+ *    game, and `analytics_events.user_id` is ON DELETE SET NULL — so their
+ *    `guest_created` event leaves the `signups` CTE entirely. The fastest
+ *    bouncers drop out of BOTH the numerator and the denominator, which nudges
+ *    the surviving guest rate UP rather than down. Guests who did play are kept
+ *    indefinitely and stay counted.
+ *
+ * Always returns both cohorts, account first, zero-filled when a cohort has no
+ * rows yet, so callers can render a stable two-row table.
+ */
+export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
+  const rows = await query<Record<string, unknown>>(
+    `WITH signups AS (
+       SELECT user_id, MIN(created_at)::date AS d0
+       FROM analytics_events
+       WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+       GROUP BY user_id
+     ),
+     classified AS (
+       SELECT s.user_id, s.d0,
+              EXISTS (
+                SELECT 1 FROM analytics_events e
+                WHERE e.user_id = s.user_id
+                  AND e.event IN ('user_registered', 'guest_upgraded')
+              ) AS is_account
+       FROM signups s
+     )
+     SELECT
+       c.is_account,
+       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 1)::int AS d1_cohort,
+       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 1 AND EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = c.user_id AND e.created_at::date = c.d0 + 1))::int AS d1,
+       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 7)::int AS d7_cohort,
+       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 7 AND EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = c.user_id AND e.created_at::date = c.d0 + 7))::int AS d7
+     FROM classified c
+     GROUP BY c.is_account`,
+  );
+
+  const byCohort = new Map<RetentionCohort, RetentionCohortRow>();
+  for (const r of rows) {
+    const cohort: RetentionCohort = r.is_account ? 'account' : 'guest';
+    byCohort.set(cohort, {
+      cohort,
+      d1_cohort: num(r.d1_cohort),
+      d1: num(r.d1),
+      d7_cohort: num(r.d7_cohort),
+      d7: num(r.d7),
+    });
+  }
+  const empty = (cohort: RetentionCohort): RetentionCohortRow =>
+    ({ cohort, d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 });
+  return [
+    byCohort.get('account') ?? empty('account'),
+    byCohort.get('guest') ?? empty('guest'),
+  ];
 }
 
 /** Game-completion stats (per human) in the trailing window. */
@@ -320,10 +405,11 @@ export async function getVisitorFunnel(days: number): Promise<VisitorFunnelMetri
 
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number): Promise<AnalyticsReport> {
-  const [visitors, funnel, retention, completion, acquisition, volume, totalRow] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, totalRow] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days),
     getRetentionMetrics(),
+    getRetentionByCohort(),
     getCompletionStats(days),
     getAcquisitionBySource(days),
     getEventVolume(days),
@@ -335,6 +421,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     visitors,
     funnel,
     retention,
+    retention_by_cohort: retentionByCohort,
     completion,
     acquisition,
     acquisition_channels: foldAcquisitionByChannel(acquisition),
