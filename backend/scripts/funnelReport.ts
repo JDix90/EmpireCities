@@ -63,6 +63,23 @@ async function main(): Promise<void> {
   console.log(`  D1  ${ret.d1}/${ret.d1_cohort}  ${pct(ret.d1, ret.d1_cohort)}`);
   console.log(`  D7  ${ret.d7}/${ret.d7_cohort}  ${pct(ret.d7, ret.d7_cohort)}\n`);
 
+  // The pooled rate above mixes two populations that behave nothing alike, so
+  // on its own it mostly reports the guest/account mix. This is the split.
+  console.log('RETENTION BY ACCOUNT TYPE');
+  console.log(`  ${'cohort'.padEnd(10)} ${'D1'.padStart(11)} ${'D7'.padStart(11)}`);
+  for (const c of r.retention_by_cohort) {
+    const d1 = `${c.d1}/${c.d1_cohort} ${pct(c.d1, c.d1_cohort)}`;
+    const d7 = `${c.d7}/${c.d7_cohort} ${pct(c.d7, c.d7_cohort)}`;
+    console.log(`  ${c.cohort.padEnd(10)} ${d1.padStart(11)} ${d7.padStart(11)}`);
+  }
+  console.log(
+    '  NOTE: guests cannot sign back in, so a guest returning on another device'
+    + '\n  is counted as a NEW signup, never a return — cross-device returns are'
+    + '\n  invisible for guests and visible for accounts. Guests who never joined a'
+    + '\n  game are deleted after 48h and leave BOTH columns, so the guest row omits'
+    + '\n  the fastest bouncers and reads higher than the true rate, not lower.\n',
+  );
+
   const g = r.completion;
   console.log('GAME COMPLETIONS (per human, in window)');
   console.log(`  finishes ${g.finishes} · wins ${g.wins} · tutorial ${g.tutorial_finishes}`);

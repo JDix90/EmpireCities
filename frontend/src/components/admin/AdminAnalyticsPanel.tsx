@@ -21,6 +21,9 @@ export interface RetentionMetrics {
   d7_cohort: number;
   d7: number;
 }
+export interface RetentionCohortRow extends RetentionMetrics {
+  cohort: 'account' | 'guest';
+}
 export interface CompletionStats {
   finishes: number;
   wins: number;
@@ -44,6 +47,8 @@ export interface AnalyticsReport {
   visitors?: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
   retention: RetentionMetrics;
+  /** Optional for rollout: older backends won't send it. */
+  retention_by_cohort?: RetentionCohortRow[];
   completion: CompletionStats;
   volume: EventVolumeRow[];
 }
@@ -157,6 +162,45 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
         />
         <Stat label="Games finished" value={c.finishes.toLocaleString()} sub={`${c.tutorial_finishes} tutorial`} />
       </div>
+
+      {/* The two tiles above pool guests and accounts, which behave nothing
+          alike — pooled, the rate mostly reports the guest/account mix rather
+          than whether anyone came back. */}
+      {data.retention_by_cohort && data.retention_by_cohort.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">Retention by account type</p>
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wider text-bf-muted">
+                <th className="pb-1 text-left font-normal">Cohort</th>
+                <th className="pb-1 text-right font-normal">D1</th>
+                <th className="pb-1 text-right font-normal">D7</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.retention_by_cohort.map((row) => (
+                <tr key={row.cohort} className="border-t border-bf-border/50">
+                  <td className="py-1.5 capitalize text-bf-text">{row.cohort}</td>
+                  <td className="py-1.5 text-right tabular-nums text-bf-text">
+                    {pctText(row.d1, row.d1_cohort)}{' '}
+                    <span className="text-bf-muted">({row.d1}/{row.d1_cohort})</span>
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-bf-text">
+                    {pctText(row.d7, row.d7_cohort)}{' '}
+                    <span className="text-bf-muted">({row.d7}/{row.d7_cohort})</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-bf-muted">
+            Guests cannot sign back in, so one returning on another device counts as a new
+            signup and never as a return. Guests who never joined a game are deleted after
+            48h and leave both columns, so the guest row omits the fastest bouncers and
+            reads high rather than low.
+          </p>
+        </section>
+      )}
 
       <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
         <p className="text-sm font-semibold text-bf-text">
