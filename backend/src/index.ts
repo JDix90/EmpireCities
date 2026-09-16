@@ -9,6 +9,7 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import type { Server } from 'socket.io';
 import { config } from './config';
+import { frameAncestorsFor } from './modules/auth/embedContext';
 import { validateProductionEnv } from './config/validateEnv';
 import { connectPostgres, pgPool, query, queryOne } from './db/postgres';
 import { getEventLoopLagMs } from './services/eventLoopMonitor';
@@ -176,7 +177,9 @@ async function bootstrap(): Promise<void> {
               ],
               fontSrc: ["'self'", 'data:'],
               connectSrc: ["'self'", ...config.corsOrigins, ...cspConnectExtras],
-              frameAncestors: ["'none'"],
+              // "'none'" unless EMBED_ORIGINS names portals that may frame
+              // us — see modules/auth/embedContext.ts.
+              frameAncestors: frameAncestorsFor(config.embedOrigins),
               objectSrc: ["'none'"],
               baseUri: ["'self'"],
               formAction: ["'self'"],
