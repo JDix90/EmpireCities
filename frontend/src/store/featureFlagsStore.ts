@@ -10,7 +10,6 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
-  guest_account_upsell_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   daily_guest_play_enabled: boolean;
@@ -44,9 +43,6 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
-  // Dark-launched OFF: shows guests the Campaign entry and a
-  // "guests do not place" row on the leaderboards.
-  guest_account_upsell_enabled: false,
   // OFF until the ranked ladder has enough players not to render empty.
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
@@ -129,11 +125,6 @@ export function useReferralSurveyEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
-}
-
-/** Guest-facing account upsell: Campaign nav entry + leaderboard guest row. */
-export function useGuestAccountUpsellEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.guest_account_upsell_enabled);
 }
 
 /** Ranked ladder surfaces: the Ranked leaderboard tab + lobby Top Commanders. */

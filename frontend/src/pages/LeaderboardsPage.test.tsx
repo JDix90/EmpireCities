@@ -10,11 +10,11 @@ vi.mock('../services/api', () => ({
   api: { get: (...a: unknown[]) => getMock(...a) },
 }));
 
-function setFlags(ranked: boolean, guestUpsell: boolean) {
+function setRanked(ranked: boolean) {
   const s = useFeatureFlagsStore.getState();
   useFeatureFlagsStore.setState({
     ...s,
-    flags: { ...s.flags, ranked_leaderboard_enabled: ranked, guest_account_upsell_enabled: guestUpsell },
+    flags: { ...s.flags, ranked_leaderboard_enabled: ranked },
   });
 }
 
@@ -54,13 +54,13 @@ describe('LeaderboardsPage', () => {
   });
 
   it('shows the Ranked tab when the flag is on', async () => {
-    setFlags(true, false);
+    setRanked(true);
     renderPage();
     expect(await screen.findByRole('button', { name: /Ranked/ })).toBeInTheDocument();
   });
 
   it('hides the Ranked tab when the flag is off', async () => {
-    setFlags(false, false);
+    setRanked(false);
     renderPage();
     await waitFor(() => expect(getMock).toHaveBeenCalled());
     expect(screen.queryByRole('button', { name: /Ranked/ })).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('LeaderboardsPage', () => {
   });
 
   it('falls back to a visible board rather than loading the hidden default', async () => {
-    setFlags(false, false);
+    setRanked(false);
     renderPage();
     // 'rating' is BOTH the default tab and the one the flag removes, so an
     // unfiltered read would silently fetch a board with no tab to leave it by.
@@ -77,35 +77,28 @@ describe('LeaderboardsPage', () => {
   });
 
   it('falls back from a stale ?tab=rating link when ranked is hidden', async () => {
-    setFlags(false, false);
+    setRanked(false);
     renderPage({ url: '/leaderboards?tab=rating' });
     await waitFor(() => expect(boardCalls().length).toBeGreaterThan(0));
     expect(requestedRanked()).toBe(false);
   });
 
   it('honours ?tab=rating when ranked is visible', async () => {
-    setFlags(true, false);
+    setRanked(true);
     renderPage({ url: '/leaderboards?tab=rating' });
     await waitFor(() => expect(boardCalls().length).toBeGreaterThan(0));
     expect(requestedRanked()).toBe(true);
   });
 
   it('tells a guest they do not place, with a way to fix it', async () => {
-    setFlags(false, true);
+    setRanked(false);
     renderPage({ isGuest: true });
     expect(await screen.findByText(/Guests do not appear on the leaderboards/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Create Free Account/ })).toHaveAttribute('href', '/upgrade');
   });
 
-  it('stays silent for a guest while the upsell flag is off', async () => {
-    setFlags(false, false);
-    renderPage({ isGuest: true });
-    await waitFor(() => expect(getMock).toHaveBeenCalled());
-    expect(screen.queryByText(/Guests do not appear on the leaderboards/)).not.toBeInTheDocument();
-  });
-
   it('never shows the guest notice to a registered player', async () => {
-    setFlags(false, true);
+    setRanked(false);
     renderPage({ isGuest: false });
     await waitFor(() => expect(getMock).toHaveBeenCalled());
     expect(screen.queryByText(/Guests do not appear on the leaderboards/)).not.toBeInTheDocument();

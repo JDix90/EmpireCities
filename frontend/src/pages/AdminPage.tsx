@@ -44,12 +44,6 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
-    key: 'guest_account_upsell_enabled',
-    label: 'Guest account upsell surfaces',
-    description:
-      'Show guests what an account unlocks rather than hiding it: the Campaign nav entry (browsing only — starting one still prompts for an account), and a row on the leaderboards explaining that guests do not place. Presentation only; every guest restriction stays enforced server-side. Off by default.',
-  },
-  {
     key: 'ranked_leaderboard_enabled',
     label: 'Ranked ladder surfaces',
     description:

@@ -5,7 +5,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { useGuestAccountUpsellEnabled, useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
+import { useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
 import { LEADERBOARD_GUEST_NOTICE } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
 
@@ -84,7 +84,6 @@ const PAGE_SIZE = 50;
 export default function LeaderboardsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rankedEnabled = useRankedLeaderboardEnabled();
-  const guestUpsell = useGuestAccountUpsellEnabled();
   const tabs = useMemo(
     () => TABS.filter(({ id }) => id !== 'rating' || rankedEnabled),
     [rankedEnabled],
@@ -183,7 +182,7 @@ export default function LeaderboardsPage() {
             query filters `u.is_guest = false`, so `myRankCard` is always null
             for them and the slot would otherwise render nothing at all. Saying
             so where their rank would be is the whole point. */}
-        {user?.is_guest && guestUpsell ? (
+        {user?.is_guest ? (
           <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-bf-muted">

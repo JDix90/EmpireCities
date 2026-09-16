@@ -6,7 +6,7 @@ import {
 import styles from './TopNavBar.module.css';
 import UserMenu from './UserMenu';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
-import { useMapEditorEnabled, useSpectateEnabled, useGuestAccountUpsellEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
@@ -15,14 +15,6 @@ type NavItem = {
   icon: React.ElementType;
   title?: string;
   hideForGuest?: boolean;
-  /**
-   * Lifts `hideForGuest` while `guest_account_upsell_enabled` is on. The guest
-   * sees the entry and browses the page; the account gate moves to the action
-   * inside it (CampaignPage's start handler, matching the server's `rejectGuest`
-   * on POST /campaign/start). Hiding a mode outright is how a guest never
-   * learns it exists.
-   */
-  guestPreview?: boolean;
   hideForNonAdmin?: boolean;
   requiresMapEditor?: boolean;
   requiresSpectate?: boolean;
@@ -42,7 +34,11 @@ const navGroups: NavItem[][] = [
   // Ways to play.
   [
     { to: '/daily', label: 'Daily', icon: Calendar, title: 'Daily Challenge' },
-    { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign', hideForGuest: true, guestPreview: true },
+    // Deliberately NOT hideForGuest. A guest may browse campaigns server-side
+    // (`rejectGuest` sits only on POST /campaign/start and /continue), and the
+    // account gate lives on the start action in CampaignPage. Hiding the entry
+    // is how a guest never learns the mode exists — see utils/guestGate.ts.
+    { to: '/campaign', label: 'Campaign', icon: Swords, title: 'Campaign' },
   ],
   // Where to play.
   [
@@ -66,7 +62,6 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const isAdmin = selectIsAdminFromToken(accessToken);
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
-  const guestUpsell = useGuestAccountUpsellEnabled();
   // Read gold from the store (not the prop) so it stays reactive after daily
   // claims, purchases, and game rewards update the balance elsewhere.
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
@@ -75,8 +70,8 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const visibleGroups = navGroups
     .map((group) =>
       group.filter(
-        ({ hideForGuest, guestPreview, hideForNonAdmin, requiresMapEditor, requiresSpectate }) =>
-          (!hideForGuest || !user?.is_guest || (guestPreview && guestUpsell))
+        ({ hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate }) =>
+          (!hideForGuest || !user?.is_guest)
           && (!hideForNonAdmin || isAdmin)
           && (!requiresMapEditor || mapEditorEnabled)
           && (!requiresSpectate || spectateEnabled),
