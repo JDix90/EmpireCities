@@ -145,8 +145,17 @@
       if (frameHasRealContent()) playing(); else blocked();
     });
     frame.addEventListener('error', blocked);
-    // Backstop: nothing resolved in time -> offer the tab rather than sit blank.
-    setTimeout(function () { if (!settled) blocked(); }, 8000);
+
+    // Backstop for a frame that never resolves. It re-runs the same check
+    // rather than assuming the worst: on a slow connection the navigation can
+    // have committed — real content, cross-origin, working — while `load` is
+    // still waiting on subresources. Declaring that blocked shows the fallback
+    // over a game that was about to appear, which is exactly what an earlier
+    // version did when tested against the live site through a slow hop.
+    setTimeout(function () {
+      if (settled) return;
+      if (frameHasRealContent()) playing(); else blocked();
+    }, 12000);
   })();
 </script>
 
