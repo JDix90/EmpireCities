@@ -54,6 +54,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  guest_account_upsell_enabled: () => envOptIn('GUEST_ACCOUNT_UPSELL_ENABLED'),
+  ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
@@ -255,6 +257,32 @@ export const featureFlags = {
    */
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled');
+  },
+
+  /**
+   * When true, guests see the surfaces an account unlocks instead of having
+   * them hidden: the Campaign nav entry (browsing is already permitted
+   * server-side — `rejectGuest` sits only on POST /campaign/start and
+   * /continue), and a row on the leaderboards saying guests do not place.
+   *
+   * Hiding a mode outright is why a guest never learns it exists; the same
+   * lesson is already written up in utils/signupNudge.ts for banked gold.
+   * Client-side presentation only — every guest restriction stays enforced on
+   * the server, and this flag lifts none of them. Default OFF (dark-launch).
+   */
+  get guestAccountUpsellEnabled(): boolean {
+    return overrideBool('guest_account_upsell_enabled');
+  },
+
+  /**
+   * When true, the ranked ladder is surfaced: the Ranked tab on /leaderboards
+   * and the "Top Commanders" lobby widget. Default OFF — both read a board
+   * that filters to `is_guest = false` ranked players, so with no ranked games
+   * played they render an empty podium, which reads as a dead game rather than
+   * a new one. Turn it on once the ladder has enough players to look alive.
+   */
+  get rankedLeaderboardEnabled(): boolean {
+    return overrideBool('ranked_leaderboard_enabled');
   },
 
   /**
@@ -629,6 +657,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    guest_account_upsell_enabled: featureFlags.guestAccountUpsellEnabled,
+    ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,

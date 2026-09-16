@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import SubpageShell from '../components/ui/SubpageShell';
+import GuestGateModal from '../components/ui/GuestGateModal';
+import { CAMPAIGN_START_GATE } from '../utils/guestGate';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
@@ -362,7 +364,7 @@ function CampaignListCard({
 // ── Main Page ──────────────────────────────────────────────────────────
 
 export default function CampaignPage() {
-  useAuthStore();
+  const isGuest = useAuthStore((s) => !!s.user?.is_guest);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -371,6 +373,7 @@ export default function CampaignPage() {
   const [starting, setStarting] = useState(false);
   const [continuing, setContinuing] = useState<string | null>(null);
   const [showPathSelection, setShowPathSelection] = useState(false);
+  const [showGuestGate, setShowGuestGate] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('campaign_id'));
 
   const refresh = React.useCallback(async () => {
@@ -409,6 +412,14 @@ export default function CampaignPage() {
   const selectedCampaign = selectedId ? campaigns.find((c) => c.campaign_id === selectedId) ?? null : null;
 
   const handleStartWithPath = async (pathId?: string) => {
+    // A guest may browse campaigns (GET /campaign/list and /paths take any
+    // authenticated caller) but not start one — POST /campaign/start carries
+    // `rejectGuest` and answers 403. Intercepting here turns that dead end into
+    // the account offer at the moment they have chosen a campaign and pressed go.
+    if (isGuest) {
+      setShowGuestGate(true);
+      return;
+    }
     setStarting(true);
     try {
       const res = await api.post<{ campaign_id: string; game_id: string }>(
@@ -467,6 +478,16 @@ export default function CampaignPage() {
     }, { replace: true });
   };
 
+  // Rendered by every branch a guest can reach a start action from. Fixed
+  // positioning means it does not matter where in the tree it sits.
+  const guestGate = showGuestGate ? (
+    <GuestGateModal
+      copy={CAMPAIGN_START_GATE}
+      onCreateAccount={() => navigate('/upgrade')}
+      onDismiss={() => setShowGuestGate(false)}
+    />
+  ) : null;
+
   if (loading) {
     return (
       <SubpageShell title="ERA CAMPAIGNS" icon={Trophy}>
@@ -489,6 +510,7 @@ export default function CampaignPage() {
             starting={starting}
             canCancel={campaigns.length > 0}
           />
+          {guestGate}
       </SubpageShell>
     );
   }
@@ -656,6 +678,7 @@ export default function CampaignPage() {
           </div>
         )}
 
+        {guestGate}
     </SubpageShell>
   );
 }

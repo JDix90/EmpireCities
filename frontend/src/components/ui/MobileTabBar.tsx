@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIsLandscape } from '../../hooks/useIsLandscape';
-import { useMapEditorEnabled, useSpectateEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled, useGuestAccountUpsellEnabled } from '../../store/featureFlagsStore';
 
 interface MobileTabBarProps {
   isGuest?: boolean;
@@ -14,11 +14,17 @@ interface MobileTabBarProps {
   onLogout: () => void;
 }
 
+/**
+ * `guestPreview` lifts `guestHidden` while `guest_account_upsell_enabled` is on:
+ * the guest gets the tab and browses the page, and the account gate moves to the
+ * action inside it. This is why the gate is not a disabled tab with a tooltip —
+ * `title` tooltips never fire on touch, which is the only way this bar renders.
+ */
 const PRIMARY_TABS = [
-  { path: '/lobby', icon: Home, label: 'Home', guestHidden: false },
-  { path: '/campaign', icon: Swords, label: 'Campaign', guestHidden: true },
-  { path: '/friends', icon: Users, label: 'Friends', guestHidden: true },
-  { path: '/profile', icon: User, label: 'Profile', guestHidden: false },
+  { path: '/lobby', icon: Home, label: 'Home', guestHidden: false, guestPreview: false },
+  { path: '/campaign', icon: Swords, label: 'Campaign', guestHidden: true, guestPreview: true },
+  { path: '/friends', icon: Users, label: 'Friends', guestHidden: true, guestPreview: false },
+  { path: '/profile', icon: User, label: 'Profile', guestHidden: false, guestPreview: false },
 ] as const;
 
 export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: MobileTabBarProps) {
@@ -27,6 +33,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
   const isLandscape = useIsLandscape();
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
+  const guestUpsell = useGuestAccountUpsellEnabled();
 
   // Hide tab bar in landscape to maximize screen real estate
   if (isLandscape) return null;
@@ -84,7 +91,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
       {/* Tab bar */}
       <nav className="fixed bottom-0 inset-x-0 z-50 flex md:hidden items-center justify-around bg-bf-surface border-t border-bf-border pb-safe min-h-[56px] gap-0.5 px-1">
         {PRIMARY_TABS.map((tab) => {
-          if (tab.guestHidden && isGuest) return null;
+          if (tab.guestHidden && isGuest && !(tab.guestPreview && guestUpsell)) return null;
           const active = location.pathname === tab.path;
           return (
             <Link

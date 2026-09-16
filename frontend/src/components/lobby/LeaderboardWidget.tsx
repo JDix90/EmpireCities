@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
 import { api } from '../../services/api';
+import { useRankedLeaderboardEnabled } from '../../store/featureFlagsStore';
 
 interface TierInfo {
   tier: string;
@@ -34,14 +35,21 @@ const PODIUM_BG: Record<number, string> = {
 
 export default function LeaderboardWidget() {
   const [data, setData] = useState<ResponseShape | null>(null);
+  const rankedEnabled = useRankedLeaderboardEnabled();
 
   useEffect(() => {
+    if (!rankedEnabled) return;
     api.get<ResponseShape>('/leaderboards/top')
       .then((res) => setData(res.data))
       .catch(() => {});
-  }, []);
+  }, [rankedEnabled]);
 
-  if (!data) return null;
+  if (!rankedEnabled || !data) return null;
+  // An empty podium reads as a dead game rather than a new one, so the card
+  // stays away until the ladder has someone on it. This holds independently of
+  // the flag: turning ranked on before anyone has played would show the same
+  // empty "Top Commanders" heading the flag was added to hide.
+  if (data.top.length === 0) return null;
 
   return (
     <div className="card h-full">
