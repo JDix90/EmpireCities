@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { randomUUID, randomBytes, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,6 +10,7 @@ import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { requireGuest } from '../../middleware/requireGuest';
+import { refreshCookieAttrs } from './embedContext';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
@@ -228,16 +229,28 @@ const ResetPasswordSchema = z.object({
   new_password: z.string().min(8).max(128),
 });
 
-function refreshCookieOpts(maxAgeSeconds: number) {
-  const sameSite = config.refreshCookieSameSite;
-  const secure = sameSite === 'none' ? true : config.refreshCookieSecure;
-  return {
-    httpOnly: true,
-    secure,
-    sameSite,
-    path: '/api/auth',
-    maxAge: maxAgeSeconds,
-  } as const;
+/**
+ * Cookie attributes for this request. The embed decision, and the guarantee
+ * that a direct visit is unaffected, live in embedContext.ts under test.
+ *
+ * Omitting `request` keeps the non-embedded behaviour, so a future caller
+ * without a request cannot accidentally widen this.
+ */
+function refreshCookieOpts(maxAgeSeconds: number, request?: FastifyRequest) {
+  return refreshCookieAttrs(maxAgeSeconds, request?.headers.origin, {
+    embedOrigins: config.embedOrigins,
+    sameSite: config.refreshCookieSameSite,
+    secure: config.refreshCookieSecure,
+  });
+}
+
+/**
+ * Deletion has to repeat the attributes the cookie was written with, or the
+ * browser treats it as a different cookie and the old one survives logout.
+ */
+function clearRefreshCookieOpts(request?: FastifyRequest) {
+  const { httpOnly, secure, sameSite, path } = refreshCookieOpts(0, request);
+  return { httpOnly, secure, sameSite, path };
 }
 
 /**
@@ -331,7 +344,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, userId, refreshHash, refreshExpiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
 
     stampLastLogin(userId);
     // First server touch for most acquisition paths (the landing jumps straight
@@ -417,7 +430,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
 
     stampLastLogin(user.user_id);
     if (email_opt_in) grantEmailOptIn(user.user_id);
@@ -546,7 +559,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: upgraded.username,
       admin: upgraded.is_admin,
     });
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
 
     stampLastLogin(upgraded.user_id);
     // Written by the trusted upgrade path itself (the /me/preferences routes
@@ -665,7 +678,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     stampLastLogin(user.user_id);
@@ -895,7 +908,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       admin: rotation.is_admin,
       ...(rotation.is_guest ? { guest: true } : {}),
     });
-    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7));
+    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
 
     stampLastLogin(payload.sub);
     return reply.send({ accessToken: newAccessToken });
@@ -947,7 +960,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(500).send({ error: 'Password change failed' });
     }
 
-    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    reply.clearCookie('refreshToken', clearRefreshCookieOpts(request));
     return reply.send({ message: 'Password updated; please log in again' });
   });
 
@@ -960,7 +973,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         await query('UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1', [payload.tokenId]);
       }
     }
-    reply.clearCookie('refreshToken', { path: '/api/auth' });
+    reply.clearCookie('refreshToken', clearRefreshCookieOpts(request));
     return reply.send({ message: 'Logged out successfully' });
   });
 }

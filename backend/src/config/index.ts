@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { parseEmbedOriginList } from '../modules/auth/embedContext';
+
 function parseCorsOrigins(): string[] {
   const extra = process.env.CORS_ORIGINS;
   const primary = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -81,6 +83,10 @@ export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   corsOrigins: parseCorsOrigins(),
+  // Portals allowed to iframe us. Empty by default, and that default is
+  // load-bearing: it keeps `frame-ancestors 'none'` and leaves every refresh
+  // cookie on the SameSite below. See modules/auth/embedContext.ts.
+  embedOrigins: parseEmbedOriginList(process.env.EMBED_ORIGINS),
   refreshCookieSameSite: parseRefreshCookieSameSite(),
   refreshCookieSecure: parseRefreshCookieSecure(),
   trustProxy: parseTrustProxy(),
