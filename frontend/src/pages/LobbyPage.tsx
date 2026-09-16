@@ -17,6 +17,7 @@ import { useAuthStore } from '../store/authStore';
 import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
+import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA } from '../utils/guestGate';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -1553,8 +1554,8 @@ export default function LobbyPage() {
             <div className="flex items-center gap-2 mt-1">
               {user?.is_guest ? (
                 <p className="text-bf-muted text-sm">
-                  Level {user?.level} · {user?.xp} XP · Guest accounts do not persist across sessions{' '}
-                  <Link to="/upgrade" className="text-bf-gold hover:underline">— create an account to keep your stats</Link>
+                  Level {user?.level} · {user?.xp} XP · {GUEST_NO_PERSIST}{' '}
+                  <Link to="/upgrade" className="text-bf-gold hover:underline">— {GUEST_KEEP_STATS_CTA}</Link>
                 </p>
               ) : (
                 <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>

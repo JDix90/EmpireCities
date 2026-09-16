@@ -6,6 +6,8 @@
  * be filtered out by the caller before this is consulted.
  */
 
+import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA_SENTENCE } from './guestGate';
+
 /** sessionStorage key — once per tab session, mirroring the tutorial prompt. */
 export const SIGNUP_NUDGE_SHOWN_KEY = 'cc-signup-nudge-shown';
 
@@ -60,9 +62,9 @@ export function bankedGoldNote(gold: number | undefined): string | undefined {
  * browser, or cleared site data and it is unreachable for good (the row is not
  * even deleted; `guestCleanupService` keeps it because they played).
  *
- * The copy this replaces said "saved to this guest session … make them
- * permanent", which is true but reads as generic upsell and never told anyone
- * the thing that is actually urgent.
+ * The shared clause comes from utils/guestGate.ts so this reads the same as the
+ * lobby banner, the game-over prompt and the campaign gate; each body then adds
+ * the detail this moment has room for, which the one-liners do not.
  */
 export function signupNudgeCopy(isWinner: boolean, gold?: number): SignupNudgeCopy {
   const banked = bankedGoldNote(gold);
@@ -70,12 +72,14 @@ export function signupNudgeCopy(isWinner: boolean, gold?: number): SignupNudgeCo
     ? {
         bankedGold: banked,
         title: 'Victory!',
-        body: 'You won — and the record of it sits on a guest account with no email or password, in this browser only. Open Borderfall anywhere else and it does not exist. A free account keeps your level, gold and streak, on every device.',
+        body: `You won — and the record of it sits on a guest account with no email or password. ${GUEST_NO_PERSIST}: open Borderfall in another browser and it does not exist. ${GUEST_KEEP_STATS_CTA_SENTENCE} — level, gold and streak, on every device.`,
       }
     : {
         bankedGold: banked,
         // Outcome-agnostic so it doesn't read as patronizing after a loss.
-        title: 'This account lives in one browser',
-        body: 'Your level, gold and streak are on a guest account with no email or password to sign back in with. Switch devices, or clear your browser data, and there is no way back to it. A free account keeps everything you have earned, anywhere you play.',
+        title: GUEST_NO_PERSIST,
+        // The title already carries GUEST_NO_PERSIST; the body says what that
+        // means here rather than repeating the sentence back.
+        body: `Your level, gold and streak are on a guest account with no email or password to sign back in with — switch browsers, or clear your site data, and there is no way back to it. ${GUEST_KEEP_STATS_CTA_SENTENCE}, anywhere you play.`,
       };
 }

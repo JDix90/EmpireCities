@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import GuestSignupNudgeModal from './GuestSignupNudgeModal';
+import { GUEST_NO_PERSIST } from '../../utils/guestGate';
 
 function renderModal(isWinner: boolean, gold?: number) {
   const onCreateAccount = vi.fn();
@@ -24,7 +25,7 @@ describe('GuestSignupNudgeModal', () => {
 
   it('shows neutral copy on a loss/finish', () => {
     renderModal(false);
-    expect(screen.getByText('This account lives in one browser')).toBeInTheDocument();
+    expect(screen.getByText(GUEST_NO_PERSIST)).toBeInTheDocument();
   });
 
   it('names why an account matters instead of promising vague permanence', () => {

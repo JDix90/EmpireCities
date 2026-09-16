@@ -16,6 +16,24 @@
  * describes what is actually true.
  */
 
+/**
+ * The one statement of the guest limitation, shared verbatim by every surface
+ * that raises it: the lobby welcome banner, the game-over prompt, the
+ * come-back-tomorrow streak note, the post-game nudge, and both gates below.
+ *
+ * It is a constant because those five surfaces had five different phrasings
+ * ("this browser only", "lives in one browser", "a guest streak lives in this
+ * browser only"), which is how the claim drifts and how one of them ends up
+ * saying something the others do not.
+ */
+export const GUEST_NO_PERSIST = 'Guest accounts do not persist across sessions';
+
+/** The paired call to action — lowercase, for link text and mid-sentence use. */
+export const GUEST_KEEP_STATS_CTA = 'create an account to keep your stats';
+
+/** Sentence-initial form of the same call to action. */
+export const GUEST_KEEP_STATS_CTA_SENTENCE = 'Create an account to keep your stats';
+
 export interface GuestGateCopy {
   title: string;
   body: string;
@@ -30,10 +48,10 @@ export interface GuestGateCopy {
 export const CAMPAIGN_START_GATE: GuestGateCopy = {
   title: 'Campaigns need an account',
   body:
-    'A campaign runs across many games, so it has to live somewhere that outlasts this browser. '
-    + 'Your guest account has no email or password to sign back in with — switch devices or clear '
-    + 'your site data and there is no way back to it. A free account keeps the campaign, and '
-    + 'everything you have already earned comes with it.',
+    `A campaign runs across many games, so it needs somewhere to live. ${GUEST_NO_PERSIST}: `
+    + 'yours has no email or password to sign back in with, so another browser or '
+    + `cleared site data loses it. ${GUEST_KEEP_STATS_CTA_SENTENCE} — the campaign, and everything `
+    + 'you have already earned, come with you.',
   bullets: [
     'Your level, gold and unlocks carry over — the same account, upgraded in place.',
     'Pick a campaign back up on any device.',
@@ -49,7 +67,7 @@ export const CAMPAIGN_START_GATE: GuestGateCopy = {
 export const LEADERBOARD_GUEST_NOTICE: GuestGateCopy = {
   title: 'Guests do not appear on the leaderboards',
   body:
-    'You can play everything here, but a guest account is never ranked. A free account claims '
-    + 'your place and keeps the level, gold and streak you have already banked.',
+    `You can play everything here, but a guest account is never ranked. ${GUEST_NO_PERSIST}, so `
+    + `${GUEST_KEEP_STATS_CTA} and claim your place.`,
   bullets: [],
 };

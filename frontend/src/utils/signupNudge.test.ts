@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { bankedGoldNote, shouldShowSignupNudge, signupNudgeCopy } from './signupNudge';
+import { GUEST_NO_PERSIST } from './guestGate';
 
 describe('shouldShowSignupNudge', () => {
   const base = { isGuest: true, flagEnabled: true, alreadyShownThisSession: false };
@@ -30,7 +31,7 @@ describe('signupNudgeCopy', () => {
 
   it('uses neutral, non-patronizing copy on a loss/finish', () => {
     const c = signupNudgeCopy(false);
-    expect(c.title).toBe('This account lives in one browser');
+    expect(c.title).toBe(GUEST_NO_PERSIST);
     expect(c.body.toLowerCase()).not.toContain('you lost');
   });
 
