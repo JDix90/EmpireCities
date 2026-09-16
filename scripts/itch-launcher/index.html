@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Borderfall</title>
+<!--
+  Borderfall launcher for itch.io's HTML player.
+
+  itch hosts this file and runs it inside an iframe on the project page
+  (served from html-classic.itch.zone). Borderfall itself is a full-stack app,
+  so it cannot be uploaded as a static build — this shell frames the live site
+  instead.
+
+  IT MUST NEVER BUST OUT OF ITS FRAME. No top.location, no parent.location, no
+  auto-redirect. Navigating the player away from itch is hostile to the
+  platform and to the person who clicked Run. The only way out of here is a
+  link the visitor chooses to click.
+
+  Framing only works once borderfall.gg's CSP names itch's origin in
+  EMBED_ORIGINS (see modules/auth/embedContext.ts). Until it does, the CSP
+  blocks the frame and this page shows a "play in a new tab" fallback instead,
+  so the shell is useful before the server side is switched on and upgrades
+  itself the moment it is.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: #0f1117; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #c8cbd4;
+    overflow: hidden;
+  }
+  #game {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: 0; display: block;
+    background: #0f1117;
+  }
+  /* Sits over the frame until the game paints, then gets hidden. */
+  #panel {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center;
+    background: #0f1117;
+  }
+  #panel[hidden] { display: none; }
+  .mark {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(28px, 7vw, 44px);
+    letter-spacing: .06em;
+    color: #d4a843;
+    margin: 0;
+  }
+  .sub { font-size: 14px; color: #8a90a0; margin: 0; max-width: 34ch; line-height: 1.5; }
+  .cta {
+    display: inline-block; margin-top: 4px;
+    padding: 12px 22px; border-radius: 10px;
+    background: #d4a843; color: #14161d;
+    font-weight: 700; font-size: 15px; text-decoration: none;
+  }
+  .cta:hover { background: #e2ba5c; }
+  .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  /* Always reachable, even if the frame loaded but is unusable. */
+  #escape {
+    position: absolute; right: 10px; bottom: 10px; z-index: 2;
+    padding: 7px 12px; border-radius: 999px;
+    background: rgba(15, 17, 23, .82);
+    border: 1px solid rgba(212, 168, 67, .4);
+    color: #d4a843; font-size: 12px; text-decoration: none;
+    backdrop-filter: blur(4px);
+  }
+  #escape[hidden] { display: none; }
+  #escape:hover { background: rgba(15, 17, 23, .95); }
+</style>
+</head>
+<body>
+
+<iframe
+  id="game"
+  title="Borderfall"
+  src="https://borderfall.gg/?utm_source=itch.io&utm_medium=embed"
+  allow="fullscreen; clipboard-write"
+  referrerpolicy="origin-when-cross-origin"
+></iframe>
+
+<div id="panel">
+  <p class="mark">BORDERFALL</p>
+  <p class="sub" id="msg"><span class="dots">Loading</span></p>
+  <a class="cta" id="cta" href="https://borderfall.gg/?utm_source=itch.io&utm_medium=newtab"
+     target="_blank" rel="noopener noreferrer" hidden>Play in a new tab</a>
+</div>
+
+<a id="escape" href="https://borderfall.gg/?utm_source=itch.io&utm_medium=newtab"
+   target="_blank" rel="noopener noreferrer" hidden>Open in a new tab &#8599;</a>
+
+<script>
+  (function () {
+    var panel = document.getElementById('panel');
+    var msg = document.getElementById('msg');
+    var cta = document.getElementById('cta');
+    var escapeLink = document.getElementById('escape');
+    var frame = document.getElementById('game');
+    var settled = false;
+
+    /*
+     * A refused frame still fires `load` — it settles on about:blank — so the
+     * event alone proves nothing. This does: reading `location.href` on a
+     * genuinely cross-origin document throws a SecurityError, while a frame the
+     * browser refused stays same-origin about:blank and reads back fine.
+     * Throwing is the success signal here, which is why the catch returns true.
+     *
+     * Verified against the live site while X-Frame-Options was still blocking:
+     * Chrome fired `load` and this correctly reported no real content.
+     */
+    function frameHasRealContent() {
+      try {
+        var href = frame.contentWindow.location.href;
+        return href !== 'about:blank' && href !== '';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function playing() {
+      if (settled) return;
+      settled = true;
+      panel.hidden = true;
+      escapeLink.hidden = false;
+    }
+
+    function blocked() {
+      if (settled) return;
+      settled = true;
+      msg.textContent = 'This page could not load the game in place. '
+        + 'It runs fine in its own tab — free, no download, no account.';
+      cta.hidden = false;
+      escapeLink.hidden = true; // the big button is right there; two would be noise
+    }
+
+    frame.addEventListener('load', function () {
+      if (frameHasRealContent()) playing(); else blocked();
+    });
+    frame.addEventListener('error', blocked);
+    // Backstop: nothing resolved in time -> offer the tab rather than sit blank.
+    setTimeout(function () { if (!settled) blocked(); }, 8000);
+  })();
+</script>
+
+</body>
+</html>
