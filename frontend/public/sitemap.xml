@@ -56,6 +56,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://borderfall.gg/codex</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://borderfall.gg/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
