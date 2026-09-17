@@ -99,6 +99,22 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production_jwt_access}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_jwt_refresh}
       REFRESH_COOKIE_SAME_SITE: ${REFRESH_COOKIE_SAME_SITE:-lax}
+      # This block is an ALLOWLIST, not a pass-through: Compose forwards only
+      # what is named here, so a variable the backend reads but this file omits
+      # is silently empty in the container no matter what the host exports.
+      # Both of these were read by the backend and missing here.
+      #
+      # EMBED_ORIGINS is what switches portal embedding on. While it was empty,
+      # `frameAncestorsFor` returned 'none' and `resolveEmbedderOrigin` matched
+      # nothing, so the refresh cookie stayed SameSite=Lax and the browser
+      # withheld it inside every portal iframe — sessions could not survive a
+      # reload on itch. Diagnosable from outside: helmet's own CSP on an /api
+      # response reports `frame-ancestors 'none'` when this is unset.
+      EMBED_ORIGINS: ${EMBED_ORIGINS:-}
+      # REFRESH_COOKIE_SECURE only overrides; unset it auto-detects from
+      # FRONTEND_URL's scheme, which is https in production. So the default was
+      # right and the knob simply did not work.
+      REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
       # Expose GET /metrics/json for internal scraping (active games, pg-pool
       # depth, event-loop lag, AI queue). Keep it proxy-internal — it's not
