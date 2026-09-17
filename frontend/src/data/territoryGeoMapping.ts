@@ -113,11 +113,17 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
   // ═══════════════════════════════════════════════════════════════════════════
   // ANCIENT ERA — shared-country splits
   // ═══════════════════════════════════════════════════════════════════════════
+  // China on the Ancient board is drawn from real provinces: era_ancient.json
+  // lists Natural Earth admin-1 codes (`admin1`) on northern/central/southern
+  // China, Manchuria, Tibet & Nepal and the Eastern Steppe (Inner Mongolia), so
+  // the tiles meet along provincial borders instead of these bbox slices. The
+  // three CN boxes below are only the fallback when the admin-1 set is not
+  // loaded; Manchuria, Tibet and the steppe carry their non-CN countries inline
+  // in the JSON (`geo_config`), which is why their presets no longer name CN.
   northern_china: [{ iso: 'CN', clip_bbox: [105, 34, 118, 42] }],
   central_china: [{ iso: 'CN', clip_bbox: [100, 26, 120, 34] }],
   southern_china: [{ iso: 'CN', clip_bbox: [98, 18, 118, 26] }],
   manchuria: [
-    { iso: 'CN', clip_bbox: [118, 38, 135, 55] },
     { iso: 'KP' },
     { iso: 'KR' },
   ],
@@ -133,6 +139,8 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'UZ' },
     { iso: 'TM' },
   ],
+  // Inner Mongolia (CN-NM, admin-1 in the JSON) joins the steppe: the Han
+  // frontier then runs along the Great Wall line rather than a latitude.
   eastern_steppe: [
     { iso: 'KZ', clip_bbox: [70, 42, 90, 56] },
     { iso: 'MN' },
@@ -199,10 +207,10 @@ export const TERRITORY_GEO_CONFIG: Record<string, TerritoryGeoConfig> = {
     { iso: 'AQ', clip_bbox: [135, -90, 180, -60] },
     { iso: 'AQ', clip_bbox: [-180, -90, -110, -60] },
   ],
-  // Tibet & Nepal — the Himalayan plateau. CN clipped WEST of the Han-China tiles
-  // (their clips start at 100°E); NP moves here from northern_india (below).
+  // Tibet & Nepal — the Himalayan plateau. The Chinese part is Tibet, Qinghai and
+  // the Tarim basin (admin-1 in era_ancient.json); NP moves here from
+  // northern_india (below).
   tibet_nepal: [
-    { iso: 'CN', clip_bbox: [78, 27, 99, 37] },
     { iso: 'NP' },
     { iso: 'BT' },
   ],

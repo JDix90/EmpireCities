@@ -88,6 +88,8 @@ export interface GameOverModalData {
   achievements_unlocked?: string[];
   /** XP earned by the local player (from server `xp_earned_by_player`). */
   xpEarned?: number;
+  /** Territory share (percent of all territories) the `threshold` win required. */
+  victory_threshold?: number;
   /** Which victory condition ended the game. */
   victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty';
   /** Human-readable era name for the share card (e.g., "World War II"). */
@@ -1080,6 +1082,7 @@ function WinProbabilityChart({
           </g>
         ))}
         <text x={pad.l - 4} y={yAt(1) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>100%</text>
+        <text x={pad.l - 4} y={yAt(0.5) + 3} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>50%</text>
         <text x={pad.l - 4} y={yAt(0) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>0%</text>
         {lines.map(({ pl, d }) => (
           <polyline
@@ -1105,7 +1108,8 @@ function WinProbabilityChart({
         ))}
       </div>
       <p className="text-white/25 text-[10px] text-center mt-2 leading-snug">
-        Estimated each turn from territory control and total armies on the map (not actual RNG).
+        Estimated odds of winning, not territory held: each turn blends territory share (55%) with army share (45%) across
+        surviving players. The dashed line is even odds, not the victory threshold.
       </p>
     </div>
   );
@@ -1231,11 +1235,17 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const sortedPlayers = [...data.players].sort((a, b) => b.territory_count - a.territory_count);
   const probHistory = data.win_probability_history;
 
-  const victoryReasonLabel = (condition: GameOverModalData['victory_condition']): string | null => {
+  const victoryReasonLabel = (
+    condition: GameOverModalData['victory_condition'],
+    threshold?: number,
+  ): string | null => {
     switch (condition) {
       case 'domination':      return 'Total Domination — all territories conquered';
       case 'last_standing':   return 'Last Commander Standing — all opponents eliminated';
-      case 'threshold':       return 'Territorial Threshold — controlling majority of the map';
+      case 'threshold':
+        return typeof threshold === 'number' && Number.isFinite(threshold)
+          ? `Territorial Threshold — held ${threshold}% of all territories`
+          : 'Territorial Threshold — held the required share of the map';
       case 'capital':         return 'Capital Conquest — all rival capitals seized';
       case 'secret_mission':  return 'Secret Mission completed';
       case 'lane_sovereignty': return 'Lane Sovereignty — the hyperspace network held, corridor by corridor';
@@ -1256,7 +1266,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     ? data.players.find((p) => winnerIds.includes(p.player_id) && p.player_id !== data.players.find((pl) => pl.username === data.winnerName)?.player_id)?.username
     : undefined;
 
-  const reasonLabel = victoryReasonLabel(data.victory_condition);
+  const reasonLabel = victoryReasonLabel(data.victory_condition, data.victory_threshold);
 
   const showWatchReplay = Boolean(
     data.gameId &&

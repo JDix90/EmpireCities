@@ -13,6 +13,7 @@ import { polygon as turfPolygon } from '@turf/helpers';
 import {
   TERRITORY_GEO_CONFIG,
   TERRITORY_ISO_MAP,
+  type GeoConfigItem,
   type TerritoryGeoConfig,
 } from '../data/territoryGeoMapping';
 import { ACW_TERRITORY_STATES } from '../data/acwStateMap';
@@ -714,6 +715,14 @@ export function buildTerritoryGlobeGeometries(
      * the full ne_50m admin-1 world set (`admin50Geo`) for real province/state
      * coastlines, union them, and optionally clip to `clip_bbox`. Map-id agnostic;
      * any territory whose codes don't resolve falls through to its `geo_polygon`.
+     *
+     * A territory may pair provinces with whole countries — the Ancient board's
+     * Manchuria is three Chinese provinces plus Korea, Tibet & Nepal is the
+     * plateau provinces plus Nepal and Bhutan — so its inline `geo_config` /
+     * `iso_codes` are unioned in too, under the same homeland and clip rules as
+     * the era-config path below. The offline validator
+     * (backend `validateMapGeometry`) already treats both lists as one set of
+     * claimed codes.
      */
     if (
       territory.admin1 &&
@@ -729,6 +738,29 @@ export function buildTerritoryGlobeGeometries(
           if (c) g = c;
         }
         if (g) geoms.push(g);
+      }
+      if (isoToFeatures.size > 0) {
+        const countryItems: GeoConfigItem[] =
+          territory.geo_config ?? (territory.iso_codes ?? []).map((iso) => ({ iso }));
+        // The territory-level clip below narrows the whole union, so bare codes
+        // stay whole for it (same rule as the era-config path).
+        const territoryClipped = Boolean(territory.clip_bbox);
+        for (const item of countryItems) {
+          for (const f of isoToFeatures.get(item.iso) ?? []) {
+            const geom = f.geometry;
+            if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) continue;
+            const g = geom as GeoJSON.Polygon | GeoJSON.MultiPolygon;
+            if (item.clip_bbox) {
+              const clipped = clipToBbox(g, item.clip_bbox);
+              if (clipped) geoms.push(clipped);
+            } else if (territoryClipped) {
+              geoms.push(g);
+            } else {
+              const homeland = homelandGeometry(item.iso, g);
+              if (homeland) geoms.push(homeland);
+            }
+          }
+        }
       }
       if (geoms.length > 0) {
         try {
