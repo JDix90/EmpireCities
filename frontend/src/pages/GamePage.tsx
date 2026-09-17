@@ -1672,6 +1672,7 @@ export default function GamePage() {
       const xpEarned =
         myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
       const currentEra = useGameStore.getState().gameState?.era;
+      const victoryThreshold = useGameStore.getState().gameState?.settings?.victory_threshold;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
       setMusicOutcome(!!myId && winnerIds.includes(myId) ? 'victory' : 'defeat');
       const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
@@ -1701,6 +1702,7 @@ export default function GamePage() {
         achievements_unlocked: myId && stats.achievements_unlocked ? stats.achievements_unlocked[myId] : undefined,
         xpEarned,
         victory_condition: stats.victory_condition,
+        victory_threshold: typeof victoryThreshold === 'number' ? victoryThreshold : undefined,
         eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
         winnerIds,
         progression: myProgression,
