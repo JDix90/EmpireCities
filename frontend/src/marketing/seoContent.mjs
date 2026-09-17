@@ -15,6 +15,8 @@
  * `// TODO` comments below are plain JS comments and never reach the HTML.)
  */
 
+import { FACTION_CODEX, FACTION_COUNT } from './factionCodex.generated.mjs';
+
 export const SITE_URL = 'https://borderfall.gg';
 export const OG_IMAGE = `${SITE_URL}/og-image.png`;
 
@@ -81,6 +83,32 @@ export const FAQ = [
       + 'Nothing to install, no console, no app.',
   },
 ];
+
+/**
+ * Era id → display label for the faction codex.
+ *
+ * Lives here rather than in the generated file because it is COPY, and the
+ * generated file holds only what the game engine owns. It must stay identical
+ * to `ERA_LABELS` in src/constants/gameLobbyLabels.ts — the prerendered HTML
+ * and the React page show the same headings, and a mismatch between what a
+ * crawler is served and what a visitor sees is the definition of cloaking.
+ * `seoContent.test.ts` asserts the two maps agree.
+ *
+ * (Distinct from `ERAS` below, which is the nine-era marketing arc for /eras
+ * and carries no ids.)
+ */
+export const ERA_CODEX_LABELS = {
+  ancient: 'Ancient World',
+  medieval: 'Medieval Era',
+  discovery: 'Age of Discovery',
+  ww2: 'World War II',
+  coldwar: 'Cold War',
+  modern: 'Modern Day',
+  acw: 'American Civil War',
+  risorgimento: 'Italian Unification',
+  space_age: 'Space Age',
+  galaxy_age: 'Galactic Age',
+};
 
 /**
  * The nine-era arc, in chronological order, from ancient kingdoms to galactic
@@ -203,6 +231,28 @@ export function blocksToHtml(blocks) {
         parts.push(`<dt>${escapeHtml(fact.k)}</dt><dd>${escapeHtml(fact.v)}</dd>`);
       }
       parts.push('</dl>');
+    } else if (block.type === 'factions') {
+      // The whole reason /codex is prerendered. Every faction's name, what it
+      // actually does, and its lore, as static HTML — search engines render JS
+      // eventually, but the AI answer crawlers this repo courts (GPTBot,
+      // ClaudeBot, PerplexityBot) largely do not, and a client-fetched list is
+      // invisible to them.
+      for (const era of FACTION_CODEX) {
+        const label = ERA_CODEX_LABELS[era.era_id] ?? era.era_id;
+        parts.push(`<h2>${escapeHtml(label)}</h2>`);
+        parts.push('<dl class="bf-codex">');
+        for (const f of era.factions) {
+          parts.push(`<dt>${escapeHtml(f.name)}</dt>`);
+          parts.push('<dd>');
+          parts.push(`<p>${escapeHtml(f.description)}</p>`);
+          if (f.lore) parts.push(`<p>${escapeHtml(f.lore)}</p>`);
+          if (f.ability_description) {
+            parts.push(`<p><strong>Ability:</strong> ${escapeHtml(f.ability_description)}</p>`);
+          }
+          parts.push('</dd>');
+        }
+        parts.push('</dl>');
+      }
     } else if (block.type === 'faq') {
       // Definition list mirrors the FAQPage structured data and is fully
       // crawlable. The same FAQ renders in the React page (HowToPlayPage),
@@ -415,6 +465,53 @@ export const MARKETING_PAGES = [
       {
         type: 'links',
         links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/codex', label: 'Faction codex' },
+          { href: '/', label: 'Back to Borderfall home' },
+        ],
+      },
+    ],
+  },
+  {
+    // /codex served the SPA shell before this, so it inherited the shell's
+    // homepage canonical and told Google it was a duplicate of the landing
+    // page — 52 factions' worth of writing that could never rank. The content
+    // itself was always public; only the static HTML was missing.
+    path: '/codex',
+    file: 'codex/index.html',
+    title: `Borderfall Faction Codex — All ${FACTION_COUNT} Factions by Era`,
+    // Kept well under the 160-char ceiling seoContent.test.ts enforces: the
+    // faction count is interpolated, so the string grows on its own when a new
+    // faction ships. At exactly 160 the next one would fail the build.
+    description:
+      'Every faction in Borderfall: what it does, its history, and its special ability. '
+      + `${FACTION_COUNT} factions across ten eras, from Rome to the Galactic Age.`,
+    h1: 'Faction Codex',
+    tagline: 'Who you play as changes how you win.',
+    jsonLd: false,
+    blocks: [
+      {
+        type: 'p',
+        text:
+          'Factions are optional in Borderfall, and switching them on is the fastest way to make '
+          + 'two games on the same map feel different. Each one bends the rules a little: a bonus '
+          + 'to attack or defense, extra reinforcements, cheaper research, or a once-per-turn '
+          + 'ability that can rescue a bad exchange.',
+      },
+      {
+        type: 'p',
+        text:
+          `Below are all ${FACTION_COUNT} factions, grouped by the era they belong to. Everything `
+          + 'listed here is what the game actually uses — the same definitions a match reads when '
+          + 'you pick a side.',
+      },
+      {
+        type: 'factions',
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/eras', label: 'The eras of Borderfall' },
           { href: '/how-to-play', label: 'How to play' },
           { href: '/', label: 'Back to Borderfall home' },
         ],

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MARKETING_PAGES } from './seoContent.mjs';
+import { MARKETING_PAGES, ERA_CODEX_LABELS, blocksToHtml } from './seoContent.mjs';
+import { FACTION_CODEX, FACTION_COUNT } from './factionCodex.generated.mjs';
+import { ERA_LABELS } from '../constants/gameLobbyLabels';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML = path.resolve(__dirname, '../../index.html');
@@ -96,6 +98,61 @@ describe('index.html agrees with the published marketing copy', () => {
     for (const [label, attr, key] of cases) {
       const all = html.match(new RegExp(`<meta\\s+${attr}="${key}"`, 'gi')) ?? [];
       expect(all.length, `${label} appears ${all.length} times`).toBe(1);
+    }
+  });
+});
+
+/**
+ * /codex is prerendered so it can be indexed at all. It used to serve the SPA
+ * shell, which meant it inherited the shell's homepage canonical and declared
+ * itself a duplicate of the landing page — 52 factions of writing that could
+ * never rank.
+ */
+describe('the faction codex page', () => {
+  const codex = MARKETING_PAGES.find((p) => p.path === '/codex');
+
+  it('is published with its own file, so it gets its own canonical', () => {
+    // The canonical is derived from `path` by prerender-marketing.mjs; without
+    // an entry here there is no dist/codex/index.html to carry one.
+    expect(codex).toBeDefined();
+    expect(codex?.file).toBe('codex/index.html');
+  });
+
+  it('is listed in the sitemap', () => {
+    const sitemap = fs.readFileSync(path.resolve(__dirname, '../../public/sitemap.xml'), 'utf-8');
+    expect(sitemap).toContain('<loc>https://borderfall.gg/codex</loc>');
+  });
+
+  it('labels every era the generated data ships, in the words the app uses', () => {
+    // The prerendered HTML and the React page must show identical headings:
+    // ERA_CODEX_LABELS feeds the crawler, ERA_LABELS feeds the visitor, and a
+    // divergence between the two is cloaking.
+    for (const era of FACTION_CODEX) {
+      expect(ERA_CODEX_LABELS[era.era_id], `no codex label for ${era.era_id}`).toBeTruthy();
+      expect(ERA_CODEX_LABELS[era.era_id], `${era.era_id} label differs from the app's`)
+        .toBe(ERA_LABELS[era.era_id]);
+    }
+  });
+
+  it('renders every faction into crawlable HTML, not just a heading', () => {
+    const out = blocksToHtml(codex!.blocks);
+    expect((out.match(/<dt>/g) ?? []).length).toBe(FACTION_COUNT);
+    expect((out.match(/<h2>/g) ?? []).length).toBe(FACTION_CODEX.length);
+    // A named faction with its actual rules text, which is the whole point —
+    // a list of proper nouns would rank for nothing.
+    expect(out).toContain('Roman Republic');
+    expect(out).toContain('<strong>Ability:</strong>');
+  });
+
+  it('escapes the generated copy rather than trusting it', () => {
+    const out = blocksToHtml([{ type: 'factions' }]);
+    // Lore is prose with apostrophes and quotes in it. Nothing from the
+    // generated file may reach the page as live markup.
+    expect(out).not.toMatch(/<script/i);
+    for (const era of FACTION_CODEX) {
+      for (const f of era.factions) {
+        if (f.name.includes('&')) expect(out).toContain(f.name.replace(/&/g, '&amp;'));
+      }
     }
   });
 });

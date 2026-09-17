@@ -22,6 +22,7 @@ export type MarketingBlock =
   | { type: 'answer'; text: string }
   | { type: 'facts'; facts: FactEntry[] }
   | { type: 'eras' }
+  | { type: 'factions' }
   | { type: 'faq' }
   | { type: 'links'; links: Array<{ href: string; label: string }> };
 
@@ -43,6 +44,7 @@ export interface MarketingPage {
 export const SITE_URL: string;
 export const OG_IMAGE: string;
 export const ERAS: EraEntry[];
+export const ERA_CODEX_LABELS: Record<string, string>;
 export const FAQ: FaqEntry[];
 export const SOCIAL_LINKS: string[];
 export const MARKETING_PAGES: MarketingPage[];
