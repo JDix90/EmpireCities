@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import clsx from 'clsx';
-import { isMobileViewport } from '../../utils/device';
+import { isMobileViewport, isShortViewport } from '../../utils/device';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
@@ -119,6 +119,15 @@ export default function TutorialOverlay({
 
   const completedModules = getCompletedTutorialModules();
   const isMobile = isMobileViewport();
+  /**
+   * Wide enough for the desktop layout but too short for it. A portal embed
+   * (itch.io, CrazyGames) and an unmaximised laptop both land here: every
+   * breakpoint above is width-only, so they take the desktop path and get a
+   * card sized for a tall window. On a 720px-tall frame the default
+   * bottom-center card covers the half of the board its own copy is pointing
+   * at, and there is no fold control because that is docked-only.
+   */
+  const isShort = isShortViewport();
   const anchorTop = isMobile && !centered && !!step.requireAction;
   /**
    * Dock left of a centered full-screen panel. The coaching card sits
@@ -126,8 +135,13 @@ export default function TutorialOverlay({
    * buttons are — it covered the very controls its own copy was telling the
    * player to press. Desktop only; on mobile the panel fills the screen and
    * `anchorTop` already moves the card clear.
+   *
+   * A short viewport docks for the same reason even with no panel open: the
+   * gutter is the one place a wide-but-short frame has room to spare, and
+   * docking is what makes the card foldable (see `foldable` below), so the
+   * player can collapse it to a title strip and look underneath.
    */
-  const dockAside = (panelOpen || step.cardPosition === 'aside') && !isMobile && !centered;
+  const dockAside = (panelOpen || step.cardPosition === 'aside' || isShort) && !isMobile && !centered;
   /**
    * A step that asks the player to click a specific territory docks to the
    * TOP-left, not the bottom-left used for a full-screen panel: the territory
@@ -213,12 +227,22 @@ export default function TutorialOverlay({
         <div
           className={clsx(
             centered
-              ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg p-8 shadow-2xl text-center flex flex-col min-h-0 w-full'
+              ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg shadow-2xl text-center flex flex-col min-h-0 w-full'
               : 'rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl',
             // Same flex-column trick as `centered`: the prose scrolls, the
             // actions below stay pinned. When the whole card scrolled, a phone
             // clipped the hint and the Exit control with no affordance.
-            anchorTop ? 'p-3 max-h-[38vh] flex flex-col min-h-0' : 'p-5',
+            //
+            // Padding is set here ONCE. It used to be `p-8` in the centered
+            // branch above plus `p-5` here, leaving both classes on the same
+            // element and letting Tailwind's stylesheet order pick the winner.
+            // A centered card can't spare `p-8` on a short viewport — that is
+            // 4rem of chrome out of a 700px frame.
+            anchorTop
+              ? 'p-3 max-h-[38vh] flex flex-col min-h-0'
+              : centered
+                ? (isShort ? 'p-5' : 'p-8')
+                : 'p-5',
           )}
         >
           {/* Prose scrolls; the actions below stay pinned to the card. */}

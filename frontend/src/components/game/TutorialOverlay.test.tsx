@@ -1,14 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-beforeEach(() => {
-  window.matchMedia = vi.fn().mockReturnValue({
-    matches: false,
+/**
+ * matchMedia that answers per query rather than `false` for everything, so a
+ * test can describe a viewport that is wide but SHORT — the shape a portal
+ * embed (itch.io, CrazyGames) and an unmaximised laptop both have, and the one
+ * a width-only mock cannot express.
+ */
+function mockViewport({ short = false, mobile = false } = {}) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: query.includes('max-height') ? short : query.includes('max-width') ? mobile : false,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     addListener: vi.fn(),
     removeListener: vi.fn(),
-  }) as unknown as typeof window.matchMedia;
+  })) as unknown as typeof window.matchMedia;
+}
+
+beforeEach(() => {
+  // Default: a roomy desktop, matching the previous blanket `matches: false`.
+  mockViewport();
 });
 import TutorialOverlay, { renderTutorialText } from './TutorialOverlay';
 import type { TutorialStep } from '../../tutorial';
@@ -166,6 +177,65 @@ describe('TutorialOverlay', () => {
       );
       expect(screen.getByTestId('tutorial-card-unfold')).toBeInTheDocument();
       expect(screen.queryByText('Later copy.')).toBeNull();
+    });
+  });
+
+  describe('a wide but short viewport', () => {
+    // Reproduces the itch.io embed: ~1280x720, so every width-based breakpoint
+    // says "desktop" while the height says otherwise. The bottom-center card
+    // this used to fall back to covered the board its own copy points at, and
+    // carried no fold control because folding was docked-only.
+    const actionStep = {
+      id: 'draft_do',
+      title: 'Place Your Reinforcements',
+      message: 'Click one of your territories.',
+      requireAction: 'draft',
+    } as TutorialStep;
+
+    /** The positioned wrapper; when unfolded it is the only pointer-events-auto node. */
+    const wrapperOf = (container: HTMLElement) => container.querySelector('.pointer-events-auto');
+
+    it('docks into the gutter instead of sitting across the board', () => {
+      mockViewport({ short: true });
+      const { container } = overlay([actionStep]);
+      const cls = wrapperOf(container)?.className ?? '';
+      expect(cls).toContain('left-0');
+      expect(cls).not.toContain('bottom-20');
+    });
+
+    it('offers the fold control, so the player can look underneath', () => {
+      mockViewport({ short: true });
+      overlay([actionStep]);
+      fireEvent.click(screen.getByTestId('tutorial-card-fold'));
+      expect(screen.queryByText('Click one of your territories.')).toBeNull();
+      expect(screen.getByTestId('tutorial-card-unfold')).toHaveTextContent('Place Your Reinforcements');
+    });
+
+    it('leaves a tall desktop exactly as it was', () => {
+      mockViewport({ short: false });
+      const { container } = overlay([actionStep]);
+      expect(wrapperOf(container)?.className ?? '').toContain('bottom-20');
+      expect(screen.queryByTestId('tutorial-card-fold')).toBeNull();
+    });
+
+    it('trims a centered card\u2019s padding rather than spending 4rem of a short frame', () => {
+      mockViewport({ short: true });
+      const { container } = overlay([{ id: 'welcome', title: 'W', message: 'm' } as TutorialStep], {
+        centered: true,
+      });
+      const card = container.querySelector('.rounded-2xl');
+      expect(card?.className).toContain('p-5');
+      expect(card?.className).not.toContain('p-8');
+    });
+
+    it('keeps the roomy centered padding on a tall desktop', () => {
+      mockViewport({ short: false });
+      const { container } = overlay([{ id: 'welcome', title: 'W', message: 'm' } as TutorialStep], {
+        centered: true,
+      });
+      const card = container.querySelector('.rounded-2xl');
+      expect(card?.className).toContain('p-8');
+      expect(card?.className).not.toContain('p-5');
     });
   });
 });
