@@ -50,15 +50,31 @@ Run. The only way out is a link the visitor chooses to click, in a new tab.
 
 **One of the two is done; the remaining one is not in this repository.**
 
-✅ **The document now sends a CSP naming itch.** `docker/nginx.prod.conf` adds
-`frame-ancestors 'self' https://html-classic.itch.zone` at server level, so
-every response inherits it. Before this there was no CSP on static responses at
-all. Verified by running nginx over the real config and reading the header off
-a 200.
+✅ **The document sends a CSP naming the whole itch ancestor chain.**
+`docker/nginx.prod.conf` adds, at server level:
+
+```
+frame-ancestors 'self' https://itch.io https://*.itch.io https://*.itch.zone
+```
+
+All three matter. `frame-ancestors` is checked against **every ancestor**, not
+just the immediate parent, and embedding on itch is three deep:
+
+| level | origin | why |
+|---|---|---|
+| top | `<user>.itch.io` | the project page |
+| middle | `*.itch.zone` | itch's sandboxed player, holding this shell |
+| inner | borderfall.gg | the game |
+
+Naming only the player origin fails with *"Refused to frame … because an
+ancestor violates …"* — the project page sits above it. The wildcards are
+itch's own site-locking recommendation, because the player subdomain varies.
 
    (The `EMBED_ORIGINS` work in `modules/auth/embedContext.ts` governs helmet's
    CSP, which only rides on **API** responses — the API is not what gets framed.
-   It still matters for the refresh cookie, which is per-request.)
+   It still matters for the refresh cookie, which is per-request. Note
+   `isEmbeddedOrigin` matches exactly, so the wildcards above satisfy framing
+   while the cookie side would need literal origins.)
 
 ❌ **`X-Frame-Options: SAMEORIGIN` must stop being sent on the document.** It is
 on `https://borderfall.gg/` today. It is not set by `nginx.prod.conf` and not by
