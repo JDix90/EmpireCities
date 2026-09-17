@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
+import { markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
@@ -73,6 +74,25 @@ export default function TutorialPage() {
       const res = await api.post<{ game_id: string }>('/games/tutorial/start', {
         lesson_module: module,
       });
+      /**
+       * First-visit triage is DONE the moment the tutorial starts — not only
+       * when it is finished.
+       *
+       * The lobby shows its welcome modal ("Start Tutorial / Quick Match") to
+       * any account with 0 XP that has neither completed the tutorial nor been
+       * welcomed. `onboarding_tutorial_first_enabled` routes a landing guest
+       * straight here (`/tutorial?start=1`), skipping the lobby, which is the
+       * only other place the flag is set. So a player who started the tutorial
+       * and pressed "Exit Tutorial" arrived in the lobby with 0 XP, nothing
+       * marked complete and no welcome flag — and got asked whether they would
+       * like to try the tutorial they had just walked out of.
+       *
+       * Marking it here closes that loop for every entry point: the landing
+       * auto-start, and a lesson picked by hand off this page. Completion is
+       * still tracked separately (`tutorialAlreadyDone` in LobbyPage); this
+       * only says the player has been offered the choice once.
+       */
+      markWelcomeSeen();
       navigate(`/game/${res.data.game_id}`, { replace: true });
     } catch {
       toast.error('Could not start the tutorial. Try again.');
