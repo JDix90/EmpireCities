@@ -5,7 +5,7 @@
 1. **Backup** Postgres: `./scripts/backup-databases.sh`
 2. **Pull** the release tag / commit on the app host.
 3. **Configure** `.env.production` (see [DEPLOYMENT.md](../DEPLOYMENT.md) and `.env.production.example`).
-4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed`).
+4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed` for achievements/cosmetics; era and community maps are re-seeded from `database/maps/` on every deploy).
 5. **Smoke:** `./scripts/smoke-production.sh https://your-domain` — checks `/health` and `/ready`.
 6. **Feature flags** — after a release that changes a committed default in `FLAG_CODE_DEFAULTS`, clear overrides that merely restate it, or the old pins keep winning:
    ```bash

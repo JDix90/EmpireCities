@@ -48,7 +48,8 @@ docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -
 ```
 
 - **Migrations** run automatically when the backend container starts (`docker/entrypoint-backend.sh`).
-- **First-time data** (after Postgres is up):
+- **Maps** (`database/maps/*.json`) are re-seeded into Postgres by `deploy-production.sh` on every deploy, so a merged map change goes live with the next deploy. The seeder upserts by `map_id` and keeps play counts.
+- **First-time data** (achievements, cosmetics, plus the maps; after Postgres is up):
 
 ```bash
 ./scripts/seed-production.sh
@@ -103,4 +104,4 @@ Default Postgres DB is `borderfall`. If you already run production on `erasofemp
 
 - **CORS errors:** `FRONTEND_URL` must equal the browser’s `Origin` (scheme + host + port).
 - **WebSocket fails:** Ensure proxies pass `Upgrade` and `Connection` headers (see [docker/nginx.prod.conf](docker/nginx.prod.conf)).
-- **Maps missing after deploy:** Run `./scripts/seed-production.sh` or `pnpm run seed:maps` after migration `028_maps_postgres.sql` is applied.
+- **Maps missing after a manual `docker compose up`:** `deploy-production.sh` seeds them for you; otherwise run `./scripts/seed-production.sh` or `pnpm run seed:maps` after migration `028_maps_postgres.sql` is applied.

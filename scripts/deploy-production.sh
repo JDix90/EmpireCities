@@ -3,9 +3,15 @@
 # Run from repository root on the VPS after configuring .env.production.
 #
 # Usage:
-#   ./scripts/deploy-production.sh              # build + up
+#   ./scripts/deploy-production.sh              # build + up + re-seed maps
 #   ./scripts/deploy-production.sh --no-build   # restart only (no image rebuild)
-#   ./scripts/deploy-production.sh --seed       # also seed Postgres + maps (first deploy)
+#   ./scripts/deploy-production.sh --seed       # also seed achievements/cosmetics (first deploy)
+#
+# Every deploy re-seeds the era/community maps from database/maps/*.json. The
+# seeder upserts by map_id without touching play counts, and nothing else
+# writes the maps table in production, so the only way a map fix reaches
+# players is this step — before it ran unconditionally, a merged map PR was
+# silently inert until someone remembered `--seed`.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,8 +79,12 @@ for i in $(seq 1 30); do
 done
 
 if [ "${RUN_SEED}" = true ]; then
-  echo "[deploy] Seeding Postgres + maps (first-time)..."
+  echo "[deploy] Seeding Postgres achievements/cosmetics + maps (first-time)..."
   "${SCRIPT_DIR}/seed-production.sh"
+else
+  echo "[deploy] Re-seeding era + community maps from database/maps..."
+  docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" exec -T backend \
+    sh -c "cd /app/backend && pnpm run seed:maps"
 fi
 
 # shellcheck disable=SC1091
