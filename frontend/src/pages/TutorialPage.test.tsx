@@ -10,7 +10,7 @@
  * the tutorial they had just walked out of.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TutorialPage from './TutorialPage';
 import { useAuthStore } from '../store/authStore';
@@ -70,5 +70,53 @@ describe('TutorialPage first-visit triage', () => {
     // The player never saw a tutorial, so the lobby should still triage them.
     expect(hasSeenWelcome()).toBe(false);
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A failed auto-start used to be a dead end. `?start=1` renders a spinner keyed
+ * on the param alone, so when the start call failed the toast faded and the
+ * visitor was left on "Starting tutorial…" with no link out — and because
+ * `onboarding_tutorial_first` routes landing guests straight here, that screen
+ * is the first thing they ever see of Borderfall.
+ */
+describe('TutorialPage auto-start failure', () => {
+  beforeEach(() => {
+    postMock.mockReset();
+    navigateMock.mockReset();
+    localStorage.clear();
+  });
+
+  it('offers a way out instead of spinning forever', async () => {
+    postMock.mockRejectedValue(new Error('nope'));
+    renderAutoStart();
+
+    const alert = await screen.findByTestId('tutorial-autostart-failed');
+    expect(alert).toHaveTextContent(/couldn.t start the tutorial/i);
+    // The spinner is gone and the picker — retry buttons and an exit — is up.
+    expect(screen.queryByText(/Starting tutorial/i)).toBeNull();
+    expect(screen.getByRole('link', { name: /skip it and just play/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Start Lesson|Start lesson/i }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps spinning while the start is still in flight', async () => {
+    // Never settles: the spinner is correct here, and must not be mistaken for
+    // the failure state.
+    postMock.mockReturnValue(new Promise(() => {}));
+    renderAutoStart();
+
+    await waitFor(() => expect(postMock).toHaveBeenCalled());
+    expect(screen.getByText(/Starting tutorial/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('tutorial-autostart-failed')).toBeNull();
+  });
+
+  it('does not retry on its own', async () => {
+    postMock.mockRejectedValue(new Error('nope'));
+    renderAutoStart();
+
+    await screen.findByTestId('tutorial-autostart-failed');
+    // Rendering the picker must not re-trigger the auto-start effect: a retry
+    // loop against a failing endpoint is worse than the dead end it replaced.
+    expect(postMock).toHaveBeenCalledTimes(1);
   });
 });

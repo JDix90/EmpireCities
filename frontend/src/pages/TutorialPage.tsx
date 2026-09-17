@@ -34,6 +34,20 @@ export default function TutorialPage() {
   const bootstrapped = useAuthStore((s) => s.bootstrapped);
   const startedRef = useRef(false);
   const [starting, setStarting] = useState<TutorialLessonModule | null>(null);
+  /**
+   * An auto-start (`?start=1`) that failed. Without this the two spinner
+   * branches below key on `autoStart` alone, so a failed start left the
+   * visitor on "Starting tutorial…" forever: the toast fades, the spinner
+   * does not, and there is no link out of that screen. That screen is the
+   * FIRST thing a landing guest sees, because `onboarding_tutorial_first`
+   * routes them straight here.
+   *
+   * Setting it drops through to the lesson picker below, which was already a
+   * complete recovery UI — retry buttons and a way back to the lobby — just
+   * unreachable. `startedRef` still guards the effect, so nothing retries on
+   * its own.
+   */
+  const [autoStartFailed, setAutoStartFailed] = useState(false);
   const [completed, setCompleted] = useState<TutorialLessonModule[]>([]);
 
   const moduleParam = searchParams.get('module') as TutorialLessonModule | null;
@@ -97,6 +111,7 @@ export default function TutorialPage() {
     } catch {
       toast.error('Could not start the tutorial. Try again.');
       setStarting(null);
+      setAutoStartFailed(true);
     }
   };
 
@@ -113,7 +128,7 @@ export default function TutorialPage() {
 
   const recommended = getRecommendedTutorialModule();
 
-  if (autoStart && !moduleParam) {
+  if (autoStart && !moduleParam && !autoStartFailed) {
     return (
       <div className="min-h-screen-safe bg-bf-dark flex flex-col">
         <nav className="border-b border-bf-border px-6 py-4">
@@ -126,7 +141,7 @@ export default function TutorialPage() {
     );
   }
 
-  if (moduleParam && autoStart) {
+  if (moduleParam && autoStart && !autoStartFailed) {
     return (
       <div className="min-h-screen-safe bg-bf-dark flex flex-col">
         <nav className="border-b border-bf-border px-6 py-4">
@@ -152,6 +167,22 @@ export default function TutorialPage() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 w-full">
+        {autoStartFailed && (
+          <div
+            role="alert"
+            data-testid="tutorial-autostart-failed"
+            className="card border-red-500/30 bg-red-500/5 p-4 text-sm"
+          >
+            <p className="text-bf-text font-medium mb-1">We couldn&apos;t start the tutorial.</p>
+            <p className="text-bf-muted">
+              Usually a dropped connection. Pick a lesson below to try again — or{' '}
+              <Link to={isAuthenticated ? '/lobby' : '/'} className="text-bf-gold hover:underline">
+                skip it and just play
+              </Link>
+              .
+            </p>
+          </div>
+        )}
         <div className="text-center space-y-2">
           <BookOpen className="w-10 h-10 text-bf-gold mx-auto" aria-hidden />
           <h1 className="font-display text-2xl text-bf-gold tracking-wider">Training Academy</h1>
