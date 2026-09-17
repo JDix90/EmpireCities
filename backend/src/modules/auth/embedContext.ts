@@ -25,16 +25,27 @@ export interface RefreshCookieConfig {
 /**
  * Parse the EMBED_ORIGINS env value.
  *
- * Only absolute http(s) origins are kept: `Origin` is matched exactly, per
- * spec, so a bare host or a value with a trailing path would silently never
- * match and embedding would fail with nothing to point at.
+ * Only absolute `scheme://host` origins are kept: `Origin` is matched exactly,
+ * per spec, so a bare host or a value with a trailing path would silently
+ * never match and embedding would fail with nothing to point at.
+ *
+ * The scheme is deliberately NOT restricted to http(s). A portal's native app
+ * embeds us from a non-http origin — CrazyGames' iOS app is
+ * `capacitor://app.crazygames.com`, because iOS reserves `https` for the
+ * network and will not let a WebView serve local content over it. An
+ * http(s)-only filter dropped that entry silently, and a dropped origin has no
+ * error to point at: the app's players simply never get the embedded cookie.
+ *
+ * This is an operator-configured allowlist read from the environment, not user
+ * input, so accepting any well-formed scheme costs nothing. The shape is still
+ * strict — no paths, no whitespace, no bare hosts.
  */
 export function parseEmbedOriginList(raw: string | undefined): string[] {
   if (!raw) return [];
   const out: string[] = [];
   for (const entry of raw.split(',')) {
     const t = entry.trim();
-    if (/^https?:\/\/[^/\s]+$/.test(t) && !out.includes(t)) out.push(t);
+    if (/^[a-z][a-z0-9+.-]*:\/\/[^/\s]+$/i.test(t) && !out.includes(t)) out.push(t);
   }
   return out;
 }
@@ -47,6 +58,50 @@ export function parseEmbedOriginList(raw: string | undefined): string[] {
  */
 export function isEmbeddedOrigin(origin: string | undefined, embedOrigins: string[]): boolean {
   return typeof origin === 'string' && embedOrigins.includes(origin);
+}
+
+/**
+ * Header a framed client uses to declare the origin embedding it.
+ *
+ * Needed because the browser will not tell us. When a portal frames
+ * borderfall.gg directly, the framed document IS borderfall.gg, so its API
+ * calls are same-origin and carry `Origin: https://borderfall.gg` — the
+ * portal's origin never appears, and `Sec-Fetch-Site` reads `same-origin`
+ * too. Verified in a browser against two real cross-site TLS origins: the
+ * refresh cookie stayed on `Lax` and was then withheld, because the browser
+ * judges SameSite against the TOP-LEVEL site, which is the portal. Every load
+ * inside the embed started a fresh anonymous session.
+ */
+export const EMBEDDER_HEADER = 'x-bf-embedder';
+
+/**
+ * The embedding origin for this request, or undefined when not embedded.
+ *
+ * Trust order, strongest first:
+ *
+ *   1. `Origin`, when it is itself an allowlisted portal. Browser-set and
+ *      unforgeable from another site; this is the cross-origin case, e.g. a
+ *      portal-hosted build calling our API.
+ *   2. The declared header, when it names an allowlisted portal. This is the
+ *      framed-document case above, where the browser gives us nothing to go on.
+ *
+ * The allowlist stays the only authority in both branches — a client can claim
+ * an embedder but not invent one. Claiming a listed portal while not embedded
+ * buys only a `SameSite=None` cookie for the claimant's own session, and a
+ * cross-site page cannot make that claim at all: a custom header forces a CORS
+ * preflight, which a non-allowlisted origin fails. Setting it from our own
+ * origin requires script there, which is already a total compromise.
+ *
+ * An array-valued header (sent more than once) is ignored rather than merged.
+ */
+export function resolveEmbedderOrigin(
+  origin: string | undefined,
+  declared: string | string[] | undefined,
+  embedOrigins: string[],
+): string | undefined {
+  if (isEmbeddedOrigin(origin, embedOrigins)) return origin;
+  if (typeof declared === 'string' && isEmbeddedOrigin(declared, embedOrigins)) return declared;
+  return undefined;
 }
 
 /**

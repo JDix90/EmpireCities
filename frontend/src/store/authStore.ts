@@ -4,9 +4,19 @@ import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
+import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
 
-const rawHttp = axios.create({ baseURL: getApiBaseUrl(), withCredentials: true });
+// `rawHttp` bypasses the api interceptors, and it is the instance that calls
+// /auth/guest and /auth/refresh — the two endpoints that WRITE the refresh
+// cookie. It therefore needs the embedder header just as much as `api` does:
+// without it the server cannot tell a framed request from a direct one, and
+// the cookie it writes is never sent back inside the frame.
+const rawHttp = axios.create({
+  baseURL: getApiBaseUrl(),
+  withCredentials: true,
+  headers: { ...embedderHeaders() },
+});
 
 /**
  * Outcome of a refresh-token attempt:

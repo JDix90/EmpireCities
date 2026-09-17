@@ -10,7 +10,10 @@ import { config } from '../../config';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { requireGuest } from '../../middleware/requireGuest';
-import { refreshCookieAttrs } from './embedContext';
+import { refreshCookieAttrs,
+  resolveEmbedderOrigin,
+  EMBEDDER_HEADER,
+} from './embedContext';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
@@ -237,7 +240,17 @@ const ResetPasswordSchema = z.object({
  * without a request cannot accidentally widen this.
  */
 function refreshCookieOpts(maxAgeSeconds: number, request?: FastifyRequest) {
-  return refreshCookieAttrs(maxAgeSeconds, request?.headers.origin, {
+  // `Origin` alone is not enough: a portal that frames borderfall.gg directly
+  // leaves the framed document on our own origin, so every API call it makes
+  // looks same-origin and the portal never appears in any header the browser
+  // sets. resolveEmbedderOrigin falls back to the client's declared embedder,
+  // still checked against EMBED_ORIGINS.
+  const embedder = resolveEmbedderOrigin(
+    request?.headers.origin,
+    request?.headers[EMBEDDER_HEADER],
+    config.embedOrigins,
+  );
+  return refreshCookieAttrs(maxAgeSeconds, embedder, {
     embedOrigins: config.embedOrigins,
     sameSite: config.refreshCookieSameSite,
     secure: config.refreshCookieSecure,
