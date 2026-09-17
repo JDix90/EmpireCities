@@ -5,8 +5,9 @@
 #   cp .env.production.example .env.production
 #   docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d --build
 #
-# First-time DB: migrations run on backend startup. Then seed maps into Postgres:
+# First-time DB: migrations run on backend startup. Then seed achievements + maps:
 #   ./scripts/seed-production.sh
+# (./scripts/deploy-production.sh does the maps part on every deploy.)
 #
 # HTTP_PORT maps host port to nginx (default 80).
 

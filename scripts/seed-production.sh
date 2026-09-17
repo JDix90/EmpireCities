@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # First-time production seed: achievements/cosmetics (Postgres) + era/community maps (Postgres JSONB).
 # Safe to re-run — seed scripts upsert without wiping play counts.
+# (deploy-production.sh re-seeds the maps on every deploy by itself; this script
+# is for the first deploy, or to re-seed achievements/cosmetics.)
 #
 # Usage (from repo root):
 #   ./scripts/seed-production.sh
