@@ -220,11 +220,13 @@ connections = [
     {"from": "east_africa_disc", "to": "central_africa_disc","type": "land"},
     {"from": "central_africa_disc","to": "south_africa",    "type": "land"},
     {"from": "east_africa_disc", "to": "south_africa",      "type": "land"},
-    {"from": "spain_portugal",   "to": "west_africa_disc",  "type": "sea"},
     # India
     {"from": "mughal_north",     "to": "mughal_south",      "type": "land"},
     {"from": "mughal_south",     "to": "ceylon_spice",      "type": "sea"},
     {"from": "east_africa_disc", "to": "indian_ocean",      "type": "sea"},
+    {"from": "east_africa_disc", "to": "arabia_disc",       "type": "sea"},
+    {"from": "southeast_asia_disc", "to": "mughal_north",   "type": "land"},
+    {"from": "japan_disc",       "to": "russia_disc",       "type": "sea"},
     {"from": "arabia_disc",      "to": "indian_ocean",      "type": "sea"},
     {"from": "mughal_south",     "to": "indian_ocean",      "type": "sea"},
     {"from": "ceylon_spice",     "to": "southeast_asia_disc","type": "sea"},
@@ -234,7 +236,7 @@ connections = [
     {"from": "ming_south",       "to": "southeast_asia_disc","type": "land"},
     # Sea routes
     {"from": "south_africa",     "to": "atlantic_route",    "type": "sea"},
-    {"from": "atlantic_route",   "to": "rio_plata",         "type": "sea"},
+    {"from": "atlantic_route",   "to": "brazil",            "type": "sea"},
     {"from": "atlantic_route",   "to": "west_africa_disc",  "type": "sea"},
     {"from": "south_africa",     "to": "indian_ocean",      "type": "sea"},
     {"from": "indian_ocean",     "to": "ceylon_spice",      "type": "sea"},

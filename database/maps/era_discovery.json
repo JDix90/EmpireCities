@@ -1117,11 +1117,6 @@
       "type": "land"
     },
     {
-      "from": "spain_portugal",
-      "to": "west_africa_disc",
-      "type": "sea"
-    },
-    {
       "from": "mughal_north",
       "to": "mughal_south",
       "type": "land"
@@ -1173,7 +1168,7 @@
     },
     {
       "from": "atlantic_route",
-      "to": "rio_plata",
+      "to": "brazil",
       "type": "sea"
     },
     {
@@ -1204,7 +1199,10 @@
     { "from": "new_spain", "to": "pacific_islands", "type": "sea" },
     { "from": "north_america_west", "to": "polar_north", "type": "land" },
     { "from": "antarctica_disc", "to": "south_africa", "type": "sea" },
-    { "from": "east_africa_disc", "to": "mughal_south", "type": "sea" }
+    { "from": "east_africa_disc", "to": "mughal_south", "type": "sea" },
+    { "from": "east_africa_disc", "to": "arabia_disc", "type": "sea" },
+    { "from": "southeast_asia_disc", "to": "mughal_north", "type": "land" },
+    { "from": "japan_disc", "to": "russia_disc", "type": "sea" }
   ],
   "regions": [
     {
