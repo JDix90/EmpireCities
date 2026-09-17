@@ -31,6 +31,15 @@ const UiEventSchema = z.object({
     'map_rendered',
     'first_attack',
     'first_territory_captured',
+    // Where a player LEFT the guided tutorial. `tutorial_started` and
+    // `tutorial_completed` are both server-side and authoritative, so the
+    // funnel could read the completion RATE but never the drop-off POINT —
+    // and the drop-off point is the number that says whether a given step is
+    // confusing, too long, or (on a short viewport) hidden behind its own
+    // coaching card. Only the client knows which step was on screen, so this
+    // one has to come through here. Properties: via, module, step,
+    // step_index, step_count.
+    'tutorial_exited',
     // Self-reported acquisition. The only signal that sees assistants which
     // send no referrer — those visits are indistinguishable from a typed URL
     // and otherwise count as 'direct'. See services/acquisitionChannel.ts.

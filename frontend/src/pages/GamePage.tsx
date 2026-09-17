@@ -3353,23 +3353,53 @@ export default function GamePage() {
     navigate('/lobby');
   }, [gameId, navigate, clearGame]);
 
+  /**
+   * Report WHERE a player left the tutorial. `tutorial_started` and
+   * `tutorial_completed` are emitted server-side, which gives the completion
+   * rate but not the drop-off point — and only the client knows which step was
+   * on screen. `step_index` is 1-based so it reads as the "Step 2 / 9" the
+   * player was actually looking at.
+   *
+   * Fire-and-forget on purpose: a failed beacon must never delay or block
+   * leaving the tutorial, so the promise is swallowed and the caller does not
+   * await it.
+   */
+  const reportTutorialExit = useCallback((via: 'exit_button' | 'skipped_wrapup') => {
+    const index = tutorialStepRef.current;
+    const step = tutorialStepsRef.current[index];
+    void api
+      .post('/analytics/ui-event', {
+        event: 'tutorial_exited',
+        properties: {
+          via,
+          module: tutorialLessonModule,
+          step: step?.id ?? 'unknown',
+          step_index: String(index + 1),
+          step_count: String(tutorialStepsRef.current.length),
+        },
+      })
+      .catch(() => {});
+  }, [tutorialLessonModule]);
+
   /** Completion path (wrap-up / module complete): offer the account prompt to guests first. */
   const handleTutorialReturnToLobby = useCallback(() => {
     if (!gameId) return;
     if (tutorialSkipped) {
       // A skipped wrap-up is an exit, not a completion — same as "Exit Tutorial".
+      reportTutorialExit('skipped_wrapup');
       void abandonTutorialToLobby();
       return;
     }
     maybePromptTutorialAccount(() => {
       void abandonTutorialToLobby();
     });
-  }, [gameId, tutorialSkipped, maybePromptTutorialAccount, abandonTutorialToLobby]);
+  }, [gameId, tutorialSkipped, maybePromptTutorialAccount, abandonTutorialToLobby, reportTutorialExit]);
 
   /** Exit path (mid-lesson "Exit Tutorial"): leave immediately, no completion prompt. */
   const handleTutorialExit = useCallback(() => {
+    reportTutorialExit('exit_button');
     void abandonTutorialToLobby();
-  }, [abandonTutorialToLobby]);
+  }, [abandonTutorialToLobby, reportTutorialExit]);
 
   const copyGameUrl = () => {
     if (!gameId) return;
