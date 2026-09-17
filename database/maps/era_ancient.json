@@ -414,6 +414,8 @@
     {
       "territory_id": "eastern_steppe",
       "name": "Eastern Steppe",
+      "admin1": ["CN-NM"],
+      "geo_config": [{ "iso": "MN" }, { "iso": "KZ", "clip_bbox": [70, 42, 90, 56] }],
       "polygon": [
         [
           660,
@@ -441,6 +443,7 @@
     {
       "territory_id": "northern_china",
       "name": "Northern China",
+      "admin1": ["CN-BJ", "CN-TJ", "CN-HE", "CN-SX", "CN-SD", "CN-HA", "CN-SN", "CN-NX", "CN-GS"],
       "polygon": [
         [
           800,
@@ -468,6 +471,7 @@
     {
       "territory_id": "central_china",
       "name": "Central China",
+      "admin1": ["CN-SC", "CN-CQ", "CN-HB", "CN-HN", "CN-AH", "CN-JS", "CN-SH", "CN-ZJ", "CN-JX"],
       "polygon": [
         [
           810,
@@ -495,6 +499,7 @@
     {
       "territory_id": "southern_china",
       "name": "Southern China",
+      "admin1": ["CN-YN", "CN-GZ", "CN-GX", "CN-GD", "CN-HI", "CN-FJ"],
       "polygon": [
         [
           820,
@@ -522,6 +527,8 @@
     {
       "territory_id": "manchuria",
       "name": "Manchuria & Korea",
+      "admin1": ["CN-LN", "CN-JL", "CN-HL"],
+      "geo_config": [{ "iso": "KP" }, { "iso": "KR" }],
       "polygon": [
         [
           950,
@@ -987,6 +994,9 @@
     {
       "territory_id": "tibet_nepal",
       "name": "Tibet & Nepal",
+      "admin1": ["CN-XZ", "CN-QH", "CN-XJ"],
+      "admin1_clips": { "CN-XJ": [73, 30, 100, 37] },
+      "geo_config": [{ "iso": "NP" }, { "iso": "BT" }],
       "polygon": [[758, 220], [803, 220], [803, 295], [758, 295]],
       "center_point": [780, 257],
       "region_id": "himalaya",

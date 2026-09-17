@@ -112,6 +112,51 @@ describe('generic admin-1 geometry path', () => {
     expect(flat).toContain('120'); // real Taiwan ring, not the tiny geo_polygon fallback
   });
 
+  it('unions inline geo_config countries with the admin1 provinces (Manchuria + Korea)', () => {
+    // A country feature that sits east of the two states; nothing else claims it.
+    const NV_RING = [[-114, 42], [-110, 42], [-110, 35], [-114, 35], [-114, 42]];
+    const countriesGeo = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        properties: { ISO_A2: 'QQ', ISO_A2_EH: 'QQ', NAME: 'Neighbour' },
+        geometry: { type: 'Polygon', coordinates: [NV_RING] },
+      }],
+    } as GeoJSON.FeatureCollection;
+    const data = {
+      ...mapData,
+      territories: [
+        {
+          territory_id: 'provinces_plus_country', name: 'Mixed', polygon: [[0, 0], [1, 0], [1, 1]],
+          center_point: [0.5, 0.5] as [number, number],
+          admin1: ['US-CA', 'US-OR'],
+          geo_config: [{ iso: 'QQ' }],
+          geo_polygon: [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0]] as [number, number][],
+        },
+        {
+          territory_id: 'provinces_plus_clipped_country', name: 'MixedClip', polygon: [[0, 0], [1, 0], [1, 1]],
+          center_point: [0.5, 0.5] as [number, number],
+          admin1: ['US-CA'],
+          geo_config: [{ iso: 'QQ', clip_bbox: [-114, 38, -110, 42] as [number, number, number, number] }],
+          geo_polygon: [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0]] as [number, number][],
+        },
+      ],
+    };
+    const polys = buildTerritoryGlobeGeometries(
+      data as Parameters<typeof buildTerritoryGlobeGeometries>[0],
+      { ...sources, countriesGeo } as Parameters<typeof buildTerritoryGlobeGeometries>[1],
+    );
+    const mixed = polys.find((p) => p.territory_id === 'provinces_plus_country')!;
+    const flatMixed = JSON.stringify(mixed.geometry.coordinates);
+    expect(flatMixed).toContain('-124'); // the provinces are still there…
+    expect(flatMixed).toContain('-110'); // …and so is the whole country
+
+    const clipped = polys.find((p) => p.territory_id === 'provinces_plus_clipped_country')!;
+    const flatClipped = JSON.stringify(clipped.geometry.coordinates);
+    expect(flatClipped).toContain('-110'); // the country's eastern edge survives the clip
+    expect(flatClipped).not.toContain('35'); // its southern edge (35) is cut at 38
+  });
+
   it('admin1_clips clips a single unit to its per-code bbox (split provinces)', () => {
     const g = byId['clipped_state'].geometry;
     const ys = JSON.stringify(g.coordinates);
