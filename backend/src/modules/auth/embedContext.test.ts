@@ -24,12 +24,27 @@ describe('parseEmbedOriginList', () => {
       .toEqual([PORTAL, 'https://crazygames.com']);
   });
 
+  it('keeps a native app scheme — dropping it is an invisible failure', () => {
+    // CrazyGames' iOS app embeds games from `capacitor://app.crazygames.com`:
+    // iOS reserves `https` for the network and will not let a WebView serve
+    // local content over it. This used to be filtered out by an http(s)-only
+    // check, and a dropped entry has nothing to point at — the app's players
+    // just never receive the embedded cookie.
+    expect(parseEmbedOriginList('capacitor://app.crazygames.com'))
+      .toEqual(['capacitor://app.crazygames.com']);
+    expect(parseEmbedOriginList('https://www.crazygames.com,capacitor://app.crazygames.com'))
+      .toEqual(['https://www.crazygames.com', 'capacitor://app.crazygames.com']);
+  });
+
   it('drops anything that could never match an Origin header', () => {
     // Origin is compared exactly, per spec — these would fail silently.
+    // The SHAPE is what is checked; the scheme is not second-guessed, because
+    // this list is operator config and portals keep inventing schemes.
     expect(parseEmbedOriginList('itch.zone')).toEqual([]);              // no scheme
     expect(parseEmbedOriginList('https://itch.zone/embed')).toEqual([]); // has a path
     expect(parseEmbedOriginList('https://itch.zone/')).toEqual([]);      // trailing slash
-    expect(parseEmbedOriginList('ftp://itch.zone')).toEqual([]);         // wrong scheme
+    expect(parseEmbedOriginList('https://itch zone')).toEqual([]);       // whitespace
+    expect(parseEmbedOriginList('://itch.zone')).toEqual([]);            // no scheme name
     expect(parseEmbedOriginList('https://a b.com')).toEqual([]);         // whitespace
   });
 });

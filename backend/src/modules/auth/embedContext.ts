@@ -25,16 +25,27 @@ export interface RefreshCookieConfig {
 /**
  * Parse the EMBED_ORIGINS env value.
  *
- * Only absolute http(s) origins are kept: `Origin` is matched exactly, per
- * spec, so a bare host or a value with a trailing path would silently never
- * match and embedding would fail with nothing to point at.
+ * Only absolute `scheme://host` origins are kept: `Origin` is matched exactly,
+ * per spec, so a bare host or a value with a trailing path would silently
+ * never match and embedding would fail with nothing to point at.
+ *
+ * The scheme is deliberately NOT restricted to http(s). A portal's native app
+ * embeds us from a non-http origin — CrazyGames' iOS app is
+ * `capacitor://app.crazygames.com`, because iOS reserves `https` for the
+ * network and will not let a WebView serve local content over it. An
+ * http(s)-only filter dropped that entry silently, and a dropped origin has no
+ * error to point at: the app's players simply never get the embedded cookie.
+ *
+ * This is an operator-configured allowlist read from the environment, not user
+ * input, so accepting any well-formed scheme costs nothing. The shape is still
+ * strict — no paths, no whitespace, no bare hosts.
  */
 export function parseEmbedOriginList(raw: string | undefined): string[] {
   if (!raw) return [];
   const out: string[] = [];
   for (const entry of raw.split(',')) {
     const t = entry.trim();
-    if (/^https?:\/\/[^/\s]+$/.test(t) && !out.includes(t)) out.push(t);
+    if (/^[a-z][a-z0-9+.-]*:\/\/[^/\s]+$/i.test(t) && !out.includes(t)) out.push(t);
   }
   return out;
 }
