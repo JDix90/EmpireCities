@@ -61,6 +61,50 @@ export function isEmbeddedOrigin(origin: string | undefined, embedOrigins: strin
 }
 
 /**
+ * Header a framed client uses to declare the origin embedding it.
+ *
+ * Needed because the browser will not tell us. When a portal frames
+ * borderfall.gg directly, the framed document IS borderfall.gg, so its API
+ * calls are same-origin and carry `Origin: https://borderfall.gg` — the
+ * portal's origin never appears, and `Sec-Fetch-Site` reads `same-origin`
+ * too. Verified in a browser against two real cross-site TLS origins: the
+ * refresh cookie stayed on `Lax` and was then withheld, because the browser
+ * judges SameSite against the TOP-LEVEL site, which is the portal. Every load
+ * inside the embed started a fresh anonymous session.
+ */
+export const EMBEDDER_HEADER = 'x-bf-embedder';
+
+/**
+ * The embedding origin for this request, or undefined when not embedded.
+ *
+ * Trust order, strongest first:
+ *
+ *   1. `Origin`, when it is itself an allowlisted portal. Browser-set and
+ *      unforgeable from another site; this is the cross-origin case, e.g. a
+ *      portal-hosted build calling our API.
+ *   2. The declared header, when it names an allowlisted portal. This is the
+ *      framed-document case above, where the browser gives us nothing to go on.
+ *
+ * The allowlist stays the only authority in both branches — a client can claim
+ * an embedder but not invent one. Claiming a listed portal while not embedded
+ * buys only a `SameSite=None` cookie for the claimant's own session, and a
+ * cross-site page cannot make that claim at all: a custom header forces a CORS
+ * preflight, which a non-allowlisted origin fails. Setting it from our own
+ * origin requires script there, which is already a total compromise.
+ *
+ * An array-valued header (sent more than once) is ignored rather than merged.
+ */
+export function resolveEmbedderOrigin(
+  origin: string | undefined,
+  declared: string | string[] | undefined,
+  embedOrigins: string[],
+): string | undefined {
+  if (isEmbeddedOrigin(origin, embedOrigins)) return origin;
+  if (typeof declared === 'string' && isEmbeddedOrigin(declared, embedOrigins)) return declared;
+  return undefined;
+}
+
+/**
  * Attributes for the refresh cookie on this request.
  *
  * Non-embedded requests get exactly the configured `sameSite`/`secure` — the

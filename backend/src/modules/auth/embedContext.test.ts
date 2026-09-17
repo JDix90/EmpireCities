@@ -4,6 +4,7 @@ import {
   isEmbeddedOrigin,
   refreshCookieAttrs,
   frameAncestorsFor,
+  resolveEmbedderOrigin,
   type RefreshCookieConfig,
 } from './embedContext';
 
@@ -114,5 +115,66 @@ describe('frameAncestorsFor', () => {
   it('allows self plus the configured portals once set', () => {
     expect(frameAncestorsFor([PORTAL, 'https://crazygames.com']))
       .toEqual(["'self'", PORTAL, 'https://crazygames.com']);
+  });
+});
+
+/**
+ * The gap this closes, proven in a browser before it was written: two real
+ * cross-site TLS origins, a portal framing us, the REAL refreshCookieAttrs on
+ * the server. `Origin` came back as our own origin and `Sec-Fetch-Site` as
+ * `same-origin`, the cookie stayed on Lax, and the browser then withheld it —
+ * because SameSite is judged against the top-level site. Handing the function
+ * the portal origin flipped it to None and the cookie arrived.
+ */
+describe('resolveEmbedderOrigin', () => {
+  const PORTALS = [PORTAL, 'capacitor://app.crazygames.com'];
+
+  it('NO-OP: finds nobody while no portal is configured', () => {
+    expect(resolveEmbedderOrigin(PORTAL, PORTAL, [])).toBeUndefined();
+    expect(resolveEmbedderOrigin(OURS, OURS, [])).toBeUndefined();
+  });
+
+  it('trusts a browser-set Origin that is itself a configured portal', () => {
+    // The cross-origin case: a portal-hosted build calling our API.
+    expect(resolveEmbedderOrigin(PORTAL, undefined, PORTALS)).toBe(PORTAL);
+  });
+
+  it('falls back to the declared header when the browser tells us nothing', () => {
+    // THE CASE THAT WAS BROKEN: framed document, so Origin is our own.
+    expect(resolveEmbedderOrigin(OURS, PORTAL, PORTALS)).toBe(PORTAL);
+    expect(resolveEmbedderOrigin(undefined, PORTAL, PORTALS)).toBe(PORTAL);
+  });
+
+  it('accepts a native app scheme, which is where this bites hardest', () => {
+    expect(resolveEmbedderOrigin(OURS, 'capacitor://app.crazygames.com', PORTALS))
+      .toBe('capacitor://app.crazygames.com');
+  });
+
+  it('never lets a client invent an embedder', () => {
+    // The allowlist stays the only authority — claiming an unlisted origin
+    // gets exactly nothing, which is what keeps this a hint and not a key.
+    expect(resolveEmbedderOrigin(OURS, 'https://evil.example', PORTALS)).toBeUndefined();
+    expect(resolveEmbedderOrigin('https://evil.example', 'https://evil.example', PORTALS))
+      .toBeUndefined();
+  });
+
+  it('ignores a header sent more than once rather than guessing', () => {
+    expect(resolveEmbedderOrigin(OURS, [PORTAL, 'https://evil.example'], PORTALS))
+      .toBeUndefined();
+  });
+
+  it('leaves a direct player alone even with portals configured', () => {
+    const attrs = refreshCookieAttrs(60, resolveEmbedderOrigin(OURS, undefined, PORTALS), {
+      embedOrigins: PORTALS, sameSite: 'lax', secure: true,
+    });
+    expect(attrs.sameSite).toBe('lax');
+  });
+
+  it('end to end: a framed request now gets the cookie that survives framing', () => {
+    const attrs = refreshCookieAttrs(60, resolveEmbedderOrigin(OURS, PORTAL, PORTALS), {
+      embedOrigins: PORTALS, sameSite: 'lax', secure: true,
+    });
+    expect(attrs.sameSite).toBe('none');
+    expect(attrs.secure).toBe(true);
   });
 });

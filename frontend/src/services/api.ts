@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { getApiBaseUrl } from '../config/env';
+import { embedderHeaders } from '../utils/embedContext';
 
 /** Wrong-password responses must not trigger refresh-token rotation (side effects + confusing retries). */
 function isAuthCredentialPost(config: InternalAxiosRequestConfig): boolean {
@@ -26,7 +27,9 @@ export function busyMessageFor(status: number, message?: string): string {
 export const api = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+  // The embedder header rides along only when a portal is actually framing us;
+  // a direct player sends nothing extra. See utils/embedContext.ts.
+  headers: { 'Content-Type': 'application/json', ...embedderHeaders() },
   timeout: 15000,
 });
 
