@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
-import { getApiBaseUrl } from '../config/env';
+import { getApiBaseUrl, REQUEST_TIMEOUT_MS } from '../config/env';
 import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
+import { safeLocalStorage } from '../utils/safeStorage';
 
 // `rawHttp` bypasses the api interceptors, and it is the instance that calls
 // /auth/guest and /auth/refresh — the two endpoints that WRITE the refresh
@@ -16,6 +17,13 @@ const rawHttp = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: true,
   headers: { ...embedderHeaders() },
+  // Without this, a stalled connection hangs /auth/refresh indefinitely and
+  // `bootstrapped` never flips — which parks every caller of
+  // `waitForAuthBootstrap`, the landing CTA included. A timeout is safe here
+  // by design: `classifyRefreshFailure` maps a response-less error to
+  // 'unreachable', which KEEPS the session and lets App.tsx retry with
+  // backoff, rather than logging the player out.
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 /**
@@ -258,6 +266,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'cc-auth',
+      // A cross-site iframe whose browser blocks third-party storage has no
+      // Web Storage at all — access throws — and zustand then drops its
+      // `store.persist` API entirely, which used to blank the whole embed at
+      // first paint. safeLocalStorage degrades to per-tab memory instead.
+      // The stored shape is unchanged, and provably so: zustand's own default
+      // is `createJSONStorage(() => localStorage)`, so this swaps only which
+      // object that same helper wraps. Slices already in players' browsers
+      // rehydrate exactly as before — the deploy logs nobody out.
+      storage: createJSONStorage(() => safeLocalStorage()),
       // accessToken is intentionally OMITTED — see the field's docstring.
       // We persist `user` so the first paint after reload can render the
       // user's name/avatar without waiting for the silent refresh to land,
@@ -270,6 +287,51 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+/**
+ * How long `waitForAuthBootstrap` will wait before giving up. The silent
+ * refresh normally lands in ~200-500 ms; this only has to be generous enough
+ * not to fire on a slow-but-working network.
+ */
+const BOOTSTRAP_WAIT_MS = 3000;
+
+/**
+ * Resolve once the initial silent refresh has settled.
+ *
+ * On reload `isAuthenticated` and `user` come back from localStorage, but
+ * `accessToken` is memory-only — so until App.tsx's silent refresh lands, the
+ * persisted flags are a GUESS: the refresh cookie may be gone and the session
+ * already dead. Anything branching on "is this player already someone?" has to
+ * wait for that, or it either fires authenticated requests with no token (401)
+ * or mistakes a dead session for a live one.
+ */
+export function waitForAuthBootstrap(timeoutMs = BOOTSTRAP_WAIT_MS): Promise<void> {
+  if (useAuthStore.getState().bootstrapped) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    // `finish` reads `timer` and `unsub` only when called, which is always
+    // after both are assigned: a timer cannot fire synchronously, and zustand
+    // does not invoke a fresh subscriber on subscribe.
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsub();
+      resolve();
+    };
+    // `bootstrapped` always flips eventually — App.tsx sets it in a `finally`
+    // — but the request behind it, POST /auth/refresh on `rawHttp`, carries no
+    // timeout of its own, so a stalled connection could park a caller
+    // indefinitely. Give up at the cap instead and let the caller fall back to
+    // the persisted auth flags, which is what it would have used anyway.
+    const timer = setTimeout(finish, timeoutMs);
+    const unsub = useAuthStore.subscribe((state) => {
+      if (state.bootstrapped) finish();
+    });
+    // Re-check synchronously in case it flipped between getState() and subscribe().
+    if (useAuthStore.getState().bootstrapped) finish();
+  });
+}
 
 /**
  * Decode the `admin` claim from the (memory-only) access token. We never trust

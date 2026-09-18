@@ -4,7 +4,8 @@ import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles } fr
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
+import { REQUEST_TIMEOUT_MS } from '../config/env';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
 import { markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import {
@@ -60,27 +61,13 @@ export default function TutorialPage() {
   const startLesson = async (module: TutorialLessonModule) => {
     setStarting(module);
     try {
-      // On page reload, `isAuthenticated` is restored from localStorage but
-      // `accessToken` is memory-only (cleared on reload for security). App.tsx
-      // runs a silent refresh to recover the token, but that takes ~200–500 ms.
-      // If the user clicks "Start Lesson" before `bootstrapped` flips to true,
-      // the API call goes out with no token → 401. Wait here so the auth state
-      // is fully resolved before we make any authenticated requests.
-      if (!useAuthStore.getState().bootstrapped) {
-        await new Promise<void>((resolve) => {
-          const unsub = useAuthStore.subscribe((state) => {
-            if (state.bootstrapped) {
-              unsub();
-              resolve();
-            }
-          });
-          // Re-check synchronously in case it flipped between getState() and subscribe()
-          if (useAuthStore.getState().bootstrapped) {
-            unsub();
-            resolve();
-          }
-        });
-      }
+      // Clicking "Start Lesson" before the silent refresh lands would send the
+      // API call out with no token → 401. A longer cap than the landing CTA's
+      // on purpose: giving up early here COSTS something (a 401 on the next
+      // request), whereas the landing CTA just falls back to the persisted
+      // flags. Waiting exactly as long as the refresh request itself can take
+      // means this only ever fires once that request has already given up.
+      await waitForAuthBootstrap(REQUEST_TIMEOUT_MS);
 
       if (!useAuthStore.getState().isAuthenticated) {
         await useAuthStore.getState().loginAsGuest();

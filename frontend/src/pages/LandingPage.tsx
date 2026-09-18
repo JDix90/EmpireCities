@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
 import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled } from '../store/featureFlagsStore';
 import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
@@ -407,12 +407,24 @@ export default function LandingPage() {
   const handleGuest = async () => {
     setGuestLoading(true);
     try {
-      await loginAsGuest();
-      if (tutorialFirst) {
-        // One-click onboarding: a landing guest is always brand-new (loginAsGuest
-        // mints a fresh account), so drop them straight into the guided tutorial
-        // match — collapsing landing → lobby → welcome-modal → tutorial into one
-        // click. `?start=1` auto-starts the core lesson and routes into the game.
+      // Settle the silent refresh first: until it lands, the persisted auth
+      // flags are only a guess at whether this player still has a session.
+      await waitForAuthBootstrap();
+      // NEVER mint a second account over a live session. Doing so abandons the
+      // player's guest account, its XP and any game in progress — and in a
+      // portal iframe that is the common path, not an edge case: reloading the
+      // portal page resets the iframe to `/`, so a recovered session lands
+      // right back on this CTA. Measured in the itch embed, click → reload →
+      // click produced two guests (Guest_b8dc0234, then Guest_8ab38fb8) and
+      // orphaned the first one's game.
+      const isNewGuest = !useAuthStore.getState().isAuthenticated;
+      if (isNewGuest) await loginAsGuest();
+      if (tutorialFirst && isNewGuest) {
+        // One-click onboarding: a BRAND-NEW landing guest goes straight to the
+        // guided tutorial match — collapsing landing → lobby → welcome-modal →
+        // tutorial into one click. `?start=1` auto-starts the core lesson and
+        // routes into the game. A returning player has already been triaged,
+        // so they get the lobby instead.
         navigate('/tutorial?start=1');
       } else {
         // Plain /lobby: the welcome modal owns first-visit triage (Start
@@ -491,6 +503,7 @@ export default function LandingPage() {
           <div className="flex flex-col gap-3 justify-center items-center max-w-sm mx-auto">
             <button
               type="button"
+              data-testid="hero-guest-cta"
               className="btn-primary text-lg sm:text-xl px-12 sm:px-14 py-4 w-full sm:w-auto disabled:opacity-60"
               disabled={guestLoading}
               onClick={() => { trackPlayClick('hero'); void handleGuest(); }}
