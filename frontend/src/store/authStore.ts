@@ -282,6 +282,51 @@ export const useAuthStore = create<AuthState>()(
 );
 
 /**
+ * How long `waitForAuthBootstrap` will wait before giving up. The silent
+ * refresh normally lands in ~200-500 ms; this only has to be generous enough
+ * not to fire on a slow-but-working network.
+ */
+const BOOTSTRAP_WAIT_MS = 3000;
+
+/**
+ * Resolve once the initial silent refresh has settled.
+ *
+ * On reload `isAuthenticated` and `user` come back from localStorage, but
+ * `accessToken` is memory-only — so until App.tsx's silent refresh lands, the
+ * persisted flags are a GUESS: the refresh cookie may be gone and the session
+ * already dead. Anything branching on "is this player already someone?" has to
+ * wait for that, or it either fires authenticated requests with no token (401)
+ * or mistakes a dead session for a live one.
+ */
+export function waitForAuthBootstrap(timeoutMs = BOOTSTRAP_WAIT_MS): Promise<void> {
+  if (useAuthStore.getState().bootstrapped) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    // `finish` reads `timer` and `unsub` only when called, which is always
+    // after both are assigned: a timer cannot fire synchronously, and zustand
+    // does not invoke a fresh subscriber on subscribe.
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsub();
+      resolve();
+    };
+    // `bootstrapped` always flips eventually — App.tsx sets it in a `finally`
+    // — but the request behind it, POST /auth/refresh on `rawHttp`, carries no
+    // timeout of its own, so a stalled connection could park a caller
+    // indefinitely. Give up at the cap instead and let the caller fall back to
+    // the persisted auth flags, which is what it would have used anyway.
+    const timer = setTimeout(finish, timeoutMs);
+    const unsub = useAuthStore.subscribe((state) => {
+      if (state.bootstrapped) finish();
+    });
+    // Re-check synchronously in case it flipped between getState() and subscribe().
+    if (useAuthStore.getState().bootstrapped) finish();
+  });
+}
+
+/**
  * Decode the `admin` claim from the (memory-only) access token. We never trust
  * the persisted `user.is_admin` field for gating admin UI: localStorage is
  * client-controlled and an attacker can flip the bit there without forging a
