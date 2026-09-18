@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
-import { getApiBaseUrl } from '../config/env';
+import { getApiBaseUrl, REQUEST_TIMEOUT_MS } from '../config/env';
 import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
 import { safeLocalStorage } from '../utils/safeStorage';
@@ -17,6 +17,13 @@ const rawHttp = axios.create({
   baseURL: getApiBaseUrl(),
   withCredentials: true,
   headers: { ...embedderHeaders() },
+  // Without this, a stalled connection hangs /auth/refresh indefinitely and
+  // `bootstrapped` never flips — which parks every caller of
+  // `waitForAuthBootstrap`, the landing CTA included. A timeout is safe here
+  // by design: `classifyRefreshFailure` maps a response-less error to
+  // 'unreachable', which KEEPS the session and lets App.tsx retry with
+  // backoff, rather than logging the player out.
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 /**

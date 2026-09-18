@@ -25,3 +25,15 @@ export function getSocketUrl(): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Request timeout for BOTH axios instances — `api` in services/api and
+ * `rawHttp` in store/authStore. It lives here rather than beside either
+ * instance so the two cannot drift apart, and so reading it never drags a
+ * mocked `services/api` into a test's module graph.
+ *
+ * Anything that WAITS on a request settling (see `waitForAuthBootstrap`'s
+ * callers) should allow at least this long, or it gives up while the request
+ * is still legitimately in flight.
+ */
+export const REQUEST_TIMEOUT_MS = 15000;

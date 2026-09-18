@@ -5,6 +5,7 @@ import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
+import { REQUEST_TIMEOUT_MS } from '../config/env';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
 import { markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import {
@@ -64,8 +65,9 @@ export default function TutorialPage() {
       // API call out with no token → 401. A longer cap than the landing CTA's
       // on purpose: giving up early here COSTS something (a 401 on the next
       // request), whereas the landing CTA just falls back to the persisted
-      // flags. 15s matches the api instance's own request timeout.
-      await waitForAuthBootstrap(15_000);
+      // flags. Waiting exactly as long as the refresh request itself can take
+      // means this only ever fires once that request has already given up.
+      await waitForAuthBootstrap(REQUEST_TIMEOUT_MS);
 
       if (!useAuthStore.getState().isAuthenticated) {
         await useAuthStore.getState().loginAsGuest();
