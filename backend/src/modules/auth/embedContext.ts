@@ -115,12 +115,39 @@ export function refreshCookieAttrs(
   maxAgeSeconds: number,
   origin: string | undefined,
   cfg: RefreshCookieConfig,
-): { httpOnly: true; secure: boolean; sameSite: SameSite; path: string; maxAge: number } {
+): {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: SameSite;
+  path: string;
+  maxAge: number;
+  partitioned: boolean;
+} {
   const embedded = isEmbeddedOrigin(origin, cfg.embedOrigins);
   const sameSite: SameSite = embedded ? 'none' : cfg.sameSite;
   // None is only honoured over HTTPS, so it forces Secure regardless of config.
   const secure = sameSite === 'none' ? true : cfg.secure;
-  return { httpOnly: true, secure, sameSite, path: '/api/auth', maxAge: maxAgeSeconds };
+  /**
+   * CHIPS. `SameSite=None` alone is no longer enough: Chrome's third-party
+   * cookie phase-out blocks an unpartitioned cross-site cookie outright, so a
+   * correctly-attributed None cookie was still dropped and the session still
+   * died on reload inside the frame. Measured in Chromium under
+   * `--test-third-party-cookie-phaseout`:
+   *
+   *   SameSite=None                 -> WAS NOT SENT
+   *   SameSite=None; Partitioned    -> ARRIVED
+   *
+   * Partitioning keys the cookie to (top-level site, us), so a session started
+   * inside a portal stays inside that portal and never mixes with a direct
+   * visit. For this cookie that is the behaviour we want anyway.
+   *
+   * Tied to `sameSite === 'none'`, not to `embedded`, so it can only ever
+   * appear on a cookie that is already cross-site. A direct player's Lax
+   * cookie is untouched, and browsers that do not implement CHIPS ignore the
+   * unknown attribute.
+   */
+  const partitioned = sameSite === 'none';
+  return { httpOnly: true, secure, sameSite, path: '/api/auth', maxAge: maxAgeSeconds, partitioned };
 }
 
 /**

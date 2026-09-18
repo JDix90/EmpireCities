@@ -262,8 +262,11 @@ function refreshCookieOpts(maxAgeSeconds: number, request?: FastifyRequest) {
  * browser treats it as a different cookie and the old one survives logout.
  */
 function clearRefreshCookieOpts(request?: FastifyRequest) {
-  const { httpOnly, secure, sameSite, path } = refreshCookieOpts(0, request);
-  return { httpOnly, secure, sameSite, path };
+  // `partitioned` is part of the identity too: a Partitioned cookie and an
+  // unpartitioned one with the same name are different cookies, so omitting it
+  // here would leave the embedded cookie alive through logout.
+  const { httpOnly, secure, sameSite, path, partitioned } = refreshCookieOpts(0, request);
+  return { httpOnly, secure, sameSite, path, partitioned };
 }
 
 /**
