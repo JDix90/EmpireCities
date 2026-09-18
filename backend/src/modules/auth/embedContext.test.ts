@@ -71,6 +71,9 @@ describe('refreshCookieAttrs', () => {
     for (const origin of [undefined, OURS, PORTAL]) {
       expect(refreshCookieAttrs(60, origin, PROD_TODAY)).toEqual({
         httpOnly: true, secure: true, sameSite: 'lax', path: '/api/auth', maxAge: 60,
+        // Explicitly unpartitioned: CHIPS rides on SameSite=None, so a player
+        // who is not in a frame gets exactly the cookie they got before.
+        partitioned: false,
       });
     }
   });
@@ -86,6 +89,8 @@ describe('refreshCookieAttrs', () => {
     const cfg: RefreshCookieConfig = { ...PROD_TODAY, embedOrigins: [PORTAL] };
     expect(refreshCookieAttrs(60, PORTAL, cfg)).toEqual({
       httpOnly: true, secure: true, sameSite: 'none', path: '/api/auth', maxAge: 60,
+      // None travels with Partitioned or Chrome drops it regardless.
+      partitioned: true,
     });
   });
 
@@ -168,6 +173,28 @@ describe('resolveEmbedderOrigin', () => {
       embedOrigins: PORTALS, sameSite: 'lax', secure: true,
     });
     expect(attrs.sameSite).toBe('lax');
+  });
+
+  it('partitions the embedded cookie, without which Chrome drops it anyway', () => {
+    // Measured in Chromium under --test-third-party-cookie-phaseout:
+    //   SameSite=None              -> WAS NOT SENT
+    //   SameSite=None; Partitioned -> ARRIVED
+    // Correct SameSite was necessary but not sufficient.
+    const framed = refreshCookieAttrs(60, resolveEmbedderOrigin(OURS, PORTAL, PORTALS), {
+      embedOrigins: PORTALS, sameSite: 'lax', secure: true,
+    });
+    expect(framed.sameSite).toBe('none');
+    expect(framed.partitioned).toBe(true);
+  });
+
+  it('never partitions a direct player\u2019s cookie', () => {
+    // Partitioned rides on SameSite=None, so it can only appear on a cookie
+    // that is already cross-site. A direct visit keeps exactly what it had.
+    const direct = refreshCookieAttrs(60, resolveEmbedderOrigin(OURS, undefined, PORTALS), {
+      embedOrigins: PORTALS, sameSite: 'lax', secure: true,
+    });
+    expect(direct.sameSite).toBe('lax');
+    expect(direct.partitioned).toBe(false);
   });
 
   it('end to end: a framed request now gets the cookie that survives framing', () => {
