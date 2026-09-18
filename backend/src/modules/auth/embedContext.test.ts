@@ -65,6 +65,77 @@ describe('isEmbeddedOrigin', () => {
   });
 });
 
+describe('wildcard embed origins', () => {
+  const WILD = 'https://*.crazygames.com';
+
+  it('accepts a leading *. label and rejects a * anywhere else', () => {
+    expect(parseEmbedOriginList(WILD)).toEqual([WILD]);
+    expect(parseEmbedOriginList('https://ev*l.com')).toEqual([]);
+    expect(parseEmbedOriginList('https://foo.*.com')).toEqual([]);
+    expect(parseEmbedOriginList('https://*')).toEqual([]);
+    expect(parseEmbedOriginList('https://*.')).toEqual([]);
+  });
+
+  it('refuses a TLD-wide wildcard', () => {
+    // `*.com` would hand the embedded cookie to anyone who can register a
+    // .com. CSP refuses the same shape.
+    expect(parseEmbedOriginList('https://*.com')).toEqual([]);
+    expect(parseEmbedOriginList('https://*.co.uk')).toEqual(['https://*.co.uk']); // two labels: operator's call
+  });
+
+  it('matches subdomains, at any depth', () => {
+    expect(isEmbeddedOrigin('https://www.crazygames.com', [WILD])).toBe(true);
+    expect(isEmbeddedOrigin('https://app.crazygames.com', [WILD])).toBe(true);
+    expect(isEmbeddedOrigin('https://a.b.crazygames.com', [WILD])).toBe(true);
+  });
+
+  it('does NOT match a lookalike registration', () => {
+    // The whole point of matching the suffix WITH its leading dot.
+    expect(isEmbeddedOrigin('https://evilcrazygames.com', [WILD])).toBe(false);
+    expect(isEmbeddedOrigin('https://crazygames.com.evil.test', [WILD])).toBe(false);
+    expect(isEmbeddedOrigin('https://www.crazygames.com.evil.test', [WILD])).toBe(false);
+    expect(isEmbeddedOrigin('https://notcrazygames.com', [WILD])).toBe(false);
+  });
+
+  it('does NOT match the bare domain, a different scheme, or a port', () => {
+    // The bare domain is a separate entry if it embeds — CSP behaves the same.
+    expect(isEmbeddedOrigin('https://crazygames.com', [WILD])).toBe(false);
+    // A downgraded scheme must not inherit the allowlist.
+    expect(isEmbeddedOrigin('http://www.crazygames.com', [WILD])).toBe(false);
+    // The port is part of the authority being compared.
+    expect(isEmbeddedOrigin('https://www.crazygames.com:8443', [WILD])).toBe(false);
+  });
+
+  it('does not match an empty subdomain label', () => {
+    expect(isEmbeddedOrigin('https://.crazygames.com', [WILD])).toBe(false);
+  });
+
+  it('leaves literal entries matching exactly as before', () => {
+    expect(isEmbeddedOrigin('https://itch.io', ['https://itch.io'])).toBe(true);
+    expect(isEmbeddedOrigin('https://sub.itch.io', ['https://itch.io'])).toBe(false);
+  });
+
+  it('carries the wildcard into frame-ancestors, which understands it natively', () => {
+    expect(frameAncestorsFor([WILD])).toEqual(["'self'", WILD]);
+  });
+
+  it('gives a wildcard-matched portal the partitioned cross-site cookie', () => {
+    const attrs = refreshCookieAttrs(60, 'https://www.crazygames.com', {
+      embedOrigins: [WILD], sameSite: 'lax', secure: false,
+    });
+    expect(attrs.sameSite).toBe('none');
+    expect(attrs.secure).toBe(true);
+    expect(attrs.partitioned).toBe(true);
+  });
+
+  it('resolves a declared wildcard-matched embedder', () => {
+    expect(resolveEmbedderOrigin(undefined, 'https://www.crazygames.com', [WILD]))
+      .toBe('https://www.crazygames.com');
+    expect(resolveEmbedderOrigin(undefined, 'https://evilcrazygames.com', [WILD]))
+      .toBeUndefined();
+  });
+});
+
 describe('refreshCookieAttrs', () => {
   // The whole point of the feature: direct players must be untouched.
   it('NO-OP: with embedding off, every request gets the pre-existing cookie', () => {
