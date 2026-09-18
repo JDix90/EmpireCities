@@ -39,15 +39,38 @@ export interface RefreshCookieConfig {
  * This is an operator-configured allowlist read from the environment, not user
  * input, so accepting any well-formed scheme costs nothing. The shape is still
  * strict — no paths, no whitespace, no bare hosts.
+ *
+ * A leading `*.` label is allowed, matching the shape nginx's `frame-ancestors`
+ * already uses: `https://*.crazygames.com`. A portal serves its pages from more
+ * subdomains than it publishes, and the set cannot be enumerated from outside —
+ * enumerating CrazyGames' domains from our own CSP silently dropped
+ * `www.crazygames.com`, which is the one that matters, because the CSP covers
+ * it only through the wildcard. A `*` anywhere else is rejected rather than
+ * treated as a literal: `https://ev*l.com` is a typo, not an origin.
+ *
+ * A wildcard must still name a real domain — `https://*.com` is refused,
+ * because a TLD-wide wildcard hands the embedded cookie to anyone who can
+ * register under it. CSP refuses the same shape.
  */
 export function parseEmbedOriginList(raw: string | undefined): string[] {
   if (!raw) return [];
   const out: string[] = [];
   for (const entry of raw.split(',')) {
     const t = entry.trim();
-    if (/^[a-z][a-z0-9+.-]*:\/\/[^/\s]+$/i.test(t) && !out.includes(t)) out.push(t);
+    if (!/^[a-z][a-z0-9+.-]*:\/\/(\*\.)?[^*/\s]+$/i.test(t)) continue;
+    const wildcardSuffix = wildcardSuffixOf(t);
+    // A wildcard needs at least one dot left of the TLD: `*.crazygames.com`
+    // yes, `*.com` no.
+    if (wildcardSuffix !== undefined && !wildcardSuffix.includes('.')) continue;
+    if (!out.includes(t)) out.push(t);
   }
   return out;
+}
+
+/** The part after `://*.` for a wildcard entry, or undefined for a literal one. */
+function wildcardSuffixOf(entry: string): string | undefined {
+  const marker = entry.indexOf('://*.');
+  return marker === -1 ? undefined : entry.slice(marker + '://*.'.length);
 }
 
 /**
@@ -55,9 +78,29 @@ export function parseEmbedOriginList(raw: string | undefined): string[] {
  * origins. A player on the site itself sends our own origin, or none at all
  * for a top-level navigation, so this is false for every direct visit — and
  * with `embedOrigins` empty it is false for everyone.
+ *
+ * A `*.` entry matches any subdomain of its suffix and nothing else. The
+ * comparison is on the whole authority, and the suffix is matched WITH its
+ * leading dot, which is what separates `evil.crazygames.com` (a subdomain they
+ * control, so in) from `evilcrazygames.com` and `crazygames.com.evil.test`
+ * (different registrations, so out). The bare domain does not match its own
+ * wildcard — list it too if it embeds — and neither does a different scheme or
+ * a port, since both are part of the authority being compared.
  */
 export function isEmbeddedOrigin(origin: string | undefined, embedOrigins: string[]): boolean {
-  return typeof origin === 'string' && embedOrigins.includes(origin);
+  if (typeof origin !== 'string') return false;
+  for (const entry of embedOrigins) {
+    if (entry === origin) return true;
+    const suffix = wildcardSuffixOf(entry);
+    if (suffix === undefined) continue;
+    const scheme = entry.slice(0, entry.indexOf('://*.'));
+    const prefix = `${scheme}://`;
+    if (!origin.startsWith(prefix)) continue;
+    const authority = origin.slice(prefix.length);
+    // endsWith the DOTTED suffix, and something must precede the dot.
+    if (authority.length > suffix.length + 1 && authority.endsWith(`.${suffix}`)) return true;
+  }
+  return false;
 }
 
 /**
