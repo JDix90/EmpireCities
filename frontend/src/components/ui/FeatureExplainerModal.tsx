@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+import { safeLocalStorage } from '../../utils/safeStorage';
 
 interface FeatureExplainerModalProps {
   /** Feature key stored in localStorage once dismissed. */
@@ -22,13 +23,16 @@ export default function FeatureExplainerModal({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(storageKey)) {
+    // safeLocalStorage, not localStorage: access throws outright in a
+    // cross-site iframe whose browser blocks third-party storage, which would
+    // take this component's whole subtree down on mount.
+    if (!safeLocalStorage().getItem(storageKey)) {
       setVisible(true);
     }
   }, [storageKey]);
 
   const dismiss = () => {
-    localStorage.setItem(storageKey, '1');
+    safeLocalStorage().setItem(storageKey, '1');
     setVisible(false);
   };
 

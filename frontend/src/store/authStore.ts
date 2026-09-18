@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
 import { api } from '../services/api';
 import { resyncSocketAuth, disconnectSocket } from '../services/socket';
 import { getApiBaseUrl } from '../config/env';
 import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
+import { safeLocalStorage } from '../utils/safeStorage';
 
 // `rawHttp` bypasses the api interceptors, and it is the instance that calls
 // /auth/guest and /auth/refresh — the two endpoints that WRITE the refresh
@@ -258,6 +259,15 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'cc-auth',
+      // A cross-site iframe whose browser blocks third-party storage has no
+      // Web Storage at all — access throws — and zustand then drops its
+      // `store.persist` API entirely, which used to blank the whole embed at
+      // first paint. safeLocalStorage degrades to per-tab memory instead.
+      // The stored shape is unchanged, and provably so: zustand's own default
+      // is `createJSONStorage(() => localStorage)`, so this swaps only which
+      // object that same helper wraps. Slices already in players' browsers
+      // rehydrate exactly as before — the deploy logs nobody out.
+      storage: createJSONStorage(() => safeLocalStorage()),
       // accessToken is intentionally OMITTED — see the field's docstring.
       // We persist `user` so the first paint after reload can render the
       // user's name/avatar without waiting for the silent refresh to land,
