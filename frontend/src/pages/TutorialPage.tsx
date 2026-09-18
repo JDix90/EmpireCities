@@ -61,8 +61,11 @@ export default function TutorialPage() {
     setStarting(module);
     try {
       // Clicking "Start Lesson" before the silent refresh lands would send the
-      // API call out with no token → 401.
-      await waitForAuthBootstrap();
+      // API call out with no token → 401. A longer cap than the landing CTA's
+      // on purpose: giving up early here COSTS something (a 401 on the next
+      // request), whereas the landing CTA just falls back to the persisted
+      // flags. 15s matches the api instance's own request timeout.
+      await waitForAuthBootstrap(15_000);
 
       if (!useAuthStore.getState().isAuthenticated) {
         await useAuthStore.getState().loginAsGuest();

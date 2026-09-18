@@ -10,6 +10,7 @@
  * NEVER used for authentication or personalization.
  */
 import { generateActionId } from './actionId';
+import { safeLocalStorage } from './safeStorage';
 
 const ANON_SESSION_KEY = 'cc-anon-session';
 
@@ -18,18 +19,28 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * Returns the stable anonymous session id, minting one on first call.
- * Returns null when storage is unavailable (privacy mode) or crypto.randomUUID
- * is missing (the non-UUID fallback would fail server validation) — callers
- * simply skip emitting in that case; analytics must never break the page.
+ *
+ * Returns null when crypto.randomUUID is missing (the non-UUID fallback would
+ * fail server validation) — callers simply skip emitting in that case;
+ * analytics must never break the page.
+ *
+ * A document with NO Web Storage still gets an id, via safeLocalStorage's
+ * memory fallback. That is the portal case: a cross-site iframe in Safari, or
+ * Chrome with third-party cookies blocked, cannot touch localStorage at all,
+ * and this used to return null there — so those players emitted no
+ * landing_viewed or hero_play_clicked at all, and carried no anon id into
+ * their signup attribution. The fallback id lasts the tab rather than
+ * persisting, which is all the visitor→signup stitch needs within a visit.
  */
 export function getAnonSessionId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const existing = localStorage.getItem(ANON_SESSION_KEY);
+    const storage = safeLocalStorage();
+    const existing = storage.getItem(ANON_SESSION_KEY);
     if (existing && UUID_RE.test(existing)) return existing;
     const minted = generateActionId();
     if (!UUID_RE.test(minted)) return null;
-    localStorage.setItem(ANON_SESSION_KEY, minted);
+    storage.setItem(ANON_SESSION_KEY, minted);
     return minted;
   } catch {
     return null;

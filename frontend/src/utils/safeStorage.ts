@@ -41,7 +41,7 @@ function createMemoryStorage(): SafeStorage {
   };
 }
 
-function probeWebStorage(kind: 'localStorage' | 'sessionStorage'): SafeStorage | null {
+function probeWebStorage(kind: 'localStorage'): SafeStorage | null {
   if (typeof window === 'undefined') return null;
   try {
     const storage = window[kind];
@@ -56,7 +56,6 @@ function probeWebStorage(kind: 'localStorage' | 'sessionStorage'): SafeStorage |
 // Memoised so the memory fallback is one shared map for the tab's lifetime
 // rather than a fresh empty one per call.
 let localCache: SafeStorage | undefined;
-let sessionCache: SafeStorage | undefined;
 
 /** `localStorage` when the document has one, otherwise per-tab memory. */
 export function safeLocalStorage(): SafeStorage {
@@ -64,14 +63,7 @@ export function safeLocalStorage(): SafeStorage {
   return localCache;
 }
 
-/** `sessionStorage` when the document has one, otherwise per-tab memory. */
-export function safeSessionStorage(): SafeStorage {
-  sessionCache ??= probeWebStorage('sessionStorage') ?? createMemoryStorage();
-  return sessionCache;
-}
-
 /** Test-only: drop the memoised probes so the next call re-probes. */
 export function resetSafeStorageForTests(): void {
   localCache = undefined;
-  sessionCache = undefined;
 }

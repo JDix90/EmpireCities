@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { safeLocalStorage, safeSessionStorage, resetSafeStorageForTests } from './safeStorage';
+import { safeLocalStorage, resetSafeStorageForTests } from './safeStorage';
 
 const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
 
@@ -73,10 +73,4 @@ describe('safeStorage', () => {
     expect(safeLocalStorage().getItem('cc-probe-absent')).toBeNull();
   });
 
-  it('probes sessionStorage independently of localStorage', () => {
-    denyLocalStorage('access');
-    safeSessionStorage().setItem('cc-probe-session', 'real');
-    expect(window.sessionStorage.getItem('cc-probe-session')).toBe('real');
-    window.sessionStorage.removeItem('cc-probe-session');
-  });
 });
