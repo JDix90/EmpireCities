@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Borderfall</title>
+<!--
+  Borderfall launcher for Newgrounds' HTML5 player.
+
+  Newgrounds hosts this file and runs it inside an iframe on the submission
+  page. Borderfall itself is a full-stack app (Postgres, Redis, sockets), so it
+  cannot be uploaded as a static build — this shell frames the live site
+  instead. Same approach as scripts/itch-launcher, different origins and UTM.
+
+  IT MUST NEVER BUST OUT OF ITS FRAME. No top.location, no parent.location, no
+  auto-redirect. Navigating the player away from Newgrounds is hostile to the
+  platform and to the person who pressed play. The only way out of here is a
+  link the visitor chooses to click.
+
+  Framing only works once borderfall.gg's frame-ancestors AND EMBED_ORIGINS
+  name every Newgrounds origin in the ancestor chain (docker/portals.json →
+  `pnpm -C backend exec tsx scripts/syncPortals.ts`; see docs/PORTALS.md).
+  Until they do, the CSP blocks the frame and this page shows a "play in a new
+  tab" fallback instead — so the submission is useful on day one and upgrades
+  itself the moment the server side is switched on, with no re-upload.
+
+  THE CHICKEN AND EGG: we cannot add those origins to the registry until we
+  know them, and they are only observable from inside this player. So this
+  shell reports them three ways (see #origins below): in the fallback panel, on
+  the console, and on demand via the #setup hash. Read them off the live
+  submission, put those exact values in docker/portals.json, sync, deploy —
+  then this shell starts framing on its own, with no re-upload.
+
+  DETECTION IS BEST-EFFORT, AND KNOWN TO BE IMPERFECT. From the parent you
+  cannot reliably tell a loaded cross-origin frame from a Chrome error page:
+  reading `contentWindow.location.href` throws SecurityError for BOTH. Measured
+  against the live site: a frame refused by `frame-ancestors` fails with
+  ERR_BLOCKED_BY_RESPONSE, lands on chrome-error://chromewebdata/, and the read
+  throws — so the optimistic check below calls it "playing" when it is not.
+  That is why the escape link is ALWAYS shown once we believe we are playing,
+  and why the origins are also written to the console unconditionally: whatever
+  the detector concludes, the visitor keeps a way out and the developer keeps
+  the values they need. The real fix is a postMessage handshake from
+  borderfall.gg on boot, which would make this positive rather than inferred;
+  until the app sends one, this is the honest ceiling.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: #0f1117; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #c8cbd4;
+    overflow: hidden;
+  }
+  #game {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: 0; display: block;
+    background: #0f1117;
+  }
+  /* Sits over the frame until the game paints, then gets hidden. */
+  #panel {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center;
+    background: #0f1117;
+  }
+  #panel[hidden] { display: none; }
+  .mark {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(28px, 7vw, 44px);
+    letter-spacing: .06em;
+    color: #d4a843;
+    margin: 0;
+  }
+  .sub { font-size: 14px; color: #8a90a0; margin: 0; max-width: 34ch; line-height: 1.5; }
+  .cta {
+    display: inline-block; margin-top: 4px;
+    padding: 12px 22px; border-radius: 10px;
+    background: #d4a843; color: #14161d;
+    font-weight: 700; font-size: 15px; text-decoration: none;
+  }
+  .cta:hover { background: #e2ba5c; }
+  .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  /* Always reachable, even if the frame loaded but is unusable. */
+  #escape {
+    position: absolute; right: 10px; bottom: 10px; z-index: 2;
+    padding: 7px 12px; border-radius: 999px;
+    background: rgba(15, 17, 23, .82);
+    border: 1px solid rgba(212, 168, 67, .4);
+    color: #d4a843; font-size: 12px; text-decoration: none;
+    backdrop-filter: blur(4px);
+  }
+  #escape[hidden] { display: none; }
+  #escape:hover { background: rgba(15, 17, 23, .95); }
+  /* Setup diagnostic. Only ever shown when the frame was refused, which for a
+     visitor is already the error state — so this adds no noise to a working
+     submission. Small and muted: it is for the developer, not the player. */
+  #origins {
+    margin-top: 10px; max-width: 46ch;
+    font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #6f7686; text-align: left;
+    border-top: 1px solid #23262f; padding-top: 8px;
+    word-break: break-all;
+  }
+  #origins[hidden] { display: none; }
+  #origins b { color: #8a90a0; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<iframe
+  id="game"
+  title="Borderfall"
+  src="https://borderfall.gg/?utm_source=newgrounds&utm_medium=embed"
+  allow="fullscreen; clipboard-write"
+  referrerpolicy="origin-when-cross-origin"
+></iframe>
+
+<div id="panel">
+  <p class="mark">BORDERFALL</p>
+  <p class="sub" id="msg"><span class="dots">Loading</span></p>
+  <a class="cta" id="cta" href="https://borderfall.gg/?utm_source=newgrounds&utm_medium=newtab"
+     target="_blank" rel="noopener noreferrer" hidden>Play in a new tab</a>
+  <div id="origins" hidden></div>
+</div>
+
+<a id="escape" href="https://borderfall.gg/?utm_source=newgrounds&utm_medium=newtab"
+   target="_blank" rel="noopener noreferrer" hidden>Open in a new tab &#8599;</a>
+
+<script>
+  (function () {
+    var panel = document.getElementById('panel');
+    var msg = document.getElementById('msg');
+    var cta = document.getElementById('cta');
+    var escapeLink = document.getElementById('escape');
+    var originsBox = document.getElementById('origins');
+    var frame = document.getElementById('game');
+    var settled = false;
+
+    /*
+     * Every origin that will be an ANCESTOR of the borderfall.gg frame, from
+     * the immediate parent outward. `frame-ancestors` and EMBED_ORIGINS must
+     * name all of them, not just the page the visitor sees — itch taught us
+     * that: the project page is <user>.itch.io but the sandboxed player is
+     * *.itch.zone, and missing either one blocks the frame.
+     *
+     * location.origin is this shell's own origin, which is the borderfall.gg
+     * frame's IMMEDIATE parent. ancestorOrigins is everything above it.
+     * referrer is the fallback where ancestorOrigins is unsupported (Firefox).
+     */
+    function ancestorChain() {
+      var chain = [];
+      try { if (location.origin && location.origin !== 'null') chain.push(location.origin); } catch (e) {}
+      try {
+        var a = location.ancestorOrigins;
+        if (a) { for (var i = 0; i < a.length; i++) chain.push(a[i]); }
+        else if (document.referrer) { chain.push(new URL(document.referrer).origin); }
+      } catch (e) {}
+      // De-duplicate, preserve order.
+      return chain.filter(function (o, i) { return o && chain.indexOf(o) === i; });
+    }
+
+    /*
+     * Exposed AND logged unconditionally. The detector below cannot reliably
+     * tell a blocked frame from a working one, so the panel that prints these
+     * may never appear — the console line always does.
+     * `#setup` forces them on screen, which is how you read them off a live
+     * submission: open this file's own URL in a tab and append #setup.
+     */
+    var chain = ancestorChain();
+    var setupMode = location.hash === '#setup';
+    window.__borderfallOrigins = chain;
+    try {
+      console.info('[borderfall] add these origins to docker/portals.json:', chain.join(' '));
+    } catch (e) {}
+
+    function showOrigins() {
+      if (!chain.length) return;
+      originsBox.innerHTML = '<b>Setup — add these to docker/portals.json:</b><br>'
+        + chain.map(function (o) { return '&nbsp;&nbsp;' + o; }).join('<br>');
+      originsBox.hidden = false;
+    }
+
+    function playing() {
+      if (settled) return;
+      settled = true;
+      // The escape link stays up even when we believe the game is running,
+      // precisely because that belief can be wrong (see the header comment).
+      escapeLink.hidden = false;
+      if (setupMode) { msg.textContent = 'Setup mode.'; showOrigins(); return; }
+      panel.hidden = true;
+    }
+
+    function blocked() {
+      if (settled) return;
+      settled = true;
+      msg.textContent = 'This page could not load the game in place. '
+        + 'It runs fine in its own tab — free, no download, no account.';
+      cta.hidden = false;
+      escapeLink.hidden = true; // the big button is right there; two would be noise
+      showOrigins();
+    }
+
+    /*
+     * A refused frame still fires `load` — it settles on about:blank — so the
+     * event alone proves nothing. This does: reading `location.href` on a
+     * genuinely cross-origin document throws a SecurityError, while a frame the
+     * browser refused stays same-origin about:blank and reads back fine.
+     * Throwing is the success signal here, which is why the catch returns true.
+     */
+    function frameHasRealContent() {
+      try {
+        var href = frame.contentWindow.location.href;
+        return href !== 'about:blank' && href !== '';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    frame.addEventListener('load', function () {
+      if (frameHasRealContent()) playing(); else blocked();
+    });
+    frame.addEventListener('error', blocked);
+
+    // Backstop for a frame that never resolves. It re-runs the same check
+    // rather than assuming the worst: on a slow connection the navigation can
+    // have committed — real content, cross-origin, working — while `load` is
+    // still waiting on subresources.
+    setTimeout(function () {
+      if (settled) return;
+      if (frameHasRealContent()) playing(); else blocked();
+    }, 12000);
+  })();
+</script>
+
+</body>
+</html>
