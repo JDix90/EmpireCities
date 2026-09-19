@@ -581,9 +581,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const isEraAdvancement = lessonModule === 'era_advancement';
     // The core lesson is one continuous first game: the three phases AND the era
     // climb that makes Borderfall not-Risk, instead of ending in preview modals
-    // for systems this match doesn't have. It runs on Tutorial Island — 6
-    // territories, locked rotation, authored globe framing — which is Ancient and
-    // small enough that the whole board is legible at a glance.
+    // for systems this match doesn't have. It runs on the tutorial board — the
+    // Italian peninsula in 6 territories of real provinces, locked rotation,
+    // authored globe framing — which is Ancient and small enough that the whole
+    // board is legible at a glance.
     const isCombinedCore = lessonModule === 'core';
     const mapId = isCombinedCore ? 'tutorial' : isEraAdvancement ? 'era_ancient' : 'era_ww2';
     const eraId = isCombinedCore || isEraAdvancement ? 'ancient' : 'ww2';

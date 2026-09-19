@@ -36,7 +36,7 @@ function coreTutorialState(): GameState {
   const player: PlayerState = {
     player_id: 'human',
     current_era_index: 0,
-    // Tutorial Island is 6 territories, so base production income is
+    // The tutorial board is 6 territories, so base production income is
     // max(1, floor(owned/3)) — nowhere near the cost formula's income floor.
     last_turn_production_income: 2,
     special_resource: CORE_TUTORIAL_GRANT_GOLD,

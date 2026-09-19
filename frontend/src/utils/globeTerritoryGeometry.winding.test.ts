@@ -9,7 +9,7 @@ import { buildTerritoryGlobeGeometries } from './globeTerritoryGeometry';
  * counter-clockwise collapses into a few stray shards and leaves only the
  * polygon side walls drawn.
  *
- * This was an allow-list of map ids, and Tutorial Island shipped off it, so the
+ * This was an allow-list of map ids, and the tutorial board shipped off it, so the
  * first map a new player ever sees rendered as bare gold outlines over open
  * ocean. Nothing else catches this class of bug: the 2D view reads canvas
  * coordinates directly and looks perfect regardless, and no unit test renders
@@ -59,7 +59,7 @@ function tutorialLikeMap(mapId: string) {
   };
 }
 
-describe('Tutorial Island globe geometry', () => {
+describe('canvas-polygon globe geometry (no geo data)', () => {
   it('winds its caps clockwise, so three-globe can triangulate them', () => {
     const [poly] = buildTerritoryGlobeGeometries(tutorialLikeMap('tutorial'), EMPTY_INPUTS);
     expect(poly).toBeDefined();

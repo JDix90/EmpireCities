@@ -332,7 +332,8 @@ export function buildTerritoryGlobeGeometries(
    * convention; `reverse: true` gives the opposite, and that is the one
    * three-globe's ConicPolygonGeometry triangulates into real caps. Without it
    * the caps collapse into a few stray shards and a territory draws as bare
-   * side walls — which is what Tutorial Island did for its whole existence.
+   * side walls — which is what the old Tutorial Island board did for its
+   * whole existence.
    *
    * This used to be an allow-list of map ids, and it was the wrong shape twice
    * over. The winding a ring needs is a property of the renderer, not of the

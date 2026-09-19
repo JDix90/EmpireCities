@@ -3,15 +3,15 @@ import { phaseAdvanceLabel } from '../../constants/phaseLabels';
 import type { TutorialStep } from '../types';
 
 /**
- * The core tutorial: one continuous match on Tutorial Island that teaches the
- * three phases AND carries the player through researching a technology and
+ * The core tutorial: one continuous match on the Italian peninsula that teaches
+ * the three phases AND carries the player through researching a technology and
  * advancing an era — the thing that makes Borderfall not a Risk clone.
  *
  * Nine cards, not fifteen. The list this replaces borrowed its steps from two
  * other modules and spent a third of a first session on preview cards for
  * systems the match did not have switched on (cards, factions, advanced
  * settings). Every card here is attached to something the player does on the
- * board in front of them; anything the island leaves out is named once, in the
+ * board in front of them; anything this board leaves out is named once, in the
  * wrap-up, instead of getting a card of its own.
  *
  * The economy beats (`economy_intro` → `ea_research` → `ea_advance`) sit on the
@@ -43,8 +43,8 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'welcome',
     title: 'Welcome, Commander!',
-    message: `${APP_NAME} is a strategy game of territory control. Each turn runs Draft → Attack → Fortify. You hold the three territories of the **Western Realm** on this island; an opponent holds the East.`,
-    detail: 'Draft gives you 1 unit per 3 territories (minimum 3), plus a bonus for holding an entire realm — you hold all of the West, so that bonus is already yours.',
+    message: `${APP_NAME} is a strategy game of territory control. Each turn runs Draft → Attack → Fortify. You hold the three territories of the **Tyrrhenian Coast** — the western side of Italy; an opponent holds the **Adriatic Coast**.`,
+    detail: 'Draft gives you 1 unit per 3 territories (minimum 3), plus a bonus for holding an entire realm — you hold all of the Tyrrhenian side, so that bonus is already yours.',
     hint: 'Played Risk before? You\'ll feel right at home — and this match adds the part Risk doesn\'t have. Click "Next", or "Skip to the end" to jump straight in.',
   },
   {
@@ -61,11 +61,12 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'choose_front',
     title: 'Pick Your Front',
-    // Poses the trade-off rather than naming a target. Each western territory
-    // borders exactly one eastern one (tutorialScript.ts), so the two viable
-    // attacks are genuinely different openings, and the authored scenario
-    // (combinedTutorialScenario.ts) is built to make both of them live.
-    message: 'Click one of your territories (2+ units), then an adjacent enemy one. **Western Plains → Eastern Forest** is the cheap opening: the Forest holds 2 and is the East\'s hub, so taking it puts you next to everything. **Northern Hills → Desert Outpost** is the slower flank: 3 defenders, but it is quiet ground you can hold.',
+    // Poses the trade-off rather than naming a target. The fronts follow real
+    // Italian borders (tutorialScript.ts), and the authored scenario
+    // (combinedTutorialScenario.ts) prices them so more than one is live: the
+    // centre is cheap and opens the board, the north is a fair fight, and the
+    // south is the one that should look wrong.
+    message: 'Click one of your territories (2+ units), then an adjacent enemy one. **Tuscany & Latium → Umbria & Abruzzo** is the cheap opening: it holds 2 and borders both of the other Adriatic lands, so taking it puts you next to everything. **Lombardy & Piedmont → Veneto & Emilia** is the slower flank: 3 defenders across a broad northern front.',
     detail: 'Attacker rolls up to 3 dice, defender up to 2. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls.',
     hint: `Attack as often as you like — or not at all. When you're done, click the gold **${phaseAdvanceLabel('attack')}** button.`,
     // Bottom-centre runs 630px tall here and sits squarely on the eastern half
@@ -101,7 +102,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     message: 'Open the Tech Tree. The rail at the top shows the advancement gate; research a tier-1 technology and watch its chips update.',
     actionOpenTechTree: true,
     requireAction: 'tech_researched',
-    hint: 'You have been granted enough research for two technologies — which is exactly what this island\'s gate wants. Pick whichever pair you like.',
+    hint: 'You have been granted enough research for two technologies — which is exactly what this board\'s gate wants. Pick whichever pair you like.',
   },
   {
     id: 'ea_advance',
@@ -120,7 +121,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // never a recap of play they didn't do.
     skippedTitle: 'Jumping Straight In',
     skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part Risk doesn\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Conquest, or Secret Missions.) Right now you have reinforcements to place — click any blue territory, then Begin Attack.',
-    detail: 'Real matches add what this island left out: territory cards for bonus units, factions with unique powers, buildings and stability, fog of war, a stiffer advancement gate (more research plus buildings), and the full Ancient → Modern spine instead of a two-era hop.',
+    detail: 'Real matches add what this board left out: territory cards for bonus units, factions with unique powers, buildings and stability, fog of war, a stiffer advancement gate (more research plus buildings), and the full Ancient → Modern spine instead of a two-era hop.',
     variant: 'wrapup',
   },
 ];

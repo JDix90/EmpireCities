@@ -1241,6 +1241,14 @@ export interface MapTerritory {
   bump_image_url?: string;
   /** ISO_A2 country codes for geographic boundaries */
   iso_codes?: string[];
+  /**
+   * Natural Earth admin-1 `iso_3166_2` codes (e.g. `["IT-RM", "IT-VT"]`). Both
+   * renderers union these into real province geometry — the globe directly and
+   * the 2D map via `buildGeoLayout2d`. Already used by the community map
+   * documents in `database/maps/`; declared here so code-authored maps (the
+   * tutorial board) can carry them too.
+   */
+  admin1?: string[];
   /** Clip merged geometry to [minLng, minLat, maxLng, maxLat] */
   clip_bbox?: [number, number, number, number];
   /** Per-country config for split regions */

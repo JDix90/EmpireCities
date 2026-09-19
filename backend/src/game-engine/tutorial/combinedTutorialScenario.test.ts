@@ -4,7 +4,7 @@ import { getTutorialMap } from './tutorialScript';
 import { calculateReinforcements } from '../combat/combatResolver';
 
 /**
- * The scenario is authored against Tutorial Island by territory id, and
+ * The scenario is authored against the tutorial board by territory id, and
  * `applyAuthoredScenario` deliberately skips ids it cannot find (a scenario can
  * outlive the map it was written against). That failure mode is silent, so the
  * only thing standing between a renamed territory and a first-time player
@@ -15,7 +15,7 @@ describe('combined tutorial scenario', () => {
   const board = COMBINED_TUTORIAL_SCENARIO.starting_board ?? {};
   const ids = new Set(map.territories.map((t) => t.territory_id));
 
-  it('covers every territory on Tutorial Island, and nothing else', () => {
+  it('covers every territory on the tutorial board, and nothing else', () => {
     expect(new Set(Object.keys(board))).toEqual(ids);
   });
 
