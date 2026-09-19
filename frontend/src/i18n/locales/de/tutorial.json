@@ -1,0 +1,248 @@
+{
+  "page": {
+    "startingTutorial": "Tutorial wird gestartet…",
+    "startingLesson": "Lektion wird gestartet…",
+    "backToLobby": "Zurück zur Lobby",
+    "home": "Startseite",
+    "autoStartFailedTitle": "Wir konnten das Tutorial nicht starten.",
+    "autoStartFailedBody": "Meist liegt es an einer abgebrochenen Verbindung. Wähle unten eine Lektion, um es noch einmal zu versuchen – oder",
+    "autoStartFailedSkip": "überspringe es und spiel einfach los",
+    "title": "Ausbildungsakademie",
+    "intro": "Beginne mit dem Grundtutorial und probiere dann die kurzen Vertiefungen zu erweiterten Einstellungen, Fraktionen und Technologie.",
+    "recommendedNext": "Empfohlen als Nächstes",
+    "startLessonRecommended": "Lektion starten",
+    "startLesson": "Lektion starten",
+    "replayLesson": "Lektion wiederholen",
+    "done": "Erledigt ✓",
+    "minutes": "~{{minutes}} Min.",
+    "fullRules": "Vollständige Regeln",
+    "factionCodex": "Fraktionskodex",
+    "startError": "Das Tutorial konnte nicht gestartet werden. Versuch es noch einmal."
+  },
+  "overlay": {
+    "step": "Schritt {{current}} / {{total}}",
+    "collapse": "Tutorial-Karte einklappen",
+    "collapseTitle": "Einklappen – das Spielfeld liegt hinter dieser Karte",
+    "whyThisMatters": "Warum das wichtig ist",
+    "openTechTree": "Technologiebaum öffnen",
+    "openBonuses": "Boni öffnen",
+    "openSettingsLab": "Einstellungslabor öffnen",
+    "continuePlaying": "Weiterspielen",
+    "optionalDeepDives": "Optionale Vertiefungen",
+    "done": "Erledigt",
+    "minutesShort": "~{{minutes}} Min.",
+    "returnToLobby": "Zurück zur Lobby",
+    "backToLobby": "Zurück zur Lobby",
+    "moreLessons": "Weitere Lektionen findest du in der Lobby oder unter „So wird gespielt“.",
+    "next": "Weiter",
+    "skipToEnd": "Zum Ende springen",
+    "waitTechResearched": "Erforsche eine Technologie, um fortzufahren…",
+    "waitAbilityUsed": "Setze deine Fraktionsfähigkeit ein, um fortzufahren…",
+    "waitBonusesOpened": "Öffne das Boni-Panel, um fortzufahren…",
+    "waitTechTreeOpened": "Öffne den Technologiebaum, um fortzufahren…",
+    "waitDefault": "Führe die Aktion aus, um fortzufahren…",
+    "exitTutorial": "Tutorial verlassen"
+  },
+  "modules": {
+    "core": { "title": "Grundtutorial", "description": "Verstärkung, Angriff, Befestigung und dein erster Zeitalteraufstieg." },
+    "advanced_settings": { "title": "Erweiterte Einstellungen", "description": "Wie optionale Regeln Tempo und Strategie verändern." },
+    "faction_ability": { "title": "Fraktionsfähigkeiten", "description": "Passive Boni und Kräfte, die einmal pro Runde oder pro Partie einsetzbar sind." },
+    "tech_tree": { "title": "Technologiebaum", "description": "Forschungskosten, Voraussetzungen und Kampfverbesserungen." },
+    "era_advancement": { "title": "Zeitalteraufstieg", "description": "Steige von der Antike ins Mittelalter auf: Erfülle das Tor, steige auf und überstehe das Verwundbarkeitsfenster." }
+  },
+  "steps": {
+    "core": {
+      "welcome": {
+        "title": "Willkommen, Kommandant!",
+        "message": "Borderfall ist ein Strategiespiel um die Kontrolle von Gebieten. Jede Runde läuft Verstärkung → Angriff → Befestigung. Du hältst die drei Gebiete des **Western Realm** (Westreich) auf dieser Insel; ein Gegner hält den Osten.",
+        "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für ein komplett gehaltenes Reich – du hältst den ganzen Westen, dieser Bonus gehört also schon dir.",
+        "hint": "Schon mal Risiko gespielt? Dann fühlst du dich sofort zu Hause – und diese Partie ergänzt den Teil, den Risiko nicht hat. Klicke auf „Weiter“ oder auf „Zum Ende springen“, um direkt loszulegen."
+      },
+      "draft_do": {
+        "title": "Platziere deine Verstärkungen",
+        "message": "Klicke auf eines deiner Gebiete – in **{playerColor}** –, stelle mit **−/+** (oder **All**) die Anzahl ein und drücke **Place**. Wenn alle Einheiten stehen, klicke auf den goldenen Button **{{draftButton}}**.",
+        "hint": "Wo du sie stapelst, entscheidet, welche Front du als Nächstes eröffnen kannst. Der goldene Button sitzt am Desktop in der Seitenleiste, am Handy in der unteren Leiste."
+      },
+      "choose_front": {
+        "title": "Wähle deine Front",
+        "message": "Klicke auf eines deiner Gebiete (2+ Einheiten), dann auf ein angrenzendes gegnerisches. **Western Plains → Eastern Forest** ist die günstige Eröffnung: Der Forest hat 2 Einheiten und ist das Drehkreuz des Ostens – wer ihn nimmt, grenzt an alles. **Northern Hills → Desert Outpost** ist die langsamere Flanke: 3 Verteidiger, aber ruhiger Boden, den du halten kannst.",
+        "detail": "Der Angreifer würfelt mit bis zu 3 Würfeln, der Verteidiger mit bis zu 2. Die höchsten werden paarweise verglichen; der Verlierer jedes Paars verliert eine Einheit, bei Gleichstand gewinnt der Verteidiger. Du eroberst ein Gebiet, wenn sein letzter Verteidiger fällt.",
+        "hint": "Greife so oft an, wie du willst – oder gar nicht. Wenn du fertig bist, klicke auf den goldenen Button **{{attackButton}}**."
+      },
+      "fortify_do": {
+        "title": "Befestigen, dann Runde beenden",
+        "message": "Befestigen verschiebt einmal Einheiten zwischen verbundenen Gebieten – sichere die Grenze, die du gerade geschaffen hast, oder lass es. So oder so übergibt der goldene Button **{{fortifyButton}}** die Runde.",
+        "detail": "Ein Zug pro Runde, und nur zwischen eigenen Gebieten, die über eine Kette eigenen Bodens verbunden sind."
+      },
+      "turn_ends": {
+        "title": "Jetzt beobachte den Gegner",
+        "message": "Seine Runde durchläuft dieselben drei Phasen. Du siehst seine Würfel, seine Eroberungen und den aktiven Spieler in Echtzeit in der Seitenleiste hervorgehoben.",
+        "detail": "Hier gibt es nichts zu tun – die nächste Karte erscheint, sobald du wieder am Zug bist."
+      },
+      "economy_intro": {
+        "title": "Dein Reich ist auch eine Wirtschaft",
+        "message": "Du bist wieder dran – und diesmal, bevor du angreifst. Gebiete sind nur die halbe Miete: Dein Reich hat eine **Schatzkammer** und ein **Forschungsprogramm**, und beide sind gewachsen, während du Boden gehalten hast.",
+        "detail": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Dein Gegner steigt in seinem eigenen Tempo auf.",
+        "whyItMatters": "Eroberung gewinnt eine Karte. Ein Zeitalteraufstieg lässt dich über den Gegner hinauswachsen, der sie hält – stärkere Einheiten, ein frischer Technologiebaum und eine einmalige Signatur-Belohnung."
+      },
+      "ea_research": {
+        "title": "Forsche in Richtung Tor",
+        "message": "Öffne den Technologiebaum. Die Leiste oben zeigt das Aufstiegstor; erforsche eine Stufe-1-Technologie und sieh zu, wie sich ihre Chips aktualisieren.",
+        "hint": "Du hast genug Forschung für zwei Technologien erhalten – genau das, was das Tor dieser Insel verlangt. Wähle das Paar, das dir gefällt."
+      },
+      "ea_advance": {
+        "title": "Aufstieg ins Mittelalter",
+        "message": "Noch eine Technologie, und jeder Tor-Chip wird grün. Dann drücke **Advance Era** – der Button erscheint direkt dort, in der Torleiste des Technologiebaums.",
+        "detail": "Deine Einheiten gehen eine Runde lang mit verringerter Stärke ins neue Zeitalter über – das Verwundbarkeitsfenster – und deine Forschung startet in einem frischen, stärkeren Mittelalterbaum neu. Du behältst ein Echo deiner alten Boni und erhältst die Signatur-Belohnung des Zeitalters.",
+        "hint": "Wer in der Verstärkungsphase aufsteigt, nutzt die Stärke des neuen Zeitalters schon für die Angriffe dieser Runde. Fehlt ein Chip? Die Leiste sagt, was fehlt, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
+      },
+      "wrapup": {
+        "title": "Du bist bereit!",
+        "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteroberung oder Geheimmissionen wählen.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den Risiko nicht hat. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteroberung oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
+        "detail": "Echte Partien ergänzen, was diese Insel weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
+      }
+    },
+    "advanced_settings": {
+      "as_welcome": {
+        "title": "Erweiterte Einstellungen",
+        "message": "Gastgeber stimmen jede Partie in der Lobby ab. Du kannst Zeitalter, Spielerzahlen, Timer und optionale Systeme kombinieren, ohne den Kernkreislauf Verstärkung → Angriff → Befestigung zu verändern.",
+        "hint": "Diese Lektion ist rein informativ – tippe dich mit „Weiter“ durch die Karten und probiere die Optionen dann in deiner nächsten eigenen Partie aus."
+      },
+      "as_timers": {
+        "title": "Rundentimer und Asynchron",
+        "message": "Live-Partien nutzen Rundentimer (z. B. 60–300 Sekunden), damit es vorangeht. Asynchrone Partien ersetzen den Timer durch eine Frist – ideal für Spiel per Fernzug über Zeitzonen hinweg.",
+        "whyItMatters": "Wähle Timer, die zur Aufmerksamkeitsspanne deiner Gruppe passen; asynchron vermeidet Abbrüche, wenn jemand keine Zeit hat."
+      },
+      "as_fog": {
+        "title": "Nebel des Krieges",
+        "message": "Der Nebel verbirgt gegnerische Einheitenzahlen in Gebieten, die du nicht kürzlich erkundet hast. Angreifen enthüllt Teilinformationen; ein gehaltenes Gebiet liefert klarere Aufklärung.",
+        "whyItMatters": "Fördert Erkundungsangriffe und Bluffs an schwachen Grenzen."
+      },
+      "as_economy": {
+        "title": "Wirtschaft und Gebäude",
+        "message": "Die Wirtschaft ergänzt Produktionspunkte und baubare Gebäude (Verteidigung, Produktion, Wunder). Gebäude verändern Würfel, Einkommen oder Sonderregeln in ihrem Gebiet.",
+        "whyItMatters": "Verlagert den Fokus von reiner Expansion auf die Sicherung wertvoller Produktionsregionen."
+      },
+      "as_stacking": {
+        "title": "Kombinierbare Systeme",
+        "message": "Fraktionen, Technologiebäume, Seeregeln, Ereignisse und Bevölkerungsstabilität lassen sich kombinieren. Beginne mit einem optionalen System und füge ein weiteres hinzu, sobald deine Gruppe die Grundlagen kennt.",
+        "detail": "Beispielreihenfolge: nur Kern → +Fraktionen → +Technologie → +Ereignisse."
+      },
+      "as_try_toggle": {
+        "title": "Probiere eine Einstellung",
+        "message": "Öffne unten das Einstellungslabor und schalte mindestens zwei Optionen um. Deine Wahl gilt für diese Übungspartie – achte nach dem Schließen des Labors auf neue Elemente in der Seitenleiste.",
+        "hint": "Tippe auf „Einstellungslabor öffnen“, lege zwei Schalter um, schließe das Labor und sieh in der Seitenleiste nach.",
+        "whyItMatters": "Wer vor der ersten eigenen Lobby experimentiert, weiß schon, welche Schalter für die eigene Gruppe zählen."
+      },
+      "as_complete": {
+        "title": "Einstellungslektion abgeschlossen",
+        "message": "Du weißt jetzt, was jeder Schalter verändert. Erstelle eine eigene Partie in der Lobby und probiere jeweils eine neue Option aus."
+      }
+    },
+    "era_advancement": {
+      "ea_welcome": {
+        "title": "Zeitalteraufstieg",
+        "message": "In dieser Partie steigt deine Zivilisation durch die Zeitalter auf. Du beginnst in der **Antike** – forsche und baue, dann steige ins **Mittelalter** auf, für stärkere Einheiten und eine einmalige Belohnung.",
+        "detail": "Du startest mit Bonus-Forschungspunkten und Gold, damit du den Aufstieg schnell erreichst."
+      },
+      "ea_progress": {
+        "title": "Dein Zeitalter und die Zeitleiste",
+        "message": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Gegner steigen in ihrem eigenen Tempo auf.",
+        "whyItMatters": "Wer zuerst aufsteigt, verschafft sich einen Vorteil – schwächt seine Armee aber kurz, das Timing zählt also."
+      },
+      "ea_open_tree": {
+        "title": "Öffne den Technologiebaum",
+        "message": "Öffne den Technologiebaum. Eine Fortschrittsleiste oben zeigt genau, welche Technologien das Aufstiegstor verlangt.",
+        "hint": "Tippe unten auf „Technologiebaum öffnen“. Deine Bonus-Forschungspunkte liegen bereit."
+      },
+      "ea_research": {
+        "title": "Forsche in Richtung Tor",
+        "message": "Erforsche eine erschwingliche Stufe-1-Technologie. Beobachte, wie sich die Tor-Chips oben im Baum dabei aktualisieren.",
+        "hint": "Wähle einen beliebigen Stufe-1-Knoten. Das Tor verlangt ein paar davon plus einen Stufe-2-Knoten, der auf einem von ihnen aufbaut."
+      },
+      "ea_gate": {
+        "title": "Erfülle das Tor",
+        "message": "Forsche weiter, bis jeder Tor-Chip grün ist – das Tor braucht einige Technologien und genug Gold (davon hast du schon reichlich). Der Advance-Era-Button leuchtet auf, sobald du bereit bist.",
+        "detail": "Stufe-2-Knoten brauchen zuerst ihre Stufe-1-Voraussetzung, also erforsche erst den Vorgänger, dann die Stufe 2.",
+        "whyItMatters": "Dasselbe Tor gibt es in echten Partien – dort balancierst du zusätzlich Gebäude und Stabilität."
+      },
+      "ea_advance": {
+        "title": "Aufstieg ins Mittelalter",
+        "message": "Sobald jeder Tor-Chip grün ist, öffne das Era-Panel und nutze **Advance Era**. Deine Einheiten gehen mit, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
+        "hint": "Fehlt noch etwas? Erforsche zuerst die fehlenden Knoten – das Zeitalteraufstieg-Panel in deiner Seitenleiste zeigt, was übrig ist, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
+      },
+      "ea_signature": {
+        "title": "Verwundbar, aber stärker",
+        "message": "Du bist jetzt im Mittelalter. Eine Runde lang ist deine Verteidigung schwächer – das Verwundbarkeitsfenster –, dafür hast du die Signatur-Belohnung des Zeitalters und einen frischen, stärkeren Technologiebaum gewonnen.",
+        "whyItMatters": "Plane Aufstiege für Momente, in denen du vor Angriffen sicher bist, und nutze deine Signatur, bevor sie verfällt."
+      },
+      "ea_complete": {
+        "title": "Zeitalteraufstieg abgeschlossen",
+        "message": "Du bist ein Zeitalter aufgestiegen: Tor erfüllt, aufgestiegen und das Verwundbarkeitsfenster überstanden. In vollen Partien reicht die Linie bis zur Moderne."
+      }
+    },
+    "faction_ability": {
+      "fa_welcome": {
+        "title": "Fraktionskräfte",
+        "message": "In dieser Übungspartie sind Fraktionen auf der Zweiter-Weltkrieg-Karte aktiv. Du spielst China – eine Fraktion mit passivem Verteidigungsbonus und einer aktiven Fähigkeit namens Guerrilla Warfare.",
+        "detail": "Fraktionsfähigkeiten sind einzigartig. Anders als Technologiebaum-Upgrades (die Technologiepunkte kosten) laden sich Fraktionsfähigkeiten jede Runde automatisch auf."
+      },
+      "fa_identity": {
+        "title": "Kenne deine Fraktion",
+        "message": "Öffne das Bonuses-Panel in der Seitenleiste, um Chinas passive Boni (+1 Verteidigung in jedem deiner Gebiete) und die Beschreibung von Guerrilla Warfare zu lesen.",
+        "hint": "Tippe unten auf „Boni öffnen“ – das Panel zeigt Chinas passives +1 auf Verteidigung und die Guerrilla-Warfare-Ladungen.",
+        "whyItMatters": "Wer seine Passiva kennt, verteidigt anders. Chinas +1 Verteidigung macht Angriffe auf Gebiete im Inneren sehr teuer."
+      },
+      "fa_when": {
+        "title": "Wann Fähigkeiten erscheinen",
+        "message": "Aktive Fähigkeiten erscheinen als Buttons im Gebiets-Panel während der passenden Spielphase. Guerrilla Warfare ist eine Fähigkeit der Verstärkungsphase – achte auf den grünen Button, wenn du ein Gebiet hältst und die Verstärkungsphase läuft.",
+        "detail": "Buttons sind ausgegraut oder ausgeblendet, wenn du in der falschen Phase bist, keine Ladungen hast oder eine Einmal-pro-Partie-Kraft schon verbraucht hast.",
+        "whyItMatters": "Die Kunst ist, den Zeitpunkt der Fähigkeit auf deine Strategie abzustimmen. Guerrilla Warfare gibt eine Gratis-Einheit – ideal, um eine schwache Grenze zu stopfen, bevor der Gegner angreift."
+      },
+      "fa_use": {
+        "title": "Setze Guerrilla Warfare ein",
+        "message": "Klicke in der Verstärkungsphase auf ein beliebiges eigenes Gebiet. Ein grüner Button „🌿 Guerrilla Warfare“ erscheint. Tippe darauf, um 1 Gratis-Einheit zu platzieren – keine Karten, keine Gebiete nötig.",
+        "hint": "Tippe auf ein eigenes Gebiet und suche im Gebiets-Panel nach dem grünen Button „Guerrilla Warfare“.",
+        "detail": "Siehst du den Button nicht, prüfe, ob die Phase in der Seitenleiste „Reinforcement“ (Verstärkung) anzeigt. Während Angriff oder Befestigung erscheint er nicht."
+      },
+      "fa_result": {
+        "title": "Fähigkeit eingesetzt!",
+        "message": "Deine Guerillakämpfer haben das Gebiet verstärkt – 1 Gratis-Einheit hinzugefügt, keine Ressourcen verbraucht. Beachte, dass die Einheitenzahl auf der Karte gestiegen ist.",
+        "detail": "Guerrilla Warfare lädt sich zu Beginn jeder Runde auf, du hast diese Option also immer. Einmal-pro-Partie-Fähigkeiten (wie Soviet Mass Mobilization) zeigen „(once per game)“ und laden sich nicht auf.",
+        "whyItMatters": "Eine Gratis-Einheit pro Runde wirkt klein, summiert sich über eine lange Partie aber deutlich – Chinas Guerilla-Vorteil ist Zermürbung, nicht Aggression."
+      },
+      "fa_complete": {
+        "title": "Fraktionslektion abgeschlossen",
+        "message": "Du hast mit der aktiven Fähigkeit deiner Fraktion eine Gratis-Einheit platziert – genau so funktioniert es in Ranglistenpartien. Jede Fraktion hat ein anderes Timing, Ziel und Ausmaß. Vergleiche vor deiner nächsten Partie alle Fraktionen im Kodex."
+      }
+    },
+    "tech_tree": {
+      "tt_welcome": {
+        "title": "Technologiebaum",
+        "message": "In dieser Übungspartie sind Technologiebäume aktiv. Du verdienst mit der Zeit Technologiepunkte (TP) und gibst sie aus, um Knoten mit passiven Boni oder neuen Fähigkeiten freizuschalten.",
+        "detail": "In dieser Lektion startest du mit Bonus-TP, damit du sofort forschen kannst."
+      },
+      "tt_points": {
+        "title": "Technologiepunkte",
+        "message": "Dein TP-Guthaben siehst du im Technologiebaum und auf deiner Spielerkarte. Einkommen kommt aus Zeitalterregeln, bestimmten Gebäuden und manchen Fraktionspassiva.",
+        "whyItMatters": "Auf einen Stufe-2-Knoten zu sparen ist oft besser, als jeden billigen Stufe-1-Knoten zu kaufen."
+      },
+      "tt_open": {
+        "title": "Öffne den Technologiebaum",
+        "message": "Öffne den Baum, um Stufen, Kosten und Voraussetzungen zu erkunden. Gesperrte Knoten zeigen, was du zuerst erforschen musst.",
+        "hint": "Tippe unten auf „Technologiebaum öffnen“. Deine 8 Bonus-TP stehen schon bereit."
+      },
+      "tt_research": {
+        "title": "Erforsche eine Technologie",
+        "message": "Wähle einen erschwinglichen Stufe-1-Knoten und bestätige die Forschung. Passiva wirken sofort; Fähigkeiten erscheinen nach dem Freischalten im Gebiets-Panel.",
+        "hint": "Wähle einen Stufe-1-Knoten – Motorization, Bunker Network oder Radio Communications sind auf der WW2-Karte starke erste Wahlen."
+      },
+      "tt_complete": {
+        "title": "Technologielektion abgeschlossen",
+        "message": "Du hast einen Knoten erforscht und gesehen, wie sich Boni stapeln. Plane in vollen Partien einen Pfad zu den Fähigkeiten, die deine Strategie braucht."
+      }
+    }
+  }
+}

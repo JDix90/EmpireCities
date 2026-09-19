@@ -79,6 +79,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Experimental Warfront RTS mode (docs/WARFRONT_RTS_MODE.md). Admin-only on top
   // of this flag, so the flag gates a surface only admins can reach anyway.
   warfront_enabled: () => envOptIn('WARFRONT_ENABLED'),
+  // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
+  // the translated bundles ship in the client but nobody is routed to them
+  // until this is on. Client-only effect.
+  localization_enabled: () => envOptIn('LOCALIZATION_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -620,6 +624,17 @@ export const featureFlags = {
   get warfrontEnabled(): boolean {
     return overrideBool('warfront_enabled');
   },
+
+  /**
+   * Localized landing page and tutorial (frontend/src/i18n). Off means English
+   * for everyone whatever the browser says; on lets the client honour the
+   * stored `cc-lang` choice or the browser language. Default OFF until the
+   * translations have had native review; `LOCALIZATION_ENABLED=true` or the
+   * admin override switches it on. Nothing server-side reads it.
+   */
+  get localizationEnabled(): boolean {
+    return overrideBool('localization_enabled');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -655,5 +670,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
     era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
     warfront_enabled: featureFlags.warfrontEnabled,
+    localization_enabled: featureFlags.localizationEnabled,
   };
 }

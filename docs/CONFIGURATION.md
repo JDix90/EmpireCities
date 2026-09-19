@@ -97,6 +97,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
 | `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
 | `warfrontEnabled` | `WARFRONT_ENABLED` | off | Experimental Warfront RTS mode ([WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md)): second gate on its admin-only surfaces (Admin → Warfront tab's terrain endpoint; later the match host and lab). Every Warfront route also requires an admin server-side, so this never exposes anything to players |
+| `localizationEnabled` | `LOCALIZATION_ENABLED` | off | Landing page + tutorial in the player's language (es, pt-BR, de, fr) with a language switcher; off = English for everyone, exactly as before. Client-only effect. See [LOCALIZATION.md](LOCALIZATION.md) |
 
 ## Frontend environment variables
 

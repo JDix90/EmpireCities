@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
@@ -15,6 +17,7 @@ import {
   getRecommendedTutorialModule,
   type TutorialLessonModule,
 } from '../tutorial';
+import { localizeTutorialModuleMeta } from '../tutorial/localize';
 
 const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   core: GraduationCap,
@@ -28,6 +31,7 @@ const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
  * /tutorial — pick a lesson or start the default core path.
  */
 export default function TutorialPage() {
+  const { t } = useTranslation('tutorial');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hydrated = useAuthStoreHydrated();
@@ -96,7 +100,7 @@ export default function TutorialPage() {
       markWelcomeSeen();
       navigate(`/game/${res.data.game_id}`, { replace: true });
     } catch {
-      toast.error('Could not start the tutorial. Try again.');
+      toast.error(t('page.startError'));
       setStarting(null);
       setAutoStartFailed(true);
     }
@@ -114,6 +118,10 @@ export default function TutorialPage() {
   }, [hydrated, bootstrapped, autoStart, moduleParam]);
 
   const recommended = getRecommendedTutorialModule();
+  const recommendedMeta = recommended
+    ? TUTORIAL_MODULES.find((m) => m.id === recommended)
+    : undefined;
+  const recommendedCopy = recommendedMeta ? localizeTutorialModuleMeta(recommendedMeta, t) : undefined;
 
   if (autoStart && !moduleParam && !autoStartFailed) {
     return (
@@ -122,7 +130,7 @@ export default function TutorialPage() {
           <BrandWordmark className="text-sm" />
         </nav>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-bf-muted text-sm animate-pulse">Starting tutorial…</p>
+          <p className="text-bf-muted text-sm animate-pulse">{t('page.startingTutorial')}</p>
         </div>
       </div>
     );
@@ -135,7 +143,7 @@ export default function TutorialPage() {
           <BrandWordmark className="text-sm" />
         </nav>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-bf-muted text-sm animate-pulse">Starting lesson…</p>
+          <p className="text-bf-muted text-sm animate-pulse">{t('page.startingLesson')}</p>
         </div>
       </div>
     );
@@ -145,12 +153,16 @@ export default function TutorialPage() {
     <div className="min-h-screen-safe bg-bf-dark flex flex-col">
       <nav className="border-b border-bf-border px-6 py-4 flex justify-between items-center">
         <BrandWordmark className="text-sm" />
-        <Link
-          to={isAuthenticated ? '/lobby' : '/'}
-          className="text-bf-muted text-sm hover:text-bf-gold"
-        >
-          {isAuthenticated ? 'Back to lobby' : 'Home'}
-        </Link>
+        <div className="flex items-center gap-4">
+          {/* Renders nothing until localization_enabled is on. */}
+          <LanguageSwitcher />
+          <Link
+            to={isAuthenticated ? '/lobby' : '/'}
+            className="text-bf-muted text-sm hover:text-bf-gold"
+          >
+            {isAuthenticated ? t('page.backToLobby') : t('page.home')}
+          </Link>
+        </div>
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 w-full">
@@ -160,11 +172,11 @@ export default function TutorialPage() {
             data-testid="tutorial-autostart-failed"
             className="card border-red-500/30 bg-red-500/5 p-4 text-sm"
           >
-            <p className="text-bf-text font-medium mb-1">We couldn&apos;t start the tutorial.</p>
+            <p className="text-bf-text font-medium mb-1">{t('page.autoStartFailedTitle')}</p>
             <p className="text-bf-muted">
-              Usually a dropped connection. Pick a lesson below to try again — or{' '}
+              {t('page.autoStartFailedBody')}{' '}
               <Link to={isAuthenticated ? '/lobby' : '/'} className="text-bf-gold hover:underline">
-                skip it and just play
+                {t('page.autoStartFailedSkip')}
               </Link>
               .
             </p>
@@ -172,19 +184,19 @@ export default function TutorialPage() {
         )}
         <div className="text-center space-y-2">
           <BookOpen className="w-10 h-10 text-bf-gold mx-auto" aria-hidden />
-          <h1 className="font-display text-2xl text-bf-gold tracking-wider">Training Academy</h1>
+          <h1 className="font-display text-2xl text-bf-gold tracking-wider">{t('page.title')}</h1>
           <p className="text-bf-muted text-sm">
-            Start with the core tutorial, then try short deep dives on advanced settings, factions, and tech.
+            {t('page.intro')}
           </p>
         </div>
 
         {recommended && (
           <div className="card border-bf-gold/30 bg-bf-gold/5 p-4">
-            <p className="text-xs uppercase tracking-widest text-bf-gold mb-1">Recommended next</p>
+            <p className="text-xs uppercase tracking-widest text-bf-gold mb-1">{t('page.recommendedNext')}</p>
             <p className="text-bf-text text-sm mb-3">
-              {TUTORIAL_MODULES.find((m) => m.id === recommended)?.title}
+              {recommendedCopy?.title}
               {' — '}
-              {TUTORIAL_MODULES.find((m) => m.id === recommended)?.description}
+              {recommendedCopy?.description}
             </p>
             <button
               type="button"
@@ -192,7 +204,7 @@ export default function TutorialPage() {
               disabled={starting !== null}
               className="btn-primary text-sm"
             >
-              {starting === recommended ? 'Starting…' : 'Start lesson'}
+              {starting === recommended ? t('common:starting') : t('page.startLessonRecommended')}
             </button>
           </div>
         )}
@@ -201,6 +213,7 @@ export default function TutorialPage() {
           {TUTORIAL_MODULES.filter((m) => TUTORIAL_V2_ENABLED || m.id === 'core').map((mod) => {
             const Icon = MODULE_ICONS[mod.id];
             const done = completed.includes(mod.id);
+            const copy = localizeTutorialModuleMeta(mod, t);
             return (
               <div
                 key={mod.id}
@@ -211,12 +224,12 @@ export default function TutorialPage() {
                   <Icon className="w-5 h-5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-display text-bf-gold">{mod.title}</p>
+                      <p className="font-display text-bf-gold">{copy.title}</p>
                       <span className="text-[10px] text-bf-muted shrink-0">
-                        {done ? 'Done ✓' : `~${mod.estimatedMinutes} min`}
+                        {done ? t('page.done') : t('page.minutes', { minutes: mod.estimatedMinutes })}
                       </span>
                     </div>
-                    <p className="text-bf-muted text-xs mt-1">{mod.description}</p>
+                    <p className="text-bf-muted text-xs mt-1">{copy.description}</p>
                   </div>
                 </div>
                 <button
@@ -225,7 +238,7 @@ export default function TutorialPage() {
                   onClick={() => void startLesson(mod.id)}
                   className="mt-3 btn-secondary text-xs disabled:opacity-60 w-full"
                 >
-                  {starting === mod.id ? 'Starting…' : done ? 'Replay Lesson' : 'Start Lesson'}
+                  {starting === mod.id ? t('common:starting') : done ? t('page.replayLesson') : t('page.startLesson')}
                 </button>
               </div>
             );
@@ -234,11 +247,11 @@ export default function TutorialPage() {
 
         <p className="text-center text-xs text-bf-muted">
           <Link to="/how-to-play" className="text-bf-gold hover:underline">
-            Full rules reference
+            {t('page.fullRules')}
           </Link>
           {' · '}
           <Link to="/codex" className="text-bf-gold hover:underline">
-            Faction codex
+            {t('page.factionCodex')}
           </Link>
         </p>
       </div>

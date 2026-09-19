@@ -24,6 +24,7 @@ export interface ClientFeatureFlags {
   era_heritage_buildings_enabled: boolean;
   era_wonder_per_era_enabled: boolean;
   warfront_enabled: boolean;
+  localization_enabled: boolean;
 }
 
 /**
@@ -71,6 +72,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_wonder_per_era_enabled: false,
   // Experimental Warfront RTS mode: admin-only surfaces, and off by default on top.
   warfront_enabled: false,
+  // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
+  // ship but everyone sees English until an operator turns this on.
+  localization_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -174,4 +178,13 @@ export function useAttackBlitzEnabled(): boolean {
 
 export function useBackgroundMusicEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.background_music_enabled);
+}
+
+/**
+ * Localized landing page + tutorial (src/i18n). Off — the dark-launch default —
+ * renders English for everyone and hides the language switcher; on lets the
+ * stored `cc-lang` choice, then the browser language, pick the bundle.
+ */
+export function useLocalizationEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.localization_enabled);
 }

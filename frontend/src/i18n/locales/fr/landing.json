@@ -1,0 +1,104 @@
+{
+  "actions": {
+    "playFreeNow": "Jouez gratuitement maintenant",
+    "playFree": "Jouer gratuitement",
+    "playAsGuest": "Jouer en invité",
+    "signIn": "Se connecter",
+    "learnToPlay": "Apprendre à jouer",
+    "seeGameplay": "Voir le gameplay",
+    "createFreeAccount": "Créer un compte gratuit"
+  },
+  "hero": {
+    "tagline": "Toute frontière est provisoire.",
+    "description": "Borderfall est un jeu de stratégie au tour par tour où vous conquérez des territoires à travers neuf ères, des légions antiques à la frontière galactique. Gratuit, dans votre navigateur.",
+    "descriptionSuffix": "Jouez en temps réel ou en asynchrone avec des amis, des rivaux ou l'IA.",
+    "friction": "Sans compte · Sans téléchargement · Environ 7 minutes"
+  },
+  "showcase": {
+    "caption": "Du vrai gameplay sur le globe du Monde actuel — l'une des cartes ci-dessous."
+  },
+  "eras": {
+    "heading": "Choisissez votre ère",
+    "globalHeading": "Mondiales",
+    "globalDescription": "Des cartes du monde entier couvrant plusieurs continents et plusieurs époques de l'histoire.",
+    "regionalHeading": "Cartes régionales et personnalisées",
+    "regionalDescription": "Des cartes à l'échelle d'un théâtre d'opérations et d'histoire alternative — des champs de bataille de la guerre de Sécession aux littoraux submergés et aux nations autochtones — pour des campagnes plus rapides et plus serrées.",
+    "suggestedPlayers": "Joueurs conseillés :",
+    "territories": "Territoires :",
+    "playersRange": "{{range}} joueurs",
+    "close": "Fermer",
+    "closeDialog": "Fermer la fenêtre",
+    "comingSoon": "Bientôt disponible",
+    "playThisMap": "Jouer cette carte",
+    "ancient": {
+      "label": "Monde antique",
+      "years": "3000 av. J.-C. – 400 apr. J.-C.",
+      "summary": "Entrez dans le monde de l'Antiquité tardive, quand Rome, la Parthie et la Chine des Han étaient des puissances de premier ordre. Menez campagne à travers empires, déserts et steppes pour le contrôle de la Méditerranée, de la Perse et de l'Asie orientale. Cette carte met l'accent sur les légions, la cavalerie et les longues lignes de ravitaillement d'un monde antique interconnecté."
+    },
+    "medieval": {
+      "label": "Ère médiévale",
+      "years": "400 – 1400 apr. J.-C.",
+      "summary": "Des croisades aux conquêtes mongoles, la carte médiévale couvre royaumes, califats et empires nomades. Tenez les cols, les gués et les carrefours commerciaux tout en étendant votre royaume. Idéale pour les parties axées sur la diplomatie, les lignes de siège et les alliances changeantes."
+    },
+    "discovery": {
+      "label": "Grandes découvertes",
+      "years": "1400 – 1800 apr. J.-C.",
+      "summary": "L'ère de la marine à voile, des empires de la poudre et de l'expansion coloniale. Disputez-vous le contrôle des océans, des détroits et des routes commerciales du Nouveau Monde. Cette ère récompense le positionnement naval et la course aux ressources d'outre-mer."
+    },
+    "ww2": {
+      "label": "Seconde Guerre mondiale",
+      "years": "1939 – 1945",
+      "summary": "Un affrontement mondial entre puissances industrielles : théâtres terrestres, maritimes et aériens de l'Europe au Pacifique. La carte reflète les grandes alliances et les lignes de front de la Seconde Guerre mondiale. Attendez-vous à des tours rapides et à haut risque, où plusieurs théâtres peuvent s'embraser en même temps."
+    },
+    "coldwar": {
+      "label": "Guerre froide",
+      "years": "1945 – 1991",
+      "summary": "L'OTAN, le pacte de Varsovie et le monde non aligné dans une lutte d'influence de plusieurs décennies faite de guerres par procuration. Contrôlez les régions stratégiques, les voies maritimes et les points chauds de l'ère nucléaire. Convient aux parties longues, à la diplomatie à plusieurs niveaux et à la pression mondiale."
+    },
+    "modern": {
+      "label": "Le Monde actuel",
+      "years": "2026",
+      "summary": "Superpuissances contemporaines, alliances régionales et blocs économiques sur une carte taillée pour le XXIe siècle. Battez-vous pour les pôles technologiques, les corridors énergétiques et les détroits maritimes. Idéal pour qui aime un bac à sable géopolitique moderne aux stratégies multiples."
+    },
+    "acw": {
+      "label": "Guerre de Sécession",
+      "years": "1861 – 1865",
+      "summary": "Un théâtre nord-américain resserré : l'Union contre la Confédération le long de la côte Est, du Mississippi et de l'Ouest trans-Mississippi. Les territoires suivent les vraies frontières des États, pour une carte plus compacte et plus tactique. Idéale pour une campagne régionale plus courte aux lignes de front nettes."
+    },
+    "risorgimento": {
+      "label": "Unification italienne",
+      "years": "1859 – 1871",
+      "summary": "L'Italie du Risorgimento : du Piémont et des Deux-Siciles à un royaume unifié. Les territoires suivent les vrais contours des provinces, fusionnés en théâtres régionaux sur la péninsule et les îles. Plus compacte et plus rapide qu'une carte du monde — idéale pour la diplomatie et les manœuvres côtières."
+    },
+    "space_age": {
+      "label": "Ère spatiale",
+      "years": "2100 apr. J.-C.",
+      "summary": "Un monde projeté en 2100, avec des mers qui montent, des mégapoles côtières et une Lune disputée. Recherchez l'Expansion lunaire, construisez une aire de lancement et mettez une station spatiale en orbite pour projeter votre puissance. La faction des Pionniers lunaires commence avec l'accès à la Lune ; les bâtisseurs de merveilles peuvent se passer de la station grâce à un ascenseur spatial."
+    },
+    "galaxy_age": {
+      "label": "Ère galactique — Bientôt disponible",
+      "years": "Futur lointain",
+      "summary": "Quatre mondes reliés par des couloirs hyperspatiaux : tenez un système-porte et frappez directement à travers son couloir. Les traversées lancent moins de dés, les portes se défendent donc comme des côtes — et chaque faction se bat dans les couloirs à sa manière."
+    }
+  },
+  "getStarted": {
+    "title": "Lancez-vous",
+    "body": "Entrez directement en invité — sans inscription. Un compte invité reste dans le navigateur où vous l'avez créé ; créez un compte gratuit quand vous voudrez que votre progression vous suive et grimper dans les classements.",
+    "haveAccount": "Vous avez déjà un compte ?"
+  },
+  "cta": {
+    "heading": "Prêt à commander ?",
+    "tagline": "Quand les frontières cèdent, les ères s'effondrent.",
+    "noDownload": "Aucun téléchargement. Jouez instantanément dans votre navigateur."
+  },
+  "footer": {
+    "copyright": "© 2026 {{appName}}. Tous droits réservés.",
+    "about": "À propos",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d'utilisation",
+    "contact": "Contact"
+  },
+  "errors": {
+    "guestStart": "Impossible de démarrer la session invité"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "actions": {
+    "playFreeNow": "Play Free Now",
+    "playFree": "Play Free",
+    "playAsGuest": "Play as Guest",
+    "signIn": "Sign In",
+    "learnToPlay": "Learn to play",
+    "seeGameplay": "See gameplay",
+    "createFreeAccount": "Create Free Account"
+  },
+  "hero": {
+    "tagline": "Every border is temporary.",
+    "description": "Borderfall is a turn-based strategy game where you conquer territory across nine eras, from ancient legions to a galactic frontier. Free to play in your browser.",
+    "descriptionSuffix": "Play real-time or async with friends, rivals, or AI.",
+    "friction": "No account · No download · About 7 minutes"
+  },
+  "showcase": {
+    "caption": "Real gameplay on the Modern Day globe — one of the maps below."
+  },
+  "eras": {
+    "heading": "Choose Your Era",
+    "globalHeading": "Global",
+    "globalDescription": "Full-world maps spanning multiple continents and eras of history.",
+    "regionalHeading": "Regional & Custom Maps",
+    "regionalDescription": "Theater-scale and alternate-history maps — from Civil War battlefields to flooded coastlines and indigenous polities — for faster, more intimate campaigns.",
+    "suggestedPlayers": "Suggested players:",
+    "territories": "Territories:",
+    "playersRange": "{{range}} players",
+    "close": "Close",
+    "closeDialog": "Close dialog",
+    "comingSoon": "Coming Soon",
+    "playThisMap": "Play this Map",
+    "ancient": {
+      "label": "Ancient World",
+      "years": "3000 BC – 400 AD",
+      "summary": "Step into the late classical world when Rome, Parthia, and Han China were powers of the first magnitude. Campaign across empires, deserts, and steppe as you fight for control of the Mediterranean, Persia, and East Asia. This map emphasizes legions, cavalry, and long supply lines across a connected ancient world."
+    },
+    "medieval": {
+      "label": "Medieval Era",
+      "years": "400 – 1400 AD",
+      "summary": "From the Crusades to the Mongol conquests, the medieval map spans kingdoms, caliphates, and nomadic empires. Hold mountain passes, river crossings, and trade hubs as you expand your realm. Ideal for games that emphasize diplomacy, siege lines, and shifting alliances."
+    },
+    "discovery": {
+      "label": "Age of Discovery",
+      "years": "1400 – 1800 AD",
+      "summary": "The age of sail, gunpowder empires, and colonial expansion. Compete for control of oceans, chokepoints, and new-world trade routes. This era rewards naval positioning and competition for overseas resources."
+    },
+    "ww2": {
+      "label": "World War II",
+      "years": "1939 – 1945",
+      "summary": "A global struggle of industrial powers: land, sea, and air theaters from Europe to the Pacific. The map reflects major alliances and front lines of the Second World War. Expect fast, high-stakes turns where multiple theaters can flare at once."
+    },
+    "coldwar": {
+      "label": "Cold War",
+      "years": "1945 – 1991",
+      "summary": "NATO, the Warsaw Pact, and the non-aligned world in a decades-long contest of influence and proxy struggles. Control strategic regions, sea lanes, and nuclear-age flashpoints. Suited to longer games with layered diplomacy and global pressure."
+    },
+    "modern": {
+      "label": "The Modern Day",
+      "years": "2026",
+      "summary": "Contemporary superpowers, regional alliances, and economic blocs on a map tuned for the 21st century. Fight for tech hubs, energy corridors, and maritime chokepoints. Best for players who enjoy a modern geopolitical sandbox with many viable strategies."
+    },
+    "acw": {
+      "label": "American Civil War",
+      "years": "1861 – 1865",
+      "summary": "A focused North American theater: Union versus Confederacy across the Eastern seaboard, the Mississippi, and the Trans-Mississippi West. Territories follow real state boundaries for a tighter, more tactical map. Ideal when you want a shorter, regional campaign with clear front lines."
+    },
+    "risorgimento": {
+      "label": "Italian Unification",
+      "years": "1859 – 1871",
+      "summary": "Risorgimento Italy: from Piedmont and the Two Sicilies to a united kingdom. Territories follow real provincial outlines merged into regional theaters across the peninsula and islands. Tighter and faster than a world map—ideal for diplomacy and coastal maneuver."
+    },
+    "space_age": {
+      "label": "Space Age",
+      "years": "2100 AD",
+      "summary": "A projected world of 2100 with rising seas, coastal megacities, and a contested Moon. Research Lunar Expansion, build a Launch Pad, and launch a Space Station to project power into orbit. The Lunar Pioneers faction starts with Moon access; wonder builders may skip the station with a Space Elevator."
+    },
+    "galaxy_age": {
+      "label": "Galactic Age — Coming Soon",
+      "years": "Far Future",
+      "summary": "Four worlds linked by hyperspace lanes: hold a gateway system and strike straight across its lane. Crossings roll fewer dice, so gateways defend like coasts — and each faction fights the lanes its own way."
+    }
+  },
+  "getStarted": {
+    "title": "Jump In",
+    "body": "Jump straight in as a guest — no signup needed. A guest account stays in the browser you made it in; create a free account when you want your progress to follow you and to climb the leaderboards.",
+    "haveAccount": "Already have an account?"
+  },
+  "cta": {
+    "heading": "Ready to Command?",
+    "tagline": "When borders break, ages fall.",
+    "noDownload": "No download required. Play instantly in your browser."
+  },
+  "footer": {
+    "copyright": "© 2026 {{appName}}. All rights reserved.",
+    "about": "About",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "contact": "Contact"
+  },
+  "errors": {
+    "guestStart": "Could not start guest session"
+  }
+}

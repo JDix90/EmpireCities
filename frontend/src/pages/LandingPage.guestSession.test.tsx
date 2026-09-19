@@ -21,6 +21,7 @@ vi.mock('../components/landing/GameplayShowcase', () => ({ default: () => null }
 vi.mock('../store/featureFlagsStore', () => ({
   useOnboardingTutorialFirstEnabled: () => tutorialFirst,
   useHeroSingleCtaEnabled: () => true,
+  useLocalizationEnabled: () => false,
 }));
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
