@@ -159,6 +159,7 @@ import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 /** "a", "a and b", "a, b and c" — plain English for a short list of names. */
 function formatList(items: string[]): string {
   if (items.length <= 1) return items[0] ?? '';
@@ -5206,7 +5207,7 @@ export default function GamePage() {
         onWatchReplay={handleWatchReplay}
         onShareClip={handleShareClip}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
-        onUpgradeAccount={user?.is_guest ? handleGameOverUpgrade : undefined}
+        onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? handleGameOverUpgrade : undefined}
         onSkipAll={skipAllBacklog}
         backlogCount={modalQueue.length + defenderTheaterQueue.length}
         mapNameLookup={mapData}
@@ -5288,7 +5289,7 @@ export default function GamePage() {
       )}
 
       {/* Tutorial-end account creation prompt (guests only) */}
-      {tutorialAccountPrompt && (
+      {tutorialAccountPrompt && ownAuthUiAllowed() && (
         <TutorialAccountPromptModal
           outcomeLabel={tutorialAccountPrompt.outcomeLabel}
           onCreateAccount={() => {
@@ -5322,7 +5323,7 @@ export default function GamePage() {
           dismissed; it intentionally coexists with the always-on inline CTA
           inside GameOverView (ActionModal) — that's the immediate ask, this is
           the higher-intent follow-up. */}
-      {signupNudge && (
+      {signupNudge && ownAuthUiAllowed() && (
         <GuestSignupNudgeModal
           isWinner={signupNudge.isWinner}
           gold={user?.gold}

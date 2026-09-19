@@ -7,6 +7,7 @@ import { api } from './services/api';
 import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
+import { ownAuthUiAllowed } from './utils/embedContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
@@ -102,6 +103,26 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * Routes that present our own login/registration flow.
+ *
+ * CrazyGames forbids one inside their frame (see `ownAuthUiAllowed`), so there
+ * the route redirects away instead of rendering. The CTAs that lead here are
+ * hidden in the same build, but guarding the route as well means a typed URL
+ * or a stale link cannot reach the form either — which is what a reviewer
+ * would try.
+ *
+ * The target is `/`, which must stay a PUBLIC route: `PrivateRoute` sends an
+ * unauthenticated user to `/login`, so redirecting here to anything private
+ * would bounce /lobby -> /login -> /lobby forever inside the frame.
+ */
+function AuthUiRoute({ children }: { children: React.ReactNode }) {
+  if (!ownAuthUiAllowed()) {
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }
@@ -363,11 +384,11 @@ export default function App() {
             when signed in and falls back to the public-replay endpoint (which
             only succeeds when the owner made it public) otherwise. */}
         <Route path="/replay/:gameId" element={<ReplayPage />} />
-        <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
-        <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
-        <Route path="/upgrade" element={<GuestOnlyRoute><UpgradePage /></GuestOnlyRoute>} />
-        <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute>} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/login" element={<AuthUiRoute><PublicOnlyRoute><LoginPage /></PublicOnlyRoute></AuthUiRoute>} />
+        <Route path="/register" element={<AuthUiRoute><PublicOnlyRoute><RegisterPage /></PublicOnlyRoute></AuthUiRoute>} />
+        <Route path="/upgrade" element={<AuthUiRoute><GuestOnlyRoute><UpgradePage /></GuestOnlyRoute></AuthUiRoute>} />
+        <Route path="/forgot-password" element={<AuthUiRoute><PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute></AuthUiRoute>} />
+        <Route path="/reset-password" element={<AuthUiRoute><ResetPasswordPage /></AuthUiRoute>} />
         <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         {/* Protected routes */}

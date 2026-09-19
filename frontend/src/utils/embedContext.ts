@@ -60,3 +60,44 @@ export const EMBEDDER_ORIGIN = detectEmbedderOrigin();
 export function embedderHeaders(): Record<string, string> {
   return EMBEDDER_ORIGIN ? { [EMBEDDER_HEADER]: EMBEDDER_ORIGIN } : {};
 }
+
+/**
+ * Whether OUR OWN login/registration UI may be shown in this document.
+ *
+ * CrazyGames forbids it. Their account-integration requirements state the
+ * experience they guarantee their users — "No additional login flows in-game
+ * are needed", and guests must not "use different login methods than 'Login
+ * with CrazyGames'" — and their QA checklist lists "No external login options"
+ * under BASIC requirements, which is the bar this submission is held to. An
+ * email/password Sign In is exactly such an option.
+ *
+ * So inside a CrazyGames frame the app is guest-only: the auth CTAs are hidden
+ * and /login, /register and /upgrade redirect away. Nothing changes for a
+ * direct player, or for any other portal — itch.io has no such rule, and an
+ * itch player with an account can still sign in.
+ *
+ * This is presentation, not authorization. It hides a flow a portal disallows;
+ * it is not a security boundary, and the server still decides what any request
+ * is actually permitted to do.
+ */
+export function ownAuthUiAllowed(): boolean {
+  return !isCrazyGamesEmbed();
+}
+
+/** True when the framing portal is CrazyGames, on any of its domains. */
+export function isCrazyGamesEmbed(origin: string | undefined = EMBEDDER_ORIGIN): boolean {
+  if (!origin) return false;
+  let hostname: string;
+  try {
+    hostname = new URL(origin).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  const labels = hostname.split('.');
+  const at = labels.indexOf('crazygames');
+  // `crazygames` must be a WHOLE label and part of the registrable domain, so
+  // crazygames.com, crazygames.co.kr and crazygames.com.br all count while
+  // evilcrazygames.com (not a label) and crazygames.com.evil.test (a
+  // subdomain of someone else's domain) do not.
+  return at !== -1 && at >= labels.length - 3 && at < labels.length - 1;
+}

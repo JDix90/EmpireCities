@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 interface GuestGateProps {
   /** What the guest can't do yet, e.g. "Daily Challenge". */
@@ -25,6 +26,12 @@ interface GuestGateProps {
  * sees the raw error; they get the offer that converts them, and their progress
  * carries over on upgrade (same `user_id`).
  */
+/**
+ * The account CTA is the one part a CrazyGames embed may not show: the whole
+ * point of this component is to send a guest to /upgrade, which that portal
+ * forbids. The explanation stays so the player still learns why the feature is
+ * closed to them; only the forbidden call to action goes.
+ */
 export default function GuestGate({
   title,
   description,
@@ -39,9 +46,11 @@ export default function GuestGate({
         {Icon && <Icon className="w-8 h-8 text-bf-gold mx-auto" aria-hidden />}
         <h2 className="font-display text-lg text-bf-gold">{title}</h2>
         <p className="text-bf-muted max-w-md mx-auto">{description}</p>
-        <Link to="/upgrade" className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5">
-          {ctaLabel}
-        </Link>
+        {ownAuthUiAllowed() && (
+          <Link to="/upgrade" className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5">
+            {ctaLabel}
+          </Link>
+        )}
       </div>
     );
   }
@@ -56,12 +65,14 @@ export default function GuestGate({
             <p className="text-bf-muted text-sm mt-1">{description}</p>
           </div>
         </div>
+        {ownAuthUiAllowed() && (
         <Link
           to="/upgrade"
           className="btn-secondary self-start sm:self-center shrink-0 min-h-[44px] inline-flex items-center justify-center px-4 touch-manipulation"
         >
           {ctaLabel}
         </Link>
+        )}
       </div>
     </div>
   );

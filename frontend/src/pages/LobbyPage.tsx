@@ -86,6 +86,7 @@ import {
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules, tutorialModuleMinutes } from '../tutorial';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 interface LiveGameSummary {
   game_id: string;
@@ -889,6 +890,10 @@ export default function LobbyPage() {
 
   const joinRankedQueue = async (bucket: string) => {
     if (user?.is_guest) {
+      if (!ownAuthUiAllowed()) {
+        toast('Ranked play is not available to guest players here.');
+        return;
+      }
       navigate('/upgrade');
       return;
     }
@@ -1554,8 +1559,13 @@ export default function LobbyPage() {
             <div className="flex items-center gap-2 mt-1">
               {user?.is_guest ? (
                 <p className="text-bf-muted text-sm">
-                  Level {user?.level} · {user?.xp} XP · {GUEST_NO_PERSIST}{' '}
-                  <Link to="/upgrade" className="text-bf-gold hover:underline">— {GUEST_KEEP_STATS_CTA}</Link>
+                  Level {user?.level} · {user?.xp} XP · {GUEST_NO_PERSIST}
+                  {ownAuthUiAllowed() && (
+                    <>
+                      {' '}
+                      <Link to="/upgrade" className="text-bf-gold hover:underline">— {GUEST_KEEP_STATS_CTA}</Link>
+                    </>
+                  )}
                 </p>
               ) : (
                 <p className="text-bf-muted text-sm">Level {user?.level} · Solo {user?.ratings?.solo?.display ?? '—'} · Ranked {user?.ratings?.ranked?.display ?? '—'} · {user?.xp} XP</p>

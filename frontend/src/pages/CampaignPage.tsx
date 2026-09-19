@@ -11,6 +11,7 @@ import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGateModal from '../components/ui/GuestGateModal';
 import { CAMPAIGN_START_GATE } from '../utils/guestGate';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
@@ -480,7 +481,9 @@ export default function CampaignPage() {
 
   // Rendered by every branch a guest can reach a start action from. Fixed
   // positioning means it does not matter where in the tree it sits.
-  const guestGate = showGuestGate ? (
+  // The gate's only action is creating an account, which a CrazyGames embed
+  // forbids — so there it is not offered at all.
+  const guestGate = showGuestGate && ownAuthUiAllowed() ? (
     <GuestGateModal
       copy={CAMPAIGN_START_GATE}
       onCreateAccount={() => navigate('/upgrade')}
