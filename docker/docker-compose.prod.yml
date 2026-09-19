@@ -135,7 +135,23 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@borderfall.com}
+      # Firebase Admin service-account JSON — enables push (async turn alerts).
+      # The file is bind-mounted from the host under /run/secrets/borderfall
+      # (see `volumes` below), so this must be the path INSIDE the container:
+      #   FCM_SERVICE_ACCOUNT_PATH=/run/secrets/borderfall/service-account-fcm.json
+      # Unset = push disabled with a one-line notice at first use, as before.
+      FCM_SERVICE_ACCOUNT_PATH: ${FCM_SERVICE_ACCOUNT_PATH:-}
       INSTANCE_ID: ${INSTANCE_ID:-backend-1}
+    # Secrets that live as files rather than env vars — today only the Firebase
+    # service account. A DIRECTORY is mounted, not the file: bind-mounting a
+    # missing file makes Docker create an empty directory of that name on the
+    # host, and the backend would then try to read a directory as JSON; a
+    # missing directory is just an empty mount. Read-only, and outside the repo
+    # checkout so the key can never be committed or baked into an image. This
+    # image runs as root, so a root-owned mode-600 file is readable; loosen the
+    # mode if a USER line is ever added to Dockerfile.backend.
+    volumes:
+      - /etc/borderfall/secrets:/run/secrets/borderfall:ro
     healthcheck:
       test:
         [
