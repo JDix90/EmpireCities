@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Mail } from 'lucide-react';
+import { Bell, Gift, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { SettingsRow, SettingsToggle } from './SettingsPrimitives';
@@ -11,6 +11,11 @@ interface NotificationPreferencesProps {
 
 export default function NotificationPreferences({ embedded = false }: NotificationPreferencesProps) {
   const [pushEnabled, setPushEnabled] = useState(true);
+  // Transactional ("it's your turn") and marketing ("streak reminders and
+  // comeback bonuses") are separate switches — see migration 041. They used
+  // to share one column, so declining marketing at signup silently declined
+  // turn alerts too.
+  const [turnEmailsEnabled, setTurnEmailsEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -19,13 +24,14 @@ export default function NotificationPreferences({ embedded = false }: Notificati
       .get('/users/me/preferences')
       .then((res) => {
         setPushEnabled(res.data.push_enabled);
+        setTurnEmailsEnabled(res.data.turn_emails_enabled ?? true);
         setEmailEnabled(res.data.email_notifications);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const update = (field: 'push_enabled' | 'email_notifications', value: boolean) => {
+  const update = (field: 'push_enabled' | 'email_notifications' | 'turn_emails_enabled', value: boolean) => {
     api.put('/users/me/preferences', { [field]: value }).catch(() => {
       toast.error('Failed to save preference');
     });
@@ -53,11 +59,25 @@ export default function NotificationPreferences({ embedded = false }: Notificati
       </SettingsRow>
       <SettingsRow
         icon={Mail}
-        label="Email Notifications"
-        description="Receive an email when it's your turn in async games"
+        label="Turn reminders"
+        description="Email me when it's my turn in an async game"
       >
         <SettingsToggle
-          label="Email Notifications"
+          label="Turn reminders"
+          checked={turnEmailsEnabled}
+          onChange={(checked) => {
+            setTurnEmailsEnabled(checked);
+            update('turn_emails_enabled', checked);
+          }}
+        />
+      </SettingsRow>
+      <SettingsRow
+        icon={Gift}
+        label="Streak reminders & comeback bonuses"
+        description="Occasional emails about your streak and comeback bonuses — the box from signup. Unsubscribe anytime."
+      >
+        <SettingsToggle
+          label="Streak reminders & comeback bonuses"
           checked={emailEnabled}
           onChange={(checked) => {
             setEmailEnabled(checked);

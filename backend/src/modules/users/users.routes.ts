@@ -748,11 +748,12 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const prefs = await queryOne<{
       push_enabled: boolean;
       email_notifications: boolean;
+      turn_emails_enabled: boolean;
       friend_requests_policy: string;
     }>(
       `INSERT INTO user_preferences (user_id) VALUES ($1)
        ON CONFLICT (user_id) DO NOTHING
-       RETURNING push_enabled, email_notifications, friend_requests_policy`,
+       RETURNING push_enabled, email_notifications, turn_emails_enabled, friend_requests_policy`,
       [request.userId],
     );
     if (prefs) return reply.send(prefs);
@@ -761,14 +762,19 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const existing = await queryOne<{
       push_enabled: boolean;
       email_notifications: boolean;
+      turn_emails_enabled: boolean;
       friend_requests_policy: string;
     }>(
-      'SELECT push_enabled, email_notifications, friend_requests_policy FROM user_preferences WHERE user_id = $1',
+      `SELECT push_enabled, email_notifications, turn_emails_enabled, friend_requests_policy
+       FROM user_preferences WHERE user_id = $1`,
       [request.userId],
     );
+    // Defaults mirror the column defaults: turn emails are transactional and
+    // on; marketing (email_notifications) is opt-in at signup and off.
     return reply.send(existing ?? {
       push_enabled: true,
       email_notifications: false,
+      turn_emails_enabled: true,
       friend_requests_policy: 'everyone',
     });
   });
@@ -776,7 +782,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── PUT /api/users/me/preferences ──────────────────────────────────────
   const UpdatePreferencesSchema = z.object({
     push_enabled: z.boolean().optional(),
+    /** Marketing: streak reminders and comeback bonuses. Opt-in at signup. */
     email_notifications: z.boolean().optional(),
+    /** Transactional: "it's your turn" in an async game. On by default. */
+    turn_emails_enabled: z.boolean().optional(),
     friend_requests_policy: z.enum(['everyone', 'friends_of_friends', 'nobody']).optional(),
   });
 
@@ -798,6 +807,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       updates.push(`email_notifications = $${idx++}`);
       values.push(body.email_notifications);
     }
+    if (body.turn_emails_enabled !== undefined) {
+      updates.push(`turn_emails_enabled = $${idx++}`);
+      values.push(body.turn_emails_enabled);
+    }
     if (body.friend_requests_policy !== undefined) {
       updates.push(`friend_requests_policy = $${idx++}`);
       values.push(body.friend_requests_policy);
@@ -812,6 +825,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const insertCols: string[] = [];
     if (body.push_enabled !== undefined) insertCols.push('push_enabled');
     if (body.email_notifications !== undefined) insertCols.push('email_notifications');
+    if (body.turn_emails_enabled !== undefined) insertCols.push('turn_emails_enabled');
     if (body.friend_requests_policy !== undefined) insertCols.push('friend_requests_policy');
 
     await query(
@@ -827,9 +841,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/users/unsubscribe ──────────────────────────────────────────
   /**
    * One-click email opt-out from an HMAC-tokenized link embedded in every
-   * engagement email (see unsubscribeUrlFor). Deliberately unauthenticated —
-   * the recipient may be logged out — and a POST behind a confirm page, not a
-   * bare GET, so mail-scanner link prefetches can't silently unsubscribe.
+   * engagement email AND every async-turn email (see unsubscribeUrlFor).
+   * Deliberately unauthenticated — the recipient may be logged out — and a
+   * POST behind a confirm page, not a bare GET, so mail-scanner link
+   * prefetches can't silently unsubscribe.
+   *
+   * Clears both email switches. The link is identical on a marketing email
+   * and a turn email, so it cannot know which one was clicked; a recipient
+   * who unsubscribes means "no more email from you", and leaving the other
+   * switch on would keep sending the very mail they just opted out of.
    */
   const UnsubscribeSchema = z.object({ token: z.string().min(1).max(512) });
 
@@ -844,9 +864,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
     try {
       await query(
-        `INSERT INTO user_preferences (user_id, email_notifications, updated_at)
-         VALUES ($1, false, NOW())
-         ON CONFLICT (user_id) DO UPDATE SET email_notifications = false, updated_at = NOW()`,
+        `INSERT INTO user_preferences (user_id, email_notifications, turn_emails_enabled, updated_at)
+         VALUES ($1, false, false, NOW())
+         ON CONFLICT (user_id) DO UPDATE
+           SET email_notifications = false, turn_emails_enabled = false, updated_at = NOW()`,
         [userId],
       );
     } catch {

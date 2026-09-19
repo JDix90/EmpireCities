@@ -119,3 +119,66 @@ describe('notifyTurnChange — in-app alert', () => {
     expect(emit).toHaveBeenCalledWith('lobby:your_turn', expect.objectContaining({ deadline_at: null }));
   });
 });
+
+describe('notifyTurnChange — the email gate', () => {
+  beforeEach(() => {
+    queryMock.mockReset().mockResolvedValue([]);
+    queryOneMock.mockReset().mockResolvedValue(null);
+  });
+
+  /** The channel string the throttle row records — what was actually attempted. */
+  function loggedChannel(): string | undefined {
+    const call = queryMock.mock.calls.find(([sql]) => String(sql).includes('async_notifications'));
+    return call ? (call[1] as unknown[])[2] as string : undefined;
+  }
+
+  it('emails a registered player who has turn emails on', async () => {
+    queryOneMock
+      .mockResolvedValueOnce(null) // throttle
+      .mockResolvedValueOnce({ push_enabled: true, turn_emails_enabled: true })
+      .mockResolvedValueOnce({ email: 'a@b.c', is_guest: false });
+    const notifyTurnChange = await load();
+    await notifyTurnChange('g1', 'u1', state());
+    expect(loggedChannel()).toBe('push,email');
+  });
+
+  it('defaults turn emails ON when there is no preferences row — it is transactional', async () => {
+    queryOneMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null) // no user_preferences row at all
+      .mockResolvedValueOnce({ email: 'a@b.c', is_guest: false });
+    const notifyTurnChange = await load();
+    await notifyTurnChange('g1', 'u1', state());
+    expect(loggedChannel()).toBe('push,email');
+  });
+
+  it('does not consult the marketing opt-in: turn emails off means off, whatever the signup box said', async () => {
+    queryOneMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ push_enabled: true, turn_emails_enabled: false, email_notifications: true });
+    const notifyTurnChange = await load();
+    await notifyTurnChange('g1', 'u1', state());
+    // Never even looked the address up.
+    expect(queryOneMock).not.toHaveBeenCalledWith(expect.stringContaining('FROM users'), expect.anything());
+    expect(loggedChannel()).toBe('push');
+  });
+
+  it('never emails a guest — the address is the synthetic <uuid>@guest.local', async () => {
+    queryOneMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null) // guests have no preferences row: default-on is exactly the trap
+      .mockResolvedValueOnce({ email: 'deadbeef@guest.local', is_guest: true });
+    const notifyTurnChange = await load();
+    await notifyTurnChange('g1', 'u1', state());
+    expect(loggedChannel()).toBe('push');
+  });
+
+  it("records 'none' when the player has turned both outbound channels off", async () => {
+    queryOneMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ push_enabled: false, turn_emails_enabled: false });
+    const notifyTurnChange = await load();
+    await notifyTurnChange('g1', 'u1', state());
+    expect(loggedChannel()).toBe('none');
+  });
+});
