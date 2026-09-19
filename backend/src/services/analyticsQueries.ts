@@ -41,6 +41,22 @@ export interface RetentionCohortRow extends RetentionMetrics {
   cohort: RetentionCohort;
 }
 
+/**
+ * Tutorial reach and completion for one signup cohort.
+ *
+ * `started` counts distinct users who began a tutorial in the window
+ * (`tutorial_started`, emitted by `POST /games/tutorial/start`); `completed`
+ * counts how many of those ever reached the end of one (`tutorial_completed`,
+ * emitted server-side from `finalizeGame`). Both events are authoritative —
+ * neither can be spoofed from the client — so `completed / started` is the
+ * real first-session completion rate.
+ */
+export interface TutorialCohortRow {
+  cohort: RetentionCohort;
+  started: number;
+  completed: number;
+}
+
 export interface CompletionStats {
   finishes: number;
   wins: number;
@@ -98,6 +114,8 @@ export interface AnalyticsReport {
   retention: RetentionMetrics;
   /** The same D1/D7 measure, split by whether the signup ever became an account. */
   retention_by_cohort: RetentionCohortRow[];
+  /** Did they finish the tutorial — split the same way. */
+  tutorial: TutorialCohortRow[];
   completion: CompletionStats;
   acquisition: AcquisitionRow[];
   acquisition_channels: AcquisitionChannelRow[];
@@ -258,6 +276,61 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
   ];
 }
 
+/**
+ * Did they finish the tutorial — guests and full accounts side by side.
+ *
+ * The cohort test is the one `getRetentionByCohort` and the acquisition table
+ * use (ever emitted `user_registered` or `guest_upgraded`), so "guest" means
+ * the same thing on every panel: never became an account, not merely
+ * "was a guest at the time". Both rows are always returned, zeroed when a
+ * cohort has nobody in it, so the panel never renders a gap.
+ */
+export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow[]> {
+  const rows = await query<Record<string, unknown>>(
+    `WITH starters AS (
+       SELECT user_id
+       FROM analytics_events
+       WHERE event = 'tutorial_started' AND user_id IS NOT NULL
+         AND created_at >= NOW() - make_interval(days => $1::int)
+       GROUP BY user_id
+     ),
+     classified AS (
+       SELECT s.user_id,
+              EXISTS (
+                SELECT 1 FROM analytics_events e
+                WHERE e.user_id = s.user_id
+                  AND e.event IN ('user_registered', 'guest_upgraded')
+              ) AS is_account
+       FROM starters s
+     )
+     SELECT
+       c.is_account,
+       COUNT(*)::int AS started,
+       COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = c.user_id AND e.event = 'tutorial_completed'))::int AS completed
+     FROM classified c
+     GROUP BY c.is_account`,
+    [days],
+  );
+
+  const byCohort = new Map<RetentionCohort, TutorialCohortRow>();
+  for (const r of rows) {
+    const cohort: RetentionCohort = r.is_account ? 'account' : 'guest';
+    byCohort.set(cohort, {
+      cohort,
+      started: num(r.started),
+      completed: num(r.completed),
+    });
+  }
+  const empty = (cohort: RetentionCohort): TutorialCohortRow =>
+    ({ cohort, started: 0, completed: 0 });
+  return [
+    byCohort.get('account') ?? empty('account'),
+    byCohort.get('guest') ?? empty('guest'),
+  ];
+}
+
 /** Game-completion stats (per human) in the trailing window. */
 export async function getCompletionStats(days: number): Promise<CompletionStats> {
   const [row] = await query<Record<string, unknown>>(
@@ -405,7 +478,10 @@ export async function getVisitorFunnel(days: number): Promise<VisitorFunnelMetri
 
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number): Promise<AnalyticsReport> {
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, totalRow] = await Promise.all([
+  // NOTE: the section queries share one mocked `query` in the unit test, which
+  // matches them positionally — a new section goes on the END of this list so
+  // it cannot shift the mocks of the ones above it.
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days),
     getRetentionMetrics(),
@@ -413,6 +489,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     getCompletionStats(days),
     getAcquisitionBySource(days),
     getEventVolume(days),
+    getTutorialFunnel(days),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
   ]);
   return {
@@ -422,6 +499,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     funnel,
     retention,
     retention_by_cohort: retentionByCohort,
+    tutorial,
     completion,
     acquisition,
     acquisition_channels: foldAcquisitionByChannel(acquisition),

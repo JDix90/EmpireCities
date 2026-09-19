@@ -24,6 +24,11 @@ export interface RetentionMetrics {
 export interface RetentionCohortRow extends RetentionMetrics {
   cohort: 'account' | 'guest';
 }
+export interface TutorialCohortRow {
+  cohort: 'account' | 'guest';
+  started: number;
+  completed: number;
+}
 export interface CompletionStats {
   finishes: number;
   wins: number;
@@ -49,6 +54,8 @@ export interface AnalyticsReport {
   retention: RetentionMetrics;
   /** Optional for rollout: older backends won't send it. */
   retention_by_cohort?: RetentionCohortRow[];
+  /** Optional for rollout: older backends won't send it. */
+  tutorial?: TutorialCohortRow[];
   completion: CompletionStats;
   volume: EventVolumeRow[];
 }
@@ -198,6 +205,48 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             signup and never as a return. Guests who never joined a game are deleted after
             48h and leave both columns, so the guest row omits the fastest bouncers and
             reads high rather than low.
+          </p>
+        </section>
+      )}
+
+      {/* Did the first thing a new player is shown actually land? Split guest
+          vs account because they are the two audiences the tutorial serves and
+          they drop off at very different rates. */}
+      {data.tutorial && data.tutorial.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">
+            Tutorial completion{' '}
+            <span className="text-xs font-normal text-bf-muted">· last {data.window_days}d</span>
+          </p>
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wider text-bf-muted">
+                <th className="pb-1 text-left font-normal">Cohort</th>
+                <th className="pb-1 text-right font-normal">Started</th>
+                <th className="pb-1 text-right font-normal">Completed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.tutorial.map((row) => (
+                <tr key={row.cohort} className="border-t border-bf-border/50">
+                  <td className="py-1.5 capitalize text-bf-text">{row.cohort}</td>
+                  <td className="py-1.5 text-right tabular-nums text-bf-text">
+                    {row.started.toLocaleString()}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums text-bf-text">
+                    {pctText(row.completed, row.started)}{' '}
+                    <span className="text-bf-muted">({row.completed}/{row.started})</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-bf-muted">
+            Both ends are server-side events (<span className="font-mono">tutorial_started</span> /
+            {' '}<span className="font-mono">tutorial_completed</span>), so neither can be inflated by a
+            client. &quot;Account&quot; is the same test the retention split uses — registered directly or
+            upgraded from guest at any point — so a guest who finishes and then signs up counts
+            as an account here too.
           </p>
         </section>
       )}

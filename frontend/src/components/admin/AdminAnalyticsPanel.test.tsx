@@ -34,6 +34,27 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('Signed up ★')).toBeTruthy();
   });
 
+  it('hides the tutorial split when absent, and shows a rate per cohort when present', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Tutorial completion')).toBeNull();
+    unmount();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          tutorial: [
+            { cohort: 'account', started: 20, completed: 15 },
+            { cohort: 'guest', started: 80, completed: 24 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText('Tutorial completion')).toBeTruthy();
+    // The number that answers "do guests finish it?" — 24 of 80.
+    expect(screen.getByText('(24/80)')).toBeTruthy();
+    expect(screen.getByText('(15/20)')).toBeTruthy();
+  });
+
   it('shows an enable hint when nothing has been recorded yet', () => {
     render(<AdminAnalyticsPanel data={{ ...report, total_events: 0 }} />);
     expect(screen.getByText(/No analytics events yet/i)).toBeTruthy();

@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
+import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
 import { recordServerEvent } from '../../services/analyticsEvents';
@@ -219,6 +220,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1
          AND g.status = 'completed'
+         ${andNotTutorialSql()}
        GROUP BY g.game_type, g.era_id, (gp.final_rank = 1)`,
       [request.userId],
     );
@@ -256,6 +258,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1
          AND g.status = 'completed'
+         ${andNotTutorialSql()}
        ORDER BY g.ended_at DESC
        LIMIT 100`,
       [request.userId],
@@ -314,11 +317,13 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const [gamesRow, userRow] = await Promise.all([
       // Count completed games only, matching the "Games Played" stat and the
       // Veteran achievement unlock logic so progress never disagrees with them.
+      // Tutorials are excluded for the same reason they are there.
       query<{ count: string }>(
         `SELECT COUNT(*) AS count
          FROM game_players gp
          JOIN games g ON g.game_id = gp.game_id
-         WHERE gp.user_id = $1 AND g.status = 'completed'`,
+         WHERE gp.user_id = $1 AND g.status = 'completed'
+           ${andNotTutorialSql()}`,
         [userId],
       ),
       queryOne<{ win_streak: number }>(

@@ -10,6 +10,7 @@ import {
   STREAK_FREEZE_MAX_HELD,
 } from '@borderfall/shared';
 import { recordServerEvent } from '../../services/analyticsEvents';
+import { andNotTutorialSql } from '../tutorial/tutorialGames';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 
@@ -224,7 +225,8 @@ export async function checkOnboardingQuests(
         if (trigger === 'game_complete') {
           const wins = await queryOne<{ cnt: string }>(
             `SELECT COUNT(*) AS cnt FROM game_players gp JOIN games g ON g.game_id = gp.game_id
-             WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.status = 'completed'`,
+             WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.status = 'completed'
+               ${andNotTutorialSql()}`,
             [userId],
           );
           matched = parseInt(wins?.cnt ?? '0', 10) >= 1;
